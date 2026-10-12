@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
 import { Check, X, Trash2, Calendar, Clock, User, ShieldCheck, ShieldAlert, UserCheck } from 'lucide-react';
-import { canApproveLeaves, isAdmin } from '../../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin } from '../../../../shared/utils/permissionUtils';
 
 export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   const { updateLeaveStatus, deleteLeave, currentUser } = useHR();
@@ -11,7 +11,12 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
 
   if (!leave) return null;
 
-  const canApprove = canApproveLeaves(currentUser) || leave.appliedToId === currentUser?._id;
+  const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
+    (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+  const canApprove = !isApplicant && (
+    isHRorAdmin(currentUser) ||
+    (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
+  );
   const canDelete = isAdmin(currentUser);
 
   const handleApprove = async () => {
@@ -170,7 +175,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         </div>
 
         {/* Approved Status Banner */}
-        {leave.status === 'approved' && leave.approvedBy && (
+        {leave.status === 'approved' && (leave.approvedBy || leave.actionBy) && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -183,7 +188,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
             color: '#15803d'
           }}>
             <ShieldCheck size={18} />
-            <span>This leave request was <strong>Approved</strong> by <strong>{leave.approvedBy}</strong></span>
+            <span>This leave request was <strong>Approved</strong> by <strong>{leave.approvedBy || leave.actionBy}</strong>{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</span>
           </div>
         )}
 
@@ -202,7 +207,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
               <ShieldAlert size={18} />
-              <span>Leave Request Denied by {leave.rejectedBy || 'Reviewer'}</span>
+              <span>Leave Request Denied by {leave.rejectedBy || leave.actionBy || 'Reviewer'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</span>
             </div>
             {leave.rejectionReason && (
               <span style={{ fontSize: '12px', color: '#991b1b', marginLeft: '26px' }}>
@@ -300,6 +305,34 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
           )}
 
           <div style={{ display: 'flex', gap: '8px' }}>
+            {leave.status === 'pending' && isApplicant && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (confirm('Are you sure you want to cancel your leave application?')) {
+                    await deleteLeave(leave._id);
+                    onClose();
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                <Trash2 size={15} />
+                <span>Cancel Application</span>
+              </button>
+            )}
+
             {leave.status === 'pending' && canApprove && !showDenyInput && (
               <>
                 <button

@@ -10,7 +10,8 @@ import {
   FileText,
   Printer,
   Sparkles,
-  Edit3
+  Edit3,
+  Clock
 } from 'lucide-react';
 import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -36,8 +37,8 @@ export const CompanyBrandingTab = () => {
     saveCompanySettings(formData);
     setIsSaved(true);
     addToast({
-      title: 'Company Information Saved! 🏢',
-      message: `Updated to "${formData.companyName}". All new Payslips and Appraisal Letters will reflect this branding.`,
+      title: 'Company & Shift Settings Saved! 🏢⏰',
+      message: `Updated to "${formData.companyName}" • Standard Shift: ${formData.shiftStartTime || '10:00 AM'} - ${formData.shiftEndTime || '07:00 PM'} (${formData.standardWorkHours || 9}h). Week Timelogs & documents updated immediately.`,
       type: 'success'
     });
   };
@@ -47,10 +48,10 @@ export const CompanyBrandingTab = () => {
       {/* Header Description */}
       <div>
         <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>
-          Company & Payslip Branding Settings (Admin Control)
+          Company, Shift & Payslip Settings (Admin Control)
         </h2>
         <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-          Customize company legal name, corporate address, GSTIN/CIN, and authorized signatory details for all generated salary slips and official documents.
+          Customize company legal name, corporate address, working hours & shift timings (10:00 AM - 07:00 PM), and authorized signatories.
         </p>
       </div>
 
@@ -251,6 +252,130 @@ export const CompanyBrandingTab = () => {
             </div>
           </div>
 
+          {/* ⏱️ Admin Configurable Shift Timing & Working Hours */}
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#f0f9ff',
+            border: '1.5px solid #bae6fd',
+            borderRadius: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={16} color="#0284c7" /> Official Shift Timings & Working Hours (Admin Control)
+              </span>
+              <span style={{ fontSize: '11px', fontWeight: '700', backgroundColor: '#e0f2fe', color: '#0284c7', padding: '2px 8px', borderRadius: '12px' }}>
+                Active: {formData.standardWorkHours || 9}h Shift
+              </span>
+            </div>
+
+            <p style={{ fontSize: '11.5px', color: '#64748b', margin: 0 }}>
+              Set standard working hours and official shift timings. The Dashboard Week Timelogs, attendance calculations, and daily task duration comparison automatically adapt to this configuration.
+            </p>
+
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>Quick Presets:</span>
+              {[
+                { label: '10:00 AM – 07:00 PM (9h Standard)', hours: 9, start: '10:00 AM', end: '07:00 PM' },
+                { label: '09:30 AM – 06:30 PM (9h Corporate)', hours: 9, start: '09:30 AM', end: '06:30 PM' },
+                { label: '09:00 AM – 06:00 PM (9h Early)', hours: 9, start: '09:00 AM', end: '06:00 PM' },
+                { label: '09:00 AM – 05:00 PM (8h Shift)', hours: 8, start: '09:00 AM', end: '05:00 PM' }
+              ].map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      standardWorkHours: preset.hours,
+                      shiftStartTime: preset.start,
+                      shiftEndTime: preset.end
+                    }));
+                    setIsSaved(false);
+                  }}
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    borderRadius: '6px',
+                    border: (formData.shiftStartTime === preset.start && formData.shiftEndTime === preset.end)
+                      ? '1px solid #0284c7'
+                      : '1px solid #cbd5e1',
+                    backgroundColor: (formData.shiftStartTime === preset.start && formData.shiftEndTime === preset.end)
+                      ? '#e0f2fe'
+                      : '#ffffff',
+                    color: (formData.shiftStartTime === preset.start && formData.shiftEndTime === preset.end)
+                      ? '#0284c7'
+                      : '#475569',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: '#475569', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                  Standard Daily Hours
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="4"
+                  max="16"
+                  value={formData.standardWorkHours ?? 9}
+                  onChange={e => handleChange('standardWorkHours', parseFloat(e.target.value) || 9)}
+                  placeholder="e.g. 9"
+                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', color: '#475569', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                  Shift Start Time
+                </label>
+                <input
+                  type="text"
+                  value={formData.shiftStartTime || '10:00 AM'}
+                  onChange={e => handleChange('shiftStartTime', e.target.value)}
+                  placeholder="e.g. 10:00 AM"
+                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', color: '#475569', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                  Shift End Time
+                </label>
+                <input
+                  type="text"
+                  value={formData.shiftEndTime || '07:00 PM'}
+                  onChange={e => handleChange('shiftEndTime', e.target.value)}
+                  placeholder="e.g. 07:00 PM"
+                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: '#475569', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                Working Days Schedule
+              </label>
+              <input
+                type="text"
+                value={formData.workDaysDescription || 'Mon - Sat (Sunday Off)'}
+                onChange={e => handleChange('workDaysDescription', e.target.value)}
+                placeholder="e.g. Mon - Sat (Sunday Off)"
+                style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+              />
+            </div>
+          </div>
+
           {/* Submit Button */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
             <button
@@ -272,7 +397,7 @@ export const CompanyBrandingTab = () => {
               }}
             >
               <CheckCircle2 size={16} />
-              Save Company Branding
+              Save Company & Shift Settings
             </button>
           </div>
         </form>
@@ -337,8 +462,8 @@ export const CompanyBrandingTab = () => {
               color: '#475569'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Employee Name: <strong>Avinash</strong></span>
-                <span>Designation: <strong>Digital Marketing</strong></span>
+                <span>Employee Name: <strong>Rahul Verma</strong></span>
+                <span>Designation: <strong>Senior Full Stack Developer</strong></span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '6px', fontWeight: '700', color: '#15803d' }}>
                 <span>Net Monthly Take-Home:</span>

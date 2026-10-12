@@ -24,7 +24,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
-import { canApproveLeaves } from '../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -35,6 +35,7 @@ export const LeavesPage = () => {
     searchQuery,
     setSearchQuery,
     updateLeaveStatus,
+    acknowledgeLeave,
     deleteLeave
   } = useHR();
   const currentUser = authUser || hrUser;
@@ -53,20 +54,43 @@ export const LeavesPage = () => {
   // Dynamic Today reference for active leaves
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const isPrivileged = isHRorAdmin(currentUser) || canApproveLeaves(currentUser);
+
+  // Scoped leaves strictly based on user role (Tenant isolation)
+  const scopedLeaves = useMemo(() => {
+    if (isPrivileged) return leaves;
+    return leaves.filter(l =>
+      (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
+      (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
+      (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
+      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+    );
+  }, [leaves, currentUser, isPrivileged]);
+
   // 1. Exact mathematical calculations: Leaves taken, balance, pending, approved, rejected
-  const approvedLeaves = leaves.filter(l => l.status === 'approved');
-  const pendingLeaves = leaves.filter(l => l.status === 'pending');
-  const rejectedLeaves = leaves.filter(l => l.status === 'rejected');
+  const approvedLeaves = scopedLeaves.filter(l => l.status === 'approved');
+  const pendingLeaves = scopedLeaves.filter(l => l.status === 'pending');
+  const rejectedLeaves = scopedLeaves.filter(l => l.status === 'rejected');
+
+  // Real-time unacknowledged decisions for the current logged-in employee
+  const myRecentDecisions = useMemo(() => {
+    return scopedLeaves.filter(l => {
+      if (l.status !== 'approved' && l.status !== 'rejected') return false;
+      const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
+        (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+      return isApplicant && !l.isAcknowledged;
+    });
+  }, [scopedLeaves, currentUser]);
 
   const totalDaysTaken = approvedLeaves.reduce((acc, curr) => acc + (Number(curr.durationDays) || 1), 0);
 
   // Employees currently on leave today (exact date range check)
-  const employeesCurrentlyOnLeave = leaves.filter(l =>
+  const employeesCurrentlyOnLeave = (isPrivileged ? leaves : scopedLeaves).filter(l =>
     l.status === 'approved' && l.startDate <= todayStr && l.endDate >= todayStr
   );
 
   // Selected Employee / Current user leave balance
-  const activeEmployeeObj = filterEmployee !== 'all'
+  const activeEmployeeObj = (isPrivileged && filterEmployee !== 'all')
     ? employees.find(e => e._id === filterEmployee)
     : (currentUser || employees[0]);
 
@@ -75,8 +99,8 @@ export const LeavesPage = () => {
 
   // Filtered leaves
   const filteredLeaves = useMemo(() => {
-    return leaves.filter(leave => {
-      if (filterEmployee !== 'all' && leave.employeeId !== filterEmployee) return false;
+    return scopedLeaves.filter(leave => {
+      if (isPrivileged && filterEmployee !== 'all' && leave.employeeId !== filterEmployee) return false;
       if (filterType !== 'all' && leave.leaveType !== filterType) return false;
       if (filterStatus !== 'all' && leave.status !== filterStatus) return false;
       if (searchQuery) {
@@ -89,7 +113,7 @@ export const LeavesPage = () => {
       }
       return true;
     });
-  }, [leaves, filterEmployee, filterType, filterStatus, searchQuery]);
+  }, [scopedLeaves, isPrivileged, filterEmployee, filterType, filterStatus, searchQuery]);
 
   // Pagination
   const totalEntries = filteredLeaves.length;
@@ -158,6 +182,75 @@ export const LeavesPage = () => {
           </div>
         </div>
       </div>
+
+      {/* ── 🔔 REAL-TIME LEAVE STATUS DECISION NOTIFICATION BADGE / CARD ── */}
+      {myRecentDecisions.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+          {myRecentDecisions.map(dec => (
+            <div
+              key={dec._id}
+              style={{
+                backgroundColor: dec.status === 'approved' ? '#ecfdf5' : '#fff1f2',
+                border: `1.5px solid ${dec.status === 'approved' ? '#6ee7b7' : '#fca5a5'}`,
+                borderRadius: '10px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: dec.status === 'approved' ? '0 4px 14px rgba(16, 185, 129, 0.12)' : '0 4px 14px rgba(239, 68, 68, 0.12)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  backgroundColor: dec.status === 'approved' ? '#10b981' : '#ef4444',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {dec.status === 'approved' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: dec.status === 'approved' ? '#065f46' : '#991b1b' }}>
+                    {dec.status === 'approved' ? '🎉 Your Leave Request Has Been Approved!' : '⚠️ Your Leave Request Has Been Declined'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: dec.status === 'approved' ? '#047857' : '#b91c1c', marginTop: '3px' }}>
+                    <strong>{dec.leaveType} ({dec.durationText})</strong> • 📅 {dec.startDate} to {dec.endDate}
+                    <span style={{ margin: '0 6px', opacity: 0.6 }}>•</span>
+                    <span>
+                      {dec.status === 'approved'
+                        ? `Approved by ${dec.approvedBy || dec.actionBy || 'Admin'}${dec.actionDateFormatted ? ` on ${dec.actionDateFormatted}` : ''}`
+                        : `Reviewed by ${dec.rejectedBy || dec.actionBy || 'Admin'}${dec.actionDateFormatted ? ` on ${dec.actionDateFormatted}` : ''}${dec.rejectionReason ? ` — Reason: "${dec.rejectionReason}"` : ''}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => acknowledgeLeave(dec._id)}
+                style={{
+                  backgroundColor: dec.status === 'approved' ? '#059669' : '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '7px 16px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                }}
+              >
+                ✓ Acknowledge & Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Top Summary KPI Cards (Leaves Taken, Currently on Leave, Leave Balance, Pending, Approved, Rejected) */}
       <div className="kpi-grid-6">
@@ -537,20 +630,29 @@ export const LeavesPage = () => {
                         {leave.leaveType}
                       </td>
 
-                      {/* Reviewer / Approver */}
+                      {/* Reviewer / Approver & Audit Trail */}
                       <td>
                         <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '600' }}>
-                          {leave.appliedToName || leave.approvedBy || 'HR Admin'}
+                          {leave.appliedToName || leave.approvedBy || leave.rejectedBy || leave.actionBy || 'HR Admin'}
                         </div>
-                        {leave.approvedBy && (
-                          <span style={{ fontSize: '11px', color: '#16a34a', display: 'block' }}>
-                            ✓ Approved by {leave.approvedBy}
+                        {leave.status === 'approved' && (
+                          <span style={{ fontSize: '11px', color: '#16a34a', display: 'block', marginTop: '2px' }}>
+                            ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}
+                            {leave.actionDateFormatted && <span style={{ color: '#64748b' }}> • {leave.actionDateFormatted}</span>}
                           </span>
                         )}
-                        {leave.rejectedBy && (
-                          <span style={{ fontSize: '11px', color: '#dc2626', display: 'block' }}>
-                            ✕ Denied by {leave.rejectedBy}
-                          </span>
+                        {leave.status === 'rejected' && (
+                          <div style={{ marginTop: '2px' }}>
+                            <span style={{ fontSize: '11px', color: '#dc2626', display: 'block' }}>
+                              ✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}
+                              {leave.actionDateFormatted && <span style={{ color: '#64748b' }}> • {leave.actionDateFormatted}</span>}
+                            </span>
+                            {leave.rejectionReason && (
+                              <span style={{ fontSize: '10.5px', color: '#991b1b', display: 'block', fontStyle: 'italic' }}>
+                                "{leave.rejectionReason}"
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -573,53 +675,107 @@ export const LeavesPage = () => {
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          {leave.status === 'pending' && (canApproveLeaves(currentUser) || leave.appliedToId === currentUser?._id) && (
-                            <div style={{ display: 'inline-flex', gap: '4px' }}>
-                              <button
-                                onClick={() => updateLeaveStatus(leave._id, 'approved')}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  background: '#dcfce7',
-                                  color: '#15803d',
-                                  border: '1px solid #bbf7d0',
-                                  fontSize: '11.5px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
-                                title="Accept / Approve Leave"
-                              >
-                                <Check size={13} /> Accept
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const reason = prompt('Optional: Reason for denying leave request:', 'Schedule conflict / staffing requirement');
-                                  if (reason !== null) {
-                                    updateLeaveStatus(leave._id, 'rejected', reason);
-                                  }
-                                }}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  background: '#fee2e2',
-                                  color: '#dc2626',
-                                  border: '1px solid #fecaca',
-                                  fontSize: '11.5px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
-                                title="Deny / Reject Leave"
-                              >
-                                <X size={13} /> Deny
-                              </button>
-                            </div>
-                          )}
+                          {(() => {
+                            const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
+                              (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+                            const canReview = !isApplicant && (
+                              isHRorAdmin(currentUser) ||
+                              (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
+                            );
+
+                            if (leave.status === 'pending' && canReview) {
+                              return (
+                                <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                  <button
+                                    onClick={() => updateLeaveStatus(leave._id, 'approved')}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      background: '#dcfce7',
+                                      color: '#15803d',
+                                      border: '1px solid #bbf7d0',
+                                      fontSize: '11.5px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Accept / Approve Leave"
+                                  >
+                                    <Check size={13} /> Accept
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const reason = prompt('Optional: Reason for denying leave request:', 'Schedule conflict / staffing requirement');
+                                      if (reason !== null) {
+                                        updateLeaveStatus(leave._id, 'rejected', reason);
+                                      }
+                                    }}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      background: '#fee2e2',
+                                      color: '#dc2626',
+                                      border: '1px solid #fecaca',
+                                      fontSize: '11.5px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Deny / Reject Leave"
+                                  >
+                                    <X size={13} /> Deny
+                                  </button>
+                                </div>
+                              );
+                            }
+
+                            if (leave.status === 'pending' && isApplicant) {
+                              return (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                  <span style={{
+                                    fontSize: '11px',
+                                    color: '#d97706',
+                                    background: '#fef3c7',
+                                    border: '1px solid #fde68a',
+                                    padding: '2px 7px',
+                                    borderRadius: '5px',
+                                    fontWeight: '700'
+                                  }}>
+                                    ⏳ Awaiting Review
+                                  </span>
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Cancel your pending leave request?')) {
+                                        await deleteLeave(leave._id);
+                                      }
+                                    }}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      padding: '3px 7px',
+                                      borderRadius: '5px',
+                                      background: '#fee2e2',
+                                      color: '#dc2626',
+                                      border: '1px solid #fecaca',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Cancel Leave Request"
+                                  >
+                                    <Trash2 size={12} /> Cancel
+                                  </button>
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })()}
                           <button
                             onClick={() => setSelectedLeave(leave)}
                             className="btn-icon-only"
@@ -745,24 +901,75 @@ export const LeavesPage = () => {
                 "{leave.reason}"
               </p>
 
-              {leave.status === 'pending' && canApproveLeaves(currentUser) && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => updateLeaveStatus(leave._id, 'rejected')}
-                    className="btn btn-outline"
-                    style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', color: '#ef4444' }}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => updateLeaveStatus(leave._id, 'approved')}
-                    className="btn btn-primary"
-                    style={{ height: '28px', padding: '0 12px', fontSize: '11.5px', background: '#16a34a', borderColor: '#16a34a' }}
-                  >
-                    Approve
-                  </button>
-                </div>
-              )}
+              {(() => {
+                const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
+                  (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+                const canReview = !isApplicant && (
+                  isHRorAdmin(currentUser) ||
+                  (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
+                );
+
+                if (leave.status === 'pending' && canReview) {
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => updateLeaveStatus(leave._id, 'rejected')}
+                        className="btn btn-outline"
+                        style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', color: '#ef4444' }}
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => updateLeaveStatus(leave._id, 'approved')}
+                        className="btn btn-primary"
+                        style={{ height: '28px', padding: '0 12px', fontSize: '11.5px', background: '#16a34a', borderColor: '#16a34a' }}
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (leave.status === 'pending' && isApplicant) {
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                      <span style={{ fontSize: '11px', color: '#d97706', fontWeight: '700' }}>
+                        ⏳ Pending Approval
+                      </span>
+                      <button
+                        onClick={async () => {
+                          if (confirm('Cancel your pending leave request?')) {
+                            await deleteLeave(leave._id);
+                          }
+                        }}
+                        className="btn btn-outline"
+                        style={{ height: '26px', padding: '0 10px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+                      >
+                        Cancel Request
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (leave.status === 'approved') {
+                  return (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600' }}>
+                      ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}
+                    </div>
+                  );
+                }
+
+                if (leave.status === 'rejected') {
+                  return (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', fontSize: '11.5px', color: '#dc2626' }}>
+                      <div style={{ fontWeight: '600' }}>✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</div>
+                      {leave.rejectionReason && <div style={{ color: '#991b1b', fontStyle: 'italic', marginTop: '2px', fontSize: '11px' }}>"{leave.rejectionReason}"</div>}
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
             </div>
           ))}
         </div>

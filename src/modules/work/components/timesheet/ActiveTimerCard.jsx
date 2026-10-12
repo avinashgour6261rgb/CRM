@@ -145,7 +145,7 @@ export const ActiveTimerCard = ({ onSelectTask }) => {
             letterSpacing: '0.03em',
             lineHeight: 1.1
           }}>
-            {activeRunningTask.hoursLoggedText || '00:00:00'}
+            {formatSeconds(activeRunningTask.timerSeconds || 0)}
           </div>
         </div>
 
@@ -188,7 +188,7 @@ export const ActiveTimerCard = ({ onSelectTask }) => {
                 height: '28px'
               }}
             >
-              <Play size={12} fill="#ffffff" /> Resume
+              <Play size={12} fill="#ffffff" /> {activeRunningTask?.timerSeconds > 0 ? 'Resume' : 'Start'}
             </button>
           )}
 

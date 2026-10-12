@@ -29,64 +29,69 @@ if (!MONGO_URI) {
 
 const EMPLOYEES = [
   {
-    employeeCode: 'EMP-001',
-    name: 'Avinash',
-    email: 'avinash@company.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    role: 'Digital Marketing Strategic',
-    department: 'Marketing & Growth',
+    employeeCode: 'ADM-001',
+    name: 'Admin User',
+    email: 'admin@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    role: 'Administrator',
+    department: 'Management',
     status: 'active',
-    joiningDate: '2023-01-15',
+    joiningDate: '2023-01-01',
     isCurrentUser: true,
-    leaveBalance: { casual: 8, sick: 6, earned: 12, maternity: 0 }
+    isAdmin: true,
+    leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
   },
   {
-    employeeCode: 'EMP-002',
-    name: 'Priya Sharma',
-    email: 'priya.s@company.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-    role: 'Lead UI/UX Designer',
-    department: 'Product Design',
+    employeeCode: 'HR-001',
+    name: 'Pooja Sharma',
+    email: 'hr@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+    role: 'HR Manager',
+    department: 'Human Resources',
     status: 'active',
     joiningDate: '2023-03-01',
     isCurrentUser: false,
-    leaveBalance: { casual: 5, sick: 4, earned: 10, maternity: 0 }
+    isAdmin: false,
+    leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 }
   },
   {
-    employeeCode: 'EMP-003',
+    employeeCode: 'ENG-001',
     name: 'Rahul Verma',
-    email: 'rahul.v@company.com',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    email: 'rahul.verma@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
     role: 'Senior Full Stack Developer',
     department: 'Engineering',
     status: 'active',
-    joiningDate: '2022-11-10',
+    joiningDate: '2023-02-15',
     isCurrentUser: false,
-    leaveBalance: { casual: 10, sick: 5, earned: 14, maternity: 0 }
+    isAdmin: false,
+    leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
   },
   {
-    employeeCode: 'EMP-004',
-    name: 'Sneha Patel',
-    email: 'sneha.p@company.com',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80',
-    role: 'HR Business Partner',
-    department: 'Human Resources',
+    employeeCode: 'DES-001',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
+    role: 'Lead UI/UX Designer',
+    department: 'Product Design',
+    status: 'active',
+    joiningDate: '2023-04-10',
+    isCurrentUser: false,
+    isAdmin: false,
+    leaveBalance: { casual: 8, sick: 5, earned: 12, maternity: 0 }
+  },
+  {
+    employeeCode: 'INF-001',
+    name: 'Amit Kumar',
+    email: 'amit.kumar@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
+    role: 'DevOps & Cloud Engineer',
+    department: 'Infrastructure',
     status: 'active',
     joiningDate: '2023-05-20',
     isCurrentUser: false,
-    leaveBalance: { casual: 7, sick: 6, earned: 8, maternity: 0 }
-  },
-  {
-    employeeCode: 'EMP-005',
-    name: 'Amit Kumar',
-    email: 'amit.k@company.com',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
-    role: 'DevOps & Cloud Engineer',
-    department: 'Infrastructure',
-    status: 'on_leave',
-    joiningDate: '2023-02-14',
-    isCurrentUser: false,
-    leaveBalance: { casual: 2, sick: 3, earned: 5, maternity: 0 }
+    isAdmin: false,
+    leaveBalance: { casual: 6, sick: 4, earned: 10, maternity: 0 }
   }
 ];
 
@@ -109,9 +114,11 @@ const HOLIDAYS = [
 
 async function seedDatabase() {
   try {
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(MONGO_URI);
-    console.log('Connected to MongoDB successfully.');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Connecting to MongoDB...');
+      await mongoose.connect(MONGO_URI);
+      console.log('Connected to MongoDB successfully.');
+    }
 
     console.log('Clearing existing collections (HR & Work)...');
     await Promise.all([
@@ -138,11 +145,11 @@ async function seedDatabase() {
     console.log('Inserting Leaves...');
     await Leave.insertMany([
       {
-        employee: empMap['EMP-001']._id,
-        employeeName: empMap['EMP-001'].name,
-        employeeAvatar: empMap['EMP-001'].avatar,
-        employeeRole: empMap['EMP-001'].role,
-        employeeCode: empMap['EMP-001'].employeeCode,
+        employee: empMap['ADM-001']._id,
+        employeeName: empMap['ADM-001'].name,
+        employeeAvatar: empMap['ADM-001'].avatar,
+        employeeRole: empMap['ADM-001'].role,
+        employeeCode: empMap['ADM-001'].employeeCode,
         leaveType: 'Casual Leave',
         startDate: '2026-09-12',
         endDate: '2026-09-14',
@@ -151,15 +158,15 @@ async function seedDatabase() {
         reason: 'Family function in hometown',
         isPaid: true,
         status: 'approved',
-        approvedBy: 'Sneha Patel',
-        approverRemarks: 'Approved. Enjoy the function!'
+        approvedBy: 'Pooja Sharma',
+        approverRemarks: 'Approved.'
       },
       {
-        employee: empMap['EMP-002']._id,
-        employeeName: empMap['EMP-002'].name,
-        employeeAvatar: empMap['EMP-002'].avatar,
-        employeeRole: empMap['EMP-002'].role,
-        employeeCode: empMap['EMP-002'].employeeCode,
+        employee: empMap['DES-001']._id,
+        employeeName: empMap['DES-001'].name,
+        employeeAvatar: empMap['DES-001'].avatar,
+        employeeRole: empMap['DES-001'].role,
+        employeeCode: empMap['DES-001'].employeeCode,
         leaveType: 'Sick Leave',
         startDate: '2026-09-22',
         endDate: '2026-09-23',
@@ -170,11 +177,11 @@ async function seedDatabase() {
         status: 'pending'
       },
       {
-        employee: empMap['EMP-005']._id,
-        employeeName: empMap['EMP-005'].name,
-        employeeAvatar: empMap['EMP-005'].avatar,
-        employeeRole: empMap['EMP-005'].role,
-        employeeCode: empMap['EMP-005'].employeeCode,
+        employee: empMap['INF-001']._id,
+        employeeName: empMap['INF-001'].name,
+        employeeAvatar: empMap['INF-001'].avatar,
+        employeeRole: empMap['INF-001'].role,
+        employeeCode: empMap['INF-001'].employeeCode,
         leaveType: 'Earned Leave',
         startDate: '2026-10-05',
         endDate: '2026-10-08',
@@ -183,19 +190,19 @@ async function seedDatabase() {
         reason: 'Personal vacation',
         isPaid: true,
         status: 'approved',
-        approvedBy: 'Sneha Patel'
+        approvedBy: 'Pooja Sharma'
       }
     ]);
 
     console.log('Inserting Appreciations...');
     await Appreciation.insertMany([
       {
-        givenTo: empMap['EMP-001']._id,
-        givenToName: empMap['EMP-001'].name,
-        givenToAvatar: empMap['EMP-001'].avatar,
-        givenToRole: empMap['EMP-001'].role,
-        givenBy: empMap['EMP-004']._id,
-        givenByName: empMap['EMP-004'].name,
+        givenTo: empMap['ADM-001']._id,
+        givenToName: empMap['ADM-001'].name,
+        givenToAvatar: empMap['ADM-001'].avatar,
+        givenToRole: empMap['ADM-001'].role,
+        givenBy: empMap['HR-001']._id,
+        givenByName: empMap['HR-001'].name,
         awardName: 'Best Performer of the Month',
         awardBadgeIcon: 'trophy',
         givenOn: '2026-09-01',
@@ -203,12 +210,12 @@ async function seedDatabase() {
         appreciationNote: 'For exceptional performance in leading the Q3 Digital Marketing Campaign.'
       },
       {
-        givenTo: empMap['EMP-003']._id,
-        givenToName: empMap['EMP-003'].name,
-        givenToAvatar: empMap['EMP-003'].avatar,
-        givenToRole: empMap['EMP-003'].role,
-        givenBy: empMap['EMP-004']._id,
-        givenByName: empMap['EMP-004'].name,
+        givenTo: empMap['ENG-001']._id,
+        givenToName: empMap['ENG-001'].name,
+        givenToAvatar: empMap['ENG-001'].avatar,
+        givenToRole: empMap['ENG-001'].role,
+        givenBy: empMap['HR-001']._id,
+        givenByName: empMap['HR-001'].name,
         awardName: 'Code Master Award',
         awardBadgeIcon: 'rocket',
         givenOn: '2026-08-15',
@@ -249,11 +256,11 @@ async function seedDatabase() {
           status = 'holiday';
           clockInTime = null;
           clockOutTime = null;
-        } else if (emp.employeeCode === 'EMP-001' && (day === 12 || day === 13 || day === 14)) {
+        } else if (emp.employeeCode === 'ADM-001' && (day === 12 || day === 13 || day === 14)) {
           status = 'on_leave';
           clockInTime = null;
           clockOutTime = null;
-        } else if (emp.employeeCode === 'EMP-002' && (day === 22 || day === 23)) {
+        } else if (emp.employeeCode === 'DES-001' && (day === 22 || day === 23)) {
           status = 'on_leave';
           clockInTime = null;
           clockOutTime = null;
@@ -307,10 +314,10 @@ async function seedDatabase() {
         taskApprovalRequired: false,
         budget: 250000,
         currency: 'INR',
-        members: [empMap['EMP-001']._id, empMap['EMP-002']._id],
+        members: [empMap['ADM-001']._id, empMap['DES-001']._id],
         membersList: [
-          { _id: empMap['EMP-001']._id.toString(), name: empMap['EMP-001'].name, avatar: empMap['EMP-001'].avatar, role: empMap['EMP-001'].role },
-          { _id: empMap['EMP-002']._id.toString(), name: empMap['EMP-002'].name, avatar: empMap['EMP-002'].avatar, role: empMap['EMP-002'].role }
+          { _id: empMap['ADM-001']._id.toString(), name: empMap['ADM-001'].name, avatar: empMap['ADM-001'].avatar, role: empMap['ADM-001'].role },
+          { _id: empMap['DES-001']._id.toString(), name: empMap['DES-001'].name, avatar: empMap['DES-001'].avatar, role: empMap['DES-001'].role }
         ]
       },
       {
@@ -330,10 +337,10 @@ async function seedDatabase() {
         taskApprovalRequired: true,
         budget: 400000,
         currency: 'INR',
-        members: [empMap['EMP-002']._id, empMap['EMP-003']._id],
+        members: [empMap['DES-001']._id, empMap['ENG-001']._id],
         membersList: [
-          { _id: empMap['EMP-002']._id.toString(), name: empMap['EMP-002'].name, avatar: empMap['EMP-002'].avatar, role: empMap['EMP-002'].role },
-          { _id: empMap['EMP-003']._id.toString(), name: empMap['EMP-003'].name, avatar: empMap['EMP-003'].avatar, role: empMap['EMP-003'].role }
+          { _id: empMap['DES-001']._id.toString(), name: empMap['DES-001'].name, avatar: empMap['DES-001'].avatar, role: empMap['DES-001'].role },
+          { _id: empMap['ENG-001']._id.toString(), name: empMap['ENG-001'].name, avatar: empMap['ENG-001'].avatar, role: empMap['ENG-001'].role }
         ]
       },
       {
@@ -353,11 +360,11 @@ async function seedDatabase() {
         taskApprovalRequired: false,
         budget: 800000,
         currency: 'INR',
-        members: [empMap['EMP-001']._id, empMap['EMP-003']._id, empMap['EMP-005']._id],
+        members: [empMap['ADM-001']._id, empMap['ENG-001']._id, empMap['INF-001']._id],
         membersList: [
-          { _id: empMap['EMP-001']._id.toString(), name: empMap['EMP-001'].name, avatar: empMap['EMP-001'].avatar, role: empMap['EMP-001'].role },
-          { _id: empMap['EMP-003']._id.toString(), name: empMap['EMP-003'].name, avatar: empMap['EMP-003'].avatar, role: empMap['EMP-003'].role },
-          { _id: empMap['EMP-005']._id.toString(), name: empMap['EMP-005'].name, avatar: empMap['EMP-005'].avatar, role: empMap['EMP-005'].role }
+          { _id: empMap['ADM-001']._id.toString(), name: empMap['ADM-001'].name, avatar: empMap['ADM-001'].avatar, role: empMap['ADM-001'].role },
+          { _id: empMap['ENG-001']._id.toString(), name: empMap['ENG-001'].name, avatar: empMap['ENG-001'].avatar, role: empMap['ENG-001'].role },
+          { _id: empMap['INF-001']._id.toString(), name: empMap['INF-001'].name, avatar: empMap['INF-001'].avatar, role: empMap['INF-001'].role }
         ]
       }
     ]);
@@ -383,20 +390,20 @@ async function seedDatabase() {
         description: 'Execute high DA bookmarking submissions and citation links for City Prime Care campaign.',
         priority: 'medium',
         status: 'incomplete',
-        assignedTo: empMap['EMP-001']._id,
-        assignedToId: empMap['EMP-001']._id.toString(),
-        assignedToName: 'Avinash',
-        assignedToAvatar: empMap['EMP-001'].avatar,
-        assignedToRole: empMap['EMP-001'].role,
+        assignedTo: empMap['ADM-001']._id,
+        assignedToId: empMap['ADM-001']._id.toString(),
+        assignedToName: empMap['ADM-001'].name,
+        assignedToAvatar: empMap['ADM-001'].avatar,
+        assignedToRole: empMap['ADM-001'].role,
         estimatedHours: 4,
         hoursLogged: 2.29,
-        hoursLoggedText: '02:17:21',
+        hoursLoggedText: '02h 17m',
         completedOn: null,
         isPrivate: false,
         isBillable: true,
         labels: ['Marketing', 'SEO'],
-        timerRunning: true,
-        timerSeconds: 8241
+        timerRunning: false,
+        timerSeconds: 0
       },
       {
         taskCode: 'NBR-1',
@@ -412,11 +419,11 @@ async function seedDatabase() {
         description: 'Create harmonious HSL color palette, typography scales, glassmorphism card elevation tokens.',
         priority: 'high',
         status: 'in_progress',
-        assignedTo: empMap['EMP-002']._id,
-        assignedToId: empMap['EMP-002']._id.toString(),
-        assignedToName: 'Priya Sharma',
-        assignedToAvatar: empMap['EMP-002'].avatar,
-        assignedToRole: empMap['EMP-002'].role,
+        assignedTo: empMap['DES-001']._id,
+        assignedToId: empMap['DES-001']._id.toString(),
+        assignedToName: empMap['DES-001'].name,
+        assignedToAvatar: empMap['DES-001'].avatar,
+        assignedToRole: empMap['DES-001'].role,
         estimatedHours: 16,
         hoursLogged: 12,
         hoursLoggedText: '12h 00m',
@@ -441,11 +448,11 @@ async function seedDatabase() {
         description: 'Configure Mongoose connection pooling, production environment variables, and reliable schema seeding.',
         priority: 'urgent',
         status: 'completed',
-        assignedTo: empMap['EMP-003']._id,
-        assignedToId: empMap['EMP-003']._id.toString(),
-        assignedToName: 'Rahul Verma',
-        assignedToAvatar: empMap['EMP-003'].avatar,
-        assignedToRole: empMap['EMP-003'].role,
+        assignedTo: empMap['ENG-001']._id,
+        assignedToId: empMap['ENG-001']._id.toString(),
+        assignedToName: empMap['ENG-001'].name,
+        assignedToAvatar: empMap['ENG-001'].avatar,
+        assignedToRole: empMap['ENG-001'].role,
         estimatedHours: 8,
         hoursLogged: 8,
         hoursLoggedText: '08h 00m',
@@ -468,18 +475,18 @@ async function seedDatabase() {
         project: projectMap['CPC']._id,
         projectId: projectMap['CPC']._id.toString(),
         projectName: 'CITY PRIME CARE',
-        employee: empMap['EMP-001']._id,
-        employeeId: empMap['EMP-001']._id.toString(),
-        employeeName: 'Avinash',
-        employeeAvatar: empMap['EMP-001'].avatar,
-        employeeRole: empMap['EMP-001'].role,
+        employee: empMap['ADM-001']._id,
+        employeeId: empMap['ADM-001']._id.toString(),
+        employeeName: empMap['ADM-001'].name,
+        employeeAvatar: empMap['ADM-001'].avatar,
+        employeeRole: empMap['ADM-001'].role,
         date: '2026-09-25',
         startTime: '09:30:00',
-        endTime: null,
+        endTime: '11:47:21',
         totalDurationSeconds: 8241,
         totalDurationText: '02:17:21',
         memo: 'Executing citation bookmarks and niche directory submissions',
-        status: 'active'
+        status: 'stopped'
       },
       {
         task: insertedTasks[1]._id,
@@ -489,11 +496,11 @@ async function seedDatabase() {
         project: projectMap['NBR']._id,
         projectId: projectMap['NBR']._id.toString(),
         projectName: 'Novainfinity Brand Revamp & Design System',
-        employee: empMap['EMP-002']._id,
-        employeeId: empMap['EMP-002']._id.toString(),
-        employeeName: 'Priya Sharma',
-        employeeAvatar: empMap['EMP-002'].avatar,
-        employeeRole: empMap['EMP-002'].role,
+        employee: empMap['DES-001']._id,
+        employeeId: empMap['DES-001']._id.toString(),
+        employeeName: empMap['DES-001'].name,
+        employeeAvatar: empMap['DES-001'].avatar,
+        employeeRole: empMap['DES-001'].role,
         date: '2026-09-24',
         startTime: '10:00:00',
         endTime: '15:30:00',
@@ -505,11 +512,21 @@ async function seedDatabase() {
     ]);
 
     console.log('✅ MongoDB Seeding completed successfully!');
-    process.exit(0);
+    if (require.main === module) {
+      process.exit(0);
+    }
+    return true;
   } catch (err) {
     console.error('❌ Error during seeding:', err);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw err;
   }
 }
 
-seedDatabase();
+if (require.main === module) {
+  seedDatabase();
+}
+
+module.exports = { seedDatabase, EMPLOYEES };

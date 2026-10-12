@@ -118,7 +118,14 @@ export const MonthlyMatrixTable = ({
             {displayEmployees.map((emp) => {
               // Exact monthly filtering and mathematical calculation for this employee
               const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-              const empRecords = attendance.filter(a => a.employeeId === emp._id && a.date.startsWith(monthPrefix));
+              const empRecords = attendance.filter(a => {
+                if (!a.date || !a.date.startsWith(monthPrefix)) return false;
+                return a.employeeId === emp._id ||
+                       a.employeeId === emp.employeeCode ||
+                       a.employeeCode === emp.employeeCode ||
+                       a.employeeCode === emp._id ||
+                       (a.employeeName && emp.name && a.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase());
+              });
               const fullDaysPresent = empRecords.filter(a => a.status === 'present' || a.status === 'late').length;
               const halfDaysCount = empRecords.filter(a => a.status === 'half_day').length;
               const effectivePresentDays = fullDaysPresent + (halfDaysCount * 0.5);
@@ -164,6 +171,10 @@ export const MonthlyMatrixTable = ({
                     const effectiveStatus = record ? record.status : (isWeekend ? 'day_off' : 'not_marked');
                     const isMuted = statusFilter !== 'all' && effectiveStatus !== statusFilter;
 
+                    const inStr = record?.clockInTime || record?.clockIn;
+                    const outStr = record?.clockOutTime || record?.clockOut;
+                    const timeDetail = inStr ? ` | In: ${inStr}${outStr ? ` • Out: ${outStr}` : ' (Active)'}` : '';
+
                     return (
                       <td
                         key={day}
@@ -172,8 +183,8 @@ export const MonthlyMatrixTable = ({
                             employeeId: emp._id,
                             date: dateStr,
                             status: record ? record.status : (isWeekend ? 'day_off' : 'present'),
-                            clockInTime: record?.clockInTime,
-                            clockOutTime: record?.clockOutTime,
+                            clockInTime: inStr,
+                            clockOutTime: outStr,
                             notes: record?.notes
                           });
                         }}
@@ -186,7 +197,7 @@ export const MonthlyMatrixTable = ({
                           opacity: isMuted ? 0.3 : 1,
                           transition: 'all 0.15s'
                         }}
-                        title={`${emp.name} - ${dateStr}: ${display.label}`}
+                        title={`${emp.name} - ${dateStr}: ${display.label}${timeDetail}`}
                       >
                         <span style={{
                           fontSize: '12px',

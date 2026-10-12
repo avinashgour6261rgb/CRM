@@ -13,9 +13,10 @@ export const HRProvider = ({ children }) => {
   const [attendance, setAttendance] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [appreciations, setAppreciations] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
 
-  const [selectedMonth, setSelectedMonth] = useState(9); // September
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
@@ -26,7 +27,7 @@ export const HRProvider = ({ children }) => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [emps, curr, lvs, atts, hols, apps] = await Promise.all([
+      const [emps, curr, lvs, atts, hols, apps, auds] = await Promise.all([
         hrService.getEmployees(),
         hrService.getCurrentUser(),
         hrService.getLeaves({
@@ -37,7 +38,8 @@ export const HRProvider = ({ children }) => {
         }),
         hrService.getMonthlyAttendance(selectedMonth, selectedYear, selectedEmployeeId),
         hrService.getHolidays(selectedYear, searchQuery),
-        hrService.getAppreciations({ employeeId: selectedEmployeeId, search: searchQuery })
+        hrService.getAppreciations({ employeeId: selectedEmployeeId, search: searchQuery }),
+        hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear })
       ]);
 
       setEmployees(emps || []);
@@ -46,6 +48,7 @@ export const HRProvider = ({ children }) => {
       setAttendance(atts || []);
       setHolidays(hols || []);
       setAppreciations(apps || []);
+      setAuditLogs(auds || []);
     } catch (err) {
       console.error('Error loading HRMS data:', err);
       addToast('Failed to sync HRMS data', 'error');
@@ -135,9 +138,10 @@ export const HRProvider = ({ children }) => {
   const updateLeaveStatus = async (leaveId, status, rejectionReason = '') => {
     try {
       const approver = currentUser?.name || 'HR Admin';
+      const actionDateFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       await hrService.updateLeaveStatus(leaveId, status, approver, rejectionReason);
 
-      // Instant React memory update
+      // Instant React memory update with audit logs
       setLeaves(prev => (prev || []).map(l => {
         if (l._id === leaveId) {
           return {
@@ -145,7 +149,12 @@ export const HRProvider = ({ children }) => {
             status,
             approvedBy: status === 'approved' ? approver : null,
             rejectedBy: status === 'rejected' ? approver : null,
-            rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null
+            actionBy: approver,
+            actionDate: new Date().toISOString(),
+            actionDateFormatted,
+            rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null,
+            isAcknowledged: false,
+            updatedAt: new Date().toISOString()
           };
         }
         return l;
@@ -158,9 +167,19 @@ export const HRProvider = ({ children }) => {
         status === 'approved' ? 'success' : 'info'
       );
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
+      window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status, approver } }));
       await loadData();
     } catch (err) {
       addToast(err?.message || 'Failed to update leave status', 'error');
+    }
+  };
+
+  const acknowledgeLeave = async (leaveId) => {
+    try {
+      await hrService.acknowledgeLeave(leaveId);
+      setLeaves(prev => (prev || []).map(l => l._id === leaveId ? { ...l, isAcknowledged: true } : l));
+    } catch (e) {
+      console.warn('Acknowledge leave error:', e);
     }
   };
 
@@ -176,7 +195,7 @@ export const HRProvider = ({ children }) => {
     }
   };
 
-  // ================= ATTENDANCE =================
+  // ================= ATTENDANCE & AUDIT =================
   const markAttendanceRecord = async (data) => {
     try {
       await hrService.markAttendance(data);
@@ -184,6 +203,16 @@ export const HRProvider = ({ children }) => {
       await loadData();
     } catch (err) {
       addToast('Failed to record attendance', 'error');
+    }
+  };
+
+  const adminForceClockOut = async (employeeId, auditNote) => {
+    try {
+      await hrService.adminForceClockOut(employeeId, auditNote);
+      addToast('Employee shift forcefully clocked out with audit note', 'success');
+      await loadData();
+    } catch (err) {
+      addToast(err?.message || 'Failed to force clock out', 'error');
     }
   };
 
@@ -236,6 +265,7 @@ export const HRProvider = ({ children }) => {
       currentUser,
       leaves,
       attendance,
+      auditLogs,
       holidays,
       appreciations,
       selectedMonth,
@@ -254,8 +284,10 @@ export const HRProvider = ({ children }) => {
       deleteEmployee,
       applyLeave,
       updateLeaveStatus,
+      acknowledgeLeave,
       deleteLeave,
       markAttendanceRecord,
+      adminForceClockOut,
       addHoliday,
       deleteHoliday,
       addAppreciation,

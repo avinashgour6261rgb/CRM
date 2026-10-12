@@ -1,37 +1,28 @@
 /**
  * @file AddTaskModal.jsx
- * @description Flexible, responsive, and easy-to-use task creation modal.
- * Supports:
- * 1. 📌 Basic / General Task (Standalone - no project needed)
- * 2. 🏢 Existing Project selection
- * 3. ✨ On-the-fly Custom Project Name creation
- * 4. ⚡ 1-Click Task Title & Category Presets
- * 5. ⏱️ Quick Duration Pills (30m, 1h, 2h, 4h, 8h)
- * 6. 📅 Quick Due Date Presets (Today, Tomorrow, 3 Days, Next Week)
- * 7. 👤 Quick "Assign to Me" button
+ * @description Clean, intuitive, and modern task creation modal.
+ * Allows assigning tasks linked to an existing project, creating a new project,
+ * or creating an independent standalone task without a project.
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   X,
-  Plus,
-  Calendar,
-  Clock,
-  User,
-  FolderGit2,
-  Tag,
   CheckCircle2,
-  Sparkles,
-  Layers,
-  FileText,
+  FolderGit2,
+  User,
+  Clock,
+  Calendar,
   AlertCircle,
-  Briefcase,
-  Zap
+  Plus,
+  Sparkles,
+  Zap,
+  Tag
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 
-const TASK_CATEGORIES = [
+const CATEGORIES = [
   'General',
   'Web Development',
   'UI/UX Design',
@@ -49,45 +40,36 @@ const PRIORITIES = [
   { id: 'urgent', label: 'Urgent 🔥', color: '#dc2626', bg: '#fef2f2' }
 ];
 
-const QUICK_TASK_PRESETS = [
-  { title: 'Bug Fixing & Debugging', category: 'Web Development', hours: 2, icon: '🐞' },
-  { title: 'Client Meeting / Discussion', category: 'Client Servicing', hours: 1, icon: '📞' },
-  { title: 'UI / UX Design & Assets', category: 'UI/UX Design', hours: 4, icon: '🎨' },
-  { title: 'New Feature Implementation', category: 'Web Development', hours: 4, icon: '🚀' },
-  { title: 'Documentation & Notes', category: 'General', hours: 1, icon: '📝' },
-  { title: 'QA & Testing Verification', category: 'QA & Testing', hours: 2, icon: '🔍' },
-  { title: 'Weekly Progress & Reporting', category: 'General', hours: 1, icon: '📊' },
-  { title: 'Deployment & Server Setup', category: 'DevOps & Cloud', hours: 2, icon: '⚡' }
-];
-
-const HOUR_PRESETS = [0.5, 1, 2, 4, 6, 8];
+const HOUR_PRESETS = [1, 2, 4, 6, 8];
 
 export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
   const { createTask, projects, employees, currentUser, createProject } = useWork();
   const { addToast } = useToast();
 
-  const todayStr = new Date().toISOString().split('T')[0];
-
-  // Helper to format date offset
-  const getDateOffset = (days) => {
+  const getTodayStr = () => {
     const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  // Modes: 'basic' (Standalone General Task) | 'existing_project' | 'custom_project'
+  const getDateOffsetStr = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // 'none' (Standalone Task) | 'existing' (Company Project) | 'new' (Create Project on the fly)
   const [projectMode, setProjectMode] = useState(
-    initialProjectId ? 'existing_project' : (projects.length > 0 ? 'existing_project' : 'basic')
+    initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
   );
 
   const [formData, setFormData] = useState({
     title: '',
     category: 'General',
-    projectId: initialProjectId || projects[0]?._id || '',
+    projectId: initialProjectId || (projects && projects[0]?._id) || '',
     customProjectName: '',
-    startDate: todayStr,
-    dueDate: todayStr,
-    assignedToId: currentUser?._id || employees[0]?._id || '',
+    startDate: getTodayStr(),
+    dueDate: getTodayStr(),
+    assignedToId: currentUser?._id || (employees && employees[0]?._id) || '',
     priority: 'medium',
     estimatedHours: 4,
     description: ''
@@ -97,7 +79,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
 
   useEffect(() => {
     if (initialProjectId) {
-      setProjectMode('existing_project');
+      setProjectMode('existing');
       setFormData(prev => ({ ...prev, projectId: initialProjectId }));
     }
   }, [initialProjectId]);
@@ -106,15 +88,6 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const applyPreset = (preset) => {
-    setFormData(prev => ({
-      ...prev,
-      title: preset.title,
-      category: preset.category,
-      estimatedHours: preset.hours
-    }));
   };
 
   const handleSave = async (andAddMore = false) => {
@@ -129,44 +102,43 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       let finalProjectName = 'General Work';
       let finalProjectCode = 'GEN';
 
-      if (projectMode === 'existing_project') {
+      if (projectMode === 'existing') {
         const selectedProject = projects.find(p => p._id === formData.projectId) || projects[0];
         if (selectedProject) {
           finalProjectId = selectedProject._id;
           finalProjectName = selectedProject.name;
           finalProjectCode = selectedProject.projectCode || 'PRJ';
         }
-      } else if (projectMode === 'custom_project') {
-        const customName = formData.customProjectName.trim() || 'Custom Project';
+      } else if (projectMode === 'new') {
+        const customName = formData.customProjectName.trim() || 'New Company Project';
         finalProjectName = customName;
         finalProjectCode = customName.substring(0, 3).toUpperCase();
-        // Create the custom project in the background so it's reusable
         try {
           const newProj = await createProject({
             name: customName,
             projectCode: `PRJ-${finalProjectCode}`,
-            client: 'Internal / Direct',
+            client: 'Internal / Company Project',
             category: formData.category,
             department: 'Engineering',
             startDate: formData.startDate,
             deadline: formData.dueDate,
             budget: 0,
-            summary: `Created on the fly with task: ${formData.title.trim()}`,
+            summary: `Created with task: ${formData.title.trim()}`,
             status: 'in_progress',
-            members: []
+            members: employees.map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }))
           });
           if (newProj && newProj._id) {
             finalProjectId = newProj._id;
-            finalProjectCode = newProj.projectCode;
+            finalProjectCode = newProj.projectCode || finalProjectCode;
           }
         } catch (e) {
-          console.warn('Could not auto-create project record, continuing with task metadata:', e);
+          console.warn('Could not auto-create project, continuing with metadata:', e);
         }
       } else {
-        // Basic / Standalone Task
+        // Standalone Task (No Project)
         finalProjectId = '';
-        finalProjectName = 'General / Basic Task';
-        finalProjectCode = 'GEN';
+        finalProjectName = 'Standalone / General';
+        finalProjectCode = 'TASK';
       }
 
       const selectedAssignee = employees.find(e => e._id === formData.assignedToId) || currentUser || employees[0];
@@ -193,10 +165,14 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         assignedByAvatar: currentUser?.avatar || '',
         assignedByRole: currentUser?.role || 'Administrator',
         status: 'incomplete',
-        progress: 0
+        progress: 0,
+        hoursLogged: 0,
+        hoursLoggedText: '00h 00m',
+        timerRunning: false,
+        timerSeconds: 0
       });
 
-      addToast(`Task "${formData.title}" created successfully!`, 'success');
+      addToast(`Task "${formData.title}" assigned successfully!`, 'success');
 
       if (andAddMore) {
         setFormData(prev => ({
@@ -223,8 +199,8 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(5px)',
+      backgroundColor: 'rgba(15, 23, 42, 0.6)',
+      backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -233,30 +209,30 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     }}>
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '20px',
+        borderRadius: '16px',
         width: '100%',
-        maxWidth: '740px',
-        maxHeight: '94vh',
+        maxWidth: '580px',
+        maxHeight: '92vh',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)',
         border: '1px solid #e2e8f0',
         overflow: 'hidden'
       }}>
-        {/* Modal Header */}
+        {/* Header */}
         <div style={{
-          padding: '18px 24px',
+          padding: '16px 20px',
           borderBottom: '1px solid #f1f5f9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           backgroundColor: '#f8fafc'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
               backgroundColor: '#eff6ff',
               color: '#2563eb',
               display: 'flex',
@@ -264,15 +240,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
               justifyContent: 'center',
               border: '1px solid #bfdbfe'
             }}>
-              <Plus size={22} />
+              <Plus size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
                 Create New Task
               </h2>
-              <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-                Quick basic task or assign work under a project
-              </span>
+              <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+                Assign work under a project or create a standalone task
+              </p>
             </div>
           </div>
 
@@ -285,264 +261,213 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
               cursor: 'pointer',
               color: '#64748b',
               padding: '6px',
-              borderRadius: '10px',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s'
+              justifyContent: 'center'
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div style={{ padding: '22px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Scrollable Form Body */}
+        <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
-          {/* 1. PROJECT / BASIC TASK SELECTOR (Custom vs Existing vs Basic) */}
-          <div style={{
-            backgroundColor: '#f8fafc',
-            padding: '14px 16px',
-            borderRadius: '14px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '10px' }}>
-              <Layers size={16} color="#2563eb" />
-              Task Type & Project Assignment:
+          {/* 1. Project Assignment Segmented Toggle */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              Project Association
             </label>
-
-            {/* 3-Way Mode Switcher */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '6px',
+              backgroundColor: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '8px'
+            }}>
               <button
                 type="button"
-                onClick={() => setProjectMode('basic')}
+                onClick={() => setProjectMode('existing')}
                 style={{
-                  padding: '9px 10px',
-                  borderRadius: '10px',
-                  border: projectMode === 'basic' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  backgroundColor: projectMode === 'basic' ? '#eff6ff' : '#ffffff',
-                  color: projectMode === 'basic' ? '#1d4ed8' : '#64748b',
-                  fontSize: '13px',
+                  padding: '7px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: projectMode === 'existing' ? '#ffffff' : 'transparent',
+                  color: projectMode === 'existing' ? '#0284c7' : '#64748b',
+                  fontSize: '11.5px',
                   fontWeight: '700',
                   cursor: 'pointer',
+                  boxShadow: projectMode === 'existing' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s'
+                  gap: '4px'
                 }}
               >
-                <span>📌</span> Basic Task (No Project)
+                <FolderGit2 size={13} /> Project Task
               </button>
 
               <button
                 type="button"
-                onClick={() => setProjectMode('existing_project')}
+                onClick={() => setProjectMode('none')}
                 style={{
-                  padding: '9px 10px',
-                  borderRadius: '10px',
-                  border: projectMode === 'existing_project' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  backgroundColor: projectMode === 'existing_project' ? '#eff6ff' : '#ffffff',
-                  color: projectMode === 'existing_project' ? '#1d4ed8' : '#64748b',
-                  fontSize: '13px',
+                  padding: '7px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: projectMode === 'none' ? '#ffffff' : 'transparent',
+                  color: projectMode === 'none' ? '#0284c7' : '#64748b',
+                  fontSize: '11.5px',
                   fontWeight: '700',
                   cursor: 'pointer',
+                  boxShadow: projectMode === 'none' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s'
+                  gap: '4px'
                 }}
               >
-                <span>🏢</span> Existing Project ({projects.length})
+                <Zap size={13} /> No Project
               </button>
 
               <button
                 type="button"
-                onClick={() => setProjectMode('custom_project')}
+                onClick={() => setProjectMode('new')}
                 style={{
-                  padding: '9px 10px',
-                  borderRadius: '10px',
-                  border: projectMode === 'custom_project' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  backgroundColor: projectMode === 'custom_project' ? '#eff6ff' : '#ffffff',
-                  color: projectMode === 'custom_project' ? '#1d4ed8' : '#64748b',
-                  fontSize: '13px',
+                  padding: '7px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: projectMode === 'new' ? '#ffffff' : 'transparent',
+                  color: projectMode === 'new' ? '#0284c7' : '#64748b',
+                  fontSize: '11.5px',
                   fontWeight: '700',
                   cursor: 'pointer',
+                  boxShadow: projectMode === 'new' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s'
+                  gap: '4px'
                 }}
               >
-                <span>✨</span> + Custom Project
+                <Plus size={13} /> + New Project
               </button>
             </div>
 
-            {/* Mode-specific input container */}
-            {projectMode === 'existing_project' && (
-              <div>
+            {/* Sub-inputs based on mode */}
+            {projectMode === 'existing' && (
+              <div style={{ marginTop: '8px' }}>
                 <select
                   value={formData.projectId}
                   onChange={(e) => handleChange('projectId', e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    border: '1.5px solid #2563eb',
-                    fontSize: '13.5px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '12.5px',
                     fontWeight: '600',
                     color: '#0f172a',
                     outline: 'none',
                     backgroundColor: '#ffffff'
                   }}
                 >
-                  {projects.length > 0 ? (
+                  {projects && projects.length > 0 ? (
                     projects.map(p => (
                       <option key={p._id} value={p._id}>
-                        [{p.projectCode || 'PRJ'}] {p.name} {p.client ? `— ${p.client}` : ''}
+                        [{p.projectCode || 'PRJ'}] {p.name} {p.client ? `(${p.client})` : ''}
                       </option>
                     ))
                   ) : (
-                    <option value="">No projects added yet — Will create as standalone</option>
+                    <option value="">No projects found — creating as standalone</option>
                   )}
                 </select>
               </div>
             )}
 
-            {projectMode === 'custom_project' && (
-              <div>
+            {projectMode === 'new' && (
+              <div style={{ marginTop: '8px' }}>
                 <input
                   type="text"
                   value={formData.customProjectName}
                   onChange={(e) => handleChange('customProjectName', e.target.value)}
-                  placeholder="Type Custom Project Name (e.g., Mobile App 2.0, Brand Revamp)..."
+                  placeholder="Enter project name (e.g. Mobile App Redesign)..."
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    border: '1.5px solid #2563eb',
-                    fontSize: '13.5px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #0284c7',
+                    fontSize: '12.5px',
                     color: '#0f172a',
                     outline: 'none',
                     backgroundColor: '#ffffff'
                   }}
                 />
-                <span style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px', display: 'block' }}>
-                  ✨ This custom project will be created automatically and linked to this task.
-                </span>
               </div>
             )}
 
-            {projectMode === 'basic' && (
+            {projectMode === 'none' && (
               <div style={{
-                padding: '8px 12px',
-                backgroundColor: '#ffffff',
-                borderRadius: '8px',
-                border: '1px dashed #cbd5e1',
-                fontSize: '12.5px',
-                color: '#475569',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                marginTop: '6px',
+                fontSize: '11px',
+                color: '#64748b',
+                backgroundColor: '#f8fafc',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px dashed #cbd5e1'
               }}>
-                <Zap size={15} color="#2563eb" />
-                <span>Basic / General standalone task — directly assigned without project dependency.</span>
+                ⚡ Independent task without project dependencies (directly tracked under General Work).
               </div>
             )}
           </div>
 
-          {/* 2. TASK TITLE & 1-CLICK QUICK PRESET CHIPS */}
+          {/* 2. Task Title */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
-                Task Title <span style={{ color: '#ef4444' }}>*</span>
-              </label>
-              <span style={{ fontSize: '11.5px', color: '#64748b' }}>
-                Tip: Click quick chips below to auto-fill
-              </span>
-            </div>
-
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
+              Task Title <span style={{ color: '#ef4444' }}>*</span>
+            </label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
-              placeholder="e.g. Design Landing Page Hero Section or Fix API Latency"
+              placeholder="e.g. Design Homepage Banner, Fix Auth API, Prepare Presentation"
               autoFocus
               style={{
                 width: '100%',
-                padding: '12px 14px',
-                borderRadius: '10px',
+                padding: '10px 12px',
+                borderRadius: '8px',
                 border: '1.5px solid #cbd5e1',
-                fontSize: '14.5px',
+                fontSize: '13.5px',
                 fontWeight: '600',
                 color: '#0f172a',
                 outline: 'none',
-                transition: 'border-color 0.2s',
                 backgroundColor: '#ffffff'
               }}
-              onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-              onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
             />
-
-            {/* Quick 1-Click Preset Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-              {QUICK_TASK_PRESETS.map((preset, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => applyPreset(preset)}
-                  style={{
-                    padding: '4px 9px',
-                    borderRadius: '7px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: formData.title === preset.title ? '#eff6ff' : '#f8fafc',
-                    color: formData.title === preset.title ? '#2563eb' : '#475569',
-                    borderColor: formData.title === preset.title ? '#bfdbfe' : '#e2e8f0',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.12s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = formData.title === preset.title ? '#eff6ff' : '#f8fafc'}
-                >
-                  <span>{preset.icon}</span>
-                  <span>{preset.title}</span>
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* 3. ASSIGNEE & CATEGORY */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-            {/* Assignee */}
+          {/* 3. Assignee & Category (2 Columns) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
-                  Assign To Member
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                  Assign To
                 </label>
-                {currentUser && formData.assignedToId !== currentUser._id && (
+                {currentUser && (
                   <button
                     type="button"
                     onClick={() => handleChange('assignedToId', currentUser._id)}
                     style={{
-                      background: 'transparent',
                       border: 'none',
-                      color: '#2563eb',
-                      fontSize: '11.5px',
+                      background: 'none',
+                      color: '#0284c7',
+                      fontSize: '11px',
                       fontWeight: '700',
                       cursor: 'pointer',
                       padding: 0
                     }}
                   >
-                    + Assign to Me
+                    Assign to Me
                   </button>
                 )}
               </div>
@@ -551,26 +476,25 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 onChange={(e) => handleChange('assignedToId', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
+                  fontSize: '12.5px',
                   color: '#0f172a',
                   outline: 'none',
                   backgroundColor: '#ffffff'
                 }}
               >
-                {employees.map(emp => (
+                {employees && employees.map(emp => (
                   <option key={emp._id} value={emp._id}>
-                    {emp.name} — {emp.role || 'Team Member'} {emp._id === currentUser?._id ? '(You)' : ''}
+                    {emp.name} {emp._id === currentUser?._id ? '(You)' : `— ${emp.role || 'Member'}`}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Category */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                 Category
               </label>
               <select
@@ -578,106 +502,105 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 onChange={(e) => handleChange('category', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
+                  fontSize: '12.5px',
                   color: '#0f172a',
                   outline: 'none',
                   backgroundColor: '#ffffff'
                 }}
               >
-                {TASK_CATEGORIES.map(cat => (
+                {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* 4. PRIORITY & ESTIMATED HOURS */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-            {/* Priority Selector Pills */}
+          {/* 4. Estimated Time & Priority */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Priority Level
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Estimated Duration
               </label>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {PRIORITIES.map(pri => (
-                  <button
-                    key={pri.id}
-                    type="button"
-                    onClick={() => handleChange('priority', pri.id)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 4px',
-                      borderRadius: '8px',
-                      border: formData.priority === pri.id ? `2px solid ${pri.color}` : '1px solid #e2e8f0',
-                      backgroundColor: formData.priority === pri.id ? pri.bg : '#ffffff',
-                      color: formData.priority === pri.id ? pri.color : '#64748b',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    {pri.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Estimated Duration (Hours Pills + Input) */}
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Estimated Duration (Hours)
-              </label>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <input
+                  type="number"
+                  min="0.25"
+                  step="0.5"
+                  max="100"
+                  value={formData.estimatedHours}
+                  onChange={(e) => handleChange('estimatedHours', parseFloat(e.target.value) || 1)}
+                  style={{
+                    width: '64px',
+                    padding: '7px 8px',
+                    borderRadius: '6px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#0f172a',
+                    outline: 'none',
+                    textAlign: 'center'
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: '#64748b', marginRight: '4px' }}>hours</span>
                 {HOUR_PRESETS.map(h => (
                   <button
                     key={h}
                     type="button"
                     onClick={() => handleChange('estimatedHours', h)}
                     style={{
-                      padding: '7px 8px',
-                      borderRadius: '8px',
-                      border: Number(formData.estimatedHours) === h ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                      backgroundColor: Number(formData.estimatedHours) === h ? '#eff6ff' : '#ffffff',
-                      color: Number(formData.estimatedHours) === h ? '#2563eb' : '#64748b',
-                      fontSize: '12px',
+                      padding: '4px 6px',
+                      borderRadius: '5px',
+                      border: formData.estimatedHours === h ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                      backgroundColor: formData.estimatedHours === h ? '#e0f2fe' : '#ffffff',
+                      color: formData.estimatedHours === h ? '#0284c7' : '#475569',
+                      fontSize: '10.5px',
                       fontWeight: '700',
                       cursor: 'pointer'
                     }}
                   >
-                    {h < 1 ? `${h * 60}m` : `${h}h`}
+                    {h}h
                   </button>
                 ))}
-                <input
-                  type="number"
-                  min="0.25"
-                  step="0.25"
-                  value={formData.estimatedHours}
-                  onChange={(e) => handleChange('estimatedHours', e.target.value)}
-                  style={{
-                    width: '64px',
-                    padding: '6px 8px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    color: '#0f172a',
-                    outline: 'none',
-                    textAlign: 'center'
-                  }}
-                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Priority
+              </label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {PRIORITIES.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleChange('priority', p.id)}
+                    style={{
+                      flex: 1,
+                      padding: '6px 2px',
+                      borderRadius: '6px',
+                      border: formData.priority === p.id ? `1.5px solid ${p.color}` : '1px solid #e2e8f0',
+                      backgroundColor: formData.priority === p.id ? p.bg : '#ffffff',
+                      color: formData.priority === p.id ? p.color : '#64748b',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* 5. DATES (Start & Due Date with Quick Presets) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-            {/* Start Date */}
+          {/* 5. Start Date & Due Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                 Start Date
               </label>
               <input
@@ -686,70 +609,44 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 onChange={(e) => handleChange('startDate', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   color: '#0f172a',
                   outline: 'none'
                 }}
               />
             </div>
 
-            {/* Due Date + Quick Presets */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#475569' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
                   Due Date
                 </label>
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '3px' }}>
                   <button
                     type="button"
-                    onClick={() => handleChange('dueDate', todayStr)}
-                    style={{
-                      background: formData.dueDate === todayStr ? '#eff6ff' : '#f1f5f9',
-                      color: formData.dueDate === todayStr ? '#2563eb' : '#64748b',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => handleChange('dueDate', getTodayStr())}
+                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
                   >
                     Today
                   </button>
+                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>•</span>
                   <button
                     type="button"
-                    onClick={() => handleChange('dueDate', getDateOffset(1))}
-                    style={{
-                      background: formData.dueDate === getDateOffset(1) ? '#eff6ff' : '#f1f5f9',
-                      color: formData.dueDate === getDateOffset(1) ? '#2563eb' : '#64748b',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => handleChange('dueDate', getDateOffsetStr(1))}
+                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
                   >
                     Tomorrow
                   </button>
+                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>•</span>
                   <button
                     type="button"
-                    onClick={() => handleChange('dueDate', getDateOffset(3))}
-                    style={{
-                      background: formData.dueDate === getDateOffset(3) ? '#eff6ff' : '#f1f5f9',
-                      color: formData.dueDate === getDateOffset(3) ? '#2563eb' : '#64748b',
-                      border: 'none',
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => handleChange('dueDate', getDateOffsetStr(7))}
+                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
                   >
-                    +3 Days
+                    +7d
                   </button>
                 </div>
               </div>
@@ -759,10 +656,10 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 onChange={(e) => handleChange('dueDate', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   color: '#0f172a',
                   outline: 'none'
                 }}
@@ -770,56 +667,52 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
             </div>
           </div>
 
-          {/* 6. DESCRIPTION / INSTRUCTIONS */}
+          {/* 6. Description / Notes */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-              Description & Work Notes
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              Description / Notes (Optional)
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Write task details, key deliverables, guidelines, or links here..."
+              placeholder="Add key deliverables, task instructions, or links..."
               style={{
                 width: '100%',
-                padding: '12px 14px',
-                borderRadius: '10px',
+                padding: '8px 10px',
+                borderRadius: '8px',
                 border: '1.5px solid #cbd5e1',
-                fontSize: '13.5px',
-                lineHeight: '1.5',
+                fontSize: '12.5px',
+                lineHeight: '1.4',
                 color: '#0f172a',
                 outline: 'none',
-                resize: 'vertical',
-                transition: 'border-color 0.2s',
+                resize: 'none',
                 fontFamily: 'inherit'
               }}
-              onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-              onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
             />
           </div>
         </div>
 
-        {/* Modal Footer Actions */}
+        {/* Modal Footer */}
         <div style={{
-          padding: '16px 24px',
+          padding: '12px 20px',
           borderTop: '1px solid #f1f5f9',
-          backgroundColor: '#f8fafc',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
-          flexWrap: 'wrap'
+          justifyContent: 'flex-end',
+          gap: '8px',
+          backgroundColor: '#f8fafc'
         }}>
           <button
             type="button"
             onClick={onClose}
             style={{
-              padding: '10px 18px',
-              borderRadius: '10px',
+              padding: '7px 14px',
+              borderRadius: '7px',
               border: '1px solid #cbd5e1',
               backgroundColor: '#ffffff',
               color: '#475569',
-              fontSize: '13.5px',
+              fontSize: '12.5px',
               fontWeight: '600',
               cursor: 'pointer'
             }}
@@ -827,48 +720,28 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
             Cancel
           </button>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => handleSave(true)}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                border: '1.5px solid #bfdbfe',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              Save & Add Another
-            </button>
-
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => handleSave(false)}
-              style={{
-                padding: '10px 22px',
-                borderRadius: '10px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: '#ffffff',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <CheckCircle2 size={16} />
-              {submitting ? 'Creating...' : 'Create Task'}
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleSave(false)}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '7px',
+              border: 'none',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 1px 4px rgba(2, 132, 199, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            <CheckCircle2 size={14} />
+            {submitting ? 'Creating...' : 'Create Task'}
+          </button>
         </div>
       </div>
     </div>

@@ -13,6 +13,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from './ToastContext';
 import { useHR } from '../../modules/hr/context/HRContext';
+import { useAuth } from './AuthContext';
+import { hrService } from '../../modules/hr/services/hrService';
 
 const TimerContext = createContext();
 
@@ -29,35 +31,132 @@ export const BREAK_THRESHOLDS = {
 
 export const TimerProvider = ({ children }) => {
   const { addToast } = useToast();
-  const { currentUser } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { currentUser: hrUser } = useHR();
+  const currentUser = authUser || hrUser;
 
   const getTodayStr = () => new Date().toISOString().split('T')[0];
 
   // Derive stable userKey for multi-user storage isolation
   const userKey = useMemo(() => {
-    if (currentUser?._id) return String(currentUser._id);
-    if (currentUser?.employeeCode) return String(currentUser.employeeCode);
-    try {
-      const emps = JSON.parse(localStorage.getItem('ems_employees') || '[]');
-      const curr = emps.find(e => e.isCurrentUser);
-      if (curr?._id) return String(curr._id);
-    } catch (e) {}
-    return 'emp_001';
+    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
   }, [currentUser]);
+
+  // Resolve canonical employee profile from storage to bridge _id, employeeCode, and name
+  const resolvedEmp = useMemo(() => {
+    try {
+      const empsRaw = localStorage.getItem('hrms_employees');
+      const allEmps = empsRaw ? JSON.parse(empsRaw) : [];
+      const match = allEmps.find(e =>
+        (currentUser?._id && (e._id === currentUser._id || e.employeeCode === currentUser._id)) ||
+        (currentUser?.employeeCode && (e.employeeCode === currentUser.employeeCode || e._id === currentUser.employeeCode)) ||
+        (currentUser?.email && e.email?.toLowerCase() === currentUser.email?.toLowerCase()) ||
+        (currentUser?.name && e.name?.toLowerCase() === currentUser.name?.toLowerCase()) ||
+        (userKey && (e.employeeCode === userKey || e._id === userKey))
+      );
+      return match || currentUser;
+    } catch {
+      return currentUser;
+    }
+  }, [currentUser, userKey]);
+
+  const targetEmpId = resolvedEmp?._id || currentUser?._id || (userKey.startsWith('emp_') ? userKey : 'emp_admin');
+  const targetEmpCode = resolvedEmp?.employeeCode || currentUser?.employeeCode || userKey;
+  const targetEmpName = currentUser?.name || resolvedEmp?.name || 'Employee';
+
+  // Helper: robustly check if an attendance record belongs to the current user
+  const isRecordForUser = useCallback((rec, dateStr) => {
+    if (!rec || rec.date !== dateStr) return false;
+    const recEmpId = String(rec.employeeId || '');
+    const recEmpCode = String(rec.employeeCode || '');
+    const recEmpName = String(rec.employeeName || '').trim().toLowerCase();
+    const currName = String(targetEmpName).trim().toLowerCase();
+
+    if (recEmpId && (
+      recEmpId === String(targetEmpId) ||
+      recEmpId === String(targetEmpCode) ||
+      recEmpId === String(userKey) ||
+      (currentUser?._id && recEmpId === String(currentUser._id)) ||
+      (currentUser?.employeeCode && recEmpId === String(currentUser.employeeCode))
+    )) {
+      return true;
+    }
+
+    if (recEmpCode && (
+      recEmpCode === String(targetEmpCode) ||
+      recEmpCode === String(targetEmpId) ||
+      recEmpCode === String(userKey) ||
+      (currentUser?.employeeCode && recEmpCode === String(currentUser.employeeCode))
+    )) {
+      return true;
+    }
+
+    if (recEmpName && currName && recEmpName === currName) {
+      return true;
+    }
+
+    return false;
+  }, [targetEmpId, targetEmpCode, userKey, currentUser, targetEmpName]);
 
   const k = useCallback((name) => `ems_timer_${userKey}_${name}`, [userKey]);
 
-  // ── Helper to read state with userKey scoping and legacy fallback ──
+  // ── Helper to read state with userKey scoping ──
   const readUserItem = useCallback((name, fallback = null) => {
     const scoped = localStorage.getItem(`ems_timer_${userKey}_${name}`);
     if (scoped !== null) return scoped;
-    // Fallback to legacy key for emp_001 to prevent data loss
-    if (userKey === 'emp_001') {
-      const legacy = localStorage.getItem(`ems_${name}`) || localStorage.getItem(`hrms_${name}`);
-      if (legacy !== null) return legacy;
-    }
     return fallback;
   }, [userKey]);
+
+  // ── Centralized Audit Logging Helper ──
+  const recordAuditLog = useCallback(async (eventData) => {
+    try {
+      const today = getTodayStr();
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      await hrService.createAttendanceAuditLog({
+        employeeId: targetEmpId,
+        employeeName: targetEmpName,
+        employeeCode: targetEmpCode,
+        date: today,
+        timeFormatted: nowStr,
+        actor: currentUser?.isAdmin ? 'admin' : 'employee',
+        actorId: targetEmpId,
+        actorName: targetEmpName,
+        ...eventData
+      });
+    } catch (e) {
+      console.warn('Failed to record attendance audit log:', e);
+    }
+  }, [targetEmpId, targetEmpCode, targetEmpName, currentUser]);
+
+  // ── Admin Override Force Clock-Out Listener ──
+  useEffect(() => {
+    const handleForceClockOutEvent = (e) => {
+      const { employeeId, adminName, adminId, auditNote } = e.detail || {};
+      if (employeeId === userKey || employeeId === currentUser?._id || employeeId === currentUser?.employeeCode) {
+        setIsRunning(false);
+        setIsOnBreak(false);
+        setIsClockedIn(false);
+        setHadClockedOutToday(true);
+        const logoutStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        setClockOutTime(logoutStr);
+
+        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_clockout_time`, logoutStr);
+        localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'true');
+
+        addToast({
+          title: '⚠️ Shift Forcefully Clocked Out',
+          message: `Administrator ${adminName || 'Admin'} [ID: ${adminId || 'ADM'}] clocked out your shift. Reason: "${auditNote || 'Manual admin override'}"`,
+          type: 'warning'
+        });
+      }
+    };
+
+    window.addEventListener('ems_force_clock_out', handleForceClockOutEvent);
+    return () => window.removeEventListener('ems_force_clock_out', handleForceClockOutEvent);
+  }, [userKey, currentUser, addToast]);
 
   // ── 1. Daily Clock In / Out State (User-Scoped & Validated against Today) ──
   const [sessionDate, setSessionDate] = useState(() => {
@@ -68,12 +167,46 @@ export const TimerProvider = ({ children }) => {
 
   const [loginTime, setLoginTime] = useState(() => {
     if (!isTodaySession) return null;
-    return localStorage.getItem(`ems_timer_${userKey}_login_time`) || (userKey === 'emp_001' ? localStorage.getItem('ems_login_time') : null);
+    const scoped = localStorage.getItem(`ems_timer_${userKey}_login_time`);
+    if (scoped) return scoped;
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const att = JSON.parse(attRaw);
+        const today = new Date().toISOString().split('T')[0];
+        const rec = att.find(a => a.date === today && (
+          a.employeeId === targetEmpId ||
+          a.employeeId === targetEmpCode ||
+          a.employeeId === userKey ||
+          a.employeeCode === targetEmpCode ||
+          (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
+        ));
+        if (rec?.clockInTime || rec?.clockIn) return rec.clockInTime || rec.clockIn;
+      }
+    } catch {}
+    return userKey === 'emp_001' ? localStorage.getItem('ems_login_time') : null;
   });
 
   const [clockOutTime, setClockOutTime] = useState(() => {
     if (!isTodaySession) return null;
-    return localStorage.getItem(`ems_timer_${userKey}_clockout_time`) || (userKey === 'emp_001' ? localStorage.getItem('ems_clockout_time') : null);
+    const scoped = localStorage.getItem(`ems_timer_${userKey}_clockout_time`);
+    if (scoped) return scoped;
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const att = JSON.parse(attRaw);
+        const today = new Date().toISOString().split('T')[0];
+        const rec = att.find(a => a.date === today && (
+          a.employeeId === targetEmpId ||
+          a.employeeId === targetEmpCode ||
+          a.employeeId === userKey ||
+          a.employeeCode === targetEmpCode ||
+          (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
+        ));
+        if (rec?.clockOutTime || rec?.clockOut) return rec.clockOutTime || rec.clockOut;
+      }
+    } catch {}
+    return userKey === 'emp_001' ? localStorage.getItem('ems_clockout_time') : null;
   });
 
   const [hadClockedOutToday, setHadClockedOutToday] = useState(() => {
@@ -332,6 +465,10 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem(`ems_timer_${userKey}_reclock_status`, 'none');
       localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, '0');
       localStorage.setItem(`ems_timer_${userKey}_saved_official_seconds`, '0');
+
+      window.dispatchEvent(new CustomEvent('ems_day_rollover', {
+        detail: { newDate: today, previousDate: sessionDate, userKey }
+      }));
     }
   }, [sessionDate, userKey]);
 
@@ -513,6 +650,18 @@ export const TimerProvider = ({ children }) => {
       detail: { breakType: type, targetMinutes: minutesChosen, notes }
     }));
 
+    // Record audit trail event for break trigger
+    const isTea = type.toLowerCase().includes('tea');
+    const isLunch = type.toLowerCase().includes('lunch');
+    const logType = isTea ? 'tea_break_start' : (isLunch ? 'lunch_break_start' : 'break_start');
+    const logAction = isTea ? 'Tea Break Started' : (isLunch ? 'Lunch Break Started' : `${type} Started`);
+
+    recordAuditLog({
+      type: logType,
+      action: logAction,
+      details: `${type} (${minutesChosen} min target) started at ${startTimeStr}. Work and task timers paused.`
+    });
+
     addToast({
       title: `On ${type} ☕ (${minutesChosen} min target)`,
       message: `Break started at ${startTimeStr}. Task & work timers paused. Break timer active.`,
@@ -555,6 +704,20 @@ export const TimerProvider = ({ children }) => {
 
     // Notify other components (WorkContext task timers can resume)
     window.dispatchEvent(new CustomEvent('ems_break_ended'));
+
+    // Record audit trail event for break completion
+    const isTea = breakType.toLowerCase().includes('tea');
+    const isLunch = breakType.toLowerCase().includes('lunch');
+    const logType = isTea ? 'tea_break_end' : (isLunch ? 'lunch_break_end' : 'break_end');
+    const logAction = isTea ? 'Resumed from Tea Break' : (isLunch ? 'Resumed from Lunch Break' : `Resumed from ${breakType}`);
+
+    recordAuditLog({
+      type: logType,
+      action: logAction,
+      durationSeconds: duration,
+      durationText: formatMinutesSeconds(duration),
+      details: `Ended ${breakType} after ${formatMinutesSeconds(duration)}. Work session resumed at ${endTimeStr}.`
+    });
 
     addToast({
       title: 'Welcome Back! 🚀',
@@ -666,31 +829,55 @@ export const TimerProvider = ({ children }) => {
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
       const attendance = attRaw ? JSON.parse(attRaw) : [];
-      const existingIdx = attendance.findIndex(a => a.employeeId === userKey && a.date === today);
+      const existingIdx = attendance.findIndex(a => isRecordForUser(a, today));
+
+      const existingRec = existingIdx >= 0 ? attendance[existingIdx] : null;
+      const initialClockIn = isFirstClockIn
+        ? nowStr
+        : (existingRec?.clockInTime || existingRec?.clockIn || loginTime || nowStr);
 
       const record = {
-        _id: existingIdx >= 0 ? attendance[existingIdx]._id : `att_${userKey}_${Date.now()}`,
-        employeeId: userKey,
-        employeeName: currentUser?.name || 'Employee',
+        _id: existingRec ? existingRec._id : `att_${targetEmpId}_${Date.now()}`,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        employeeName: targetEmpName,
         date: today,
-        status: 'present',
-        clockInTime: isFirstClockIn ? nowStr : (attendance[existingIdx]?.clockInTime || loginTime || nowStr),
+        status: existingRec?.status === 'absent' ? 'present' : (existingRec?.status || 'present'),
+        clockInTime: initialClockIn,
+        clockIn: initialClockIn,
         clockOutTime: null,
+        clockOut: null,
         totalWorkingHours: +(workSeconds / 3600).toFixed(2),
         isLate: false,
+        notes: existingRec?.notes || '',
         updatedAt: new Date().toISOString()
       };
 
       if (existingIdx >= 0) {
         attendance[existingIdx] = { ...attendance[existingIdx], ...record };
       } else {
-        attendance.push(record);
+        attendance.unshift(record);
       }
       localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+      window.dispatchEvent(new CustomEvent('ems_attendance_updated', { detail: { record } }));
     } catch (e) {
       console.error('Error recording clock-in to attendance:', e);
     }
+
+    // Notify WorkContext and other modules
+    window.dispatchEvent(new CustomEvent('ems_clocked_in', {
+      detail: { userKey, loginTime: nowStr, date: today }
+    }));
+
+    // Record audit trail for clock-in trigger
+    recordAuditLog({
+      type: 'clock_in',
+      action: isFirstClockIn ? 'Shift Clock In' : 'Shift Resumed',
+      details: isFirstClockIn
+        ? `${targetEmpName} clocked in to begin shift at ${nowStr}. Live work timer running.`
+        : `Shift resumed at ${nowStr}. Continuing time tracking.`
+    });
 
     addToast({
       title: isFirstClockIn ? 'Clocked In Successfully! 🟢' : 'Shift Resumed! 🟢',
@@ -700,6 +887,17 @@ export const TimerProvider = ({ children }) => {
       type: 'success'
     });
   };
+
+  // ── Auto Clock-In Event Listener (called when employee starts a task timer) ──
+  useEffect(() => {
+    const handleRequestClockIn = () => {
+      if (!isClockedIn) {
+        handleClockIn();
+      }
+    };
+    window.addEventListener('ems_request_clock_in', handleRequestClockIn);
+    return () => window.removeEventListener('ems_request_clock_in', handleRequestClockIn);
+  }, [isClockedIn, handleClockIn]);
 
   /**
    * Clock Out Handler
@@ -731,26 +929,66 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
     localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
 
-    // Update Attendance Collection record with final verified hours
+    // Notify WorkContext and other modules that employee clocked out!
+    window.dispatchEvent(new CustomEvent('ems_clocked_out', {
+      detail: { userKey, logoutTime: logoutStr, date: today }
+    }));
+
+    // Update Attendance Collection record with final verified hours & clockOutTime
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
       const attendance = attRaw ? JSON.parse(attRaw) : [];
-      const existingIdx = attendance.findIndex(a => a.employeeId === userKey && a.date === today);
+      const existingIdx = attendance.findIndex(a => isRecordForUser(a, today));
       const computedHours = +(workSeconds / 3600).toFixed(2);
+      const existingRec = existingIdx >= 0 ? attendance[existingIdx] : null;
+      const finalClockIn = existingRec?.clockInTime || existingRec?.clockIn || loginTime || '09:30 AM';
+
+      const updatedRecord = {
+        _id: existingRec ? existingRec._id : `att_${targetEmpId}_${Date.now()}`,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        employeeName: targetEmpName,
+        date: today,
+        status: existingRec?.status || 'present',
+        clockInTime: finalClockIn,
+        clockIn: finalClockIn,
+        clockOutTime: logoutStr,
+        clockOut: logoutStr,
+        totalWorkingHours: computedHours || existingRec?.totalWorkingHours || 8,
+        notes: existingRec?.notes || '',
+        updatedAt: new Date().toISOString()
+      };
 
       if (existingIdx >= 0) {
         attendance[existingIdx] = {
           ...attendance[existingIdx],
-          clockOutTime: logoutStr,
-          totalWorkingHours: computedHours,
-          updatedAt: new Date().toISOString()
+          ...updatedRecord
         };
-        localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+      } else {
+        // ALWAYS create a record if none existed, NEVER drop the clock out!
+        attendance.unshift(updatedRecord);
       }
+
+      localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+      window.dispatchEvent(new CustomEvent('ems_attendance_updated', { detail: { record: updatedRecord } }));
+
+      // Also invoke hrService background sync fallback
+      try {
+        hrService.markAttendance(updatedRecord).catch(() => {});
+      } catch {}
     } catch (e) {
       console.error('Error updating clock-out to attendance:', e);
     }
+
+    // Record audit trail for clock-out trigger
+    recordAuditLog({
+      type: 'clock_out',
+      action: 'Shift Clock Out',
+      durationSeconds: workSeconds,
+      durationText: formatHoursMinutes(workSeconds),
+      details: `${targetEmpName} ended shift at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(workSeconds)}, Total Breaks: ${formatHoursMinutes(breakSeconds)}.`
+    });
 
     addToast({
       title: 'Shift Clocked Out 🔴',
@@ -852,7 +1090,11 @@ export const TimerProvider = ({ children }) => {
       // Update today's attendance record with updated status
       const attRaw = localStorage.getItem('hrms_attendance');
       const attendance = attRaw ? JSON.parse(attRaw) : [];
-      const idx = attendance.findIndex(a => a.employeeId === targetReq.employeeId && a.date === targetReq.date);
+      const idx = attendance.findIndex(a => (
+        a.employeeId === targetReq.employeeId ||
+        a.employeeCode === targetReq.employeeId ||
+        (a.employeeName && targetReq.employeeName && a.employeeName.toLowerCase() === targetReq.employeeName.toLowerCase())
+      ) && a.date === targetReq.date);
       if (idx >= 0) {
         attendance[idx].reclockApproved = true;
         attendance[idx].clockOutTime = null; // reopened
@@ -1028,7 +1270,12 @@ export const TimerProvider = ({ children }) => {
       pendingReclockRequests,
       requestReclockIn,
       approveReclockRequest,
-      rejectReclockRequest
+      rejectReclockRequest,
+      // ── Audit Trail & Admin Overrides ──
+      recordAuditLog,
+      adminForceClockOut: async (targetEmpId, auditNote) => {
+        return await hrService.adminForceClockOut(targetEmpId, auditNote);
+      }
     }}>
       {children}
     </TimerContext.Provider>

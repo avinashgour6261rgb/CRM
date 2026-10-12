@@ -7,13 +7,45 @@
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
 
+let backendOnlineCache = null;
+let lastCheckTime = 0;
+const CACHE_TTL_MS = 25000; // 25s cache to prevent repeated 500 error spam when backend is offline
+
 const isBackendAvailable = async () => {
-  try {
-    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(1200) });
-    return res.ok;
-  } catch {
-    return false;
+  const now = Date.now();
+  if (backendOnlineCache !== null && (now - lastCheckTime < CACHE_TTL_MS)) {
+    return backendOnlineCache;
   }
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(800) });
+    backendOnlineCache = res.ok;
+  } catch {
+    backendOnlineCache = false;
+  }
+  lastCheckTime = now;
+  return backendOnlineCache;
+};
+
+const getLocalDateString = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const getAuthUser = () => {
+  try {
+    const s = localStorage.getItem('ems_auth_session');
+    return s ? JSON.parse(s) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getAuthHeaders = () => {
+  const u = getAuthUser();
+  if (u) {
+    return {
+      'x-user-id': u._id || u.employeeCode || '',
+      'x-user-role': u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member'))
+    };
+  }
+  return {};
 };
 
 export const workService = {
@@ -86,6 +118,7 @@ export const workService = {
     };
     projects.unshift(newProject);
     saveCollection(KEYS.PROJECTS, projects);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
     return newProject;
   },
 
@@ -111,6 +144,7 @@ export const workService = {
     if (index !== -1) {
       projects[index] = { ...projects[index], ...updateData };
       saveCollection(KEYS.PROJECTS, projects);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
       return projects[index];
     }
     return null;
@@ -129,6 +163,7 @@ export const workService = {
     const projects = getCollection(KEYS.PROJECTS);
     const filtered = projects.filter(p => p._id !== id);
     saveCollection(KEYS.PROJECTS, filtered);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
     return true;
   },
 
@@ -146,7 +181,9 @@ export const workService = {
         if (filters.hideCompleted) queryParams.append('hideCompleted', 'true');
         if (filters.search) queryParams.append('search', filters.search);
 
-        const res = await fetch(`${API_BASE_URL}/tasks?${queryParams.toString()}`);
+        const res = await fetch(`${API_BASE_URL}/tasks?${queryParams.toString()}`, {
+          headers: getAuthHeaders()
+        });
         if (res.ok) {
           const json = await res.json();
           return json.data;
@@ -158,6 +195,22 @@ export const workService = {
 
     // LocalStorage Fallback
     let list = getCollection(KEYS.TASKS);
+    const authUser = getAuthUser();
+    const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
+
+    // Strict tenant isolation: regular employees can ONLY view tasks assigned to them
+    if (!isPrivileged && authUser) {
+      list = list.filter(t =>
+        t.assignedToId === authUser._id ||
+        t.assignedTo === authUser._id ||
+        t.assignedToId === authUser.employeeCode ||
+        t.assignedTo === authUser.employeeCode ||
+        (t.assignedToName && authUser.name && t.assignedToName.toLowerCase() === authUser.name.toLowerCase())
+      );
+    } else if (filters.assignedTo && filters.assignedTo !== 'all') {
+      list = list.filter(t => t.assignedToId === filters.assignedTo || t.assignedTo === filters.assignedTo);
+    }
+
     if (filters.projectId && filters.projectId !== 'all') {
       list = list.filter(t => t.projectId === filters.projectId || t.projectCode === filters.projectId);
     }
@@ -168,9 +221,6 @@ export const workService = {
     }
     if (filters.priority && filters.priority !== 'all') {
       list = list.filter(t => t.priority === filters.priority);
-    }
-    if (filters.assignedTo && filters.assignedTo !== 'all') {
-      list = list.filter(t => t.assignedToId === filters.assignedTo || t.assignedTo === filters.assignedTo);
     }
     if (filters.assignedBy && filters.assignedBy !== 'all') {
       list = list.filter(t => t.assignedById === filters.assignedBy || t.assignedBy === filters.assignedBy);
@@ -184,7 +234,12 @@ export const workService = {
         t.assignedToName?.toLowerCase().includes(q)
       );
     }
-    return list;
+
+    const today = getLocalDateString();
+    return list.map(t => ({
+      ...t,
+      isOverdue: !!(t.dueDate && !t.hasNoDueDate && t.dueDate < today && t.status !== 'completed')
+    }));
   },
 
   async createTask(taskData) {
@@ -309,7 +364,9 @@ export const workService = {
         if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
         if (filters.search) queryParams.append('search', filters.search);
 
-        const res = await fetch(`${API_BASE_URL}/timesheet?${queryParams.toString()}`);
+        const res = await fetch(`${API_BASE_URL}/timesheet?${queryParams.toString()}`, {
+          headers: getAuthHeaders()
+        });
         if (res.ok) {
           const json = await res.json();
           return json.data;
@@ -321,9 +378,22 @@ export const workService = {
 
     // LocalStorage Fallback
     let list = getCollection(KEYS.TIMESHEETS);
-    if (filters.employeeId && filters.employeeId !== 'all') {
-      list = list.filter(ts => ts.employeeId === filters.employeeId || ts.employee === filters.employeeId);
+    const authUser = getAuthUser();
+    const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
+
+    // Strict tenant isolation: regular employees can ONLY view their own personal timesheets
+    if (!isPrivileged && authUser) {
+      list = list.filter(ts =>
+        ts.employeeId === authUser._id ||
+        ts.employee === authUser._id ||
+        ts.employeeId === authUser.employeeCode ||
+        ts.employee === authUser.employeeCode ||
+        (ts.employeeName && authUser.name && ts.employeeName.toLowerCase() === authUser.name.toLowerCase())
+      );
+    } else if (filters.employeeId && filters.employeeId !== 'all') {
+      list = list.filter(ts => ts.employeeId === filters.employeeId || ts.employee === filters.employeeId || ts.employeeCode === filters.employeeId);
     }
+
     if (filters.projectId && filters.projectId !== 'all') {
       list = list.filter(ts => ts.projectId === filters.projectId || ts.project === filters.projectId);
     }
@@ -349,19 +419,26 @@ export const workService = {
   },
 
   async createTimesheet(entryData) {
+    const authUser = getAuthUser();
+    const enrichedData = {
+      ...entryData,
+      employeeId: entryData.employeeId || authUser?._id || authUser?.employeeCode || '',
+      employeeName: entryData.employeeName || authUser?.name || 'Employee'
+    };
+
     if (await isBackendAvailable()) {
       try {
         const res = await fetch(`${API_BASE_URL}/timesheet`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entryData)
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify(enrichedData)
         });
         if (res.ok) {
           const json = await res.json();
           return json.data;
         }
       } catch (err) {
-        console.warn('Backend timesheet log failed, using local storage:', err);
+        console.warn('Backend timesheet creation failed, using local storage:', err);
       }
     }
 
@@ -373,6 +450,7 @@ export const workService = {
     };
     timesheets.unshift(newEntry);
     saveCollection(KEYS.TIMESHEETS, timesheets);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
 
     // Update task logged hours
     if (entryData.taskId) {
@@ -415,6 +493,7 @@ export const workService = {
     const task = tasks.find(t => t._id === taskId);
     if (task) {
       task.timerRunning = false;
+      task.timerSeconds = 0;
       const hoursAdded = totalDurationSeconds / 3600;
       task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
       const totalSecs = Math.round(task.hoursLogged * 3600);
@@ -436,12 +515,11 @@ export const workService = {
       taskCode: task?.taskCode || '',
       taskTitle: task?.title || 'Tracked Session',
       projectId: task?.projectId || '',
-      projectName: task?.projectName || 'General Work',
-      employeeId: task?.assignedToId || 'emp_001',
+      employeeId: task?.assignedToId || '',
       employeeName: task?.assignedToName || 'Team Member',
       employeeAvatar: task?.assignedToAvatar || '',
       employeeRole: task?.assignedToRole || '',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
       endTime: endTime || new Date().toTimeString().split(' ')[0],
       totalDurationSeconds,
@@ -452,6 +530,7 @@ export const workService = {
     };
     timesheets.unshift(newLog);
     saveCollection(KEYS.TIMESHEETS, timesheets);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
     return newLog;
   },
 

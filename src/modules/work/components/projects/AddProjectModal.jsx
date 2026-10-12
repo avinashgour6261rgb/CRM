@@ -1,6 +1,7 @@
 /**
  * @file AddProjectModal.jsx
- * @description Streamlined, responsive, and easy-to-write project creation modal.
+ * @description Clean, easy, and modern project creation modal.
+ * Ensures projects are company-wide and immediately visible to all team members across all roles.
  */
 
 import React, { useState } from 'react';
@@ -11,27 +12,29 @@ import {
   DollarSign,
   Users,
   CheckCircle2,
-  Plus
+  Plus,
+  Building2,
+  Globe
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 
 const CATEGORIES = [
-  'Digital Marketing',
   'Web Development',
-  'Mobile App Development',
+  'Digital Marketing',
   'UI/UX Design',
+  'Mobile App Development',
   'Cloud Infrastructure',
   'SEO & Growth',
   'Internal / Ops'
 ];
 
 const DEPARTMENTS = [
-  'Marketing & Growth',
   'Engineering',
+  'Marketing & Growth',
   'Product Design',
-  'Human Resources',
   'Sales & CRM',
+  'Human Resources',
   'Executive Management'
 ];
 
@@ -39,25 +42,32 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   const { createProject, employees, projects } = useWork();
   const { addToast } = useToast();
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const nextMonth = new Date();
-  nextMonth.setMonth(nextMonth.getMonth() + 2);
-  const deadlineStr = nextMonth.toISOString().split('T')[0];
+  const getTodayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
 
-  const defaultCode = `PRJ-${String(projects.length + 1).padStart(3, '0')}`;
+  const getOffsetMonthStr = (months = 2) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const defaultCode = `PRJ-${String((projects?.length || 0) + 1).padStart(3, '0')}`;
 
   const [formData, setFormData] = useState({
     name: '',
     projectCode: defaultCode,
     client: '',
-    category: 'Digital Marketing',
+    category: 'Web Development',
     department: 'Engineering',
-    startDate: todayStr,
-    deadline: deadlineStr,
+    startDate: getTodayStr(),
+    deadline: getOffsetMonthStr(2),
     budget: '50000',
     currency: 'INR',
     summary: '',
-    selectedMembers: employees.slice(0, 3).map(e => e._id)
+    isCompanyWide: true,
+    selectedMembers: (employees || []).map(e => e._id)
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -74,8 +84,28 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
       const next = exists
         ? prev.selectedMembers.filter(id => id !== empId)
         : [...prev.selectedMembers, empId];
-      return { ...prev, selectedMembers: next };
+      return {
+        ...prev,
+        selectedMembers: next,
+        isCompanyWide: next.length === employees.length
+      };
     });
+  };
+
+  const selectAllMembers = () => {
+    setFormData(prev => ({
+      ...prev,
+      selectedMembers: employees.map(e => e._id),
+      isCompanyWide: true
+    }));
+  };
+
+  const clearAllMembers = () => {
+    setFormData(prev => ({
+      ...prev,
+      selectedMembers: [],
+      isCompanyWide: false
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -87,6 +117,13 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
 
     setSubmitting(true);
     try {
+      // Determine project members: if company-wide or all selected, include all employees
+      const memberList = formData.isCompanyWide || formData.selectedMembers.length === 0
+        ? employees.map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }))
+        : employees
+            .filter(e => formData.selectedMembers.includes(e._id))
+            .map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }));
+
       await createProject({
         name: formData.name.trim(),
         projectCode: (formData.projectCode || defaultCode).toUpperCase(),
@@ -100,17 +137,11 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         summary: formData.summary.trim(),
         status: 'in_progress',
         progress: 0,
-        members: employees
-          .filter(e => formData.selectedMembers.includes(e._id))
-          .map(e => ({
-            _id: e._id,
-            name: e.name,
-            avatar: e.avatar,
-            role: e.role
-          }))
+        isCompanyWide: formData.isCompanyWide,
+        members: memberList
       });
 
-      addToast(`Project "${formData.name}" created successfully!`, 'success');
+      addToast(`Project "${formData.name}" created! Visible to all company members.`, 'success');
       onClose();
     } catch (err) {
       console.error(err);
@@ -127,7 +158,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
+      backgroundColor: 'rgba(15, 23, 42, 0.6)',
       backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
@@ -137,19 +168,19 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     }}>
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '20px',
+        borderRadius: '16px',
         width: '100%',
-        maxWidth: '760px',
+        maxWidth: '600px',
         maxHeight: '92vh',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)',
         border: '1px solid #e2e8f0',
         overflow: 'hidden'
       }}>
         {/* Header */}
         <div style={{
-          padding: '18px 24px',
+          padding: '16px 20px',
           borderBottom: '1px solid #f1f5f9',
           display: 'flex',
           alignItems: 'center',
@@ -171,22 +202,23 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               <FolderGit2 size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
                 Create New Project
               </h2>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Set up a new client or internal project milestone
-              </span>
+              <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+                Add a company project accessible across Admin, HR, and team members
+              </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
+            aria-label="Close modal"
             style={{
-              background: 'transparent',
-              border: 'none',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
               cursor: 'pointer',
-              color: '#94a3b8',
+              color: '#64748b',
               padding: '6px',
               borderRadius: '8px',
               display: 'flex',
@@ -194,43 +226,42 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               justifyContent: 'center'
             }}
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleSubmit} style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          
           {/* Project Name & Code */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-            <div style={{ flex: 2 }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
                 Project Name <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="e.g. Inforag Cloud Dashboard"
+                placeholder="e.g. Inforag Cloud Dashboard, Novainfinity Revamp"
                 autoFocus
                 required
                 style={{
                   width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '14.5px',
-                  fontWeight: '500',
+                  fontSize: '13.5px',
+                  fontWeight: '600',
                   color: '#0f172a',
                   outline: 'none',
                   backgroundColor: '#ffffff'
                 }}
-                onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-                onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                 Project Code
               </label>
               <input
@@ -240,12 +271,12 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 placeholder="PRJ-001"
                 style={{
                   width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '700',
-                  color: '#2563eb',
+                  color: '#0284c7',
                   outline: 'none',
                   backgroundColor: '#f8fafc',
                   textTransform: 'uppercase'
@@ -255,22 +286,22 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Client & Category */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Client / Company Name
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                Client / Brand Name
               </label>
               <input
                 type="text"
                 value={formData.client}
                 onChange={(e) => handleChange('client', e.target.value)}
-                placeholder="e.g. Apex Media Group / In-House"
+                placeholder="e.g. Internal / Apex Solutions"
                 style={{
                   width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
+                  fontSize: '12.5px',
                   color: '#0f172a',
                   outline: 'none',
                   backgroundColor: '#ffffff'
@@ -279,7 +310,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                 Category
               </label>
               <select
@@ -287,10 +318,10 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 onChange={(e) => handleChange('category', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
+                  fontSize: '12.5px',
                   color: '#0f172a',
                   outline: 'none',
                   backgroundColor: '#ffffff'
@@ -303,10 +334,10 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Dates & Budget */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          {/* Dates & Quick Presets */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
                 Start Date
               </label>
               <input
@@ -315,10 +346,10 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 onChange={(e) => handleChange('startDate', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   color: '#0f172a',
                   outline: 'none'
                 }}
@@ -326,40 +357,38 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
-                Project Deadline
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                  Target Deadline
+                </label>
+                <div style={{ display: 'flex', gap: '3px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('deadline', getOffsetMonthStr(1))}
+                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    1 Month
+                  </button>
+                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>•</span>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('deadline', getOffsetMonthStr(3))}
+                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    3 Months
+                  </button>
+                </div>
+              </div>
               <input
                 type="date"
                 value={formData.deadline}
                 onChange={(e) => handleChange('deadline', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
                   border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  color: '#0f172a',
-                  outline: 'none'
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
-                Budget (INR ₹)
-              </label>
-              <input
-                type="number"
-                value={formData.budget}
-                onChange={(e) => handleChange('budget', e.target.value)}
-                placeholder="50000"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   color: '#0f172a',
                   outline: 'none'
                 }}
@@ -367,92 +396,125 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Team Members Assignment */}
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
-              Assign Team Members ({formData.selectedMembers.length} Selected)
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '120px', overflowY: 'auto', padding: '4px' }}>
-              {employees.map(emp => {
+          {/* Company-Wide Team Access (Key requirement!) */}
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Building2 size={15} color="#0284c7" />
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                  Company-Wide Visibility & Members
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={selectAllMembers}
+                  style={{ fontSize: '10.5px', color: '#0284c7', background: '#e0f2fe', border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  All Employees ({employees?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAllMembers}
+                  style={{ fontSize: '10.5px', color: '#64748b', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
+              All selected employees will see this project in their task assignments, project dashboard, and time tracker.
+            </p>
+
+            {/* Member Chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '90px', overflowY: 'auto', paddingTop: '2px' }}>
+              {employees && employees.map(emp => {
                 const isSelected = formData.selectedMembers.includes(emp._id);
                 return (
-                  <div
+                  <button
                     key={emp._id}
+                    type="button"
                     onClick={() => toggleMember(emp._id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: isSelected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
+                      gap: '5px',
+                      padding: '4px 8px',
+                      borderRadius: '14px',
+                      border: isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
                       backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      userSelect: 'none'
+                      color: isSelected ? '#0369a1' : '#475569',
+                      fontSize: '11px',
+                      fontWeight: isSelected ? '700' : '500',
+                      cursor: 'pointer'
                     }}
                   >
                     <img
                       src={emp.avatar}
                       alt={emp.name}
-                      style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                      style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
                     />
-                    <span style={{ fontSize: '12.5px', fontWeight: isSelected ? '700' : '500', color: isSelected ? '#1d4ed8' : '#334155' }}>
-                      {emp.name}
-                    </span>
-                    {isSelected && <CheckCircle2 size={13} color="#2563eb" />}
-                  </div>
+                    <span>{emp.name}</span>
+                    {isSelected && <CheckCircle2 size={11} color="#0284c7" />}
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Project Summary Textarea */}
+          {/* Project Summary */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-              Project Summary & Scope
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              Project Summary & Scope (Optional)
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={formData.summary}
               onChange={(e) => handleChange('summary', e.target.value)}
-              placeholder="Describe the main objectives, deliverables, timeline and scope of this project..."
+              placeholder="Describe deliverables, key targets, or client objectives..."
               style={{
                 width: '100%',
-                padding: '12px 14px',
-                borderRadius: '10px',
+                padding: '8px 10px',
+                borderRadius: '8px',
                 border: '1.5px solid #cbd5e1',
-                fontSize: '13.5px',
-                lineHeight: '1.5',
+                fontSize: '12.5px',
+                lineHeight: '1.4',
                 color: '#0f172a',
                 outline: 'none',
-                resize: 'vertical',
+                resize: 'none',
                 fontFamily: 'inherit'
               }}
-              onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-              onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
             />
           </div>
 
-          {/* Footer Actions */}
+          {/* Modal Footer Actions */}
           <div style={{
-            paddingTop: '16px',
+            paddingTop: '12px',
             borderTop: '1px solid #f1f5f9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            gap: '10px'
+            gap: '8px'
           }}>
             <button
               type="button"
               onClick={onClose}
               style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
+                padding: '7px 14px',
+                borderRadius: '7px',
                 border: '1px solid #cbd5e1',
                 backgroundColor: '#ffffff',
                 color: '#475569',
-                fontSize: '13.5px',
+                fontSize: '12.5px',
                 fontWeight: '600',
                 cursor: 'pointer'
               }}
@@ -464,22 +526,22 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               type="submit"
               disabled={submitting}
               style={{
-                padding: '10px 22px',
-                borderRadius: '10px',
+                padding: '8px 18px',
+                borderRadius: '7px',
                 border: 'none',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                backgroundColor: '#0284c7',
                 color: '#ffffff',
-                fontSize: '13.5px',
+                fontSize: '12.5px',
                 fontWeight: '700',
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.35)',
+                boxShadow: '0 1px 4px rgba(2, 132, 199, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
-              <CheckCircle2 size={16} />
-              {submitting ? 'Creating Project...' : 'Create Project'}
+              <CheckCircle2 size={14} />
+              {submitting ? 'Creating...' : 'Create Project'}
             </button>
           </div>
         </form>

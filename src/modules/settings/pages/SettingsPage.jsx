@@ -32,7 +32,7 @@ export const SettingsPage = () => {
     { id: 'profile', label: 'Profile Settings', icon: User },
     { id: 'security', label: 'Security Settings', icon: ShieldCheck },
     { id: 'roles', label: 'Roles & Hierarchy (RBAC)', icon: Layers },
-    { id: 'company', label: 'Company & Payslip Branding', icon: Building2 }
+    { id: 'company', label: 'Company, Shift & Payslip Settings', icon: Building2 }
   ];
 
   const filteredMenuItems = menuItems.filter(item =>

@@ -18,11 +18,19 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
 
 export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   const { updateExpenseStatus, deleteExpense } = useCRM();
+  const { currentUser } = useAuth();
 
   if (!isOpen || !expense) return null;
+
+  const isClaimant = (expense.employeeId && currentUser?._id && expense.employeeId === currentUser._id) ||
+    (expense.employeeName && currentUser?.name && expense.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+  const canApprove = !isClaimant && isHRorAdmin(currentUser);
+  const canDelete = isAdmin(currentUser) || (isClaimant && expense.status === 'pending');
 
   const handleStatusChange = (status) => {
     updateExpenseStatus(expense._id, status);
@@ -250,74 +258,86 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: canDelete ? 'space-between' : 'flex-end',
             paddingTop: '16px',
             borderTop: '1px solid #f1f5f9',
             marginTop: '8px'
           }}>
-            <button
-              onClick={handleDelete}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid #fee2e2',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #fee2e2',
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  fontSize: '12.5px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                <Trash2 size={14} />
+                {isClaimant ? 'Cancel Claim' : 'Delete'}
+              </button>
+            )}
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {expense.status !== 'approved' && (
-                <button
-                  onClick={() => handleStatusChange('approved')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <CheckCircle2 size={14} />
-                  Approve Expense
-                </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {isClaimant && expense.status === 'pending' && (
+                <span style={{ fontSize: '11.5px', color: '#d97706', background: '#fef3c7', padding: '4px 10px', borderRadius: '6px', fontWeight: '700' }}>
+                  ⏳ Awaiting HR / Finance Approval
+                </span>
               )}
 
-              {expense.status !== 'rejected' && (
-                <button
-                  onClick={() => handleStatusChange('rejected')}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#dc2626',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <XCircle size={14} />
-                  Reject Expense
-                </button>
+              {canApprove && (
+                <>
+                  {expense.status !== 'approved' && (
+                    <button
+                      onClick={() => handleStatusChange('approved')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <CheckCircle2 size={14} />
+                      Approve Expense
+                    </button>
+                  )}
+
+                  {expense.status !== 'rejected' && (
+                    <button
+                      onClick={() => handleStatusChange('rejected')}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        backgroundColor: '#dc2626',
+                        color: '#ffffff',
+                        fontSize: '12.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <XCircle size={14} />
+                      Reject Expense
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

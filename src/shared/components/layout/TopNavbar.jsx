@@ -32,6 +32,7 @@ import { useCRM } from '../../context/CRMContext';
 import { useWork } from '../../../modules/work/context/WorkContext';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { isHRorAdmin, canApproveLeaves } from '../../utils/permissionUtils';
 import { clearAllDummyData } from '../../services/storageService';
 import { AddEmployeeModal } from '../../../modules/hr/components/employees/AddEmployeeModal';
 import { EmployeeDirectoryModal } from '../../../modules/hr/components/employees/EmployeeDirectoryModal';
@@ -111,12 +112,36 @@ export const TopNavbar = () => {
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  const pendingLeavesList = (leaves || []).filter(l => l?.status === 'pending');
+  const isUserAdminOrHR = isHRorAdmin(currentUser);
+
+  // Pending leaves that THIS user is authorized to review (must NOT be the applicant)
+  const pendingLeavesForReview = (leaves || []).filter(l => {
+    if (l?.status !== 'pending') return false;
+    const isApplicant = (l.employeeId && currentUser?._id && l.employeeId === currentUser._id) ||
+      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+    if (isApplicant) return false;
+
+    if (isUserAdminOrHR) return true;
+    if (canApproveLeaves(currentUser)) {
+      return (l.appliedToId && l.appliedToId === currentUser?._id) ||
+        (l.appliedToName && currentUser?.name && l.appliedToName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+    }
+    return false;
+  });
+
+  // Pending leaves submitted by THIS user awaiting manager/HR approval
+  const myPendingLeavesList = (leaves || []).filter(l => {
+    if (l?.status !== 'pending') return false;
+    const isApplicant = (l.employeeId && currentUser?._id && l.employeeId === currentUser._id) ||
+      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+    return isApplicant;
+  });
+
   const myPendingTasks = (tasks || []).filter(t => (t?.assignedToId === currentUser?._id || t?.assignedToName === currentUser?.name) && t?.status !== 'completed');
   const openTicketsList = (tickets || []).filter(t => t?.status === 'open' || t?.status === 'pending');
   const todayBirthdaysList = (computedBirthdays || []).filter(b => b?.diffDays === 0 || b?.isToday || b?.daysRemaining === 0);
   const upcomingAnniversariesList = (computedAnniversaries || []).filter(a => a?.diffDays >= 0 && a?.diffDays <= 30);
-  const totalNotifications = pendingLeavesList.length + myPendingTasks.length + openTicketsList.length + (todayBirthdaysList.length > 0 ? 1 : 0) + (upcomingAnniversariesList.length > 0 ? 1 : 0);
+  const totalNotifications = pendingLeavesForReview.length + myPendingLeavesList.length + myPendingTasks.length + openTicketsList.length + (todayBirthdaysList.length > 0 ? 1 : 0) + (upcomingAnniversariesList.length > 0 ? 1 : 0);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -527,7 +552,7 @@ export const TopNavbar = () => {
               padding: '1px 5px',
               borderRadius: '4px'
             }}>
-              {activeRunningTask.hoursLoggedText || formatSeconds(activeRunningTask.timerSeconds || 0)}
+              {formatSeconds(activeRunningTask.timerSeconds || 0)}
             </span>
             <button
               onClick={(e) => {
@@ -575,6 +600,14 @@ export const TopNavbar = () => {
         ) : (
           <button
             onClick={() => {
+              if (!isClockedIn) {
+                addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
+                return;
+              }
+              if (isOnBreak) {
+                addToast('☕ You are currently on break. Please resume work before starting task timers!', 'warning');
+                return;
+              }
               const firstIncomplete = (tasks || []).find(t => t.status !== 'completed');
               if (firstIncomplete) {
                 startTaskTimer(firstIncomplete._id);
@@ -997,13 +1030,13 @@ export const TopNavbar = () => {
 
               {/* Notification Items */}
               <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
-                {/* 1. Real-time Dynamic Pending Leaves (For Admin / HR Review) */}
-                {pendingLeavesList.length > 0 && (
+                {/* 1. Real-time Dynamic Pending Leaves For Review (Admin / Designated Manager Review) */}
+                {pendingLeavesForReview.length > 0 && (
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', padding: '8px 16px 4px 16px', background: '#fffbeb', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      ⏳ Pending Leave Requests ({pendingLeavesList.length})
+                      ⏳ Pending Leaves To Review ({pendingLeavesForReview.length})
                     </div>
-                    {pendingLeavesList.map((leave) => (
+                    {pendingLeavesForReview.map((leave) => (
                       <div
                         key={leave._id}
                         style={{
@@ -1126,6 +1159,96 @@ export const TopNavbar = () => {
                             >
                               <X size={12} />
                               Deny
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 1b. My Own Submitted Leaves Awaiting Review */}
+                {myPendingLeavesList.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#0284c7', padding: '8px 16px 4px 16px', background: '#f0f9ff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      📋 My Leave Applications ({myPendingLeavesList.length})
+                    </div>
+                    {myPendingLeavesList.map((leave) => (
+                      <div
+                        key={leave._id}
+                        style={{
+                          padding: '12px 16px',
+                          display: 'flex',
+                          gap: '12px',
+                          alignItems: 'flex-start',
+                          borderBottom: '1px solid #f1f5f9',
+                          background: '#f8fafc'
+                        }}
+                      >
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          background: '#e0f2fe',
+                          color: '#0284c7',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '13px',
+                          flexShrink: 0
+                        }}>
+                          <Palmtree size={18} />
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                            <span style={{ fontWeight: '700', fontSize: '12.5px', color: '#0f172a' }}>
+                              {leave.leaveType}
+                            </span>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: '#fef3c7',
+                              color: '#d97706',
+                              border: '1px solid #fde68a'
+                            }}>
+                              ⏳ Awaiting Approval
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            📅 {leave.startDate} {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''} • ({leave.durationText})
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '1px', fontWeight: '600' }}>
+                            👤 Assigned Reviewer: {leave.appliedToName || 'HR Admin'}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm('Cancel your pending leave request?')) {
+                                  await updateLeaveStatus(leave._id, 'rejected', 'Cancelled by applicant');
+                                }
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                padding: '3px 8px',
+                                borderRadius: '5px',
+                                background: '#fee2e2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={11} /> Cancel Request
                             </button>
                           </div>
                         </div>

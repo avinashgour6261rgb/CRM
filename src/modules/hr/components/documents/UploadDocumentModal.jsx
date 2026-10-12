@@ -162,7 +162,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
             </label>
             <input
               type="text"
-              placeholder="e.g. Avinash_Aadhaar_Card_Front_Back.pdf"
+              placeholder="e.g. Employee_Aadhaar_Card_Front_Back.pdf"
               value={docTitle}
               onChange={e => setDocTitle(e.target.value)}
               style={{

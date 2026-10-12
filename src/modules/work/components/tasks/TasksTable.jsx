@@ -37,7 +37,8 @@ export const TasksTable = ({ onSelectTask }) => {
     pauseTaskTimer,
     stopTaskTimer,
     resumeSnoozedTask,
-    isEmployeeOnLeave
+    isEmployeeOnLeave,
+    formatSeconds
   } = useWork();
 
   const [activeMenuId, setActiveMenuId] = useState(null);
@@ -258,7 +259,7 @@ export const TasksTable = ({ onSelectTask }) => {
                         </button>
 
                         <span style={{ fontFamily: 'monospace', letterSpacing: '0.02em', fontSize: '11px' }}>
-                          ⏱️ {task.hoursLoggedText || '02:17:21'}
+                          ⏱️ {task.liveDurationText || formatSeconds(task.timerSeconds || 0)}
                         </span>
                       </div>
                     ) : task.snoozed ? (
@@ -342,8 +343,15 @@ export const TasksTable = ({ onSelectTask }) => {
 
                   {/* Task Name & Project Name subtitle */}
                   <td style={{ padding: '7px 12px', minWidth: '180px' }}>
-                    <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.25' }}>
-                      {task.title}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.25' }}>
+                        {task.title}
+                      </span>
+                      {task.dueDate && task.dueDate < todayStr && task.status !== 'completed' && (
+                        <span style={{ fontSize: '9.5px', fontWeight: '800', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                          ⚠️ OVERDUE
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginTop: '1px', letterSpacing: '0.02em' }}>
                       {task.projectName || 'General Work'}
@@ -368,7 +376,24 @@ export const TasksTable = ({ onSelectTask }) => {
 
                   {/* Due Date */}
                   <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#0f172a', whiteSpace: 'nowrap' }}>
-                    {task.hasNoDueDate ? 'No Due Date' : (task.dueDate === todayStr ? <span style={{ color: '#ea580c', fontWeight: '700' }}>Today</span> : (task.dueDate || '—'))}
+                    {task.hasNoDueDate ? 'No Due Date' : (task.dueDate && task.dueDate < todayStr && task.status !== 'completed' ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        backgroundColor: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        fontWeight: '800',
+                        fontSize: '11px'
+                      }}>
+                        ⚠️ {task.dueDate} (Overdue)
+                      </span>
+                    ) : task.dueDate === todayStr ? (
+                      <span style={{ color: '#ea580c', fontWeight: '700' }}>Today</span>
+                    ) : (task.dueDate || '—'))}
                   </td>
 
                   {/* Estimated Time */}
@@ -394,14 +419,16 @@ export const TasksTable = ({ onSelectTask }) => {
                   <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '95px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
-                        <span>{task.hoursLogged ? `${task.hoursLogged}h` : (task.hoursLoggedText || '0s')}</span>
+                        <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'}</span>
                         {task.estimatedHours > 0 && (
                           <span style={{
                             fontSize: '9.5px',
                             fontWeight: '800',
-                            color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#dc2626' : '#16a34a'
+                            color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#d97706' : '#16a34a'
                           }}>
-                            {Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100)}%
+                            {(Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
+                              ? `+${(Number(task.hoursLogged) - Number(task.estimatedHours)).toFixed(1)}h over`
+                              : `${Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100)}%`}
                           </span>
                         )}
                       </div>
@@ -416,7 +443,7 @@ export const TasksTable = ({ onSelectTask }) => {
                           <div style={{
                             height: '100%',
                             width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`,
-                            backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#ef4444' : '#2563eb',
+                            backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
                             borderRadius: '2px',
                             transition: 'width 0.3s ease'
                           }} />

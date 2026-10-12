@@ -138,6 +138,58 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
         {/* Content */}
         <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Overdue Task Banner */}
+          {(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isOverdue = !!(task.dueDate && !task.hasNoDueDate && task.dueDate < todayStr && task.status !== 'completed');
+            if (!isOverdue) return null;
+            return (
+              <div style={{
+                backgroundColor: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '18px' }}>⚠️</span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#c2410c' }}>
+                      Task Deadline Expired (Due: {task.dueDate})
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#9a3412' }}>
+                      Time tracking on overdue tasks requires updating the deadline or completing the task.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const baseDate = new Date();
+                    baseDate.setDate(baseDate.getDate() + 3);
+                    const newDate = baseDate.toISOString().split('T')[0];
+                    await updateTask(task._id, { dueDate: newDate, hasNoDueDate: false });
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Extend +3 Days
+                </button>
+              </div>
+            );
+          })()}
           {/* Active Timer Banner */}
           <div style={{
             display: 'flex',
@@ -274,7 +326,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
               <div>
                 <span style={{ color: '#64748b', fontSize: '11.5px', display: 'block' }}>Variance / Balance:</span>
                 <strong style={{
-                  color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#dc2626' : '#16a34a',
+                  color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#d97706' : '#16a34a',
                   fontSize: '13.5px'
                 }}>
                   {task.estimatedHours > 0
@@ -299,7 +351,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 <div style={{
                   height: '100%',
                   width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`,
-                  backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#ef4444' : '#2563eb',
+                  backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
                   borderRadius: '4px',
                   transition: 'width 0.3s ease'
                 }} />

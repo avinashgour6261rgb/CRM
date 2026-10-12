@@ -5,10 +5,27 @@ const asyncHandler = require('../../../shared/middleware/asyncHandler');
 // ─── GET /api/leaves ─────────────────────────────────────────────────────────
 const getLeaves = asyncHandler(async (req, res) => {
   const { employeeId, status, leaveType, search, startDate, endDate, page = 1, limit = 100 } = req.query;
+  const mongoose = require('mongoose');
 
   const query = {};
+  const user = req.user;
+  const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
 
-  if (employeeId && employeeId !== 'all') query.employee = employeeId;
+  // Tenant / User Scoping: Non-admins strictly only view their own leaves
+  if (!isPrivileged && user) {
+    const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : null;
+    const userLeaveFilter = userObjId
+      ? [{ employee: userObjId }, { employeeCode: user.employeeCode }]
+      : [{ employeeCode: user.employeeCode }];
+    if (user.name) {
+      userLeaveFilter.push({ employeeName: new RegExp(`^${user.name}$`, 'i') });
+    }
+    query.$or = userLeaveFilter;
+  } else if (employeeId && employeeId !== 'all') {
+    const isObjId = mongoose.Types.ObjectId.isValid(employeeId);
+    query.$or = isObjId ? [{ employee: employeeId }, { employeeCode: employeeId }] : [{ employeeCode: employeeId }];
+  }
+
   if (status && status !== 'all') query.status = status;
   if (leaveType && leaveType !== 'all') query.leaveType = leaveType;
 
@@ -58,8 +75,24 @@ const getLeaveById = asyncHandler(async (req, res) => {
 
 // ─── POST /api/leaves ─────────────────────────────────────────────────────────
 const createLeave = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const leaveData = { ...req.body };
+
+  if (!leaveData.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
+    leaveData.employee = user._id;
+  }
+  if (!leaveData.employeeName && user) {
+    leaveData.employeeName = user.name;
+  }
+  if (!leaveData.employeeCode && user) {
+    leaveData.employeeCode = user.employeeCode;
+  }
+  if (!leaveData.employeeRole && user) {
+    leaveData.employeeRole = user.role;
+  }
+
   const leave = new Leave({
-    ...req.body,
+    ...leaveData,
     status: 'pending',
     approvedBy: null,
     appliedOn: new Date()

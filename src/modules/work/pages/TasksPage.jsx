@@ -46,7 +46,7 @@ export const TasksPage = () => {
     if (mode === 'assigned_to_me') {
       setTaskFilter(prev => ({
         ...prev,
-        assignedTo: currentUser?._id || 'emp_001',
+        assignedTo: currentUser?._id || '',
         assignedBy: 'all'
       }));
     } else if (mode === 'assigned_by_me') {

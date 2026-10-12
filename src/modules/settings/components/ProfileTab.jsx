@@ -660,7 +660,7 @@ export const ProfileTab = () => {
           </label>
           <input
             type="text"
-            placeholder="@avinash"
+            placeholder="@username"
             value={formData.slackId}
             onChange={e => handleChange('slackId', e.target.value)}
             style={{

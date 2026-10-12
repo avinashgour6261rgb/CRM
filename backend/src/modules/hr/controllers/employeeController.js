@@ -26,13 +26,51 @@ const getEmployees = asyncHandler(async (req, res) => {
   });
 });
 
+const mongoose = require('mongoose');
+
 // ─── GET /api/employees/current ───────────────────────────────────────────────
 const getCurrentUser = asyncHandler(async (req, res) => {
-  const user = await Employee.findOne({ isCurrentUser: true });
+  let user = await Employee.findOne({ isCurrentUser: true });
   if (!user) {
-    return res.status(404).json({ success: false, message: 'No current user found' });
+    user = (await Employee.findOne({ employeeCode: 'ADM-001' })) ||
+           (await Employee.findOne({ isAdmin: true })) ||
+           (await Employee.findOne());
+    if (user) {
+      user.isCurrentUser = true;
+      await user.save();
+    }
+  }
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'No current user found in database' });
   }
   res.json({ success: true, data: user });
+});
+
+// ─── POST /api/employees/switch/:id ──────────────────────────────────────────
+const switchCurrentUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  let target = null;
+  if (id === 'admin') {
+    target = await Employee.findOne({ $or: [{ employeeCode: 'ADM-001' }, { role: 'Administrator' }, { isAdmin: true }] });
+  } else if (id === 'hr') {
+    target = await Employee.findOne({ $or: [{ employeeCode: 'HR-001' }, { department: 'Human Resources' }] });
+  } else if (id === 'employee' || id === 'team_member') {
+    target = await Employee.findOne({ $or: [{ employeeCode: 'ENG-001' }, { department: 'Engineering' }] });
+  } else if (mongoose.Types.ObjectId.isValid(id)) {
+    target = await Employee.findById(id);
+  } else {
+    target = await Employee.findOne({ employeeCode: id.toUpperCase() });
+  }
+
+  if (!target) {
+    return res.status(404).json({ success: false, message: `Target employee "${id}" not found in database` });
+  }
+
+  await Employee.updateMany({}, { isCurrentUser: false });
+  target.isCurrentUser = true;
+  await target.save();
+
+  res.json({ success: true, data: target });
 });
 
 // ─── GET /api/employees/:id ───────────────────────────────────────────────────
@@ -101,6 +139,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 module.exports = {
   getEmployees,
   getCurrentUser,
+  switchCurrentUser,
   getEmployeeById,
   createEmployee,
   updateEmployee,

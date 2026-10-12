@@ -5,18 +5,19 @@
 
 export const INITIAL_EMPLOYEES = [
   {
-    _id: 'emp_001',
-    employeeCode: 'EMP-001',
-    name: 'Avinash',
-    email: 'avinash@company.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    role: 'Digital Marketing Strategic',
-    department: 'Marketing & Growth',
+    _id: 'emp_admin',
+    employeeCode: 'ADM-001',
+    name: 'Admin User',
+    email: 'admin@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    role: 'Administrator',
+    department: 'Management',
     status: 'active',
-    joiningDate: '2023-01-15',
-    dob: '1995-10-15', // 15 October (Birthday automatic trigger)
+    joiningDate: '2023-01-01',
+    dob: '1992-05-15',
     isCurrentUser: true,
-    leaveBalance: { casual: 8, sick: 6, earned: 12, maternity: 0 }
+    isAdmin: true,
+    leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
   },
   {
     _id: 'emp_002',
@@ -80,7 +81,7 @@ export const INITIAL_LEAVES = [
   {
     _id: 'lv_001',
     employeeId: 'emp_001',
-    employeeName: 'Avinash',
+    employeeName: 'Aarav Patel',
     employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     employeeRole: 'Digital Marketing Strategic',
     leaveType: 'Casual Leave',
@@ -151,14 +152,14 @@ export const INITIAL_LEAVES = [
   }
 ];
 
-// Generate September 2026 Matrix data matching Screenshot 2 (Avinash has 17: X, 18: !, 19: X, 21: ✔️, 22: ✔️, 23: ✔️, 24: ✔️, 25: ✔️, 26: ✔️, Total: 6/30)
+// Generate September 2026 Matrix data matching Screenshot 2 (Aarav has 17: X, 18: !, 19: X, 21: ✔️, 22: ✔️, 23: ✔️, 24: ✔️, 25: ✔️, 26: ✔️, Total: 6/30)
 export const generateInitialAttendance = () => {
   const records = [];
   const year = 2026;
   const month = 9; // September
 
-  // Avinash attendance map
-  const avinashDayStatus = {
+  // Aarav attendance map
+  const emp001DayStatus = {
     5: 'day_off', 6: 'day_off', // Sat, Sun
     12: 'day_off', 13: 'day_off',
     17: 'absent',
@@ -183,7 +184,7 @@ export const generateInitialAttendance = () => {
       let status = isWeekend ? 'day_off' : null;
 
       if (emp._id === 'emp_001') {
-        status = avinashDayStatus[day] || (isWeekend ? 'day_off' : (day < 17 ? 'present' : (day > 26 ? 'present' : null)));
+        status = emp001DayStatus[day] || (isWeekend ? 'day_off' : (day < 17 ? 'present' : (day > 26 ? 'present' : null)));
       } else {
         if (!isWeekend) {
           if (day % 11 === 0) status = 'absent';
@@ -426,7 +427,7 @@ export const INITIAL_APPRECIATIONS = [
   {
     _id: 'app_001',
     givenToId: 'emp_001',
-    givenToName: 'Avinash',
+    givenToName: 'Aarav Patel',
     givenToAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     givenToRole: 'Digital Marketing Strategic',
     awardName: 'Marketing Campaign MVP',
@@ -492,7 +493,7 @@ export const INITIAL_PROJECTS = [
     currency: 'INR',
     members: ['emp_001', 'emp_002'],
     membersList: [
-      { _id: 'emp_001', name: 'Avinash', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', role: 'Digital Marketing Strategic' },
+      { _id: 'emp_001', name: 'Aarav Patel', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', role: 'Digital Marketing Strategic' },
       { _id: 'emp_002', name: 'Priya Sharma', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80', role: 'Lead UI/UX Designer' }
     ]
   },
@@ -540,7 +541,7 @@ export const INITIAL_PROJECTS = [
     currency: 'INR',
     members: ['emp_001', 'emp_003', 'emp_005'],
     membersList: [
-      { _id: 'emp_001', name: 'Avinash', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', role: 'Digital Marketing Strategic' },
+      { _id: 'emp_001', name: 'Aarav Patel', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80', role: 'Digital Marketing Strategic' },
       { _id: 'emp_003', name: 'Rahul Verma', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80', role: 'Senior Full Stack Developer' },
       { _id: 'emp_005', name: 'Amit Kumar', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80', role: 'DevOps & Cloud Engineer' }
     ]
@@ -586,18 +587,18 @@ export const INITIAL_TASKS = [
     priority: 'medium',
     status: 'incomplete',
     assignedToId: 'emp_001',
-    assignedToName: 'Avinash',
+    assignedToName: 'Aarav Patel',
     assignedToAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     assignedToRole: 'Digital Marketing Strategic',
     estimatedHours: 4,
-    hoursLogged: 2.29,
-    hoursLoggedText: '02:17:21',
+    hoursLogged: 0,
+    hoursLoggedText: '00:00:00',
     completedOn: null,
     isPrivate: false,
     isBillable: true,
     labels: ['Marketing', 'SEO'],
-    timerRunning: true,
-    timerSeconds: 8241 // 02:17:21
+    timerRunning: false,
+    timerSeconds: 0
   },
   {
     _id: 'tsk_002',
@@ -694,16 +695,16 @@ export const INITIAL_TIMESHEETS = [
     projectId: 'prj_001',
     projectName: 'CITY PRIME CARE',
     employeeId: 'emp_001',
-    employeeName: 'Avinash',
+    employeeName: 'Aarav Patel',
     employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     employeeRole: 'Digital Marketing Strategic',
     date: '2026-09-25',
     startTime: '09:30:00',
-    endTime: null,
-    totalDurationSeconds: 8241,
-    totalDurationText: '02:17:21',
+    endTime: '11:30:00',
+    totalDurationSeconds: 7200,
+    totalDurationText: '02:00:00',
     memo: 'Executing citation bookmarks and niche directory submissions',
-    status: 'active'
+    status: 'stopped'
   },
   {
     _id: 'time_002',
@@ -828,14 +829,14 @@ export const INITIAL_EXPENSES = [
     purchaseDate: '2026-09-24',
     date: '2026-09-24',
     employeeId: 'emp_001',
-    employeeName: 'Avinash',
+    employeeName: 'Aarav Patel',
     employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-    paidBy: 'Avinash',
+    paidBy: 'Aarav Patel',
     status: 'approved',
     description: 'Corporate email hosting, 5TB drive storage per employee, and Meet enterprise recordings.',
     billAttachment: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
     createdById: 'emp_001',
-    createdByName: 'Avinash',
+    createdByName: 'Aarav Patel',
     createdAt: '2026-09-24T09:45:00Z'
   },
   {
@@ -898,7 +899,7 @@ export const INITIAL_TICKETS = [
     description: 'Need secure wireguard VPN credentials for testing new microservices build on cloud cluster.',
     status: 'in_progress',
     requestedById: 'emp_001',
-    requestedByName: 'Avinash',
+    requestedByName: 'Aarav Patel',
     requestedByAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
     assignedToId: 'emp_005',
     assignedToName: 'Amit Kumar',
@@ -910,14 +911,14 @@ export const INITIAL_TICKETS = [
         senderId: 'emp_005',
         senderName: 'Amit Kumar (Admin / DevOps)',
         senderAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
-        message: 'Hello Avinash, your VPN profile has been generated. Please check your corporate inbox for the Wireguard config file.',
+        message: 'Hello Aarav, your VPN profile has been generated. Please check your corporate inbox for the Wireguard config file.',
         timestamp: '2026-09-24T14:30:00Z',
         isAdminReply: true
       },
       {
         id: 'rep_2',
         senderId: 'emp_001',
-        senderName: 'Avinash',
+        senderName: 'Aarav Patel',
         senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
         message: 'Received the config! Testing connection now. Thank you Amit!',
         timestamp: '2026-09-24T15:10:00Z',
@@ -988,7 +989,7 @@ export const INITIAL_TICKETS = [
     description: 'Noticed 92% CPU load on Redis caching worker between 02:00 PM and 02:45 PM.',
     status: 'pending',
     requestedById: 'emp_001',
-    requestedByName: 'Avinash',
+    requestedByName: 'Aarav Patel',
     requestedByAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
     assignedToId: 'emp_005',
     assignedToName: 'Amit Kumar',
@@ -1063,7 +1064,7 @@ export const INITIAL_NOTICES = [
 export const INITIAL_BIRTHDAYS = [
   {
     _id: 'bday_001',
-    name: 'Avinash',
+    name: 'Aarav Patel',
     role: 'Digital Marketing Strategic',
     department: 'Marketing & Growth',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
@@ -1102,17 +1103,17 @@ export const INITIAL_WFH_EMPLOYEES = [
   { id: 'wfh_6', name: 'Abhay Tyagi', role: 'Developer', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100' },
   { id: 'wfh_7', name: 'Miss Megha', role: 'Digital Marketing Strategist', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100' },
   { id: 'wfh_8', name: 'Md Tausif', role: 'Developer', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100' },
-  { id: 'wfh_9', name: 'Avinash', role: 'Digital Marketing Strategist', isCurrentUser: true, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' }
+  { id: 'wfh_9', name: 'Aarav Patel', role: 'Digital Marketing Strategist', isCurrentUser: false, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100' }
 ];
 
 export const INITIAL_WEEKLY_TIMELOGS = [
-  { day: 'Monday', shortDay: 'Mo', date: '2026-09-21', durationText: '8h 45m', durationHours: 8.75, loginTime: '09:15 AM', logoutTime: '06:30 PM', breakDuration: '30m', isCompleted: true },
-  { day: 'Tuesday', shortDay: 'Tu', date: '2026-09-22', durationText: '7h 19m', durationHours: 7.31, loginTime: '09:30 AM', logoutTime: '05:45 PM', breakDuration: '56m', isCompleted: true },
-  { day: 'Wednesday', shortDay: 'We', date: '2026-09-23', durationText: '11h 00m', durationHours: 11.0, loginTime: '09:00 AM', logoutTime: '08:30 PM', breakDuration: '30m', isCompleted: true },
-  { day: 'Thursday', shortDay: 'Th', date: '2026-09-24', durationText: '10h 00m', durationHours: 10.0, loginTime: '09:10 AM', logoutTime: '07:40 PM', breakDuration: '30m', isCompleted: true },
-  { day: 'Friday', shortDay: 'Fr', date: '2026-09-25', durationText: '5h 42m', durationHours: 5.7, loginTime: '09:04 AM', logoutTime: 'Active', breakDuration: '0s', isCurrentDay: true },
-  { day: 'Saturday', shortDay: 'Sa', date: '2026-09-26', durationText: '0h 00m', durationHours: 0, loginTime: 'Off', logoutTime: 'Off', breakDuration: '0m', isDayOff: true },
-  { day: 'Sunday', shortDay: 'Su', date: '2026-09-27', durationText: '0h 00m', durationHours: 0, loginTime: 'Off', logoutTime: 'Off', breakDuration: '0m', isDayOff: true }
+  { day: 'Monday', shortDay: 'Mo', date: '2026-10-12', durationText: '9h 00m', durationHours: 9.0, loginTime: '10:00 AM', logoutTime: '07:00 PM', breakDuration: '45m', isCompleted: true },
+  { day: 'Tuesday', shortDay: 'Tu', date: '2026-10-13', durationText: '8h 30m', durationHours: 8.5, loginTime: '10:05 AM', logoutTime: '06:45 PM', breakDuration: '50m', isCompleted: true },
+  { day: 'Wednesday', shortDay: 'We', date: '2026-10-14', durationText: '9h 15m', durationHours: 9.25, loginTime: '10:00 AM', logoutTime: '07:20 PM', breakDuration: '40m', isCompleted: true },
+  { day: 'Thursday', shortDay: 'Th', date: '2026-10-15', durationText: '9h 00m', durationHours: 9.0, loginTime: '09:55 AM', logoutTime: '07:05 PM', breakDuration: '45m', isCompleted: true },
+  { day: 'Friday', shortDay: 'Fr', date: '2026-10-16', durationText: '8h 45m', durationHours: 8.75, loginTime: '10:00 AM', logoutTime: '06:55 PM', breakDuration: '40m', isCompleted: true },
+  { day: 'Saturday', shortDay: 'Sa', date: '2026-10-17', durationText: '5h 00m', durationHours: 5.0, loginTime: '10:00 AM', logoutTime: '03:00 PM', breakDuration: '20m', isCompleted: true },
+  { day: 'Sunday', shortDay: 'Su', date: '2026-10-18', durationText: '0h 00m', durationHours: 0, loginTime: 'Off', logoutTime: 'Off', breakDuration: '0m', isDayOff: true }
 ];
 
 export const INITIAL_EVENTS = [
@@ -1256,14 +1257,14 @@ export const INITIAL_CONVERSATIONS = [
         id: 'msg_1',
         senderId: 'emp_002',
         senderName: 'Priya Sharma',
-        text: 'Hi Avinash, did you get a chance to check the new CRM color palette?',
+        text: 'Hi Aarav, did you get a chance to check the new CRM color palette?',
         timestamp: '10:30 AM',
         isOutgoing: false
       },
       {
         id: 'msg_2',
         senderId: 'emp_001',
-        senderName: 'Avinash',
+        senderName: 'Aarav Patel',
         text: 'Yes Priya! The slate blue and vibrant emerald accents look super sharp and premium.',
         timestamp: '10:38 AM',
         isOutgoing: true
@@ -1293,14 +1294,14 @@ export const INITIAL_CONVERSATIONS = [
         id: 'msg_4',
         senderId: 'emp_003',
         senderName: 'Rahul Verma',
-        text: 'Hey Avinash, testing the new database schemas on localhost.',
+        text: 'Hey Aarav, testing the new database schemas on localhost.',
         timestamp: 'Yesterday 04:15 PM',
         isOutgoing: false
       },
       {
         id: 'msg_5',
         senderId: 'emp_001',
-        senderName: 'Avinash',
+        senderName: 'Aarav Patel',
         text: 'Awesome Rahul, let me know once the API benchmarks are ready.',
         timestamp: 'Yesterday 04:20 PM',
         isOutgoing: true
@@ -1666,7 +1667,7 @@ export const INITIAL_LEADS = [
     leadOwnerRole: 'Lead UI/UX Designer',
     leadOwnerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
     createdById: 'emp_001',
-    createdByName: 'Avinash',
+    createdByName: 'Aarav Patel',
     createdByRole: 'Senior',
     createdByAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
     startDate: '2026-09-15',
@@ -1695,7 +1696,7 @@ export const INITIAL_LEADS = [
     leadOwnerRole: 'Senior Full Stack Developer',
     leadOwnerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
     createdById: 'emp_001',
-    createdByName: 'Avinash',
+    createdByName: 'Aarav Patel',
     createdByRole: 'Senior',
     createdByAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
     startDate: '2026-09-18',

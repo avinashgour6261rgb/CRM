@@ -3,6 +3,7 @@
  * @description Controller for Timesheet and Time Tracking in EMS Work Module.
  */
 
+const mongoose = require('mongoose');
 const Timesheet = require('../models/Timesheet');
 const Task = require('../models/Task');
 
@@ -13,14 +14,44 @@ exports.getTimesheets = async (req, res, next) => {
     const { employeeId, projectId, taskId, date, status, search } = req.query;
     let query = {};
 
-    if (employeeId && employeeId !== 'all') {
-      query.$or = [{ employee: employeeId }, { employeeId: employeeId }];
+    const user = req.user;
+    const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+
+    // Tenant / User Scoping: Non-admins strictly only view their own personal timesheets
+    if (!isPrivileged && user) {
+      const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : null;
+      const userTimesheetFilter = userObjId
+        ? [{ employee: userObjId }, { employeeId: user._id }, { employeeId: user.employeeCode }]
+        : [{ employeeId: user._id }, { employeeId: user.employeeCode }];
+      if (user.name) {
+        userTimesheetFilter.push({ employeeName: new RegExp(`^${user.name}$`, 'i') });
+      }
+
+      query.$or = userTimesheetFilter;
+    } else if (employeeId && employeeId !== 'all') {
+      const isValid = mongoose.Types.ObjectId.isValid(employeeId);
+      query.$or = isValid ? [{ employee: employeeId }, { employeeId }] : [{ employeeId }];
     }
+
     if (projectId && projectId !== 'all') {
-      query.$or = [{ project: projectId }, { projectId: projectId }];
+      const isValid = mongoose.Types.ObjectId.isValid(projectId);
+      const prjFilter = isValid ? [{ project: projectId }, { projectId }] : [{ projectId }];
+      if (query.$or) {
+        query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: prjFilter }]);
+        delete query.$or;
+      } else {
+        query.$or = prjFilter;
+      }
     }
     if (taskId && taskId !== 'all') {
-      query.$or = [{ task: taskId }, { taskId: taskId }];
+      const isValid = mongoose.Types.ObjectId.isValid(taskId);
+      const tskFilter = isValid ? [{ task: taskId }, { taskId }] : [{ taskId }];
+      if (query.$or) {
+        query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: tskFilter }]);
+        delete query.$or;
+      } else {
+        query.$or = tskFilter;
+      }
     }
     if (date) {
       query.date = date;
@@ -29,12 +60,18 @@ exports.getTimesheets = async (req, res, next) => {
       query.status = status;
     }
     if (search) {
-      query.$or = [
+      const searchOr = [
         { taskTitle: { $regex: search, $options: 'i' } },
         { projectName: { $regex: search, $options: 'i' } },
         { employeeName: { $regex: search, $options: 'i' } },
         { memo: { $regex: search, $options: 'i' } }
       ];
+      if (query.$or) {
+        query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: searchOr }]);
+        delete query.$or;
+      } else {
+        query.$or = searchOr;
+      }
     }
 
     const timesheets = await Timesheet.find(query).sort({ date: -1, createdAt: -1 });
@@ -52,10 +89,27 @@ exports.getTimesheets = async (req, res, next) => {
 // @route   POST /api/timesheet
 exports.createTimesheet = async (req, res, next) => {
   try {
-    const timesheet = await Timesheet.create(req.body);
+    const payload = { ...req.body };
+    const user = req.user;
 
-    // If linked to a task, increment task logged hours
-    if (req.body.taskId) {
+    if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
+      payload.employee = user._id;
+    }
+    if (!payload.employeeId && user) {
+      payload.employeeId = user._id;
+    }
+    if (!payload.employeeName && user) {
+      payload.employeeName = user.name;
+    }
+
+    if (!payload.task || !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
+    if (!payload.project || !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
+    if (!payload.employee || !mongoose.Types.ObjectId.isValid(payload.employee)) delete payload.employee;
+
+    const timesheet = await Timesheet.create(payload);
+
+    // If linked to a task, increment task logged hours safely
+    if (req.body.taskId && mongoose.Types.ObjectId.isValid(req.body.taskId)) {
       const durationHours = (req.body.totalDurationSeconds || 0) / 3600;
       await Task.findByIdAndUpdate(req.body.taskId, {
         $inc: { hoursLogged: durationHours }
@@ -78,15 +132,22 @@ exports.stopTimer = async (req, res, next) => {
   try {
     const { taskId, totalDurationSeconds, endTime, memo } = req.body;
     
-    // Update task
-    const task = await Task.findById(taskId);
+    // Update task safely
+    let task = null;
+    if (mongoose.Types.ObjectId.isValid(taskId)) {
+      task = await Task.findById(taskId);
+    } else {
+      task = await Task.findOne({ $or: [{ taskCode: taskId }, { _id: taskId }] });
+    }
     if (task) {
       task.timerRunning = false;
+      task.timerSeconds = 0; // Reset active session seconds
       const hoursAdded = totalDurationSeconds / 3600;
       task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
-      const hrs = Math.floor(totalDurationSeconds / 3600);
-      const mins = Math.floor((totalDurationSeconds % 3600) / 60);
-      task.hoursLoggedText = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+      const totalSecs = Math.round(task.hoursLogged * 3600);
+      const totalHrs = Math.floor(totalSecs / 3600);
+      const totalMins = Math.floor((totalSecs % 3600) / 60);
+      task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
       await task.save();
     }
 

@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 // Shared infrastructure
 const connectDB = require('./src/shared/config/database');
 const { errorHandler, notFound } = require('./src/shared/middleware/errorHandler');
+const { authenticateUser } = require('./src/shared/middleware/authMiddleware');
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +50,20 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Database Seed / Reset Endpoint
+app.post('/api/seed', async (req, res) => {
+  try {
+    const { seedDatabase } = require('./src/seeders/seed');
+    await seedDatabase();
+    res.json({ success: true, message: 'Database successfully seeded with actual enterprise data!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Authenticate user & tenant scoping middleware
+app.use('/api', authenticateUser);
 
 // ─── Mount Module Routes ────────────────────────────────────────────────────
 // HR Module

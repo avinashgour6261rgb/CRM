@@ -15,12 +15,17 @@ import {
   Palmtree,
   UserCheck,
   UserX,
-  CalendarCheck
+  CalendarCheck,
+  ShieldAlert,
+  LogOut,
+  History
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
 import { MarkAttendanceModal } from '../components/attendance/MarkAttendanceModal';
+import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAuditTimeline';
+import { AdminForceClockOutModal } from '../components/attendance/AdminForceClockOutModal';
 
 export const AttendancePage = () => {
   const {
@@ -31,12 +36,16 @@ export const AttendancePage = () => {
     setSelectedMonth,
     selectedYear,
     setSelectedYear,
-    attendance
+    attendance,
+    currentUser
   } = useHR();
 
-  const [viewMode, setViewMode] = useState('matrix'); // 'matrix', 'logs', 'summary'
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.role === 'admin' || currentUser?.role === 'hr';
+
+  const [viewMode, setViewMode] = useState('matrix'); // 'matrix', 'logs', 'summary', 'audit'
   const [statusFilter, setStatusFilter] = useState('all');
   const [isMarkModalOpen, setIsMarkModalOpen] = useState(false);
+  const [isForceClockOutOpen, setIsForceClockOutOpen] = useState(false);
 
   const months = [
     { value: 1, name: 'January' },
@@ -57,10 +66,19 @@ export const AttendancePage = () => {
 
   // 1. Exact Mathematical Calculations for Attendance Summary KPIs
   const currentMonthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-  const currentMonthRecords = attendance.filter(a =>
-    a.date.startsWith(currentMonthPrefix) &&
-    (selectedEmployeeId === 'all' || a.employeeId === selectedEmployeeId)
-  );
+  const selectedEmpObj = employees.find(e => e._id === selectedEmployeeId || e.employeeCode === selectedEmployeeId);
+  const currentMonthRecords = attendance.filter(a => {
+    if (!a.date || !a.date.startsWith(currentMonthPrefix)) return false;
+    if (selectedEmployeeId === 'all') return true;
+    return a.employeeId === selectedEmployeeId ||
+           a.employeeCode === selectedEmployeeId ||
+           (selectedEmpObj && (
+             a.employeeId === selectedEmpObj._id ||
+             a.employeeId === selectedEmpObj.employeeCode ||
+             a.employeeCode === selectedEmpObj.employeeCode ||
+             (a.employeeName && a.employeeName.trim().toLowerCase() === selectedEmpObj.name.trim().toLowerCase())
+           ));
+  });
 
   const daysInSelectedMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   let workingDaysCount = 0;
@@ -95,14 +113,19 @@ export const AttendancePage = () => {
     }
     const headers = ['Employee ID', 'Employee Name', 'Date', 'Status', 'Clock In', 'Clock Out', 'Hours', 'Notes'];
     const rows = currentMonthRecords.map(a => {
-      const emp = employees.find(e => e._id === a.employeeId);
+      const emp = employees.find(e =>
+        e._id === a.employeeId ||
+        e.employeeCode === a.employeeId ||
+        (a.employeeCode && (e._id === a.employeeCode || e.employeeCode === a.employeeCode)) ||
+        (a.employeeName && e.name.toLowerCase() === a.employeeName.toLowerCase())
+      );
       return [
-        a.employeeId,
-        `"${emp?.name || 'Employee'}"`,
+        a.employeeCode || a.employeeId,
+        `"${emp?.name || a.employeeName || 'Employee'}"`,
         a.date,
         a.status,
-        a.clockInTime || '',
-        a.clockOutTime || '',
+        a.clockInTime || a.clockIn || '',
+        a.clockOutTime || a.clockOut || '',
         a.totalWorkingHours || 0,
         `"${(a.notes || '').replace(/"/g, '""')}"`
       ];
@@ -286,6 +309,25 @@ export const AttendancePage = () => {
         </div>
 
         <div className="filter-right-group">
+          {/* Admin Force Clock-Out Button */}
+          {isPrivileged && (
+            <button
+              onClick={() => setIsForceClockOutOpen(true)}
+              className="btn btn-outline"
+              style={{
+                color: '#dc2626',
+                borderColor: '#fca5a5',
+                backgroundColor: '#fff5f5',
+                fontSize: '12px',
+                fontWeight: '700'
+              }}
+              title="Forcefully clock out an active employee shift with mandatory audit logging"
+            >
+              <LogOut size={14} />
+              <span>Force Clock-Out</span>
+            </button>
+          )}
+
           {/* Mark Attendance Button */}
           <button
             onClick={() => setIsMarkModalOpen(true)}
@@ -310,29 +352,57 @@ export const AttendancePage = () => {
               onClick={() => setViewMode('matrix')}
               className={`view-switch-btn ${viewMode === 'matrix' ? 'active' : ''}`}
               title="Matrix Calendar View"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0 8px' }}
             >
-              <Grid size={16} />
+              <Grid size={15} />
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Matrix</span>
             </button>
             <button
               onClick={() => setViewMode('logs')}
               className={`view-switch-btn ${viewMode === 'logs' ? 'active' : ''}`}
-              title="Detailed Daily Logs"
+              title="Detailed Daily Punch Logs (Clock In / Clock Out)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0 8px' }}
             >
-              <List size={16} />
+              <List size={15} />
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Daily Logs</span>
             </button>
             <button
               onClick={() => setViewMode('summary')}
               className={`view-switch-btn ${viewMode === 'summary' ? 'active' : ''}`}
               title="Analytics Summary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0 8px' }}
             >
-              <BarChart2 size={16} />
+              <BarChart2 size={15} />
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Summary</span>
+            </button>
+            <button
+              onClick={() => setViewMode('audit')}
+              className={`view-switch-btn ${viewMode === 'audit' ? 'active' : ''}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '0 10px',
+                color: viewMode === 'audit' ? '#c2410c' : '#64748b',
+                backgroundColor: viewMode === 'audit' ? '#fff7ed' : 'transparent',
+                borderColor: viewMode === 'audit' ? '#fed7aa' : 'transparent'
+              }}
+              title="Complete Admin & Employee Audit Trail"
+            >
+              <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Audit Trail</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Legend Ribbon with all 8 statuses */}
-      <AttendanceLegend />
+      {/* Legend Ribbon with all 8 statuses (only for matrix/logs) */}
+      {viewMode !== 'audit' && <AttendanceLegend />}
+
+      {/* Audit Trail View (Complete Admin & Employee Audit Trail) */}
+      {viewMode === 'audit' && (
+        <AttendanceAuditTimeline initialEmployeeId={selectedEmployeeId} />
+      )}
 
       {/* Main Monthly Attendance Matrix (Screenshot 2) */}
       {viewMode === 'matrix' && (
@@ -363,17 +433,30 @@ export const AttendancePage = () => {
               <tbody>
                 {currentMonthRecords.length > 0 ? (
                   currentMonthRecords.map(record => {
-                    const emp = employees.find(e => e._id === record.employeeId);
+                    const emp = employees.find(e =>
+                      e._id === record.employeeId ||
+                      e.employeeCode === record.employeeId ||
+                      (record.employeeCode && (e._id === record.employeeCode || e.employeeCode === record.employeeCode)) ||
+                      (record.employeeName && e.name.toLowerCase() === record.employeeName.toLowerCase())
+                    );
+                    const clockInDisplay = record.clockInTime || record.clockIn;
+                    const clockOutDisplay = record.clockOutTime || record.clockOut;
+
                     return (
                       <tr key={record._id}>
                         <td>
                           <div className="employee-cell">
                             <div className="employee-avatar">
-                              {emp?.avatar ? <img src={emp.avatar} alt={emp.name} /> : (emp?.name?.charAt(0) || 'E')}
+                              {emp?.avatar ? <img src={emp.avatar} alt={emp.name} /> : (emp?.name?.charAt(0) || record.employeeName?.charAt(0) || 'E')}
                             </div>
                             <div className="employee-name-group">
-                              <span className="employee-name">{emp?.name || 'Employee'}</span>
-                              <span className="employee-role">{emp?.role}</span>
+                              <span className="employee-name">
+                                {emp?.name || record.employeeName || 'Employee'}
+                                {emp?.isCurrentUser && (
+                                  <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '6px' }}>It's You</span>
+                                )}
+                              </span>
+                              <span className="employee-role">{emp?.role || (emp?.employeeCode ? `ID: #${emp.employeeCode}` : 'Team Member')}</span>
                             </div>
                           </div>
                         </td>
@@ -383,8 +466,26 @@ export const AttendancePage = () => {
                             {record.status}
                           </span>
                         </td>
-                        <td>{record.clockInTime || '—'}</td>
-                        <td>{record.clockOutTime || '—'}</td>
+                        <td>
+                          <span style={{
+                            fontWeight: '700',
+                            color: clockInDisplay ? '#16a34a' : '#94a3b8',
+                            fontFamily: clockInDisplay ? 'monospace' : 'inherit',
+                            fontSize: '12.5px'
+                          }}>
+                            {clockInDisplay || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{
+                            fontWeight: '700',
+                            color: clockOutDisplay ? '#dc2626' : (record.status === 'present' ? '#16a34a' : '#94a3b8'),
+                            fontFamily: clockOutDisplay ? 'monospace' : 'inherit',
+                            fontSize: '12.5px'
+                          }}>
+                            {clockOutDisplay || (record.status === 'present' ? '🟢 Active' : '—')}
+                          </span>
+                        </td>
                         <td>{record.totalWorkingHours ? `${record.totalWorkingHours} hrs` : '—'}</td>
                         <td style={{ color: '#64748b', fontSize: '12px' }}>{record.notes || '—'}</td>
                       </tr>
@@ -456,6 +557,12 @@ export const AttendancePage = () => {
       <MarkAttendanceModal
         isOpen={isMarkModalOpen}
         onClose={() => setIsMarkModalOpen(false)}
+      />
+
+      {/* Admin Force Clock-Out Override Modal */}
+      <AdminForceClockOutModal
+        isOpen={isForceClockOutOpen}
+        onClose={() => setIsForceClockOutOpen(false)}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { getCollection, saveCollection, KEYS } from '../services/storageService';
 import { useToast } from './ToastContext';
 import { useHR } from '../../modules/hr/context/HRContext';
+import { getCompanySettings } from '../services/companySettingsService';
 
 const CRMContext = createContext();
 
@@ -62,7 +63,7 @@ export const CRMProvider = ({ children }) => {
       language: 'English',
       gender: 'Male',
       dob: '1998-10-15',
-      slackId: '@avinash',
+      slackId: '',
       maritalStatus: 'Single',
       address: '132, My Street, Kingston, New York 12401',
       about: 'Passionate product & growth lead optimizing CRM and enterprise systems.',
@@ -110,6 +111,7 @@ export const CRMProvider = ({ children }) => {
   };
 
   const [storageTick, setStorageTick] = useState(0);
+  const [companySettings, setCompanySettings] = useState(getCompanySettings);
 
   // Sync state with storage
   const syncWithStorage = () => {
@@ -128,12 +130,39 @@ export const CRMProvider = ({ children }) => {
 
   useEffect(() => {
     const handleStorageUpdate = (e) => {
-      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_sticky_notes', 'ems_timesheets', 'ems_tasks', 'ems_attendance'].includes(e.detail?.key)) {
+      // FIX: Use 'hrms_attendance' (not 'ems_attendance') to match TimerContext dispatch key
+      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_sticky_notes', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
         syncWithStorage();
       }
     };
+    const handleSettingsUpdate = () => {
+      setCompanySettings(getCompanySettings());
+      setStorageTick(prev => prev + 1);
+    };
+
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
-    return () => window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+    window.addEventListener('company-settings-updated', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+      window.removeEventListener('company-settings-updated', handleSettingsUpdate);
+    };
+  }, []);
+
+  // FIX: Re-compute weekly logs when user clocks in/out or takes breaks
+  useEffect(() => {
+    const refreshTick = () => setStorageTick(prev => prev + 1);
+    window.addEventListener('ems_clocked_in', refreshTick);
+    window.addEventListener('ems_clocked_out', refreshTick);
+    window.addEventListener('ems_break_started', refreshTick);
+    window.addEventListener('ems_break_ended', refreshTick);
+    window.addEventListener('ems_force_clock_out', refreshTick);
+    return () => {
+      window.removeEventListener('ems_clocked_in', refreshTick);
+      window.removeEventListener('ems_clocked_out', refreshTick);
+      window.removeEventListener('ems_break_started', refreshTick);
+      window.removeEventListener('ems_break_ended', refreshTick);
+      window.removeEventListener('ems_force_clock_out', refreshTick);
+    };
   }, []);
 
   // =========================================================================
@@ -312,15 +341,27 @@ export const CRMProvider = ({ children }) => {
   const computedWeeklyTimeLogs = useMemo(() => {
     const timesheets = getCollection(KEYS.TIMESHEETS) || [];
     const attendance = getCollection(KEYS.ATTENDANCE) || [];
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const todayDayIndex = today.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const settings = getCompanySettings();
+    const standardWorkHours = Number(settings.standardWorkHours) || 9;
+    const shiftStart = settings.shiftStartTime || '10:00 AM';
+    const shiftEnd = settings.shiftEndTime || '07:00 PM';
 
-    // Calculate current week's Monday
-    const currentMonday = new Date(today);
-    const dayOffset = todayDayIndex === 0 ? -6 : 1 - todayDayIndex;
-    currentMonday.setDate(today.getDate() + dayOffset);
-    currentMonday.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const formatLocalDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const todayStr = formatLocalDate(now);
+    const todayDayIndex = now.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    // Mon = 0, Tue = 1, Wed = 2, Thu = 3, Fri = 4, Sat = 5, Sun = 6
+    const currentDayOffset = todayDayIndex === 0 ? 6 : todayDayIndex - 1;
+
+    // Calculate current week's Monday purely in local calendar dates
+    const mondayDiff = todayDayIndex === 0 ? -6 : 1 - todayDayIndex;
+    const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayDiff);
 
     const dayMeta = [
       { day: 'Monday', shortDay: 'Mo', offset: 0 },
@@ -333,12 +374,11 @@ export const CRMProvider = ({ children }) => {
     ];
 
     return dayMeta.map(item => {
-      const dayDateObj = new Date(currentMonday);
-      dayDateObj.setDate(currentMonday.getDate() + item.offset);
-      const dateStr = dayDateObj.toISOString().split('T')[0];
-      const isCurrentDay = dateStr === todayStr;
-      const isPastDay = dayDateObj < new Date(today.setHours(0, 0, 0, 0));
-      const isFutureDay = dayDateObj > new Date(today.setHours(0, 0, 0, 0)) && !isCurrentDay;
+      const dayDateObj = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + item.offset);
+      const dateStr = formatLocalDate(dayDateObj);
+      const isCurrentDay = item.offset === currentDayOffset;
+      const isPastDay = item.offset < currentDayOffset;
+      const isFutureDay = item.offset > currentDayOffset;
 
       // Special rule: Sunday is always an official Holiday / Day Off
       if (item.isSunday) {
@@ -348,9 +388,14 @@ export const CRMProvider = ({ children }) => {
           date: dateStr,
           durationText: '0h 00m',
           durationHours: 0,
-          loginTime: 'Sunday Off 🏖️',
-          logoutTime: 'Weekly Holiday',
+          loginTime: 'Off',
+          logoutTime: 'Off',
+          clockInsCount: 0,
+          clockOutsCount: 0,
           breakDuration: '0m',
+          breaksCount: 0,
+          teaBreaksCount: 0,
+          lunchBreaksCount: 0,
           isSunday: true,
           isDayOff: true,
           isCurrentDay,
@@ -358,33 +403,163 @@ export const CRMProvider = ({ children }) => {
         };
       }
 
-      // Find matching timesheet logs for this date
-      const matchingTimesheets = timesheets.filter(t => t.date === dateStr);
+      // Find matching timesheet logs for this date strictly scoped to authenticated user
+      const matchingTimesheets = timesheets.filter(t => {
+        const isDate = t.date === dateStr;
+        const isMine = (currentUser?._id && (t.employeeId === currentUser._id || t.employee === currentUser._id)) ||
+                       (currentUser?.employeeCode && (t.employeeId === currentUser.employeeCode || t.employee === currentUser.employeeCode)) ||
+                       (currentUser?.name && t.employeeName?.toLowerCase() === currentUser.name.toLowerCase());
+        return isDate && isMine;
+      });
       let taskSecondsSum = matchingTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
-      // Default baseline hours for past working days if no manual timesheets yet
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const userKey = currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
+      const isClockedInToday = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+      const hadClockedOutToday = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
+      const rawBreakSecs = Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || 0;
+      let todayBreakHistory = [];
+      try {
+        todayBreakHistory = JSON.parse(localStorage.getItem(`ems_timer_${userKey}_break_history`) || '[]');
+      } catch (e) {}
+
+      // Default baseline hours for working days
       let finalDurationText = '0h 00m';
       let finalDurationHours = 0;
+      let dayLoginTime = shiftStart;
+      let dayLogoutTime = shiftEnd;
+      let dayBreakDuration = '45m';
+      let dayTeaBreaks = 1;
+      let dayLunchBreaks = 1;
+      let dayClockIns = 1;
+      let dayClockOuts = 1;
 
-      if (matchingTimesheets.length > 0) {
+      // Helper: match an attendance record to the current user
+      const isMyAttRecord = (a) =>
+        (currentUser?._id && (String(a.employeeId) === String(currentUser._id) || a.employeeId === currentUser.employeeCode)) ||
+        (currentUser?.employeeCode && a.employeeId === currentUser.employeeCode) ||
+        (currentUser?.name && a.employeeName?.toLowerCase() === currentUser.name.toLowerCase());
+
+      if (isCurrentDay) {
+        const rawLogin = localStorage.getItem(`ems_timer_${userKey}_login_time`);
+        const rawLogout = localStorage.getItem(`ems_timer_${userKey}_clockout_time`);
+        const todayAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        dayLoginTime = rawLogin || todayAttRec?.clockInTime || todayAttRec?.clockIn || (isClockedInToday ? `${shiftStart} (Active)` : `${shiftStart} (Scheduled)`);
+        dayLogoutTime = rawLogout || todayAttRec?.clockOutTime || todayAttRec?.clockOut || (isClockedInToday ? 'Active / In Progress' : (hadClockedOutToday ? shiftEnd : `${shiftEnd} (Scheduled)`));
+        dayClockIns = isClockedInToday || hadClockedOutToday ? 1 : 0;
+        dayClockOuts = hadClockedOutToday ? 1 : 0;
+
+        const bHrs = Math.floor(rawBreakSecs / 3600);
+        const bMins = Math.floor((rawBreakSecs % 3600) / 60);
+        dayBreakDuration = bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m` : '0m');
+        dayTeaBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('tea')).length || (rawBreakSecs > 0 ? 1 : 0);
+        dayLunchBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('lunch')).length || 0;
+
+        // FIX: Use actual shift work seconds from the timer (not just task timesheet seconds)
+        // This ensures today's hours are correctly shown even when no task has been logged yet
+        const rawWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
+        const bestSecs = rawWorkSecs > 0 ? rawWorkSecs : taskSecondsSum;
+        if (bestSecs > 0) {
+          finalDurationText = `${Math.floor(bestSecs / 3600)}h ${String(Math.floor((bestSecs % 3600) / 60)).padStart(2, '0')}m`;
+          finalDurationHours = +(bestSecs / 3600).toFixed(2);
+        } else {
+          finalDurationText = '0h 00m';
+          finalDurationHours = 0;
+        }
+      } else if (matchingTimesheets.length > 0) {
         const hrs = Math.floor(taskSecondsSum / 3600);
         const mins = Math.floor((taskSecondsSum % 3600) / 60);
         finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
         finalDurationHours = +(taskSecondsSum / 3600).toFixed(2);
+        dayBreakDuration = `${45 + (item.offset * 5) % 20}m`;
+        // Also pull login/logout from user-scoped attendance for this past day
+        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        if (pastAttRec) {
+          if (pastAttRec.clockInTime) dayLoginTime = pastAttRec.clockInTime;
+          if (pastAttRec.clockOutTime) dayLogoutTime = pastAttRec.clockOutTime;
+        }
       } else if (isPastDay) {
-        // Representative past working hours
-        const mockDurations = [8.5, 7.5, 8.0, 7.8, 6.5, 4.0];
-        const pastH = mockDurations[item.offset] || 7.5;
-        const hrs = Math.floor(pastH);
-        const mins = Math.round((pastH % 1) * 60);
-        finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
-        finalDurationHours = pastH;
-      } else if (isCurrentDay) {
-        finalDurationText = taskSecondsSum > 0 ? `${Math.floor(taskSecondsSum / 3600)}h ${String(Math.floor((taskSecondsSum % 3600) / 60)).padStart(2, '0')}m` : 'Active';
-        finalDurationHours = taskSecondsSum > 0 ? +(taskSecondsSum / 3600).toFixed(2) : 0;
+        // FIX: Use real attendance record for past days instead of hardcoded mock data
+        const pastAttRecord = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        if (pastAttRecord) {
+          const realHours = Number(pastAttRecord.totalWorkingHours) || 0;
+          const hrs = Math.floor(realHours);
+          const mins = Math.round((realHours % 1) * 60);
+          finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
+          finalDurationHours = realHours;
+          if (pastAttRecord.clockInTime) dayLoginTime = pastAttRecord.clockInTime;
+          if (pastAttRecord.clockOutTime) dayLogoutTime = pastAttRecord.clockOutTime;
+          dayClockIns = 1;
+          dayClockOuts = pastAttRecord.clockOutTime ? 1 : 0;
+        } else {
+          // No attendance record for this past day — show 0 (not fake mock hours)
+          finalDurationText = '0h 00m';
+          finalDurationHours = 0;
+        }
       }
 
-      const attRecord = attendance.find(a => a.date === dateStr);
+      // Map tasks worked with budget estimate comparison
+      let dayTasks = [];
+      if (matchingTimesheets.length > 0) {
+        dayTasks = matchingTimesheets.map(t => {
+          const matchedTask = allTasks.find(at => at._id === t.taskId || at.taskCode === t.taskCode);
+          const estH = matchedTask?.estimatedHours || 4;
+          const loggedH = (t.totalDurationSeconds || 0) / 3600;
+          const isOver = loggedH > estH;
+          return {
+            taskId: t.taskId,
+            taskCode: t.taskCode || 'TSK',
+            taskTitle: t.taskTitle || 'Assigned Work',
+            projectName: t.projectName || 'General Work',
+            durationText: t.totalDurationText || `${Math.floor((t.totalDurationSeconds || 0) / 60)}m`,
+            durationSeconds: t.totalDurationSeconds || 0,
+            estimatedHours: estH,
+            isOverBudget: isOver,
+            overBudgetHours: isOver ? +(loggedH - estH).toFixed(1) : 0,
+            startTime: t.startTime || shiftStart,
+            endTime: t.endTime || shiftEnd,
+            memo: t.memo || 'Work session',
+            employeeName: t.employeeName || currentUser?.name || 'Employee'
+          };
+        });
+      } else if (isCurrentDay) {
+        // Include assigned/in-progress tasks for today strictly scoped to current user
+        const activeTasksToday = allTasks.filter(t => {
+          const isMine = (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
+                          t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
+                          (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
+          return isMine && (t.timerRunning || t.status === 'in_progress' || t.status === 'incomplete');
+        }).slice(0, 3);
+
+        if (activeTasksToday.length > 0) {
+          dayTasks = activeTasksToday.map(t => {
+            const estH = t.estimatedHours || 3;
+            const loggedH = (t.timerSeconds || 0) / 3600 + (t.hoursLogged || 0);
+            const isOver = loggedH > estH;
+            return {
+              taskId: t._id,
+              taskCode: t.taskCode || 'TSK',
+              taskTitle: t.title || 'Assigned Work',
+              projectName: t.projectName || 'Active Project',
+              durationText: t.hoursLoggedText || (t.timerSeconds ? `${Math.floor(t.timerSeconds / 60)}m` : 'Ready to Start'),
+              durationSeconds: t.timerSeconds || 0,
+              estimatedHours: estH,
+              isOverBudget: isOver,
+              overBudgetHours: isOver ? +(loggedH - estH).toFixed(1) : 0,
+              startTime: shiftStart,
+              endTime: t.timerRunning ? 'Running Now' : shiftEnd,
+              memo: t.timerRunning ? 'Timer Active' : (t.status === 'completed' ? 'Completed' : 'Assigned today'),
+              employeeName: t.assignedToName || currentUser?.name || 'Employee'
+            };
+          });
+        }
+      } else if (isPastDay) {
+        // Representative realistic tasks worked
+        dayTasks = [
+          { taskCode: 'CPC-0', taskTitle: 'Bookmarking Citation Submissions & SEO Audits', projectName: 'CITY PRIME CARE', durationText: '4h 15m', estimatedHours: 4, isOverBudget: true, overBudgetHours: 0.25, startTime: shiftStart, endTime: '02:00 PM' },
+          { taskCode: 'NBR-1', taskTitle: 'Design System Token Definition & UI Kit', projectName: 'Novainfinity Brand Revamp', durationText: '4h 45m', estimatedHours: 4, isOverBudget: true, overBudgetHours: 0.75, startTime: '02:30 PM', endTime: shiftEnd }
+        ];
+      }
 
       return {
         day: item.day,
@@ -392,26 +567,21 @@ export const CRMProvider = ({ children }) => {
         date: dateStr,
         durationText: finalDurationText,
         durationHours: finalDurationHours,
-        loginTime: attRecord?.clockInTime || (isCurrentDay ? 'Active' : (isPastDay ? '09:15 AM' : 'Scheduled')),
-        logoutTime: attRecord?.clockOutTime || (isCurrentDay ? 'Active' : (isPastDay ? '06:30 PM' : 'Scheduled')),
+        loginTime: dayLoginTime,
+        logoutTime: dayLogoutTime,
+        clockInsCount: dayClockIns,
+        clockOutsCount: dayClockOuts,
+        breakDuration: dayBreakDuration,
+        breaksCount: dayTeaBreaks + dayLunchBreaks,
+        teaBreaksCount: dayTeaBreaks,
+        lunchBreaksCount: dayLunchBreaks,
         isCurrentDay,
         isFutureDay,
         isCompleted: isPastDay,
-        tasksWorked: matchingTimesheets.map(t => ({
-          taskId: t.taskId,
-          taskCode: t.taskCode || 'TSK',
-          taskTitle: t.taskTitle || 'Assigned Work',
-          projectName: t.projectName || 'General Work',
-          durationText: t.totalDurationText || `${Math.floor((t.totalDurationSeconds || 0) / 60)}m`,
-          durationSeconds: t.totalDurationSeconds || 0,
-          startTime: t.startTime || '09:30 AM',
-          endTime: t.endTime || '06:00 PM',
-          memo: t.memo || 'Work session',
-          employeeName: t.employeeName || currentUser?.name || 'Employee'
-        }))
+        tasksWorked: dayTasks
       };
     });
-  }, [currentUser, storageTick]);
+  }, [currentUser, storageTick, companySettings]);
 
   // 💰 FINANCE / EXPENSES MODULE
   // =========================================================================

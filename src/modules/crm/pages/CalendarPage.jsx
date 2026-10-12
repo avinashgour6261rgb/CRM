@@ -3,7 +3,7 @@
  * @description Interactive Company Events & Calendar page matching Screenshot 3 with automatic birthday generation.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -34,16 +34,24 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export const CalendarPage = () => {
   const { addToast } = useToast();
   const { events, deleteEvent, computedBirthdays, computedAnniversaries } = useCRM();
-  const { holidays, currentUser, employees } = useHR();
+  const { holidays, currentUser, employees, leaves } = useHR();
   const { tasks } = useWork();
 
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 8, 25)); // September 2026 as per design
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
+
+  const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic live current date
   const [currentView, setCurrentView] = useState('month'); // 'month' | 'week' | 'day' | 'list'
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Filters
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(currentUser?._id || 'emp_001');
+
+  useEffect(() => {
+    if (!isPrivileged && currentUser?._id) {
+      setSelectedEmployeeId(currentUser._id);
+    }
+  }, [isPrivileged, currentUser?._id]);
   const [clientFilter, setClientFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -56,7 +64,7 @@ export const CalendarPage = () => {
   ];
 
   // =========================================================================
-  // COMBINE ALL EVENTS + AUTOMATIC BIRTHDAYS + WORK ANNIVERSARIES + HOLIDAYS + TASKS
+  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS
   // =========================================================================
   const allEvents = useMemo(() => {
     // 1. Base User & Company Events
@@ -127,22 +135,109 @@ export const CalendarPage = () => {
       bgColor: h.type === 'National Holiday' ? '#fef3c7' : (h.type === 'Company Holiday' ? '#e0f2fe' : '#f0fdf4')
     }));
 
-    // 5. Tasks Due Dates
-    const taskEvents = (tasks || []).filter(t => t?.dueDate).map(t => ({
-      _id: `tsk_cal_${t._id || Math.random()}`,
-      title: `📌 Due: ${t.title || 'Assigned Task'}`,
-      date: t.dueDate,
-      endDate: t.dueDate,
-      time: '06:00 PM',
-      type: 'Task Deadline',
-      location: t.projectName || 'Work Module',
-      description: `Task assigned to ${t.assignedToName || 'team'}`,
-      color: '#0891b2',
-      bgColor: '#ecfeff'
-    }));
+    // 5. Dynamic Approved Leaves from Database
+    const approvedLeaveEvents = [];
+    const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+    (leaves || []).filter(l => l.status === 'approved').forEach(l => {
+      const isMine = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
+                     (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
+                     (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
+                     (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
 
-    return [...baseEvents, ...dynamicBirthdayEvents, ...dynamicAnniversaryEvents, ...holidayEvents, ...taskEvents];
-  }, [events, computedBirthdays, computedAnniversaries, holidays, tasks]);
+      if (!isPrivileged && !isMine) return;
+
+      const start = new Date(l.startDate);
+      const end = new Date(l.endDate);
+      const cur = new Date(start);
+
+      while (cur <= end) {
+        const dStr = cur.toISOString().split('T')[0];
+        approvedLeaveEvents.push({
+          _id: `leave_cal_${l._id}_${dStr}`,
+          title: `🌴 ${l.leaveType || 'Leave'}: ${l.employeeName || 'Team Member'}`,
+          date: dStr,
+          endDate: l.endDate,
+          time: 'All Day',
+          type: 'Approved Leave',
+          leaveType: l.leaveType,
+          employeeName: l.employeeName,
+          employeeAvatar: l.employeeAvatar,
+          employeeRole: l.employeeRole,
+          durationDays: l.durationDays,
+          location: 'Approved Time Off',
+          description: `🌴 Approved ${l.leaveType} for ${l.employeeName} (${l.durationDays} day${l.durationDays > 1 ? 's' : ''}). Reason: ${l.reason || 'Personal Leave'}`,
+          color: '#0d9488',
+          bgColor: '#f0fdfa'
+        });
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+
+    // 6. Dynamic Tasks Due Dates (Scoped by user role)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const taskEvents = (tasks || [])
+      .filter(t => t?.dueDate)
+      .filter(t => {
+        if (isPrivileged) return true;
+        return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
+                t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
+                (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
+      })
+      .map(t => {
+        const isOverdue = t.isOverdue || (t.dueDate < todayStr && t.status !== 'completed');
+        return {
+          _id: `tsk_cal_${t._id || Math.random()}`,
+          title: `📌 ${isOverdue ? '⚠️ Overdue' : 'Due'}: #${t.taskCode || 'TSK'} ${t.title || 'Task'}`,
+          date: t.dueDate,
+          endDate: t.dueDate,
+          time: '06:00 PM',
+          type: isOverdue ? 'Overdue Task' : 'Task Deadline',
+          location: t.projectName || 'Work Module',
+          description: `Task assigned to ${t.assignedToName || 'team'}. Status: ${t.status || 'Active'}. ${isOverdue ? '⚠️ Deadline Expired!' : ''}`,
+          color: isOverdue ? '#dc2626' : '#0891b2',
+          bgColor: isOverdue ? '#fee2e2' : '#ecfeff'
+        };
+      });
+
+    // 7. Dynamic Work Shift Schedules
+    const shiftEvents = [];
+    const curYear = currentDate.getFullYear();
+    const curMonth = currentDate.getMonth();
+    const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayDate = new Date(curYear, curMonth, day);
+      const dayOfWeek = dayDate.getDay();
+      if (dayOfWeek !== 0) { // Exclude Sundays
+        const dStr = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasHoliday = (holidays || []).some(h => h.date === dStr);
+        if (!hasHoliday) {
+          shiftEvents.push({
+            _id: `shift_${dStr}`,
+            title: `🕒 Shift: 10:00 AM - 07:00 PM`,
+            date: dStr,
+            endDate: dStr,
+            time: '10:00 AM - 07:00 PM',
+            type: 'Shift Schedule',
+            location: 'Office / Remote Hybrid',
+            description: `Scheduled standard working shift 10:00 AM to 07:00 PM for ${currentUser?.name || 'Employee'}.`,
+            color: '#475569',
+            bgColor: '#f8fafc'
+          });
+        }
+      }
+    }
+
+    return [
+      ...baseEvents,
+      ...dynamicBirthdayEvents,
+      ...dynamicAnniversaryEvents,
+      ...holidayEvents,
+      ...approvedLeaveEvents,
+      ...taskEvents,
+      ...shiftEvents
+    ];
+  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, currentUser, currentDate]);
 
   // Filter events
   const filteredEvents = useMemo(() => {
@@ -325,21 +420,29 @@ export const CalendarPage = () => {
               <select
                 value={selectedEmployeeId}
                 onChange={e => setSelectedEmployeeId(e.target.value)}
+                disabled={!isPrivileged}
+                title={!isPrivileged ? "Calendar schedule is scoped to your personal profile" : "Select employee schedule"}
                 style={{
                   border: 'none',
                   background: 'transparent',
                   outline: 'none',
                   fontSize: '12px',
                   fontWeight: '600',
-                  color: '#0f172a',
-                  cursor: 'pointer'
+                  color: !isPrivileged ? '#64748b' : '#0f172a',
+                  cursor: !isPrivileged ? 'not-allowed' : 'pointer'
                 }}
               >
-                {employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>
-                    {emp.name} {emp._id === currentUser?._id ? "[It's You]" : ''}
+                {isPrivileged ? (
+                  employees.map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} {emp._id === currentUser?._id ? "[It's You]" : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value={currentUser?._id || selectedEmployeeId}>
+                    {currentUser?.name || 'My Schedule'} [It's You]
                   </option>
-                ))}
+                )}
               </select>
             </div>
           </div>

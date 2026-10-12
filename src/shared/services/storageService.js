@@ -55,10 +55,51 @@ const KEYS = {
   STICKY_NOTES: 'ems_sticky_notes',
   USER_SETTINGS: 'ems_user_settings',
   WORK_TIMER: 'hrms_work_timer',
-  SETTINGS: 'hrms_settings'
+  SETTINGS: 'hrms_settings',
+  ATTENDANCE_AUDIT: 'ems_attendance_audit_logs'
+};
+
+export const purgeStaleMockData = () => {
+  try {
+    const authSession = localStorage.getItem('ems_auth_session');
+    if (authSession && (authSession.includes('Avinash') || authSession.includes('emp_admin') || authSession.includes('emp_001'))) {
+      localStorage.removeItem('ems_auth_session');
+    }
+
+    const empRaw = localStorage.getItem(KEYS.EMPLOYEES);
+    if (empRaw && empRaw.includes('Avinash')) {
+      localStorage.removeItem(KEYS.EMPLOYEES);
+    }
+
+    const tasksRaw = localStorage.getItem(KEYS.TASKS);
+    if (tasksRaw && tasksRaw.includes('Avinash')) {
+      localStorage.removeItem(KEYS.TASKS);
+    }
+
+    const timesheetsRaw = localStorage.getItem(KEYS.TIMESHEETS);
+    if (timesheetsRaw && timesheetsRaw.includes('Avinash')) {
+      localStorage.removeItem(KEYS.TIMESHEETS);
+    }
+
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('emp_001') || key.includes('emp_admin')) {
+        localStorage.removeItem(key);
+      }
+      try {
+        const val = localStorage.getItem(key);
+        if (typeof val === 'string' && val.includes('Avinash')) {
+          localStorage.removeItem(key);
+        }
+      } catch (err) {}
+    });
+  } catch (e) {
+    console.error('Error purging stale mock data:', e);
+  }
 };
 
 export const initStorage = () => {
+  purgeStaleMockData();
+
   if (!localStorage.getItem(KEYS.EMPLOYEES)) {
     localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(INITIAL_EMPLOYEES));
   } else {
@@ -112,7 +153,50 @@ export const initStorage = () => {
   }
   if (!localStorage.getItem(KEYS.TASKS)) {
     localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
+  } else {
+    try {
+      const storedTasks = JSON.parse(localStorage.getItem(KEYS.TASKS));
+      let modified = false;
+      const updated = (storedTasks || []).map(t => {
+        // Fix: CPC-0 (Bookmarking 20) is a pending/incomplete task, ensure it is not erroneously marked completed
+        if ((t.taskCode === 'CPC-0' || t.title === 'Bookmarking 20') && t.status === 'completed') {
+          modified = true;
+          return {
+            ...t,
+            status: 'incomplete',
+            completedOn: null,
+            completedAt: null
+          };
+        }
+        return t;
+      });
+      if (modified) {
+        localStorage.setItem(KEYS.TASKS, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      }
+    } catch (e) {
+      console.error('Error syncing tasks state:', e);
+    }
   }
+
+  // Also clean up any legacy hrms_tasks key if present
+  try {
+    const legacyTasksRaw = localStorage.getItem('hrms_tasks');
+    if (legacyTasksRaw) {
+      const legacyTasks = JSON.parse(legacyTasksRaw);
+      let legacyMod = false;
+      const updatedLegacy = (legacyTasks || []).map(t => {
+        if ((t.taskCode === 'CPC-0' || t.title === 'Bookmarking 20') && t.status === 'completed') {
+          legacyMod = true;
+          return { ...t, status: 'incomplete', completedOn: null, completedAt: null };
+        }
+        return t;
+      });
+      if (legacyMod) {
+        localStorage.setItem('hrms_tasks', JSON.stringify(updatedLegacy));
+      }
+    }
+  } catch (e) {}
   if (!localStorage.getItem(KEYS.TIMESHEETS)) {
     localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(INITIAL_TIMESHEETS));
   }
@@ -148,6 +232,178 @@ export const initStorage = () => {
   }
   if (!localStorage.getItem(KEYS.STICKY_NOTES)) {
     localStorage.setItem(KEYS.STICKY_NOTES, JSON.stringify(INITIAL_STICKY_NOTES));
+  }
+  if (!localStorage.getItem(KEYS.ATTENDANCE_AUDIT)) {
+    localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify([
+      {
+        _id: 'audit_init_1',
+        employeeId: 'emp_003',
+        employeeName: 'Rahul Verma',
+        employeeCode: 'EMP-003',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T13:16:00.000Z',
+        timeFormatted: '01:16 PM',
+        type: 'clock_in',
+        action: 'Shift Clock In',
+        durationSeconds: 0,
+        durationText: '',
+        details: 'Shift started on schedule via web portal.',
+        actor: 'employee',
+        actorId: 'emp_003',
+        actorName: 'Rahul Verma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_2',
+        employeeId: 'emp_003',
+        employeeName: 'Rahul Verma',
+        employeeCode: 'EMP-003',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T15:30:00.000Z',
+        timeFormatted: '03:30 PM',
+        type: 'tea_break_start',
+        action: 'Tea Break Started',
+        durationSeconds: 0,
+        durationText: '',
+        details: '15-minute afternoon Tea Break started.',
+        actor: 'employee',
+        actorId: 'emp_003',
+        actorName: 'Rahul Verma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_3',
+        employeeId: 'emp_003',
+        employeeName: 'Rahul Verma',
+        employeeCode: 'EMP-003',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T15:44:30.000Z',
+        timeFormatted: '03:44 PM',
+        type: 'tea_break_end',
+        action: 'Resumed from Tea Break',
+        durationSeconds: 870,
+        durationText: '14m 30s',
+        details: 'Resumed shift on time (within 15m threshold).',
+        actor: 'employee',
+        actorId: 'emp_003',
+        actorName: 'Rahul Verma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_4',
+        employeeId: 'emp_002',
+        employeeName: 'Priya Sharma',
+        employeeCode: 'EMP-002',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T09:30:00.000Z',
+        timeFormatted: '09:30 AM',
+        type: 'clock_in',
+        action: 'Shift Clock In',
+        durationSeconds: 0,
+        durationText: '',
+        details: 'Shift started on schedule via web portal.',
+        actor: 'employee',
+        actorId: 'emp_002',
+        actorName: 'Priya Sharma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_5',
+        employeeId: 'emp_002',
+        employeeName: 'Priya Sharma',
+        employeeCode: 'EMP-002',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T13:00:00.000Z',
+        timeFormatted: '01:00 PM',
+        type: 'lunch_break_start',
+        action: 'Lunch Break Started',
+        durationSeconds: 0,
+        durationText: '',
+        details: 'Standard 45-minute Lunch Break started.',
+        actor: 'employee',
+        actorId: 'emp_002',
+        actorName: 'Priya Sharma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_6',
+        employeeId: 'emp_002',
+        employeeName: 'Priya Sharma',
+        employeeCode: 'EMP-002',
+        date: '2026-10-12',
+        timestamp: '2026-10-12T13:42:00.000Z',
+        timeFormatted: '01:42 PM',
+        type: 'lunch_break_end',
+        action: 'Resumed from Lunch Break',
+        durationSeconds: 2520,
+        durationText: '42m 00s',
+        details: 'Resumed shift on time (within 45m threshold).',
+        actor: 'employee',
+        actorId: 'emp_002',
+        actorName: 'Priya Sharma',
+        isAdminOverride: false,
+        adminId: null,
+        adminName: null,
+        auditNote: null
+      },
+      {
+        _id: 'audit_init_7',
+        employeeId: 'emp_004',
+        employeeName: 'Amit Kumar',
+        employeeCode: 'EMP-004',
+        date: '2026-10-09',
+        timestamp: '2026-10-09T18:45:00.000Z',
+        timeFormatted: '06:45 PM',
+        type: 'admin_force_clock_out',
+        action: 'Admin Force Clock-Out',
+        durationSeconds: 28800,
+        durationText: '8h 00m',
+        details: 'Administrator Admin User [ID: ADM-001] manually forced shift clock-out. Reason: "Employee left premises without clocking out; verified via security gate register."',
+        actor: 'admin',
+        actorId: 'ADM-001',
+        actorName: 'Admin User',
+        isAdminOverride: true,
+        adminId: 'ADM-001',
+        adminName: 'Admin User',
+        auditNote: 'Employee left premises without clocking out; verified via security gate register.'
+      },
+      {
+        _id: 'audit_init_8',
+        employeeId: 'emp_005',
+        employeeName: 'Sneha Patel',
+        employeeCode: 'EMP-005',
+        date: '2026-10-08',
+        timestamp: '2026-10-08T17:15:00.000Z',
+        timeFormatted: '05:15 PM',
+        type: 'admin_shift_adjustment',
+        action: 'Admin Shift Hour Adjustment',
+        durationSeconds: 27000,
+        durationText: '7.5h',
+        details: 'Shift manually adjusted by Admin Admin User (ID: ADM-001). Status: present, In: 09:30:00, Out: 17:00:00. Reason: "Corrected punch discrepancy due to client on-site visit."',
+        actor: 'admin',
+        actorId: 'ADM-001',
+        actorName: 'Admin User',
+        isAdminOverride: true,
+        adminId: 'ADM-001',
+        adminName: 'Admin User',
+        auditNote: 'Corrected punch discrepancy due to client on-site visit.'
+      }
+    ]));
   }
 };
 
@@ -192,20 +448,20 @@ export const clearAllDummyData = () => {
     const primaryUsers = [
       {
         _id: 'emp_admin',
-        employeeCode: 'EMP-ADM-01',
-        name: 'Avinash Sharma',
+        employeeCode: 'ADM-001',
+        name: 'Admin User',
         email: 'admin@inforag.com',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120',
         role: 'Administrator',
         systemRole: 'admin',
-        department: 'Executive Management',
+        department: 'Management',
         status: 'active',
         isCurrentUser: true,
         leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
       },
       {
         _id: 'emp_hr',
-        employeeCode: 'EMP-HR-02',
+        employeeCode: 'HR-001',
         name: 'Pooja Sharma',
         email: 'hr@inforag.com',
         avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120',
@@ -217,15 +473,15 @@ export const clearAllDummyData = () => {
       },
       {
         _id: 'emp_employee',
-        employeeCode: 'EMP-DEV-03',
+        employeeCode: 'ENG-001',
         name: 'Rahul Verma',
-        email: 'employee@inforag.com',
+        email: 'rahul.verma@inforag.com',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
-        role: 'Senior Developer',
+        role: 'Senior Full Stack Developer',
         systemRole: 'team_member',
         department: 'Engineering',
         status: 'active',
-        leaveBalance: { casual: 8, sick: 6, earned: 12, maternity: 0 }
+        leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
       }
     ];
     saveCollection(KEYS.EMPLOYEES, primaryUsers);

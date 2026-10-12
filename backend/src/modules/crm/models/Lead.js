@@ -48,31 +48,31 @@ const LeadSchema = new mongoose.Schema(
     },
     leadOwnerId: {
       type: String,
-      default: 'emp_001'
+      default: 'ADM-001'
     },
     leadOwnerName: {
       type: String,
-      default: 'Avinash'
+      default: 'Admin User'
     },
     leadOwnerRole: {
       type: String,
-      default: 'Senior'
+      default: 'Administrator'
     },
     leadOwnerAvatar: {
       type: String,
-      default: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
+      default: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
     },
     createdById: {
       type: String,
-      default: 'emp_001'
+      default: 'ADM-001'
     },
     createdByName: {
       type: String,
-      default: 'Avinash'
+      default: 'Admin User'
     },
     createdByRole: {
       type: String,
-      default: 'Senior'
+      default: 'Administrator'
     },
     createdByAvatar: {
       type: String,

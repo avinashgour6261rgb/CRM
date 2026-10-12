@@ -11,6 +11,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 
 const WorkContext = createContext();
 
@@ -24,41 +25,47 @@ export const WorkProvider = ({ children }) => {
   const [tasks, setTasks] = useState([]);
   const [timesheets, setTimesheets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [overdueTaskPrompt, setOverdueTaskPrompt] = useState(null);
 
-  // Derive stable userKey for timer persistence
+  // Derive stable userKey matching TimerContext for seamless cross-module sync
   const userKey = useMemo(() => {
-    if (currentUser?._id) return String(currentUser._id);
-    if (currentUser?.employeeCode) return String(currentUser.employeeCode);
-    try {
-      const emps = JSON.parse(localStorage.getItem('ems_employees') || '[]');
-      const curr = emps.find(e => e.isCurrentUser);
-      if (curr?._id) return String(curr._id);
-    } catch (e) {}
-    return 'emp_001';
+    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
   }, [currentUser]);
+
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const [workSessionDate, setWorkSessionDate] = useState(() => {
+    return localStorage.getItem(`ems_work_session_date_${userKey}`) || getTodayStr();
+  });
 
   const activeTimerKey = useMemo(() => `ems_active_task_timer_${userKey}`, [userKey]);
 
-  // Read active timer snapshot from storage
+  // Read active timer snapshot from storage with user and date-scoping guard
   const getActiveTimerSnapshot = useCallback(() => {
     try {
-      const saved = localStorage.getItem(activeTimerKey) || localStorage.getItem('ems_active_task_timer');
-      return saved ? JSON.parse(saved) : null;
+      const saved = localStorage.getItem(activeTimerKey);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      const today = getTodayStr();
+      // If timer is tagged with a date from a previous day, do not treat it as active today
+      if (parsed.date && parsed.date !== today) {
+        return null;
+      }
+      return parsed;
     } catch (e) {
       return null;
     }
   }, [activeTimerKey]);
 
-  // Save active timer snapshot to storage
+  // Save active timer snapshot to storage strictly scoped to authenticated user
   const saveActiveTimerSnapshot = useCallback((state) => {
     try {
       if (state) {
         localStorage.setItem(activeTimerKey, JSON.stringify(state));
-        localStorage.setItem('ems_active_task_timer', JSON.stringify(state));
       } else {
         localStorage.removeItem(activeTimerKey);
-        localStorage.removeItem('ems_active_task_timer');
       }
+      // Purge legacy/global un-scoped key so it doesn't bleed across user sessions
+      localStorage.removeItem('ems_active_task_timer');
     } catch (e) {
       console.error('Error saving active timer snapshot:', e);
     }
@@ -67,6 +74,11 @@ export const WorkProvider = ({ children }) => {
   // Calculate live elapsed seconds using real-world wall-clock timestamps
   const getElapsedSeconds = useCallback((timerState) => {
     if (!timerState) return 0;
+    const today = getTodayStr();
+    // Guard against previous-day runaway calculations
+    if (timerState.date && timerState.date !== today) {
+      return Number(timerState.accumulatedSeconds) || 0;
+    }
     const base = Number(timerState.accumulatedSeconds) || 0;
     if (!timerState.timerRunning || !timerState.startedAt) {
       return base;
@@ -100,21 +112,36 @@ export const WorkProvider = ({ children }) => {
       ]);
 
       const activeTimer = getActiveTimerSnapshot();
+      const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+      const isShiftOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+
+      // Strict Shift Guard: task timer cannot run if employee is not actively clocked into shift
+      const isTimerActuallyRunning = !!(activeTimer && activeTimer.timerRunning && isShiftClockedIn && !isShiftOnBreak);
+      if (activeTimer && activeTimer.timerRunning && !isTimerActuallyRunning) {
+        saveActiveTimerSnapshot({
+          ...activeTimer,
+          timerRunning: false,
+          startedAt: null
+        });
+      }
+
       let mergedTasks = (rawTsks || []).map(t => {
         if (activeTimer && activeTimer.taskId === t._id) {
           const currentSecs = getElapsedSeconds(activeTimer);
           return {
             ...t,
-            timerRunning: !!activeTimer.timerRunning,
+            timerRunning: isTimerActuallyRunning,
             timerSeconds: currentSecs,
-            hoursLoggedText: formatSeconds(currentSecs)
+            liveDurationText: formatSeconds(currentSecs),
+            hoursLoggedText: t.hoursLogged ? `${t.hoursLogged}h` : (t.hoursLoggedText || '0h')
           };
         }
         return {
           ...t,
-          timerRunning: !!t.timerRunning,
-          timerSeconds: t.timerSeconds || 0,
-          hoursLoggedText: t.hoursLoggedText || formatSeconds(t.timerSeconds || 0)
+          timerRunning: false,
+          timerSeconds: 0,
+          liveDurationText: '00:00:00',
+          hoursLoggedText: t.hoursLogged ? `${t.hoursLogged}h` : (t.hoursLoggedText || '0h')
         };
       });
 
@@ -127,7 +154,7 @@ export const WorkProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast]);
+  }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast, userKey, saveActiveTimerSnapshot]);
 
   useEffect(() => {
     loadWorkData();
@@ -150,8 +177,48 @@ export const WorkProvider = ({ children }) => {
   // =========================================================================
   useEffect(() => {
     const timerInterval = setInterval(() => {
+      const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+      const isShiftOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+
       const activeTimer = getActiveTimerSnapshot();
-      if (!activeTimer || !activeTimer.timerRunning) return;
+      if (!activeTimer) return;
+
+      // ── STRICT SHIFT-TIMER DEPENDENCY ──
+      // If user's shift is NOT clocked in, or is on break, task timers MUST NOT RUN!
+      if (!isShiftClockedIn || isShiftOnBreak) {
+        if (activeTimer.timerRunning) {
+          const currentSecs = getElapsedSeconds(activeTimer);
+          const today = getTodayStr();
+          const pausedTimerState = {
+            ...activeTimer,
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            date: today,
+            wasPausedForShiftNotActive: true
+          };
+          saveActiveTimerSnapshot(pausedTimerState);
+
+          const allTasks = getCollection(KEYS.TASKS) || [];
+          const updatedAll = allTasks.map(t => {
+            if (t._id === activeTimer.taskId) {
+              return { ...t, timerRunning: false, timerSeconds: currentSecs };
+            }
+            return t;
+          });
+          saveCollection(KEYS.TASKS, updatedAll);
+
+          setTasks(prevTasks => prevTasks.map(t => {
+            if (t._id === activeTimer.taskId) {
+              return { ...t, timerRunning: false, timerSeconds: currentSecs, liveDurationText: formatSeconds(currentSecs) };
+            }
+            return t;
+          }));
+        }
+        return;
+      }
+
+      if (!activeTimer.timerRunning) return;
 
       const liveSecs = getElapsedSeconds(activeTimer);
       const text = formatSeconds(liveSecs);
@@ -179,7 +246,7 @@ export const WorkProvider = ({ children }) => {
     }, 1000);
 
     return () => clearInterval(timerInterval);
-  }, [getActiveTimerSnapshot, getElapsedSeconds, formatSeconds]);
+  }, [getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, userKey, saveActiveTimerSnapshot]);
 
   // Catch up immediately when tab gains focus or visibility
   useEffect(() => {
@@ -254,6 +321,126 @@ export const WorkProvider = ({ children }) => {
       window.removeEventListener('ems_break_ended', handleBreakEnded);
     };
   }, [getActiveTimerSnapshot, getElapsedSeconds, saveActiveTimerSnapshot]);
+
+  // ── Automatic Task Timer Pause on Clock-Out ──
+  useEffect(() => {
+    const handleClockedOut = () => {
+      const activeTimer = getActiveTimerSnapshot();
+      if (activeTimer && activeTimer.timerRunning) {
+        const currentSecs = getElapsedSeconds(activeTimer);
+        const today = getTodayStr();
+        const pausedState = {
+          ...activeTimer,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: currentSecs,
+          date: today,
+          wasPausedForClockOut: true
+        };
+        saveActiveTimerSnapshot(pausedState);
+
+        const allTasks = getCollection(KEYS.TASKS) || [];
+        const updatedAll = allTasks.map(t => {
+          if (t._id === activeTimer.taskId) {
+            return { ...t, timerRunning: false, timerSeconds: currentSecs };
+          }
+          return t;
+        });
+        saveCollection(KEYS.TASKS, updatedAll);
+
+        setTasks(prev => prev.map(t => {
+          if (t._id === activeTimer.taskId) {
+            return { ...t, timerRunning: false, timerSeconds: currentSecs, liveDurationText: formatSeconds(currentSecs) };
+          }
+          return t;
+        }));
+
+        addToast('Shift Clocked Out: Active task timer automatically paused ⏸️', 'info');
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      }
+    };
+
+    window.addEventListener('ems_clocked_out', handleClockedOut);
+    window.addEventListener('ems_force_clock_out', handleClockedOut);
+    window.addEventListener('ems_shift_ended', handleClockedOut);
+    window.addEventListener('ems_reclock_requests_updated', handleClockedOut);
+    return () => {
+      window.removeEventListener('ems_clocked_out', handleClockedOut);
+      window.removeEventListener('ems_force_clock_out', handleClockedOut);
+      window.removeEventListener('ems_shift_ended', handleClockedOut);
+      window.removeEventListener('ems_reclock_requests_updated', handleClockedOut);
+    };
+  }, [getActiveTimerSnapshot, getElapsedSeconds, saveActiveTimerSnapshot, formatSeconds, addToast]);
+
+  // ── Day Change Rollover Check (New Day fresh start, 00:00:00 reset) ──
+  useEffect(() => {
+    const checkDayRollover = () => {
+      const today = getTodayStr();
+      const storedWorkDate = localStorage.getItem(`ems_work_session_date_${userKey}`) || today;
+
+      if (storedWorkDate !== today) {
+        localStorage.setItem(`ems_work_session_date_${userKey}`, today);
+        setWorkSessionDate(today);
+
+        // Check if yesterday had an active unclosed timer
+        const rawSaved = localStorage.getItem(activeTimerKey);
+        if (rawSaved) {
+          try {
+            const prev = JSON.parse(rawSaved);
+            if (prev && prev.date && prev.date !== today) {
+              const duration = Number(prev.accumulatedSeconds) || 60;
+              workService.createTimesheet({
+                taskId: prev.taskId,
+                taskCode: prev.taskCode,
+                taskTitle: prev.title,
+                projectName: prev.projectName,
+                employeeId: prev.assignedToId,
+                employeeName: prev.assignedToName,
+                date: prev.date || storedWorkDate,
+                totalDurationSeconds: Math.min(duration, 8 * 3600),
+                totalDurationText: formatSeconds(Math.min(duration, 8 * 3600)),
+                memo: 'Automatic end-of-day timesheet close',
+                status: 'stopped'
+              }).catch(e => console.warn('Auto timesheet close error:', e));
+            }
+          } catch (e) {}
+        }
+
+        // Reset active timer snapshot for the new day
+        saveActiveTimerSnapshot(null);
+
+        // Reset all tasks' session timer to 0 for the fresh new day
+        const allTasks = getCollection(KEYS.TASKS) || [];
+        const resetTasks = allTasks.map(t => ({
+          ...t,
+          timerRunning: false,
+          timerSeconds: 0,
+          sessionDate: today
+        }));
+        saveCollection(KEYS.TASKS, resetTasks);
+
+        setTasks(prev => prev.map(t => ({
+          ...t,
+          timerRunning: false,
+          timerSeconds: 0,
+          sessionDate: today
+        })));
+
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      }
+    };
+
+    checkDayRollover();
+    const interval = setInterval(checkDayRollover, 15000); // Check every 15s
+
+    const handleRolloverEvent = () => checkDayRollover();
+    window.addEventListener('ems_day_rollover', handleRolloverEvent);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('ems_day_rollover', handleRolloverEvent);
+    };
+  }, [userKey, activeTimerKey, saveActiveTimerSnapshot, formatSeconds]);
 
   // =========================================================================
   // 🏢 PROJECT ACTIONS
@@ -351,13 +538,71 @@ export const WorkProvider = ({ children }) => {
     }
   };
 
+  // ── Overdue Task Detection ──
+  const isTaskOverdue = useCallback((task) => {
+    if (!task || !task.dueDate || task.hasNoDueDate || task.status === 'completed') return false;
+    const today = getTodayStr();
+    return task.dueDate < today;
+  }, []);
+
+  const extendTaskDeadline = useCallback(async (taskId, days = 1) => {
+    try {
+      const target = tasks.find(t => t._id === taskId);
+      if (!target) return;
+      const baseDate = new Date();
+      baseDate.setDate(baseDate.getDate() + days);
+      const newDueDate = baseDate.toISOString().split('T')[0];
+
+      await updateTask(taskId, { dueDate: newDueDate, hasNoDueDate: false });
+      addToast(`📅 Task #${target.taskCode || ''} deadline extended to ${newDueDate}`, 'success');
+      setOverdueTaskPrompt(null);
+      // Auto start timer once deadline extended
+      setTimeout(() => {
+        startTaskTimer(taskId, { forceOverdue: true });
+      }, 80);
+    } catch (e) {
+      addToast('Failed to extend task deadline', 'error');
+    }
+  }, [tasks, updateTask, addToast]);
+
   // ── Start / Resume Task Timer (Wall-Clock Precision) ──
-  const startTaskTimer = (taskId) => {
+  const startTaskTimer = (taskId, options = {}) => {
+    // 1. Strict Shift Guard: timer CANNOT start unless shift is actively clocked in!
+    const isClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+    if (!isClockedIn) {
+      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
+      return;
+    }
+
+    // 2. Break Guard: cannot start task timer while on break
+    const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+    if (isOnBreak) {
+      addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
+      return;
+    }
+
     const targetTask = tasks.find(t => t._id === taskId);
     if (!targetTask) return;
 
+    // 3. Overdue Task Guard: cannot start or run overdue task without resolving deadline or completing
+    const isOverdue = isTaskOverdue(targetTask);
+    if (isOverdue && !options.forceOverdue) {
+      setOverdueTaskPrompt(targetTask);
+      addToast(`⚠️ Task #${targetTask.taskCode || ''} is overdue (Due: ${targetTask.dueDate})! Please update deadline or mark completed.`, 'warning');
+      return;
+    }
+
+    const today = getTodayStr();
     const now = Date.now();
-    const existingSecs = Number(targetTask.timerSeconds) || 0;
+    const activeTimer = getActiveTimerSnapshot();
+
+    // Check existing seconds for today's session
+    let existingSecs = 0;
+    if (activeTimer && activeTimer.taskId === taskId && activeTimer.date === today) {
+      existingSecs = getElapsedSeconds(activeTimer);
+    } else if (targetTask.sessionDate === today) {
+      existingSecs = Number(targetTask.timerSeconds) || 0;
+    }
 
     const newTimerState = {
       taskId: targetTask._id,
@@ -369,6 +614,7 @@ export const WorkProvider = ({ children }) => {
       timerRunning: true,
       startedAt: now,
       accumulatedSeconds: existingSecs,
+      date: today,
       lastUpdated: now
     };
 
@@ -382,6 +628,7 @@ export const WorkProvider = ({ children }) => {
           ...t,
           timerRunning: true,
           timerSeconds: existingSecs,
+          sessionDate: today,
           status: t.status === 'incomplete' ? 'in_progress' : t.status
         };
       }
@@ -398,6 +645,8 @@ export const WorkProvider = ({ children }) => {
           ...t,
           timerRunning: true,
           timerSeconds: existingSecs,
+          sessionDate: today,
+          liveDurationText: formatSeconds(existingSecs),
           status: t.status === 'incomplete' ? 'in_progress' : t.status
         };
       }
@@ -407,7 +656,6 @@ export const WorkProvider = ({ children }) => {
       return t;
     }));
 
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
     addToast('Task timer started! ⏱️ Tracking active work.', 'info');
   };
 
@@ -415,6 +663,7 @@ export const WorkProvider = ({ children }) => {
   const pauseTaskTimer = (taskId) => {
     const activeTimer = getActiveTimerSnapshot();
     const targetTask = tasks.find(t => t._id === taskId);
+    const today = getTodayStr();
     const currentSecs = (activeTimer && activeTimer.taskId === taskId)
       ? getElapsedSeconds(activeTimer)
       : (targetTask?.timerSeconds || 0);
@@ -424,7 +673,8 @@ export const WorkProvider = ({ children }) => {
       taskId,
       timerRunning: false,
       startedAt: null,
-      accumulatedSeconds: currentSecs
+      accumulatedSeconds: currentSecs,
+      date: today
     };
     saveActiveTimerSnapshot(pausedTimerState);
 
@@ -432,7 +682,7 @@ export const WorkProvider = ({ children }) => {
     const allTasks = getCollection(KEYS.TASKS) || [];
     const updatedAll = allTasks.map(t => {
       if (t._id === taskId) {
-        return { ...t, timerRunning: false, timerSeconds: currentSecs };
+        return { ...t, timerRunning: false, timerSeconds: currentSecs, sessionDate: today };
       }
       return t;
     });
@@ -440,12 +690,11 @@ export const WorkProvider = ({ children }) => {
 
     setTasks(prev => prev.map(t => {
       if (t._id === taskId) {
-        return { ...t, timerRunning: false, timerSeconds: currentSecs };
+        return { ...t, timerRunning: false, timerSeconds: currentSecs, sessionDate: today, liveDurationText: formatSeconds(currentSecs) };
       }
       return t;
     }));
 
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
     addToast('Task timer paused ⏸️', 'info');
   };
 
@@ -489,7 +738,6 @@ export const WorkProvider = ({ children }) => {
 
       addToast(`Timer stopped! ${formatSeconds(totalSecs)} logged to Timesheet.`, 'success');
       await loadWorkData();
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
     } catch (err) {
       addToast('Failed to save timer session', 'error');
     }
@@ -795,9 +1043,23 @@ export const WorkProvider = ({ children }) => {
       // HR cross connection
       employees,
       currentUser,
-      isEmployeeOnLeave
+      isEmployeeOnLeave,
+      // Overdue Task Guards
+      isTaskOverdue,
+      overdueTaskPrompt,
+      setOverdueTaskPrompt,
+      extendTaskDeadline
     }}>
       {children}
+      {overdueTaskPrompt && (
+        <OverdueTaskModal
+          task={overdueTaskPrompt}
+          onClose={() => setOverdueTaskPrompt(null)}
+          onExtend={extendTaskDeadline}
+          onComplete={completeTask}
+          onContinueAnyway={(taskId) => startTaskTimer(taskId, { forceOverdue: true })}
+        />
+      )}
     </WorkContext.Provider>
   );
 };

@@ -28,13 +28,13 @@ export const DocumentationPage = () => {
   const [documents, setDocuments] = useState([
     {
       id: 'DOC-1',
-      title: 'Aadhaar Card — Avinash',
+      title: 'Aadhaar Card — Admin User',
       docType: 'Aadhaar Card',
-      employeeName: 'Avinash',
-      employeeCode: 'EMP-001',
-      employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-      department: 'Marketing & Growth',
-      fileName: 'avinash_aadhaar_card_verified.pdf',
+      employeeName: 'Admin User',
+      employeeCode: 'ADM-001',
+      employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+      department: 'Management',
+      fileName: 'admin_aadhaar_card_verified.pdf',
       fileSize: '1.8 MB',
       uploadDate: '2026-01-16',
       status: 'verified'

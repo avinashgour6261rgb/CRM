@@ -1,53 +1,54 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCollection, saveCollection, KEYS } from '../services/storageService';
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
+import { API_BASE } from '../config/apiConfig';
 
 const AuthContext = createContext();
 
 export const PRESET_USERS = {
   admin: {
-    _id: 'emp_admin',
-    employeeCode: 'EMP-ADM-01',
-    name: 'Avinash Sharma',
+    _id: '',
+    employeeCode: 'ADM-001',
+    name: 'Admin User',
     email: 'admin@inforag.com',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
     role: 'Administrator',
     systemRole: ROLES.ADMIN,
-    department: 'Executive Management',
+    department: 'Management',
     status: 'active',
-    joiningDate: '2022-01-01',
+    joiningDate: '2023-01-01',
     isCurrentUser: true,
     isAdmin: true,
     isSuperAdmin: true,
     leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
   },
   hr: {
-    _id: 'emp_hr',
-    employeeCode: 'EMP-HR-02',
+    _id: '',
+    employeeCode: 'HR-001',
     name: 'Pooja Sharma',
     email: 'hr@inforag.com',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-    role: 'HR Manager & Talent Lead',
+    role: 'HR Manager',
     systemRole: ROLES.HR,
     department: 'Human Resources',
     status: 'active',
-    joiningDate: '2022-06-15',
+    joiningDate: '2023-03-01',
     isCurrentUser: true,
     leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 }
   },
   employee: {
-    _id: 'emp_employee',
-    employeeCode: 'EMP-DEV-03',
+    _id: '',
+    employeeCode: 'ENG-001',
     name: 'Rahul Verma',
-    email: 'employee@inforag.com',
+    email: 'rahul.verma@inforag.com',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-    role: 'Software Engineer',
+    role: 'Senior Full Stack Developer',
     systemRole: ROLES.TEAM_MEMBER,
     department: 'Engineering',
     status: 'active',
-    joiningDate: '2023-02-10',
+    joiningDate: '2023-02-15',
     isCurrentUser: true,
-    leaveBalance: { casual: 8, sick: 6, earned: 12, maternity: 0 }
+    leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
   }
 };
 
@@ -58,7 +59,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // If parsed is old dummy Avinash or emp_admin, discard it
+        if (parsed && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+          return parsed;
+        }
       }
     } catch (e) {
       console.error('Error loading saved auth session:', e);
@@ -66,100 +71,118 @@ export const AuthProvider = ({ children }) => {
     return PRESET_USERS.admin;
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem(AUTH_STORAGE_KEY) || true;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
 
-  // Sync with localStorage
+  // 1. Initial Load: Fetch real MongoDB currentUser on mount
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDbUser = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/employees/current`, { signal: AbortSignal.timeout(2000) });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data && isMounted) {
+            const dbUser = json.data;
+            setCurrentUser(prev => {
+              if (prev && prev._id === dbUser._id) {
+                return { ...prev, ...dbUser };
+              }
+              if (!prev || !prev._id || prev.name?.includes('Avinash') || prev._id === 'emp_admin' || prev._id === 'emp_001') {
+                return dbUser;
+              }
+              return prev;
+            });
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
+          }
+        }
+      } catch (err) {
+        // Backend offline or timeout
+      }
+    };
+
+    fetchDbUser();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Sync state with localStorage
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-      // Update in employees list
-      try {
-        const employees = getCollection(KEYS.EMPLOYEES) || [];
-        const exists = employees.some(e => e._id === currentUser._id || e.email === currentUser.email);
-        if (!exists) {
-          employees.unshift(currentUser);
-          saveCollection(KEYS.EMPLOYEES, employees);
-        } else {
-          const updated = employees.map(e => 
-            (e._id === currentUser._id || e.email === currentUser.email) ? { ...e, ...currentUser, isCurrentUser: true } : { ...e, isCurrentUser: false }
-          );
-          saveCollection(KEYS.EMPLOYEES, updated);
-        }
-      } catch (err) {
-        console.error('Error syncing auth user to employees collection:', err);
-      }
     }
   }, [currentUser]);
 
-  // Login handler
-  const login = useCallback(async ({ email, password, role }) => {
-    let matchedUser = null;
-    const cleanEmail = (email || '').toLowerCase().trim();
-
-    if (role === 'admin' || cleanEmail.includes('admin')) {
-      matchedUser = PRESET_USERS.admin;
-    } else if (role === 'hr' || cleanEmail.includes('hr')) {
-      matchedUser = PRESET_USERS.hr;
-    } else if (role === 'employee' || role === 'team_member' || cleanEmail.includes('employee') || cleanEmail.includes('rahul')) {
-      matchedUser = PRESET_USERS.employee;
-    } else {
-      // Find from employees list
-      const employees = getCollection(KEYS.EMPLOYEES) || [];
-      const found = employees.find(e => e.email?.toLowerCase() === cleanEmail);
-      if (found) {
-        matchedUser = { ...found, isCurrentUser: true };
-      } else {
-        // Fallback create or use employee
-        matchedUser = {
-          _id: `emp_${Date.now()}`,
-          name: cleanEmail.split('@')[0] || 'Team User',
-          email: cleanEmail || 'user@inforag.com',
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
-          role: 'Team Member',
-          systemRole: ROLES.TEAM_MEMBER,
-          department: 'General',
-          isCurrentUser: true,
-          leaveBalance: { casual: 8, sick: 6, earned: 12, maternity: 0 }
-        };
+  // Quick switch role directly linked to MongoDB
+  const switchRole = useCallback(async (roleId) => {
+    try {
+      const res = await fetch(`${API_BASE}/employees/switch/${roleId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(2500)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const dbUser = json.data;
+          setCurrentUser(dbUser);
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+          return dbUser;
+        }
       }
+    } catch (err) {
+      console.warn('Switch role API failed, falling back:', err);
     }
 
-    setCurrentUser(matchedUser);
-    setIsAuthenticated(true);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(matchedUser));
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-    return matchedUser;
-  }, []);
-
-  // Quick switch role
-  const switchRole = useCallback((roleId) => {
+    // Fallback: match from local employees or preset
     let targetUser = PRESET_USERS[roleId] || PRESET_USERS.admin;
-    if (roleId === 'admin') targetUser = PRESET_USERS.admin;
-    if (roleId === 'hr') targetUser = PRESET_USERS.hr;
-    if (roleId === 'employee' || roleId === 'team_member') targetUser = PRESET_USERS.employee;
+    const employees = getCollection(KEYS.EMPLOYEES) || [];
+    if (roleId === 'admin') {
+      targetUser = employees.find(e => e.employeeCode === 'ADM-001' || e.role?.toLowerCase().includes('admin') || e.isAdmin) || PRESET_USERS.admin;
+    } else if (roleId === 'hr') {
+      targetUser = employees.find(e => e.employeeCode === 'HR-001' || e.department === 'Human Resources') || PRESET_USERS.hr;
+    } else if (roleId === 'employee' || roleId === 'team_member') {
+      targetUser = employees.find(e => e.employeeCode === 'ENG-001' || e.department === 'Engineering') || PRESET_USERS.employee;
+    }
 
     setCurrentUser(targetUser);
     setIsAuthenticated(true);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(targetUser));
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+    return targetUser;
   }, []);
 
   // Quick switch to any specific employee or user object
-  const switchUser = useCallback((userOrId) => {
+  const switchUser = useCallback(async (userOrId) => {
     let targetUser = null;
     if (typeof userOrId === 'object' && userOrId !== null) {
       targetUser = { ...userOrId, isCurrentUser: true };
-    } else if (PRESET_USERS[userOrId]) {
-      targetUser = PRESET_USERS[userOrId];
     } else {
-      const employees = getCollection(KEYS.EMPLOYEES) || [];
-      const found = employees.find(e => e._id === userOrId || e.id === userOrId || e.employeeCode === userOrId || e.email === userOrId);
-      if (found) {
-        targetUser = { ...found, isCurrentUser: true };
+      try {
+        const res = await fetch(`${API_BASE}/employees/switch/${userOrId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(2500)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            targetUser = json.data;
+          }
+        }
+      } catch (e) {}
+
+      if (!targetUser) {
+        const employees = getCollection(KEYS.EMPLOYEES) || [];
+        const found = employees.find(e => e._id === userOrId || e.id === userOrId || e.employeeCode === userOrId || e.email === userOrId);
+        if (found) {
+          targetUser = { ...found, isCurrentUser: true };
+        } else if (PRESET_USERS[userOrId]) {
+          targetUser = PRESET_USERS[userOrId];
+        }
       }
     }
+
     if (targetUser) {
       setCurrentUser(targetUser);
       setIsAuthenticated(true);
@@ -168,6 +191,27 @@ export const AuthProvider = ({ children }) => {
     }
     return targetUser;
   }, []);
+
+  // Login handler
+  const login = useCallback(async ({ email, password, role }) => {
+    const cleanEmail = (email || '').toLowerCase().trim();
+    if (role) {
+      return await switchRole(role);
+    }
+    try {
+      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(cleanEmail)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const list = json.data || [];
+        const found = list.find(e => e.email?.toLowerCase() === cleanEmail);
+        if (found) {
+          return await switchUser(found._id);
+        }
+      }
+    } catch (e) {}
+
+    return await switchRole('admin');
+  }, [switchRole, switchUser]);
 
   // Logout handler
   const logout = useCallback(() => {

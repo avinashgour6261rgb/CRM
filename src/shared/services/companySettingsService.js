@@ -19,7 +19,12 @@ export const DEFAULT_COMPANY_SETTINGS = {
   gstin: '07AAAAA0000A1Z5',
   signatoryTitle: 'Authorized HR Directorate',
   signatoryName: 'Sneha Patel',
-  footerNote: '* This is a computer-generated salary slip and does not require a physical signature.'
+  footerNote: '* This is a computer-generated salary slip and does not require a physical signature.',
+  // ⏱️ Admin Configurable Shift Timing & Working Hours
+  standardWorkHours: 9, // Standard daily work hours (default 9h)
+  shiftStartTime: '10:00 AM', // Shift start time (default 10:00 AM)
+  shiftEndTime: '07:00 PM', // Shift end time (default 07:00 PM)
+  workDaysDescription: 'Mon - Sat (Sunday Off)'
 };
 
 export const getCompanySettings = () => {

@@ -6,11 +6,15 @@ import { UserCheck, ShieldAlert, Calendar, Clock, AlertCircle } from 'lucide-rea
 export const NewLeaveModal = ({ isOpen, onClose }) => {
   const { employees, currentUser, applyLeave } = useHR();
 
-  // Find a default manager/HR (first other person or admin)
-  const defaultApprover = employees.find(e => e._id !== (currentUser?._id || 'emp_001') && (e.role?.toLowerCase().includes('admin') || e.role?.toLowerCase().includes('hr') || e.role?.toLowerCase().includes('manager'))) || employees.find(e => e._id !== (currentUser?._id || 'emp_001')) || employees[0];
+  // Potential approvers must exclude the applying employee
+  const currentApplicantId = currentUser?._id || 'emp_001';
+  const initialApprovers = employees.filter(e => e._id !== currentApplicantId);
+  const defaultApprover = initialApprovers.find(e => 
+    (e.role?.toLowerCase().includes('admin') || e.role?.toLowerCase().includes('hr') || e.role?.toLowerCase().includes('manager') || e.role?.toLowerCase().includes('lead'))
+  ) || initialApprovers[0];
 
   const [formData, setFormData] = useState({
-    employeeId: currentUser?._id || 'emp_001',
+    employeeId: currentApplicantId,
     appliedToId: defaultApprover?._id || '',
     leaveType: 'Casual Leave',
     startDate: new Date().toISOString().split('T')[0],
@@ -22,8 +26,9 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
   const [submitting, setSubmitting] = useState(false);
 
+  const potentialApprovers = employees.filter(e => e._id !== formData.employeeId);
   const selectedEmp = employees.find(e => e._id === formData.employeeId) || currentUser || employees[0];
-  const selectedApprover = employees.find(e => e._id === formData.appliedToId) || defaultApprover;
+  const selectedApprover = potentialApprovers.find(e => e._id === formData.appliedToId) || potentialApprovers[0];
 
   // Real-time dynamic duration calculation
   const start = new Date(formData.startDate);
@@ -105,7 +110,16 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             </label>
             <select
               value={formData.employeeId}
-              onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+              onChange={(e) => {
+                const nextEmpId = e.target.value;
+                const nextApprovers = employees.filter(emp => emp._id !== nextEmpId);
+                const nextApprover = nextApprovers.find(emp => emp._id === formData.appliedToId) || nextApprovers[0];
+                setFormData({
+                  ...formData,
+                  employeeId: nextEmpId,
+                  appliedToId: nextApprover?._id || ''
+                });
+              }}
               className="filter-select"
               style={{ width: '100%', height: '42px', borderRadius: '8px' }}
             >
@@ -128,7 +142,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
               className="filter-select"
               style={{ width: '100%', height: '42px', borderRadius: '8px', border: '1.5px solid #3b82f6', background: '#eff6ff' }}
             >
-              {employees.map(emp => (
+              {potentialApprovers.map(emp => (
                 <option key={emp._id} value={emp._id}>
                   {emp.name} — {emp.role || 'Reviewer'}
                 </option>

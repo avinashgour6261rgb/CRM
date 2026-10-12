@@ -18,6 +18,24 @@ const connectDB = async () => {
     console.log(`\n🍃 MongoDB Atlas Cloud Connected successfully!`);
     console.log(`   Database: ${conn.connection.name}\n`);
 
+    // Ensure real database records exist and no stale legacy mock remains
+    try {
+      const Employee = require('../../modules/hr/models/Employee');
+      const Task = require('../../modules/work/models/Task');
+      const empCount = await Employee.countDocuments();
+      const hasAdmin = await Employee.findOne({ employeeCode: 'ADM-001' });
+      const hasLegacyAvinash = (await Employee.findOne({ name: /Avinash/i })) ||
+                               (await Task.findOne({ $or: [{ assignedToName: /Avinash/i }, { title: /Develop Client Analytics/i }] }));
+
+      if (empCount === 0 || !hasAdmin || hasLegacyAvinash) {
+        console.log('⚡ Detected legacy mock records or uninitialized DB. Syncing clean actual database records...');
+        const { seedDatabase } = require('../../seeders/seed');
+        await seedDatabase();
+      }
+    } catch (seedErr) {
+      console.warn('⚠️ Auto-seed check notice:', seedErr.message);
+    }
+
     // Graceful shutdown
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
