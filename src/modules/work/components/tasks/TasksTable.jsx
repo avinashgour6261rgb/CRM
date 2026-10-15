@@ -24,6 +24,7 @@ import { SnoozeTaskModal } from './SnoozeTaskModal';
 const STATUS_CONFIG = {
   incomplete: { label: 'Incomplete', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
   in_progress: { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
+  on_hold: { label: 'On Hold', color: '#d97706', bg: '#fffbeb', dot: '#f59e0b' },
   under_review: { label: 'Under Review', color: '#9333ea', bg: '#faf5ff', dot: '#a855f7' },
   completed: { label: 'Completed', color: '#16a34a', bg: '#f0fdf4', dot: '#22c55e' }
 };
@@ -33,6 +34,7 @@ export const TasksTable = ({ onSelectTask }) => {
     tasks,
     deleteTask,
     changeTaskStatus,
+    completeTask,
     startTaskTimer,
     pauseTaskTimer,
     stopTaskTimer,
@@ -452,37 +454,71 @@ export const TasksTable = ({ onSelectTask }) => {
                     </div>
                   </td>
 
-                  {/* Assigned To (Avatar + Name + Smart Leave Badge + Assigner info) */}
+                  {/* Assigned To (Avatar + Name + Multi-assignee Stack + Smart Leave Badge) */}
                   <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <img
-                        src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={task.assignedToName}
-                        style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
-                      />
-                      <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>
-                          {task.assignedToName || 'Unassigned'}
+                    {Array.isArray(task.assignees) && task.assignees.length > 1 ? (
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        title={task.assignees.map(a => a.name).join(', ')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          {task.assignees.slice(0, 3).map((a, idx) => (
+                            <img
+                              key={a._id || a.id || idx}
+                              src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                              alt={a.name}
+                              title={a.name}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '2px solid #ffffff',
+                                marginLeft: idx > 0 ? '-7px' : '0'
+                              }}
+                            />
+                          ))}
                         </div>
-                        {task.assignedBy && task.assignedBy !== task.assignedToName && (
-                          <div style={{ fontSize: '10px', color: '#64748b' }}>
-                            By {task.assignedBy}
+                        <div>
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', lineHeight: '1.2' }}>
+                            {task.assignees[0].name} +{task.assignees.length - 1} more
                           </div>
-                        )}
-                        {isOnLeave && (
-                          <span style={{
-                            fontSize: '9px',
-                            color: '#d97706',
-                            backgroundColor: '#fef3c7',
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontWeight: '600'
-                          }}>
-                            🌴 On Leave
-                          </span>
-                        )}
+                          <div style={{ fontSize: '9.5px', color: '#0284c7', fontWeight: '600' }}>
+                            👥 {task.assignees.length} Members
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <img
+                          src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt={task.assignedToName}
+                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                        <div>
+                          <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>
+                            {task.assignedToName || 'Unassigned'}
+                          </div>
+                          {task.assignedBy && task.assignedBy !== task.assignedToName && (
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                              By {task.assignedBy}
+                            </div>
+                          )}
+                          {isOnLeave && (
+                            <span style={{
+                              fontSize: '9px',
+                              color: '#d97706',
+                              backgroundColor: '#fef3c7',
+                              padding: '1px 4px',
+                              borderRadius: '3px',
+                              fontWeight: '600'
+                            }}>
+                              🌴 On Leave
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </td>
 
                   {/* Status Dropdown */}
@@ -506,32 +542,76 @@ export const TasksTable = ({ onSelectTask }) => {
                     >
                       <option value="incomplete">🔴 Incomplete</option>
                       <option value="in_progress">🔵 In Progress</option>
+                      <option value="on_hold">⏸ On Hold</option>
                       <option value="under_review">🟣 Under Review</option>
                       <option value="completed">🟢 Completed</option>
                     </select>
                   </td>
 
-                  {/* Action Dropdown Menu */}
-                  <td style={{ padding: '7px 10px', textAlign: 'right', position: 'relative' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuId(isMenuOpen ? null : task._id);
-                      }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#64748b',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <MoreVertical size={14} />
-                    </button>
+                  {/* Action Column with Quick Complete Button */}
+                  <td style={{ padding: '7px 10px', textAlign: 'right', position: 'relative', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {task.status !== 'completed' ? (
+                        <button
+                          title="Mark as Completed (1-Click)"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            completeTask(task._id);
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            backgroundColor: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '3px 8px',
+                            borderRadius: '5px',
+                            fontSize: '10.5px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
+                          }}
+                        >
+                          <CheckCircle2 size={10} /> Done
+                        </button>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          fontSize: '10px',
+                          color: '#16a34a',
+                          fontWeight: '700',
+                          backgroundColor: '#f0fdf4',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid #bbf7d0'
+                        }}>
+                          ✓ Done
+                        </span>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(isMenuOpen ? null : task._id);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#64748b',
+                          padding: '4px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+                    </div>
 
                     {isMenuOpen && (
                       <div

@@ -25,6 +25,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
     pauseTaskTimer,
     stopTaskTimer,
     changeTaskStatus,
+    completeTask,
     updateTask,
     employees
   } = useWork();
@@ -209,7 +210,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {task.timerRunning ? (
                 <>
                   <button
@@ -269,6 +270,52 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   }}
                 >
                   <Play size={14} /> Start Tracking
+                </button>
+              )}
+
+              {task.status !== 'completed' ? (
+                <button
+                  onClick={async () => {
+                    await completeTask(task._id);
+                    onClose();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
+                  }}
+                >
+                  <CheckCircle2 size={15} /> Complete Task
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    await changeTaskStatus(task._id, 'in_progress');
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reopen Task
                 </button>
               )}
             </div>
@@ -392,16 +439,51 @@ export const TaskDetailModal = ({ task, onClose }) => {
               </div>
 
               {!isReassigning ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img
-                    src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                    alt={task.assignedToName}
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{task.assignedToName}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>{task.assignedToRole || 'Team Member'}</div>
-                  </div>
+                <div>
+                  {Array.isArray(task.assignees) && task.assignees.length > 1 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0284c7' }}>
+                        👥 {task.assignees.length} Assigned Members:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                        {task.assignees.map(a => (
+                          <div
+                            key={a._id || a.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              padding: '2px 7px',
+                              borderRadius: '16px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            <img
+                              src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                              alt={a.name}
+                              style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }}
+                            />
+                            <span>{a.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img
+                        src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={task.assignedToName}
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{task.assignedToName}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>{task.assignedToRole || 'Team Member'}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <select
@@ -473,8 +555,9 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   backgroundColor: '#ffffff'
                 }}
               >
-                <option value="incomplete">🔴 Incomplete</option>
+                <option value="incomplete">🔴 Incomplete / Pending</option>
                 <option value="in_progress">🔵 In Progress</option>
+                <option value="on_hold">⏸ On Hold / Paused</option>
                 <option value="under_review">🟣 Under Review</option>
                 <option value="completed">🟢 Completed</option>
               </select>

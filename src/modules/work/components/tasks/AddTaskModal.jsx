@@ -11,13 +11,16 @@ import {
   CheckCircle2,
   FolderGit2,
   User,
+  Users,
   Clock,
   Calendar,
   AlertCircle,
   Plus,
   Sparkles,
   Zap,
-  Tag
+  Tag,
+  Search,
+  Check
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
@@ -62,6 +65,8 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
   );
 
+  const initialAssigneeId = currentUser?._id || (employees && employees[0]?._id) || '';
+
   const [formData, setFormData] = useState({
     title: '',
     category: 'General',
@@ -69,12 +74,14 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     customProjectName: '',
     startDate: getTodayStr(),
     dueDate: getTodayStr(),
-    assignedToId: currentUser?._id || (employees && employees[0]?._id) || '',
+    assignedToId: initialAssigneeId,
+    assignedToIds: initialAssigneeId ? [initialAssigneeId] : [],
     priority: 'medium',
     estimatedHours: 4,
     description: ''
   });
 
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -88,6 +95,52 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleAssignee = (empId) => {
+    setFormData(prev => {
+      const currentIds = prev.assignedToIds || [];
+      const exists = currentIds.includes(empId);
+      let updated;
+      if (exists) {
+        updated = currentIds.filter(id => id !== empId);
+      } else {
+        updated = [...currentIds, empId];
+      }
+      return {
+        ...prev,
+        assignedToIds: updated,
+        assignedToId: updated[0] || ''
+      };
+    });
+  };
+
+  const handleSelectAllAssignees = () => {
+    if (!employees || employees.length === 0) return;
+    const allIds = employees.map(e => e._id);
+    setFormData(prev => ({
+      ...prev,
+      assignedToIds: allIds,
+      assignedToId: allIds[0] || ''
+    }));
+  };
+
+  const handleAssignToMeOnly = () => {
+    const myId = currentUser?._id;
+    if (!myId) return;
+    setFormData(prev => ({
+      ...prev,
+      assignedToIds: [myId],
+      assignedToId: myId
+    }));
+  };
+
+  const handleClearAssignees = () => {
+    setFormData(prev => ({
+      ...prev,
+      assignedToIds: [],
+      assignedToId: ''
+    }));
   };
 
   const handleSave = async (andAddMore = false) => {
@@ -141,7 +194,21 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         finalProjectCode = 'TASK';
       }
 
-      const selectedAssignee = employees.find(e => e._id === formData.assignedToId) || currentUser || employees[0];
+      // Resolve selected assignees
+      const validEmpList = employees || [];
+      const selectedAssignees = validEmpList.filter(e => (formData.assignedToIds || []).includes(e._id));
+      const assigneesList = selectedAssignees.length > 0
+        ? selectedAssignees
+        : [validEmpList.find(e => e._id === formData.assignedToId) || currentUser || validEmpList[0]].filter(Boolean);
+
+      const primaryAssignee = assigneesList[0];
+      const isMultiple = assigneesList.length > 1;
+      const displayAssigneeName = isMultiple
+        ? `${assigneesList[0].name} (+${assigneesList.length - 1} more)`
+        : (primaryAssignee?.name || 'Unassigned');
+      const displayAssigneeRole = isMultiple
+        ? `${assigneesList.length} Assigned Members`
+        : (primaryAssignee?.role || 'Team Member');
 
       await createTask({
         title: formData.title.trim(),
@@ -154,12 +221,24 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         priority: formData.priority,
         estimatedHours: Number(formData.estimatedHours) || 0,
         description: formData.description.trim(),
-        assignedTo: selectedAssignee?._id || null,
-        assignedToId: selectedAssignee?._id || '',
-        assignedToName: selectedAssignee?.name || 'Unassigned',
-        assignedToEmail: selectedAssignee?.email || '',
-        assignedToAvatar: selectedAssignee?.avatar || '',
-        assignedToRole: selectedAssignee?.role || '',
+        // Multi-assignees
+        assignedToIds: assigneesList.map(a => a._id),
+        assignees: assigneesList.map(a => ({
+          _id: a._id,
+          id: a._id,
+          name: a.name,
+          email: a.email || '',
+          avatar: a.avatar || '',
+          role: a.role || '',
+          employeeCode: a.employeeCode || ''
+        })),
+        // Single fields for backwards compatibility
+        assignedTo: primaryAssignee?._id || null,
+        assignedToId: primaryAssignee?._id || '',
+        assignedToName: displayAssigneeName,
+        assignedToEmail: primaryAssignee?.email || '',
+        assignedToAvatar: primaryAssignee?.avatar || '',
+        assignedToRole: displayAssigneeRole,
         assignedBy: currentUser?.name || 'Admin',
         assignedById: currentUser?._id || 'emp_admin',
         assignedByAvatar: currentUser?.avatar || '',
@@ -172,7 +251,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         timerSeconds: 0
       });
 
-      addToast(`Task "${formData.title}" assigned successfully!`, 'success');
+      addToast(`Task "${formData.title}" assigned to ${displayAssigneeName}!`, 'success');
 
       if (andAddMore) {
         setFormData(prev => ({
@@ -446,75 +525,274 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
             />
           </div>
 
-          {/* 3. Assignee & Category (2 Columns) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-                  Assign To
+          {/* 3. Category */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              Category
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => handleChange('category', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: '8px',
+                border: '1.5px solid #cbd5e1',
+                fontSize: '12.5px',
+                color: '#0f172a',
+                outline: 'none',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 4. Multi-Assignee Selection */}
+          <div style={{
+            backgroundColor: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Users size={14} color="#0284c7" />
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
+                  Assign To Team Members
                 </label>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  color: (formData.assignedToIds || []).length > 0 ? '#0284c7' : '#ef4444',
+                  backgroundColor: (formData.assignedToIds || []).length > 0 ? '#e0f2fe' : '#fee2e2',
+                  padding: '1px 6px',
+                  borderRadius: '10px'
+                }}>
+                  {(formData.assignedToIds || []).length} Selected
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {currentUser && (
                   <button
                     type="button"
-                    onClick={() => handleChange('assignedToId', currentUser._id)}
+                    onClick={handleAssignToMeOnly}
                     style={{
-                      border: 'none',
-                      background: 'none',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
                       color: '#0284c7',
-                      fontSize: '11px',
+                      fontSize: '10.5px',
                       fontWeight: '700',
                       cursor: 'pointer',
-                      padding: 0
+                      padding: '2px 7px',
+                      borderRadius: '4px'
                     }}
                   >
                     Assign to Me
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={handleSelectAllAssignees}
+                  style={{
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    padding: '2px 7px',
+                    borderRadius: '4px'
+                  }}
+                >
+                  Select All
+                </button>
+                {(formData.assignedToIds || []).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAssignees}
+                    style={{
+                      border: '1px solid #fecaca',
+                      background: '#fff1f2',
+                      color: '#e11d48',
+                      fontSize: '10.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      padding: '2px 7px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
-              <select
-                value={formData.assignedToId}
-                onChange={(e) => handleChange('assignedToId', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
-              >
-                {employees && employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>
-                    {emp.name} {emp._id === currentUser?._id ? '(You)' : `— ${emp.role || 'Member'}`}
-                  </option>
-                ))}
-              </select>
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Category
-              </label>
-              <select
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
+            {/* Selected Members Chips */}
+            {(formData.assignedToIds || []).length > 0 && (
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '6px',
+                padding: '4px 0'
+              }}>
+                {(formData.assignedToIds || []).map(id => {
+                  const emp = (employees || []).find(e => e._id === id);
+                  if (!emp) return null;
+                  return (
+                    <span
+                      key={emp._id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '2px 8px 2px 4px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #bfdbfe',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#1e3a8a',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                      }}
+                    >
+                      <img
+                        src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={emp.name}
+                        style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                      <span>{emp.name}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleAssignee(emp._id);
+                        }}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '0 1px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Search Input for Employees */}
+            <div style={{ position: 'relative' }}>
+              <Search size={13} color="#94a3b8" style={{ position: 'absolute', left: '8px', top: '8px' }} />
+              <input
+                type="text"
+                value={memberSearchQuery}
+                onChange={(e) => setMemberSearchQuery(e.target.value)}
+                placeholder="Search colleagues by name or role..."
                 style={{
                   width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
+                  padding: '5px 8px 5px 26px',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '11.5px',
                   outline: 'none',
                   backgroundColor: '#ffffff'
                 }}
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              />
+            </div>
+
+            {/* Scrollable Members List */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+              gap: '6px',
+              maxHeight: '135px',
+              overflowY: 'auto',
+              paddingRight: '2px'
+            }}>
+              {(employees || [])
+                .filter(emp => {
+                  if (!memberSearchQuery) return true;
+                  const q = memberSearchQuery.toLowerCase();
+                  return (emp.name && emp.name.toLowerCase().includes(q)) ||
+                    (emp.role && emp.role.toLowerCase().includes(q)) ||
+                    (emp.department && emp.department.toLowerCase().includes(q));
+                })
+                .map(emp => {
+                  const isSelected = (formData.assignedToIds || []).includes(emp._id);
+                  const isMe = emp._id === currentUser?._id;
+                  return (
+                    <div
+                      key={emp._id}
+                      onClick={() => toggleAssignee(emp._id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 7px',
+                        borderRadius: '6px',
+                        border: isSelected ? '1.5px solid #0284c7' : '1px solid #e2e8f0',
+                        backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '3px',
+                        border: isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                        backgroundColor: isSelected ? '#0284c7' : '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ffffff',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && <Check size={10} strokeWidth={3} />}
+                      </div>
+
+                      <img
+                        src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={emp.name}
+                        style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      />
+
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: isSelected ? '700' : '600',
+                          color: isSelected ? '#0369a1' : '#0f172a',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {emp.name} {isMe && '(You)'}
+                        </div>
+                        <div style={{
+                          fontSize: '9.5px',
+                          color: '#64748b',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {emp.role || 'Member'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
 

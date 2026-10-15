@@ -184,7 +184,7 @@ export const TimerProvider = ({ children }) => {
         if (rec?.clockInTime || rec?.clockIn) return rec.clockInTime || rec.clockIn;
       }
     } catch {}
-    return userKey === 'emp_001' ? localStorage.getItem('ems_login_time') : null;
+    return null;
   });
 
   const [clockOutTime, setClockOutTime] = useState(() => {
@@ -206,7 +206,7 @@ export const TimerProvider = ({ children }) => {
         if (rec?.clockOutTime || rec?.clockOut) return rec.clockOutTime || rec.clockOut;
       }
     } catch {}
-    return userKey === 'emp_001' ? localStorage.getItem('ems_clockout_time') : null;
+    return null;
   });
 
   const [hadClockedOutToday, setHadClockedOutToday] = useState(() => {
@@ -220,10 +220,6 @@ export const TimerProvider = ({ children }) => {
     if (!isTodaySession) return false;
     const saved = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`);
     if (saved !== null) return JSON.parse(saved);
-    if (userKey === 'emp_001') {
-      const leg = localStorage.getItem('ems_is_clocked_in');
-      return leg !== null ? JSON.parse(leg) : false;
-    }
     return false;
   });
 
@@ -231,10 +227,6 @@ export const TimerProvider = ({ children }) => {
     if (!isTodaySession) return false;
     const saved = localStorage.getItem(`ems_timer_${userKey}_is_running`);
     if (saved !== null) return JSON.parse(saved);
-    if (userKey === 'emp_001') {
-      const leg = localStorage.getItem('hrms_work_clock_running');
-      return leg !== null ? JSON.parse(leg) : false;
-    }
     return false;
   });
 
@@ -243,10 +235,6 @@ export const TimerProvider = ({ children }) => {
     if (!isTodaySession) return 0;
     const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
     if (saved) return parseInt(saved, 10);
-    if (userKey === 'emp_001') {
-      const leg = localStorage.getItem('hrms_work_clock_seconds');
-      return leg ? parseInt(leg, 10) : 0;
-    }
     return 0;
   });
 
@@ -262,10 +250,6 @@ export const TimerProvider = ({ children }) => {
     if (!isTodaySession) return 0;
     const saved = localStorage.getItem(`ems_timer_${userKey}_break_seconds`);
     if (saved) return parseInt(saved, 10);
-    if (userKey === 'emp_001') {
-      const leg = localStorage.getItem('ems_break_seconds');
-      return leg ? parseInt(leg, 10) : 0;
-    }
     return 0;
   });
 
@@ -477,107 +461,83 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_break_history`, JSON.stringify(breakHistory));
   }, [breakHistory, userKey]);
 
-  // ── Timer Tick Engine with Timestamp Delta Tracking ──
+  // ── True Wall-Clock Timestamp Engine (Immune to tab sleep, throttle & page reloads) ──
   useEffect(() => {
     let interval = null;
-    let lastTime = Date.now();
-    localStorage.setItem(`ems_timer_${userKey}_last_tick`, lastTime.toString());
 
-    const catchUpTimer = () => {
-      const storedLast = localStorage.getItem(`ems_timer_${userKey}_last_tick`);
-      if (storedLast && isClockedIn) {
-        const now = Date.now();
-        const deltaSecs = Math.floor((now - Number(storedLast)) / 1000);
-        if (deltaSecs > 1) {
-          if (isOnBreak) {
-            setBreakSeconds(p => {
-              const next = p + deltaSecs;
-              localStorage.setItem(`ems_timer_${userKey}_break_seconds`, next.toString());
-              return next;
-            });
-            setCurrentBreakSeconds(p => {
-              const next = p + deltaSecs;
-              localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, next.toString());
-              return next;
-            });
-          } else if (isRunning) {
-            setWorkSeconds(p => {
-              const next = p + deltaSecs;
-              localStorage.setItem(`ems_timer_${userKey}_work_seconds`, next.toString());
-              return next;
-            });
-            if (reclockStatus === 'pending') {
-              setReclockSessionSeconds(p => {
-                const next = p + deltaSecs;
-                localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, next.toString());
-                return next;
-              });
-            }
+    const tick = () => {
+      const today = getTodayStr();
+      const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+      const onBreakVal = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+      const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
+      let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
+      let breakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
+
+      // Calculate past completed breaks for today from break_history
+      let pastBreakSecs = 0;
+      try {
+        const rawBh = localStorage.getItem(`ems_timer_${userKey}_break_history`);
+        if (rawBh) {
+          const parsed = JSON.parse(rawBh);
+          if (Array.isArray(parsed)) {
+            pastBreakSecs = parsed.filter(b => b.date === today).reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
           }
         }
-        localStorage.setItem(`ems_timer_${userKey}_last_tick`, now.toString());
+      } catch {}
+
+      let activeBreakSecs = 0;
+      if (onBreakVal) {
+        if (!breakStartTs) {
+          breakStartTs = Date.now();
+          localStorage.setItem(`ems_timer_${userKey}_break_start_timestamp`, breakStartTs.toString());
+        }
+        activeBreakSecs = Math.max(0, Math.floor((Date.now() - breakStartTs) / 1000));
+        setCurrentBreakSeconds(activeBreakSecs);
+        localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, activeBreakSecs.toString());
+
+        const threshold = BREAK_THRESHOLDS[breakType] || (20 * 60);
+        if (activeBreakSecs >= threshold && !breakReminderSent) {
+          setBreakReminderSent(true);
+          addToast({
+            title: `☕ Break Reminder (${breakType})`,
+            message: `You've been on ${breakType} for ${Math.floor(threshold / 60)} minutes. Remember to resume when ready!`,
+            type: 'warning'
+          });
+        }
+      }
+
+      const totalBreaks = pastBreakSecs + activeBreakSecs;
+      setBreakSeconds(totalBreaks);
+      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, totalBreaks.toString());
+
+      if (inVal) {
+        if (!clockInTs) {
+          clockInTs = Date.now() - (Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0) * 1000);
+          localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, clockInTs.toString());
+        }
+        const grossShiftSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+        const netWorkSecs = Math.max(0, grossShiftSecs - totalBreaks);
+        setWorkSeconds(netWorkSecs);
+        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, netWorkSecs.toString());
+
+        if (reclockStatus === 'pending') {
+          const rBase = Number(localStorage.getItem(`ems_timer_${userKey}_saved_official_seconds`) || 0);
+          const rSecs = Math.max(0, netWorkSecs - rBase);
+          setReclockSessionSeconds(rSecs);
+          localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, rSecs.toString());
+        }
+      } else if (!hadOutVal) {
+        // Not clocked in
+        setWorkSeconds(0);
       }
     };
 
-    if (isClockedIn) {
-      catchUpTimer();
-
-      interval = setInterval(() => {
-        const now = Date.now();
-        localStorage.setItem(`ems_timer_${userKey}_last_tick`, now.toString());
-
-        if (isOnBreak) {
-          // Increment total break seconds
-          setBreakSeconds(prev => {
-            const next = prev + 1;
-            localStorage.setItem(`ems_timer_${userKey}_break_seconds`, next.toString());
-            return next;
-          });
-
-          // Increment current session break seconds
-          setCurrentBreakSeconds(prev => {
-            const next = prev + 1;
-            localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, next.toString());
-
-            const threshold = BREAK_THRESHOLDS[breakType] || (20 * 60);
-            if (next === threshold && !breakReminderSent) {
-              setBreakReminderSent(true);
-              addToast({
-                title: `☕ Break Reminder (${breakType})`,
-                message: `You've been on ${breakType} for ${Math.floor(threshold / 60)} minutes. Remember to resume when ready!`,
-                type: 'warning'
-              });
-            }
-            return next;
-          });
-        } else if (isRunning) {
-          // If in pending re-clock request mode, increment pending reclock seconds
-          if (reclockStatus === 'pending') {
-            setReclockSessionSeconds(prevR => {
-              const nextR = prevR + 1;
-              localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, nextR.toString());
-              return nextR;
-            });
-            setWorkSeconds(prev => {
-              const next = prev + 1;
-              localStorage.setItem(`ems_timer_${userKey}_work_seconds`, next.toString());
-              return next;
-            });
-          } else {
-            // Normal shift running
-            setWorkSeconds(prev => {
-              const next = prev + 1;
-              localStorage.setItem(`ems_timer_${userKey}_work_seconds`, next.toString());
-              return next;
-            });
-          }
-        }
-      }, 1000);
-    }
+    tick();
+    interval = setInterval(tick, 1000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        catchUpTimer();
+        tick();
       }
     };
 
@@ -589,7 +549,9 @@ export const TimerProvider = ({ children }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [isClockedIn, isRunning, isOnBreak, breakType, breakReminderSent, reclockStatus, userKey, addToast]);
+  }, [isClockedIn, isOnBreak, breakType, breakReminderSent, reclockStatus, userKey, addToast]);
+
+
 
   useEffect(() => {
     localStorage.setItem(`ems_timer_${userKey}_is_running`, JSON.stringify(isRunning));
@@ -641,13 +603,21 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_break_type`, type);
     localStorage.setItem(`ems_timer_${userKey}_custom_break_limit`, minutesChosen.toString());
     localStorage.setItem(`ems_timer_${userKey}_break_start_time`, startTimeStr);
+    localStorage.setItem(`ems_timer_${userKey}_break_start_timestamp`, Date.now().toString());
     localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
     localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'true');
     localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
 
-    // Notify other components (WorkContext task timers pause)
+    // Notify other components (WorkContext task timers pause) with user identity
     window.dispatchEvent(new CustomEvent('ems_break_started', {
-      detail: { breakType: type, targetMinutes: minutesChosen, notes }
+      detail: {
+        userKey,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        breakType: type,
+        targetMinutes: minutesChosen,
+        notes
+      }
     }));
 
     // Record audit trail event for break trigger
@@ -675,7 +645,8 @@ export const TimerProvider = ({ children }) => {
   const resumeFromBreak = () => {
     const endTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const sTime = breakStartTime || loginTime;
-    const duration = currentBreakSeconds > 0 ? currentBreakSeconds : 60;
+    const breakStartMs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
+    const duration = breakStartMs ? Math.max(1, Math.floor((Date.now() - breakStartMs) / 1000)) : (currentBreakSeconds > 0 ? currentBreakSeconds : 60);
 
     const newRecord = {
       id: `brk_${Date.now()}`,
@@ -701,9 +672,16 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_is_running`, 'true');
     localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
     localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
 
-    // Notify other components (WorkContext task timers can resume)
-    window.dispatchEvent(new CustomEvent('ems_break_ended'));
+    // Notify other components (WorkContext task timers can resume) with user identity
+    window.dispatchEvent(new CustomEvent('ems_break_ended', {
+      detail: {
+        userKey,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode
+      }
+    }));
 
     // Record audit trail event for break completion
     const isTea = breakType.toLowerCase().includes('tea');
@@ -786,7 +764,10 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
     localStorage.removeItem(`ems_timer_${userKey}_login_time`);
     localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+    localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
     localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
     localStorage.setItem(`ems_timer_${userKey}_reclock_status`, 'none');
     localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, '0');
     localStorage.setItem(`ems_timer_${userKey}_saved_official_seconds`, '0');
@@ -803,9 +784,12 @@ export const TimerProvider = ({ children }) => {
     const isFirstClockIn = !loginTime || sessionDate !== today;
 
     setSessionDate(today);
-    if (isFirstClockIn) {
+    const nowMs = Date.now();
+    let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
+    if (isFirstClockIn || !clockInTs) {
       setLoginTime(nowStr);
       localStorage.setItem(`ems_timer_${userKey}_login_time`, nowStr);
+      localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, nowMs.toString());
     }
     setClockOutTime(null);
     setIsClockedIn(true);
@@ -817,6 +801,7 @@ export const TimerProvider = ({ children }) => {
 
     localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
     localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
     localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'true');
     localStorage.setItem(`ems_timer_${userKey}_is_running`, 'true');
     localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
@@ -867,7 +852,13 @@ export const TimerProvider = ({ children }) => {
 
     // Notify WorkContext and other modules
     window.dispatchEvent(new CustomEvent('ems_clocked_in', {
-      detail: { userKey, loginTime: nowStr, date: today }
+      detail: {
+        userKey,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        loginTime: nowStr,
+        date: today
+      }
     }));
 
     // Record audit trail for clock-in trigger
@@ -909,11 +900,13 @@ export const TimerProvider = ({ children }) => {
     }
     const today = getTodayStr();
     const logoutStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const logoutTs = Date.now();
     setClockOutTime(logoutStr);
     setHadClockedOutToday(true);
     setSavedOfficialWorkSeconds(workSeconds);
 
     localStorage.setItem(`ems_timer_${userKey}_clockout_time`, logoutStr);
+    localStorage.setItem(`ems_timer_${userKey}_clock_out_timestamp`, logoutTs.toString());
     localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'true');
     localStorage.setItem(`ems_timer_${userKey}_saved_official_seconds`, workSeconds.toString());
 
@@ -931,7 +924,13 @@ export const TimerProvider = ({ children }) => {
 
     // Notify WorkContext and other modules that employee clocked out!
     window.dispatchEvent(new CustomEvent('ems_clocked_out', {
-      detail: { userKey, logoutTime: logoutStr, date: today }
+      detail: {
+        userKey,
+        employeeId: targetEmpId,
+        employeeCode: targetEmpCode,
+        logoutTime: logoutStr,
+        date: today
+      }
     }));
 
     // Update Attendance Collection record with final verified hours & clockOutTime

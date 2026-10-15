@@ -208,7 +208,7 @@ export const hrService = {
     if (filters.leaveType && filters.leaveType !== 'all') query.append('leaveType', filters.leaveType);
     if (filters.search) query.append('search', filters.search);
 
-    return fetchWithFallback(`${API_BASE}/leaves?${query.toString()}`, { method: 'GET' }, async () => {
+    const result = await fetchWithFallback(`${API_BASE}/leaves?${query.toString()}`, { method: 'GET' }, async () => {
       let leaves = getCollection(KEYS.LEAVES);
       const authUser = getAuthUser();
       const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
@@ -246,6 +246,19 @@ export const hrService = {
 
       return leaves;
     });
+
+    let ackList = [];
+    try {
+      ackList = JSON.parse(localStorage.getItem('ems_acknowledged_leaves') || '[]');
+    } catch (_) {}
+    const ackSet = new Set(ackList.map(String));
+
+    const finalLeaves = (Array.isArray(result) ? result : (result?.data || [])).map(l => ({
+      ...l,
+      isAcknowledged: Boolean(l.isAcknowledged || ackSet.has(String(l._id)))
+    }));
+
+    return finalLeaves;
   },
 
   async createLeave(leaveData) {
@@ -318,6 +331,51 @@ export const hrService = {
 
           if (status === 'approved' && prevStatus !== 'approved') {
             balance[key] = Math.max(0, (balance[key] || 0) - days);
+
+            // Connect approved leave into Attendance Matrix
+            try {
+              let attendance = getCollection(KEYS.ATTENDANCE) || [];
+              const start = new Date(targetLeave.startDate);
+              const end = new Date(targetLeave.endDate || targetLeave.startDate);
+              const cur = new Date(start);
+              while (cur <= end) {
+                const dateStr = cur.toISOString().split('T')[0];
+                const existingIdx = attendance.findIndex(a => 
+                  a.date === dateStr && (a.employeeId === targetLeave.employeeId || a.employeeCode === emp?.employeeCode)
+                );
+                const leaveRecord = {
+                  _id: existingIdx >= 0 ? attendance[existingIdx]._id : `att_leave_${Date.now()}_${dateStr}`,
+                  employeeId: targetLeave.employeeId,
+                  employeeCode: emp?.employeeCode || '',
+                  employeeName: targetLeave.employeeName || emp?.name || '',
+                  date: dateStr,
+                  status: 'on_leave',
+                  totalWorkingHours: 0,
+                  notes: `Approved Leave: ${targetLeave.leaveType || 'Leave'}`
+                };
+                if (existingIdx >= 0) {
+                  attendance[existingIdx] = { ...attendance[existingIdx], ...leaveRecord };
+                } else {
+                  attendance.push(leaveRecord);
+                }
+                cur.setDate(cur.getDate() + 1);
+              }
+              saveCollection(KEYS.ATTENDANCE, attendance);
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+            } catch (attErr) {
+              console.warn('Error updating attendance for approved leave:', attErr);
+            }
+
+            // Create system-wide audit record
+            try {
+              this.createAttendanceAuditLog({
+                type: 'leave_approved',
+                date: new Date().toISOString().split('T')[0],
+                employeeId: targetLeave.employeeId,
+                employeeName: targetLeave.employeeName,
+                note: `Leave approved by ${approverName || 'HR/Admin'} from ${targetLeave.startDate} to ${targetLeave.endDate}`
+              });
+            } catch (auditErr) {}
           } else if (prevStatus === 'approved' && status !== 'approved') {
             balance[key] = (balance[key] || 0) + days;
           }
@@ -336,15 +394,32 @@ export const hrService = {
   },
 
   async acknowledgeLeave(leaveId) {
+    if (!leaveId) return null;
+    try {
+      const stored = JSON.parse(localStorage.getItem('ems_acknowledged_leaves') || '[]');
+      if (!stored.includes(String(leaveId))) {
+        stored.push(String(leaveId));
+        localStorage.setItem('ems_acknowledged_leaves', JSON.stringify(stored));
+      }
+    } catch (_) {}
+
+    // Update in localStorage collection
     const leaves = getCollection(KEYS.LEAVES);
-    const index = leaves.findIndex(l => l._id === leaveId);
+    const index = leaves.findIndex(l => String(l._id) === String(leaveId));
     if (index >= 0) {
       leaves[index].isAcknowledged = true;
       saveCollection(KEYS.LEAVES, leaves);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
-      return leaves[index];
     }
-    return null;
+
+    // Call backend API if online
+    try {
+      await fetchWithFallback(`${API_BASE}/leaves/${leaveId}/acknowledge`, {
+        method: 'PATCH'
+      }, async () => ({ success: true, _id: leaveId, isAcknowledged: true }));
+    } catch (_) {}
+
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+    return index >= 0 ? leaves[index] : { _id: leaveId, isAcknowledged: true };
   },
 
   async deleteLeave(leaveId) {

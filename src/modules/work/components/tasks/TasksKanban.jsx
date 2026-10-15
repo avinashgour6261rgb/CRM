@@ -16,14 +16,15 @@ import {
 import { useWork } from '../../context/WorkContext';
 
 const COLUMNS = [
-  { key: 'incomplete', title: 'Incomplete', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  { key: 'incomplete', title: 'Incomplete / Pending', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
   { key: 'in_progress', title: 'In Progress', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+  { key: 'on_hold', title: 'On Hold / Paused', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
   { key: 'under_review', title: 'Under Review', color: '#9333ea', bg: '#faf5ff', border: '#e9d5ff' },
   { key: 'completed', title: 'Completed', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' }
 ];
 
 export const TasksKanban = ({ onSelectTask }) => {
-  const { tasks, changeTaskStatus, startTaskTimer, stopTaskTimer } = useWork();
+  const { tasks, changeTaskStatus, startTaskTimer, pauseTaskTimer, stopTaskTimer, completeTask } = useWork();
 
   return (
     <div style={{
@@ -123,39 +124,110 @@ export const TasksKanban = ({ onSelectTask }) => {
                     {task.title}
                   </div>
 
-                  {/* Timer pill if running */}
-                  {task.timerRunning && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: '#0284c7',
-                      color: '#ffffff',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: '600'
-                    }}>
-                      <span>⏱️ {task.hoursLoggedText}</span>
+                  {/* Action Bar (Timer Controls + Complete Button) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    {task.timerRunning ? (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        backgroundColor: '#0284c7',
+                        color: '#ffffff',
+                        padding: '3px 7px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '700'
+                      }}>
+                        <span>⏱️ {task.hoursLoggedText}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            pauseTaskTimer(task._id);
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.25)',
+                            border: 'none',
+                            color: '#ffffff',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Pause
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            stopTaskTimer(task._id);
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.25)',
+                            border: 'none',
+                            color: '#ffffff',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Stop
+                        </button>
+                      </div>
+                    ) : task.status !== 'completed' ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          stopTaskTimer(task._id);
+                          startTaskTimer(task._id);
                         }}
                         style={{
-                          background: 'rgba(255,255,255,0.25)',
-                          border: 'none',
-                          color: '#ffffff',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          backgroundColor: '#f1f5f9',
+                          color: '#0284c7',
+                          border: '1px solid #cbd5e1',
+                          padding: '2px 7px',
+                          borderRadius: '5px',
+                          fontSize: '10.5px',
+                          fontWeight: '700',
                           cursor: 'pointer'
                         }}
                       >
-                        Stop
+                        <Play size={9} fill="#0284c7" /> Start
                       </button>
-                    </div>
-                  )}
+                    ) : (
+                      <span style={{ fontSize: '10.5px', color: '#16a34a', fontWeight: '700' }}>
+                        ✓ Completed
+                      </span>
+                    )}
+
+                    {task.status !== 'completed' && (
+                      <button
+                        title="Mark Completed"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          completeTask(task._id);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          backgroundColor: '#16a34a',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '3px 8px',
+                          borderRadius: '5px',
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
+                        }}
+                      >
+                        <CheckCircle2 size={11} /> Complete
+                      </button>
+                    )}
+                  </div>
 
                   {/* Bottom details: Assignee & Date */}
                   <div style={{
@@ -165,25 +237,53 @@ export const TasksKanban = ({ onSelectTask }) => {
                     paddingTop: '8px',
                     borderTop: '1px solid #f1f5f9'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <img
-                        src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={task.assignedToName}
-                        style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
-                      />
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>
-                          {task.assignedToName}
+                    {Array.isArray(task.assignees) && task.assignees.length > 1 ? (
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                        title={task.assignees.map(a => a.name).join(', ')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          {task.assignees.slice(0, 3).map((a, idx) => (
+                            <img
+                              key={a._id || a.id || idx}
+                              src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                              alt={a.name}
+                              style={{
+                                width: '20px',
+                                height: '20px',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '2px solid #ffffff',
+                                marginLeft: idx > 0 ? '-6px' : '0'
+                              }}
+                            />
+                          ))}
                         </div>
-                        {task.assignedBy && task.assignedBy !== task.assignedToName && (
-                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                            By {task.assignedBy}
-                          </div>
-                        )}
+                        <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#0284c7' }}>
+                          {task.assignees.length} Members
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <img
+                          src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt={task.assignedToName}
+                          style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>
+                            {task.assignedToName || 'Unassigned'}
+                          </div>
+                          {task.assignedBy && task.assignedBy !== task.assignedToName && (
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                              By {task.assignedBy}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                    <div style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
                       Due: {task.dueDate || 'N/A'}
                     </div>
                   </div>

@@ -3,12 +3,16 @@
  * @description Controller for Projects in EMS Work Module.
  */
 
+const mongoose = require('mongoose');
 const Project = require('../models/Project');
 
 // @desc    Get all projects with optional filtering
 // @route   GET /api/projects
 exports.getProjects = async (req, res, next) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ success: false, message: 'Database connecting, standby' });
+    }
     const { status, category, department, search } = req.query;
     let query = {};
 
@@ -22,10 +26,11 @@ exports.getProjects = async (req, res, next) => {
       query.department = department;
     }
     if (search) {
+      const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { projectCode: { $regex: search, $options: 'i' } },
-        { client: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapedSearch, $options: 'i' } },
+        { projectCode: { $regex: escapedSearch, $options: 'i' } },
+        { client: { $regex: escapedSearch, $options: 'i' } }
       ];
     }
 

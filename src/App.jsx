@@ -25,6 +25,7 @@ import { HolidayPage } from './modules/hr/pages/HolidayPage';
 import { AppreciationPage } from './modules/hr/pages/AppreciationPage';
 import { DashboardPage } from './modules/hr/pages/DashboardPage';
 import { EmployeesPage } from './modules/hr/pages/EmployeesPage';
+import { TeamOperationsPage } from './modules/hr/pages/TeamOperationsPage';
 
 // CRM Module Provider & Pages
 import { CRMProvider } from './shared/context/CRMContext';
@@ -104,6 +105,8 @@ export function App() {
                       {/* ── HR Module Routes ────────────────────────────────── */}
                       <Route path="employees"        element={<EmployeesPage />} />
                       <Route path="team"             element={<EmployeesPage />} />
+                      <Route path="team-operations"  element={<TeamOperationsPage />} />
+                      <Route path="operations"       element={<TeamOperationsPage />} />
                       <Route path="leaves"           element={<LeavesPage />} />
                       <Route path="attendance"       element={<AttendancePage />} />
                       <Route path="attendance-clock" element={<AttendancePage />} />

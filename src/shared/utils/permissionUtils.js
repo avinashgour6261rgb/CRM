@@ -206,3 +206,134 @@ export const getRoleConfig = (roleIdOrUser) => {
   const roleId = typeof roleIdOrUser === 'object' ? getUserRole(roleIdOrUser) : roleIdOrUser;
   return ROLE_CONFIGS[roleId] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
 };
+
+// ── 16. Toggle-Based Permissions Matrix (Admin Control) ──
+export const DEFAULT_MODULE_PERMISSIONS = {
+  admin: {
+    dashboard: true,
+    tasks: true,
+    leads: true,
+    attendance: true,
+    leaves: true,
+    tickets: true,
+    events: true,
+    employees: true,
+    reports: true,
+    viewAllLeads: true,
+    viewAllTasks: true,
+    viewAllTickets: true,
+    viewAllAttendance: true,
+    viewAllLeaves: true
+  },
+  hr: {
+    dashboard: true,
+    tasks: true,
+    leads: true,
+    attendance: true,
+    leaves: true,
+    tickets: true,
+    events: true,
+    employees: true,
+    reports: true,
+    viewAllLeads: true,
+    viewAllTasks: true,
+    viewAllTickets: true,
+    viewAllAttendance: true,
+    viewAllLeaves: true
+  },
+  team_leader: {
+    dashboard: true,
+    tasks: true,
+    leads: true,
+    attendance: true,
+    leaves: true,
+    tickets: true,
+    events: true,
+    employees: false, // Restricted to HR & Admin
+    reports: true,
+    viewAllLeads: true,
+    viewAllTasks: true,
+    viewAllTickets: false,
+    viewAllAttendance: false,
+    viewAllLeaves: false
+  },
+  team_member: {
+    dashboard: true,
+    tasks: true,
+    leads: true,
+    attendance: true,
+    leaves: true,
+    tickets: true,
+    events: true,
+    employees: false, // Restricted to HR & Admin
+    reports: false,
+    viewAllLeads: false, // by default only own / assigned leads
+    viewAllTasks: false, // by default only own assigned tasks
+    viewAllTickets: false, // by default only own tickets
+    viewAllAttendance: false, // by default only own attendance
+    viewAllLeaves: false // by default only own leaves
+  }
+};
+
+/**
+ * Get active module permissions for an employee with user-specific override support
+ */
+export const getUserModulePermissions = (user) => {
+  if (!user) return DEFAULT_MODULE_PERMISSIONS.team_member;
+  const role = getUserRole(user);
+  if (role === ROLES.ADMIN) return DEFAULT_MODULE_PERMISSIONS.admin;
+
+  try {
+    const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+    if (rawMap) {
+      const parsed = JSON.parse(rawMap);
+      const userKey = user._id || user.employeeCode || user.email;
+      if (userKey && parsed[userKey]) {
+        return { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member), ...parsed[userKey] };
+      }
+      if (parsed[role]) {
+        return { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member), ...parsed[role] };
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading module permissions:', e);
+  }
+
+  return DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member;
+};
+
+/**
+ * Check if a user can access a specific module
+ */
+export const canAccessModule = (user, moduleId) => {
+  if (!user) return true;
+  if (isAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  const normalizedKey = String(moduleId).toLowerCase().replace(/[-_]/g, '');
+  
+  const keyMap = {
+    dashboard: 'dashboard',
+    tasks: 'tasks',
+    task: 'tasks',
+    leads: 'leads',
+    lead: 'leads',
+    attendance: 'attendance',
+    leaves: 'leaves',
+    leave: 'leaves',
+    tickets: 'tickets',
+    ticket: 'tickets',
+    supporttickets: 'tickets',
+    events: 'events',
+    calendar: 'events',
+    employees: 'employees',
+    employee: 'employees',
+    employeeinformation: 'employees',
+    reports: 'reports',
+    timesheet: 'tasks',
+    timesheets: 'tasks'
+  };
+
+  const permKey = keyMap[normalizedKey] || moduleId;
+  return perms[permKey] !== false;
+};
+

@@ -12,28 +12,62 @@ import {
   Sparkles,
   Phone,
   KeyRound,
-  Bell
+  Bell,
+  Building2,
+  Layers,
+  Sliders,
+  Check
 } from 'lucide-react';
 import { ProfileTab } from '../components/ProfileTab';
 import { EmergencyContactsTab } from '../components/EmergencyContactsTab';
 import { SecuritySettingsTab } from '../components/SecuritySettingsTab';
 import { CompanyBrandingTab } from '../components/CompanyBrandingTab';
 import { RolesManagementTab } from '../components/RolesManagementTab';
+import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
-import { Building2, Layers } from 'lucide-react';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { isAdmin } from '../../../shared/utils/permissionUtils';
 
 export const SettingsPage = () => {
   const { timeString, isClockedIn, isOnBreak } = useTimer();
-  const [activeSection, setActiveSection] = useState('profile'); // 'profile' | 'security' | 'company' | 'roles'
-  const [profileSubTab, setProfileSubTab] = useState('profile'); // 'profile' | 'emergency_contacts'
+  const { currentUser } = useAuth();
+  const isUserAdmin = isAdmin(currentUser);
+
+  const [activeSection, setActiveSection] = useState('profile');
+  const [profileSubTab, setProfileSubTab] = useState('profile');
   const [searchMenu, setSearchMenu] = useState('');
 
-  const menuItems = [
-    { id: 'profile', label: 'Profile Settings', icon: User },
-    { id: 'security', label: 'Security Settings', icon: ShieldCheck },
-    { id: 'roles', label: 'Roles & Hierarchy (RBAC)', icon: Layers },
-    { id: 'company', label: 'Company, Shift & Payslip Settings', icon: Building2 }
-  ];
+  // Personal preferences state for employees
+  const [emailAlerts, setEmailAlerts] = useState(() => localStorage.getItem('ems_pref_email_alerts') !== 'false');
+  const [taskReminders, setTaskReminders] = useState(() => localStorage.getItem('ems_pref_task_reminders') !== 'false');
+  const [breakReminders, setBreakReminders] = useState(() => localStorage.getItem('ems_pref_break_reminders') !== 'false');
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('ems_pref_sound') !== 'false');
+
+  // Role-based menu items (Zero admin exposure for employees)
+  const menuItems = React.useMemo(() => {
+    const baseItems = [
+      { id: 'profile', label: 'My Profile & Details', icon: User, desc: 'Personal info & emergency contacts' },
+      { id: 'security', label: 'Security & Password', icon: KeyRound, desc: 'Change password & credentials' },
+      { id: 'preferences', label: 'My Work Preferences', icon: Sliders, desc: 'Notifications & work alerts' }
+    ];
+
+    if (isUserAdmin) {
+      baseItems.push(
+        { id: 'permissions', label: 'Employee Access & Permissions', icon: ShieldCheck, desc: 'RBAC module toggles' },
+        { id: 'company', label: 'Company & Payslip Settings', icon: Building2, desc: 'Company policy & branding' },
+        { id: 'roles', label: 'Roles & Hierarchy RBAC', icon: Layers, desc: 'System authority levels' }
+      );
+    }
+
+    return baseItems;
+  }, [isUserAdmin]);
+
+  // Fallback if employee lands on restricted admin tab
+  React.useEffect(() => {
+    if (!isUserAdmin && ['permissions', 'company', 'roles'].includes(activeSection)) {
+      setActiveSection('profile');
+    }
+  }, [isUserAdmin, activeSection]);
 
   const filteredMenuItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchMenu.toLowerCase())
@@ -73,14 +107,14 @@ export const SettingsPage = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h1 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
-                {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'roles' ? 'Roles & Permissions' : 'Company Branding'}
+                {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip Settings'}
               </h1>
               <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 7px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
                 Settings
               </span>
             </div>
             <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
-              Home • Settings • {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'roles' ? 'Roles & RBAC' : 'Company & Payslip'}
+              Home • Settings • {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip'}
             </p>
           </div>
         </div>
@@ -253,15 +287,114 @@ export const SettingsPage = () => {
             </div>
           )}
 
-          {/* Section: Roles & Hierarchy RBAC */}
-          {activeSection === 'roles' && (
+          {/* Section: Personal Work Preferences (For All Employees) */}
+          {activeSection === 'preferences' && (
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>My Work & Notification Preferences</h3>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Configure personal desktop notifications, task reminders, and shift alerts.</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {[
+                  {
+                    id: 'email',
+                    title: 'Email Notifications',
+                    desc: 'Receive task assignment, leave decision, and company announcements in email.',
+                    value: emailAlerts,
+                    toggle: () => {
+                      const next = !emailAlerts;
+                      setEmailAlerts(next);
+                      localStorage.setItem('ems_pref_email_alerts', String(next));
+                    }
+                  },
+                  {
+                    id: 'tasks',
+                    title: 'Task Due Reminders',
+                    desc: 'Show in-app reminders for upcoming and overdue sprint tasks.',
+                    value: taskReminders,
+                    toggle: () => {
+                      const next = !taskReminders;
+                      setTaskReminders(next);
+                      localStorage.setItem('ems_pref_task_reminders', String(next));
+                    }
+                  },
+                  {
+                    id: 'breaks',
+                    title: 'Tea & Lunch Break Overdue Alerts',
+                    desc: 'Notify when tea break exceeds 15 mins or lunch exceeds 45 mins.',
+                    value: breakReminders,
+                    toggle: () => {
+                      const next = !breakReminders;
+                      setBreakReminders(next);
+                      localStorage.setItem('ems_pref_break_reminders', String(next));
+                    }
+                  },
+                  {
+                    id: 'sound',
+                    title: 'Timer Audio Chimes',
+                    desc: 'Play subtle audio chimes when starting or pausing shift timers.',
+                    value: soundEnabled,
+                    toggle: () => {
+                      const next = !soundEnabled;
+                      setSoundEnabled(next);
+                      localStorage.setItem('ems_pref_sound', String(next));
+                    }
+                  }
+                ].map(pref => (
+                  <div key={pref.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{pref.title}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{pref.desc}</div>
+                    </div>
+                    <button
+                      onClick={pref.toggle}
+                      style={{
+                        width: '44px',
+                        height: '24px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        backgroundColor: pref.value ? '#2563eb' : '#cbd5e1',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        transition: 'background-color 0.2s',
+                        padding: 0
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute',
+                        top: '2px',
+                        left: pref.value ? '22px' : '2px',
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        transition: 'left 0.2s'
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section: Roles & Hierarchy RBAC (Admin Only) */}
+          {activeSection === 'roles' && isUserAdmin && (
             <div>
               <RolesManagementTab />
             </div>
           )}
 
+          {/* Section: Employee Permissions Management (Admin Only) */}
+          {activeSection === 'permissions' && isUserAdmin && (
+            <div>
+              <EmployeePermissionsTab />
+            </div>
+          )}
+
           {/* Section: Company & Payslip Branding (Admin Only) */}
-          {activeSection === 'company' && (
+          {activeSection === 'company' && isUserAdmin && (
             <div>
               <CompanyBrandingTab />
             </div>

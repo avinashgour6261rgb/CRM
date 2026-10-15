@@ -405,6 +405,72 @@ export const initStorage = () => {
       }
     ]));
   }
+
+  // ── Seed Live Today Interconnected Demo Data ──
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Ensure all employees exist
+    const storedEmps = JSON.parse(localStorage.getItem(KEYS.EMPLOYEES) || '[]');
+    const storedEmpIds = new Set(storedEmps.map(e => e._id));
+    const missingEmps = INITIAL_EMPLOYEES.filter(e => !storedEmpIds.has(e._id));
+    if (missingEmps.length > 0) {
+      localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify([...storedEmps, ...missingEmps]));
+    }
+
+    // Ensure today's attendance records exist
+    const storedAtt = JSON.parse(localStorage.getItem(KEYS.ATTENDANCE) || '[]');
+    const hasTodayAtt = storedAtt.some(a => a.date === todayStr);
+    if (!hasTodayAtt) {
+      const freshAtt = generateInitialAttendance();
+      const todayRecords = freshAtt.filter(a => a.date === todayStr);
+      localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify([...todayRecords, ...storedAtt]));
+    }
+
+    // Ensure tasks are populated with categorized tasks
+    const storedTasks = JSON.parse(localStorage.getItem(KEYS.TASKS) || '[]');
+    if (storedTasks.length < 8) {
+      localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
+    }
+
+    // Seed Live Clock & Timer snapshots for Team Monitor demo
+    const liveTeamDemo = [
+      { key: 'EMP-002', isClocked: 'true', isOnBreak: 'false', loginTime: '09:30 AM', workSecs: '24480', taskId: 'tsk_004', taskCode: 'DES-1', title: 'Design System Token Definition & Glassmorphism UI Kit' },
+      { key: 'EMP-003', isClocked: 'true', isOnBreak: 'false', loginTime: '09:15 AM', workSecs: '25920', taskId: 'tsk_001', taskCode: 'ERP-1', title: 'Enterprise ERP Core Pipeline & Mongoose Pooling' },
+      { key: 'EMP-005', isClocked: 'true', isOnBreak: 'true', breakType: 'Tea Break', loginTime: '09:45 AM', workSecs: '23400' },
+      { key: 'EMP-004', isClocked: 'false', hadOut: 'true', loginTime: '09:00 AM', clockOut: '05:30 PM', workSecs: '28800' }
+    ];
+
+    liveTeamDemo.forEach(item => {
+      if (localStorage.getItem(`ems_timer_${item.key}_is_clocked_in`) === null) {
+        localStorage.setItem(`ems_timer_${item.key}_is_clocked_in`, item.isClocked);
+        localStorage.setItem(`ems_timer_${item.key}_login_time`, item.loginTime);
+        localStorage.setItem(`ems_timer_${item.key}_work_seconds`, item.workSecs);
+        localStorage.setItem(`ems_timer_${item.key}_work_session_date`, todayStr);
+        if (item.isOnBreak) {
+          localStorage.setItem(`ems_timer_${item.key}_is_on_break`, 'true');
+          localStorage.setItem(`ems_timer_${item.key}_break_type`, item.breakType || 'Tea Break');
+        }
+        if (item.hadOut) {
+          localStorage.setItem(`ems_timer_${item.key}_had_clocked_out`, 'true');
+          localStorage.setItem(`ems_timer_${item.key}_clockout_time`, item.clockOut);
+        }
+        if (item.taskId) {
+          localStorage.setItem(`ems_active_task_timer_${item.key}`, JSON.stringify({
+            taskId: item.taskId,
+            taskCode: item.taskCode,
+            title: item.title,
+            timerRunning: true,
+            startedAt: Date.now() - 3600000,
+            accumulatedSeconds: 3600,
+            date: todayStr
+          }));
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error seeding live demo state:', err);
+  }
 };
 
 // Generic read

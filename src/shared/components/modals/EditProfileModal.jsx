@@ -46,7 +46,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     phone: '',
     dob: '',
     avatar: '',
-    bio: ''
+    bio: '',
+    workingMode: 'Office',
+    employeeCode: 'EMP-001'
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -55,8 +57,8 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
   // Determine Actor Privileges
   const actorRole = (currentUser?.role || '').toLowerCase();
-  const isActorAdmin = actorRole.includes('admin') || true; // Full admin master rights
-  const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources');
+  const isActorAdmin = currentUser?.isAdmin || actorRole.includes('admin') || currentUser?.systemRole === 'admin';
+  const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources') || currentUser?.systemRole === 'hr';
   const canEditRole = isActorAdmin || isActorHR;
 
   // Sync form data whenever targetEmp or modal open state changes
@@ -70,7 +72,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         phone: targetEmp.phone || '+91 98765 43210',
         dob: targetEmp.dob || '1998-10-15',
         avatar: targetEmp.avatar || PRESET_AVATARS[0],
-        bio: targetEmp.bio || 'Core member contributing across sprint deliveries.'
+        bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
+        workingMode: targetEmp.workingMode || localStorage.getItem('ems_working_mode') || 'Office',
+        employeeCode: targetEmp.employeeCode || targetEmp._id || 'EMP-001'
       });
       setCustomAvatarUrl(targetEmp.avatar || '');
       setAvailableRoles(getRoles());
@@ -536,6 +540,58 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   border: '1px solid #cbd5e1',
                   fontSize: '13.5px',
                   outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Working Mode (Office / Remote / Hybrid) & Employee ID */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                🏢 Working Mode
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+                {['Office', 'Remote', 'Hybrid'].map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => handleChange('workingMode', mode)}
+                    style={{
+                      padding: '7px 4px',
+                      borderRadius: '8px',
+                      border: formData.workingMode === mode ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      background: formData.workingMode === mode ? '#eff6ff' : '#ffffff',
+                      color: formData.workingMode === mode ? '#1d4ed8' : '#475569',
+                      fontWeight: formData.workingMode === mode ? '700' : '500',
+                      fontSize: '11.5px',
+                      cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                🆔 Employee ID / Code
+              </label>
+              <input
+                type="text"
+                value={formData.employeeCode}
+                onChange={e => handleChange('employeeCode', e.target.value)}
+                placeholder="EMP-001"
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13.5px',
+                  outline: 'none',
+                  fontWeight: '600'
                 }}
               />
             </div>

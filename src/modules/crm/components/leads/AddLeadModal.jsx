@@ -51,6 +51,8 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
     status: 'new',
     leadSource: 'Website Inquiry',
     assignedToId: currentUser?._id || employees[0]?._id || '',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
     notes: ''
   });
 
@@ -84,6 +86,9 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
         currency: formData.currency,
         status: formData.status,
         leadSource: formData.leadSource,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        createdBy: currentUser?.name || 'Avinash',
         notes: formData.notes.trim(),
         leadOwnerId: selectedAssignee?._id || 'emp_admin',
         leadOwnerName: selectedAssignee?.name || 'Team Member',
@@ -372,6 +377,51 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Start Date & End Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => handleChange('startDate', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '11px 12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '13.5px',
+                  color: '#0f172a',
+                  outline: 'none',
+                  backgroundColor: '#ffffff'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                End Date / Target Close
+              </label>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => handleChange('endDate', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '11px 12px',
+                  borderRadius: '10px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '13.5px',
+                  color: '#0f172a',
+                  outline: 'none',
+                  backgroundColor: '#ffffff'
+                }}
+              />
+            </div>
           </div>
 
           {/* Notes */}

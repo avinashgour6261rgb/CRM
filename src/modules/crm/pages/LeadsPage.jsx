@@ -29,7 +29,9 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 // Components
 import { LeadsKPIOverview } from '../components/leads/LeadsKPIOverview';
@@ -42,8 +44,14 @@ import { ImportLeadsModal } from '../components/leads/ImportLeadsModal';
 
 export const LeadsPage = () => {
   const { leads, updateLeadStatus, deleteLead } = useCRM();
-  const { employees } = useHR();
+  const { employees, currentUser: hrUser } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const currentUser = authUser || hrUser;
   const { addToast } = useToast();
+
+  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllLeads = isPrivileged || perms?.viewAllLeads;
 
   // View mode
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
@@ -68,28 +76,51 @@ export const LeadsPage = () => {
   const [editingLead, setEditingLead] = useState(null);
   const [viewingLead, setViewingLead] = useState(null);
 
+  // Scoped leads based on Admin / HR privilege and viewAllLeads permission
+  const scopedLeads = useMemo(() => {
+    if (canViewAllLeads) return leads;
+    if (!currentUser) return leads;
+    const uId = String(currentUser._id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    const uName = (currentUser.name || '').toLowerCase().trim();
+
+    return leads.filter(lead => {
+      const lOwnerId = String(lead.leadOwnerId || '');
+      const lCreatedId = String(lead.createdById || '');
+      const lAssignedId = String(lead.assignedToId || '');
+      const lOwnerName = (lead.leadOwnerName || lead.owner || '').toLowerCase().trim();
+      const lCreatedName = (lead.createdByName || '').toLowerCase().trim();
+
+      const isOwner = (uId && lOwnerId === uId) || (uCode && lOwnerId === uCode) || (uName && lOwnerName === uName);
+      const isCreator = (uId && lCreatedId === uId) || (uName && lCreatedName === uName);
+      const isAssignee = (uId && lAssignedId === uId) || (uCode && lAssignedId === uCode);
+
+      return isOwner || isCreator || isAssignee;
+    });
+  }, [leads, canViewAllLeads, currentUser]);
+
   // Unique clients list for filter dropdown
   const uniqueClients = useMemo(() => {
     const clients = new Set();
-    leads.forEach(l => {
+    scopedLeads.forEach(l => {
       if (l.companyName) clients.add(l.companyName);
       if (l.client) clients.add(l.client);
     });
     return Array.from(clients).sort();
-  }, [leads]);
+  }, [scopedLeads]);
 
   // Unique lead types for filter dropdown
   const uniqueTypes = useMemo(() => {
     const types = new Set(['Enterprise', 'Inbound Web', 'Outbound Sales', 'Referral Partner', 'Strategic Deal', 'Consulting']);
-    leads.forEach(l => {
+    scopedLeads.forEach(l => {
       if (l.leadType) types.add(l.leadType);
     });
     return Array.from(types);
-  }, [leads]);
+  }, [scopedLeads]);
 
   // Filtered Leads calculation
   const filteredLeads = useMemo(() => {
-    return leads.filter(lead => {
+    return scopedLeads.filter(lead => {
       // Search across name, company, email, phone, code, contact person
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -141,7 +172,7 @@ export const LeadsPage = () => {
 
       return true;
     });
-  }, [leads, searchQuery, typeFilter, statusFilter, ownerFilter, priorityFilter, clientFilter, startDateFilter, endDateFilter]);
+  }, [scopedLeads, searchQuery, typeFilter, statusFilter, ownerFilter, priorityFilter, clientFilter, startDateFilter, endDateFilter]);
 
   // Selection handlers
   const handleSelectAll = () => {
@@ -355,7 +386,7 @@ export const LeadsPage = () => {
       </div>
 
       {/* KPI Overview Cards */}
-      <LeadsKPIOverview leads={leads} />
+      <LeadsKPIOverview leads={scopedLeads} />
 
       {/* Main Filter & Action Bar */}
       <div style={{
@@ -673,19 +704,27 @@ export const LeadsPage = () => {
               <select
                 value={ownerFilter}
                 onChange={(e) => setOwnerFilter(e.target.value)}
+                disabled={!canViewAllLeads}
                 style={{
                   width: '100%',
                   padding: '6px 10px',
                   borderRadius: '6px',
                   border: '1px solid #cbd5e1',
                   fontSize: '12px',
-                  backgroundColor: '#ffffff'
+                  backgroundColor: !canViewAllLeads ? '#f1f5f9' : '#ffffff',
+                  cursor: !canViewAllLeads ? 'not-allowed' : 'pointer'
                 }}
               >
-                <option value="all">All Lead Owners</option>
-                {employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>{emp.name} ({emp.role})</option>
-                ))}
+                {canViewAllLeads ? (
+                  <>
+                    <option value="all">All Lead Owners</option>
+                    {employees.map(emp => (
+                      <option key={emp._id} value={emp._id}>{emp.name} ({emp.role})</option>
+                    ))}
+                  </>
+                ) : (
+                  <option value="all">{currentUser?.name || 'My Leads'} (Assigned)</option>
+                )}
               </select>
             </div>
 

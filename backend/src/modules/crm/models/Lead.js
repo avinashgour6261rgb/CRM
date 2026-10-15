@@ -91,7 +91,7 @@ const LeadSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['new', 'active', 'in_progress', 'negotiation', 'converted', 'lost'],
+      enum: ['new', 'contacted', 'qualified', 'proposal', 'won', 'active', 'in_progress', 'negotiation', 'converted', 'lost'],
       default: 'new'
     },
     priority: {

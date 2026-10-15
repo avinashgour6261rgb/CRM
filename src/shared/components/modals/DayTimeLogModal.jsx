@@ -19,7 +19,11 @@ import {
   Utensils,
   AlertTriangle,
   History,
-  User
+  User,
+  Play,
+  Pause,
+  Palmtree,
+  Home
 } from 'lucide-react';
 import { getCollection, KEYS } from '../../services/storageService';
 
@@ -30,19 +34,106 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
 
   const tasksWorked = dayLog.tasksWorked || [];
 
-  // Load audit trail logs for this specific date
+  // Load audit trail logs scoped to this specific date and employee
   const dayAudits = useMemo(() => {
     try {
       const allAudits = getCollection(KEYS.ATTENDANCE_AUDIT) || [];
+      const targetEmpId = dayLog.employeeId ? String(dayLog.employeeId) : null;
+      const targetEmpCode = dayLog.employeeCode ? String(dayLog.employeeCode) : null;
+      const targetEmpName = dayLog.employeeName ? String(dayLog.employeeName).toLowerCase().trim() : null;
+
       return allAudits
-        .filter(a => a.date === dayLog.date)
+        .filter(a => {
+          if (a.date !== dayLog.date) return false;
+          // Scope to target employee when available
+          if (targetEmpId || targetEmpCode || targetEmpName) {
+            const matchesId = targetEmpId && (String(a.employeeId) === targetEmpId || String(a.actorId) === targetEmpId);
+            const matchesCode = targetEmpCode && (String(a.employeeCode) === targetEmpCode || String(a.employeeId) === targetEmpCode);
+            const matchesName = targetEmpName && (String(a.employeeName || a.actorName).toLowerCase().trim() === targetEmpName);
+            return matchesId || matchesCode || matchesName;
+          }
+          return true;
+        })
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     } catch (e) {
       return [];
     }
-  }, [dayLog.date]);
+  }, [dayLog.date, dayLog.employeeId, dayLog.employeeCode, dayLog.employeeName]);
 
-  const hasAdminOverrides = dayAudits.some(a => a.isAdminOverride || a.type.startsWith('admin_'));
+  // If no formal audit entries exist in storage yet, synthesize a clear timeline from dayLog
+  const effectiveAudits = useMemo(() => {
+    if (dayAudits.length > 0) return dayAudits;
+
+    const synth = [];
+    const empName = dayLog.employeeName || 'Employee';
+
+    // 1. Clock In event
+    if (dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In') {
+      synth.push({
+        _id: 'synth-clock-in',
+        type: 'clock_in',
+        timeFormatted: dayLog.loginTime,
+        timestamp: new Date().toISOString(),
+        details: `Shift Clock In recorded at ${dayLog.loginTime}`,
+        actorName: empName
+      });
+    }
+
+    // 2. Break event
+    if (dayLog.breakDuration && dayLog.breakDuration !== '0m' && dayLog.breakDuration !== '0s') {
+      synth.push({
+        _id: 'synth-break',
+        type: 'tea_break_start',
+        timeFormatted: 'During Shift',
+        durationText: dayLog.breakDuration,
+        timestamp: new Date().toISOString(),
+        details: `Breaks recorded (${dayLog.breakDuration} total duration)`,
+        actorName: empName
+      });
+    }
+
+    // 3. Tasks Worked
+    (tasksWorked || []).forEach((t, i) => {
+      if (t.isCompleted || t.status === 'completed') {
+        synth.push({
+          _id: `synth-task-done-${i}`,
+          type: 'task_completed',
+          timeFormatted: 'Today',
+          durationText: t.durationText,
+          timestamp: new Date().toISOString(),
+          details: `Completed task #${t.taskCode || 'TSK'}: ${t.taskTitle} (${t.projectName || 'General'})`,
+          actorName: empName
+        });
+      } else if (t.timerRunning || t.status === 'in_progress') {
+        synth.push({
+          _id: `synth-task-running-${i}`,
+          type: 'task_timer_start',
+          timeFormatted: 'Active Now',
+          durationText: t.durationText,
+          timestamp: new Date().toISOString(),
+          details: `Working on task #${t.taskCode || 'TSK'}: ${t.taskTitle} (Timer Running)`,
+          actorName: empName
+        });
+      }
+    });
+
+    // 4. Clock Out event
+    if (dayLog.logoutTime && dayLog.logoutTime !== '--' && dayLog.logoutTime !== 'In Progress' && dayLog.logoutTime !== 'Active (In Progress)') {
+      synth.push({
+        _id: 'synth-clock-out',
+        type: 'clock_out',
+        timeFormatted: dayLog.logoutTime,
+        durationText: dayLog.durationText,
+        timestamp: new Date().toISOString(),
+        details: `Shift Clock Out completed. Total Net Working Time: ${dayLog.durationText}`,
+        actorName: empName
+      });
+    }
+
+    return synth;
+  }, [dayAudits, dayLog, tasksWorked]);
+
+  const hasAdminOverrides = effectiveAudits.some(a => a.isAdminOverride || a.type?.startsWith('admin_'));
 
   const getAuditBadge = (type) => {
     switch (type) {
@@ -50,6 +141,12 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         return { icon: <LogIn size={13} color="#16a34a" />, label: 'Clock In', color: '#16a34a', bg: '#dcfce7' };
       case 'clock_out':
         return { icon: <LogOut size={13} color="#dc2626" />, label: 'Clock Out', color: '#dc2626', bg: '#fee2e2' };
+      case 'task_timer_start':
+        return { icon: <Play size={13} color="#0284c7" fill="#0284c7" />, label: 'Task Started', color: '#0284c7', bg: '#e0f2fe' };
+      case 'task_timer_pause':
+        return { icon: <Pause size={13} color="#ea580c" />, label: 'Task Paused', color: '#ea580c', bg: '#fff7ed' };
+      case 'task_completed':
+        return { icon: <CheckCircle2 size={13} color="#16a34a" />, label: 'Task Completed', color: '#16a34a', bg: '#dcfce7' };
       case 'tea_break_start':
         return { icon: <Coffee size={13} color="#d97706" />, label: 'Tea Break Started', color: '#d97706', bg: '#fef3c7' };
       case 'tea_break_end':
@@ -58,6 +155,12 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         return { icon: <Utensils size={13} color="#0284c7" />, label: 'Lunch Break Started', color: '#0284c7', bg: '#e0f2fe' };
       case 'lunch_break_end':
         return { icon: <Utensils size={13} color="#0369a1" />, label: 'Lunch Break Resumed', color: '#0369a1', bg: '#e0f2fe' };
+      case 'leave_approved':
+        return { icon: <Palmtree size={13} color="#059669" />, label: 'Leave Approved', color: '#059669', bg: '#ecfdf5' };
+      case 'leave_requested':
+        return { icon: <Palmtree size={13} color="#d97706" />, label: 'Leave Applied', color: '#d97706', bg: '#fffbeb' };
+      case 'wfh_requested':
+        return { icon: <Home size={13} color="#7c3aed" />, label: 'WFH Requested', color: '#7c3aed', bg: '#f5f3ff' };
       case 'admin_force_clock_out':
         return { icon: <ShieldAlert size={13} color="#991b1b" />, label: 'Admin Force Clock-Out', color: '#991b1b', bg: '#fee2e2' };
       case 'admin_shift_adjustment':
@@ -184,7 +287,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 <LogIn size={12} color="#16a34a" /> Clock In
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                {dayLog.loginTime || (dayLog.isSunday ? 'Sunday Off' : '10:00 AM')}
+                {dayLog.loginTime || (dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay ? 'Not Clocked In' : '--'))}
               </div>
             </div>
 
@@ -193,7 +296,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 <LogOut size={12} color="#dc2626" /> Clock Out
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                {dayLog.logoutTime || (dayLog.isSunday ? 'Holiday' : '07:00 PM')}
+                {dayLog.logoutTime || (dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay && dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'In Progress' : '--'))}
               </div>
             </div>
 
@@ -211,7 +314,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 <Zap size={12} color="#2563eb" /> Status
               </div>
               <div style={{ fontSize: '12px', fontWeight: '700', color: dayLog.isSunday ? '#d97706' : '#2563eb' }}>
-                {dayLog.isSunday ? 'Sunday Off' : 'Working Day'}
+                {dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay ? (dayLog.loginTime && dayLog.loginTime !== '--' ? 'Active Shift' : 'Not Started') : 'Working Day')}
               </div>
             </div>
           </div>
@@ -241,7 +344,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
               }}
             >
               <History size={13} />
-              <span>Punch & Break Audit Trail ({dayAudits.length})</span>
+              <span>Punch & Break Audit Trail ({effectiveAudits.length})</span>
             </button>
 
             <button
@@ -268,9 +371,9 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
           {/* TAB 1: Punch & Break Audit Trail */}
           {activeTab === 'audit' && (
             <div>
-              {dayAudits.length > 0 ? (
+              {effectiveAudits.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
-                  {dayAudits.map((audit, idx) => {
+                  {effectiveAudits.map((audit, idx) => {
                     const badge = getAuditBadge(audit.type);
                     const isOverride = audit.isAdminOverride || audit.type.startsWith('admin_');
 
@@ -323,7 +426,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                         </div>
 
                         <div style={{ fontSize: '11.5px', color: '#475569' }}>
-                          {audit.details || audit.action}
+                          {audit.details || audit.action || audit.note}
                         </div>
 
                         {/* Actor Callout */}
@@ -406,21 +509,35 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                             {t.taskTitle}
                           </span>
                         </div>
-                        <span style={{
-                          fontSize: '12px',
-                          fontWeight: '800',
-                          color: '#0284c7',
-                          backgroundColor: '#e0f2fe',
-                          padding: '2px 8px',
-                          borderRadius: '6px'
-                        }}>
-                          ⏱️ {t.durationText}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {/* Task Status Badge */}
+                          <span style={{
+                            fontSize: '10.5px',
+                            fontWeight: '700',
+                            padding: '2px 7px',
+                            borderRadius: '12px',
+                            backgroundColor: (t.isCompleted || t.status === 'completed') ? '#dcfce7' : (t.status === 'in_progress' || t.timerRunning ? '#e0f2fe' : '#f1f5f9'),
+                            color: (t.isCompleted || t.status === 'completed') ? '#16a34a' : (t.status === 'in_progress' || t.timerRunning ? '#0284c7' : '#64748b'),
+                            border: `1px solid ${(t.isCompleted || t.status === 'completed') ? '#bbf7d0' : (t.status === 'in_progress' || t.timerRunning ? '#bae6fd' : '#e2e8f0')}`
+                          }}>
+                            {(t.isCompleted || t.status === 'completed') ? '✅ Completed' : (t.status === 'in_progress' || t.timerRunning ? '⚡ In Progress' : '⏳ Pending')}
+                          </span>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '800',
+                            color: '#0284c7',
+                            backgroundColor: '#e0f2fe',
+                            padding: '2px 8px',
+                            borderRadius: '6px'
+                          }}>
+                            ⏱️ {t.durationText}
+                          </span>
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b' }}>
-                        <span>Project: <strong>{t.projectName}</strong></span>
-                        <span>{t.startTime} - {t.endTime}</span>
+                        <span>Project: <strong>{t.projectName || 'General'}</strong></span>
+                        <span>{t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : (t.status || 'Active')}</span>
                       </div>
 
                       {t.memo && (

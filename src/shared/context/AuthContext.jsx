@@ -7,7 +7,7 @@ const AuthContext = createContext();
 
 export const PRESET_USERS = {
   admin: {
-    _id: '',
+    _id: '6acc811b9fa84342850a5ab9',
     employeeCode: 'ADM-001',
     name: 'Admin User',
     email: 'admin@inforag.com',
@@ -23,7 +23,7 @@ export const PRESET_USERS = {
     leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
   },
   hr: {
-    _id: '',
+    _id: '6acc811b9fa84342850a5aba',
     employeeCode: 'HR-001',
     name: 'Pooja Sharma',
     email: 'hr@inforag.com',
@@ -34,10 +34,11 @@ export const PRESET_USERS = {
     status: 'active',
     joiningDate: '2023-03-01',
     isCurrentUser: true,
+    isAdmin: false,
     leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 }
   },
   employee: {
-    _id: '',
+    _id: '6acc811b9fa84342850a5abb',
     employeeCode: 'ENG-001',
     name: 'Rahul Verma',
     email: 'rahul.verma@inforag.com',
@@ -48,6 +49,7 @@ export const PRESET_USERS = {
     status: 'active',
     joiningDate: '2023-02-15',
     isCurrentUser: true,
+    isAdmin: false,
     leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
   }
 };
@@ -60,8 +62,7 @@ export const AuthProvider = ({ children }) => {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // If parsed is old dummy Avinash or emp_admin, discard it
-        if (parsed && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+        if (parsed && parsed.email && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
           return parsed;
         }
       }
@@ -73,25 +74,39 @@ export const AuthProvider = ({ children }) => {
 
   const [isAuthenticated, setIsAuthenticated] = useState(true);
 
-  // 1. Initial Load: Fetch real MongoDB currentUser on mount
+  // 1. Initial Load: Sync profile from backend without overwriting local terminal's user
   useEffect(() => {
     let isMounted = true;
     const fetchDbUser = async () => {
       try {
+        const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.email) {
+            // Keep local terminal session; fetch live updates for this specific user
+            try {
+              const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(parsed.email)}`, { signal: AbortSignal.timeout(2000) });
+              if (res.ok) {
+                const json = await res.json();
+                const matched = (json.data || []).find(e => e.email?.toLowerCase() === parsed.email.toLowerCase());
+                if (matched && isMounted) {
+                  setCurrentUser(prev => ({ ...prev, ...matched }));
+                  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...parsed, ...matched }));
+                  return;
+                }
+              }
+            } catch {}
+            return;
+          }
+        }
+
+        // Only if NO local user session exists, fall back to default
         const res = await fetch(`${API_BASE}/employees/current`, { signal: AbortSignal.timeout(2000) });
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data && isMounted) {
             const dbUser = json.data;
-            setCurrentUser(prev => {
-              if (prev && prev._id === dbUser._id) {
-                return { ...prev, ...dbUser };
-              }
-              if (!prev || !prev._id || prev.name?.includes('Avinash') || prev._id === 'emp_admin' || prev._id === 'emp_001') {
-                return dbUser;
-              }
-              return prev;
-            });
+            setCurrentUser(dbUser);
             localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
           }
         }
@@ -111,30 +126,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Quick switch role directly linked to MongoDB
+  // Terminal-scoped role switcher
   const switchRole = useCallback(async (roleId) => {
-    try {
-      const res = await fetch(`${API_BASE}/employees/switch/${roleId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(2500)
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const dbUser = json.data;
-          setCurrentUser(dbUser);
-          setIsAuthenticated(true);
-          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-          return dbUser;
-        }
-      }
-    } catch (err) {
-      console.warn('Switch role API failed, falling back:', err);
-    }
-
-    // Fallback: match from local employees or preset
+    // Match target user from local presets or collection
     let targetUser = PRESET_USERS[roleId] || PRESET_USERS.admin;
     const employees = getCollection(KEYS.EMPLOYEES) || [];
     if (roleId === 'admin') {

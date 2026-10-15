@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 // Shared infrastructure
 const connectDB = require('./src/shared/config/database');
@@ -43,8 +44,10 @@ if (process.env.NODE_ENV === 'development') {
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'online',
+  const isDbReady = mongoose.connection.readyState === 1;
+  res.status(isDbReady ? 200 : 503).json({
+    status: isDbReady ? 'online' : 'connecting',
+    database: isDbReady ? 'connected' : 'connecting',
     system: 'Enterprise Management System (EMS) API',
     version: '1.0.0',
     timestamp: new Date().toISOString()

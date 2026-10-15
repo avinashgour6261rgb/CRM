@@ -34,7 +34,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   const companyInfo = getCompanySettings();
 
   // Actor status
-  const isActorAdmin = currentUser?.role?.toLowerCase().includes('admin') || true; // default admin capability
+  const isActorAdmin = currentUser?.isAdmin || currentUser?.role?.toLowerCase().includes('admin') || currentUser?.systemRole === 'admin';
 
   useEffect(() => {
     if (employee) {

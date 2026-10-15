@@ -176,8 +176,15 @@ export const HRProvider = ({ children }) => {
 
   const acknowledgeLeave = async (leaveId) => {
     try {
+      try {
+        const stored = JSON.parse(localStorage.getItem('ems_acknowledged_leaves') || '[]');
+        if (!stored.includes(String(leaveId))) {
+          stored.push(String(leaveId));
+          localStorage.setItem('ems_acknowledged_leaves', JSON.stringify(stored));
+        }
+      } catch (_) {}
+      setLeaves(prev => (prev || []).map(l => String(l._id) === String(leaveId) ? { ...l, isAcknowledged: true } : l));
       await hrService.acknowledgeLeave(leaveId);
-      setLeaves(prev => (prev || []).map(l => l._id === leaveId ? { ...l, isAcknowledged: true } : l));
     } catch (e) {
       console.warn('Acknowledge leave error:', e);
     }

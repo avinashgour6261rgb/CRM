@@ -21,6 +21,8 @@ import {
   History
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
 import { MarkAttendanceModal } from '../components/attendance/MarkAttendanceModal';
@@ -28,6 +30,7 @@ import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAudi
 import { AdminForceClockOutModal } from '../components/attendance/AdminForceClockOutModal';
 
 export const AttendancePage = () => {
+  const { currentUser: authUser } = useAuth();
   const {
     employees,
     selectedEmployeeId,
@@ -37,10 +40,23 @@ export const AttendancePage = () => {
     selectedYear,
     setSelectedYear,
     attendance,
-    currentUser
+    currentUser: hrUser
   } = useHR();
 
-  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.role === 'admin' || currentUser?.role === 'hr';
+  const currentUser = authUser || hrUser;
+  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance;
+
+  // Automatically lock selectedEmployeeId to currentUser when not permitted to view all attendance
+  React.useEffect(() => {
+    if (!canViewAllAttendance && currentUser) {
+      const myId = currentUser._id || currentUser.employeeCode;
+      if (myId && selectedEmployeeId !== myId) {
+        setSelectedEmployeeId(myId);
+      }
+    }
+  }, [canViewAllAttendance, currentUser, selectedEmployeeId, setSelectedEmployeeId]);
 
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix', 'logs', 'summary', 'audit'
   const [statusFilter, setStatusFilter] = useState('all');
@@ -246,15 +262,28 @@ export const AttendancePage = () => {
             <select
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              disabled={!canViewAllAttendance}
               className="filter-select"
-              style={{ minWidth: '180px' }}
+              style={{
+                minWidth: '180px',
+                backgroundColor: !canViewAllAttendance ? '#f1f5f9' : '#ffffff',
+                cursor: !canViewAllAttendance ? 'not-allowed' : 'pointer'
+              }}
             >
-              <option value="all">All Employees</option>
-              {employees.map(emp => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} {emp.isCurrentUser ? "— It's You" : ''}
+              {canViewAllAttendance ? (
+                <>
+                  <option value="all">All Employees</option>
+                  {employees.map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} {emp.isCurrentUser ? "— It's You" : ''}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value={selectedEmployeeId}>
+                  {currentUser?.name || 'My Attendance'} (You)
                 </option>
-              ))}
+              )}
             </select>
           </div>
 

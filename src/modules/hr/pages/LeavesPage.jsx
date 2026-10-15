@@ -24,7 +24,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
-import { canApproveLeaves, isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -54,7 +54,8 @@ export const LeavesPage = () => {
   // Dynamic Today reference for active leaves
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const isPrivileged = isHRorAdmin(currentUser) || canApproveLeaves(currentUser);
+  const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const isPrivileged = isHRorAdmin(currentUser) || canApproveLeaves(currentUser) || perms?.viewAllLeaves;
 
   // Scoped leaves strictly based on user role (Tenant isolation)
   const scopedLeaves = useMemo(() => {
@@ -74,11 +75,18 @@ export const LeavesPage = () => {
 
   // Real-time unacknowledged decisions for the current logged-in employee
   const myRecentDecisions = useMemo(() => {
+    let ackList = [];
+    try {
+      ackList = JSON.parse(localStorage.getItem('ems_acknowledged_leaves') || '[]');
+    } catch (_) {}
+    const ackSet = new Set(ackList.map(String));
+
     return scopedLeaves.filter(l => {
       if (l.status !== 'approved' && l.status !== 'rejected') return false;
+      if (l.isAcknowledged || ackSet.has(String(l._id))) return false;
       const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
         (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-      return isApplicant && !l.isAcknowledged;
+      return isApplicant;
     });
   }, [scopedLeaves, currentUser]);
 

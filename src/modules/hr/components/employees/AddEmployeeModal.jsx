@@ -37,6 +37,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     email: '',
     role: '',
     department: 'Engineering',
+    workMode: 'Office',
+    status: 'active',
     joiningDate: new Date().toISOString().split('T')[0],
     leaveBalance: {
       casual: 10,
@@ -44,6 +46,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
       earned: 15,
       maternity: 0
     },
+    startingSalary: 35000,
+    bankName: '',
+    accountNumber: '',
+    upiId: '',
     avatar: ''
   });
 
@@ -165,8 +171,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
       onClose={onClose}
       title="Add New Employee"
       subtitle="Register new team member. They will instantly appear across HR, Leaves, and Attendance."
+      maxWidth="680px"
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '74vh', overflowY: 'auto', paddingRight: '4px' }}>
         
         {/* Row 1: Full Name & Employee ID */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.4fr', gap: '12px' }}>
@@ -275,7 +282,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             <input
               type="text"
               list="role-options-list"
-              placeholder="e.g. Senior Software Engineer / Team Lead"
+              placeholder="e.g. Senior Software Engineer"
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="filter-input"
@@ -296,8 +303,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Row 3: Department & Joining Date */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {/* Row 3: Department, Work Mode & Status */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '12px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
               Department
@@ -316,29 +323,62 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
 
           <div>
             <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-              Joining Date
+              Work Mode
             </label>
-            <input
-              type="date"
-              value={formData.joiningDate}
-              onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
-            />
+            <select
+              value={formData.workMode || 'Office'}
+              onChange={(e) => setFormData({ ...formData, workMode: e.target.value })}
+              className="filter-select"
+              style={{ width: '100%', height: '40px' }}
+            >
+              <option value="Office">🏢 Office</option>
+              <option value="Remote">🏡 Remote</option>
+              <option value="Hybrid">🔄 Hybrid</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              Status
+            </label>
+            <select
+              value={formData.status || 'active'}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="filter-select"
+              style={{ width: '100%', height: '40px' }}
+            >
+              <option value="active">Active</option>
+              <option value="probation">Probation</option>
+              <option value="contract">Contract</option>
+            </select>
           </div>
         </div>
 
-        {/* Row 4: Initial Joining Salary Package */}
+        {/* Row 4: Joining Date */}
+        <div>
+          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            Joining Date
+          </label>
+          <input
+            type="date"
+            value={formData.joiningDate}
+            onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+            className="filter-input"
+            style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+          />
+        </div>
+
+        {/* Row 5: Initial Joining Salary Package */}
         <div style={{
           background: '#f0fdf4',
           border: '1px solid #bbf7d0',
           borderRadius: '10px',
           padding: '14px',
-          marginTop: '4px'
+          marginTop: '2px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#166534' }}>
-              💰 Initial Joining Compensation (CTC):
+              💰 Compensation & Salary (₹):
             </span>
             <span style={{ fontSize: '11px', color: '#15803d', fontWeight: '600' }}>
               Annual CTC: ₹{((formData.startingSalary || 35000) * 12).toLocaleString()} / yr
@@ -348,13 +388,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label style={{ fontSize: '11px', color: '#166534', display: 'block', marginBottom: '4px', fontWeight: '600' }}>
-                Monthly Starting Salary (₹ Gross) *
+                Monthly Starting Salary (Gross) *
               </label>
               <input
                 type="number"
                 step="500"
                 min="5000"
-                placeholder="e.g. 25000"
+                placeholder="e.g. 35000"
                 value={formData.startingSalary || 35000}
                 onChange={(e) => setFormData({ ...formData, startingSalary: Number(e.target.value) })}
                 className="filter-input"
@@ -377,20 +417,20 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Row 5: Initial Leave Quota Setup */}
+        {/* Row 6: Initial Leave Quota Setup (Fully visible and never overlapping) */}
         <div style={{
           background: '#f8fafc',
-          border: '1px solid #e2e8f0',
+          border: '1px solid #cbd5e1',
           borderRadius: '10px',
           padding: '14px',
-          marginTop: '4px'
+          marginTop: '2px'
         }}>
-          <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b', display: 'block', marginBottom: '10px' }}>
+          <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '8px' }}>
             📅 Annual Leave Balance Allotment (Days):
           </span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
             <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Casual Leave (CL)</label>
+              <label style={{ fontSize: '11.5px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Casual Leave (CL)</label>
               <input
                 type="number"
                 min="0"
@@ -400,11 +440,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   leaveBalance: { ...formData.leaveBalance, casual: Number(e.target.value) }
                 })}
                 className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px' }}
+                style={{ width: '100%', height: '38px', paddingLeft: '10px', fontWeight: '700' }}
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Sick Leave (SL)</label>
+              <label style={{ fontSize: '11.5px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Sick Leave (SL)</label>
               <input
                 type="number"
                 min="0"
@@ -414,11 +454,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   leaveBalance: { ...formData.leaveBalance, sick: Number(e.target.value) }
                 })}
                 className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px' }}
+                style={{ width: '100%', height: '38px', paddingLeft: '10px', fontWeight: '700' }}
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Earned Leave (EL)</label>
+              <label style={{ fontSize: '11.5px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Earned Leave (EL)</label>
               <input
                 type="number"
                 min="0"
@@ -428,14 +468,62 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   leaveBalance: { ...formData.leaveBalance, earned: Number(e.target.value) }
                 })}
                 className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px' }}
+                style={{ width: '100%', height: '38px', paddingLeft: '10px', fontWeight: '700' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Row 7: Optional Payment & Bank Details */}
+        <div style={{
+          background: '#f8fafc',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '10px',
+          padding: '12px 14px',
+          marginTop: '2px'
+        }}>
+          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '8px' }}>
+            💳 Bank & Payment Details (Optional):
+          </span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '10.5px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Bank Name</label>
+              <input
+                type="text"
+                placeholder="e.g. HDFC Bank"
+                value={formData.bankName || ''}
+                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                className="filter-input"
+                style={{ width: '100%', height: '34px', paddingLeft: '8px', fontSize: '12px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '10.5px', color: '#64748b', display: 'block', marginBottom: '3px' }}>Account Number</label>
+              <input
+                type="text"
+                placeholder="e.g. 5010049281..."
+                value={formData.accountNumber || ''}
+                onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                className="filter-input"
+                style={{ width: '100%', height: '34px', paddingLeft: '8px', fontSize: '12px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '10.5px', color: '#64748b', display: 'block', marginBottom: '3px' }}>UPI ID</label>
+              <input
+                type="text"
+                placeholder="e.g. name@upi"
+                value={formData.upiId || ''}
+                onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                className="filter-input"
+                style={{ width: '100%', height: '34px', paddingLeft: '8px', fontSize: '12px' }}
               />
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
           <button type="button" onClick={onClose} className="btn btn-outline" disabled={isSubmitting}>
             Cancel
           </button>

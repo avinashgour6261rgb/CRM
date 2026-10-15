@@ -5,7 +5,8 @@ const {
   getLeaveById,
   createLeave,
   updateLeaveStatus,
-  deleteLeave
+  deleteLeave,
+  acknowledgeLeave
 } = require('../controllers/leaveController');
 
 router.route('/')
@@ -17,5 +18,7 @@ router.route('/:id')
   .delete(deleteLeave);
 
 router.put('/:id/status', updateLeaveStatus);
+router.patch('/:id/acknowledge', acknowledgeLeave);
+router.put('/:id/acknowledge', acknowledgeLeave);
 
 module.exports = router;

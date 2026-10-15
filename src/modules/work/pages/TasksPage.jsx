@@ -19,6 +19,8 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
 import { AddTaskModal } from '../components/tasks/AddTaskModal';
@@ -29,16 +31,36 @@ export const TasksPage = () => {
     tasks,
     taskFilter,
     setTaskFilter,
-    currentUser,
+    currentUser: workUser,
     projects,
     employees
   } = useWork();
+  const { currentUser: authUser } = useAuth();
+  const currentUser = authUser || workUser;
+
+  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllTasks = isPrivileged || perms?.viewAllTasks;
 
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [scopeMode, setScopeMode] = useState('all'); // 'all' | 'assigned_to_me' | 'assigned_by_me'
+  const [scopeMode, setScopeMode] = useState(!canViewAllTasks ? 'assigned_to_me' : 'all');
   const [statusMode, setStatusMode] = useState('all'); // 'all' | 'active' | 'completed'
+
+  // Sync initial scope if not privileged and not permitted to view all tasks
+  React.useEffect(() => {
+    if (!canViewAllTasks && currentUser) {
+      if (scopeMode === 'all') {
+        setScopeMode('assigned_to_me');
+        setTaskFilter(prev => ({
+          ...prev,
+          assignedTo: currentUser._id || '',
+          assignedBy: 'all'
+        }));
+      }
+    }
+  }, [canViewAllTasks, currentUser, scopeMode, setTaskFilter]);
 
   // Handle Scope Switching
   const handleScopeChange = (mode) => {
@@ -144,11 +166,14 @@ export const TasksPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Member</span>
             <select
-              value={taskFilter.assignedTo || 'all'}
+              value={canViewAllTasks ? (taskFilter.assignedTo || 'all') : (currentUser?._id || 'me')}
               onChange={(e) => {
-                setTaskFilter(prev => ({ ...prev, assignedTo: e.target.value, assignedBy: 'all' }));
-                setScopeMode('all');
+                if (canViewAllTasks) {
+                  setTaskFilter(prev => ({ ...prev, assignedTo: e.target.value, assignedBy: 'all' }));
+                  setScopeMode('all');
+                }
               }}
+              disabled={!canViewAllTasks}
               style={{
                 padding: '4px 8px',
                 borderRadius: '6px',
@@ -156,16 +181,25 @@ export const TasksPage = () => {
                 fontSize: '12px',
                 color: '#334155',
                 outline: 'none',
-                backgroundColor: '#ffffff',
+                backgroundColor: !canViewAllTasks ? '#f1f5f9' : '#ffffff',
+                cursor: !canViewAllTasks ? 'not-allowed' : 'pointer',
                 height: '30px'
               }}
             >
-              <option value="all">All Members</option>
-              {employees?.map(emp => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} ({emp.role})
+              {canViewAllTasks ? (
+                <>
+                  <option value="all">All Members</option>
+                  {employees?.map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} ({emp.role})
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value={currentUser?._id || 'me'}>
+                  {currentUser?.name || 'My Tasks'} (Assigned)
                 </option>
-              ))}
+              )}
             </select>
           </div>
 
@@ -281,24 +315,26 @@ export const TasksPage = () => {
             height: '30px',
             alignItems: 'center'
           }}>
-            <button
-              onClick={() => handleScopeChange('all')}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: scopeMode === 'all' ? '700' : '500',
-                backgroundColor: scopeMode === 'all' ? '#ffffff' : 'transparent',
-                color: scopeMode === 'all' ? '#0f172a' : '#64748b',
-                boxShadow: scopeMode === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
-            >
-              All Team Tasks
-            </button>
+            {canViewAllTasks && (
+              <button
+                onClick={() => handleScopeChange('all')}
+                style={{
+                  padding: '4px 10px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '11.5px',
+                  fontWeight: scopeMode === 'all' ? '700' : '500',
+                  backgroundColor: scopeMode === 'all' ? '#ffffff' : 'transparent',
+                  color: scopeMode === 'all' ? '#0f172a' : '#64748b',
+                  boxShadow: scopeMode === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  height: '24px'
+                }}
+              >
+                All Team Tasks
+              </button>
+            )}
             <button
               onClick={() => handleScopeChange('assigned_to_me')}
               style={{

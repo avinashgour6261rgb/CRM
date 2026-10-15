@@ -22,13 +22,20 @@ import {
   Ticket as TicketIcon
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 
 export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
+
+  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllTickets = isPrivileged || perms?.viewAllTickets;
 
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -43,15 +50,34 @@ export const TicketsPage = () => {
   // Selection
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // Scoped tickets based on Admin / HR privilege and viewAllTickets permission
+  const scopedTickets = useMemo(() => {
+    if (canViewAllTickets) return tickets;
+    if (!currentUser) return tickets;
+    const uId = String(currentUser._id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    const uName = (currentUser.name || '').toLowerCase().trim();
+
+    return tickets.filter(t => {
+      const isRequester = (uId && String(t.requestedById) === uId) ||
+        (uCode && String(t.requestedById) === uCode) ||
+        (uName && t.requestedByName && t.requestedByName.toLowerCase().trim() === uName);
+      const isAssignee = (uId && String(t.assignedToId) === uId) ||
+        (uCode && String(t.assignedToId) === uCode) ||
+        (uName && t.assignedToName && t.assignedToName.toLowerCase().trim() === uName);
+      return isRequester || isAssignee;
+    });
+  }, [tickets, canViewAllTickets, currentUser]);
+
   // KPIs
-  const totalCount = tickets.length;
-  const closedCount = tickets.filter(t => t.status === 'closed').length;
-  const openCount = tickets.filter(t => t.status === 'open').length;
-  const pendingCount = tickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
-  const resolvedCount = tickets.filter(t => t.status === 'resolved').length;
+  const totalCount = scopedTickets.length;
+  const closedCount = scopedTickets.filter(t => t.status === 'closed').length;
+  const openCount = scopedTickets.filter(t => t.status === 'open').length;
+  const pendingCount = scopedTickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
+  const resolvedCount = scopedTickets.filter(t => t.status === 'resolved').length;
 
   const filteredTickets = useMemo(() => {
-    return tickets.filter(t => {
+    return scopedTickets.filter(t => {
       const q = search.toLowerCase();
       const matchesSearch = !search ||
         (t.subject || '').toLowerCase().includes(q) ||
@@ -71,7 +97,7 @@ export const TicketsPage = () => {
 
       return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [tickets, search, statusFilter, startDateFilter, endDateFilter]);
+  }, [scopedTickets, search, statusFilter, startDateFilter, endDateFilter]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {

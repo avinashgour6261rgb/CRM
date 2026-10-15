@@ -90,6 +90,32 @@ const TaskSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    // Multi-Assignee & Team Delegation
+    assignedToIds: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    assignees: [mongoose.Schema.Types.Mixed],
+    assignedBy: {
+      type: String,
+      trim: true,
+      default: 'Admin'
+    },
+    assignedById: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    assignedByAvatar: {
+      type: String,
+      default: ''
+    },
+    assignedByRole: {
+      type: String,
+      default: ''
+    },
     estimatedHours: {
       type: Number,
       default: 0
@@ -104,6 +130,10 @@ const TaskSchema = new mongoose.Schema(
     },
     completedOn: {
       type: String,
+      default: null
+    },
+    completedAt: {
+      type: Date,
       default: null
     },
     isPrivate: {
@@ -131,6 +161,34 @@ const TaskSchema = new mongoose.Schema(
     timerSeconds: {
       type: Number,
       default: 0
+    },
+    startedAt: {
+      type: Number,
+      default: null
+    },
+    accumulatedSeconds: {
+      type: Number,
+      default: 0
+    },
+    sessionDate: {
+      type: String,
+      default: null
+    },
+    snoozed: {
+      type: Boolean,
+      default: false
+    },
+    remindAt: {
+      type: Number,
+      default: null
+    },
+    reminderNote: {
+      type: String,
+      default: ''
+    },
+    reminderDismissed: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -142,5 +200,7 @@ TaskSchema.index({ taskCode: 1 });
 TaskSchema.index({ status: 1 });
 TaskSchema.index({ project: 1 });
 TaskSchema.index({ assignedTo: 1 });
+TaskSchema.index({ assignedToIds: 1 });
+TaskSchema.index({ assignedById: 1 });
 
 module.exports = mongoose.model('Task', TaskSchema);

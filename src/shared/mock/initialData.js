@@ -74,6 +74,34 @@ export const INITIAL_EMPLOYEES = [
     dob: '1993-08-18', // 18 August
     isCurrentUser: false,
     leaveBalance: { casual: 6, sick: 3, earned: 8, maternity: 0 }
+  },
+  {
+    _id: 'emp_006',
+    employeeCode: 'EMP-006',
+    name: 'Neha Gupta',
+    email: 'neha.g@company.com',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    role: 'Frontend React Developer',
+    department: 'Engineering',
+    status: 'active',
+    joiningDate: '2023-08-01',
+    dob: '1997-04-12',
+    isCurrentUser: false,
+    leaveBalance: { casual: 8, sick: 5, earned: 12, maternity: 0 }
+  },
+  {
+    _id: 'emp_007',
+    employeeCode: 'EMP-007',
+    name: 'Vikram Malhotra',
+    email: 'vikram.m@company.com',
+    avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80',
+    role: 'QA & Automation Specialist',
+    department: 'Product & QA',
+    status: 'active',
+    joiningDate: '2023-05-10',
+    dob: '1994-09-22',
+    isCurrentUser: false,
+    leaveBalance: { casual: 7, sick: 4, earned: 10, maternity: 0 }
   }
 ];
 
@@ -152,62 +180,100 @@ export const INITIAL_LEAVES = [
   }
 ];
 
-// Generate September 2026 Matrix data matching Screenshot 2 (Aarav has 17: X, 18: !, 19: X, 21: ✔️, 22: ✔️, 23: ✔️, 24: ✔️, 25: ✔️, 26: ✔️, Total: 6/30)
+// Generate Attendance Matrix data including September 2026, current month, and TODAY's live records
 export const generateInitialAttendance = () => {
   const records = [];
-  const year = 2026;
-  const month = 9; // September
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
 
-  // Aarav attendance map
-  const emp001DayStatus = {
-    5: 'day_off', 6: 'day_off', // Sat, Sun
-    12: 'day_off', 13: 'day_off',
-    17: 'absent',
-    18: 'late',
-    19: 'absent',
-    20: 'day_off',
-    21: 'present',
-    22: 'present',
-    23: 'present',
-    24: 'present',
-    25: 'present',
-    26: 'present',
-    27: 'day_off'
-  };
-
+  // September 2026 data
   INITIAL_EMPLOYEES.forEach((emp) => {
     for (let day = 1; day <= 30; day++) {
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const d = new Date(year, month - 1, day);
+      const dateStr = `2026-09-${String(day).padStart(2, '0')}`;
+      const d = new Date(2026, 8, day);
       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-
       let status = isWeekend ? 'day_off' : null;
 
-      if (emp._id === 'emp_001') {
-        status = emp001DayStatus[day] || (isWeekend ? 'day_off' : (day < 17 ? 'present' : (day > 26 ? 'present' : null)));
-      } else {
-        if (!isWeekend) {
-          if (day % 11 === 0) status = 'absent';
-          else if (day % 7 === 0) status = 'late';
-          else if (day % 15 === 0) status = 'half_day';
-          else status = 'present';
-        }
+      if (!isWeekend) {
+        if (day % 11 === 0) status = 'absent';
+        else if (day % 7 === 0) status = 'late';
+        else if (day % 15 === 0) status = 'half_day';
+        else status = 'present';
       }
 
       if (status) {
         records.push({
-          _id: `att_${emp._id}_${day}`,
+          _id: `att_${emp._id}_sep_${day}`,
           employeeId: emp._id,
+          employeeCode: emp.employeeCode || emp._id,
+          employeeName: emp.name,
           date: dateStr,
           status: status,
-          clockInTime: status === 'present' ? '09:12:00' : (status === 'late' ? '10:45:00' : null),
-          clockOutTime: status === 'present' ? '18:15:00' : (status === 'late' ? '19:00:00' : null),
+          clockInTime: status === 'present' ? '09:12 AM' : (status === 'late' ? '10:45 AM' : null),
+          clockOutTime: status === 'present' ? '06:15 PM' : (status === 'late' ? '07:00 PM' : null),
           totalWorkingHours: status === 'present' ? 8.5 : (status === 'late' ? 7.5 : 0),
           isLate: status === 'late',
-          notes: status === 'late' ? 'Traffic delay on main highway' : ''
+          notes: status === 'late' ? 'Traffic delay on highway' : ''
         });
       }
     }
+  });
+
+  // Current month days up to yesterday
+  INITIAL_EMPLOYEES.forEach((emp) => {
+    const todayDay = now.getDate();
+    for (let day = 1; day < todayDay; day++) {
+      const dateStr = `${year}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const d = new Date(year, currentMonth - 1, day);
+      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+      let status = isWeekend ? 'day_off' : 'present';
+
+      if (!isWeekend) {
+        records.push({
+          _id: `att_${emp._id}_cur_${day}`,
+          employeeId: emp._id,
+          employeeCode: emp.employeeCode || emp._id,
+          employeeName: emp.name,
+          date: dateStr,
+          status: status,
+          clockInTime: '09:15 AM',
+          clockOutTime: '06:05 PM',
+          totalWorkingHours: 8.2,
+          isLate: false
+        });
+      }
+    }
+  });
+
+  // TODAY'S REALISTIC INTERCONNECTED ATTENDANCE
+  const todayEmployeeRecords = [
+    { empId: 'emp_admin', code: 'ADM-001', name: 'Admin User', status: 'present', clockIn: '09:00 AM', clockOut: null, hours: 7.5, isLate: false },
+    { empId: 'emp_002', code: 'EMP-002', name: 'Priya Sharma', status: 'present', clockIn: '09:30 AM', clockOut: null, hours: 6.8, isLate: false },
+    { empId: 'emp_003', code: 'EMP-003', name: 'Rahul Verma', status: 'present', clockIn: '09:15 AM', clockOut: null, hours: 7.2, isLate: false },
+    { empId: 'emp_004', code: 'EMP-004', name: 'Sneha Patel', status: 'present', clockIn: '09:00 AM', clockOut: '05:30 PM', hours: 8.0, isLate: false },
+    { empId: 'emp_005', code: 'EMP-005', name: 'Amit Kumar', status: 'present', clockIn: '09:45 AM', clockOut: null, hours: 6.5, isLate: false },
+    { empId: 'emp_006', code: 'EMP-006', name: 'Neha Gupta', status: 'on_leave', clockIn: null, clockOut: null, hours: 0, isLate: false, notes: 'Casual Leave' },
+    { empId: 'emp_007', code: 'EMP-007', name: 'Vikram Malhotra', status: 'present', clockIn: '10:05 AM', clockOut: null, hours: 5.9, isLate: true, notes: 'Traffic delay' }
+  ];
+
+  todayEmployeeRecords.forEach(tRec => {
+    records.push({
+      _id: `att_${tRec.empId}_today`,
+      employeeId: tRec.empId,
+      employeeCode: tRec.code,
+      employeeName: tRec.name,
+      date: todayStr,
+      status: tRec.status,
+      clockInTime: tRec.clockIn,
+      clockIn: tRec.clockIn,
+      clockOutTime: tRec.clockOut,
+      clockOut: tRec.clockOut,
+      totalWorkingHours: tRec.hours,
+      isLate: tRec.isLate,
+      notes: tRec.notes || ''
+    });
   });
 
   return records;
@@ -571,45 +637,110 @@ export const INITIAL_PROJECTS = [
   }
 ];
 
+const getOffsetDate = (offsetDays) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().split('T')[0];
+};
+
 export const INITIAL_TASKS = [
+  // ── Web Development ──
   {
     _id: 'tsk_001',
-    taskCode: 'CPC-0',
-    title: 'Bookmarking 20',
-    category: 'Digital Marketing',
+    taskCode: 'ERP-1',
+    title: 'Enterprise ERP Core Pipeline & Mongoose Pooling',
+    category: 'Web Development',
     projectId: 'prj_001',
-    projectName: 'CITY PRIME CARE',
-    projectCode: 'CPC',
-    startDate: '2026-09-25',
-    dueDate: '2026-09-25',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'ERP',
+    startDate: getOffsetDate(-2),
+    dueDate: getOffsetDate(1),
     hasNoDueDate: false,
-    description: 'Execute high DA bookmarking submissions and citation links for City Prime Care campaign.',
-    priority: 'medium',
-    status: 'incomplete',
-    assignedToId: 'emp_001',
-    assignedToName: 'Aarav Patel',
-    assignedToAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-    assignedToRole: 'Digital Marketing Strategic',
-    estimatedHours: 4,
-    hoursLogged: 0,
-    hoursLoggedText: '00:00:00',
+    description: 'Configure Mongoose connection pooling, production environment variables, and reliable schema seeding.',
+    priority: 'high',
+    status: 'in_progress',
+    assignedToId: 'emp_003',
+    assignedToName: 'Rahul Verma',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Senior Full Stack Developer',
+    estimatedHours: 8,
+    hoursLogged: 4.5,
+    hoursLoggedText: '04h 30m',
     completedOn: null,
     isPrivate: false,
     isBillable: true,
-    labels: ['Marketing', 'SEO'],
+    labels: ['Backend', 'MongoDB'],
+    timerRunning: true,
+    timerSeconds: 4320
+  },
+  {
+    _id: 'tsk_002',
+    taskCode: 'ERP-2',
+    title: 'JWT Auth Middleware & Refresh Token Rotation',
+    category: 'Web Development',
+    projectId: 'prj_001',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'ERP',
+    startDate: getOffsetDate(0),
+    dueDate: getOffsetDate(0),
+    hasNoDueDate: false,
+    description: 'Implement secure HTTP-only cookie JWT auth middleware and token refresh endpoints.',
+    priority: 'urgent',
+    status: 'incomplete',
+    assignedToId: 'emp_003',
+    assignedToName: 'Rahul Verma',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Senior Full Stack Developer',
+    estimatedHours: 6,
+    hoursLogged: 1.5,
+    hoursLoggedText: '01h 30m',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Security', 'API'],
     timerRunning: false,
     timerSeconds: 0
   },
   {
-    _id: 'tsk_002',
-    taskCode: 'NBR-1',
-    title: 'Design System Token Definition & UI Kit',
+    _id: 'tsk_003',
+    taskCode: 'ERP-3',
+    title: 'Audit Logging Framework & Activity Streams',
+    category: 'Web Development',
+    projectId: 'prj_001',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'ERP',
+    startDate: getOffsetDate(-1),
+    dueDate: getOffsetDate(0),
+    hasNoDueDate: false,
+    description: 'Persist system-wide audit logs with actor IDs, IP tracking, and change diffs.',
+    priority: 'medium',
+    status: 'completed',
+    completedOn: getOffsetDate(0),
+    assignedToId: 'emp_003',
+    assignedToName: 'Rahul Verma',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Senior Full Stack Developer',
+    estimatedHours: 5,
+    hoursLogged: 5,
+    hoursLoggedText: '05h 00m',
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Audit', 'Core'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+
+  // ── UI/UX Design ──
+  {
+    _id: 'tsk_004',
+    taskCode: 'DES-1',
+    title: 'Design System Token Definition & Glassmorphism UI Kit',
     category: 'UI/UX Design',
     projectId: 'prj_002',
     projectName: 'Novainfinity Brand Revamp & Design System',
-    projectCode: 'NBR',
-    startDate: '2026-09-20',
-    dueDate: '2026-09-28',
+    projectCode: 'DES',
+    startDate: getOffsetDate(-3),
+    dueDate: getOffsetDate(2),
     hasNoDueDate: false,
     description: 'Create harmonious HSL color palette, typography scales, glassmorphism card elevation tokens.',
     priority: 'high',
@@ -625,62 +756,266 @@ export const INITIAL_TASKS = [
     isPrivate: false,
     isBillable: true,
     labels: ['Figma', 'UI Kit'],
-    timerRunning: false,
-    timerSeconds: 0
+    timerRunning: true,
+    timerSeconds: 3600
   },
   {
-    _id: 'tsk_003',
-    taskCode: 'ERP-2',
-    title: 'MongoDB Atlas Cloud Cluster Connection & Schema Seeder',
-    category: 'Web Development',
-    projectId: 'prj_003',
-    projectName: 'Enterprise ERP Core Pipeline',
-    projectCode: 'ERP',
-    startDate: '2026-09-15',
-    dueDate: '2026-09-22',
+    _id: 'tsk_005',
+    taskCode: 'DES-2',
+    title: 'Interactive Figma Prototype for Leads CRM Funnel',
+    category: 'UI/UX Design',
+    projectId: 'prj_002',
+    projectName: 'Novainfinity Brand Revamp & Design System',
+    projectCode: 'DES',
+    startDate: getOffsetDate(0),
+    dueDate: getOffsetDate(0),
     hasNoDueDate: false,
-    description: 'Configure Mongoose connection pooling, production environment variables, and reliable schema seeding.',
-    priority: 'urgent',
-    status: 'completed',
-    assignedToId: 'emp_003',
-    assignedToName: 'Rahul Verma',
-    assignedToAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-    assignedToRole: 'Senior Full Stack Developer',
-    estimatedHours: 8,
-    hoursLogged: 8,
-    hoursLoggedText: '08h 00m',
-    completedOn: '2026-09-22',
+    description: 'Build high-fidelity click-through interactive prototype for sales lead management flow.',
+    priority: 'medium',
+    status: 'incomplete',
+    assignedToId: 'emp_002',
+    assignedToName: 'Priya Sharma',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Lead UI/UX Designer',
+    estimatedHours: 6,
+    hoursLogged: 0,
+    hoursLoggedText: '00:00:00',
+    completedOn: null,
     isPrivate: false,
     isBillable: true,
-    labels: ['Database', 'MongoDB'],
+    labels: ['Figma', 'CRM'],
     timerRunning: false,
     timerSeconds: 0
   },
   {
-    _id: 'tsk_004',
-    taskCode: 'CIM-1',
-    title: 'Docker Swarm & SSL Certificate Automation',
-    category: 'Cloud Infrastructure',
-    projectId: 'prj_004',
-    projectName: 'Cloud Infrastructure & High Availability Migration',
-    projectCode: 'CIM',
-    startDate: '2026-09-18',
-    dueDate: '2026-10-05',
+    _id: 'tsk_006',
+    taskCode: 'DES-3',
+    title: 'Dark Mode Contrast Audit & Accessibility Pass (WCAG AA)',
+    category: 'UI/UX Design',
+    projectId: 'prj_002',
+    projectName: 'Novainfinity Brand Revamp & Design System',
+    projectCode: 'DES',
+    startDate: getOffsetDate(-2),
+    dueDate: getOffsetDate(-1),
     hasNoDueDate: false,
-    description: 'Setup Let-s Encrypt automated certbot renewals and reverse proxy rate-limiting.',
+    description: 'Ensure all primary buttons and typography pass WCAG AA 4.5:1 contrast standards in dark theme.',
+    priority: 'medium',
+    status: 'completed',
+    completedOn: getOffsetDate(0),
+    assignedToId: 'emp_002',
+    assignedToName: 'Priya Sharma',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Lead UI/UX Designer',
+    estimatedHours: 4,
+    hoursLogged: 4,
+    hoursLoggedText: '04h 00m',
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Accessibility', 'A11y'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+
+  // ── Infrastructure & DevOps ──
+  {
+    _id: 'tsk_007',
+    taskCode: 'INF-1',
+    title: 'Docker Swarm & SSL Certificate Automation',
+    category: 'Infrastructure',
+    projectId: 'prj_003',
+    projectName: 'Cloud Infrastructure & High Availability Migration',
+    projectCode: 'INF',
+    startDate: getOffsetDate(-2),
+    dueDate: getOffsetDate(3),
+    hasNoDueDate: false,
+    description: 'Setup automated certbot SSL renewals, reverse proxy caching, and Docker swarm replica health checks.',
     priority: 'high',
-    status: 'under_review',
+    status: 'in_progress',
     assignedToId: 'emp_005',
     assignedToName: 'Amit Kumar',
     assignedToAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
     assignedToRole: 'DevOps & Cloud Engineer',
-    estimatedHours: 20,
-    hoursLogged: 18.5,
-    hoursLoggedText: '18h 30m',
+    estimatedHours: 12,
+    hoursLogged: 6,
+    hoursLoggedText: '06h 00m',
     completedOn: null,
     isPrivate: false,
     isBillable: true,
-    labels: ['DevOps', 'Security'],
+    labels: ['Docker', 'DevOps'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+  {
+    _id: 'tsk_008',
+    taskCode: 'INF-2',
+    title: 'Production Database Automatic Backups to AWS S3',
+    category: 'Infrastructure',
+    projectId: 'prj_003',
+    projectName: 'Cloud Infrastructure & High Availability Migration',
+    projectCode: 'INF',
+    startDate: getOffsetDate(-1),
+    dueDate: getOffsetDate(0),
+    hasNoDueDate: false,
+    description: 'Automate daily encrypted mongodump cron jobs with lifecycle retention rules in AWS S3 bucket.',
+    priority: 'urgent',
+    status: 'incomplete',
+    assignedToId: 'emp_005',
+    assignedToName: 'Amit Kumar',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'DevOps & Cloud Engineer',
+    estimatedHours: 4,
+    hoursLogged: 0,
+    hoursLoggedText: '00:00:00',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Backup', 'AWS'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+
+  // ── Digital Marketing & SEO ──
+  {
+    _id: 'tsk_009',
+    taskCode: 'MKT-1',
+    title: 'Q4 SEO Strategy & High DA Backlink Citation Campaign',
+    category: 'Digital Marketing',
+    projectId: 'prj_004',
+    projectName: 'Digital Marketing Growth Engine',
+    projectCode: 'MKT',
+    startDate: getOffsetDate(-7),
+    dueDate: getOffsetDate(-2),
+    hasNoDueDate: false,
+    description: 'Execute high DA bookmarking submissions and niche directory citation links for Q4 product launch.',
+    priority: 'urgent',
+    status: 'incomplete',
+    assignedToId: 'emp_006',
+    assignedToName: 'Neha Gupta',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Frontend React Developer',
+    estimatedHours: 10,
+    hoursLogged: 4,
+    hoursLoggedText: '04h 00m',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: true,
+    labels: ['SEO', 'Backlinks'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+  {
+    _id: 'tsk_010',
+    taskCode: 'MKT-2',
+    title: 'Google Analytics 4 Enhanced Ecommerce Conversion Tracking',
+    category: 'Digital Marketing',
+    projectId: 'prj_004',
+    projectName: 'Digital Marketing Growth Engine',
+    projectCode: 'MKT',
+    startDate: getOffsetDate(-1),
+    dueDate: getOffsetDate(1),
+    hasNoDueDate: false,
+    description: 'Configure GA4 event parameters, funnel step tracking, and Google Tag Manager triggers.',
+    priority: 'medium',
+    status: 'in_progress',
+    assignedToId: 'emp_006',
+    assignedToName: 'Neha Gupta',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'Frontend React Developer',
+    estimatedHours: 6,
+    hoursLogged: 3,
+    hoursLoggedText: '03h 00m',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Analytics', 'GTM'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+
+  // ── HR & Operations ──
+  {
+    _id: 'tsk_011',
+    taskCode: 'OPS-1',
+    title: 'Quarterly Performance Review Matrix & KPI Rollout',
+    category: 'HR & Operations',
+    projectId: 'prj_001',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'OPS',
+    startDate: getOffsetDate(-4),
+    dueDate: getOffsetDate(0),
+    hasNoDueDate: false,
+    description: 'Review departmental milestone deliverables and formulate 360-degree feedback appraisal sheets.',
+    priority: 'high',
+    status: 'in_progress',
+    assignedToId: 'emp_004',
+    assignedToName: 'Sneha Patel',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'HR & Operations Lead',
+    estimatedHours: 12,
+    hoursLogged: 9,
+    hoursLoggedText: '09h 00m',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: false,
+    labels: ['HR', 'Appraisal'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+  {
+    _id: 'tsk_012',
+    taskCode: 'OPS-2',
+    title: 'New Employee Onboarding Verification & Compliance Docs',
+    category: 'HR & Operations',
+    projectId: 'prj_001',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'OPS',
+    startDate: getOffsetDate(-1),
+    dueDate: getOffsetDate(0),
+    hasNoDueDate: false,
+    description: 'Verify identity documents, background checks, and generate official offer confirmation letters.',
+    priority: 'medium',
+    status: 'completed',
+    completedOn: getOffsetDate(0),
+    assignedToId: 'emp_004',
+    assignedToName: 'Sneha Patel',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'HR & Operations Lead',
+    estimatedHours: 4,
+    hoursLogged: 4,
+    hoursLoggedText: '04h 00m',
+    isPrivate: false,
+    isBillable: false,
+    labels: ['Compliance', 'Onboarding'],
+    timerRunning: false,
+    timerSeconds: 0
+  },
+
+  // ── QA & Automation ──
+  {
+    _id: 'tsk_013',
+    taskCode: 'QA-1',
+    title: 'End-to-End Cypress Integration Test Suite for Punch Clock',
+    category: 'QA & Automation',
+    projectId: 'prj_001',
+    projectName: 'Enterprise ERP Core Pipeline',
+    projectCode: 'QA',
+    startDate: getOffsetDate(-2),
+    dueDate: getOffsetDate(2),
+    hasNoDueDate: false,
+    description: 'Write automated regression test scenarios for shift clock in, tea/lunch breaks, and admin overrides.',
+    priority: 'high',
+    status: 'in_progress',
+    assignedToId: 'emp_007',
+    assignedToName: 'Vikram Malhotra',
+    assignedToAvatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80',
+    assignedToRole: 'QA & Automation Specialist',
+    estimatedHours: 14,
+    hoursLogged: 8,
+    hoursLoggedText: '08h 00m',
+    completedOn: null,
+    isPrivate: false,
+    isBillable: true,
+    labels: ['Testing', 'Cypress'],
     timerRunning: false,
     timerSeconds: 0
   }

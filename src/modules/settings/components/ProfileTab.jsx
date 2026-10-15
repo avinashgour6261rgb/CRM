@@ -71,8 +71,8 @@ export const ProfileTab = () => {
   const [saving, setSaving] = useState(false);
 
   const actorRole = (currentUser?.role || '').toLowerCase();
-  const isActorAdmin = actorRole.includes('admin') || true;
-  const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources');
+  const isActorAdmin = currentUser?.isAdmin || actorRole.includes('admin') || currentUser?.systemRole === 'admin';
+  const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources') || currentUser?.systemRole === 'hr';
   const canEditRole = isActorAdmin || isActorHR;
 
   useEffect(() => {

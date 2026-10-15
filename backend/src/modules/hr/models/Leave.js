@@ -60,6 +60,10 @@ const LeaveSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    isAcknowledged: {
+      type: Boolean,
+      default: false
+    },
     appliedOn: {
       type: Date,
       default: Date.now

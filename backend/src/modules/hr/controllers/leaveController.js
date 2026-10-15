@@ -172,5 +172,14 @@ const getLeaveStats = asyncHandler(async (req, res) => {
   res.json({ success: true, data: formatted });
 });
 
-module.exports = { getLeaves, getLeaveById, createLeave, updateLeaveStatus, deleteLeave, getLeaveStats };
+// ─── PATCH /api/leaves/:id/acknowledge ───────────────────────────────────────
+const acknowledgeLeave = asyncHandler(async (req, res) => {
+  const leave = await Leave.findById(req.params.id);
+  if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+  leave.isAcknowledged = true;
+  await leave.save();
+  res.json({ success: true, data: leave });
+});
+
+module.exports = { getLeaves, getLeaveById, createLeave, updateLeaveStatus, deleteLeave, getLeaveStats, acknowledgeLeave };
 

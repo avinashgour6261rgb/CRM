@@ -6,6 +6,7 @@
 
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
+import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 let backendOnlineCache = null;
 let lastCheckTime = 0;
@@ -61,7 +62,11 @@ export const workService = {
         if (filters.department && filters.department !== 'all') queryParams.append('department', filters.department);
         if (filters.search) queryParams.append('search', filters.search);
 
-        const res = await fetch(`${API_BASE_URL}/projects?${queryParams.toString()}`);
+        const qs = queryParams.toString();
+        const url = qs ? `${API_BASE_URL}/projects?${qs}` : `${API_BASE_URL}/projects`;
+        const res = await fetch(url, {
+          headers: getAuthHeaders()
+        });
         if (res.ok) {
           const json = await res.json();
           return json.data;
@@ -181,7 +186,9 @@ export const workService = {
         if (filters.hideCompleted) queryParams.append('hideCompleted', 'true');
         if (filters.search) queryParams.append('search', filters.search);
 
-        const res = await fetch(`${API_BASE_URL}/tasks?${queryParams.toString()}`, {
+        const qs = queryParams.toString();
+        const url = qs ? `${API_BASE_URL}/tasks?${qs}` : `${API_BASE_URL}/tasks`;
+        const res = await fetch(url, {
           headers: getAuthHeaders()
         });
         if (res.ok) {
@@ -196,19 +203,36 @@ export const workService = {
     // LocalStorage Fallback
     let list = getCollection(KEYS.TASKS);
     const authUser = getAuthUser();
-    const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
+    const isPrivileged = authUser && isHRorAdmin(authUser);
+    const perms = getUserModulePermissions(authUser);
+    const canViewAll = isPrivileged || perms?.viewAllTasks;
 
-    // Strict tenant isolation: regular employees can ONLY view tasks assigned to them
-    if (!isPrivileged && authUser) {
-      list = list.filter(t =>
-        t.assignedToId === authUser._id ||
-        t.assignedTo === authUser._id ||
-        t.assignedToId === authUser.employeeCode ||
-        t.assignedTo === authUser.employeeCode ||
-        (t.assignedToName && authUser.name && t.assignedToName.toLowerCase() === authUser.name.toLowerCase())
-      );
+    // Strict tenant isolation: regular employees can ONLY view tasks assigned to or created by them unless granted viewAllTasks
+    if (!canViewAll && authUser) {
+      list = list.filter(t => {
+        const isDirectAssignee =
+          t.assignedToId === authUser._id ||
+          t.assignedTo === authUser._id ||
+          t.assignedToId === authUser.employeeCode ||
+          t.assignedTo === authUser.employeeCode ||
+          (t.assignedToName && authUser.name && t.assignedToName.toLowerCase() === authUser.name.toLowerCase());
+        const isMultiAssignee =
+          (Array.isArray(t.assignedToIds) && (t.assignedToIds.includes(authUser._id) || t.assignedToIds.includes(authUser.employeeCode))) ||
+          (Array.isArray(t.assignees) && t.assignees.some(a => a._id === authUser._id || a.employeeCode === authUser.employeeCode || (a.name && authUser.name && a.name.toLowerCase() === authUser.name.toLowerCase())));
+        const isCreator =
+          t.assignedById === authUser._id ||
+          t.assignedBy === authUser._id ||
+          t.assignedById === authUser.employeeCode ||
+          (t.assignedBy && authUser.name && t.assignedBy.toLowerCase() === authUser.name.toLowerCase());
+        return isDirectAssignee || isMultiAssignee || isCreator;
+      });
     } else if (filters.assignedTo && filters.assignedTo !== 'all') {
-      list = list.filter(t => t.assignedToId === filters.assignedTo || t.assignedTo === filters.assignedTo);
+      list = list.filter(t =>
+        t.assignedToId === filters.assignedTo ||
+        t.assignedTo === filters.assignedTo ||
+        (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(filters.assignedTo)) ||
+        (Array.isArray(t.assignees) && t.assignees.some(a => a._id === filters.assignedTo || a.employeeCode === filters.assignedTo))
+      );
     }
 
     if (filters.projectId && filters.projectId !== 'all') {
@@ -364,7 +388,9 @@ export const workService = {
         if (filters.status && filters.status !== 'all') queryParams.append('status', filters.status);
         if (filters.search) queryParams.append('search', filters.search);
 
-        const res = await fetch(`${API_BASE_URL}/timesheet?${queryParams.toString()}`, {
+        const qs = queryParams.toString();
+        const url = qs ? `${API_BASE_URL}/timesheet?${qs}` : `${API_BASE_URL}/timesheet`;
+        const res = await fetch(url, {
           headers: getAuthHeaders()
         });
         if (res.ok) {
@@ -508,6 +534,7 @@ export const workService = {
     const secs = String(totalDurationSeconds % 60).padStart(2, '0');
     const durationText = `${hrs}:${mins}:${secs}`;
 
+    const authUser = getAuthUser();
     const timesheets = getCollection(KEYS.TIMESHEETS);
     const newLog = {
       _id: `time_${Date.now()}`,
@@ -515,16 +542,16 @@ export const workService = {
       taskCode: task?.taskCode || '',
       taskTitle: task?.title || 'Tracked Session',
       projectId: task?.projectId || '',
-      employeeId: task?.assignedToId || '',
-      employeeName: task?.assignedToName || 'Team Member',
-      employeeAvatar: task?.assignedToAvatar || '',
-      employeeRole: task?.assignedToRole || '',
+      employeeId: authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
+      employeeName: authUser?.name || task?.assignedToName || 'Team Member',
+      employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
+      employeeRole: authUser?.role || task?.assignedToRole || '',
       date: getLocalDateString(),
       startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
       endTime: endTime || new Date().toTimeString().split(' ')[0],
       totalDurationSeconds,
       totalDurationText: durationText,
-      memo: memo || 'Live work session completed',
+      memo: memo || 'Work session saved',
       status: 'stopped',
       createdAt: new Date().toISOString()
     };

@@ -27,6 +27,7 @@ import { PromoteEmployeeModal } from '../components/employees/PromoteEmployeeMod
 import { EditProfileModal } from '../../../shared/components/modals/EditProfileModal';
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
+import { isAdmin, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 export const EmployeesPage = () => {
   const navigate = useNavigate();
@@ -70,9 +71,24 @@ export const EmployeesPage = () => {
     localStorage.setItem('EMS_SALARY_MAP', JSON.stringify(updated));
   };
 
-  const actorRole = (currentUser?.role || '').toLowerCase();
-  const isActorAdmin = actorRole.includes('admin') || true;
-  const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources');
+  const isActorAdmin = isAdmin(currentUser);
+  const isActorHR = isHRorAdmin(currentUser);
+
+  if (!isActorHR && !isActorAdmin) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '40px auto', maxWidth: '600px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
+        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>Access Restricted</h2>
+        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>The Employees & Roles directory and management features are strictly reserved for Administrators and HR personnel.</p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{ padding: '8px 18px', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer' }}
+        >
+          Return to My Workspace
+        </button>
+      </div>
+    );
+  }
 
   const departments = Array.from(new Set((employees || []).map(e => e.department).filter(Boolean)));
   const systemRoles = getRoles();

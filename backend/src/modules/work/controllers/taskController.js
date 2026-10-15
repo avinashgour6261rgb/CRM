@@ -11,6 +11,9 @@ const Timesheet = require('../models/Timesheet');
 // @route   GET /api/tasks
 exports.getTasks = async (req, res, next) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ success: false, message: 'Database connecting, standby' });
+    }
     const { projectId, status, priority, assignedTo, search, hideCompleted } = req.query;
     let query = {};
 
@@ -30,14 +33,26 @@ exports.getTasks = async (req, res, next) => {
       query.priority = priority;
     }
 
-    // Role-based tenant isolation: Regular employees can strictly only access tasks assigned to them
+    // Role-based tenant isolation: Regular employees can strictly access tasks assigned to them (single or multi-assignee) OR created by them
     if (!isPrivileged && user) {
       const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : null;
-      const userAssignedFilter = userObjId
-        ? [{ assignedTo: userObjId }, { assignedToId: user._id }, { assignedToId: user.employeeCode }]
-        : [{ assignedToId: user._id }, { assignedToId: user.employeeCode }];
+      const userAssignedFilter = [
+        ...(userObjId ? [{ assignedTo: userObjId }] : []),
+        { assignedToId: String(user._id) },
+        { assignedToId: String(user.employeeCode) },
+        { assignedToIds: String(user._id) },
+        { assignedToIds: String(user.employeeCode) },
+        { 'assignees._id': user._id },
+        { 'assignees.employeeCode': user.employeeCode },
+        // Creator / Assigner can always view tasks they delegated
+        { assignedById: String(user._id) },
+        { assignedById: String(user.employeeCode) }
+      ];
       if (user.name) {
-        userAssignedFilter.push({ assignedToName: new RegExp(`^${user.name}$`, 'i') });
+        const escapedName = String(user.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        userAssignedFilter.push({ assignedToName: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ assignedBy: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ 'assignees.name': new RegExp(`^${escapedName}$`, 'i') });
       }
 
       if (query.$or) {
@@ -48,15 +63,28 @@ exports.getTasks = async (req, res, next) => {
       }
     } else if (assignedTo && assignedTo !== 'all') {
       const isValid = mongoose.Types.ObjectId.isValid(assignedTo);
-      query.$or = isValid ? [{ assignedTo: assignedTo }, { assignedToId: assignedTo }] : [{ assignedToId: assignedTo }];
+      const assignedFilter = [
+        ...(isValid ? [{ assignedTo: assignedTo }] : []),
+        { assignedToId: assignedTo },
+        { assignedToIds: assignedTo },
+        { 'assignees._id': assignedTo },
+        { 'assignees.employeeCode': assignedTo }
+      ];
+      if (query.$or) {
+        query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: assignedFilter }]);
+        delete query.$or;
+      } else {
+        query.$or = assignedFilter;
+      }
     }
 
     if (search) {
+      const escapedSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchOr = [
-        { title: { $regex: search, $options: 'i' } },
-        { taskCode: { $regex: search, $options: 'i' } },
-        { projectName: { $regex: search, $options: 'i' } },
-        { assignedToName: { $regex: search, $options: 'i' } }
+        { title: { $regex: escapedSearch, $options: 'i' } },
+        { taskCode: { $regex: escapedSearch, $options: 'i' } },
+        { projectName: { $regex: escapedSearch, $options: 'i' } },
+        { assignedToName: { $regex: escapedSearch, $options: 'i' } }
       ];
       if (query.$or) {
         query.$and = (query.$and || []).concat([{ $or: query.$or }, { $or: searchOr }]);
