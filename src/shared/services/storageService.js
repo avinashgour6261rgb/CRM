@@ -56,42 +56,67 @@ const KEYS = {
   USER_SETTINGS: 'ems_user_settings',
   WORK_TIMER: 'hrms_work_timer',
   SETTINGS: 'hrms_settings',
-  ATTENDANCE_AUDIT: 'ems_attendance_audit_logs'
+  ATTENDANCE_AUDIT: 'ems_attendance_audit_logs',
+  DOCUMENTS: 'ems_documents'
 };
+
+const PROD_CLEAN_VERSION = 'ems_clean_multiuser_prod_v5';
 
 export const purgeStaleMockData = () => {
   try {
-    const authSession = localStorage.getItem('ems_auth_session');
-    if (authSession && (authSession.includes('Avinash') || authSession.includes('emp_admin') || authSession.includes('emp_001'))) {
-      localStorage.removeItem('ems_auth_session');
-    }
+    const migrated = localStorage.getItem(PROD_CLEAN_VERSION);
+    if (!migrated) {
+      // 1. Reset all collections to clean initial data
+      localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(INITIAL_EMPLOYEES));
+      localStorage.setItem(KEYS.TASKS, JSON.stringify([]));
+      localStorage.setItem(KEYS.PROJECTS, JSON.stringify([]));
+      localStorage.setItem(KEYS.LEAVES, JSON.stringify([]));
+      localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify([]));
+      localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify([]));
+      localStorage.setItem(KEYS.APPRECIATIONS, JSON.stringify([]));
+      localStorage.setItem(KEYS.TICKETS, JSON.stringify([]));
+      localStorage.setItem(KEYS.NOTICES, JSON.stringify([]));
+      localStorage.setItem(KEYS.EVENTS, JSON.stringify([]));
+      localStorage.setItem(KEYS.BIRTHDAYS, JSON.stringify([]));
+      localStorage.setItem(KEYS.WFH, JSON.stringify([]));
+      localStorage.setItem(KEYS.LEADS, JSON.stringify([]));
+      localStorage.setItem(KEYS.EXPENSES, JSON.stringify([]));
+      localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify([]));
+      localStorage.setItem(KEYS.EMERGENCY_CONTACTS, JSON.stringify([]));
+      localStorage.setItem(KEYS.STICKY_NOTES, JSON.stringify([]));
+      localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify([]));
+      localStorage.setItem(KEYS.WEEKLY_TIMELOGS, JSON.stringify(INITIAL_WEEKLY_TIMELOGS));
 
-    const empRaw = localStorage.getItem(KEYS.EMPLOYEES);
-    if (empRaw && empRaw.includes('Avinash')) {
-      localStorage.removeItem(KEYS.EMPLOYEES);
-    }
-
-    const tasksRaw = localStorage.getItem(KEYS.TASKS);
-    if (tasksRaw && tasksRaw.includes('Avinash')) {
-      localStorage.removeItem(KEYS.TASKS);
-    }
-
-    const timesheetsRaw = localStorage.getItem(KEYS.TIMESHEETS);
-    if (timesheetsRaw && timesheetsRaw.includes('Avinash')) {
-      localStorage.removeItem(KEYS.TIMESHEETS);
-    }
-
-    Object.keys(localStorage).forEach(key => {
-      if (key.includes('emp_001') || key.includes('emp_admin')) {
-        localStorage.removeItem(key);
-      }
-      try {
-        const val = localStorage.getItem(key);
-        if (typeof val === 'string' && val.includes('Avinash')) {
-          localStorage.removeItem(key);
+      // 2. Remove all old timer keys, mock shifts, and obsolete cache
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key && (
+            key.startsWith('ems_timer_') ||
+            key.startsWith('ems_active_task_timer_') ||
+            key.includes('emp_00') ||
+            key.includes('EMP-00') ||
+            key.includes('Priya') ||
+            key.includes('Avinash') ||
+            key === 'hrms_tasks'
+          )
+        ) {
+          keysToRemove.push(key);
         }
-      } catch (err) {}
-    });
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+
+      // 3. Set auth session to Master Admin
+      localStorage.setItem('ems_auth_session', JSON.stringify({
+        token: 'ems_master_admin_token',
+        user: INITIAL_EMPLOYEES[0]
+      }));
+
+      // 4. Mark migration complete
+      localStorage.setItem(PROD_CLEAN_VERSION, 'true');
+      console.log('✅ Inforag Management System: Multi-user production cleanup completed.');
+    }
   } catch (e) {
     console.error('Error purging stale mock data:', e);
   }
@@ -134,12 +159,20 @@ export const initStorage = () => {
     localStorage.setItem(KEYS.HOLIDAYS, JSON.stringify(INITIAL_HOLIDAYS));
   } else {
     try {
-      const storedHolidays = JSON.parse(localStorage.getItem(KEYS.HOLIDAYS)) || [];
+      let storedHolidays = JSON.parse(localStorage.getItem(KEYS.HOLIDAYS)) || [];
+      // Clean up fake "Inforag Annual Foundation Day" or unauthorized 2026-10-15 holiday
+      const beforeLen = storedHolidays.length;
+      storedHolidays = storedHolidays.filter(h => 
+        !h.name?.toLowerCase().includes('foundation') &&
+        !h.title?.toLowerCase().includes('foundation') &&
+        h.date !== '2026-10-15'
+      );
       const storedIds = new Set(storedHolidays.map(h => h._id || h.name));
       const missingHolidays = INITIAL_HOLIDAYS.filter(h => !storedIds.has(h._id) && !storedHolidays.some(sh => sh.name === h.name && sh.date === h.date));
-      if (missingHolidays.length > 0) {
-        const merged = [...storedHolidays, ...missingHolidays];
-        localStorage.setItem(KEYS.HOLIDAYS, JSON.stringify(merged));
+      const merged = [...storedHolidays, ...missingHolidays];
+      localStorage.setItem(KEYS.HOLIDAYS, JSON.stringify(merged));
+      if (beforeLen !== storedHolidays.length) {
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.HOLIDAYS } }));
       }
     } catch (e) {
       console.error('Error syncing holiday database:', e);
@@ -155,23 +188,32 @@ export const initStorage = () => {
     localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
   } else {
     try {
-      const storedTasks = JSON.parse(localStorage.getItem(KEYS.TASKS));
-      let modified = false;
-      const updated = (storedTasks || []).map(t => {
-        // Fix: CPC-0 (Bookmarking 20) is a pending/incomplete task, ensure it is not erroneously marked completed
-        if ((t.taskCode === 'CPC-0' || t.title === 'Bookmarking 20') && t.status === 'completed') {
-          modified = true;
-          return {
-            ...t,
-            status: 'incomplete',
-            completedOn: null,
-            completedAt: null
-          };
-        }
-        return t;
+      const storedTasks = JSON.parse(localStorage.getItem(KEYS.TASKS) || '[]');
+      const legacyTitles = [
+        'green text',
+        'helllo',
+        'hello',
+        'hero page',
+        'generate dashboard',
+        'design system token definition & ui kit',
+        'setup mongodb atlas connection & schema seeders',
+        'general management & team review',
+        'backlink',
+        'home page',
+        'bookmarking 20'
+      ];
+      // Strictly purge legacy mock/test tasks: CPC-0, TSK-1 to TSK-7, etc.
+      const sanitized = (storedTasks || []).filter(t => {
+        if (!t) return false;
+        const title = (t.title || '').toLowerCase().trim();
+        const code = (t.taskCode || '').toUpperCase().trim();
+        if (legacyTitles.includes(title)) return false;
+        if (title.includes('token definition') || title.includes('schema seeders') || title.includes('bookmarking')) return false;
+        if (code === 'CPC-0' || t._id === 'tsk_003' || code.startsWith('MOCK')) return false;
+        return true;
       });
-      if (modified) {
-        localStorage.setItem(KEYS.TASKS, JSON.stringify(updated));
+      if (sanitized.length !== storedTasks.length) {
+        localStorage.setItem(KEYS.TASKS, JSON.stringify(sanitized));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       }
     } catch (e) {
@@ -179,26 +221,29 @@ export const initStorage = () => {
     }
   }
 
-  // Also clean up any legacy hrms_tasks key if present
+  // Remove any legacy hrms_tasks key from old versions
   try {
-    const legacyTasksRaw = localStorage.getItem('hrms_tasks');
-    if (legacyTasksRaw) {
-      const legacyTasks = JSON.parse(legacyTasksRaw);
-      let legacyMod = false;
-      const updatedLegacy = (legacyTasks || []).map(t => {
-        if ((t.taskCode === 'CPC-0' || t.title === 'Bookmarking 20') && t.status === 'completed') {
-          legacyMod = true;
-          return { ...t, status: 'incomplete', completedOn: null, completedAt: null };
-        }
-        return t;
-      });
-      if (legacyMod) {
-        localStorage.setItem('hrms_tasks', JSON.stringify(updatedLegacy));
-      }
-    }
+    localStorage.removeItem('hrms_tasks');
   } catch (e) {}
   if (!localStorage.getItem(KEYS.TIMESHEETS)) {
     localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(INITIAL_TIMESHEETS));
+  } else {
+    try {
+      const storedTs = JSON.parse(localStorage.getItem(KEYS.TIMESHEETS));
+      let tsMod = false;
+      const todayIso = new Date().toISOString().split('T')[0];
+      const sanitizedTs = (storedTs || []).filter(ts => {
+        // Remove bogus 21600s (6h) timesheet entry auto-created for today by old completeTask bug
+        if ((ts.date === todayIso || ts.createdAt?.startsWith(todayIso)) && (ts.totalDurationSeconds === 21600 || ts.totalDurationText === '06:00:00')) {
+          tsMod = true;
+          return false;
+        }
+        return true;
+      });
+      if (tsMod) {
+        localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(sanitizedTs));
+      }
+    } catch (e) {}
   }
   if (!localStorage.getItem(KEYS.TICKETS)) {
     localStorage.setItem(KEYS.TICKETS, JSON.stringify(INITIAL_TICKETS));
@@ -234,243 +279,58 @@ export const initStorage = () => {
     localStorage.setItem(KEYS.STICKY_NOTES, JSON.stringify(INITIAL_STICKY_NOTES));
   }
   if (!localStorage.getItem(KEYS.ATTENDANCE_AUDIT)) {
-    localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify([
+    localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify([]));
+  } else {
+    try {
+      const storedAudit = JSON.parse(localStorage.getItem(KEYS.ATTENDANCE_AUDIT) || '[]');
+      const cleanedAudit = (storedAudit || []).filter(a =>
+        a && !a.employeeName?.includes('Rahul') && !a.employeeName?.includes('Priya') && !a.employeeName?.includes('Sneha') && !a.employeeName?.includes('Amit')
+      );
+      if (cleanedAudit.length !== storedAudit.length) {
+        localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify(cleanedAudit));
+      }
+    } catch (e) {}
+  }
+
+  if (!localStorage.getItem(KEYS.DOCUMENTS)) {
+    localStorage.setItem(KEYS.DOCUMENTS, JSON.stringify([
       {
-        _id: 'audit_init_1',
-        employeeId: 'emp_003',
-        employeeName: 'Rahul Verma',
-        employeeCode: 'EMP-003',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T13:16:00.000Z',
-        timeFormatted: '01:16 PM',
-        type: 'clock_in',
-        action: 'Shift Clock In',
-        durationSeconds: 0,
-        durationText: '',
-        details: 'Shift started on schedule via web portal.',
-        actor: 'employee',
-        actorId: 'emp_003',
-        actorName: 'Rahul Verma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
+        id: 'DOC-1',
+        title: 'IT & Cloud Infrastructure Acceptable Use Policy',
+        docType: 'Company Policy',
+        employeeName: 'Inforag Technology',
+        employeeCode: 'ADM-001',
+        department: 'Management',
+        fileName: 'it_infrastructure_acceptable_policy_2026.pdf',
+        fileSize: '1.4 MB',
+        uploadDate: '2026-01-01',
+        status: 'verified'
       },
       {
-        _id: 'audit_init_2',
-        employeeId: 'emp_003',
-        employeeName: 'Rahul Verma',
-        employeeCode: 'EMP-003',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T15:30:00.000Z',
-        timeFormatted: '03:30 PM',
-        type: 'tea_break_start',
-        action: 'Tea Break Started',
-        durationSeconds: 0,
-        durationText: '',
-        details: '15-minute afternoon Tea Break started.',
-        actor: 'employee',
-        actorId: 'emp_003',
-        actorName: 'Rahul Verma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
-      },
-      {
-        _id: 'audit_init_3',
-        employeeId: 'emp_003',
-        employeeName: 'Rahul Verma',
-        employeeCode: 'EMP-003',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T15:44:30.000Z',
-        timeFormatted: '03:44 PM',
-        type: 'tea_break_end',
-        action: 'Resumed from Tea Break',
-        durationSeconds: 870,
-        durationText: '14m 30s',
-        details: 'Resumed shift on time (within 15m threshold).',
-        actor: 'employee',
-        actorId: 'emp_003',
-        actorName: 'Rahul Verma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
-      },
-      {
-        _id: 'audit_init_4',
-        employeeId: 'emp_002',
-        employeeName: 'Priya Sharma',
-        employeeCode: 'EMP-002',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T09:30:00.000Z',
-        timeFormatted: '09:30 AM',
-        type: 'clock_in',
-        action: 'Shift Clock In',
-        durationSeconds: 0,
-        durationText: '',
-        details: 'Shift started on schedule via web portal.',
-        actor: 'employee',
-        actorId: 'emp_002',
-        actorName: 'Priya Sharma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
-      },
-      {
-        _id: 'audit_init_5',
-        employeeId: 'emp_002',
-        employeeName: 'Priya Sharma',
-        employeeCode: 'EMP-002',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T13:00:00.000Z',
-        timeFormatted: '01:00 PM',
-        type: 'lunch_break_start',
-        action: 'Lunch Break Started',
-        durationSeconds: 0,
-        durationText: '',
-        details: 'Standard 45-minute Lunch Break started.',
-        actor: 'employee',
-        actorId: 'emp_002',
-        actorName: 'Priya Sharma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
-      },
-      {
-        _id: 'audit_init_6',
-        employeeId: 'emp_002',
-        employeeName: 'Priya Sharma',
-        employeeCode: 'EMP-002',
-        date: '2026-10-12',
-        timestamp: '2026-10-12T13:42:00.000Z',
-        timeFormatted: '01:42 PM',
-        type: 'lunch_break_end',
-        action: 'Resumed from Lunch Break',
-        durationSeconds: 2520,
-        durationText: '42m 00s',
-        details: 'Resumed shift on time (within 45m threshold).',
-        actor: 'employee',
-        actorId: 'emp_002',
-        actorName: 'Priya Sharma',
-        isAdminOverride: false,
-        adminId: null,
-        adminName: null,
-        auditNote: null
-      },
-      {
-        _id: 'audit_init_7',
-        employeeId: 'emp_004',
-        employeeName: 'Amit Kumar',
-        employeeCode: 'EMP-004',
-        date: '2026-10-09',
-        timestamp: '2026-10-09T18:45:00.000Z',
-        timeFormatted: '06:45 PM',
-        type: 'admin_force_clock_out',
-        action: 'Admin Force Clock-Out',
-        durationSeconds: 28800,
-        durationText: '8h 00m',
-        details: 'Administrator Admin User [ID: ADM-001] manually forced shift clock-out. Reason: "Employee left premises without clocking out; verified via security gate register."',
-        actor: 'admin',
-        actorId: 'ADM-001',
-        actorName: 'Admin User',
-        isAdminOverride: true,
-        adminId: 'ADM-001',
-        adminName: 'Admin User',
-        auditNote: 'Employee left premises without clocking out; verified via security gate register.'
-      },
-      {
-        _id: 'audit_init_8',
-        employeeId: 'emp_005',
-        employeeName: 'Sneha Patel',
-        employeeCode: 'EMP-005',
-        date: '2026-10-08',
-        timestamp: '2026-10-08T17:15:00.000Z',
-        timeFormatted: '05:15 PM',
-        type: 'admin_shift_adjustment',
-        action: 'Admin Shift Hour Adjustment',
-        durationSeconds: 27000,
-        durationText: '7.5h',
-        details: 'Shift manually adjusted by Admin Admin User (ID: ADM-001). Status: present, In: 09:30:00, Out: 17:00:00. Reason: "Corrected punch discrepancy due to client on-site visit."',
-        actor: 'admin',
-        actorId: 'ADM-001',
-        actorName: 'Admin User',
-        isAdminOverride: true,
-        adminId: 'ADM-001',
-        adminName: 'Admin User',
-        auditNote: 'Corrected punch discrepancy due to client on-site visit.'
+        id: 'DOC-2',
+        title: 'Employee Code of Conduct & Remote Operations Manual',
+        docType: 'Handbook',
+        employeeName: 'Human Resources',
+        employeeCode: 'ADM-001',
+        department: 'Human Resources',
+        fileName: 'code_of_conduct_remote_ops_2026.pdf',
+        fileSize: '2.1 MB',
+        uploadDate: '2026-01-01',
+        status: 'verified'
       }
     ]));
-  }
-
-  // ── Seed Live Today Interconnected Demo Data ──
-  try {
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    // Ensure all employees exist
-    const storedEmps = JSON.parse(localStorage.getItem(KEYS.EMPLOYEES) || '[]');
-    const storedEmpIds = new Set(storedEmps.map(e => e._id));
-    const missingEmps = INITIAL_EMPLOYEES.filter(e => !storedEmpIds.has(e._id));
-    if (missingEmps.length > 0) {
-      localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify([...storedEmps, ...missingEmps]));
-    }
-
-    // Ensure today's attendance records exist
-    const storedAtt = JSON.parse(localStorage.getItem(KEYS.ATTENDANCE) || '[]');
-    const hasTodayAtt = storedAtt.some(a => a.date === todayStr);
-    if (!hasTodayAtt) {
-      const freshAtt = generateInitialAttendance();
-      const todayRecords = freshAtt.filter(a => a.date === todayStr);
-      localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify([...todayRecords, ...storedAtt]));
-    }
-
-    // Ensure tasks are populated with categorized tasks
-    const storedTasks = JSON.parse(localStorage.getItem(KEYS.TASKS) || '[]');
-    if (storedTasks.length < 8) {
-      localStorage.setItem(KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
-    }
-
-    // Seed Live Clock & Timer snapshots for Team Monitor demo
-    const liveTeamDemo = [
-      { key: 'EMP-002', isClocked: 'true', isOnBreak: 'false', loginTime: '09:30 AM', workSecs: '24480', taskId: 'tsk_004', taskCode: 'DES-1', title: 'Design System Token Definition & Glassmorphism UI Kit' },
-      { key: 'EMP-003', isClocked: 'true', isOnBreak: 'false', loginTime: '09:15 AM', workSecs: '25920', taskId: 'tsk_001', taskCode: 'ERP-1', title: 'Enterprise ERP Core Pipeline & Mongoose Pooling' },
-      { key: 'EMP-005', isClocked: 'true', isOnBreak: 'true', breakType: 'Tea Break', loginTime: '09:45 AM', workSecs: '23400' },
-      { key: 'EMP-004', isClocked: 'false', hadOut: 'true', loginTime: '09:00 AM', clockOut: '05:30 PM', workSecs: '28800' }
-    ];
-
-    liveTeamDemo.forEach(item => {
-      if (localStorage.getItem(`ems_timer_${item.key}_is_clocked_in`) === null) {
-        localStorage.setItem(`ems_timer_${item.key}_is_clocked_in`, item.isClocked);
-        localStorage.setItem(`ems_timer_${item.key}_login_time`, item.loginTime);
-        localStorage.setItem(`ems_timer_${item.key}_work_seconds`, item.workSecs);
-        localStorage.setItem(`ems_timer_${item.key}_work_session_date`, todayStr);
-        if (item.isOnBreak) {
-          localStorage.setItem(`ems_timer_${item.key}_is_on_break`, 'true');
-          localStorage.setItem(`ems_timer_${item.key}_break_type`, item.breakType || 'Tea Break');
-        }
-        if (item.hadOut) {
-          localStorage.setItem(`ems_timer_${item.key}_had_clocked_out`, 'true');
-          localStorage.setItem(`ems_timer_${item.key}_clockout_time`, item.clockOut);
-        }
-        if (item.taskId) {
-          localStorage.setItem(`ems_active_task_timer_${item.key}`, JSON.stringify({
-            taskId: item.taskId,
-            taskCode: item.taskCode,
-            title: item.title,
-            timerRunning: true,
-            startedAt: Date.now() - 3600000,
-            accumulatedSeconds: 3600,
-            date: todayStr
-          }));
-        }
+  } else {
+    try {
+      const storedDocs = JSON.parse(localStorage.getItem(KEYS.DOCUMENTS) || '[]');
+      const cleanedDocs = (storedDocs || []).filter(d =>
+        d && !d.employeeName?.includes('Priya') && !d.employeeName?.includes('Rahul') && !d.employeeName?.includes('Sneha') && !d.employeeName?.includes('Amit')
+      );
+      if (cleanedDocs.length !== storedDocs.length) {
+        localStorage.setItem(KEYS.DOCUMENTS, JSON.stringify(cleanedDocs));
       }
-    });
-  } catch (err) {
-    console.error('Error seeding live demo state:', err);
+    } catch (e) {}
   }
+
 };
 
 // Generic read
@@ -510,47 +370,8 @@ export const clearAllDummyData = () => {
     saveCollection(KEYS.LEAVES, []);
     saveCollection(KEYS.WEEKLY_TIMELOGS, []);
     
-    // Retain only primary admin, hr, and employee users or clear to clean roster
-    const primaryUsers = [
-      {
-        _id: 'emp_admin',
-        employeeCode: 'ADM-001',
-        name: 'Admin User',
-        email: 'admin@inforag.com',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120',
-        role: 'Administrator',
-        systemRole: 'admin',
-        department: 'Management',
-        status: 'active',
-        isCurrentUser: true,
-        leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
-      },
-      {
-        _id: 'emp_hr',
-        employeeCode: 'HR-001',
-        name: 'Pooja Sharma',
-        email: 'hr@inforag.com',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120',
-        role: 'HR Manager',
-        systemRole: 'hr',
-        department: 'Human Resources',
-        status: 'active',
-        leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 }
-      },
-      {
-        _id: 'emp_employee',
-        employeeCode: 'ENG-001',
-        name: 'Rahul Verma',
-        email: 'rahul.verma@inforag.com',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
-        role: 'Senior Full Stack Developer',
-        systemRole: 'team_member',
-        department: 'Engineering',
-        status: 'active',
-        leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
-      }
-    ];
-    saveCollection(KEYS.EMPLOYEES, primaryUsers);
+    // Retain only Master Admin user
+    saveCollection(KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
 
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'all' } }));
     return true;

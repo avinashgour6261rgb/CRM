@@ -11,13 +11,17 @@ import {
   Sparkles,
   ShieldCheck,
   Lock,
-  Award
+  Award,
+  Key,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useHR } from '../../../modules/hr/context/HRContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
 import { getRoles, canUserAssignRole, recordPromotion } from '../../services/roleManagementService';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
@@ -48,18 +52,68 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     avatar: '',
     bio: '',
     workingMode: 'Office',
-    employeeCode: 'EMP-001'
+    employeeCode: 'EMP-001',
+    customFields: []
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [customAvatarUrl, setCustomAvatarUrl] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false);
+
+  // Custom Fields state for dynamic properties
+  const [newFieldKey, setNewFieldKey] = useState('');
+  const [newFieldValue, setNewFieldValue] = useState('');
+  const [showAddField, setShowAddField] = useState(false);
+
+  // Employee Credential Change Request State (Requires Admin Approval)
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestField, setRequestField] = useState('email'); // 'email' | 'name'
+  const [requestedValue, setRequestedValue] = useState('');
+  const [requestReason, setRequestReason] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
   // Determine Actor Privileges
   const actorRole = (currentUser?.role || '').toLowerCase();
   const isActorAdmin = currentUser?.isAdmin || actorRole.includes('admin') || currentUser?.systemRole === 'admin';
   const isActorHR = actorRole.includes('hr') || actorRole.includes('human resources') || currentUser?.systemRole === 'hr';
   const canEditRole = isActorAdmin || isActorHR;
+
+  const handleSendCredentialRequest = (e) => {
+    e.preventDefault();
+    if (!requestedValue.trim()) {
+      addToast?.('Please enter the requested new value.', 'error');
+      return;
+    }
+    setIsSubmittingRequest(true);
+    try {
+      const existing = JSON.parse(localStorage.getItem('EMS_PROFILE_UPDATE_REQUESTS') || '[]');
+      const newReq = {
+        id: `req_${Date.now()}`,
+        employeeId: targetEmp?._id || currentUser?._id,
+        employeeCode: targetEmp?.employeeCode || currentUser?.employeeCode || 'EMP-001',
+        employeeName: targetEmp?.name || currentUser?.name,
+        field: requestField,
+        currentValue: requestField === 'email' ? (targetEmp?.email || currentUser?.email) : (targetEmp?.name || currentUser?.name),
+        requestedValue: requestedValue.trim(),
+        reason: requestReason.trim() || 'Official credential update request',
+        status: 'pending',
+        requestedAt: new Date().toISOString()
+      };
+      existing.unshift(newReq);
+      localStorage.setItem('EMS_PROFILE_UPDATE_REQUESTS', JSON.stringify(existing));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_profile_requests' } }));
+      addToast?.('Credential update request submitted to Admin for approval! 📬', 'success');
+      setShowRequestModal(false);
+      setRequestedValue('');
+      setRequestReason('');
+    } catch (err) {
+      console.error(err);
+      addToast?.('Failed to submit request', 'error');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
 
   // Sync form data whenever targetEmp or modal open state changes
   useEffect(() => {
@@ -74,7 +128,8 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         avatar: targetEmp.avatar || PRESET_AVATARS[0],
         bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
         workingMode: targetEmp.workingMode || localStorage.getItem('ems_working_mode') || 'Office',
-        employeeCode: targetEmp.employeeCode || targetEmp._id || 'EMP-001'
+        employeeCode: targetEmp.employeeCode || targetEmp._id || 'EMP-001',
+        customFields: targetEmp.customFields || []
       });
       setCustomAvatarUrl(targetEmp.avatar || '');
       setAvailableRoles(getRoles());
@@ -85,6 +140,26 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddCustomField = () => {
+    if (!newFieldKey.trim()) return;
+    const updated = [...(formData.customFields || []), { key: newFieldKey.trim(), value: newFieldValue.trim() }];
+    setFormData(prev => ({ ...prev, customFields: updated }));
+    setNewFieldKey('');
+    setNewFieldValue('');
+    setShowAddField(false);
+  };
+
+  const handleRemoveCustomField = (index) => {
+    const updated = (formData.customFields || []).filter((_, i) => i !== index);
+    setFormData(prev => ({ ...prev, customFields: updated }));
+  };
+
+  const handleCustomFieldChange = (index, val) => {
+    const updated = [...(formData.customFields || [])];
+    updated[index] = { ...updated[index], value: val };
+    setFormData(prev => ({ ...prev, customFields: updated }));
   };
 
   // Handle local image file upload (Base64)
@@ -367,12 +442,41 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           {/* Name & Designation */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                Full Name *
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  Full Name *
+                </label>
+                {isActorAdmin ? (
+                  <span style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', backgroundColor: '#dbeafe', padding: '2px 6px', borderRadius: '4px' }}>
+                    👑 Admin Direct Edit
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestField('name');
+                      setRequestedValue('');
+                      setRequestReason('');
+                      setShowRequestModal(true);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    ✏️ Request Change
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 required
+                disabled={!isActorAdmin}
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
                 style={{
@@ -381,7 +485,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
                   fontSize: '13.5px',
-                  outline: 'none'
+                  outline: 'none',
+                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
+                  color: isActorAdmin ? '#0f172a' : '#64748b',
+                  fontWeight: '600'
                 }}
               />
             </div>
@@ -429,6 +536,15 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                     }}
                   />
                   <datalist id="edit-profile-role-options">
+                    {(() => {
+                      try {
+                        const saved = JSON.parse(localStorage.getItem('EMS_CUSTOM_ROLES') || '[]');
+                        if (Array.isArray(saved)) {
+                          return saved.map(r => <option key={r} value={r}>Custom Company Role</option>);
+                        }
+                      } catch (e) {}
+                      return null;
+                    })()}
                     {availableRoles
                       .filter(r => isActorAdmin || !r.id.toLowerCase().includes('admin'))
                       .map(r => (
@@ -484,11 +600,40 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                Email Address
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  Email Address *
+                </label>
+                {isActorAdmin ? (
+                  <span style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', backgroundColor: '#dbeafe', padding: '2px 6px', borderRadius: '4px' }}>
+                    👑 Admin Direct Edit
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestField('email');
+                      setRequestedValue('');
+                      setRequestReason('');
+                      setShowRequestModal(true);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    ✏️ Request Change
+                  </button>
+                )}
+              </div>
               <input
                 type="email"
+                disabled={!isActorAdmin}
                 value={formData.email}
                 onChange={e => handleChange('email', e.target.value)}
                 style={{
@@ -497,7 +642,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
                   fontSize: '13.5px',
-                  outline: 'none'
+                  outline: 'none',
+                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
+                  color: isActorAdmin ? '#0f172a' : '#64748b',
+                  fontWeight: '600'
                 }}
               />
             </div>
@@ -576,11 +724,19 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                🆔 Employee ID / Code
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  🆔 Employee ID / Code
+                </label>
+                {!isActorAdmin && (
+                  <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
+                    🔒 Fixed
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
+                disabled={!isActorAdmin}
                 value={formData.employeeCode}
                 onChange={e => handleChange('employeeCode', e.target.value)}
                 placeholder="EMP-001"
@@ -591,7 +747,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   border: '1px solid #cbd5e1',
                   fontSize: '13.5px',
                   outline: 'none',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
+                  color: isActorAdmin ? '#0f172a' : '#64748b'
                 }}
               />
             </div>
@@ -617,6 +775,235 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 fontFamily: 'inherit'
               }}
             />
+          </div>
+
+          {/* Custom Fields & Dynamic Attributes */}
+          <div style={{
+            backgroundColor: '#f8fafc',
+            borderRadius: '12px',
+            border: '1.5px solid #e2e8f0',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                  ⚙️ Custom Employee Fields & Attributes
+                </label>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                  Industry-specific fields (e.g. Blood Group, Location, Emergency Contact, License, Skills).
+                </p>
+              </div>
+              {canEditRole && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddField(!showAddField)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: showAddField ? '#f1f5f9' : '#eff6ff',
+                    color: '#2563eb',
+                    border: '1px solid #bfdbfe',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={13} />
+                  <span>{showAddField ? 'Cancel' : 'Add Field'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Add New Field Form */}
+            {showAddField && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr auto',
+                gap: '8px',
+                padding: '10px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                alignItems: 'center'
+              }}>
+                <input
+                  type="text"
+                  placeholder="Field Name (e.g. Blood Group)"
+                  value={newFieldKey}
+                  onChange={e => setNewFieldKey(e.target.value)}
+                  style={{
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    outline: 'none'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Value (e.g. O+)"
+                  value={newFieldValue}
+                  onChange={e => setNewFieldValue(e.target.value)}
+                  style={{
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomField}
+                  style={{
+                    padding: '7px 14px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Save Field
+                </button>
+              </div>
+            )}
+
+            {/* Rendered Custom Fields */}
+            {(formData.customFields || []).length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                {(formData.customFields || []).map((field, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                        {field.key}
+                      </div>
+                      {canEditRole ? (
+                        <input
+                          type="text"
+                          value={field.value}
+                          onChange={e => handleCustomFieldChange(idx, e.target.value)}
+                          style={{
+                            width: '100%',
+                            border: 'none',
+                            borderBottom: '1px dashed #cbd5e1',
+                            fontSize: '12.5px',
+                            fontWeight: '600',
+                            color: '#0f172a',
+                            outline: 'none',
+                            padding: '2px 0',
+                            background: 'transparent'
+                          }}
+                        />
+                      ) : (
+                        <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a' }}>
+                          {field.value || '—'}
+                        </div>
+                      )}
+                    </div>
+                    {canEditRole && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomField(idx)}
+                        style={{
+                          border: 'none',
+                          background: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '4px'
+                        }}
+                        title="Remove field"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
+                No custom fields defined yet for this employee.
+              </div>
+            )}
+          </div>
+
+          {/* Account Security & Password Section */}
+          <div style={{
+            backgroundColor: '#f8fafc',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: '#eff6ff',
+                color: '#2563eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Lock size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                  Account Password & Security
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  {isEditingOther ? 'Admin override: Set a new password for this employee.' : 'Update your login password (current password required).'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsChangePassOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '7px',
+                backgroundColor: '#ffffff',
+                color: '#2563eb',
+                border: '1px solid #bfdbfe',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+              }}
+            >
+              <Key size={13} />
+              <span>Change Password</span>
+            </button>
           </div>
 
           {/* Action buttons */}
@@ -667,6 +1054,196 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           </div>
         </form>
       </div>
+
+      <ChangePasswordModal
+        isOpen={isChangePassOpen}
+        onClose={() => setIsChangePassOpen(false)}
+        targetUser={targetEmp}
+      />
+
+      {/* Official Credential Change Request Modal (Employee -> Admin Approval) */}
+      {showRequestModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '14px',
+            width: '100%',
+            maxWidth: '460px',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={20} color="#2563eb" />
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Request Credential Update
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRequestModal(false)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+              Official identifiers (Full Name, Work Email) require Super Admin review and approval before updating across system records.
+            </p>
+
+            <form onSubmit={handleSendCredentialRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Field to Update
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRequestField('name')}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: requestField === 'name' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      backgroundColor: requestField === 'name' ? '#eff6ff' : '#ffffff',
+                      color: requestField === 'name' ? '#1d4ed8' : '#475569',
+                      fontWeight: '700',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Full Name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequestField('email')}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: requestField === 'email' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      backgroundColor: requestField === 'email' ? '#eff6ff' : '#ffffff',
+                      color: requestField === 'email' ? '#1d4ed8' : '#475569',
+                      fontWeight: '700',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Work Email
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Current Value
+                </label>
+                <div style={{ padding: '8px 10px', backgroundColor: '#f1f5f9', borderRadius: '6px', fontSize: '12.5px', color: '#475569', fontWeight: '600' }}>
+                  {requestField === 'email' ? (targetEmp?.email || currentUser?.email) : (targetEmp?.name || currentUser?.name)}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Requested New Value *
+                </label>
+                <input
+                  type={requestField === 'email' ? 'email' : 'text'}
+                  required
+                  placeholder={requestField === 'email' ? 'e.g. new.email@company.com' : 'e.g. Corrected Full Name'}
+                  value={requestedValue}
+                  onChange={e => setRequestedValue(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '6px',
+                    border: '1.5px solid #2563eb',
+                    fontSize: '13px',
+                    outline: 'none',
+                    backgroundColor: '#ffffff'
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                  Reason for Request *
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="Explain why this credential should be changed (e.g. Name spelling correction, New email domain)..."
+                  value={requestReason}
+                  onChange={e => setRequestReason(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12px',
+                    outline: 'none',
+                    resize: 'none',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowRequestModal(false)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#64748b',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRequest}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.25)'
+                  }}
+                >
+                  {isSubmittingRequest ? 'Submitting...' : 'Submit Request to Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

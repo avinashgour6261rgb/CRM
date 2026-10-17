@@ -72,8 +72,7 @@ export const CompanyBrandingTab = () => {
                 type="text"
                 value={formData.companyName}
                 onChange={e => handleChange('companyName', e.target.value)}
-                placeholder="e.g. INFORAG TECHNOLOGY PVT. LTD."
-                required
+                placeholder="e.g. My Company Pvt. Ltd. (Optional — Leave blank for default workspace)"
                 style={{
                   width: '100%',
                   height: '40px',
@@ -101,7 +100,7 @@ export const CompanyBrandingTab = () => {
                 type="text"
                 value={formData.shortName}
                 onChange={e => handleChange('shortName', e.target.value)}
-                placeholder="e.g. Inforag Technology"
+                placeholder="e.g. My Company (Optional)"
                 style={{
                   width: '100%',
                   height: '38px',
@@ -213,6 +212,219 @@ export const CompanyBrandingTab = () => {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Corporate Identification & Tax Registration (Printed on Payslips) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                Corporate ID (CIN)
+              </label>
+              <input
+                type="text"
+                value={formData.cin || ''}
+                onChange={e => handleChange('cin', e.target.value)}
+                placeholder="e.g. U72200MH2021PTC123456"
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                GSTIN / Tax ID
+              </label>
+              <input
+                type="text"
+                value={formData.gstin || ''}
+                onChange={e => handleChange('gstin', e.target.value)}
+                placeholder="e.g. 07AAAAA0000A1Z5"
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                Company PAN
+              </label>
+              <input
+                type="text"
+                value={formData.pan || ''}
+                onChange={e => handleChange('pan', e.target.value)}
+                placeholder="e.g. ABCDE1234F"
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '12px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* ⏱️ Work Shift Timings & Working Hours Configuration (Admin/HR Setting) */}
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Clock size={16} color="#2563eb" />
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                  Work Shift Timing & Hours Configuration
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  Define company default work shift hours. Applied to Calendar, Attendance, and Employee shift trackers.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                  Shift Start Time
+                </label>
+                <input
+                  type="text"
+                  value={formData.shiftStartTime || '10:00 AM'}
+                  onChange={e => handleChange('shiftStartTime', e.target.value)}
+                  placeholder="e.g. 10:00 AM or 09:30 AM"
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    outline: 'none',
+                    backgroundColor: '#ffffff'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                  Shift End Time
+                </label>
+                <input
+                  type="text"
+                  value={formData.shiftEndTime || '07:00 PM'}
+                  onChange={e => handleChange('shiftEndTime', e.target.value)}
+                  placeholder="e.g. 07:00 PM or 06:30 PM"
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    outline: 'none',
+                    backgroundColor: '#ffffff'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                  Standard Hours / Day
+                </label>
+                <input
+                  type="number"
+                  min="4"
+                  max="14"
+                  value={formData.standardWorkHours || 9}
+                  onChange={e => handleChange('standardWorkHours', Number(e.target.value) || 9)}
+                  placeholder="9"
+                  style={{
+                    width: '100%',
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    outline: 'none',
+                    backgroundColor: '#ffffff'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 🔐 Login Page Privacy & Company Name Visibility Toggle */}
+          <div style={{
+            padding: '14px 16px',
+            backgroundColor: '#eff6ff',
+            border: '1.5px solid #bfdbfe',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e40af' }}>
+                🏢 Show Company Name on Login Screen
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#3b82f6', marginTop: '2px' }}>
+                When disabled (default), the sign-in page displays generic &quot;Enterprise Workspace&quot;. Enable this if you want your actual company name shown publicly.
+              </div>
+            </div>
+            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!formData.showCompanyNameOnLogin}
+                onChange={e => handleChange('showCompanyNameOnLogin', e.target.checked)}
+                style={{ opacity: 0, width: 0, height: 0 }}
+              />
+              <span style={{
+                position: 'absolute',
+                cursor: 'pointer',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: formData.showCompanyNameOnLogin ? '#2563eb' : '#cbd5e1',
+                transition: '0.3s',
+                borderRadius: '24px'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '""',
+                  height: '18px',
+                  width: '18px',
+                  left: formData.showCompanyNameOnLogin ? '23px' : '3px',
+                  bottom: '3px',
+                  backgroundColor: '#ffffff',
+                  transition: '0.3s',
+                  borderRadius: '50%',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                }} />
+              </span>
+            </label>
           </div>
 
           {/* Authorized Signatory Info */}

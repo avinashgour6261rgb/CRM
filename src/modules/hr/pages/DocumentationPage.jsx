@@ -14,87 +14,31 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { UploadDocumentModal } from '../components/documents/UploadDocumentModal';
 
 export const DocumentationPage = () => {
   const { employees } = useHR();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
+
+  const isPrivileged = isHRorAdmin(currentUser) || currentUser?.isDelegatedAdmin;
+  const perms = getUserModulePermissions(currentUser);
+  const canAccessDocs = isPrivileged || perms?.documentation || currentUser?.permissions?.documentation;
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const [documents, setDocuments] = useState([
-    {
-      id: 'DOC-1',
-      title: 'Aadhaar Card — Admin User',
-      docType: 'Aadhaar Card',
-      employeeName: 'Admin User',
-      employeeCode: 'ADM-001',
-      employeeAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-      department: 'Management',
-      fileName: 'admin_aadhaar_card_verified.pdf',
-      fileSize: '1.8 MB',
-      uploadDate: '2026-01-16',
-      status: 'verified'
-    },
-    {
-      id: 'DOC-2',
-      title: 'Signed Offer Letter — Priya Sharma',
-      docType: 'Offer Letter',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP-002',
-      employeeAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-      department: 'Product Design',
-      fileName: 'priya_offer_letter_signed.pdf',
-      fileSize: '2.4 MB',
-      uploadDate: '2026-03-02',
-      status: 'verified'
-    },
-    {
-      id: 'DOC-3',
-      title: 'Experience & Relieving Letter — Rahul Verma',
-      docType: 'Relieving / Experience Letter',
-      employeeName: 'Rahul Verma',
-      employeeCode: 'EMP-003',
-      employeeAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-      department: 'Engineering',
-      fileName: 'rahul_previous_company_relieving.pdf',
-      fileSize: '3.1 MB',
-      uploadDate: '2022-11-12',
-      status: 'verified'
-    },
-    {
-      id: 'DOC-4',
-      title: 'PAN Card & Bank Cheque — Sneha Patel',
-      docType: 'PAN Card',
-      employeeName: 'Sneha Patel',
-      employeeCode: 'EMP-004',
-      employeeAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100',
-      department: 'Human Resources',
-      fileName: 'sneha_pan_card_copy.pdf',
-      fileSize: '1.2 MB',
-      uploadDate: '2023-05-22',
-      status: 'verified'
-    },
-    {
-      id: 'DOC-5',
-      title: 'AWS Solutions Architect Certificate — Amit Kumar',
-      docType: 'Educational Certificates',
-      employeeName: 'Amit Kumar',
-      employeeCode: 'EMP-005',
-      employeeAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
-      department: 'Infrastructure',
-      fileName: 'amit_aws_certified_certificate.pdf',
-      fileSize: '2.9 MB',
-      uploadDate: '2023-02-18',
-      status: 'verified'
-    }
-  ]);
+  const [documents, setDocuments] = useState(() => getCollection(KEYS.DOCUMENTS));
 
   const handleDocumentUploaded = (newDoc) => {
-    setDocuments([newDoc, ...documents]);
+    const updated = [newDoc, ...documents];
+    setDocuments(updated);
+    saveCollection(KEYS.DOCUMENTS, updated);
   };
 
   const handleDownload = (doc) => {
@@ -106,7 +50,9 @@ export const DocumentationPage = () => {
   };
 
   const handleDelete = (docId) => {
-    setDocuments(documents.filter(d => d.id !== docId));
+    const updated = documents.filter(d => d.id !== docId);
+    setDocuments(updated);
+    saveCollection(KEYS.DOCUMENTS, updated);
     addToast({
       title: 'Document Removed 🗑️',
       message: 'Employee document removed from cloud storage.',
@@ -114,7 +60,53 @@ export const DocumentationPage = () => {
     });
   };
 
-  const filteredDocs = documents.filter(doc => {
+  if (!canAccessDocs) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '60px 20px',
+        textAlign: 'center',
+        backgroundColor: '#ffffff',
+        borderRadius: '12px',
+        border: '1px solid #e2e8f0',
+        margin: '24px auto',
+        maxWidth: '540px'
+      }}>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '14px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fee2e2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#dc2626',
+          marginBottom: '16px'
+        }}>
+          <FolderLock size={28} />
+        </div>
+        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>
+          Documentation Access Restricted
+        </h3>
+        <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+          Company documents and KYC records are restricted to HR & Administrators by default. Please contact your administrator if you require documentation access.
+        </p>
+      </div>
+    );
+  }
+
+  const filteredDocs = (documents || []).filter(doc => {
+    // Regular employees with access only see company policies or documents assigned to them
+    if (!isPrivileged) {
+      const isPublicPolicy = doc.docType === 'Company Policy' || doc.docType === 'Handbook';
+      const isMyDoc = doc.employeeCode === currentUser?.employeeCode || doc.employeeName?.toLowerCase() === currentUser?.name?.toLowerCase();
+      if (!isPublicPolicy && !isMyDoc) return false;
+    }
+
     const matchesSearch =
       (doc.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (doc.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

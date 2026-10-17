@@ -20,13 +20,19 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
 
 export const PayrollPage = () => {
   const { employees, currentUser } = useHR();
+  const { currentUser: authUser, isHRorAdmin: isAuthHRorAdmin } = useAuth();
   const { addToast } = useToast();
+
+  const effectiveUser = currentUser || authUser;
+  const isPrivileged = isAuthHRorAdmin || isHRorAdmin(effectiveUser) || effectiveUser?.isDelegatedAdmin;
 
   const [selectedMonth, setSelectedMonth] = useState('September 2026');
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,6 +42,46 @@ export const PayrollPage = () => {
 
   const [activeEmployeeForRevision, setActiveEmployeeForRevision] = useState(null);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+
+  if (!isPrivileged) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '60px 20px',
+        textAlign: 'center',
+        backgroundColor: '#ffffff',
+        borderRadius: '14px',
+        border: '1px solid #e2e8f0',
+        margin: '30px auto',
+        maxWidth: '540px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+      }}>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '14px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fee2e2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#dc2626',
+          marginBottom: '16px'
+        }}>
+          <DollarSign size={28} />
+        </div>
+        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>
+          Payroll & Salary Access Restricted
+        </h3>
+        <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+          Company payroll records and salary management are restricted to HR & Administrators only. You can view your personal payslip from your profile.
+        </p>
+      </div>
+    );
+  }
 
   // Dynamic salary state with reactive updates & local persistence
   const [salaryMap, setSalaryMap] = useState(() => {

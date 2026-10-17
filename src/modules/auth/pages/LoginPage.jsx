@@ -2,93 +2,104 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldCheck,
-  Zap,
-  Users,
-  Briefcase,
-  User,
-  ArrowRight,
-  Lock,
+  Building2,
   Mail,
+  Lock,
   Eye,
   EyeOff,
-  CheckCircle2,
+  ArrowRight,
   Sparkles,
-  Building2
+  User,
+  Briefcase
 } from 'lucide-react';
-import { useAuth, PRESET_USERS } from '../../../shared/context/AuthContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { ForgotPasswordModal } from '../../../shared/components/modals/ForgotPasswordModal';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { addToast } = useToast();
+  const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
 
-  const [email, setEmail] = useState('admin@inforag.com');
-  const [password, setPassword] = useState('••••••••');
-  const [selectedRole, setSelectedRole] = useState('admin');
+  // Dynamically resolve actual admin credentials from storage
+  const currentAdmin = React.useMemo(() => {
+    try {
+      const emps = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
+      const found = emps.find(e =>
+        e.employeeCode === 'ADM-001' ||
+        e.email === 'admin@inforag.com' ||
+        e.isAdmin ||
+        e.systemRole === 'admin'
+      );
+      if (found) {
+        return {
+          email: found.email || 'admin@inforag.com',
+          employeeCode: found.employeeCode || 'ADM-001',
+          password: found.password || 'admin123'
+        };
+      }
+    } catch (e) {}
+    return { email: 'admin@inforag.com', employeeCode: 'ADM-001', password: 'admin123' };
+  }, []);
+
+  const [identifier, setIdentifier] = useState(() => currentAdmin.email || 'admin@inforag.com');
+  const [password, setPassword] = useState(() => currentAdmin.password || '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
-  const rolePresets = [
-    {
-      id: 'admin',
-      title: 'Admin Portal',
-      badge: '👑 Master Access',
-      email: 'admin@inforag.com',
-      desc: 'Full company oversight, project delegation, client pipeline, finance & global settings.',
-      color: '#2563eb',
-      bg: 'rgba(37, 99, 235, 0.08)',
-      border: '#3b82f6',
-      icon: <ShieldCheck size={20} color="#2563eb" />
-    },
-    {
-      id: 'hr',
-      title: 'HR Operations',
-      badge: '💼 Workforce Ops',
-      email: 'hr@inforag.com',
-      desc: 'Employee directory, attendance review, leave approvals, holidays & company announcements.',
-      color: '#0284c7',
-      bg: 'rgba(2, 132, 199, 0.08)',
-      border: '#0284c7',
-      icon: <Briefcase size={20} color="#0284c7" />
-    },
-    {
-      id: 'employee',
-      title: 'Employee Portal',
-      badge: '👤 Team Member',
-      email: 'employee@inforag.com',
-      desc: 'My tasks & live timer, daily shift attendance clocking, leave requests & timesheets.',
-      color: '#16a34a',
-      bg: 'rgba(22, 163, 74, 0.08)',
-      border: '#16a34a',
-      icon: <User size={20} color="#16a34a" />
-    }
-  ];
+  React.useEffect(() => {
+    const handleUpdate = () => setCompanySettings(getCompanySettings());
+    window.addEventListener('company-settings-updated', handleUpdate);
+    return () => window.removeEventListener('company-settings-updated', handleUpdate);
+  }, []);
 
-  const handleQuickPreset = (preset) => {
-    setSelectedRole(preset.id);
-    setEmail(preset.email);
-    setPassword('••••••••');
+  const [showAdminCard, setShowAdminCard] = useState(false);
+
+  const fillCredentials = (id, pass) => {
+    setIdentifier(id);
+    setPassword(pass);
+    setLoginError('');
   };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!email.trim()) {
-      addToast('Please enter your work email', 'error');
+    setLoginError('');
+    if (!identifier.trim()) {
+      setLoginError('Please enter your work email or Employee ID');
+      addToast('Please enter your work email or Employee ID', 'error');
+      return;
+    }
+    if (!password.trim()) {
+      setLoginError('Please enter your password');
+      addToast('Please enter your password', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      const user = await login({ email, password, role: selectedRole });
-      addToast(`Welcome back, ${user.name}! Logged in as ${user.role || selectedRole.toUpperCase()}`, 'success');
+      const user = await login({ identifier, password });
+      addToast(`Welcome back, ${user.name}! Logged in as ${user.role || (user.isAdmin ? 'Admin' : 'Team Member')}`, 'success');
       navigate('/dashboard');
     } catch (err) {
-      addToast('Login failed. Please try again.', 'error');
+      const msg = err?.message || 'Login failed. Please verify your email/ID and password.';
+      setLoginError(msg);
+      addToast(msg, 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  const displayCompanyName = companySettings?.showCompanyNameOnLogin && companySettings?.companyName
+    ? companySettings.companyName
+    : 'ENTERPRISE WORKSPACE';
+
+  const displayTagline = companySettings?.showCompanyNameOnLogin && companySettings?.tagline
+    ? companySettings.tagline
+    : 'Enterprise Management System & CRM';
 
   return (
     <div style={{
@@ -112,7 +123,7 @@ export const LoginPage = () => {
         gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
         overflow: 'hidden'
       }}>
-        {/* Left Side: Enterprise Branding & 1-Click Role Selectors */}
+        {/* Left Side: Enterprise Branding & Subtle Admin Access */}
         <div style={{
           backgroundColor: '#0f172a',
           padding: '40px 32px',
@@ -126,94 +137,113 @@ export const LoginPage = () => {
             {/* Logo & Brand Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
               <div style={{
-                width: '42px',
-                height: '42px',
+                width: '44px',
+                height: '44px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 16px rgba(37, 99, 235, 0.4)'
+                boxShadow: '0 8px 20px rgba(37, 99, 235, 0.4)'
               }}>
                 <Building2 size={24} color="#ffffff" />
               </div>
               <div>
                 <h1 style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '-0.02em', color: '#ffffff', margin: 0 }}>
-                  INFORAG TECHNOLOGY
+                  {displayCompanyName}
                 </h1>
                 <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: '600' }}>
-                  Enterprise Management System & CRM
+                  {displayTagline}
                 </span>
               </div>
             </div>
 
-            <p style={{ fontSize: '13.5px', color: '#94a3b8', lineHeight: '1.6', marginBottom: '28px' }}>
-              Select a designated enterprise role below for rapid 1-click credential auto-fill or enter your custom account credentials.
+            <p style={{ fontSize: '13.5px', color: '#94a3b8', lineHeight: '1.6', marginBottom: '24px' }}>
+              Welcome to your unified workspace. Sign in using your registered Work Email or Employee ID and password.
             </p>
 
-            {/* Quick 1-Click Role Preset Cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {rolePresets.map((preset) => {
-                const isSelected = selectedRole === preset.id;
-                return (
-                  <div
-                    key={preset.id}
-                    onClick={() => handleQuickPreset(preset)}
-                    style={{
-                      padding: '14px 16px',
-                      borderRadius: '14px',
-                      backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                      border: isSelected ? `2px solid ${preset.border}` : '1px solid rgba(255, 255, 255, 0.08)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      position: 'relative'
-                    }}
-                    onMouseEnter={e => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.06)';
-                    }}
-                    onMouseLeave={e => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {preset.icon}
-                        <span style={{ fontSize: '14px', fontWeight: '700', color: isSelected ? '#ffffff' : '#e2e8f0' }}>
-                          {preset.title}
-                        </span>
-                      </div>
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        color: preset.color,
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        padding: '2px 8px',
-                        borderRadius: '20px'
-                      }}>
-                        {preset.badge}
-                      </span>
-                    </div>
+            {/* Collapsible Master Admin Credentials Card */}
+            <div style={{
+              backgroundColor: 'rgba(37, 99, 235, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '14px',
+              padding: '14px 16px',
+              marginBottom: '20px',
+              transition: 'all 0.2s ease'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={18} color="#60a5fa" />
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#ffffff' }}>
+                    👑 Master Admin Access
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdminCard(!showAdminCard)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: '#93c5fd',
+                    border: '1px solid rgba(147, 197, 253, 0.3)',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showAdminCard ? 'Hide' : 'Show Credentials'}
+                </button>
+              </div>
 
-                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 6px 0', lineHeight: '1.4' }}>
-                      {preset.desc}
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#60a5fa' }}>
-                      <code>{preset.email}</code>
-                      {isSelected && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700', color: '#38bdf8' }}>
-                          <CheckCircle2 size={13} /> Selected
-                        </span>
-                      )}
-                    </div>
+              {showAdminCard && (
+                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.6' }}>
+                    <div><strong>Email:</strong> <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.email}</code> or ID: <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.employeeCode}</code></div>
+                    <div style={{ marginTop: '4px' }}><strong>Password:</strong> <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.password}</code></div>
                   </div>
-                );
-              })}
+                  <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => fillCredentials(currentAdmin.email, currentAdmin.password)}
+                      style={{
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚡ Quick Admin Login
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Role Access Security Notice */}
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              padding: '14px',
+              fontSize: '12px',
+              color: '#cbd5e1'
+            }}>
+              <div style={{ fontWeight: '700', color: '#38bdf8', marginBottom: '4px' }}>
+                🔒 Strict Privacy & Access Control:
+              </div>
+              <div>
+                Employees only see their own tasks, shift hours, and records. Cross-employee data is protected unless Admin explicitly grants extra permissions.
+              </div>
             </div>
           </div>
 
           <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>© 2026 Inforag Management System</span>
+            <span>{companySettings?.showCompanyNameOnLogin && companySettings?.companyName ? `© ${new Date().getFullYear()} ${companySettings.companyName}` : `© ${new Date().getFullYear()} Enterprise Management System`}</span>
             <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
               ● System Online
             </span>
@@ -246,23 +276,38 @@ export const LoginPage = () => {
               Sign In to Your Workspace
             </h2>
             <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
-              Access your role-specific dashboard, project tasks, and workforce records.
+              Enter your work email or employee ID and password to access your workspace.
             </p>
           </div>
 
+          {loginError && (
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1.5px solid #f87171',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              color: '#b91c1c',
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '16px'
+            }}>
+              ⚠️ {loginError}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* Email Field */}
+            {/* Email / ID Field */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                Work Email Address
+                Work Email or Employee ID *
               </label>
               <div style={{ position: 'relative' }}>
                 <Mail size={17} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. yourname@inforag.com"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="e.g. admin@inforag.com or ADM-001"
                   required
                   style={{
                     width: '100%',
@@ -291,11 +336,25 @@ export const LoginPage = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-                  Password
+                  Password *
                 </label>
-                <span style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer', fontWeight: '600' }} onClick={() => addToast('Use any password or preset 1-click button', 'info')}>
-                  Any password works
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer', fontWeight: '600' }}
+                    onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || '')}
+                    title="Auto-fill active admin credentials"
+                  >
+                    Fill Admin
+                  </span>
+                  <span style={{ color: '#cbd5e1', fontSize: '11px' }}>•</span>
+                  <span
+                    style={{ fontSize: '12px', color: '#dc2626', cursor: 'pointer', fontWeight: '600' }}
+                    onClick={() => setIsForgotModalOpen(true)}
+                    title="Request password reset or recover access"
+                  >
+                    Forgot Password?
+                  </span>
+                </div>
               </div>
               <div style={{ position: 'relative' }}>
                 <Lock size={17} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '14px' }} />
@@ -343,23 +402,6 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            {/* Role Badge Indicator */}
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: '10px',
-              backgroundColor: '#f1f5f9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '12.5px',
-              color: '#475569'
-            }}>
-              <span>Target Role:</span>
-              <strong style={{ color: '#2563eb', textTransform: 'capitalize' }}>
-                {selectedRole === 'admin' ? '👑 Admin (Full Access)' : selectedRole === 'hr' ? '💼 HR Manager' : '👤 Employee (Self-Service)'}
-              </strong>
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
@@ -373,30 +415,48 @@ export const LoginPage = () => {
                 border: 'none',
                 fontSize: '14.5px',
                 fontWeight: '700',
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
                 transition: 'all 0.2s ease',
                 opacity: loading ? 0.7 : 1
               }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
               {loading ? (
                 <span>Authenticating...</span>
               ) : (
                 <>
-                  <span>Sign In as {selectedRole.toUpperCase()}</span>
-                  <ArrowRight size={17} />
+                  <span>Sign In to Workspace</span>
+                  <ArrowRight size={18} />
                 </>
               )}
             </button>
           </form>
+
+          {/* New Employee Notice */}
+          <div style={{
+            marginTop: '20px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            fontSize: '12px',
+            color: '#64748b',
+            lineHeight: '1.5'
+          }}>
+            💡 <strong>New Employee?</strong> Admin or HR registers your account and assigns your Employee ID and password in the Employee Directory. Use those credentials to sign in.
+          </div>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        onAutoFillAdmin={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || '')}
+      />
     </div>
   );
 };

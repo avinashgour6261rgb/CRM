@@ -23,8 +23,9 @@ const COLUMNS = [
   { key: 'completed', title: 'Completed', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' }
 ];
 
-export const TasksKanban = ({ onSelectTask }) => {
-  const { tasks, changeTaskStatus, startTaskTimer, pauseTaskTimer, stopTaskTimer, completeTask } = useWork();
+export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
+  const { tasks: contextTasks, changeTaskStatus, startTaskTimer, pauseTaskTimer, stopTaskTimer, completeTask } = useWork();
+  const tasks = propTasks !== undefined ? propTasks : (contextTasks || []);
 
   return (
     <div style={{

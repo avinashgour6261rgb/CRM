@@ -24,10 +24,10 @@ const connectDB = async () => {
       const Task = require('../../modules/work/models/Task');
       const empCount = await Employee.countDocuments();
       const hasAdmin = await Employee.findOne({ employeeCode: 'ADM-001' });
-      const hasLegacyAvinash = (await Employee.findOne({ name: /Avinash/i })) ||
-                               (await Task.findOne({ $or: [{ assignedToName: /Avinash/i }, { title: /Develop Client Analytics/i }] }));
+      const hasLegacyMock = (await Employee.findOne({ $or: [{ name: /Avinash/i }, { name: /Pooja Sharma/i }, { name: /Aarav Patel/i }] })) ||
+                            (await Task.findOne({ $or: [{ assignedToName: /Avinash/i }, { title: /Bookmarking 20/i }] }));
 
-      if (empCount === 0 || !hasAdmin || hasLegacyAvinash) {
+      if (empCount === 0 || !hasAdmin || hasLegacyMock) {
         console.log('⚡ Detected legacy mock records or uninitialized DB. Syncing clean actual database records...');
         const { seedDatabase } = require('../../seeders/seed');
         await seedDatabase();

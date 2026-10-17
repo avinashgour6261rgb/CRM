@@ -27,17 +27,25 @@ import {
 import { useHR } from '../../../modules/hr/context/HRContext';
 import { useAuth } from '../../context/AuthContext';
 import { EmployeeDirectoryModal } from '../../../modules/hr/components/employees/EmployeeDirectoryModal';
-import { getRoleConfig, canAccessModule } from '../../utils/permissionUtils';
+import { getRoleConfig, canAccessModule, canManageProjects } from '../../utils/permissionUtils';
+import { getCompanySettings } from '../../services/companySettingsService';
 
 export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser: authUser, isAdmin, isHR, isTeamMember, isHRorAdmin, roleConfig: authRoleConfig } = useAuth();
+  const { currentUser: authUser, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, roleConfig: authRoleConfig } = useAuth();
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
   const roleConfig = authRoleConfig || getRoleConfig(currentUser);
   const [collapsed, setCollapsed] = useState(false);
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState(() => getCompanySettings());
+
+  React.useEffect(() => {
+    const handleUpdate = () => setCompanyInfo(getCompanySettings());
+    window.addEventListener('company-settings-updated', handleUpdate);
+    return () => window.removeEventListener('company-settings-updated', handleUpdate);
+  }, []);
 
   // Helper to determine active section from route
   const getSectionForPath = (pathname) => {
@@ -145,8 +153,8 @@ export const Sidebar = () => {
             )}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  Novainfinity
+                <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
                 </span>
                 <ChevronDown size={13} color="#94a3b8" />
               </div>
@@ -459,25 +467,27 @@ export const Sidebar = () => {
                 {!collapsed && <span>Appreciation</span>}
               </NavLink>
 
-              <NavLink
-                to="/documents"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <FolderGit2 size={15} />
-                {!collapsed && <span>Documents & KYC</span>}
-              </NavLink>
+              {(isHRorAdmin || canAccessModule(currentUser, 'documentation') || currentUser?.isDelegatedAdmin) && (
+                <NavLink
+                  to="/documents"
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    color: isActive ? '#ffffff' : '#94a3b8',
+                    backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '600' : '400',
+                    transition: 'all 0.15s ease'
+                  })}
+                >
+                  <FolderGit2 size={15} />
+                  {!collapsed && <span>Documents & KYC</span>}
+                </NavLink>
+              )}
             </div>
           )}
         </div>
@@ -522,25 +532,27 @@ export const Sidebar = () => {
               flexDirection: 'column',
               gap: '2px'
             }}>
-              <NavLink
-                to="/projects"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <FolderGit2 size={15} />
-                {!collapsed && <span>Projects</span>}
-              </NavLink>
+              {(isLeaderOrAbove || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+                <NavLink
+                  to="/projects"
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    color: isActive ? '#ffffff' : '#94a3b8',
+                    backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '600' : '400',
+                    transition: 'all 0.15s ease'
+                  })}
+                >
+                  <FolderGit2 size={15} />
+                  {!collapsed && <span>Projects</span>}
+                </NavLink>
+              )}
 
               <NavLink
                 to="/tasks"
@@ -586,7 +598,8 @@ export const Sidebar = () => {
         </div>
         )}
 
-        {/* Finance - Dedicated Financial Section */}
+        {/* Finance - Dedicated Financial Section (Admin / HR full access, employees only personal expenses) */}
+        {(isHRorAdmin || canAccessModule(currentUser, 'expenses')) && (
         <div>
           <div
             onClick={() => toggleSection('finance')}
@@ -668,6 +681,7 @@ export const Sidebar = () => {
             </div>
           )}
         </div>
+        )}
 
         {canAccessModule(currentUser, 'tickets') && (
         <NavLink

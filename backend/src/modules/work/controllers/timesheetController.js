@@ -141,7 +141,8 @@ exports.stopTimer = async (req, res, next) => {
     }
     if (task) {
       task.timerRunning = false;
-      task.timerSeconds = 0; // Reset active session seconds
+      task.timerSeconds = totalDurationSeconds;
+      task.durationSeconds = totalDurationSeconds;
       const hoursAdded = totalDurationSeconds / 3600;
       task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
       const totalSecs = Math.round(task.hoursLogged * 3600);
@@ -157,6 +158,7 @@ exports.stopTimer = async (req, res, next) => {
     const secs = String(totalDurationSeconds % 60).padStart(2, '0');
     const durationText = `${hrs}:${mins}:${secs}`;
 
+    const user = req.user;
     const newLog = await Timesheet.create({
       task: task?._id || null,
       taskId: task?._id?.toString() || taskId,
@@ -165,12 +167,12 @@ exports.stopTimer = async (req, res, next) => {
       project: task?.project || null,
       projectId: task?.projectId || '',
       projectName: task?.projectName || 'General Work',
-      employee: task?.assignedTo || null,
-      employeeId: task?.assignedToId || '',
-      employeeName: task?.assignedToName || 'Current User',
-      employeeAvatar: task?.assignedToAvatar || '',
-      employeeRole: task?.assignedToRole || '',
-      date: new Date().toISOString().split('T')[0],
+      employee: task?.assignedTo || (user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null),
+      employeeId: task?.assignedToId || user?._id || user?.employeeCode || '',
+      employeeName: task?.assignedToName || user?.name || 'Current User',
+      employeeAvatar: task?.assignedToAvatar || user?.avatar || '',
+      employeeRole: task?.assignedToRole || user?.role || '',
+      date: req.body.date || new Date().toISOString().split('T')[0],
       startTime: req.body.startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
       endTime: endTime || new Date().toTimeString().split(' ')[0],
       totalDurationSeconds,

@@ -26,6 +26,7 @@ import {
   Calendar as CalendarIcon,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Plus,
   ThumbsUp,
   Trophy,
@@ -51,7 +52,8 @@ import {
   Shield,
   Layers,
   Search,
-  Zap
+  Zap,
+  LayoutDashboard
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -70,6 +72,7 @@ import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketM
 import { NoticeDetailModal } from '../../../shared/components/modals/NoticeDetailModal';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
+import { PendingTasksModal } from '../../../shared/components/modals/PendingTasksModal';
 import { TaskDetailModal } from '../../work/components/tasks/TaskDetailModal';
 import { ProjectDetailModal } from '../../work/components/projects/ProjectDetailModal';
 import { AddTaskModal } from '../../work/components/tasks/AddTaskModal';
@@ -77,6 +80,7 @@ import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { TicketDetailModal } from '../../crm/components/tickets/TicketDetailModal';
 import { EmployeeDirectoryModal } from '../components/employees/EmployeeDirectoryModal';
 import { SnoozeTaskModal } from '../../work/components/tasks/SnoozeTaskModal';
+import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 const formatTimeDurationSafe = (totalSecs) => {
@@ -91,7 +95,7 @@ export const DashboardPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const { currentUser: authUser, role: authRole, roleConfig: authRoleConfig } = useAuth();
-  const { employees, leaves, attendance, holidays, appreciations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave } = useHR();
+  const { employees, leaves, attendance, holidays, appreciations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave, updateEmployee } = useHR();
   const currentUser = authUser || hrUser;
   const {
     projects,
@@ -103,6 +107,7 @@ export const DashboardPage = () => {
     activeRunningTask,
     changeTaskStatus,
     completeTask,
+    completeAndNextTask,
     formatSeconds,
     snoozeTask,
     resumeSnoozedTask,
@@ -112,6 +117,10 @@ export const DashboardPage = () => {
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
   const [snoozeTaskTarget, setSnoozeTaskTarget] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
+  const [isPendingTasksModalOpen, setIsPendingTasksModalOpen] = useState(false);
+  const [pendingTasksModalFilter, setPendingTasksModalFilter] = useState('all');
+  const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
+  const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
   const {
     loginTime,
     clockOutTime,
@@ -161,6 +170,8 @@ export const DashboardPage = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [calendarView, setCalendarView] = useState('list'); // 'month' | 'week' | 'day' | 'list'
   const [showBreakDropdown, setShowBreakDropdown] = useState(false);
+  const [showWorkModeMenu, setShowWorkModeMenu] = useState(false);
+  const [celebrationTab, setCelebrationTab] = useState('birthdays'); // 'birthdays' | 'anniversaries'
 
   // Real-time synchronization state trigger for all employees & storage updates
   const [syncTick, setSyncTick] = useState(0);
@@ -175,6 +186,7 @@ export const DashboardPage = () => {
     window.addEventListener('ems_task_timer_started', handleSync);
     window.addEventListener('ems_task_timer_paused', handleSync);
     window.addEventListener('ems_task_timer_stopped', handleSync);
+    window.addEventListener('ems_working_mode_changed', handleSync);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('hrms_storage_change', handleSync);
@@ -184,17 +196,21 @@ export const DashboardPage = () => {
       window.removeEventListener('ems_task_timer_started', handleSync);
       window.removeEventListener('ems_task_timer_paused', handleSync);
       window.removeEventListener('ems_task_timer_stopped', handleSync);
+      window.removeEventListener('ems_working_mode_changed', handleSync);
     };
   }, []);
 
   useEffect(() => {
-    const clockInterval = setInterval(() => {
+    const checkClock = () => {
       const now = new Date();
-      setCurrentTime(formatTimeNoSec(now));
-      setCurrentDayStr(now.toLocaleDateString('en-US', { weekday: 'long' }));
-      setCurrentDateFormatted(now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
-      setSyncTick(t => t + 1); // Live real-time tick for all timers
-    }, 1000);
+      const newTime = formatTimeNoSec(now);
+      setCurrentTime(prev => (prev !== newTime ? newTime : prev));
+      const newDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+      setCurrentDayStr(prev => (prev !== newDay ? newDay : prev));
+      const newDateFormatted = now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      setCurrentDateFormatted(prev => (prev !== newDateFormatted ? newDateFormatted : prev));
+    };
+    const clockInterval = setInterval(checkClock, 10000);
     return () => clearInterval(clockInterval);
   }, []);
 
@@ -231,11 +247,8 @@ export const DashboardPage = () => {
 
     const userName = (user.name || '').trim().toLowerCase();
     const taskAssigneeName = (task.assignedToName || '').trim().toLowerCase();
-    if (userName && taskAssigneeName) {
-      if (userName === taskAssigneeName) return true;
-      const userFirst = userName.split(' ')[0];
-      const taskFirst = taskAssigneeName.split(' ')[0];
-      if (userFirst && taskFirst && userFirst === taskFirst && userFirst.length > 2) return true;
+    if (userName && taskAssigneeName && userName === taskAssigneeName) {
+      return true;
     }
     return false;
   };
@@ -244,10 +257,6 @@ export const DashboardPage = () => {
   const isTaskActuallyCompleted = (t) => {
     if (!t) return false;
     const s = String(t.status || '').toLowerCase().trim();
-    // CPC-0 / Bookmarking 20 is by default a pending task; unless actively completed with a valid timestamp, it is pending
-    if ((t.taskCode === 'CPC-0' || t.title === 'Bookmarking 20') && (!t.completedAt && !t.completedOn)) {
-      return false;
-    }
     return s === 'completed';
   };
 
@@ -311,8 +320,9 @@ export const DashboardPage = () => {
       if (clockInTs > 0) {
         const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
         workSecs = Math.max(0, gross - storedBreakSecs);
-      } else if (empId === currentUser?._id && workSeconds > 0) {
-        workSecs = workSeconds;
+      } else if (empId === currentUser?._id) {
+        const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
+        workSecs = Math.max(workSecs, localGross);
       }
     } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
       workSecs = Math.round(attRec.totalWorkingHours * 3600);
@@ -330,11 +340,12 @@ export const DashboardPage = () => {
     let runningTask = null;
 
     if (baseRunningTask) {
-      let liveTaskSecs = baseRunningTask.timerSeconds || 0;
-      const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? new Date(baseRunningTask.startedAt).getTime() : 0);
+      let liveTaskSecs = Number(baseRunningTask.timerSeconds) || 0;
+      const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? (typeof baseRunningTask.startedAt === 'number' ? baseRunningTask.startedAt : new Date(baseRunningTask.startedAt).getTime()) : 0);
       if (baseRunningTask.timerRunning && startEpoch > 0) {
         const elapsed = Math.max(0, Math.floor((Date.now() - startEpoch) / 1000));
-        liveTaskSecs = (baseRunningTask.accumulatedSeconds || baseRunningTask.timerSeconds || 0) + elapsed;
+        const accumulated = Number(baseRunningTask.accumulatedSeconds) || 0;
+        liveTaskSecs = accumulated + elapsed;
       }
       runningTask = {
         ...baseRunningTask,
@@ -363,12 +374,12 @@ export const DashboardPage = () => {
       empTasks,
       completedTasksToday
     };
-  }, [attendance, tasks, todayStr, syncTick, currentUser?._id, workSeconds]);
+  }, [attendance, tasks, todayStr, currentUser?._id, formatSeconds]);
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
     return (employees || []).map(e => getEmployeeTodayState(e)).filter(Boolean);
-  }, [employees, getEmployeeTodayState, syncTick]);
+  }, [employees, getEmployeeTodayState]);
 
   const teamStats = React.useMemo(() => {
     const total = teamTodayStates.length;
@@ -474,40 +485,110 @@ export const DashboardPage = () => {
   const openDayLogModalForUser = (targetUser, customDate = todayStr) => {
     const emp = targetUser || (isViewingOtherEmployee ? activeViewUser : currentUser);
     const empState = getEmployeeTodayState(emp);
-    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+    const isToday = customDate === todayStr;
 
-    // Only include tasks that were worked on today, have active timer, or were completed today!
-    const userTasksToday = empTasks.filter(t => {
-      const actuallyDone = isTaskActuallyCompleted(t);
-      const isDoneToday = actuallyDone && (
-        t.completedAt?.startsWith(customDate) ||
-        t.completedOn?.startsWith(customDate) ||
-        t.updatedAt?.startsWith(customDate)
-      );
-      const hasTimeLogged = (t.timerSeconds || 0) > 0;
-      const isRunning = Boolean(t.timerRunning);
-      return isDoneToday || hasTimeLogged || isRunning;
+    // 1. Get all timesheets specifically logged on customDate for this employee
+    const dayTimesheets = (timesheets || []).filter(ts => {
+      const matchDate = ts.date === customDate || ts.createdAt?.startsWith(customDate);
+      const isMine = (emp?._id && (ts.employeeId === emp._id || ts.employee === emp._id)) ||
+                     (emp?.employeeCode && (ts.employeeId === emp.employeeCode || ts.employee === emp.employeeCode)) ||
+                     (emp?.name && ts.employeeName?.toLowerCase() === emp.name.toLowerCase());
+      return matchDate && isMine;
     });
 
-    const tasksWorked = userTasksToday.map(t => {
-      const actuallyDone = isTaskActuallyCompleted(t);
-      return {
-        taskId: t._id,
-        taskCode: t.taskCode || 'TSK',
-        taskTitle: t.title,
-        projectName: t.projectName || 'General',
-        durationText: t.hoursLoggedText || formatSeconds(t.timerSeconds || 0),
-        status: actuallyDone ? 'completed' : (t.timerRunning ? 'in_progress' : (t.status || 'pending')),
-        isCompleted: actuallyDone,
-        timerRunning: Boolean(t.timerRunning)
-      };
-    });
+    let tasksWorked = dayTimesheets.map(ts => ({
+      taskId: ts.taskId,
+      taskCode: ts.taskCode || 'TSK',
+      taskTitle: ts.taskTitle || 'Assigned Work',
+      projectName: ts.projectName || 'General Work',
+      durationText: ts.totalDurationText || formatSeconds(ts.totalDurationSeconds || 0),
+      durationSeconds: ts.totalDurationSeconds || 0,
+      status: 'completed',
+      isCompleted: true,
+      timerRunning: false
+    }));
+
+    // If viewing TODAY, also include all active running, paused, and completed task sessions for this employee
+    if (isToday) {
+      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+      
+      // 1. Check live active running timer
+      const empUserKey = emp?.employeeCode || emp?._id;
+      let empActiveTimer = null;
+      try {
+        empActiveTimer = JSON.parse(
+          localStorage.getItem(`ems_active_task_timer_${empUserKey}`) ||
+          localStorage.getItem(`ems_active_task_timer_${emp?._id}`) ||
+          localStorage.getItem('ems_active_task_timer') || 'null'
+        );
+      } catch (e) {}
+
+      let runningTaskId = null;
+      if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr) {
+        runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
+        const runningElapsed = empActiveTimer.startedAt
+          ? Math.floor((Date.now() - empActiveTimer.startedAt) / 1000)
+          : 0;
+        const liveSecs = (Number(empActiveTimer.accumulatedSeconds) || 0) + runningElapsed;
+        
+        // Remove duplicate if already present in tasksWorked
+        tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId);
+
+        const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
+        tasksWorked.unshift({
+          taskId: runningTaskId,
+          taskCode: targetTaskObj?.taskCode || empActiveTimer.taskCode || 'TSK',
+          taskTitle: targetTaskObj?.title || empActiveTimer.title || 'Current Task',
+          projectName: targetTaskObj?.projectName || empActiveTimer.projectName || 'General Work',
+          durationText: formatSeconds(liveSecs),
+          durationSeconds: liveSecs,
+          status: 'in_progress',
+          isCompleted: false,
+          timerRunning: true,
+          memo: 'Active Timer Running Now 🟢'
+        });
+      }
+
+      // 2. Add all paused tasks worked today that have accumulated seconds
+      empTasks.forEach(pt => {
+        const ptId = String(pt._id || pt.id);
+        if (runningTaskId && ptId === runningTaskId) return;
+        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
+        const secs = Number(pt.timerSeconds) || 0;
+        if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.status === 'in_progress' || pt.status === 'on_hold' || pt.status === 'incomplete')) {
+          tasksWorked.push({
+            taskId: ptId,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title,
+            projectName: pt.projectName || 'General Work',
+            durationText: formatSeconds(secs),
+            durationSeconds: secs,
+            status: pt.status === 'completed' ? 'completed' : 'on_hold',
+            isCompleted: pt.status === 'completed',
+            timerRunning: false,
+            memo: `Paused last work session (${formatSeconds(secs)} logged)`
+          });
+        }
+      });
+    }
 
     const targetWeekLog = (weeklyTimeLogs || []).find(l => l.date === customDate) ||
                           (weeklyTimeLogs || []).find(l => l.shortDay === activeWeekDayShort);
+    const pastAttRec = (attendance || []).find(a =>
+      a.date === customDate && (
+        a.employeeId === emp?._id ||
+        a.employeeCode === emp?.employeeCode ||
+        (emp?.name && a.employeeName?.toLowerCase() === emp.name.toLowerCase())
+      )
+    );
+
     const effectiveTasksWorked = (tasksWorked.length > 0)
       ? tasksWorked
       : (targetWeekLog?.tasksWorked || []);
+
+    const pastDayDuration = (targetWeekLog?.durationText && targetWeekLog.durationText !== '0h 0m' && targetWeekLog.durationText !== '0h 00m')
+      ? targetWeekLog.durationText
+      : (pastAttRec?.totalWorkingHours ? `${pastAttRec.totalWorkingHours}h 00m` : (targetWeekLog?.durationText || '0h 00m'));
 
     const logData = {
       date: customDate,
@@ -517,12 +598,12 @@ export const DashboardPage = () => {
       employeeCode: emp?.employeeCode || '',
       employeeName: emp?.name || '',
       employeeRole: emp?.role || '',
-      loginTime: customDate === todayStr ? (empState?.loginTime || '--') : (targetWeekLog?.loginTime || '--'),
-      logoutTime: customDate === todayStr ? (empState?.clockOutTime || '--') : (targetWeekLog?.logoutTime || '--'),
+      loginTime: customDate === todayStr ? (empState?.loginTime || '--') : (targetWeekLog?.loginTime || pastAttRec?.clockInTime || '--'),
+      logoutTime: customDate === todayStr ? (empState?.clockOutTime || '--') : (targetWeekLog?.logoutTime || pastAttRec?.clockOutTime || '--'),
       durationText: customDate === todayStr
         ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : (empState?.workSecs ? formatTimeDurationSafe(empState.workSecs) : '0h 0m'))
-        : (targetWeekLog?.durationText || '0h 0m'),
-      breakDuration: customDate === todayStr ? `${Math.round((empState?.breakSecs || 0) / 60)}m` : (targetWeekLog?.breakDuration || '0m'),
+        : pastDayDuration,
+      breakDuration: customDate === todayStr ? `${Math.round((empState?.breakSecs || 0) / 60)}m` : (targetWeekLog?.breakDuration || '45m'),
       teaBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Tea') ? 1 : (empState?.breakSecs > 0 ? 1 : 0),
       lunchBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Lunch') ? 1 : (empState?.breakSecs > 900 ? 1 : 0),
       tasksWorked: effectiveTasksWorked
@@ -532,63 +613,73 @@ export const DashboardPage = () => {
   };
 
   // Direct tasks for currently logged-in user
-  const myDirectTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, currentUser));
+  const myDirectTasks = React.useMemo(() => {
+    return (tasks || []).filter(t => isTaskAssignedToUser(t, currentUser));
+  }, [tasks, currentUser]);
 
   // Tasks delegated / assigned by this user (Admin / HR)
-  const delegatedByMeTasks = (tasks || []).filter(t =>
-    (t?.assignedBy === currentUser?.name || t?.assignedById === currentUser?._id) &&
-    !isTaskAssignedToUser(t, currentUser)
-  );
+  const delegatedByMeTasks = React.useMemo(() => {
+    return (tasks || []).filter(t =>
+      (t?.assignedBy === currentUser?.name || t?.assignedById === currentUser?._id) &&
+      !isTaskAssignedToUser(t, currentUser)
+    );
+  }, [tasks, currentUser]);
 
   // Base Scoped Tasks
-  const baseScopedTasks = (tasks || []).filter(t => {
-    if (!t) return false;
-    if (taskCategoryFilter !== 'all' && t.category !== taskCategoryFilter) {
-      return false;
-    }
-    if (taskMemberFilter !== 'all') {
-      return (
-        t.assignedToId === taskMemberFilter ||
-        t.assignedTo === taskMemberFilter ||
-        t.assignedToName === taskMemberFilter
-      );
-    }
-    if (taskScopeFilter === 'my') {
+  const baseScopedTasks = React.useMemo(() => {
+    return (tasks || []).filter(t => {
+      if (!t) return false;
+      if (taskCategoryFilter !== 'all' && t.category !== taskCategoryFilter) {
+        return false;
+      }
+      if (taskMemberFilter !== 'all') {
+        return (
+          t.assignedToId === taskMemberFilter ||
+          t.assignedTo === taskMemberFilter ||
+          t.assignedToName === taskMemberFilter
+        );
+      }
+      if (taskScopeFilter === 'my') {
+        return isTaskAssignedToUser(t, currentUser);
+      }
+      if (taskScopeFilter === 'delegated') {
+        return t.assignedBy === currentUser?.name || t.assignedById === currentUser?._id;
+      }
+      if (isUserAdminOrHR || perms.viewAllTasks) return true;
       return isTaskAssignedToUser(t, currentUser);
-    }
-    if (taskScopeFilter === 'delegated') {
-      return t.assignedBy === currentUser?.name || t.assignedById === currentUser?._id;
-    }
-    if (isUserAdminOrHR || perms.viewAllTasks) return true;
-    return isTaskAssignedToUser(t, currentUser);
-  });
+    });
+  }, [tasks, taskCategoryFilter, taskMemberFilter, taskScopeFilter, currentUser, isUserAdminOrHR, perms.viewAllTasks]);
 
   // 1. Active & Newly Assigned Tasks (Sorted by in_progress first, then newest assigned/created at top)
-  const activeScopedTasks = baseScopedTasks
-    .filter(t => !isTaskActuallyCompleted(t))
-    .sort((a, b) => {
-      if (a.timerRunning && !b.timerRunning) return -1;
-      if (!a.timerRunning && b.timerRunning) return 1;
-      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
-      if (a.status !== 'in_progress' && b.status === 'in_progress') return 1;
-      const timeA = new Date(a.createdAt || a.assignedAt || a.startDate || 0).getTime();
-      const timeB = new Date(b.createdAt || b.assignedAt || b.startDate || 0).getTime();
-      return timeB - timeA;
-    });
+  const activeScopedTasks = React.useMemo(() => {
+    return baseScopedTasks
+      .filter(t => !isTaskActuallyCompleted(t))
+      .sort((a, b) => {
+        if (a.timerRunning && !b.timerRunning) return -1;
+        if (!a.timerRunning && b.timerRunning) return 1;
+        if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
+        if (a.status !== 'in_progress' && b.status === 'in_progress') return 1;
+        const timeA = new Date(a.createdAt || a.assignedAt || a.startDate || 0).getTime();
+        const timeB = new Date(b.createdAt || b.assignedAt || b.startDate || 0).getTime();
+        return timeB - timeA;
+      });
+  }, [baseScopedTasks]);
 
   // 2. Recently Completed Tasks (Sorted by completion time descending - latest completed at top)
-  const completedScopedTasks = baseScopedTasks
-    .filter(t => isTaskActuallyCompleted(t))
-    .sort((a, b) => {
-      const timeA = new Date(a.completedAt || a.completedOn || a.updatedAt || a.createdAt || 0).getTime();
-      const timeB = new Date(b.completedAt || b.completedOn || b.updatedAt || b.createdAt || 0).getTime();
-      return timeB - timeA;
-    });
+  const completedScopedTasks = React.useMemo(() => {
+    return baseScopedTasks
+      .filter(t => isTaskActuallyCompleted(t))
+      .sort((a, b) => {
+        const timeA = new Date(a.completedAt || a.completedOn || a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.completedAt || b.completedOn || b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+  }, [baseScopedTasks]);
 
-  const scopedInProgressCount = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length;
-  const scopedPendingCount = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.status !== 'in_progress' && !t.timerRunning).length;
-  const scopedDueTodayCount = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length;
-  const scopedOverdueCount = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length;
+  const scopedInProgressCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length, [baseScopedTasks]);
+  const scopedPendingCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.status !== 'in_progress' && !t.timerRunning).length, [baseScopedTasks]);
+  const scopedDueTodayCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length, [baseScopedTasks, todayStr]);
+  const scopedOverdueCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length, [baseScopedTasks, todayStr]);
 
   // Filtered tasks for the "My Tasks & Delegation" table supporting all lifecycle states and search
   const tableDisplayTasks = React.useMemo(() => {
@@ -624,19 +715,22 @@ export const DashboardPage = () => {
 
   // Dashboard Ticket Filter State (Scoped to user permissions)
   const [ticketFilterTab, setTicketFilterTab] = useState('all'); // 'all' | 'open' | 'resolved'
-  const scopedTickets = (tickets || []).filter(t => {
-    if (!t) return false;
-    if (isUserAdminOrHR || perms.viewAllTickets) return true;
-    return (
-      (t.requestedById && String(t.requestedById) === String(currentUser?._id)) ||
-      (t.requestedByName && t.requestedByName.toLowerCase() === currentUser?.name?.toLowerCase()) ||
-      (t.requestedBy && t.requestedBy.toLowerCase() === currentUser?.name?.toLowerCase()) ||
-      (t.assignedToId && String(t.assignedToId) === String(currentUser?._id)) ||
-      (t.assignedToName && t.assignedToName.toLowerCase() === currentUser?.name?.toLowerCase())
-    );
-  });
-  const openTicketsList = scopedTickets.filter(t => t?.status !== 'resolved' && t?.status !== 'closed');
-  const resolvedTicketsList = scopedTickets.filter(t => t?.status === 'resolved' || t?.status === 'closed');
+  const scopedTickets = React.useMemo(() => {
+    return (tickets || []).filter(t => {
+      if (!t) return false;
+      if (isUserAdminOrHR || perms.viewAllTickets) return true;
+      return (
+        (t.requestedById && String(t.requestedById) === String(currentUser?._id)) ||
+        (t.requestedByName && t.requestedByName.toLowerCase() === currentUser?.name?.toLowerCase()) ||
+        (t.requestedBy && t.requestedBy.toLowerCase() === currentUser?.name?.toLowerCase()) ||
+        (t.assignedToId && String(t.assignedToId) === String(currentUser?._id)) ||
+        (t.assignedToName && t.assignedToName.toLowerCase() === currentUser?.name?.toLowerCase())
+      );
+    });
+  }, [tickets, isUserAdminOrHR, perms.viewAllTickets, currentUser]);
+
+  const openTicketsList = React.useMemo(() => scopedTickets.filter(t => t?.status !== 'resolved' && t?.status !== 'closed'), [scopedTickets]);
+  const resolvedTicketsList = React.useMemo(() => scopedTickets.filter(t => t?.status === 'resolved' || t?.status === 'closed'), [scopedTickets]);
   const displayTickets = ticketFilterTab === 'open'
     ? openTicketsList
     : ticketFilterTab === 'resolved'
@@ -645,22 +739,46 @@ export const DashboardPage = () => {
 
   // Effective personal tasks for Timer & KPI counters strictly scoped to active viewed user (or current user)
   const effectiveTargetUser = isViewingOtherEmployee ? activeViewUser : currentUser;
-  const myTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
-  const myPendingTasks = myTasks.filter(t => !isTaskActuallyCompleted(t));
-  const myCompletedTasks = myTasks.filter(t => isTaskActuallyCompleted(t));
+  const activeWorkMode = !isViewingOtherEmployee
+    ? (localStorage.getItem('ems_working_mode') || currentUser?.workMode || currentUser?.workingMode || 'Office')
+    : (effectiveTargetUser?.workMode || effectiveTargetUser?.workingMode || 'Office');
+
+  const handleUpdateLiveWorkMode = (newMode) => {
+    setShowWorkModeMenu(false);
+    localStorage.setItem('ems_working_mode', newMode);
+    try {
+      const authSession = JSON.parse(localStorage.getItem('ems_auth_session') || '{}');
+      if (authSession) {
+        localStorage.setItem('ems_auth_session', JSON.stringify({ ...authSession, workingMode: newMode, workMode: newMode }));
+      }
+    } catch {}
+    if (currentUser?._id && updateEmployee) {
+      updateEmployee(currentUser._id, { ...currentUser, workingMode: newMode, workMode: newMode });
+    }
+    window.dispatchEvent(new CustomEvent('ems_working_mode_changed', { detail: { mode: newMode } }));
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_working_mode' } }));
+    addToast?.(`Working mode updated: ${newMode}`, 'success');
+  };
+
+  const myTasks = React.useMemo(() => {
+    return (tasks || []).filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
+  }, [tasks, effectiveTargetUser]);
+
+  const myPendingTasks = React.useMemo(() => myTasks.filter(t => !isTaskActuallyCompleted(t)), [myTasks]);
+  const myCompletedTasks = React.useMemo(() => myTasks.filter(t => isTaskActuallyCompleted(t)), [myTasks]);
   const pendingTasksCount = myPendingTasks.length;
-  const overdueTasksCount = myPendingTasks.filter(t => t?.dueDate && t?.dueDate < todayStr).length;
-  const myInProgressTasksCount = myPendingTasks.filter(t => t.status === 'in_progress' || t.timerRunning).length;
-  const myDueTodayTasksCount = myPendingTasks.filter(t => t.dueDate === todayStr).length;
-  const myCompletedTodayCount = myCompletedTasks.filter(t => t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr)).length;
+  const overdueTasksCount = React.useMemo(() => myPendingTasks.filter(t => t?.dueDate && t?.dueDate < todayStr).length, [myPendingTasks, todayStr]);
+  const myInProgressTasksCount = React.useMemo(() => myPendingTasks.filter(t => t.status === 'in_progress' || t.timerRunning).length, [myPendingTasks]);
+  const myDueTodayTasksCount = React.useMemo(() => myPendingTasks.filter(t => t.dueDate === todayStr).length, [myPendingTasks, todayStr]);
+  const myCompletedTodayCount = React.useMemo(() => myCompletedTasks.filter(t => t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr)).length, [myCompletedTasks, todayStr]);
 
   // Company-wide stats for Admin Overview
   const allTasksList = tasks || [];
-  const allPendingTasksCount = allTasksList.filter(t => !isTaskActuallyCompleted(t)).length;
-  const allInProgressTasksCount = allTasksList.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length;
-  const allDueTodayTasksCount = allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length;
-  const allOverdueTasksCount = allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length;
-  const allCompletedTodayCount = allTasksList.filter(t => isTaskActuallyCompleted(t) && (t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr))).length;
+  const allPendingTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t)).length, [allTasksList]);
+  const allInProgressTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length, [allTasksList]);
+  const allDueTodayTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length, [allTasksList, todayStr]);
+  const allOverdueTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length, [allTasksList, todayStr]);
+  const allCompletedTodayCount = React.useMemo(() => allTasksList.filter(t => isTaskActuallyCompleted(t) && (t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr))).length, [allTasksList, todayStr]);
 
   const todayDisplayTasks = myTasks;
 
@@ -716,25 +834,40 @@ export const DashboardPage = () => {
   const upNextTask = upcomingQueueTasks[0] || null;
 
   // Stable logged total duration today strictly scoped to current viewed user (timesheets logged today + active task timer seconds)
-  const todayTimesheets = (timesheets || []).filter(ts => {
-    const isToday = ts.date === todayStr || ts.createdAt?.startsWith(todayStr);
-    const isMine = (effectiveTargetUser?._id && (ts.employeeId === effectiveTargetUser._id || ts.employee === effectiveTargetUser._id)) ||
-                   (effectiveTargetUser?.employeeCode && (ts.employeeId === effectiveTargetUser.employeeCode || ts.employee === effectiveTargetUser.employeeCode)) ||
-                   (effectiveTargetUser?.name && ts.employeeName?.toLowerCase() === effectiveTargetUser.name.toLowerCase());
-    return isToday && isMine;
-  });
+  const todayTimesheets = React.useMemo(() => {
+    return (timesheets || []).filter(ts => {
+      const isToday = ts.date === todayStr || ts.createdAt?.startsWith(todayStr);
+      const tsEmpId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee).toLowerCase() : '');
+      const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
+      const myId = effectiveTargetUser?._id ? String(effectiveTargetUser._id).toLowerCase() : '';
+      const myCode = effectiveTargetUser?.employeeCode ? String(effectiveTargetUser.employeeCode).toLowerCase() : '';
+      const myName = effectiveTargetUser?.name ? effectiveTargetUser.name.toLowerCase().trim() : '';
+
+      const isMine = (myId && tsEmpId === myId) ||
+                     (myCode && (tsEmpId === myCode || ts.employeeCode === myCode)) ||
+                     (myName && tsName && (tsName === myName || tsName.includes(myName) || myName.includes(tsName)));
+      return isToday && isMine;
+    });
+  }, [timesheets, todayStr, effectiveTargetUser]);
 
   const totalLoggedTodaySecs = todayTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
   
-  // Sum unsubmitted timerSeconds across user's tasks (active or paused)
-  const myTasksTimerSecs = (myTasks || []).reduce((acc, t) => acc + (Number(t.timerSeconds) || 0), 0);
+  // Sum completed tasks today that might not be in timesheets yet
+  const myCompletedTodaySecs = (myTasks || [])
+    .filter(t => isTaskActuallyCompleted(t) && (t.completedOn === todayStr || t.completedAt?.startsWith(todayStr)) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
+    .reduce((acc, t) => acc + (Number(t.timerSeconds) || Number(t.durationSeconds) || (t.hoursLogged ? Math.round(Number(t.hoursLogged) * 3600) : 0)), 0);
+
+  // Sum unsubmitted timerSeconds across user's tasks worked today (active or paused today)
+  const myTasksTodaySecs = (myTasks || [])
+    .filter(t => !isTaskActuallyCompleted(t) && (t.sessionDate === todayStr || t.timerRunning) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
+    .reduce((acc, t) => acc + (Number(t.timerSeconds) || 0), 0);
   const liveActiveSecs = (activeRunningTask?.timerSeconds && !myTasks.some(t => t._id === activeRunningTask._id)) ? activeRunningTask.timerSeconds : 0;
   const currentTaskSecs = Math.max(
     (activeRunningTask?.timerSeconds || 0),
-    myTasksTimerSecs + liveActiveSecs
+    myTasksTodaySecs + liveActiveSecs
   );
 
-  const totalTaskTodaySecs = totalLoggedTodaySecs + currentTaskSecs;
+  const totalTaskTodaySecs = totalLoggedTodaySecs + myCompletedTodaySecs + currentTaskSecs;
   const taskTodayH = Math.floor(totalTaskTodaySecs / 3600);
   const taskTodayM = Math.floor((totalTaskTodaySecs % 3600) / 60);
   const taskTodayFormatted = totalTaskTodaySecs > 0
@@ -756,9 +889,11 @@ export const DashboardPage = () => {
   // 2. Today's live task seconds (active timer + timesheets) adds in real-time
   // 3. Weekly total = Monday + Tuesday + Wednesday + Thursday + Friday + Saturday + Sunday
   const todayWeekLog = (weeklyTimeLogs || []).find(l => l.isCurrentDay);
-  const otherDaysTaskSecs = (weeklyTimeLogs || [])
-    .filter(l => !l.isCurrentDay && l.date !== todayStr)
-    .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || Math.round((Number(curr.durationHours) || 0) * 3600)), 0);
+  const otherDaysTaskSecs = React.useMemo(() => {
+    return (weeklyTimeLogs || [])
+      .filter(l => !l.isCurrentDay && l.date !== todayStr)
+      .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || Math.round((Number(curr.durationHours) || 0) * 3600)), 0);
+  }, [weeklyTimeLogs, todayStr]);
 
   // Today's total task seconds strictly from today's completed timesheets + current running/paused task timer:
   const totalWeeklySecs = otherDaysTaskSecs + (totalTaskTodaySecs || 0);
@@ -876,7 +1011,114 @@ export const DashboardPage = () => {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+
+      {/* ── 🏢 Top Page Header Bar (Standardized matching Tickets & All Pages) ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <LayoutDashboard size={17} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Enterprise Operations Dashboard
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Live shift tracking, active tasks, team presence & workplace overview.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Header Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {isUserAdminOrHR && (
+            <button
+              onClick={() => setIsEmpDirectoryOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 11px',
+                borderRadius: '6px',
+                backgroundColor: '#eff6ff',
+                color: '#1d4ed8',
+                border: '1px solid #bfdbfe',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+              title="Open full Employee Directory"
+            >
+              <Users size={13} />
+              <span>Team Directory</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsRaiseTicketOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '6px',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            title="Raise support ticket or IT request"
+          >
+            <LifeBuoy size={13} color="#0284c7" />
+            <span>Support Ticket</span>
+          </button>
+
+          <button
+            onClick={() => setIsAddTaskOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
+            }}
+            title="Create a new task"
+          >
+            <Plus size={13} />
+            <span>+ Add Task</span>
+          </button>
+        </div>
+      </div>
 
       {/* ── ⏰ LIVE DUE TASK REMINDER ALERT BANNER ── */}
       {dueReminders.length > 0 && (
@@ -1068,7 +1310,7 @@ export const DashboardPage = () => {
       )}
 
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
-      {isUserAdminOrHR && (
+      {(isUserAdminOrHR || perms?.liveOperations || perms?.viewAllAttendance) && (
         <div style={{
           backgroundColor: '#fff7ed',
           borderRadius: '10px',
@@ -1108,26 +1350,55 @@ export const DashboardPage = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => navigate('/team-operations')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '7px',
-              border: 'none',
-              backgroundColor: '#ea580c',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              boxShadow: '0 1px 4px rgba(234, 88, 12, 0.25)',
-              transition: 'background-color 0.15s ease'
-            }}
-          >
-            <span>Open Live Operations →</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {isUserAdminOrHR && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#9a3412' }}>View Perspective:</span>
+                <select
+                  value={selectedAdminEmpId}
+                  onChange={(e) => setSelectedAdminEmpId(e.target.value)}
+                  style={{
+                    padding: '5px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #fed7aa',
+                    backgroundColor: '#ffffff',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    color: '#0f172a',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="me">My Dashboard ({currentUser?.name})</option>
+                  {(employees || []).filter(e => e._id !== currentUser?._id).map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} — {emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              onClick={() => navigate('/team-operations')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '7px',
+                border: 'none',
+                backgroundColor: '#ea580c',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 1px 4px rgba(234, 88, 12, 0.25)',
+                transition: 'background-color 0.15s ease'
+              }}
+            >
+              <span>Open Live Operations →</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1277,7 +1548,10 @@ export const DashboardPage = () => {
             </div>
 
             <div
-              onClick={() => navigate('/tasks')}
+              onClick={() => {
+                setPendingTasksModalFilter('all');
+                setIsPendingTasksModalOpen(true);
+              }}
               style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -1292,7 +1566,7 @@ export const DashboardPage = () => {
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Tasks Board"
+              title="Click to view all pending tasks list"
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Pending</span>
@@ -1304,7 +1578,10 @@ export const DashboardPage = () => {
             </div>
 
             <div
-              onClick={() => navigate('/tasks')}
+              onClick={() => {
+                setPendingTasksModalFilter('overdue');
+                setIsPendingTasksModalOpen(true);
+              }}
               style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid #e2e8f0',
@@ -1319,7 +1596,7 @@ export const DashboardPage = () => {
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Tasks Board"
+              title="Click to view overdue tasks"
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '700' }}>Overdue 🔥</span>
@@ -1602,17 +1879,74 @@ export const DashboardPage = () => {
                 }}>
                   {effectiveTargetUser?.role || roleConfig?.label || 'Team Member'}
                 </span>
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: '#f1f5f9',
-                  color: '#334155',
-                  border: '1px solid #cbd5e1'
-                }}>
-                  {effectiveTargetUser?.workingMode === 'Remote' ? '🏡 Remote' : effectiveTargetUser?.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}
-                </span>
+                {/* Interactive Working Mode Selector */}
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                  <button
+                    id="btn-toggle-workmode-welcome"
+                    type="button"
+                    onClick={() => setShowWorkModeMenu(prev => !prev)}
+                    title="Click to change your live working mode (Office / Hybrid / Remote)"
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      padding: '1.5px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: activeWorkMode === 'Remote' ? '#ecfdf5' : activeWorkMode === 'Hybrid' ? '#faf5ff' : '#f1f5f9',
+                      color: activeWorkMode === 'Remote' ? '#059669' : activeWorkMode === 'Hybrid' ? '#7c3aed' : '#334155',
+                      border: `1px solid ${activeWorkMode === 'Remote' ? '#a7f3d0' : activeWorkMode === 'Hybrid' ? '#e9d5ff' : '#cbd5e1'}`,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <span>{activeWorkMode === 'Remote' ? '🏡 Remote' : activeWorkMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
+                    <ChevronDown size={10} />
+                  </button>
+
+                  {showWorkModeMenu && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: '4px',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
+                      padding: '4px',
+                      zIndex: 100,
+                      minWidth: '110px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px'
+                    }}>
+                      {[
+                        { id: 'Office', label: '🏢 Office' },
+                        { id: 'Hybrid', label: '🔄 Hybrid' },
+                        { id: 'Remote', label: '🏡 Remote' }
+                      ].map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleUpdateLiveWorkMode(m.id)}
+                          style={{
+                            padding: '5px 8px',
+                            fontSize: '11px',
+                            fontWeight: activeWorkMode === m.id ? '700' : '500',
+                            backgroundColor: activeWorkMode === m.id ? '#eff6ff' : 'transparent',
+                            color: activeWorkMode === m.id ? '#2563eb' : '#334155',
+                            border: 'none',
+                            borderRadius: '4px',
+                            textAlign: 'left',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '500', marginTop: '2px' }}>
                 {effectiveTargetUser?.role || roleConfig?.label || 'Team Member'} • <span style={{ color: '#94a3b8' }}>ID: #{effectiveTargetUser?.employeeCode || effectiveTargetUser?._id || 'EMP-01'}</span>
@@ -2244,7 +2578,7 @@ export const DashboardPage = () => {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', fontWeight: '600', color: '#64748b', marginBottom: '3px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Budget: {displayActiveTask.estimatedHours || 4}h est.</span>
+                        <span>Est. Budget: {displayActiveTask.estimatedHours || 4}h</span>
                         {displayActiveTask.timerRunning && (
                           <span style={{
                             fontSize: '9.5px',
@@ -2268,18 +2602,34 @@ export const DashboardPage = () => {
                             +{(Number(displayActiveTask.hoursLogged) - Number(displayActiveTask.estimatedHours)).toFixed(1)}h over
                           </span>
                         )}
-                        <span style={{
-                          color: displayActiveTask.timerRunning ? '#0284c7' : ((Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) ? '#d97706' : '#16a34a'),
-                          fontWeight: '700',
-                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                          fontSize: '11px'
-                        }}>
-                          ⏱️ {displayActiveTask.timerRunning
-                            ? formatTimeDurationSafe(displayActiveTask.timerSeconds || 0)
-                            : (displayActiveTask.timerSeconds > 0
-                              ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
-                              : (displayActiveTask.hoursLogged ? `${displayActiveTask.hoursLogged}h logged` : (displayActiveTask.hoursLoggedText || '00:00:00')))}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            color: displayActiveTask.timerRunning ? '#0284c7' : '#475569',
+                            fontWeight: '700',
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                            fontSize: '11px',
+                            backgroundColor: displayActiveTask.timerRunning ? '#eff6ff' : '#f1f5f9',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            ⏱️ Task: {displayActiveTask.timerRunning
+                              ? formatTimeDurationSafe(displayActiveTask.timerSeconds || 0)
+                              : (displayActiveTask.timerSeconds > 0
+                                ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
+                                : '00:00:00')}
+                          </span>
+                          <span style={{
+                            color: '#15803d',
+                            fontWeight: '700',
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                            fontSize: '11px',
+                            backgroundColor: '#dcfce7',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }} title="Total task work completed today across all tasks + active timer">
+                            📊 Day Total: {taskTodayCode}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
@@ -2313,7 +2663,15 @@ export const DashboardPage = () => {
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                   <button
                     onClick={async () => {
-                      const res = await completeTask(displayActiveTask._id);
+                      if (!isClockedIn) {
+                        addToast('⚠️ Shift is not clocked in! Please Clock In above before advancing tasks.', 'warning');
+                        return;
+                      }
+                      if (isOnBreak) {
+                        addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
+                        return;
+                      }
+                      const res = await completeAndNextTask(displayActiveTask._id);
                       if (res?.nextTask) {
                         setActiveSelectedTaskId(res.nextTask._id);
                       }
@@ -2334,7 +2692,7 @@ export const DashboardPage = () => {
                       cursor: 'pointer',
                       boxShadow: '0 1px 4px rgba(22, 163, 74, 0.25)'
                     }}
-                    title="Mark completed & advance queue"
+                    title="Mark current task complete & automatically start next task in queue"
                   >
                     <CheckCircle2 size={13} />
                     <span>Complete & Next</span>
@@ -2381,14 +2739,19 @@ export const DashboardPage = () => {
                   </button>
 
                   <button
-                    onClick={() => completeTask(displayActiveTask._id)}
+                    onClick={async () => {
+                      const res = await completeTask(displayActiveTask._id, '', false);
+                      if (res?.nextTask) {
+                        setActiveSelectedTaskId(res.nextTask._id);
+                      }
+                    }}
                     style={{
                       flex: 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '3px',
-                      backgroundColor: '#16a34a',
+                      backgroundColor: '#059669',
                       color: '#ffffff',
                       border: 'none',
                       padding: '6px 8px',
@@ -2396,9 +2759,9 @@ export const DashboardPage = () => {
                       fontSize: '11.5px',
                       fontWeight: '700',
                       cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(22, 163, 74, 0.25)'
+                      boxShadow: '0 1px 3px rgba(5, 150, 105, 0.25)'
                     }}
-                    title="Mark this task as complete"
+                    title="Mark this task as complete (without auto-starting next task)"
                   >
                     <CheckCircle2 size={12} />
                     <span>Complete</span>
@@ -2718,7 +3081,10 @@ export const DashboardPage = () => {
           }}>
             {/* Tasks Mini Card */}
             <div
-              onClick={() => document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                setPendingTasksModalFilter('all');
+                setIsPendingTasksModalOpen(true);
+              }}
               style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '10px',
@@ -2733,18 +3099,34 @@ export const DashboardPage = () => {
               }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to view all tasks"
+              title="Click to view all pending tasks list"
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tasks</span>
                 <ListTodo size={15} color="#0284c7" />
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginTop: '2px' }}>
-                <div>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPendingTasksModalFilter('all');
+                    setIsPendingTasksModalOpen(true);
+                  }}
+                  title="Click to view pending tasks"
+                  style={{ cursor: 'pointer' }}
+                >
                   <span style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7' }}>{myPendingTasks.length}</span>
                   <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Pending</span>
                 </div>
-                <div>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPendingTasksModalFilter('overdue');
+                    setIsPendingTasksModalOpen(true);
+                  }}
+                  title="Click to view overdue tasks"
+                  style={{ cursor: 'pointer' }}
+                >
                   <span style={{ fontSize: '18px', fontWeight: '800', color: overdueTasksCount > 0 ? '#dc2626' : '#64748b' }}>{overdueTasksCount}</span>
                   <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Overdue</span>
                 </div>
@@ -2839,9 +3221,14 @@ export const DashboardPage = () => {
               {(weeklyTimeLogs || []).map(dayLog => {
                 const isSelected = dayLog.shortDay === activeWeekDayShort;
                 const isCurrent = dayLog.isCurrentDay;
-                const dayHrs = isCurrent
-                  ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : '0h')
-                  : (dayLog.durationText && dayLog.durationText !== '0h 00m' ? dayLog.durationText : '0h');
+                const isHoliday = (holidays || []).some(h => h.date === dayLog.date);
+                const dayHrs = isHoliday 
+                  ? '🏖️ Off'
+                  : (isCurrent
+                    ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h${Math.floor((totalTaskTodaySecs % 3600) / 60) > 0 ? ` ${Math.floor((totalTaskTodaySecs % 3600) / 60)}m` : ''}`) : '0h')
+                    : (dayLog.durationText && dayLog.durationText !== '0h 00m' && dayLog.durationText !== '0h 0m'
+                        ? dayLog.durationText.replace(' 00m', '')
+                        : (dayLog.durationHours > 0 ? `${dayLog.durationHours}h` : '0h')));
 
                 return (
                   <button
@@ -2858,22 +3245,28 @@ export const DashboardPage = () => {
                       gap: '4px',
                       flex: 1
                     }}
-                    title={`Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
+                    title={isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
                   >
-                    {/* Circle badge for selected day, or plain letter */}
+                    {/* Circle badge for selected day, holiday, or plain letter */}
                     <div style={{
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      backgroundColor: isSelected ? '#0284c7' : (isCurrent ? '#eff6ff' : 'transparent'),
-                      color: isSelected ? '#ffffff' : (isCurrent ? '#0284c7' : '#475569'),
-                      border: isCurrent && !isSelected ? '1.5px solid #bfdbfe' : 'none',
+                      backgroundColor: isSelected 
+                        ? (isHoliday ? '#dc2626' : '#0284c7') 
+                        : (isHoliday ? '#fee2e2' : (isCurrent ? '#eff6ff' : 'transparent')),
+                      color: isSelected 
+                        ? '#ffffff' 
+                        : (isHoliday ? '#dc2626' : (isCurrent ? '#0284c7' : '#475569')),
+                      border: isSelected 
+                        ? 'none' 
+                        : (isHoliday ? '1.5px solid #f87171' : (isCurrent ? '1.5px solid #bfdbfe' : 'none')),
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '12px',
-                      fontWeight: isSelected || isCurrent ? '800' : '600',
-                      boxShadow: isSelected ? '0 2px 8px rgba(2, 132, 199, 0.35)' : 'none',
+                      fontWeight: isSelected || isCurrent || isHoliday ? '800' : '600',
+                      boxShadow: isSelected ? (isHoliday ? '0 2px 8px rgba(220, 38, 38, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.35)') : 'none',
                       transition: 'all 0.15s ease'
                     }}>
                       {dayLog.shortDay}
@@ -2882,8 +3275,8 @@ export const DashboardPage = () => {
                     {/* Tiny hour tag below each day */}
                     <span style={{
                       fontSize: '9.5px',
-                      fontWeight: isSelected ? '800' : '600',
-                      color: isSelected ? '#0284c7' : (dayHrs !== '0h' ? '#0f172a' : '#94a3b8')
+                      fontWeight: isSelected || isHoliday ? '800' : '600',
+                      color: isHoliday ? '#dc2626' : (isSelected ? '#0284c7' : (dayHrs !== '0h' ? '#0f172a' : '#94a3b8'))
                     }}>
                       {dayHrs}
                     </span>
@@ -2970,7 +3363,346 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Tasks widget removed to declutter dashboard - dedicated board at /tasks */}
+      {/* ─────────────────────────────────────────────────────────────────────────
+          MY TASKS SECTION (Direct list of tasks with filters & instant timer controls)
+      ───────────────────────────────────────────────────────────────────────── */}
+      <div id="dashboard-my-tasks-section" style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '12px',
+        border: '1px solid #e2e8f0',
+        padding: '16px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              backgroundColor: '#e0f2fe',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <ListTodo size={18} color="#0284c7" />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  My Tasks
+                </h3>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#0284c7',
+                  backgroundColor: '#e0f2fe',
+                  padding: '1px 7px',
+                  borderRadius: '10px'
+                }}>
+                  {myTasks.length} Assigned
+                </span>
+              </div>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                {effectiveTargetUser?.name || 'Employee'}'s current assignments, priority levels & status
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Filter Pills */}
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              backgroundColor: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '8px'
+            }}>
+              {[
+                { id: 'pending', label: `Pending (${myPendingTasks.length})` },
+                { id: 'in_progress', label: `In Progress (${myInProgressTasksCount})` },
+                { id: 'completed', label: `Completed (${myCompletedTasks.length})` },
+                { id: 'all', label: `All (${myTasks.length})` }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setDashboardTaskTab(tab.id)}
+                  style={{
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    backgroundColor: dashboardTaskTab === tab.id ? '#ffffff' : 'transparent',
+                    color: dashboardTaskTab === tab.id ? '#0284c7' : '#64748b',
+                    boxShadow: dashboardTaskTab === tab.id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setIsAddTaskOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '7px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              <Plus size={13} /> Add Task
+            </button>
+
+            <button
+              onClick={() => navigate('/tasks')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                background: 'none',
+                border: 'none',
+                color: '#0284c7',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Full Board →
+            </button>
+          </div>
+        </div>
+
+        {/* Tasks Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task#</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task Title</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Project</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Priority</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Due Date</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Status</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myTasks
+                .filter(t => {
+                  if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
+                  if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
+                  if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
+                  return true;
+                })
+                .length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '24px 8px', textAlign: 'center', color: '#94a3b8' }}>
+                    No tasks found under "{dashboardTaskTab.replace('_', ' ')}". Click "Add Task" to create one.
+                  </td>
+                </tr>
+              ) : (
+                myTasks
+                  .filter(t => {
+                    if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
+                    if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
+                    if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
+                    return true;
+                  })
+                  .map(task => {
+                    const isDone = isTaskActuallyCompleted(task);
+                    const isOverdue = !isDone && task.dueDate && task.dueDate < todayStr;
+                    const isDueToday = !isDone && task.dueDate === todayStr;
+                    const isRunningTask = task.timerRunning;
+
+                    return (
+                      <tr
+                        key={task._id || task.id}
+                        style={{
+                          borderBottom: '1px solid #f8fafc',
+                          transition: 'background 0.15s ease',
+                          backgroundColor: isRunningTask ? '#f0f9ff' : 'transparent'
+                        }}
+                        onMouseEnter={e => { if (!isRunningTask) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                        onMouseLeave={e => { if (!isRunningTask) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                      >
+                        <td style={{ padding: '8px 6px', color: '#0284c7', fontWeight: '700', fontFamily: 'monospace', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                          #{task.taskCode || 'TSK'}
+                        </td>
+                        <td style={{ padding: '8px 6px', color: '#0f172a', fontWeight: '600' }}>
+                          <div
+                            onClick={() => setSelectedTask(task)}
+                            style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}
+                            title="Click to view task details"
+                          >
+                            {task.title}
+                          </div>
+                          {task.description && (
+                            <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+                              {task.description}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 6px', color: '#475569', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                          {task.projectName || 'General Work'}
+                        </td>
+                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            padding: '1px 6px',
+                            borderRadius: '5px',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            backgroundColor: task.priority === 'urgent' ? '#fee2e2' : (task.priority === 'high' ? '#ffedd5' : (task.priority === 'medium' ? '#fef3c7' : '#f1f5f9')),
+                            color: task.priority === 'urgent' ? '#dc2626' : (task.priority === 'high' ? '#c2410c' : (task.priority === 'medium' ? '#b45309' : '#475569'))
+                          }}>
+                            {task.priority ? task.priority.toUpperCase() : 'NORMAL'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: isOverdue || isDueToday ? '700' : '500',
+                            color: isOverdue ? '#dc2626' : (isDueToday ? '#d97706' : '#64748b')
+                          }}>
+                            {isOverdue ? `⚠️ ${task.dueDate}` : (isDueToday ? `📅 Today` : (task.dueDate || 'No date'))}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            padding: '1px 6px',
+                            borderRadius: '8px',
+                            fontSize: '10.5px',
+                            fontWeight: '600',
+                            backgroundColor: isDone ? '#f0fdf4' : (isRunningTask ? '#eff6ff' : '#f8fafc'),
+                            color: isDone ? '#16a34a' : (isRunningTask ? '#2563eb' : '#64748b'),
+                            border: `1px solid ${isDone ? '#bbf7d0' : (isRunningTask ? '#bfdbfe' : '#e2e8f0')}`
+                          }}>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isDone ? '#16a34a' : (isRunningTask ? '#2563eb' : '#94a3b8') }} />
+                            {isDone ? 'Completed' : (isRunningTask ? 'In Progress ⏱️' : (task.status ? task.status.replace('_', ' ') : 'Pending'))}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 6px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            {!isDone && (
+                              isRunningTask ? (
+                                <button
+                                  onClick={() => pauseTaskTimer(task._id)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    backgroundColor: '#eff6ff',
+                                    color: '#2563eb',
+                                    border: '1px solid #bfdbfe',
+                                    padding: '3px 7px',
+                                    borderRadius: '5px',
+                                    fontSize: '10.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Pause timer"
+                                >
+                                  <Pause size={10} /> Pause
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    if (!isClockedIn) {
+                                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting timers.', 'warning');
+                                      return;
+                                    }
+                                    if (isOnBreak) {
+                                      addToast('☕ You are on break. Please resume work first!', 'warning');
+                                      return;
+                                    }
+                                    startTaskTimer(task._id);
+                                    setActiveSelectedTaskId(task._id);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    backgroundColor: '#0284c7',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '3px 7px',
+                                    borderRadius: '5px',
+                                    fontSize: '10.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Start timer for this task"
+                                >
+                                  <Play size={10} /> Start
+                                </button>
+                              )
+                            )}
+
+                            {!isDone && (
+                              <button
+                                onClick={async () => {
+                                  await completeTask(task._id, '', false);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  backgroundColor: '#16a34a',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  padding: '3px 7px',
+                                  borderRadius: '5px',
+                                  fontSize: '10.5px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer'
+                                }}
+                                title="Mark task completed"
+                              >
+                                <CheckCircle2 size={10} /> Done
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => setSelectedTask(task)}
+                              style={{
+                                backgroundColor: '#f1f5f9',
+                                color: '#475569',
+                                border: 'none',
+                                padding: '3px 7px',
+                                borderRadius: '5px',
+                                fontSize: '10.5px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                              title="View full task details"
+                            >
+                              View
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 1: Support Tickets & Calendar / Schedule (Spacious 2-Column Grid)
@@ -3265,10 +3997,58 @@ export const DashboardPage = () => {
           gap: '10px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-              🎂 Birthdays
-            </h3>
+          {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '7px' }}>
+              <button
+                type="button"
+                onClick={() => setCelebrationTab('birthdays')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  border: 'none',
+                  backgroundColor: celebrationTab === 'birthdays' ? '#ffffff' : 'transparent',
+                  color: celebrationTab === 'birthdays' ? '#b45309' : '#64748b',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: celebrationTab === 'birthdays' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>🎂 Birthdays</span>
+                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#b45309' }}>
+                  {(computedBirthdays || []).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCelebrationTab('anniversaries')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  border: 'none',
+                  backgroundColor: celebrationTab === 'anniversaries' ? '#ffffff' : 'transparent',
+                  color: celebrationTab === 'anniversaries' ? '#7c3aed' : '#64748b',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: celebrationTab === 'anniversaries' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>🌟 Anniversaries</span>
+                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#f3e8ff', color: '#7c3aed' }}>
+                  {(computedAnniversaries || []).length}
+                </span>
+              </button>
+            </div>
+
             <button
               onClick={() => navigate('/calendar')}
               style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
@@ -3277,48 +4057,139 @@ export const DashboardPage = () => {
             </button>
           </div>
 
+          {/* List of items with exact Date and Countdown Day Count */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 3).map(bday => (
-              <div
-                key={bday?._id || Math.random()}
-                onClick={() => addToast(`🎉 Birthday wishes sent to ${bday?.name || 'Colleague'}!`, 'success')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '7px 10px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fffbeb'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                title="Click to send birthday greetings"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img
-                    src={bday?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                    alt={bday?.name}
-                    style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{bday?.name}</div>
-                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>{bday?.role}</div>
-                  </div>
-                </div>
+            {celebrationTab === 'birthdays' ? (
+              (computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 3).map(bday => {
+                const diffDays = bday?.diffDays ?? 0;
+                return (
+                  <div
+                    key={bday?._id || bday?.employeeId || Math.random()}
+                    onClick={() => addToast(`🎉 Birthday greetings sent to ${bday?.name || 'Colleague'}!`, 'success')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fffbeb'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    title="Click to send birthday greetings"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <img
+                        src={bday?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(bday?.name || 'User')}`}
+                        alt={bday?.name}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {bday?.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          🎂 {bday?.role || 'Team Member'}
+                        </div>
+                      </div>
+                    </div>
 
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#d97706' }}>
-                    {bday?.birthdayDate}
+                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                      {/* Kitni Taarik Ko Hai */}
+                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>📅 {bday?.birthdayDate || 'Upcoming'}</span>
+                      </div>
+                      {/* Din Count (Countdown) */}
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#fef3c7'),
+                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#b45309'),
+                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#fde68a')}`
+                      }}>
+                        {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                    {bday?.daysRemainingText}
+                );
+              })
+            ) : (
+              (computedAnniversaries || []).slice(0, 3).map(anniv => {
+                const diffDays = anniv?.diffDays ?? 0;
+                return (
+                  <div
+                    key={anniv?._id || anniv?.employeeId || Math.random()}
+                    onClick={() => addToast(`🌟 Work Anniversary congratulations sent to ${anniv?.name || 'Colleague'}!`, 'success')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    title="Click to send work anniversary congratulations"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <img
+                        src={anniv?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(anniv?.name || 'User')}`}
+                        alt={anniv?.name}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {anniv?.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '600' }}>
+                          🌟 {anniv?.serviceYearsText} Work Anniversary
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                      {/* Kitni Taarik Ko Hai */}
+                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>📅 {anniv?.anniversaryDate || anniv?.annivFormattedDate || 'Upcoming'}</span>
+                      </div>
+                      {/* Din Count (Countdown) */}
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#f5f3ff'),
+                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#7c3aed'),
+                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#ddd6fe')}`
+                      }}>
+                        {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            )}
+
+            {celebrationTab === 'birthdays' && (!computedBirthdays || computedBirthdays.length === 0) && (
+              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+                🎂 No birthdays scheduled
               </div>
-            ))}
+            )}
+
+            {celebrationTab === 'anniversaries' && (!computedAnniversaries || computedAnniversaries.length === 0) && (
+              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+                🌟 No work anniversaries scheduled
+              </div>
+            )}
           </div>
         </div>
 
@@ -3467,10 +4338,7 @@ export const DashboardPage = () => {
                         ✓ Accept
                       </button>
                       <button
-                        onClick={() => {
-                          const reason = prompt('Optional reason for denying leave:', 'Schedule requirement');
-                          if (reason !== null) updateLeaveStatus(l._id, 'rejected', reason);
-                        }}
+                        onClick={() => setRejectingLeaveTarget(l)}
                         style={{ padding: '2px 7px', borderRadius: '4px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer' }}
                         title="Deny leave"
                       >
@@ -3647,86 +4515,6 @@ export const DashboardPage = () => {
             <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
               <Plane size={22} style={{ margin: '0 auto 3px' }} />
               <div style={{ fontSize: '11.5px' }}>No leaves today</div>
-            </div>
-          )}
-        </div>
-
-        {/* Today's Joinings & Work Anniversary */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-              🌟 Milestones
-            </h3>
-            <button
-              onClick={() => navigate('/calendar')}
-              style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer' }}
-            >
-              Calendar →
-            </button>
-          </div>
-
-          {(computedAnniversaries || []).length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {(computedAnniversaries || []).slice(0, 3).map(anniv => (
-                <div
-                  key={anniv?._id || Math.random()}
-                  onClick={() => addToast(`🌟 Work Anniversary wishes sent to ${anniv?.name || 'Colleague'}! 🎉`, 'success')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '7px 10px',
-                    backgroundColor: '#faf5ff',
-                    borderRadius: '8px',
-                    border: '1px solid #f3e8ff',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3e8ff'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
-                  title="Click to send anniversary wishes"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <img
-                      src={anniv?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                      alt={anniv?.name}
-                      style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #7c3aed' }}
-                    />
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                        {anniv?.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '600' }}>
-                        🌟 {anniv?.serviceYearsText} Anniversary
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
-                      💼 {anniv?.anniversaryDate}
-                    </div>
-                    <div style={{ fontSize: '9.5px', color: '#94a3b8' }}>
-                      {anniv?.daysRemainingText}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
-              <Cake size={22} style={{ margin: '0 auto 3px' }} />
-              <div style={{ fontSize: '11.5px' }}>No upcoming milestones</div>
             </div>
           )}
         </div>
@@ -3962,6 +4750,48 @@ export const DashboardPage = () => {
       <AddNoticeModal
         isOpen={isAddNoticeOpen}
         onClose={() => setIsAddNoticeOpen(false)}
+      />
+
+      <PendingTasksModal
+        isOpen={isPendingTasksModalOpen}
+        onClose={() => setIsPendingTasksModalOpen(false)}
+        tasks={isUserAdminOrHR && !isViewingOtherEmployee ? allTasksList.filter(t => !isTaskActuallyCompleted(t)) : myPendingTasks}
+        user={effectiveTargetUser}
+        initialFilter={pendingTasksModalFilter}
+        activeTaskId={displayActiveTask?._id}
+        onSelectTask={(task) => {
+          setSelectedTask(task);
+          setIsPendingTasksModalOpen(false);
+        }}
+        onStartTimer={(taskId) => {
+          if (!isClockedIn) {
+            addToast('⚠️ Please Clock In before starting task timers!', 'warning');
+            return;
+          }
+          if (isOnBreak) {
+            addToast('☕ You are on break. Please resume work first!', 'warning');
+            return;
+          }
+          startTaskTimer(taskId);
+          setActiveSelectedTaskId(taskId);
+        }}
+        onPauseTimer={(taskId) => {
+          pauseTaskTimer(taskId);
+        }}
+        onCompleteTask={async (taskId) => {
+          await completeTask(taskId, '', false);
+        }}
+      />
+
+      <RejectLeaveModal
+        isOpen={!!rejectingLeaveTarget}
+        leave={rejectingLeaveTarget}
+        onClose={() => setRejectingLeaveTarget(null)}
+        onConfirm={(reason) => {
+          if (rejectingLeaveTarget?._id) {
+            updateLeaveStatus(rejectingLeaveTarget._id, 'rejected', reason);
+          }
+        }}
       />
     </div>
   );

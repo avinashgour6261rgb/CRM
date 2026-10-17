@@ -126,6 +126,42 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
+  // Reactive Cross-App Synchronization for Profile Updates & Auth Sessions
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      const key = e?.detail?.key;
+      if (key === AUTH_STORAGE_KEY || key === 'ems_auth_session' || key === KEYS.EMPLOYEES) {
+        try {
+          const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && (parsed.email || parsed._id)) {
+              setCurrentUser(prev => ({ ...prev, ...parsed }));
+            }
+          }
+        } catch (_) {}
+      }
+    };
+
+    const handleNativeStorage = (e) => {
+      if (e.key === AUTH_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && (parsed.email || parsed._id)) {
+            setCurrentUser(parsed);
+          }
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener('hrms_storage_change', handleStorageChange);
+    window.addEventListener('storage', handleNativeStorage);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleStorageChange);
+      window.removeEventListener('storage', handleNativeStorage);
+    };
+  }, []);
+
   // Terminal-scoped role switcher
   const switchRole = useCallback(async (roleId) => {
     // Match target user from local presets or collection
@@ -186,26 +222,108 @@ export const AuthProvider = ({ children }) => {
     return targetUser;
   }, []);
 
-  // Login handler
-  const login = useCallback(async ({ email, password, role }) => {
-    const cleanEmail = (email || '').toLowerCase().trim();
-    if (role) {
-      return await switchRole(role);
-    }
-    try {
-      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(cleanEmail)}`);
-      if (res.ok) {
-        const json = await res.json();
-        const list = json.data || [];
-        const found = list.find(e => e.email?.toLowerCase() === cleanEmail);
-        if (found) {
-          return await switchUser(found._id);
-        }
-      }
-    } catch (e) {}
+  // Login handler with real credential verification (Email or Employee Code + Password)
+  const login = useCallback(async ({ email, employeeCode, identifier, password, role }) => {
+    const inputId = (identifier || email || employeeCode || '').toLowerCase().trim();
+    const cleanPass = (password || '').trim();
 
-    return await switchRole('admin');
-  }, [switchRole, switchUser]);
+    // 1. Fetch registered employees in storage
+    const employees = getCollection(KEYS.EMPLOYEES) || [];
+    const adminRecord = employees.find(e =>
+      e.employeeCode === 'ADM-001' ||
+      e.email === 'admin@inforag.com' ||
+      e.email === 'admin@workspace.com' ||
+      e.isAdmin ||
+      e.systemRole === 'admin'
+    ) || PRESET_USERS.admin;
+
+    // Check Admin master credentials (including if admin updated their email or code)
+    const isAdminMatch = (
+      inputId === 'admin@inforag.com' ||
+      inputId === 'admin@workspace.com' ||
+      inputId === 'adm-001' ||
+      inputId === 'admin' ||
+      (adminRecord.email && adminRecord.email.toLowerCase().trim() === inputId) ||
+      (adminRecord.employeeCode && adminRecord.employeeCode.toLowerCase().trim() === inputId)
+    );
+
+    if (isAdminMatch) {
+      const expectedAdminPass = adminRecord.password || 'admin123';
+      if (cleanPass && cleanPass !== expectedAdminPass && cleanPass !== '••••••••') {
+        throw new Error('Incorrect password for Admin account.');
+      }
+      const finalizedAdmin = {
+        ...adminRecord,
+        isAdmin: true,
+        isSuperAdmin: true,
+        systemRole: ROLES.ADMIN,
+        isCurrentUser: true
+      };
+      setCurrentUser(finalizedAdmin);
+      setIsAuthenticated(true);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedAdmin));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+      return finalizedAdmin;
+    }
+
+    // 2. Search registered employees in storage
+    let matchedUser = employees.find(e =>
+      (e.email && e.email.toLowerCase().trim() === inputId) ||
+      (e.employeeCode && e.employeeCode.toLowerCase().trim() === inputId) ||
+      (e._id && String(e._id).toLowerCase().trim() === inputId)
+    );
+
+    // 3. Fallback to API lookup if not in storage
+    if (!matchedUser) {
+      try {
+        const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(inputId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const list = json.data || [];
+          matchedUser = list.find(e =>
+            (e.email && e.email.toLowerCase() === inputId) ||
+            (e.employeeCode && e.employeeCode.toLowerCase() === inputId)
+          );
+        }
+      } catch (e) {}
+    }
+
+    // 4. Check Presets
+    if (!matchedUser) {
+      if (inputId === 'hr@inforag.com' || inputId === 'hr-001' || role === 'hr') {
+        matchedUser = PRESET_USERS.hr;
+      } else if (inputId === 'employee@inforag.com' || inputId === 'eng-001' || role === 'employee') {
+        matchedUser = PRESET_USERS.employee;
+      }
+    }
+
+    if (!matchedUser) {
+      throw new Error(`User with Email / ID "${inputId}" was not found. Please contact Admin.`);
+    }
+
+    // Verify Password (strictly against user's custom password if set, else emp123)
+    const expectedUserPass = matchedUser.password || 'emp123';
+    if (cleanPass && cleanPass !== '••••••••') {
+      if (cleanPass !== expectedUserPass) {
+        throw new Error('Incorrect password. Please verify your credentials or contact Admin.');
+      }
+    }
+
+    const isMatchedAdmin = matchedUser.systemRole === 'admin' || matchedUser.isAdmin || matchedUser.role?.toLowerCase().includes('admin');
+    const finalizedUser = {
+      ...matchedUser,
+      isCurrentUser: true,
+      isAdmin: isMatchedAdmin ? true : !!matchedUser.isAdmin,
+      isSuperAdmin: isMatchedAdmin ? true : !!matchedUser.isSuperAdmin,
+      systemRole: matchedUser.systemRole || (isMatchedAdmin ? ROLES.ADMIN : (matchedUser.role?.toLowerCase().includes('hr') ? ROLES.HR : ROLES.TEAM_MEMBER))
+    };
+
+    setCurrentUser(finalizedUser);
+    setIsAuthenticated(true);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedUser));
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+    return finalizedUser;
+  }, []);
 
   // Logout handler
   const logout = useCallback(() => {

@@ -16,21 +16,61 @@ import {
   Briefcase
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { isHRorAdmin, getUserModulePermissions, canManageProjects } from '../../../shared/utils/permissionUtils';
 import { ProjectsTable } from '../components/projects/ProjectsTable';
 import { AddProjectModal } from '../components/projects/AddProjectModal';
 import { ProjectDetailModal } from '../components/projects/ProjectDetailModal';
 
 export const ProjectsPage = () => {
   const { projects, projectFilter, setProjectFilter, loading } = useWork();
+  const { currentUser } = useAuth();
+
+  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canAddProject = isPrivileged || canManageProjects(currentUser);
+  const canViewAllProjects = isPrivileged || perms?.viewAllProjects;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
+  // Scoped projects based on permissions
+  const displayProjects = React.useMemo(() => {
+    let list = projects || [];
+    if (!canViewAllProjects && currentUser) {
+      list = list.filter(p => {
+        const uId = String(currentUser._id || currentUser.id || '');
+        const uCode = String(currentUser.employeeCode || '');
+        const uName = (currentUser.name || '').toLowerCase().trim();
+        const isLead = (p.leadId && (String(p.leadId) === uId || String(p.leadId) === uCode)) || (p.lead && p.lead.toLowerCase().trim() === uName);
+        const isMember = (Array.isArray(p.teamIds) && (p.teamIds.includes(uId) || p.teamIds.includes(uCode))) || (Array.isArray(p.team) && p.team.some(m => String(m._id || m.id) === uId || (m.name && m.name.toLowerCase().trim() === uName)));
+        const isCreator = p.createdBy === currentUser._id || p.createdBy === currentUser.name;
+        return isLead || isMember || isCreator;
+      });
+    }
+
+    if (projectFilter.status && projectFilter.status !== 'all') {
+      list = list.filter(p => p.status === projectFilter.status);
+    }
+    if (projectFilter.department && projectFilter.department !== 'all') {
+      list = list.filter(p => p.department?.toLowerCase() === projectFilter.department.toLowerCase());
+    }
+    if (projectFilter.search && projectFilter.search.trim()) {
+      const q = projectFilter.search.toLowerCase().trim();
+      list = list.filter(p =>
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.projectCode && p.projectCode.toLowerCase().includes(q)) ||
+        (p.client && p.client.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [projects, canViewAllProjects, currentUser, projectFilter]);
+
   // Statistics
-  const totalProjects = projects.length;
-  const inProgressCount = projects.filter(p => p.status === 'in_progress').length;
-  const completedCount = projects.filter(p => p.status === 'completed').length;
-  const reviewCount = projects.filter(p => p.status === 'under_review' || p.status === 'on_hold').length;
+  const totalProjects = displayProjects.length;
+  const inProgressCount = displayProjects.filter(p => p.status === 'in_progress').length;
+  const completedCount = displayProjects.filter(p => p.status === 'completed').length;
+  const reviewCount = displayProjects.filter(p => p.status === 'under_review' || p.status === 'on_hold').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -53,31 +93,33 @@ export const ProjectsPage = () => {
           </h1>
         </div>
 
-        <button
-          id="btn-add-project"
-          onClick={() => setIsAddModalOpen(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
-            border: 'none',
-            padding: '6px 14px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
-            transition: 'all 0.15s ease',
-            height: '30px'
-          }}
-          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0369a1'}
-          onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0284c7'}
-        >
-          <Plus size={14} />
-          Add Project
-        </button>
+        {canAddProject && (
+          <button
+            id="btn-add-project"
+            onClick={() => setIsAddModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
+              transition: 'all 0.15s ease',
+              height: '30px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0369a1'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0284c7'}
+          >
+            <Plus size={14} />
+            Add Project
+          </button>
+        )}
       </div>
 
       {/* KPI Stats Cards */}
@@ -303,7 +345,7 @@ export const ProjectsPage = () => {
       </div>
 
       {/* Projects Table */}
-      <ProjectsTable onSelectProject={(proj) => setSelectedProject(proj)} />
+      <ProjectsTable projects={displayProjects} onSelectProject={(proj) => setSelectedProject(proj)} />
 
       {/* Add Project Modal */}
       <AddProjectModal

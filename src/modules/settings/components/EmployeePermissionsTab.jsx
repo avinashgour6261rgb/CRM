@@ -21,7 +21,10 @@ import {
   BarChart3,
   Eye,
   Lock,
-  Sparkles
+  Sparkles,
+  FolderLock,
+  Crown,
+  FolderGit2
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -35,6 +38,7 @@ import {
 
 const MODULE_LIST = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview KPIs, active timer, welcome banner and summary widgets' },
+  { id: 'projects', label: 'Projects & Workspaces', icon: FolderGit2, desc: 'View projects, assign project members, sprint tracking and deliverables' },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare, desc: 'Sprint tasks, Kanban board, task timers and delegation' },
   { id: 'leads', label: 'Leads', icon: Users2, desc: 'Sales pipeline, CRM prospects, client conversion deals' },
   { id: 'attendance', label: 'Attendance', icon: CalendarCheck, desc: 'Daily clock in/out, shift time matrix, monthly logs' },
@@ -42,11 +46,12 @@ const MODULE_LIST = [
   { id: 'tickets', label: 'Support Tickets', icon: LifeBuoy, desc: 'Raise problem requests, IT helpdesk, issue tickets' },
   { id: 'events', label: 'Events & Calendar', icon: Calendar, desc: 'Company schedules, festivals, and official holiday list' },
   { id: 'employees', label: 'Employee Information', icon: Building2, desc: 'Employee directory, team profiles, and organization structure' },
-  { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, desc: 'Weekly work reports, timesheet exports and executive KPIs' }
+  { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, desc: 'Weekly work reports, timesheet exports and executive KPIs' },
+  { id: 'documentation', label: 'Documents & KYC', icon: FolderLock, desc: 'Company documents, KYC verifications, compliance letters and certificates' }
 ];
 
 export const EmployeePermissionsTab = () => {
-  const { employees } = useHR();
+  const { employees, updateEmployee } = useHR();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
@@ -62,23 +67,52 @@ export const EmployeePermissionsTab = () => {
   const selectedEmp = (employees || []).find(e => e._id === selectedEmpId || e.employeeCode === selectedEmpId) || employees[0];
   const selectedRole = selectedEmp ? getUserRole(selectedEmp) : ROLES.TEAM_MEMBER;
 
+  const isSelectedEmpPrimaryAdmin = selectedEmp?.employeeCode === 'ADM-001' ||
+    selectedEmp?.isSuperAdmin ||
+    selectedEmp?.email === 'admin@inforag.com' ||
+    (selectedEmp?.isAdmin && (selectedEmp?.role || '').toLowerCase() === 'admin');
+
   // Local state for current employee's toggle permissions
   const [permissions, setPermissions] = useState(() => {
     return getUserModulePermissions(selectedEmp);
   });
-
+  const [isDelegatedAdmin, setIsDelegatedAdmin] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
 
-  // When selected employee changes, load their saved permissions
+  // When selected employee changes, load their saved permissions & delegated status
   useEffect(() => {
     if (selectedEmp) {
       setPermissions(getUserModulePermissions(selectedEmp));
+      setIsDelegatedAdmin(!!selectedEmp?.isDelegatedAdmin || selectedEmp?.isAdmin || selectedEmp?.role?.toLowerCase() === 'admin');
       setIsSaved(true);
     }
   }, [selectedEmpId, selectedEmp]);
 
+  // Master Authority Toggle: Full Admin Access
+  const handleToggleDelegatedAdmin = () => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator authority is protected and cannot be revoked.', 'warning');
+      return;
+    }
+    const nextVal = !isDelegatedAdmin;
+    setIsDelegatedAdmin(nextVal);
+    setIsSaved(false);
+    if (nextVal) {
+      const allTrue = {};
+      MODULE_LIST.forEach(m => { allTrue[m.id] = true; });
+      setPermissions(prev => ({ ...prev, ...allTrue }));
+      addToast(`👑 Full Admin access granted for ${selectedEmp?.name}! Click Save to apply.`, 'info');
+    } else {
+      handleResetToRoleDefault();
+    }
+  };
+
   // Admin can only toggle permissions he himself has
   const handleToggle = (key) => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active to prevent lockout.', 'warning');
+      return;
+    }
     if (adminPerms[key] === false) {
       addToast('⚠️ You cannot grant a permission you do not have yourself.', 'warning');
       return;
@@ -116,10 +150,19 @@ export const EmployeePermissionsTab = () => {
         });
         map[userKey] = safePerms;
         localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
+
+        if (selectedEmp?._id && updateEmployee) {
+          updateEmployee(selectedEmp._id, {
+            ...selectedEmp,
+            isDelegatedAdmin,
+            permissions: safePerms
+          });
+        }
+
         window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
         setIsSaved(true);
-        addToast(`✅ Permissions updated for ${selectedEmp?.name || 'Employee'}!`, 'success');
+        addToast(`✅ Permissions & Admin Access updated for ${selectedEmp?.name || 'Employee'}!`, 'success');
       }
     } catch (e) {
       console.error('Failed to save permissions:', e);
@@ -283,6 +326,104 @@ export const EmployeePermissionsTab = () => {
         )}
       </div>
 
+      {/* ── MASTER ADMIN AUTHORITY DELEGATION CARD ── */}
+      <div style={{
+        background: isDelegatedAdmin 
+          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
+          : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+        borderRadius: '14px',
+        border: isDelegatedAdmin ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: isDelegatedAdmin ? '0 4px 14px rgba(59, 130, 246, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
+        transition: 'all 0.2s ease',
+        flexWrap: 'wrap',
+        gap: '14px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            backgroundColor: isDelegatedAdmin ? '#2563eb' : '#94a3b8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
+            boxShadow: isDelegatedAdmin ? '0 4px 10px rgba(37,99,235,0.3)' : 'none',
+            flexShrink: 0
+          }}>
+            <Crown size={22} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: '800', color: isDelegatedAdmin ? '#1e3a8a' : '#1e293b' }}>
+                Full Admin Authority Delegation
+              </span>
+              {isDelegatedAdmin && (
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  padding: '2px 8px',
+                  borderRadius: '20px',
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  letterSpacing: '0.3px'
+                }}>
+                  FULL ACCESS ACTIVE
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
+              Grant this user identical superpowers to Master Admin (all employees, reports, documentation, approvals, and system controls).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{
+            position: 'relative',
+            display: 'inline-block',
+            width: '46px',
+            height: '24px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={isDelegatedAdmin}
+              onChange={handleToggleDelegatedAdmin}
+              style={{ opacity: 0, width: 0, height: 0 }}
+            />
+            <span style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: isDelegatedAdmin ? '#2563eb' : '#cbd5e1',
+              borderRadius: '24px',
+              transition: '0.2s',
+              boxShadow: isDelegatedAdmin ? '0 2px 6px rgba(37,99,235,0.3)' : 'none'
+            }}>
+              <span style={{
+                position: 'absolute',
+                content: '""',
+                height: '18px',
+                width: '18px',
+                left: isDelegatedAdmin ? '24px' : '3px',
+                bottom: '3px',
+                backgroundColor: 'white',
+                borderRadius: '50%',
+                transition: '0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+              }} />
+            </span>
+          </label>
+        </div>
+      </div>
+
       {/* ── MODULE TOGGLE PERMISSIONS MATRIX ── */}
       <div style={{
         backgroundColor: '#ffffff',
@@ -432,11 +573,14 @@ export const EmployeePermissionsTab = () => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '6px' }}>
           {[
-            { key: 'viewAllLeads',      emoji: '👥', label: 'View All Company Leads',     onDesc: 'Sees entire company CRM pipeline',        offDesc: 'Only sees own & assigned leads' },
-            { key: 'viewAllTasks',      emoji: '✅', label: 'View All Team Tasks',         onDesc: 'Sees all teammates tasks & sprints',      offDesc: 'Only sees personally assigned tasks' },
-            { key: 'viewAllTickets',    emoji: '🎫', label: 'View All Support Tickets',    onDesc: 'Sees all company helpdesk tickets',       offDesc: 'Only sees own submitted / assigned tickets' },
-            { key: 'viewAllAttendance', emoji: '🕐', label: 'View All Attendance Records', onDesc: 'Sees full team attendance matrix',         offDesc: 'Only sees own attendance & clock logs' },
-            { key: 'viewAllLeaves',     emoji: '🌴', label: 'View All Leave Requests',     onDesc: 'Sees all employee leave applications',    offDesc: 'Only sees own submitted leave requests' },
+            { key: 'manageProjects',    emoji: '📁', label: 'Create & Manage Projects',   onDesc: 'Can create new projects, add members & edit project details', offDesc: 'Can only view assigned projects' },
+            { key: 'viewAllProjects',   emoji: '🗂️', label: 'View All Company Projects',   onDesc: 'Sees all projects across the enterprise',                     offDesc: 'Only sees projects assigned to them' },
+            { key: 'approveLeaves',     emoji: '🌴', label: 'Approve & Reject Leaves',     onDesc: 'Authorized to review, approve and reject leave applications', offDesc: 'Cannot approve leaves' },
+            { key: 'viewAllLeads',      emoji: '👥', label: 'View All Company Leads',     onDesc: 'Sees entire company CRM pipeline',                            offDesc: 'Only sees own & assigned leads' },
+            { key: 'viewAllTasks',      emoji: '✅', label: 'View All Team Tasks',         onDesc: 'Sees all teammates tasks & sprints',                          offDesc: 'Only sees personally assigned tasks' },
+            { key: 'viewAllTickets',    emoji: '🎫', label: 'View All Support Tickets',    onDesc: 'Sees all company helpdesk tickets',                           offDesc: 'Only sees own submitted / assigned tickets' },
+            { key: 'viewAllAttendance', emoji: '🕐', label: 'View All Attendance Records', onDesc: 'Sees full team attendance matrix',                             offDesc: 'Only sees own attendance & clock logs' },
+            { key: 'viewAllLeaves',     emoji: '🌴', label: 'View All Leave Requests',     onDesc: 'Sees all employee leave applications',                        offDesc: 'Only sees own submitted leave requests' },
           ].map(({ key, emoji, label, onDesc, offDesc }) => {
             const isEnabled = !!permissions[key];
             const adminHas = adminPerms[key] !== false;

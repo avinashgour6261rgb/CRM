@@ -36,27 +36,60 @@ const EmployeeSchema = new mongoose.Schema(
     department: {
       type: String,
       required: [true, 'Department is required'],
-      enum: [
-        'Marketing & Growth',
-        'Product Design',
-        'Engineering',
-        'Human Resources',
-        'Infrastructure',
-        'Finance',
-        'Sales',
-        'Operations',
-        'Management'
-      ]
+      trim: true,
+      default: 'Engineering'
+    },
+    dob: {
+      type: String,
+      default: ''
+    },
+    phone: {
+      type: String,
+      default: ''
+    },
+    gender: {
+      type: String,
+      default: 'Other'
+    },
+    address: {
+      type: String,
+      default: ''
+    },
+    emergencyContact: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    workMode: {
+      type: String,
+      default: 'Office'
     },
     status: {
       type: String,
-      enum: ['active', 'on_leave', 'resigned', 'inactive'],
       default: 'active'
     },
     joiningDate: {
       type: String,
-      required: [true, 'Joining date is required'],
-      match: [/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD']
+      default: () => new Date().toISOString().split('T')[0]
+    },
+    systemRole: {
+      type: String,
+      default: 'team_member'
+    },
+    password: {
+      type: String,
+      default: 'emp123'
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false
+    },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false
+    },
+    permissions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
     },
     isCurrentUser: {
       type: Boolean,
@@ -68,24 +101,46 @@ const EmployeeSchema = new mongoose.Schema(
       earned: { type: Number, default: 15, min: 0 },
       maternity: { type: Number, default: 0, min: 0 }
     },
+    startingSalary: {
+      type: Number,
+      default: 35000
+    },
+    annualCTC: {
+      type: Number,
+      default: 420000
+    },
+    salaryBasis: {
+      type: String,
+      default: 'monthly'
+    },
+    bankDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    customFields: {
+      type: Array,
+      default: []
+    },
     salary: {
-      basic: { type: Number, default: 45000 },
-      hra: { type: Number, default: 18000 },
-      allowances: { type: Number, default: 12000 },
-      bonus: { type: Number, default: 0 },
-      pf: { type: Number, default: 3600 },
-      pt: { type: Number, default: 200 },
-      tds: { type: Number, default: 2500 },
-      revisionType: { type: String, enum: ['hike', 'decrease', 'initial'], default: 'initial' },
-      lastRevisionDate: { type: String, default: '' },
-      lastRevisionPercentage: { type: Number, default: 0 },
-      lastRevisionAmount: { type: Number, default: 0 },
-      reason: { type: String, default: '' },
-      remarks: { type: String, default: '' }
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        basic: 45000,
+        hra: 18000,
+        allowances: 12000,
+        bonus: 0,
+        pf: 3600,
+        pt: 200,
+        tds: 2500,
+        monthlyGross: 75000,
+        netSalary: 68700,
+        annualCTC: 900000,
+        revisionType: 'initial'
+      }
     }
   },
   {
     timestamps: true,
+    strict: false,
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
   }

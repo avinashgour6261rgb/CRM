@@ -514,13 +514,13 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                           <span style={{
                             fontSize: '10.5px',
                             fontWeight: '700',
-                            padding: '2px 7px',
+                            padding: '2px 8px',
                             borderRadius: '12px',
-                            backgroundColor: (t.isCompleted || t.status === 'completed') ? '#dcfce7' : (t.status === 'in_progress' || t.timerRunning ? '#e0f2fe' : '#f1f5f9'),
-                            color: (t.isCompleted || t.status === 'completed') ? '#16a34a' : (t.status === 'in_progress' || t.timerRunning ? '#0284c7' : '#64748b'),
-                            border: `1px solid ${(t.isCompleted || t.status === 'completed') ? '#bbf7d0' : (t.status === 'in_progress' || t.timerRunning ? '#bae6fd' : '#e2e8f0')}`
+                            backgroundColor: (t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#ecfdf5' : ((t.isCompleted || t.status === 'completed') ? '#dcfce7' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#fef3c7' : '#f1f5f9')),
+                            color: (t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#059669' : ((t.isCompleted || t.status === 'completed') ? '#16a34a' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#b45309' : '#64748b')),
+                            border: `1px solid ${(t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#a7f3d0' : ((t.isCompleted || t.status === 'completed') ? '#bbf7d0' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#fde68a' : '#e2e8f0'))}`
                           }}>
-                            {(t.isCompleted || t.status === 'completed') ? '✅ Completed' : (t.status === 'in_progress' || t.timerRunning ? '⚡ In Progress' : '⏳ Pending')}
+                            {(t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '⚡ Working Now (Live)' : ((t.isCompleted || t.status === 'completed') ? '✅ Completed' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '⏸️ Paused (Last Session)' : '⏳ Pending'))}
                           </span>
                           <span style={{
                             fontSize: '12px',
@@ -537,11 +537,13 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
 
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b' }}>
                         <span>Project: <strong>{t.projectName || 'General'}</strong></span>
-                        <span>{t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : (t.status || 'Active')}</span>
+                        <span>
+                          {t.timerRunning ? '🟢 Currently Active' : (t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : (t.memo || t.status || 'Tracked Session'))}
+                        </span>
                       </div>
 
                       {t.memo && (
-                        <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
+                        <div style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
                           "{t.memo}"
                         </div>
                       )}

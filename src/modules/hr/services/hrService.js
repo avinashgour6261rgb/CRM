@@ -37,20 +37,43 @@ const getAuthHeaders = () => {
 
 let hrBackendOnline = null;
 let lastHrCheckTime = 0;
-const HR_CACHE_TTL = 25000;
+const HR_CACHE_TTL = 5000;
+let healthCheckPromise = null;
+
+async function checkHrBackendOnline() {
+  const now = Date.now();
+  if (hrBackendOnline === true && (now - lastHrCheckTime < HR_CACHE_TTL)) {
+    return true;
+  }
+  if (healthCheckPromise) {
+    return await healthCheckPromise;
+  }
+
+  healthCheckPromise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      hrBackendOnline = res.ok;
+    } catch {
+      hrBackendOnline = false;
+    }
+    lastHrCheckTime = Date.now();
+    healthCheckPromise = null;
+    return hrBackendOnline;
+  })();
+
+  return await healthCheckPromise;
+}
 
 /**
  * Safe fetch helper that attempts backend API first, falling back to local storage
  */
 async function fetchWithFallback(url, options, fallbackFn) {
-  const now = Date.now();
-  if (hrBackendOnline === false && (now - lastHrCheckTime < HR_CACHE_TTL)) {
-    return await fallbackFn();
-  }
-
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 800);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(url, {
       ...options,
@@ -65,16 +88,26 @@ async function fetchWithFallback(url, options, fallbackFn) {
 
     if (res.ok) {
       hrBackendOnline = true;
-      lastHrCheckTime = now;
+      lastHrCheckTime = Date.now();
       const json = await res.json();
       return json.data !== undefined ? json.data : json;
     } else {
+      const errJson = await res.json().catch(() => null);
+      if (errJson?.message) {
+        if (res.status === 409 || res.status === 400 || res.status === 422) {
+          throw new Error(errJson.message);
+        }
+      }
       hrBackendOnline = false;
-      lastHrCheckTime = now;
+      lastHrCheckTime = Date.now();
     }
   } catch (err) {
+    // If it's a conflict or explicit validation error from backend, rethrow it
+    if (err?.message && !err.message.includes('fetch') && !err.message.includes('abort') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+      throw err;
+    }
     hrBackendOnline = false;
-    lastHrCheckTime = now;
+    lastHrCheckTime = Date.now();
   }
 
   return await fallbackFn();
@@ -86,22 +119,48 @@ export const hrService = {
   // =========================================================================
   
   async getEmployees(params = {}) {
-    return fetchWithFallback(`${API_BASE}/employees`, { method: 'GET' }, async () => {
-      let employees = getCollection(KEYS.EMPLOYEES);
-      if (params.department && params.department !== 'all') {
-        employees = employees.filter(e => e.department === params.department);
-      }
-      if (params.search) {
-        const q = params.search.toLowerCase();
-        employees = employees.filter(e =>
-          e.name?.toLowerCase().includes(q) ||
-          e.email?.toLowerCase().includes(q) ||
-          e.role?.toLowerCase().includes(q) ||
-          e.employeeCode?.toLowerCase().includes(q)
-        );
-      }
-      return employees;
+    const result = await fetchWithFallback(`${API_BASE}/employees`, { method: 'GET' }, async () => {
+      return getCollection(KEYS.EMPLOYEES);
     });
+
+    const backendList = Array.isArray(result) ? result : (result?.data || []);
+    const localList = getCollection(KEYS.EMPLOYEES) || [];
+
+    // Smart Dual Merge: Ensure both backend and local storage are merged and in sync
+    const mergedMap = new Map();
+    localList.forEach(e => {
+      const key = (e.employeeCode || e._id || e.email || '').toLowerCase();
+      if (key) mergedMap.set(key, e);
+    });
+    backendList.forEach(e => {
+      const key = (e.employeeCode || e._id || e.email || '').toLowerCase();
+      if (key) {
+        const existing = mergedMap.get(key) || {};
+        mergedMap.set(key, { ...existing, ...e });
+      }
+    });
+
+    const mergedEmployees = Array.from(mergedMap.values());
+    if (mergedEmployees.length > 0) {
+      try {
+        localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(mergedEmployees));
+      } catch (_) {}
+    }
+
+    let filtered = mergedEmployees;
+    if (params.department && params.department !== 'all') {
+      filtered = filtered.filter(e => e.department === params.department);
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      filtered = filtered.filter(e =>
+        e.name?.toLowerCase().includes(q) ||
+        e.email?.toLowerCase().includes(q) ||
+        e.role?.toLowerCase().includes(q) ||
+        e.employeeCode?.toLowerCase().includes(q)
+      );
+    }
+    return filtered;
   },
 
   async getCurrentUser() {
@@ -122,14 +181,27 @@ export const hrService = {
   },
 
   async createEmployee(employeeData) {
-    return fetchWithFallback(`${API_BASE}/employees`, {
+    const empCode = (employeeData.employeeCode || `EMP-${Date.now().toString().slice(-3)}`).toUpperCase();
+    const systemRole = employeeData.systemRole || (employeeData.role?.toLowerCase().includes('admin') ? 'admin' : (employeeData.role?.toLowerCase().includes('hr') ? 'hr' : 'team_member'));
+    const password = employeeData.password || 'emp123';
+    const permissions = employeeData.permissions || {};
+
+    const fullEmpData = {
+      ...employeeData,
+      employeeCode: empCode,
+      systemRole,
+      password,
+      permissions
+    };
+
+    const result = await fetchWithFallback(`${API_BASE}/employees`, {
       method: 'POST',
-      body: JSON.stringify(employeeData)
+      body: JSON.stringify(fullEmpData)
     }, async () => {
       const employees = getCollection(KEYS.EMPLOYEES);
 
       // Duplicate check in fallback
-      const codeToTest = (employeeData.employeeCode || '').trim().toLowerCase();
+      const codeToTest = empCode.trim().toLowerCase();
       const existing = employees.find(e => (e.employeeCode || '').toLowerCase() === codeToTest || e._id === codeToTest);
       if (existing) {
         throw new Error(`Employee ID "${employeeData.employeeCode}" already exists for ${existing.name}`);
@@ -143,14 +215,15 @@ export const hrService = {
 
       const newEmployee = {
         _id: `emp_${Date.now()}`,
-        employeeCode: (employeeData.employeeCode || `EMP-${String(employees.length + 1).padStart(3, '0')}`).toUpperCase(),
-        name: employeeData.name,
-        email: employeeData.email,
+        ...fullEmpData,
         avatar: employeeData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(employeeData.name)}`,
         role: employeeData.role || 'Team Member',
         department: employeeData.department || 'General',
-        status: 'active',
+        status: employeeData.status || 'active',
         joiningDate: employeeData.joiningDate || new Date().toISOString().split('T')[0],
+        dob: employeeData.dob || '',
+        phone: employeeData.phone || '',
+        gender: employeeData.gender || 'Other',
         isCurrentUser: false,
         leaveBalance: employeeData.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 },
         createdAt: new Date().toISOString()
@@ -160,30 +233,91 @@ export const hrService = {
       saveCollection(KEYS.EMPLOYEES, employees);
       return newEmployee;
     });
+
+    // Ensure local storage copy exists with all security and permission attributes
+    try {
+      const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+      const idx = localEmps.findIndex(e => e._id === result?._id || e.employeeCode === empCode || e.email === employeeData.email);
+      const finalized = { ...fullEmpData, ...(result || {}), password, systemRole, permissions };
+      if (idx >= 0) {
+        localEmps[idx] = finalized;
+      } else {
+        localEmps.push(finalized);
+      }
+      saveCollection(KEYS.EMPLOYEES, localEmps);
+
+      if (permissions && Object.keys(permissions).length > 0) {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsed = rawMap ? JSON.parse(rawMap) : {};
+        parsed[empCode] = permissions;
+        if (result?._id) parsed[result._id] = permissions;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsed));
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      return finalized;
+    } catch (e) {
+      console.warn('Error syncing created employee to storage:', e);
+      return result;
+    }
   },
 
   async updateEmployee(employeeId, updateData) {
-    return fetchWithFallback(`${API_BASE}/employees/${employeeId}`, {
+    const result = await fetchWithFallback(`${API_BASE}/employees/${employeeId}`, {
       method: 'PUT',
       body: JSON.stringify(updateData)
     }, async () => {
       const employees = getCollection(KEYS.EMPLOYEES);
-      const index = employees.findIndex(e => e._id === employeeId || (e.isCurrentUser && updateData.isCurrentUser));
+      let index = employees.findIndex(e => 
+        e._id === employeeId || 
+        e.employeeCode === employeeId || 
+        (updateData.email && e.email?.toLowerCase() === updateData.email?.toLowerCase()) || 
+        (e.isCurrentUser && updateData.isCurrentUser) ||
+        ((employeeId === 'emp_admin' || updateData.systemRole === 'admin') && (e.systemRole === 'admin' || e.isAdmin))
+      );
       if (index === -1) {
-        // If updating current user specifically
-        const currIdx = employees.findIndex(e => e.isCurrentUser);
+        const currIdx = employees.findIndex(e => e.isCurrentUser || e.systemRole === 'admin' || e.isAdmin);
         if (currIdx !== -1) {
           employees[currIdx] = { ...employees[currIdx], ...updateData, updatedAt: new Date().toISOString() };
           saveCollection(KEYS.EMPLOYEES, employees);
           return employees[currIdx];
         }
-        throw new Error('Employee not found');
+        // If still not found, create new record
+        const newRecord = { _id: employeeId || `emp_${Date.now()}`, ...updateData, updatedAt: new Date().toISOString() };
+        employees.push(newRecord);
+        saveCollection(KEYS.EMPLOYEES, employees);
+        return newRecord;
       }
 
       employees[index] = { ...employees[index], ...updateData, updatedAt: new Date().toISOString() };
       saveCollection(KEYS.EMPLOYEES, employees);
       return employees[index];
     });
+
+    try {
+      const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+      const idx = localEmps.findIndex(e => 
+        e._id === employeeId || 
+        e.employeeCode === employeeId || 
+        (updateData.email && e.email?.toLowerCase() === updateData.email?.toLowerCase()) || 
+        (e.isCurrentUser && updateData.isCurrentUser) ||
+        ((employeeId === 'emp_admin' || updateData.systemRole === 'admin') && (e.systemRole === 'admin' || e.isAdmin))
+      );
+      if (idx >= 0) {
+        localEmps[idx] = { ...localEmps[idx], ...updateData, ...(result || {}) };
+        saveCollection(KEYS.EMPLOYEES, localEmps);
+      }
+      if (updateData.permissions) {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsed = rawMap ? JSON.parse(rawMap) : {};
+        parsed[employeeId] = updateData.permissions;
+        if (localEmps[idx]?.employeeCode) parsed[localEmps[idx].employeeCode] = updateData.permissions;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsed));
+      }
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+    } catch (e) {}
+
+    return result;
   },
 
   async deleteEmployee(employeeId) {

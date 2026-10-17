@@ -138,7 +138,7 @@ export const EmailNotificationModal = ({ isOpen, onClose, emailData }) => {
             </div>
 
             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: '11px', color: '#64748b' }}>
-              {companyInfo.companyName || 'Inforag Technology Pvt. Ltd.'} • Automated HR Notification Service
+              {companyInfo.companyName || 'Corporate HR System'} • Automated HR Notification Service
             </div>
           </div>
         </div>

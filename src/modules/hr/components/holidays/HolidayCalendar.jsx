@@ -185,7 +185,7 @@ export const HolidayCalendar = () => {
             gap: '1px'
           }}>
             {calendarCells.map((cell, index) => {
-              const dayHolidays = holidays.filter(h => h.date === cell.dateStr);
+              const dayHolidays = holidays.filter(h => h.date === cell.dateStr && !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))));
 
               return (
                 <div

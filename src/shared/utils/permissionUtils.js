@@ -116,13 +116,23 @@ export const ROLE_CONFIGS = {
 export const getUserRole = (user) => {
   if (!user) return ROLES.TEAM_MEMBER;
   
+  // 0. Primary Administrator Immutable Rule (Cannot be demoted, root system protection)
+  if (
+    user.employeeCode === 'ADM-001' ||
+    user.isSuperAdmin ||
+    user.email === 'admin@inforag.com' ||
+    user.isAdmin
+  ) {
+    return ROLES.ADMIN;
+  }
+
   // 1. Check direct system role attribute if explicitly set
   if (user.systemRole && Object.values(ROLES).includes(user.systemRole)) {
     return user.systemRole;
   }
 
   // 2. Direct flags
-  if (user.isSuperAdmin || user.isAdmin) {
+  if (user.isDelegatedAdmin) {
     return ROLES.ADMIN;
   }
 
@@ -193,10 +203,22 @@ export const isLeaderOrAbove = (user) => {
 
 // ── Feature-Specific Permission Gates ──
 export const canManageEmployees = (user) => isHRorAdmin(user);
-export const canApproveLeaves = (user) => isLeaderOrAbove(user);
+export const canApproveLeaves = (user) => {
+  if (!user) return false;
+  if (isAdmin(user)) return true;
+  const r = getUserRole(user);
+  if (r === ROLES.ADMIN || r === ROLES.HR || r === ROLES.TEAM_LEADER) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.approveLeaves || perms?.viewAllLeaves || perms?.allLeaves);
+};
 export const canManageCompanyHolidays = (user) => isHRorAdmin(user);
 export const canManagePayroll = (user) => isHRorAdmin(user);
-export const canManageProjects = (user) => isLeaderOrAbove(user);
+export const canManageProjects = (user) => {
+  if (!user) return false;
+  if (isLeaderOrAbove(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.manageProjects || perms?.createProjects || perms?.projects);
+};
 export const canAssignRoles = (user) => isAdmin(user);
 export const canPostNotices = (user) => isLeaderOrAbove(user);
 export const canDeleteEmployee = (user) => isAdmin(user);
@@ -217,13 +239,21 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     leaves: true,
     tickets: true,
     events: true,
-    employees: true,
-    reports: true,
+    documentation: true,
+    projects: true,
+    manageProjects: true,
+    viewAllProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
     viewAllTickets: true,
     viewAllAttendance: true,
-    viewAllLeaves: true
+    viewAllLeaves: true,
+    createTasks: true,
+    approveLeaves: true,
+    accessCRM: true,
+    accessFinance: true,
+    manageEmployees: true,
+    grantPermissions: true
   },
   hr: {
     dashboard: true,
@@ -235,11 +265,20 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     events: true,
     employees: true,
     reports: true,
+    documentation: true,
+    projects: true,
+    manageProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
     viewAllTickets: true,
     viewAllAttendance: true,
-    viewAllLeaves: true
+    viewAllLeaves: true,
+    createTasks: true,
+    approveLeaves: true,
+    accessCRM: false,
+    accessFinance: true,
+    manageEmployees: true,
+    grantPermissions: false
   },
   team_leader: {
     dashboard: true,
@@ -249,31 +288,71 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     leaves: true,
     tickets: true,
     events: true,
-    employees: false, // Restricted to HR & Admin
+    employees: false,
     reports: true,
+    documentation: false,
+    projects: true,
+    manageProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
     viewAllTickets: false,
     viewAllAttendance: false,
-    viewAllLeaves: false
+    viewAllLeaves: false,
+    createTasks: true,
+    approveLeaves: true,
+    accessCRM: true,
+    accessFinance: false,
+    manageEmployees: false,
+    grantPermissions: false
   },
   team_member: {
     dashboard: true,
     tasks: true,
-    leads: true,
+    timesheet: true,
     attendance: true,
     leaves: true,
     tickets: true,
     events: true,
-    employees: false, // Restricted to HR & Admin
+    expenses: true,
+    leads: false,
+    projects: false,
+    manageProjects: false,
+    employees: false,
     reports: false,
-    viewAllLeads: false, // by default only own / assigned leads
-    viewAllTasks: false, // by default only own assigned tasks
-    viewAllTickets: false, // by default only own tickets
-    viewAllAttendance: false, // by default only own attendance
-    viewAllLeaves: false // by default only own leaves
+    documentation: false,
+    payroll: false,
+    finance: false,
+    settings: false,
+    viewAllLeads: false,
+    viewAllTasks: false,
+    viewAllTickets: false,
+    viewAllAttendance: false,
+    viewAllLeaves: false,
+    createTasks: false,
+    approveLeaves: false,
+    accessCRM: false,
+    accessFinance: false,
+    manageEmployees: false,
+    grantPermissions: false
   }
 };
+
+/**
+ * Granular Permission Definitions for UI toggles
+ */
+export const GRANULAR_PERMISSIONS_LIST = [
+  { key: 'liveOperations', label: 'Live Operations & Shift Monitor', icon: '⚡', desc: 'Can monitor live employee shifts, see live table & perform shift actions' },
+  { key: 'viewAllTasks', label: 'View All Tasks', icon: '📋', desc: 'Can view tasks of all team members across the company' },
+  { key: 'createTasks', label: 'Create & Assign Tasks', icon: '✍️', desc: 'Can create and delegate tasks to others' },
+  { key: 'manageProjects', label: 'Create & Manage Projects', icon: '📁', desc: 'Can create new projects, assign team leads, and manage project deliverables' },
+  { key: 'viewAllAttendance', label: 'View Team Attendance', icon: '🕒', desc: 'Can see live shift status and punch logs of others' },
+  { key: 'approveLeaves', label: 'Approve Leaves', icon: '🌴', desc: 'Can approve or decline leave applications' },
+  { key: 'viewAllTickets', label: 'View All Tickets', icon: '🎫', desc: 'Can view and resolve helpdesk support tickets' },
+  { key: 'accessCRM', label: 'Access CRM & Leads', icon: '💼', desc: 'Can access CRM pipeline and customer leads' },
+  { key: 'accessFinance', label: 'Finance & Payroll', icon: '💰', desc: 'Can view payroll summaries and company expenses' },
+  { key: 'manageEmployees', label: 'Manage Employees', icon: '👥', desc: 'Can add, edit, or remove employee records' },
+  { key: 'grantPermissions', label: 'Grant Permissions', icon: '🛡️', desc: 'Admin delegation: Can modify other users access rights' }
+];
 
 /**
  * Get active module permissions for an employee with user-specific override support
@@ -283,31 +362,66 @@ export const getUserModulePermissions = (user) => {
   const role = getUserRole(user);
   if (role === ROLES.ADMIN) return DEFAULT_MODULE_PERMISSIONS.admin;
 
+  const basePerms = { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member) };
+
+  // 1. Direct permissions embedded on the user object
+  if (user.permissions && typeof user.permissions === 'object') {
+    Object.assign(basePerms, user.permissions);
+  }
+
+  // 2. Global stored permissions map
   try {
     const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
     if (rawMap) {
       const parsed = JSON.parse(rawMap);
       const userKey = user._id || user.employeeCode || user.email;
       if (userKey && parsed[userKey]) {
-        return { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member), ...parsed[userKey] };
+        Object.assign(basePerms, parsed[userKey]);
       }
       if (parsed[role]) {
-        return { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member), ...parsed[role] };
+        Object.assign(basePerms, parsed[role]);
       }
     }
   } catch (e) {
     console.warn('Error reading module permissions:', e);
   }
 
-  return DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member;
+  return basePerms;
+};
+
+/**
+ * Save user permission overrides
+ */
+export const setUserPermissions = (userKey, newPerms) => {
+  if (!userKey) return;
+  try {
+    const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+    const parsed = rawMap ? JSON.parse(rawMap) : {};
+    parsed[userKey] = { ...(parsed[userKey] || {}), ...newPerms };
+    localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsed));
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+  } catch (e) {
+    console.error('Error saving user permissions:', e);
+  }
+};
+
+/**
+ * Check if the active user is allowed to grant/edit permissions of other employees
+ */
+export const canUserGrantPermissions = (user) => {
+  if (!user) return false;
+  if (isAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return !!perms.grantPermissions;
 };
 
 /**
  * Check if a user can access a specific module
  */
 export const canAccessModule = (user, moduleId) => {
-  if (!user) return true;
+  if (!user) return false;
   if (isAdmin(user)) return true;
+  const role = getUserRole(user);
   const perms = getUserModulePermissions(user);
   const normalizedKey = String(moduleId).toLowerCase().replace(/[-_]/g, '');
   
@@ -330,10 +444,39 @@ export const canAccessModule = (user, moduleId) => {
     employeeinformation: 'employees',
     reports: 'reports',
     timesheet: 'tasks',
-    timesheets: 'tasks'
+    timesheets: 'tasks',
+    documentation: 'documentation',
+    documents: 'documentation',
+    payroll: 'payroll',
+    payslip: 'payroll',
+    payslips: 'payroll',
+    finance: 'finance',
+    expenses: 'expenses',
+    expense: 'expenses',
+    settings: 'settings',
+    projects: 'projects',
+    project: 'projects'
   };
 
   const permKey = keyMap[normalizedKey] || moduleId;
+
+  // 1. Explicit boolean in user's permissions overrides defaults
+  if (perms && typeof perms[permKey] === 'boolean') {
+    return perms[permKey];
+  }
+
+  // Project management grant override (Admin delegation)
+  if (permKey === 'projects' && perms && (perms.manageProjects || perms.createProjects || perms.projects || perms.viewAllProjects)) {
+    return true;
+  }
+
+  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules by default
+  if (role === ROLES.TEAM_MEMBER) {
+    const privilegedModules = ['employees', 'teamoperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
+    if (privilegedModules.includes(permKey)) return false;
+    return true; // allowed modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
+  }
+
   return perms[permKey] !== false;
 };
 

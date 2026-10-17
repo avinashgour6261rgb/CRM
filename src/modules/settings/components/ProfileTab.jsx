@@ -60,9 +60,9 @@ export const ProfileTab = () => {
     language: userSettings?.language || 'English',
     gender: userSettings?.gender || 'Male',
     dob: currentUser?.dob || userSettings?.dob || '1998-10-15',
-    slackId: userSettings?.slackId || `@${(currentUser?.name || 'user').toLowerCase().replace(/\s+/g, '')}`,
+    city: userSettings?.city || 'Indore, MP',
     maritalStatus: userSettings?.maritalStatus || 'Single',
-    address: userSettings?.address || 'Corporate Headquarters, Building 4',
+    address: userSettings?.address || 'Vijay Nagar, Indore, Madhya Pradesh 452010, India',
     about: userSettings?.about || 'Passionate team member contributing to enterprise success.',
     avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
   });
@@ -134,20 +134,43 @@ export const ProfileTab = () => {
 
       // 1. Update Core Employee Profile (avatar, name, email, role, dob sync everywhere)
       if (currentUser?._id) {
+        let safeRole = formData.role;
+        const isPrimaryAdmin = currentUser.employeeCode === 'ADM-001' ||
+          currentUser.isSuperAdmin ||
+          currentUser.email === 'admin@inforag.com' ||
+          currentUser.isAdmin ||
+          (currentUser.role || '').toLowerCase() === 'admin';
+
+        if (isPrimaryAdmin) {
+          // Primary Admin status can NEVER be stripped via profile settings
+          if (!safeRole || safeRole.toLowerCase() === 'team member') {
+            safeRole = 'Administrator';
+          }
+        }
+
         await updateEmployee(currentUser._id, {
           name: formData.name,
           email: formData.email,
-          role: formData.role,
+          role: safeRole,
           dob: formData.dob,
           avatar: formData.avatar,
-          phone: `${formData.countryCode} ${formData.mobile}`
+          phone: `${formData.countryCode} ${formData.mobile}`,
+          ...(isPrimaryAdmin ? { isAdmin: true, isSuperAdmin: true, systemRole: 'admin' } : {})
         });
 
         // Sync AuthContext and session immediately
-        const updatedAuth = { ...(authUser || currentUser), ...formData, isCurrentUser: true };
+        const updatedAuth = {
+          ...(authUser || currentUser),
+          ...formData,
+          role: safeRole,
+          phone: `${formData.countryCode} ${formData.mobile}`,
+          ...(isPrimaryAdmin ? { isAdmin: true, isSuperAdmin: true, systemRole: 'admin' } : {}),
+          isCurrentUser: true
+        };
         setAuthCurrentUser?.(updatedAuth);
         localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_employees' } }));
       }
 
       // If role changed, record in Promotion History
@@ -178,7 +201,7 @@ export const ProfileTab = () => {
         language: formData.language,
         gender: formData.gender,
         dob: formData.dob,
-        slackId: formData.slackId,
+        city: formData.city,
         maritalStatus: formData.maritalStatus,
         address: formData.address,
         about: formData.about
@@ -653,23 +676,25 @@ export const ProfileTab = () => {
           />
         </div>
 
-        {/* Slack Member ID */}
+        {/* City / Base Location */}
         <div>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
-            Slack Member ID
+            City / Base Location
           </label>
           <input
             type="text"
-            placeholder="@username"
-            value={formData.slackId}
-            onChange={e => handleChange('slackId', e.target.value)}
+            placeholder="e.g. Indore, Madhya Pradesh"
+            value={formData.city}
+            onChange={e => handleChange('city', e.target.value)}
             style={{
               width: '100%',
               padding: '9px 12px',
               borderRadius: '8px',
-              border: '1px solid #cbd5e1',
+              border: '1.5px solid #cbd5e1',
               fontSize: '13px',
-              outline: 'none'
+              outline: 'none',
+              backgroundColor: '#ffffff',
+              color: '#0f172a'
             }}
           />
         </div>
@@ -707,7 +732,7 @@ export const ProfileTab = () => {
         </label>
         <textarea
           rows={3}
-          placeholder="e.g. 132, My Street, Kingston, New York 12401"
+          placeholder="e.g. 102, Scheme 54, Vijay Nagar, Indore, Madhya Pradesh 452010"
           value={formData.address}
           onChange={e => handleChange('address', e.target.value)}
           style={{

@@ -28,6 +28,7 @@ import { useHR } from '../../hr/context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { AddEventModal } from '../../../shared/components/modals/AddEventModal';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -43,6 +44,10 @@ export const CalendarPage = () => {
   const [currentView, setCurrentView] = useState('month'); // 'month' | 'week' | 'day' | 'list'
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // Category and View Filters
+  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'holiday' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
+  const [showShifts, setShowShifts] = useState(false);
 
   // Filters
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(currentUser?._id || 'emp_001');
@@ -113,26 +118,29 @@ export const CalendarPage = () => {
       employeeRole: a.role,
       serviceYearsText: a.serviceYearsText,
       serviceYears: a.serviceYears,
-      location: 'Inforag Corporate Milestone',
-      description: `🌟 Milestone Celebration: ${a.name} (${a.role}) completes ${a.serviceYearsText} year${a.serviceYears > 1 ? 's' : ''} of dedicated service at Inforag! Thank you for being a vital pillar of our success. 💼🎉`,
+      location: 'Corporate Milestone',
+      description: `🌟 Milestone Celebration: ${a.name} (${a.role}) completes ${a.serviceYearsText} year${a.serviceYears > 1 ? 's' : ''} of dedicated service! Thank you for being a vital pillar of our success. 💼🎉`,
       isRecurring: true,
       color: '#7c3aed',
       bgColor: '#f5f3ff'
     }));
 
-    // 4. Official Public & Company Holidays (Genuine National, Gazetted, and Company Offs)
-    const holidayEvents = (holidays || []).map(h => ({
+    // 4. Official Public & Company Holidays (Highlighted Red)
+    const holidayEvents = (holidays || [])
+      .filter(h => !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))))
+      .map(h => ({
       _id: `hol_cal_${h._id || Math.random()}`,
       title: `🏖️ ${h.name || h.holidayName || h.title || 'Public Holiday'}`,
       date: h.date || new Date().toISOString().split('T')[0],
       endDate: h.date || new Date().toISOString().split('T')[0],
       time: 'All Day',
-      type: h.type || 'Public Holiday',
-      location: h.type === 'Company Holiday' ? 'Company Special Off' : 'National / Gazetted Holiday',
-      description: h.description || `${h.name || 'Holiday'} - Official Holiday across all Inforag offices.`,
+      type: h.type || 'Company Holiday',
+      location: h.type === 'Company Holiday' ? 'Company Declared Holiday' : 'National / Gazetted Holiday',
+      description: h.description || `${h.name || 'Holiday'} - Official Holiday across all offices.`,
       isRecurring: !!h.isRecurringYearly,
-      color: h.type === 'National Holiday' ? '#d97706' : (h.type === 'Company Holiday' ? '#0284c7' : '#16a34a'),
-      bgColor: h.type === 'National Holiday' ? '#fef3c7' : (h.type === 'Company Holiday' ? '#e0f2fe' : '#f0fdf4')
+      isHoliday: true,
+      color: '#dc2626',
+      bgColor: '#fee2e2'
     }));
 
     // 5. Dynamic Approved Leaves from Database
@@ -199,7 +207,11 @@ export const CalendarPage = () => {
         };
       });
 
-    // 7. Dynamic Work Shift Schedules
+    // 7. Dynamic Work Shift Schedules (from Company Settings)
+    const companySettings = getCompanySettings();
+    const shiftStart = companySettings.shiftStartTime || '10:00 AM';
+    const shiftEnd = companySettings.shiftEndTime || '07:00 PM';
+
     const shiftEvents = [];
     const curYear = currentDate.getFullYear();
     const curMonth = currentDate.getMonth();
@@ -214,13 +226,13 @@ export const CalendarPage = () => {
         if (!hasHoliday) {
           shiftEvents.push({
             _id: `shift_${dStr}`,
-            title: `🕒 Shift: 10:00 AM - 07:00 PM`,
+            title: `🕒 Shift: ${shiftStart} - ${shiftEnd}`,
             date: dStr,
             endDate: dStr,
-            time: '10:00 AM - 07:00 PM',
+            time: `${shiftStart} - ${shiftEnd}`,
             type: 'Shift Schedule',
             location: 'Office / Remote Hybrid',
-            description: `Scheduled standard working shift 10:00 AM to 07:00 PM for ${currentUser?.name || 'Employee'}.`,
+            description: `Scheduled standard working shift ${shiftStart} to ${shiftEnd} for ${currentUser?.name || 'Employee'}.`,
             color: '#475569',
             bgColor: '#f8fafc'
           });
@@ -239,9 +251,89 @@ export const CalendarPage = () => {
     ];
   }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, currentUser, currentDate]);
 
-  // Filter events
+  // 30-Day Upcoming Birthdays & Anniversaries Advance Alerts
+  const upcomingCelebrations = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const celebrations = [];
+
+    (computedBirthdays || []).forEach(b => {
+      if (!b.eventDate) return;
+      const bDate = new Date(b.eventDate);
+      bDate.setHours(0, 0, 0, 0);
+      const diffTime = bDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 30) {
+        celebrations.push({
+          id: `bday_${b.employeeId || b.name}`,
+          type: 'birthday',
+          name: b.name,
+          avatar: b.avatar,
+          role: b.role,
+          date: b.eventDate,
+          diffDays,
+          badge: diffDays === 0 ? 'Today! 🎂' : (diffDays === 1 ? 'Tomorrow' : `In ${diffDays} days`)
+        });
+      }
+    });
+
+    (computedAnniversaries || []).forEach(a => {
+      if (!a.eventDate) return;
+      const aDate = new Date(a.eventDate);
+      aDate.setHours(0, 0, 0, 0);
+      const diffTime = aDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 30) {
+        celebrations.push({
+          id: `anniv_${a.employeeId || a.name}`,
+          type: 'anniversary',
+          name: a.name,
+          avatar: a.avatar,
+          role: a.role,
+          yearsText: a.serviceYearsText,
+          date: a.eventDate,
+          diffDays,
+          badge: diffDays === 0 ? 'Today! 🌟' : (diffDays === 1 ? 'Tomorrow' : `In ${diffDays} days`)
+        });
+      }
+    });
+
+    return celebrations.sort((a, b) => a.diffDays - b.diffDays);
+  }, [computedBirthdays, computedAnniversaries]);
+
+  // Filter events by search, category pill, and shift visibility
   const filteredEvents = useMemo(() => {
     return allEvents.filter(ev => {
+      // 1. Shift schedule visibility
+      if (ev.type === 'Shift Schedule' && !showShifts && eventTypeFilter !== 'shift') {
+        return false;
+      }
+
+      // 2. Category pill filter
+      if (eventTypeFilter === 'holiday') {
+        const isHol = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
+        if (!isHol) return false;
+      } else if (eventTypeFilter === 'birthday') {
+        if (ev.type !== 'Birthday') return false;
+      } else if (eventTypeFilter === 'anniversary') {
+        if (ev.type !== 'Work Anniversary') return false;
+      } else if (eventTypeFilter === 'leave') {
+        if (ev.type !== 'Approved Leave') return false;
+      } else if (eventTypeFilter === 'task') {
+        if (!ev.type?.toLowerCase().includes('task')) return false;
+      } else if (eventTypeFilter === 'meeting') {
+        if (
+          ev.type === 'Birthday' ||
+          ev.type === 'Work Anniversary' ||
+          ev.isHoliday ||
+          ev.type === 'Approved Leave' ||
+          ev.type?.toLowerCase().includes('task') ||
+          ev.type === 'Shift Schedule'
+        ) return false;
+      }
+
+      // 3. Search query
       const q = search.toLowerCase();
       const matchesSearch = !search ||
         (ev.title || '').toLowerCase().includes(q) ||
@@ -250,7 +342,7 @@ export const CalendarPage = () => {
 
       return matchesSearch;
     });
-  }, [allEvents, search]);
+  }, [allEvents, search, eventTypeFilter, showShifts]);
 
   // Navigation handlers
   const handlePrevMonth = () => {
@@ -368,19 +460,19 @@ export const CalendarPage = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '7px',
+            padding: '7px 15px',
+            borderRadius: '8px',
             backgroundColor: '#2563eb',
             color: '#ffffff',
             border: 'none',
-            fontSize: '12px',
+            fontSize: '12.5px',
             fontWeight: '700',
             cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
+            boxShadow: '0 2px 5px rgba(37,99,235,0.25)'
           }}
         >
           <Plus size={14} />
-          Create Event
+          Add Event / Reminder
         </button>
       </div>
 
@@ -500,6 +592,174 @@ export const CalendarPage = () => {
             />
           </div>
         </div>
+      </div>
+
+      {/* 30-Day Celebrations Advance Alerts Banner */}
+      {upcomingCelebrations.length > 0 && (
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '10px',
+          border: '1px solid #fed7aa',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          background: 'linear-gradient(135deg, #fffaf5 0%, #ffffff 100%)',
+          boxShadow: '0 1px 3px rgba(249, 115, 22, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>🎉</span>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: '#9a3412' }}>
+                Upcoming Celebrations (Next 30 Days)
+              </span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                backgroundColor: '#ffedd5',
+                color: '#c2410c'
+              }}>
+                {upcomingCelebrations.length} upcoming
+              </span>
+            </div>
+            <span style={{ fontSize: '11.5px', color: '#9a3412', fontWeight: '500' }}>
+              Advance notification to plan wishes & team greetings
+            </span>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            overflowX: 'auto',
+            paddingBottom: '4px'
+          }}>
+            {upcomingCelebrations.map(c => (
+              <div
+                key={c.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '7px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: c.type === 'birthday' ? '#fff7ed' : '#f5f3ff',
+                  border: `1px solid ${c.type === 'birthday' ? '#fed7aa' : '#ddd6fe'}`,
+                  minWidth: '220px',
+                  flexShrink: 0
+                }}
+              >
+                <img
+                  src={c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.name)}`}
+                  alt={c.name}
+                  style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {c.type === 'birthday' ? '🎂' : '🌟'} {c.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    {c.type === 'birthday' ? 'Birthday' : `${c.yearsText} Anniversary`} • {c.date}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  padding: '2px 7px',
+                  borderRadius: '4px',
+                  backgroundColor: c.diffDays === 0 ? '#ef4444' : (c.type === 'birthday' ? '#ea580c' : '#7c3aed'),
+                  color: '#ffffff',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {c.badge}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category Filter Pills Bar */}
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        padding: '8px 12px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {[
+            { id: 'all', label: 'All Items' },
+            { id: 'holiday', label: '🏖️ Official Holidays', count: (holidays || []).length },
+            { id: 'birthday', label: '🎂 Birthdays', count: (computedBirthdays || []).length },
+            { id: 'anniversary', label: '🌟 Anniversaries', count: (computedAnniversaries || []).length },
+            { id: 'leave', label: '🌴 Approved Leaves' },
+            { id: 'task', label: '📌 Tasks Due' },
+            { id: 'meeting', label: '🏢 Company Events' }
+          ].map(tab => {
+            const isActive = eventTypeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setEventTypeFilter(tab.id)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: isActive ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                  backgroundColor: isActive ? '#eff6ff' : '#ffffff',
+                  color: isActive ? '#1d4ed8' : '#475569',
+                  fontSize: '12px',
+                  fontWeight: isActive ? '700' : '500',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>{tab.label}</span>
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    padding: '1px 5px',
+                    borderRadius: '10px',
+                    backgroundColor: isActive ? '#2563eb' : '#f1f5f9',
+                    color: isActive ? '#ffffff' : '#64748b'
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Shift visibility toggle */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '12px',
+          color: '#475569',
+          cursor: 'pointer',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          backgroundColor: showShifts ? '#f1f5f9' : 'transparent'
+        }}>
+          <input
+            type="checkbox"
+            checked={showShifts}
+            onChange={e => setShowShifts(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          <span style={{ fontWeight: '600' }}>Show Daily Shifts</span>
+        </label>
       </div>
 
       {/* Calendar Viewport Matching Screenshot 3 */}
@@ -627,57 +887,134 @@ export const CalendarPage = () => {
             borderLeft: '1px solid #f1f5f9',
             borderTop: '1px solid #f1f5f9'
           }}>
-            {calendarDays.map((day, idx) => (
-              <div
-                key={idx}
-                style={{
-                  minHeight: '100px',
-                  borderRight: '1px solid #f1f5f9',
-                  borderBottom: '1px solid #f1f5f9',
-                  padding: '6px 8px',
-                  backgroundColor: day.isCurrentMonth ? '#ffffff' : '#fafafa',
-                  position: 'relative'
-                }}
-              >
-                {/* Day Number */}
-                <div style={{
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  color: day.isCurrentMonth ? '#0f172a' : '#cbd5e1',
-                  textAlign: 'right',
-                  marginBottom: '4px'
-                }}>
-                  {day.dayNum}
-                </div>
+            {calendarDays.map((day, idx) => {
+              const isHolidayDay = day.events?.some(ev => 
+                ev.isHoliday ||
+                ev.type?.toLowerCase().includes('holiday') || 
+                ev.title?.toLowerCase().includes('holiday') ||
+                ev._id?.startsWith('hol_')
+              );
 
-                {/* Event Pills */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {day.events.map(ev => (
-                    <div
-                      key={ev._id}
-                      onClick={() => setSelectedEvent(ev)}
-                      style={{
-                        padding: '3px 6px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        backgroundColor: ev.bgColor || '#eff6ff',
-                        color: ev.color || '#2563eb',
-                        borderLeft: `3px solid ${ev.color || '#2563eb'}`,
-                        cursor: 'pointer',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
-                      }}
-                      title={`${ev.title} (${ev.time})`}
-                    >
-                      {ev.title}
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    minHeight: '100px',
+                    borderRight: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
+                    borderBottom: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
+                    padding: '6px 8px',
+                    backgroundColor: isHolidayDay 
+                      ? '#fef2f2' 
+                      : (day.isCurrentMonth ? '#ffffff' : '#fafafa'),
+                    position: 'relative',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                >
+                  {/* Day Number, Today & Holiday Tag */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '4px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {isHolidayDay && (
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: '800',
+                          color: '#dc2626',
+                          backgroundColor: '#fee2e2',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          letterSpacing: '0.2px'
+                        }}>
+                          🏖️ HOLIDAY
+                        </span>
+                      )}
+                      {day.dateStr === new Date().toISOString().split('T')[0] && (
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: '800',
+                          color: '#1d4ed8',
+                          backgroundColor: '#dbeafe',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          letterSpacing: '0.2px'
+                        }}>
+                          TODAY
+                        </span>
+                      )}
                     </div>
-                  ))}
+                    <span style={{
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      color: isHolidayDay ? '#dc2626' : (day.dateStr === new Date().toISOString().split('T')[0] ? '#2563eb' : (day.isCurrentMonth ? '#0f172a' : '#cbd5e1')),
+                      width: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
+                      height: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '50%',
+                      backgroundColor: day.dateStr === new Date().toISOString().split('T')[0] ? '#eff6ff' : 'transparent',
+                      border: day.dateStr === new Date().toISOString().split('T')[0] ? '1px solid #93c5fd' : 'none'
+                    }}>
+                      {day.dayNum}
+                    </span>
+                  </div>
+
+                  {/* Event Pills */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {day.events.slice(0, 3).map(ev => {
+                      const isEvHoliday = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev.title?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
+                      return (
+                        <div
+                          key={ev._id}
+                          onClick={() => setSelectedEvent(ev)}
+                          style={{
+                            padding: '3px 6px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            backgroundColor: isEvHoliday ? '#fee2e2' : (ev.bgColor || '#eff6ff'),
+                            color: isEvHoliday ? '#b91c1c' : (ev.color || '#2563eb'),
+                            borderLeft: `3px solid ${isEvHoliday ? '#ef4444' : (ev.color || '#2563eb')}`,
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                          }}
+                          title={`${ev.title} (${ev.time})`}
+                        >
+                          {ev.title}
+                        </div>
+                      );
+                    })}
+                    {day.events.length > 3 && (
+                      <div
+                        onClick={() => {
+                          setCurrentDate(new Date(day.dateStr));
+                          setCurrentView('day');
+                        }}
+                        style={{
+                          fontSize: '10px',
+                          color: '#2563eb',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          backgroundColor: '#eff6ff',
+                          textAlign: 'center'
+                        }}
+                        title="Click to view all events for this day"
+                      >
+                        +{day.events.length - 3} more...
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

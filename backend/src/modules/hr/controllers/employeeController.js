@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
@@ -25,8 +26,6 @@ const getEmployees = asyncHandler(async (req, res) => {
     data: employees
   });
 });
-
-const mongoose = require('mongoose');
 
 // ─── GET /api/employees/current ───────────────────────────────────────────────
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -75,7 +74,12 @@ const switchCurrentUser = asyncHandler(async (req, res) => {
 
 // ─── GET /api/employees/:id ───────────────────────────────────────────────────
 const getEmployeeById = asyncHandler(async (req, res) => {
-  const employee = await Employee.findById(req.params.id);
+  const { id } = req.params;
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
+
+  const employee = await Employee.findOne(query);
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
@@ -85,30 +89,39 @@ const getEmployeeById = asyncHandler(async (req, res) => {
 // ─── POST /api/employees ──────────────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
   const { employeeCode, email } = req.body;
-  if (employeeCode) {
-    const existingCode = await Employee.findOne({ employeeCode: employeeCode.trim().toUpperCase() });
+  const cleanCode = employeeCode ? employeeCode.trim().toUpperCase() : undefined;
+  const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+
+  if (cleanCode) {
+    const existingCode = await Employee.findOne({ employeeCode: cleanCode });
     if (existingCode) {
       return res.status(409).json({
         success: false,
-        message: `Employee ID "${employeeCode}" is already assigned to ${existingCode.name}`
+        message: `Employee ID "${cleanCode}" is already assigned to ${existingCode.name}`
       });
     }
   }
 
-  if (email) {
-    const existingEmail = await Employee.findOne({ email: email.trim().toLowerCase() });
+  if (cleanEmail) {
+    const existingEmail = await Employee.findOne({ email: cleanEmail });
     if (existingEmail) {
       return res.status(409).json({
         success: false,
-        message: `Email address "${email}" is already registered with ${existingEmail.name}`
+        message: `Email address "${cleanEmail}" is already registered with ${existingEmail.name}`
       });
     }
   }
 
+  // Strip non-ObjectId _id if provided by client to avoid Mongo CastError
+  const payload = { ...req.body };
+  if (payload._id && !mongoose.Types.ObjectId.isValid(payload._id)) {
+    delete payload._id;
+  }
+
   const employee = new Employee({
-    ...req.body,
-    employeeCode: req.body.employeeCode ? req.body.employeeCode.trim().toUpperCase() : undefined,
-    email: req.body.email ? req.body.email.trim().toLowerCase() : undefined
+    ...payload,
+    employeeCode: cleanCode,
+    email: cleanEmail
   });
   await employee.save();
   res.status(201).json({ success: true, data: employee });
@@ -116,10 +129,20 @@ const createEmployee = asyncHandler(async (req, res) => {
 
 // ─── PUT /api/employees/:id ───────────────────────────────────────────────────
 const updateEmployee = asyncHandler(async (req, res) => {
-  const employee = await Employee.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true, runValidators: true }
+  const { id } = req.params;
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
+
+  const payload = { ...req.body };
+  if (payload._id && !mongoose.Types.ObjectId.isValid(payload._id)) {
+    delete payload._id;
+  }
+
+  const employee = await Employee.findOneAndUpdate(
+    query,
+    payload,
+    { new: true, runValidators: false }
   );
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
@@ -129,7 +152,12 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
 // ─── DELETE /api/employees/:id ───────────────────────────────────────────────
 const deleteEmployee = asyncHandler(async (req, res) => {
-  const employee = await Employee.findByIdAndDelete(req.params.id);
+  const { id } = req.params;
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
+
+  const employee = await Employee.findOneAndDelete(query);
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }

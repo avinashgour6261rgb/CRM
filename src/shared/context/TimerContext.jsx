@@ -508,7 +508,6 @@ export const TimerProvider = ({ children }) => {
 
       const totalBreaks = pastBreakSecs + activeBreakSecs;
       setBreakSeconds(totalBreaks);
-      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, totalBreaks.toString());
 
       if (inVal) {
         if (!clockInTs) {
@@ -518,7 +517,13 @@ export const TimerProvider = ({ children }) => {
         const grossShiftSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
         const netWorkSecs = Math.max(0, grossShiftSecs - totalBreaks);
         setWorkSeconds(netWorkSecs);
-        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, netWorkSecs.toString());
+
+        const nowTs = Date.now();
+        if (nowTs - lastStorageWriteTs > 10000) {
+          lastStorageWriteTs = nowTs;
+          localStorage.setItem(`ems_timer_${userKey}_break_seconds`, totalBreaks.toString());
+          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, netWorkSecs.toString());
+        }
 
         if (reclockStatus === 'pending') {
           const rBase = Number(localStorage.getItem(`ems_timer_${userKey}_saved_official_seconds`) || 0);
@@ -531,6 +536,8 @@ export const TimerProvider = ({ children }) => {
         setWorkSeconds(0);
       }
     };
+
+    let lastStorageWriteTs = 0;
 
     tick();
     interval = setInterval(tick, 1000);

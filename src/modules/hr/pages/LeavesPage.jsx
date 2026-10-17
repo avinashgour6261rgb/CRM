@@ -24,6 +24,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
+import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
 
 export const LeavesPage = () => {
@@ -42,6 +43,7 @@ export const LeavesPage = () => {
 
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
+  const [rejectingLeave, setRejectingLeave] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list', 'calendar', 'card'
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -176,18 +178,66 @@ export const LeavesPage = () => {
   };
 
   return (
-    <div className="animate-fade-in">
-      {/* Page Title & Breadcrumb */}
-      <div className="page-header-container">
-        <div className="page-title-group">
-          <h1 className="page-title">Leave Management</h1>
-          <div className="page-breadcrumb">
-            <span>Home</span>
-            <ChevronRight size={13} />
-            <span>HR</span>
-            <ChevronRight size={13} />
-            <span>Leaves</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+      {/* Header Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#ecfdf5',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Palmtree size={17} />
           </div>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Leave Management & Approvals
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Apply for leaves, track approval workflows, and view leave balances.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setIsNewLeaveOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(5,150,105,0.2)'
+            }}
+            title="Apply for a new leave"
+          >
+            <Plus size={13} />
+            <span>Apply Leave</span>
+          </button>
         </div>
       </div>
 
@@ -714,12 +764,7 @@ export const LeavesPage = () => {
                                     <Check size={13} /> Accept
                                   </button>
                                   <button
-                                    onClick={() => {
-                                      const reason = prompt('Optional: Reason for denying leave request:', 'Schedule conflict / staffing requirement');
-                                      if (reason !== null) {
-                                        updateLeaveStatus(leave._id, 'rejected', reason);
-                                      }
-                                    }}
+                                    onClick={() => setRejectingLeave(leave)}
                                     style={{
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -1047,6 +1092,17 @@ export const LeavesPage = () => {
         leave={selectedLeave}
         isOpen={!!selectedLeave}
         onClose={() => setSelectedLeave(null)}
+      />
+
+      <RejectLeaveModal
+        isOpen={!!rejectingLeave}
+        leave={rejectingLeave}
+        onClose={() => setRejectingLeave(null)}
+        onConfirm={(reason) => {
+          if (rejectingLeave?._id) {
+            updateLeaveStatus(rejectingLeave._id, 'rejected', reason);
+          }
+        }}
       />
     </div>
   );

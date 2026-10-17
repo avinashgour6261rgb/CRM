@@ -20,7 +20,8 @@ import {
   Ticket,
   Palmtree,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Key
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimer } from '../../context/TimerContext';
@@ -38,11 +39,15 @@ import { AddProjectModal } from '../../../modules/work/components/projects/AddPr
 import { RaiseTicketModal } from '../modals/RaiseTicketModal';
 import { NewLeaveModal } from '../../../modules/hr/components/leaves/NewLeaveModal';
 import { AddLeadModal } from '../../../modules/crm/components/leads/AddLeadModal';
+import { ChangePasswordModal } from '../modals/ChangePasswordModal';
+import { LogoutConfirmModal } from '../modals/LogoutConfirmModal';
 
 export const TopNavbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [isChangePassOpen, setIsChangePassOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const {
     timeString,
@@ -63,7 +68,7 @@ export const TopNavbar = () => {
     ? 'admin'
     : (currentUser?.systemRole === 'hr' || currentUser?.role?.toLowerCase().includes('hr') ? 'hr' : 'employee');
 
-  const { tickets, computedBirthdays } = useCRM();
+  const { tickets, computedBirthdays, computedAnniversaries } = useCRM();
   const { tasks, projects } = useWork();
 
   // Dropdown States
@@ -143,34 +148,85 @@ export const TopNavbar = () => {
   const myPendingTasks = (tasks || []).filter(t => (t?.assignedToId === currentUser?._id || t?.assignedToName === currentUser?.name) && t?.status !== 'completed');
   const openTicketsList = (tickets || []).filter(t => t?.status === 'open' || t?.status === 'pending');
   const todayBirthdaysList = (computedBirthdays || []).filter(b => b?.diffDays === 0 || b?.isToday);
-  const totalNotifications = myPendingTasks.length + openTicketsList.length + (todayBirthdaysList.length > 0 ? 1 : 0);
+  const upcomingBirthdaysList = (computedBirthdays || []).filter(b => b?.isUpcoming30Days && !b?.isToday);
+  const todayAnnivList = (computedAnniversaries || []).filter(a => a?.diffDays === 0 || a?.isToday);
+  const upcomingAnnivList = (computedAnniversaries || []).filter(a => a?.isUpcoming30Days && !a?.isToday);
+  const totalNotifications = myPendingTasks.length + openTicketsList.length + todayBirthdaysList.length + upcomingBirthdaysList.length + todayAnnivList.length + upcomingAnnivList.length;
+
+  // Immediate next celebration alert for header pill (prioritizing today / soonest within 14 days)
+  const nextCelebration = React.useMemo(() => {
+    const list = [
+      ...(computedBirthdays || []).map(b => ({
+        ...b,
+        celeType: 'birthday',
+        icon: '🎂',
+        celeText: `${b.name}'s Birthday`,
+        dateFormatted: b.birthdayDate
+      })),
+      ...(computedAnniversaries || []).map(a => ({
+        ...a,
+        celeType: 'anniversary',
+        icon: '🌟',
+        celeText: `${a.name}'s ${a.serviceYearsText || ''} Anniv`,
+        dateFormatted: a.anniversaryDate || a.annivFormattedDate
+      }))
+    ].filter(item => item.diffDays >= 0 && item.diffDays <= 14).sort((a, b) => a.diffDays - b.diffDays);
+    return list[0] || null;
+  }, [computedBirthdays, computedAnniversaries]);
 
   // Search Results
   const filteredTasks = (tasks || []).filter(t => (t.title || '').toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 3);
   const filteredProjects = (projects || []).filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 3);
   const filteredEmployees = (employees || []).filter(e => (e.name || '').toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 3);
 
-  const workingMode = currentUser?.workingMode || localStorage.getItem('ems_working_mode') || 'Office';
+  const [workingMode, setWorkingMode] = useState(() => {
+    return currentUser?.workMode || currentUser?.workingMode || localStorage.getItem('ems_working_mode') || 'Office';
+  });
+
+  useEffect(() => {
+    const handleModeUpdate = (e) => {
+      const mode = e.detail?.mode || localStorage.getItem('ems_working_mode') || 'Office';
+      setWorkingMode(mode);
+    };
+    window.addEventListener('ems_working_mode_changed', handleModeUpdate);
+    window.addEventListener('hrms_storage_change', handleModeUpdate);
+    return () => {
+      window.removeEventListener('ems_working_mode_changed', handleModeUpdate);
+      window.removeEventListener('hrms_storage_change', handleModeUpdate);
+    };
+  }, []);
 
   const handleWorkingModeChange = (newMode) => {
+    setWorkingMode(newMode);
     localStorage.setItem('ems_working_mode', newMode);
-    if (currentUser?._id) {
-      updateEmployee(currentUser._id, { ...currentUser, workingMode: newMode });
+    try {
+      const authSession = JSON.parse(localStorage.getItem('ems_auth_session') || '{}');
+      if (authSession) {
+        localStorage.setItem('ems_auth_session', JSON.stringify({ ...authSession, workingMode: newMode, workMode: newMode }));
+      }
+    } catch {}
+    if (currentUser?._id && updateEmployee) {
+      updateEmployee(currentUser._id, { ...currentUser, workingMode: newMode, workMode: newMode });
     }
+    window.dispatchEvent(new CustomEvent('ems_working_mode_changed', { detail: { mode: newMode } }));
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_working_mode' } }));
     addToast(`Working mode set to: ${newMode}`, 'success');
   };
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      authLogout();
-      addToast('Logged out successfully', 'info');
-      navigate('/login');
-    }
+    setIsLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setIsLogoutModalOpen(false);
+    authLogout();
+    addToast('Logged out successfully', 'info');
+    navigate('/login');
   };
 
   return (
     <header style={{
-      height: '60px',
+      height: '64px',
       backgroundColor: '#ffffff',
       borderBottom: '1px solid #e2e8f0',
       display: 'flex',
@@ -179,7 +235,8 @@ export const TopNavbar = () => {
       padding: '0 24px',
       position: 'sticky',
       top: 0,
-      zIndex: 90
+      zIndex: 90,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
     }}>
       {/* ── LEFT: Title & Breadcrumbs matching Novainfinity Screenshots ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -199,58 +256,6 @@ export const TopNavbar = () => {
 
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-        {/* ── Direct 1-Click Role Switcher (Always available for testing & perspective demo) ── */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: '#f1f5f9',
-          padding: '2px',
-          borderRadius: '20px',
-          border: '1.5px solid #cbd5e1',
-          gap: '2px'
-        }}>
-          {[
-            { id: 'admin', label: 'Admin', icon: '👑', color: '#7c3aed' },
-            { id: 'hr', label: 'HR', icon: '💼', color: '#0284c7' },
-            { id: 'employee', label: 'Employee', icon: '👤', color: '#16a34a' }
-          ].map(r => {
-            const isSelected = currentSystemRole === r.id;
-            return (
-              <button
-                key={r.id}
-                id={`switch-role-${r.id}`}
-                onClick={async () => {
-                  try {
-                    await switchRole(r.id);
-                    addToast(`Switched perspective to ${r.label} mode`, 'success');
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 10px',
-                  borderRadius: '16px',
-                  border: 'none',
-                  backgroundColor: isSelected ? '#ffffff' : 'transparent',
-                  color: isSelected ? r.color : '#64748b',
-                  fontWeight: isSelected ? '800' : '600',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  boxShadow: isSelected ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-                title={`Try/Switch perspective to ${r.label}`}
-              >
-                <span>{r.icon}</span>
-                <span>{r.label}</span>
-              </button>
-            );
-          })}
-        </div>
 
         {/* ── Working Timer Widget (e.g. 02:16:05 with blue/red controls) ── */}
         <div style={{
@@ -323,6 +328,41 @@ export const TopNavbar = () => {
             <Square size={8} fill="#fff" />
           </button>
         </div>
+
+        {/* ── 🎂 / 🌟 Celebration Countdown in Top Header ── */}
+        {nextCelebration && (
+          <div
+            onClick={() => navigate('/calendar')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: nextCelebration.diffDays === 0 ? '#fdf2f8' : (nextCelebration.diffDays === 1 ? '#fff7ed' : '#f8fafc'),
+              border: `1px solid ${nextCelebration.diffDays === 0 ? '#fbcfe8' : (nextCelebration.diffDays === 1 ? '#fed7aa' : '#e2e8f0')}`,
+              padding: '4px 10px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: nextCelebration.diffDays === 0 ? '#be185d' : (nextCelebration.diffDays === 1 ? '#c2410c' : '#334155'),
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              transition: 'all 0.15s ease'
+            }}
+            title={`View on Calendar • Date: ${nextCelebration.dateFormatted}`}
+          >
+            <span>{nextCelebration.icon} {nextCelebration.celeText}</span>
+            <span style={{
+              fontSize: '10px',
+              fontWeight: '800',
+              padding: '1px 6px',
+              borderRadius: '10px',
+              backgroundColor: nextCelebration.diffDays === 0 ? '#db2777' : (nextCelebration.diffDays === 1 ? '#ea580c' : '#2563eb'),
+              color: '#ffffff'
+            }}>
+              {nextCelebration.diffDays === 0 ? '🎉 TODAY!' : (nextCelebration.diffDays === 1 ? `⏰ Tomorrow (${nextCelebration.dateFormatted})` : `⏳ In ${nextCelebration.diffDays}d (${nextCelebration.dateFormatted})`)}
+            </span>
+          </div>
+        )}
 
         {/* ── 🔍 Quick Search Icon ── */}
         <button
@@ -442,6 +482,48 @@ export const TopNavbar = () => {
                   </div>
                 )}
 
+                {upcomingBirthdaysList.length > 0 && (
+                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#ea580c', marginBottom: '4px' }}>
+                      🎂 UPCOMING BIRTHDAYS (30-DAY ADVANCE)
+                    </div>
+                    {upcomingBirthdaysList.slice(0, 3).map(b => (
+                      <div key={b.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🎂 {b.name}</span>
+                        <span style={{ fontSize: '10.5px', color: '#ea580c', fontWeight: '600' }}>📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {todayAnnivList.length > 0 && (
+                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#7c3aed', marginBottom: '4px' }}>
+                      🌟 TODAY'S WORK ANNIVERSARIES
+                    </div>
+                    {todayAnnivList.map(a => (
+                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🌟 {a.name} ({a.serviceYearsText})</span>
+                        <span style={{ fontSize: '10.5px', color: '#7c3aed', fontWeight: '700' }}>🎉 TODAY!</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {upcomingAnnivList.length > 0 && (
+                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#6d28d9', marginBottom: '4px' }}>
+                      🌟 UPCOMING ANNIVERSARIES (30-DAY ADVANCE)
+                    </div>
+                    {upcomingAnnivList.slice(0, 3).map(a => (
+                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🌟 {a.name} ({a.serviceYearsText})</span>
+                        <span style={{ fontSize: '10.5px', color: '#6d28d9', fontWeight: '600' }}>📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {openTicketsList.length > 0 && (
                   <div style={{ padding: '8px' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', marginBottom: '4px' }}>
@@ -551,7 +633,7 @@ export const TopNavbar = () => {
               </div>
             )}
             <span style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-              Work
+              {currentUser?.name?.split(' ')[0] || 'User'}
             </span>
           </div>
 
@@ -659,6 +741,32 @@ export const TopNavbar = () => {
                 >
                   <Edit3 size={14} color="#64748b" />
                   <span>Edit Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    setIsChangePassOpen(true);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: '#334155',
+                    fontSize: '12.5px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Key size={14} color="#2563eb" />
+                  <span>Change Password</span>
                 </button>
 
                 <button
@@ -862,6 +970,19 @@ export const TopNavbar = () => {
       <AddLeadModal
         isOpen={isAddLeadOpen}
         onClose={() => setIsAddLeadOpen(false)}
+      />
+
+      <ChangePasswordModal
+        isOpen={isChangePassOpen}
+        onClose={() => setIsChangePassOpen(false)}
+      />
+
+      <LogoutConfirmModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+        user={currentUser}
+        isShiftActive={isClockedIn}
       />
     </header>
   );

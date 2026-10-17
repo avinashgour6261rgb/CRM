@@ -29,9 +29,9 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed', color: '#16a34a', bg: '#f0fdf4', dot: '#22c55e' }
 };
 
-export const TasksTable = ({ onSelectTask }) => {
+export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
   const {
-    tasks,
+    tasks: contextTasks,
     deleteTask,
     changeTaskStatus,
     completeTask,
@@ -42,6 +42,8 @@ export const TasksTable = ({ onSelectTask }) => {
     isEmployeeOnLeave,
     formatSeconds
   } = useWork();
+
+  const tasks = propTasks !== undefined ? propTasks : (contextTasks || []);
 
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
@@ -116,7 +118,7 @@ export const TasksTable = ({ onSelectTask }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ padding: '8px 10px', width: '30px' }}>
+              <th style={{ padding: '8px 10px', width: '32px' }}>
                 <input
                   type="checkbox"
                   onChange={toggleSelectAll}
@@ -124,37 +126,28 @@ export const TasksTable = ({ onSelectTask }) => {
                   style={{ cursor: 'pointer' }}
                 />
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '65px' }}>
                 Code
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '95px' }}>
                 Timer
               </th>
-              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Task
+              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Task & Project
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Completed On
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '135px' }}>
+                Schedule & Due
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Start Date
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '125px' }}>
+                Logged / Est
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Due Date
-              </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Estimated
-              </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Logged
-              </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '145px' }}>
                 Assigned To
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '115px' }}>
                 Status
               </th>
-              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', width: '90px' }}>
                 Action
               </th>
             </tr>
@@ -360,77 +353,72 @@ export const TasksTable = ({ onSelectTask }) => {
                     </div>
                   </td>
 
-                  {/* Completed On */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                  {/* Schedule & Due Date */}
+                  <td style={{ padding: '7px 10px' }}>
                     {task.completedOn ? (
-                      task.completedOn === todayStr ? (
-                        <span style={{ color: '#16a34a', fontWeight: '700', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px' }}>
-                          Today ✅
+                      <div>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                          ✅ {task.completedOn === todayStr ? 'Today' : task.completedOn}
                         </span>
-                      ) : task.completedOn
-                    ) : '—'}
+                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                          Start: {task.startDate || '—'}
+                        </div>
+                      </div>
+                    ) : task.dueDate && task.dueDate < todayStr && task.status !== 'completed' ? (
+                      <div>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          backgroundColor: '#fee2e2',
+                          color: '#dc2626',
+                          border: '1px solid #fecaca',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: '800',
+                          fontSize: '10.5px'
+                        }}>
+                          ⚠️ {task.dueDate}
+                        </span>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                          Start: {task.startDate || '—'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: task.dueDate === todayStr ? '#ea580c' : '#334155' }}>
+                          {task.hasNoDueDate ? 'No Due Date' : (task.dueDate === todayStr ? '🔥 Due Today' : `Due: ${task.dueDate}`)}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>
+                          Start: {task.startDate === todayStr ? 'Today' : (task.startDate || '—')}
+                        </div>
+                      </div>
+                    )}
                   </td>
 
-                  {/* Start Date */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#0f172a', whiteSpace: 'nowrap' }}>
-                    {task.startDate === todayStr ? 'Today' : (task.startDate || '—')}
-                  </td>
-
-                  {/* Due Date */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#0f172a', whiteSpace: 'nowrap' }}>
-                    {task.hasNoDueDate ? 'No Due Date' : (task.dueDate && task.dueDate < todayStr && task.status !== 'completed' ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        backgroundColor: '#fee2e2',
-                        color: '#dc2626',
-                        border: '1px solid #fecaca',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        fontWeight: '800',
-                        fontSize: '11px'
-                      }}>
-                        ⚠️ {task.dueDate} (Overdue)
-                      </span>
-                    ) : task.dueDate === todayStr ? (
-                      <span style={{ color: '#ea580c', fontWeight: '700' }}>Today</span>
-                    ) : (task.dueDate || '—'))}
-                  </td>
-
-                  {/* Estimated Time */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      backgroundColor: '#eff6ff',
-                      color: '#1d4ed8',
-                      fontWeight: '700',
-                      fontSize: '11px',
-                      border: '1px solid #dbeafe',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      ⏱️ {task.estimatedHours ? `${task.estimatedHours}h 00m` : '0h (Open)'}
-                    </span>
-                  </td>
-
-                  {/* Hours Logged with Visual Progress Bar */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '95px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
-                        <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'}</span>
+                  {/* Hours Logged & Progress with Live / Tracked time */}
+                  <td style={{ padding: '7px 10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
+                        {task.timerRunning ? (
+                          <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '800' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+                            ⏱️ {task.liveDurationText || formatSeconds(task.timerSeconds || 0)} (Live)
+                          </span>
+                        ) : Number(task.timerSeconds) > 0 ? (
+                          <span style={{ color: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            ⏸️ {formatSeconds(task.timerSeconds)} worked
+                          </span>
+                        ) : (
+                          <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'} / {task.estimatedHours ? `${task.estimatedHours}h` : 'Open'}</span>
+                        )}
                         {task.estimatedHours > 0 && (
                           <span style={{
                             fontSize: '9.5px',
                             fontWeight: '800',
-                            color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#d97706' : '#16a34a'
+                            color: ((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? '#d97706' : '#16a34a'
                           }}>
-                            {(Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
-                              ? `+${(Number(task.hoursLogged) - Number(task.estimatedHours)).toFixed(1)}h over`
-                              : `${Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100)}%`}
+                            {Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100)}%
                           </span>
                         )}
                       </div>
@@ -444,8 +432,8 @@ export const TasksTable = ({ onSelectTask }) => {
                         }}>
                           <div style={{
                             height: '100%',
-                            width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`,
-                            backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
+                            width: `${Math.min(100, Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100))}%`,
+                            backgroundColor: ((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
                             borderRadius: '2px',
                             transition: 'width 0.3s ease'
                           }} />

@@ -825,7 +825,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               }}>
                 <div>
                   <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', margin: 0, textTransform: 'uppercase' }}>
-                    {companyInfo.companyName || 'INFORAG TECHNOLOGY PVT. LTD.'}
+                    {companyInfo.companyName || 'ORGANIZATION'}
                   </h2>
                   <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
                     {companyInfo.address} • {companyInfo.hrEmail || companyInfo.email}
@@ -928,7 +928,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     {companyInfo.signatoryTitle || 'Authorized HR Directorate'}
                   </div>
                   <div style={{ fontSize: '11px', color: '#64748b' }}>
-                    {companyInfo.companyName || 'Inforag Technology Pvt. Ltd.'}
+                    {companyInfo.companyName || 'Organization Directorate'}
                   </div>
                 </div>
                 <div style={{

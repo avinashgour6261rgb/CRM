@@ -36,6 +36,12 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   // Actor status
   const isActorAdmin = currentUser?.isAdmin || currentUser?.role?.toLowerCase().includes('admin') || currentUser?.systemRole === 'admin';
 
+  // Primary Admin Lockout Guard
+  const isTargetPrimaryAdmin = employee?.employeeCode === 'ADM-001' ||
+    employee?.isSuperAdmin ||
+    employee?.email === 'admin@inforag.com' ||
+    (employee?.isAdmin && (employee?.role || '').toLowerCase() === 'admin');
+
   useEffect(() => {
     if (employee) {
       setSelectedRole(employee.role || '');
@@ -52,6 +58,12 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   const handlePromote = async (e) => {
     e.preventDefault();
     if (!targetRoleTitle) return;
+
+    // Security boundary: Protect Primary Admin from demotion / lockout
+    if (isTargetPrimaryAdmin && !targetRoleTitle.toLowerCase().includes('admin')) {
+      addToast('🔒 Security Protection: Primary Administrator (ADM-001) cannot be demoted to a non-admin role. This prevents system lockouts.', 'error');
+      return;
+    }
 
     // Security boundary check: HR cannot create Admin
     if (targetRoleTitle.toLowerCase().includes('admin') && !isActorAdmin) {
@@ -205,6 +217,23 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
           /* Form Body */
           <form onSubmit={handlePromote} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
             
+            {isTargetPrimaryAdmin && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                backgroundColor: '#eff6ff',
+                border: '1.5px solid #93c5fd',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <Lock size={18} color="#1d4ed8" />
+                <div style={{ fontSize: '12.5px', color: '#1e40af', fontWeight: '600' }}>
+                  <strong>🔒 Primary Administrator Protected:</strong> This account ({employee.employeeCode}) is the root system administrator. Administrative authority cannot be revoked or demoted to prevent complete lockout from the EMS workspace.
+                </div>
+              </div>
+            )}
+
             {/* Live Role Transition Visualizer */}
             <div style={{
               padding: '16px',

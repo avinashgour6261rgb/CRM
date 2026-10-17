@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --font-main: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
@@ -40,8 +41,8 @@
   --status-late-bg: #fef3c7;
   --status-halfday: #8b5cf6;
   --status-halfday-bg: #f3e8ff;
-  --status-holiday: #eab308;
-  --status-holiday-bg: #fef9c3;
+  --status-holiday: #dc2626;
+  --status-holiday-bg: #fee2e2;
   --status-leave: #0284c7;
   --status-leave-bg: #e0f2fe;
   --status-dayoff: #64748b;
@@ -326,7 +327,8 @@ button, input, select, textarea {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
-.filter-select {
+.filter-select,
+select {
   height: 34px;
   padding: 0 28px 0 10px;
   border: 1px solid var(--border-light);
@@ -334,7 +336,11 @@ button, input, select, textarea {
   font-size: 12.5px;
   font-weight: 500;
   color: var(--text-main);
-  background: var(--bg-subtle) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") no-repeat right 8px center;
+  color-scheme: light;
+  background-color: #ffffff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   background-size: 12px;
   appearance: none;
   outline: none;
@@ -342,10 +348,18 @@ button, input, select, textarea {
   transition: var(--transition-fast);
 }
 
-.filter-select:focus {
+.filter-select:focus,
+select:focus {
   border-color: var(--primary);
   background-color: #ffffff;
   box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.filter-select option,
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  padding: 8px 12px;
 }
 
 /* Button Styles */
@@ -626,7 +640,9 @@ button, input, select, textarea {
 
 .badge-holiday {
   background: var(--status-holiday-bg);
-  color: #854d0e;
+  color: var(--status-holiday);
+  border: 1px solid #fca5a5;
+  font-weight: 700;
 }
 
 .badge-leave {

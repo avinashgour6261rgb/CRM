@@ -29,9 +29,10 @@ export const HolidayPage = () => {
   // Dynamic today's date
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const totalHolidaysCount = holidays.length;
-  const upcomingHolidays = holidays.filter(h => h.date >= todayStr);
-  const completedHolidays = holidays.filter(h => h.date < todayStr);
+  const cleanHolidays = (holidays || []).filter(h => !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))));
+  const totalHolidaysCount = cleanHolidays.length;
+  const upcomingHolidays = cleanHolidays.filter(h => h.date >= todayStr);
+  const completedHolidays = cleanHolidays.filter(h => h.date < todayStr);
   
   // Q4 Festive Season (Oct - Dec) dynamic calculation
   const q4Holidays = holidays.filter(h => {

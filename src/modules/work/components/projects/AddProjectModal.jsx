@@ -243,7 +243,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="e.g. Inforag Cloud Dashboard, Novainfinity Revamp"
+                placeholder="e.g. Enterprise Cloud Dashboard, Mobile Client Portal"
                 autoFocus
                 required
                 style={{

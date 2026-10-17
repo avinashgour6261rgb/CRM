@@ -16,7 +16,8 @@ import {
   Layers,
   CheckCircle2,
   Clock,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -33,7 +34,8 @@ export const TasksPage = () => {
     setTaskFilter,
     currentUser: workUser,
     projects,
-    employees
+    employees,
+    purgeAllTasks
   } = useWork();
   const { currentUser: authUser } = useAuth();
   const currentUser = authUser || workUser;
@@ -98,14 +100,88 @@ export const TasksPage = () => {
     }
   };
 
+  // Match task assignment (single and multi-assignee)
+  const isTaskAssignedToUser = React.useCallback((task, user) => {
+    if (!task || !user) return false;
+    const uId = String(user._id || user.id || '');
+    const uCode = String(user.employeeCode || '');
+    const uName = (user.name || '').toLowerCase().trim();
+
+    if (task.assignedToId && (String(task.assignedToId) === uId || String(task.assignedToId) === uCode)) return true;
+    if (task.assignedTo && (String(task.assignedTo) === uId || String(task.assignedTo) === uCode)) return true;
+    if (task.assignedToName && task.assignedToName.toLowerCase().trim() === uName) return true;
+
+    if (Array.isArray(task.assignedToIds) && (task.assignedToIds.includes(uId) || task.assignedToIds.includes(uCode))) return true;
+    if (Array.isArray(task.assignees) && task.assignees.some(a => String(a._id) === uId || String(a.employeeCode) === uCode || (a.name && a.name.toLowerCase().trim() === uName))) return true;
+
+    return false;
+  }, []);
+
+  // Filtered & strictly scoped tasks
+  const displayTasks = React.useMemo(() => {
+    let list = tasks || [];
+
+    // 1. Role-based tenant isolation: Regular employees can strictly only view tasks assigned to or created by them
+    if (!canViewAllTasks && currentUser) {
+      list = list.filter(t => isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id || t.assignedBy === currentUser.name);
+    } else {
+      // Admin / HR scope filtering
+      if (scopeMode === 'assigned_to_me') {
+        list = list.filter(t => isTaskAssignedToUser(t, currentUser));
+      } else if (scopeMode === 'assigned_by_me') {
+        list = list.filter(t => t.assignedById === currentUser?._id || t.assignedBy === currentUser?.name);
+      }
+    }
+
+    // 2. Member filter dropdown (e.g. filter by specific employee)
+    if (taskFilter.assignedTo && taskFilter.assignedTo !== 'all') {
+      list = list.filter(t => {
+        const targetEmp = employees?.find(e => e._id === taskFilter.assignedTo || e.employeeCode === taskFilter.assignedTo);
+        if (targetEmp) return isTaskAssignedToUser(t, targetEmp);
+        return t.assignedToId === taskFilter.assignedTo || t.assignedTo === taskFilter.assignedTo || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(taskFilter.assignedTo));
+      });
+    }
+
+    // 3. Status tab / filter
+    if (statusMode === 'active') {
+      list = list.filter(t => t.status !== 'completed');
+    } else if (statusMode === 'completed') {
+      list = list.filter(t => t.status === 'completed');
+    } else if (taskFilter.status && taskFilter.status !== 'all') {
+      list = list.filter(t => t.status === taskFilter.status);
+    } else if (taskFilter.hideCompleted) {
+      list = list.filter(t => t.status !== 'completed');
+    }
+
+    // 4. Search query
+    if (taskFilter.search && taskFilter.search.trim()) {
+      const q = taskFilter.search.toLowerCase().trim();
+      list = list.filter(t =>
+        (t.title && t.title.toLowerCase().includes(q)) ||
+        (t.taskCode && t.taskCode.toLowerCase().includes(q)) ||
+        (t.projectName && t.projectName.toLowerCase().includes(q)) ||
+        (t.assignedToName && t.assignedToName.toLowerCase().includes(q)) ||
+        (Array.isArray(t.assignees) && t.assignees.some(a => a.name && a.name.toLowerCase().includes(q)))
+      );
+    }
+
+    return [...list].sort((a, b) => {
+      if (a.timerRunning && !b.timerRunning) return -1;
+      if (!a.timerRunning && b.timerRunning) return 1;
+      if (a.status !== 'completed' && b.status === 'completed') return -1;
+      if (a.status === 'completed' && b.status !== 'completed') return 1;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+  }, [tasks, canViewAllTasks, currentUser, scopeMode, taskFilter, statusMode, employees, isTaskAssignedToUser]);
+
   // Export CSV
   const handleExportCSV = () => {
-    if (!tasks.length) return;
+    if (!displayTasks.length) return;
     const headers = ['Code', 'Title', 'Project', 'Category', 'Assignee', 'Assigned By', 'Start Date', 'Due Date', 'Status', 'Estimated Hours', 'Hours Logged'];
-    const rows = tasks.map(t => [
+    const rows = displayTasks.map(t => [
       t.taskCode,
-      `"${t.title.replace(/"/g, '""')}"`,
-      `"${t.projectName.replace(/"/g, '""')}"`,
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      `"${(t.projectName || '').replace(/"/g, '""')}"`,
       t.category,
       t.assignedToName,
       t.assignedBy || 'Admin',
@@ -127,24 +203,114 @@ export const TasksPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Top Breadcrumb & Title */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+      {/* Header Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#64748b', marginBottom: '1px' }}>
-            <span>Home</span>
-            <span>•</span>
-            <span style={{ color: '#0f172a', fontWeight: '600' }}>Tasks</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#f0fdf4',
+            color: '#16a34a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <CheckCircle2 size={17} />
           </div>
-          <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-            Tasks & Delegation
-          </h1>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Tasks & Work Delegation
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Manage team assignments, live task tracking, and work execution.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleExportCSV}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '6px',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            title="Export tasks to CSV"
+          >
+            <Download size={13} />
+            <span>Export CSV</span>
+          </button>
+
+          {isPrivileged && tasks.length > 0 && (
+            <button
+              onClick={async () => {
+                if (window.confirm('⚠️ Are you sure you want to purge all existing tasks? This will wipe legacy tasks so you can start completely clean with new tasks.')) {
+                  await purgeAllTasks();
+                }
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 11px',
+                borderRadius: '6px',
+                backgroundColor: '#fef2f2',
+                color: '#dc2626',
+                border: '1px solid #fecaca',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+              title="Purge all old tasks to start clean"
+            >
+              <Trash2 size={13} />
+              <span>Purge Old Tasks</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
+            }}
+            title="Create a new task"
+          >
+            <Plus size={13} />
+            <span>Add Task</span>
+          </button>
         </div>
       </div>
 
@@ -515,9 +681,9 @@ export const TasksPage = () => {
 
       {/* Main View: Table or Kanban */}
       {viewMode === 'table' ? (
-        <TasksTable onSelectTask={(task) => setSelectedTask(task)} />
+        <TasksTable tasks={displayTasks} onSelectTask={(task) => setSelectedTask(task)} />
       ) : (
-        <TasksKanban onSelectTask={(task) => setSelectedTask(task)} />
+        <TasksKanban tasks={displayTasks} onSelectTask={(task) => setSelectedTask(task)} />
       )}
 
       {/* Add Task Modal */}

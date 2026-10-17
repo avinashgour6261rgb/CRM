@@ -24,6 +24,7 @@ import {
   HelpCircle,
   FileText
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useHR } from '../context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
@@ -31,12 +32,16 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
+import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin } from '../../../shared/utils/permissionUtils';
 
 export const TeamOperationsPage = () => {
+  const navigate = useNavigate();
   const { currentUser, isHRorAdmin } = useAuth();
   const { employees, attendance, leaves, loadHRData } = useHR();
   const { tasks, completeTask, formatSeconds } = useWork();
   const { addToast } = useToast();
+
+  const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
 
   const [syncTick, setSyncTick] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,6 +54,53 @@ export const TeamOperationsPage = () => {
   const [clockOutModalTarget, setClockOutModalTarget] = useState(null);
   const [emergencyReason, setEmergencyReason] = useState('Electricity / Power cut override');
   const [customPunchTime, setCustomPunchTime] = useState('');
+
+  // 📬 Profile Credential Change Requests State
+  const [profileRequests, setProfileRequests] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('EMS_PROFILE_UPDATE_REQUESTS') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const pendingProfileRequests = profileRequests.filter(r => r.status === 'pending');
+
+  const handleApproveProfileRequest = (req) => {
+    try {
+      const emps = getCollection(KEYS.EMPLOYEES, []);
+      const idx = emps.findIndex(e => e._id === req.employeeId || e.employeeCode === req.employeeCode);
+      if (idx >= 0) {
+        if (req.field === 'email') {
+          emps[idx].email = req.requestedValue;
+        } else if (req.field === 'name') {
+          emps[idx].name = req.requestedValue;
+        }
+        saveCollection(KEYS.EMPLOYEES, emps);
+      }
+
+      const updatedReqs = profileRequests.map(r => r.id === req.id ? { ...r, status: 'approved', approvedAt: new Date().toISOString() } : r);
+      setProfileRequests(updatedReqs);
+      localStorage.setItem('EMS_PROFILE_UPDATE_REQUESTS', JSON.stringify(updatedReqs));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      addToast(`Approved ${req.field} change for ${req.employeeName}! Record updated.`, 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to approve request', 'error');
+    }
+  };
+
+  const handleRejectProfileRequest = (req) => {
+    try {
+      const updatedReqs = profileRequests.map(r => r.id === req.id ? { ...r, status: 'rejected', rejectedAt: new Date().toISOString() } : r);
+      setProfileRequests(updatedReqs);
+      localStorage.setItem('EMS_PROFILE_UPDATE_REQUESTS', JSON.stringify(updatedReqs));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_profile_requests' } }));
+      addToast(`Declined ${req.field} request for ${req.employeeName}.`, 'info');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -453,7 +505,10 @@ export const TeamOperationsPage = () => {
     setActiveDayLogTarget(logData);
   };
 
-  if (!isHRorAdmin) {
+  const perms = getUserModulePermissions(currentUser);
+  const canAccessLiveOps = isHRorAdmin || perms?.liveOperations || perms?.viewAllAttendance;
+
+  if (!canAccessLiveOps) {
     return (
       <div style={{
         padding: '40px',
@@ -468,7 +523,7 @@ export const TeamOperationsPage = () => {
           Access Restricted
         </h2>
         <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
-          Live Operations & Emergency Shift Overrides are restricted to Administrators and HR Managers only.
+          Live Operations & Emergency Shift Overrides require Administrator, HR, or delegated Live Operations permission.
         </p>
       </div>
     );
@@ -556,6 +611,109 @@ export const TeamOperationsPage = () => {
           <span>Sync Now</span>
         </button>
       </div>
+
+      {/* ── PENDING CREDENTIAL CHANGE REQUESTS (ADMIN REVIEW) ── */}
+      {isHRorAdmin && pendingProfileRequests.length > 0 && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          borderRadius: '12px',
+          border: '1.5px solid #bfdbfe',
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shield size={18} color="#2563eb" />
+              <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e40af' }}>
+                Pending Employee Credential Change Requests ({pendingProfileRequests.length})
+              </span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#3b82f6', fontWeight: '600' }}>
+              Requires Super Admin Approval to update official database records
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {pendingProfileRequests.map(req => (
+              <div
+                key={req.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#ffffff',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #dbeafe',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>
+                      {req.employeeName}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>({req.employeeCode})</span>
+                    <span style={{
+                      fontSize: '10.5px',
+                      fontWeight: '700',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      backgroundColor: req.field === 'email' ? '#fdf2f8' : '#f0fdf4',
+                      color: req.field === 'email' ? '#be185d' : '#15803d'
+                    }}>
+                      Requested {req.field === 'email' ? 'Email' : 'Name'} Change
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
+                    <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>{req.currentValue}</span>
+                    <span style={{ margin: '0 6px' }}>➔</span>
+                    <strong style={{ color: '#2563eb' }}>{req.requestedValue}</strong>
+                    <span style={{ color: '#64748b', marginLeft: '10px', fontStyle: 'italic' }}>Reason: &quot;{req.reason}&quot;</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => handleRejectProfileRequest(req)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#64748b',
+                      fontSize: '11.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleApproveProfileRequest(req)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: '#16a34a',
+                      color: '#ffffff',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(22, 163, 74, 0.3)'
+                    }}
+                  >
+                    ✓ Approve Change
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── KPI STATS CARDS ── */}
       <div style={{
@@ -774,6 +932,7 @@ export const TeamOperationsPage = () => {
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
                 <th style={{ padding: '12px 16px', fontWeight: '700' }}>Employee</th>
+                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Work Mode</th>
                 <th style={{ padding: '12px 16px', fontWeight: '700' }}>Department</th>
                 <th style={{ padding: '12px 16px', fontWeight: '700' }}>Shift Status</th>
                 <th style={{ padding: '12px 16px', fontWeight: '700' }}>Punch Times</th>
@@ -819,6 +978,24 @@ export const TeamOperationsPage = () => {
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Working Mode Badge */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          backgroundColor: emp.workingMode === 'Remote' ? '#ecfdf5' : emp.workingMode === 'Hybrid' ? '#faf5ff' : '#eff6ff',
+                          color: emp.workingMode === 'Remote' ? '#059669' : emp.workingMode === 'Hybrid' ? '#7c3aed' : '#2563eb',
+                          border: `1px solid ${emp.workingMode === 'Remote' ? '#a7f3d0' : emp.workingMode === 'Hybrid' ? '#e9d5ff' : '#bfdbfe'}`
+                        }}>
+                          <span>{emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
+                        </span>
                       </td>
 
                       {/* Department */}

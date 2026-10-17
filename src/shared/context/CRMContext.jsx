@@ -9,6 +9,7 @@ import { getCollection, saveCollection, KEYS } from '../services/storageService'
 import { useToast } from './ToastContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
+import { INITIAL_WEEKLY_TIMELOGS } from '../mock/initialData';
 
 const CRMContext = createContext();
 
@@ -148,20 +149,35 @@ export const CRMProvider = ({ children }) => {
     };
   }, []);
 
-  // FIX: Re-compute weekly logs when user clocks in/out or takes breaks
+  // Re-compute weekly logs when user clocks in/out, takes breaks, or changes task timers
   useEffect(() => {
-    const refreshTick = () => setStorageTick(prev => prev + 1);
+    let timeoutId = null;
+    const refreshTick = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setStorageTick(prev => prev + 1);
+      }, 300);
+    };
+
     window.addEventListener('ems_clocked_in', refreshTick);
     window.addEventListener('ems_clocked_out', refreshTick);
     window.addEventListener('ems_break_started', refreshTick);
     window.addEventListener('ems_break_ended', refreshTick);
     window.addEventListener('ems_force_clock_out', refreshTick);
+    window.addEventListener('ems_task_timer_started', refreshTick);
+    window.addEventListener('ems_task_timer_paused', refreshTick);
+    window.addEventListener('ems_task_timer_stopped', refreshTick);
+
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('ems_clocked_in', refreshTick);
       window.removeEventListener('ems_clocked_out', refreshTick);
       window.removeEventListener('ems_break_started', refreshTick);
       window.removeEventListener('ems_break_ended', refreshTick);
       window.removeEventListener('ems_force_clock_out', refreshTick);
+      window.removeEventListener('ems_task_timer_started', refreshTick);
+      window.removeEventListener('ems_task_timer_paused', refreshTick);
+      window.removeEventListener('ems_task_timer_stopped', refreshTick);
     };
   }, []);
 
@@ -205,20 +221,28 @@ export const CRMProvider = ({ children }) => {
 
         // Calculate days remaining
         const diffTime = birthdayThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        let targetEventDate = birthdayEventDate;
+
+        if (diffDays < 0) {
+          // If already occurred this calendar year, roll to next year's birthday
+          const nextYearBday = new Date(currentYear + 1, birthMonth, birthDay);
+          diffDays = Math.ceil((nextYearBday.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+          targetEventDate = `${currentYear + 1}-${(birthMonth + 1).toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`;
+        }
+
+        // 🌟 Strict Rule: Only display birthdays within 1 month (<= 30 days). If > 30 days, do NOT show!
+        if (diffDays < 0 || diffDays > 30) {
+          return null;
+        }
 
         let daysRemainingText = '';
         if (diffDays === 0) {
           daysRemainingText = "Today! 🎉 Happy Birthday!";
         } else if (diffDays === 1) {
           daysRemainingText = 'Tomorrow 🎂';
-        } else if (diffDays > 1 && diffDays <= 30) {
-          daysRemainingText = `${diffDays} days remaining`;
-        } else if (diffDays > 30) {
-          const monthsAhead = Math.round(diffDays / 30);
-          daysRemainingText = `${monthsAhead} month${monthsAhead > 1 ? 's' : ''} after`;
         } else {
-          daysRemainingText = 'Celebrated earlier this year';
+          daysRemainingText = `In ${diffDays} days`;
         }
 
         return {
@@ -230,19 +254,17 @@ export const CRMProvider = ({ children }) => {
           avatar: emp.avatar,
           dob: emp.dob,
           birthdayDate: birthdayFormattedDate,
-          eventDate: birthdayEventDate,
+          eventDate: targetEventDate,
           daysRemainingText,
           diffDays,
+          isUpcoming30Days: true,
+          isToday: diffDays === 0,
           fullMonth: fullMonthNames[birthMonth],
           dayOfMonth: birthDay
         };
       })
-      .sort((a, b) => {
-        // Sort upcoming birthdays first
-        const aVal = a.diffDays >= 0 ? a.diffDays : a.diffDays + 365;
-        const bVal = b.diffDays >= 0 ? b.diffDays : b.diffDays + 365;
-        return aVal - bVal;
-      });
+      .filter(Boolean)
+      .sort((a, b) => a.diffDays - b.diffDays);
   }, [employees]);
 
   // =========================================================================
@@ -254,15 +276,15 @@ export const CRMProvider = ({ children }) => {
     const currentYear = today.getFullYear();
 
     return employees
-      .filter(emp => emp.joiningDate || emp.joinDate)
+      .filter(emp => emp && (emp.joiningDate || emp.joinDate))
       .map(emp => {
-        let joinMonth = 0; // 0-indexed
-        let joinDay = 15;
-        let joinYear = 2023;
+        let joinMonth = -1;
+        let joinDay = 1;
+        let joinYear = currentYear;
         const joinStr = emp.joiningDate || emp.joinDate;
 
         if (joinStr) {
-          const parts = joinStr.split(/[-/]/);
+          const parts = String(joinStr).split(/[-/]/);
           if (parts.length === 3) {
             if (parts[0].length === 4) {
               // YYYY-MM-DD
@@ -278,10 +300,15 @@ export const CRMProvider = ({ children }) => {
           }
         }
 
+        // 🌟 Strict Rule: Employees joined this year (e.g. 2026) or with 0 years have NO anniversary!
+        const serviceYears = currentYear - joinYear;
+        if (serviceYears < 1 || isNaN(serviceYears) || joinMonth < 0 || isNaN(joinMonth)) {
+          return null;
+        }
+
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-        const serviceYears = Math.max(1, currentYear - joinYear);
         const getOrdinal = (n) => {
           const s = ['th', 'st', 'nd', 'rd'];
           const v = n % 100;
@@ -294,20 +321,32 @@ export const CRMProvider = ({ children }) => {
         const annivEventDate = `${currentYear}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
 
         const diffTime = annivThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        let targetEventDate = annivEventDate;
+        let milestoneYears = serviceYears;
+
+        if (diffDays < 0) {
+          // If already celebrated this calendar year, roll to upcoming milestone next year
+          const nextYearAnniv = new Date(currentYear + 1, joinMonth, joinDay);
+          diffDays = Math.ceil((nextYearAnniv.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+          targetEventDate = `${currentYear + 1}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
+          milestoneYears = serviceYears + 1;
+        }
+
+        const milestoneYearsText = getOrdinal(milestoneYears);
+
+        // 🌟 Strict Rule: Only display work anniversaries within 1 month (<= 30 days). If > 30 days, do NOT show!
+        if (diffDays < 0 || diffDays > 30) {
+          return null;
+        }
 
         let daysRemainingText = '';
         if (diffDays === 0) {
           daysRemainingText = `Today! 🌟 ${serviceYearsText} Work Anniversary!`;
         } else if (diffDays === 1) {
-          daysRemainingText = `Tomorrow 💼 (${serviceYearsText} Anniversary)`;
-        } else if (diffDays > 1 && diffDays <= 30) {
-          daysRemainingText = `${diffDays} days remaining`;
-        } else if (diffDays > 30) {
-          const monthsAhead = Math.round(diffDays / 30);
-          daysRemainingText = `${monthsAhead} month${monthsAhead > 1 ? 's' : ''} after`;
+          daysRemainingText = `Tomorrow 💼 (${milestoneYearsText} Anniversary)`;
         } else {
-          daysRemainingText = `Celebrated on ${annivFormattedDate}`;
+          daysRemainingText = `In ${diffDays} days (${milestoneYearsText} Anniversary)`;
         }
 
         return {
@@ -318,21 +357,21 @@ export const CRMProvider = ({ children }) => {
           department: emp.department,
           avatar: emp.avatar,
           joiningDate: joinStr,
-          serviceYears,
-          serviceYearsText,
+          serviceYears: milestoneYears,
+          serviceYearsText: milestoneYearsText,
           anniversaryDate: annivFormattedDate,
-          eventDate: annivEventDate,
+          annivFormattedDate: annivFormattedDate,
+          eventDate: targetEventDate,
           daysRemainingText,
           diffDays,
+          isUpcoming30Days: true,
+          isToday: diffDays === 0,
           fullMonth: fullMonthNames[joinMonth],
           dayOfMonth: joinDay
         };
       })
-      .sort((a, b) => {
-        const aVal = a.diffDays >= 0 ? a.diffDays : a.diffDays + 365;
-        const bVal = b.diffDays >= 0 ? b.diffDays : b.diffDays + 365;
-        return aVal - bVal;
-      });
+      .filter(Boolean)
+      .sort((a, b) => a.diffDays - b.diffDays);
   }, [employees]);
 
   // =========================================================================
@@ -405,11 +444,19 @@ export const CRMProvider = ({ children }) => {
 
       // Find matching timesheet logs for this date strictly scoped to authenticated user
       const matchingTimesheets = timesheets.filter(t => {
-        const isDate = t.date === dateStr;
-        const isMine = (currentUser?._id && (String(t.employeeId) === String(currentUser._id) || String(t.employee) === String(currentUser._id))) ||
-                       (currentUser?.employeeCode && (t.employeeId === currentUser.employeeCode || t.employee === currentUser.employeeCode)) ||
-                       (currentUser?.name && t.employeeName?.toLowerCase() === currentUser.name.toLowerCase());
-        return isDate && isMine;
+        if (t.date !== dateStr) return false;
+        if (!currentUser) return true;
+        const cId = currentUser._id ? String(currentUser._id) : null;
+        const cCode = currentUser.employeeCode ? String(currentUser.employeeCode) : null;
+        const cName = currentUser.name ? currentUser.name.toLowerCase().trim() : null;
+
+        const tEmpId = t.employeeId ? String(t.employeeId) : (t.employee ? String(t.employee) : null);
+        const tEmpName = t.employeeName ? t.employeeName.toLowerCase().trim() : null;
+
+        if (cId && tEmpId === cId) return true;
+        if (cCode && (tEmpId === cCode || t.employeeCode === cCode)) return true;
+        if (cName && tEmpName && (tEmpName === cName || tEmpName.includes(cName) || cName.includes(tEmpName))) return true;
+        return false;
       });
       let timesheetTaskSeconds = matchingTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
@@ -506,46 +553,26 @@ export const CRMProvider = ({ children }) => {
             dayTotalTaskSeconds += secs;
           }
         });
-
-        if (dayTotalTaskSeconds > 0) {
-          const hrs = Math.floor(dayTotalTaskSeconds / 3600);
-          const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
-          finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
-          finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
-        } else {
-          finalDurationText = '0h 00m';
-          finalDurationHours = 0;
-        }
-      } else if (matchingTimesheets.length > 0) {
-        const hrs = Math.floor(dayTotalTaskSeconds / 3600);
-        const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
-        finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
-        finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
-        dayBreakDuration = '45m';
-
-        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
-        if (pastAttRec) {
-          if (pastAttRec.clockInTime) dayLoginTime = pastAttRec.clockInTime;
-          if (pastAttRec.clockOutTime) dayLogoutTime = pastAttRec.clockOutTime;
-        }
-      } else if (isPastDay) {
-        // Example from user request: Monday 4 hours, Tuesday 5 hours
-        if (item.shortDay === 'Mo') {
-          dayTotalTaskSeconds = 4 * 3600; // 4h
-          finalDurationText = '4h 00m';
-          finalDurationHours = 4.0;
-          dayBreakDuration = '30m';
-        } else if (item.shortDay === 'Tu') {
-          dayTotalTaskSeconds = 5 * 3600; // 5h
-          finalDurationText = '5h 00m';
-          finalDurationHours = 5.0;
-          dayBreakDuration = '45m';
-        } else {
-          finalDurationText = '0h 00m';
-          finalDurationHours = 0;
-          dayBreakDuration = '0m';
-        }
       }
+
+      // Also find any tasks completed on this date that aren't already captured in timesheets
+      const matchingCompletedTasks = allTasks.filter(t => {
+        if (!isTaskForMe(t)) return false;
+        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+        const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id || ts.taskCode === t.taskCode);
+        return isCompletedOnDate && !alreadyInTimesheets;
+      });
+
+      const completedTaskSeconds = matchingCompletedTasks.reduce((acc, curr) => {
+        const secs = Number(curr.timerSeconds) > 0
+          ? Number(curr.timerSeconds)
+          : (Number(curr.durationSeconds) > 0
+              ? Number(curr.durationSeconds)
+              : (Number(curr.hoursLogged) > 0 ? Math.round(Number(curr.hoursLogged) * 3600) : 0));
+        return acc + secs;
+      }, 0);
+
+      dayTotalTaskSeconds += completedTaskSeconds;
 
       // Map tasks worked with budget estimate comparison
       let dayTasks = [];
@@ -575,10 +602,79 @@ export const CRMProvider = ({ children }) => {
         });
       }
 
-      // If today, also append active running task or paused unlogged tasks
+      matchingCompletedTasks.forEach(t => {
+        const secs = Number(t.timerSeconds) > 0 ? Number(t.timerSeconds) : 0;
+        if (secs <= 0) return; // Do not add fake entries for un-timed tasks
+        const estH = t.estimatedHours || Math.round(secs / 3600) || 3;
+        const loggedH = secs / 3600;
+        const isOver = loggedH > estH;
+        dayTasks.push({
+          taskId: t._id,
+          taskCode: t.taskCode || 'TSK',
+          taskTitle: t.title || 'Completed Task',
+          projectName: t.projectName || 'General Work',
+          durationText: `${Math.floor(secs / 3600)}h ${String(Math.floor((secs % 3600) / 60)).padStart(2, '0')}m`,
+          durationSeconds: secs,
+          estimatedHours: estH,
+          isOverBudget: isOver,
+          overBudgetHours: isOver ? +(loggedH - estH).toFixed(1) : 0,
+          startTime: shiftStart,
+          endTime: shiftEnd,
+          memo: `Completed task: ${t.title}`,
+          employeeName: t.assignedToName || currentUser?.name || 'Employee',
+          status: 'completed',
+          isCompleted: true
+        });
+      });
+
       if (isCurrentDay) {
+        // Paused tasks worked today that haven't been stopped into timesheets yet
+        const pausedTasks = allTasks.filter(t => {
+          if (!isTaskForMe(t)) return false;
+          if (activeTimerTask && (activeTimerTask.taskId === t._id || activeTimerTask._id === t._id)) return false;
+          const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id);
+          const alreadyInCompleted = matchingCompletedTasks.some(ct => ct._id === t._id);
+          const secs = Number(t.timerSeconds) || 0;
+          return !alreadyInTimesheets && !alreadyInCompleted && secs > 0 && (t.sessionDate === dateStr || t.status === 'in_progress' || t.status === 'on_hold' || t.status === 'incomplete');
+        });
+
+        pausedTasks.forEach(pt => {
+          const secs = Number(pt.timerSeconds) || 0;
+          const estH = pt.estimatedHours || 3;
+          const loggedH = secs / 3600;
+          const isOver = loggedH > estH;
+          dayTasks.push({
+            taskId: pt._id,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title || 'Worked Task',
+            projectName: pt.projectName || 'General Work',
+            durationText: `${Math.floor(secs / 3600)}h ${String(Math.floor((secs % 3600) / 60)).padStart(2, '0')}m`,
+            durationSeconds: secs,
+            estimatedHours: estH,
+            isOverBudget: isOver,
+            overBudgetHours: isOver ? +(loggedH - estH).toFixed(1) : 0,
+            startTime: shiftStart,
+            endTime: 'Paused ⏸️',
+            memo: `Worked on task: ${Math.floor(secs / 60)} mins tracked`,
+            employeeName: pt.assignedToName || currentUser?.name || 'Employee',
+            status: 'on_hold',
+            isCompleted: false,
+            timerRunning: false
+          });
+        });
+
+        if (dayTotalTaskSeconds > 0) {
+          const hrs = Math.floor(dayTotalTaskSeconds / 3600);
+          const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
+          finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
+          finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
+        } else {
+          finalDurationText = '0h 00m';
+          finalDurationHours = 0;
+        }
+
         if (activeTimerTask) {
-          const runningTaskObj = allTasks.find(at => at._id === activeTimerTask.taskId);
+          const runningTaskObj = allTasks.find(at => at._id === activeTimerTask.taskId || at._id === activeTimerTask._id);
           const estH = runningTaskObj?.estimatedHours || 3;
           const loggedH = liveActiveTimerSecs / 3600;
           const isOver = loggedH > estH;
@@ -600,47 +696,47 @@ export const CRMProvider = ({ children }) => {
             isCompleted: false
           });
         }
-      } else if (isPastDay && dayTasks.length === 0) {
-        if (item.shortDay === 'Mo') {
-          dayTasks = [
-            {
-              taskId: 'mo_tsk_1',
-              taskCode: 'CPC-0',
-              taskTitle: 'Bookmarking Citation Submissions & SEO Audits',
-              projectName: 'CITY PRIME CARE',
-              durationText: '4h 00m',
-              durationSeconds: 14400,
-              estimatedHours: 4,
-              isOverBudget: false,
-              overBudgetHours: 0,
-              startTime: '10:00 AM',
-              endTime: '02:00 PM',
-              memo: 'Executed 20 citations and directory backlinks',
-              employeeName: currentUser?.name || 'Employee',
-              status: 'completed',
-              isCompleted: true
-            }
-          ];
-        } else if (item.shortDay === 'Tu') {
-          dayTasks = [
-            {
-              taskId: 'tu_tsk_1',
-              taskCode: 'NBR-1',
-              taskTitle: 'Design System Token Definition & Glassmorphism UI Kit',
-              projectName: 'Novainfinity Brand Revamp',
-              durationText: '5h 00m',
-              durationSeconds: 18000,
-              estimatedHours: 4,
-              isOverBudget: true,
-              overBudgetHours: 1.0,
-              startTime: '10:00 AM',
-              endTime: '03:45 PM',
-              memo: 'Completed component tokens and tested accessibility',
-              employeeName: currentUser?.name || 'Employee',
-              status: 'completed',
-              isCompleted: true
-            }
-          ];
+      } else if (dayTotalTaskSeconds > 0) {
+        // If tasks or timesheets were recorded for this day, strictly use actual task hours
+        const hrs = Math.floor(dayTotalTaskSeconds / 3600);
+        const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
+        finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
+        finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
+        dayBreakDuration = '45m';
+
+        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        if (pastAttRec) {
+          if (pastAttRec.clockInTime) dayLoginTime = pastAttRec.clockInTime;
+          if (pastAttRec.clockOutTime) dayLogoutTime = pastAttRec.clockOutTime;
+        }
+      } else if (isPastDay) {
+        // For past working days: Strictly check if employee has actual logged attendance or timesheets
+        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        const hasRealAttendanceHours = pastAttRec &&
+          pastAttRec.status !== 'absent' &&
+          pastAttRec.status !== 'on_leave' &&
+          pastAttRec.status !== 'day_off' &&
+          Number(pastAttRec.totalWorkingHours) > 0;
+
+        if (hasRealAttendanceHours) {
+          const workHours = Number(pastAttRec.totalWorkingHours);
+          dayTotalTaskSeconds = Math.round(workHours * 3600);
+          const hrs = Math.floor(dayTotalTaskSeconds / 3600);
+          const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
+          finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
+          finalDurationHours = +workHours.toFixed(2);
+          dayLoginTime = pastAttRec.clockInTime || '--';
+          dayLogoutTime = pastAttRec.clockOutTime || '--';
+          dayBreakDuration = '45m';
+        } else {
+          // No work or attendance logged for this employee on this past day — strictly 0h 00m
+          dayTotalTaskSeconds = 0;
+          finalDurationText = '0h 00m';
+          finalDurationHours = 0;
+          dayLoginTime = pastAttRec?.clockInTime || '--';
+          dayLogoutTime = pastAttRec?.clockOutTime || '--';
+          dayBreakDuration = '--';
+          dayTasks = [];
         }
       }
 
@@ -1389,74 +1485,81 @@ export const CRMProvider = ({ children }) => {
     addToast('Settings saved successfully!', 'success');
   };
 
+  const contextValue = useMemo(() => ({
+    expenses,
+    createExpense,
+    updateExpense,
+    updateExpenseStatus,
+    deleteExpense,
+    importExpensesBatch,
+
+    tickets,
+    createTicket,
+    updateTicketStatus,
+    replyToTicket,
+    addTicketInternalNote,
+    assignTicket,
+    deleteTicket,
+
+    events,
+    createEvent,
+    updateEvent,
+    deleteEvent,
+    computedBirthdays,
+    birthdays: computedBirthdays,
+    computedAnniversaries,
+    anniversaries: computedAnniversaries,
+
+    conversations,
+    activeConversationId,
+    setActiveConversationId,
+    sendMessage,
+    startConversation,
+
+    notices,
+    createNotice,
+    updateNotice,
+    deleteNotice,
+
+    leads,
+    leadsFilter,
+    setLeadsFilter,
+    createLead,
+    updateLead,
+    updateLeadStatus,
+    deleteLead,
+    importLeadsBatch,
+
+    emergencyContacts,
+    addEmergencyContact,
+    updateEmergencyContact,
+    deleteEmergencyContact,
+
+    stickyNotes,
+    createStickyNote,
+    updateStickyNote,
+    deleteStickyNote,
+    togglePinStickyNote,
+    toggleCompleteStickyNote,
+
+    userSettings,
+    updateUserSettings,
+
+    wfhEmployees,
+    weeklyTimeLogs: computedWeeklyTimeLogs,
+    computedWeeklyTimeLogs,
+    darkMode,
+    toggleDarkMode,
+    updateUserProfile
+  }), [
+    expenses, tickets, events, computedBirthdays, computedAnniversaries,
+    conversations, activeConversationId, notices, leads, leadsFilter,
+    emergencyContacts, stickyNotes, userSettings, wfhEmployees,
+    computedWeeklyTimeLogs, darkMode
+  ]);
+
   return (
-    <CRMContext.Provider value={{
-      expenses,
-      createExpense,
-      updateExpense,
-      updateExpenseStatus,
-      deleteExpense,
-      importExpensesBatch,
-
-      tickets,
-      createTicket,
-      updateTicketStatus,
-      replyToTicket,
-      addTicketInternalNote,
-      assignTicket,
-      deleteTicket,
-
-      events,
-      createEvent,
-      updateEvent,
-      deleteEvent,
-      computedBirthdays,
-      birthdays: computedBirthdays, // Auto-computed dynamic birthdays from employee DOB
-      computedAnniversaries,
-      anniversaries: computedAnniversaries, // Auto-computed work anniversaries from employee joiningDate
-
-      conversations,
-      activeConversationId,
-      setActiveConversationId,
-      sendMessage,
-      startConversation,
-
-      notices,
-      createNotice,
-      updateNotice,
-      deleteNotice,
-
-      leads,
-      leadsFilter,
-      setLeadsFilter,
-      createLead,
-      updateLead,
-      updateLeadStatus,
-      deleteLead,
-      importLeadsBatch,
-
-      emergencyContacts,
-      addEmergencyContact,
-      updateEmergencyContact,
-      deleteEmergencyContact,
-
-      stickyNotes,
-      createStickyNote,
-      updateStickyNote,
-      deleteStickyNote,
-      togglePinStickyNote,
-      toggleCompleteStickyNote,
-
-      userSettings,
-      updateUserSettings,
-
-      wfhEmployees,
-      weeklyTimeLogs: computedWeeklyTimeLogs,
-      computedWeeklyTimeLogs,
-      darkMode,
-      toggleDarkMode,
-      updateUserProfile
-    }}>
+    <CRMContext.Provider value={contextValue}>
       {children}
     </CRMContext.Provider>
   );

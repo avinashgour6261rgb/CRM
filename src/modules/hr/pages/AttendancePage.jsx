@@ -157,18 +157,89 @@ export const AttendancePage = () => {
   };
 
   return (
-    <div className="animate-fade-in">
-      {/* Page Title & Breadcrumb */}
-      <div className="page-header-container">
-        <div className="page-title-group">
-          <h1 className="page-title">Attendance Management</h1>
-          <div className="page-breadcrumb">
-            <span>Home</span>
-            <ChevronRight size={13} />
-            <span>HR</span>
-            <ChevronRight size={13} />
-            <span>Attendance</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+      {/* Header Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <CalendarCheck size={17} />
           </div>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Attendance & Shift Tracking
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Live employee presence, monthly attendance matrix, and audit trails.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleExportCSV}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 11px',
+              borderRadius: '6px',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+            title="Export attendance records to CSV"
+          >
+            <Download size={13} />
+            <span>Export CSV</span>
+          </button>
+
+          {isPrivileged && (
+            <button
+              onClick={() => setIsMarkModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
+              }}
+              title="Manually log or update employee attendance"
+            >
+              <Plus size={13} />
+              <span>Mark Attendance</span>
+            </button>
+          )}
         </div>
       </div>
 

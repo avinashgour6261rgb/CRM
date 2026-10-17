@@ -16,28 +16,33 @@ import {
   Check
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useAuth } from '../../context/AuthContext';
 
 const EVENT_TYPES = [
-  { value: 'Company Event', label: '🏢 Company Event', color: '#7c3aed', bg: '#f5f3ff' },
-  { value: 'Festival', label: '🪔 Festival (Diwali, Dussehra, Ganesh Chaturthi)', color: '#ea580c', bg: '#ffedd5' },
-  { value: 'Holiday', label: '🏖️ Holiday (National / State)', color: '#16a34a', bg: '#f0fdf4' },
-  { value: 'Meeting', label: '👥 Team Meeting / Review', color: '#2563eb', bg: '#eff6ff' },
+  { value: 'Personal Reminder', label: '⏰ Personal Reminder / Task Reminder', color: '#d97706', bg: '#fffbeb' },
+  { value: 'Company Event', label: '🏢 Company Event / Conference', color: '#7c3aed', bg: '#f5f3ff' },
+  { value: 'Company Anniversary', label: '🏛️ Company Foundation Day / Annual Anniversary', color: '#059669', bg: '#ecfdf5' },
+  { value: 'Annual Celebration', label: '🎉 Annual Celebration / Company Party', color: '#db2777', bg: '#fdf2f8' },
+  { value: 'Holiday', label: '🏖️ Official Holiday (Company Declared / National)', color: '#dc2626', bg: '#fee2e2' },
+  { value: 'Meeting', label: '👥 Team Meeting / Sprint Sync', color: '#2563eb', bg: '#eff6ff' },
+  { value: 'Festival', label: '🪔 Festival (Diwali, Dussehra, etc.)', color: '#ea580c', bg: '#ffedd5' },
   { value: 'Work Anniversary', label: '💼 Work Anniversary', color: '#0891b2', bg: '#ecfeff' },
-  { value: 'Other Important Event', label: '📌 Other Important Event', color: '#d97706', bg: '#fef3c7' }
+  { value: 'Other Important Event', label: '📌 Other Important Event', color: '#475569', bg: '#f1f5f9' }
 ];
 
 export const AddEventModal = ({ isOpen, onClose }) => {
   const { createEvent } = useCRM();
+  const { currentUser } = useAuth();
 
   const now = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
     eventName: '',
-    eventType: 'Company Event',
+    eventType: 'Personal Reminder',
     startDate: now,
     endDate: now,
     startTime: '10:00 AM',
-    location: 'Corporate Office HQ & Google Meet',
+    location: 'Office / Remote Workspace',
     description: '',
     notification: true,
     isRecurring: false
@@ -54,7 +59,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.eventName.trim()) {
-      alert('Please enter an event name');
+      alert('Please enter an event or reminder title');
       return;
     }
 
@@ -67,6 +72,10 @@ export const AddEventModal = ({ isOpen, onClose }) => {
         title: formData.eventName,
         date: formData.startDate,
         time: formData.startTime,
+        createdBy: currentUser?._id,
+        createdByName: currentUser?.name,
+        isPersonal: formData.eventType === 'Personal Reminder',
+        isHoliday: formData.eventType === 'Holiday',
         color: selectedTypeConfig.color,
         bgColor: selectedTypeConfig.bg
       });
@@ -74,11 +83,11 @@ export const AddEventModal = ({ isOpen, onClose }) => {
       // Reset
       setFormData({
         eventName: '',
-        eventType: 'Company Event',
+        eventType: 'Personal Reminder',
         startDate: now,
         endDate: now,
         startTime: '10:00 AM',
-        location: 'Corporate Office HQ & Google Meet',
+        location: 'Office / Remote Workspace',
         description: '',
         notification: true,
         isRecurring: false

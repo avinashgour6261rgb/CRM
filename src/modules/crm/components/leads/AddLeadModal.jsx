@@ -220,7 +220,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 type="text"
                 value={formData.companyName}
                 onChange={(e) => handleChange('companyName', e.target.value)}
-                placeholder="e.g. Apex Global Solutions"
+                placeholder="e.g. Indore Infotech Solutions"
                 style={{
                   width: '100%',
                   padding: '12px 14px',
@@ -245,7 +245,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="e.g. vikram@apexsolutions.com"
+                placeholder="e.g. vikram@indoreinfotech.in"
                 style={{
                   width: '100%',
                   padding: '11px 12px',
@@ -318,12 +318,17 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                   borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
                   fontSize: '13px',
+                  fontWeight: '600',
                   color: '#0f172a',
-                  outline: 'none'
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 {LEAD_STAGES.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
+                  <option key={s.id} value={s.id} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -341,12 +346,17 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                   borderRadius: '8px',
                   border: '1.5px solid #cbd5e1',
                   fontSize: '13px',
+                  fontWeight: '600',
                   color: '#0f172a',
-                  outline: 'none'
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 {LEAD_SOURCES.map(src => (
-                  <option key={src} value={src}>{src}</option>
+                  <option key={src} value={src} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                    {src}
+                  </option>
                 ))}
               </select>
             </div>
@@ -366,14 +376,16 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 borderRadius: '10px',
                 border: '1.5px solid #cbd5e1',
                 fontSize: '13.5px',
+                fontWeight: '600',
                 color: '#0f172a',
                 outline: 'none',
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                cursor: 'pointer'
               }}
             >
               {employees.map(emp => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} — {emp.role}
+                <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                  {emp.name} — {emp.role} ({emp.department || 'General'})
                 </option>
               ))}
             </select>

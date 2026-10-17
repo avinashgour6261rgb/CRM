@@ -65,8 +65,6 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
   );
 
-  const initialAssigneeId = currentUser?._id || (employees && employees[0]?._id) || '';
-
   const [formData, setFormData] = useState({
     title: '',
     category: 'General',
@@ -74,8 +72,8 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     customProjectName: '',
     startDate: getTodayStr(),
     dueDate: getTodayStr(),
-    assignedToId: initialAssigneeId,
-    assignedToIds: initialAssigneeId ? [initialAssigneeId] : [],
+    assignedToId: '',
+    assignedToIds: [],
     priority: 'medium',
     estimatedHours: 4,
     description: ''
@@ -90,6 +88,8 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       setFormData(prev => ({ ...prev, projectId: initialProjectId }));
     }
   }, [initialProjectId]);
+
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
 
   if (!isOpen) return null;
 
@@ -197,9 +197,16 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       // Resolve selected assignees
       const validEmpList = employees || [];
       const selectedAssignees = validEmpList.filter(e => (formData.assignedToIds || []).includes(e._id));
+      
+      if (selectedAssignees.length === 0 && !formData.assignedToId) {
+        addToast('Please select at least one assignee for this task', 'error');
+        setSubmitting(false);
+        return;
+      }
+
       const assigneesList = selectedAssignees.length > 0
         ? selectedAssignees
-        : [validEmpList.find(e => e._id === formData.assignedToId) || currentUser || validEmpList[0]].filter(Boolean);
+        : [validEmpList.find(e => e._id === formData.assignedToId)].filter(Boolean);
 
       const primaryAssignee = assigneesList[0];
       const isMultiple = assigneesList.length > 1;
@@ -429,7 +436,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                   gap: '4px'
                 }}
               >
-                <Plus size={13} /> + New Project
+                <Plus size={13} /> New Project
               </button>
             </div>
 
@@ -448,17 +455,18 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                     fontWeight: '600',
                     color: '#0f172a',
                     outline: 'none',
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
+                    colorScheme: 'light'
                   }}
                 >
                   {projects && projects.length > 0 ? (
                     projects.map(p => (
-                      <option key={p._id} value={p._id}>
+                      <option key={p._id} value={p._id} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
                         [{p.projectCode || 'PRJ'}] {p.name} {p.client ? `(${p.client})` : ''}
                       </option>
                     ))
                   ) : (
-                    <option value="">No projects found — creating as standalone</option>
+                    <option value="" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>No projects found — creating as standalone</option>
                   )}
                 </select>
               </div>
@@ -470,7 +478,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                   type="text"
                   value={formData.customProjectName}
                   onChange={(e) => handleChange('customProjectName', e.target.value)}
-                  placeholder="Enter project name (e.g. Mobile App Redesign)..."
+                  placeholder="Enter project name (e.g. Indore Smart Portal, CRM Rollout)..."
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -509,7 +517,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
               type="text"
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
-              placeholder="e.g. Design Homepage Banner, Fix Auth API, Prepare Presentation"
+              placeholder="e.g. Design Indore Metro App UI, Prepare Client Presentation, API Integration"
               autoFocus
               style={{
                 width: '100%',
@@ -541,16 +549,17 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 fontSize: '12.5px',
                 color: '#0f172a',
                 outline: 'none',
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff',
+                colorScheme: 'light'
               }}
             >
               {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{cat}</option>
               ))}
             </select>
           </div>
 
-          {/* 4. Multi-Assignee Selection */}
+          {/* 4. Assignee Selection (Any employee can assign to anyone or Admin) */}
           <div style={{
             backgroundColor: '#f8fafc',
             border: '1.5px solid #e2e8f0',

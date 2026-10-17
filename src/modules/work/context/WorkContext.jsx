@@ -12,6 +12,7 @@ import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../../hr/services/hrService';
+import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 
 const WorkContext = createContext();
@@ -22,10 +23,10 @@ export const WorkProvider = ({ children }) => {
   const { employees, leaves, currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
 
-  const [projects, setProjects] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [timesheets, setTimesheets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState(() => getCollection(KEYS.PROJECTS) || []);
+  const [tasks, setTasks] = useState(() => getCollection(KEYS.TASKS) || []);
+  const [timesheets, setTimesheets] = useState(() => getCollection(KEYS.TIMESHEETS) || []);
+  const [loading, setLoading] = useState(false);
   const [overdueTaskPrompt, setOverdueTaskPrompt] = useState(null);
 
   // Derive stable userKey matching TimerContext for seamless cross-module sync
@@ -178,18 +179,64 @@ export const WorkProvider = ({ children }) => {
       const localTasks = getCollection(KEYS.TASKS) || [];
       const today = getTodayStr();
 
-      let mergedTasks = (rawTsks || []).map(t => {
+      // Unified map to ensure no tasks created or updated locally are ever dropped on reload
+      const taskMap = new Map();
+
+      const isLegacyTask = (t) => {
+        if (!t) return true;
+        const title = (t.title || '').toLowerCase().trim();
+        const code = (t.taskCode || '').toUpperCase().trim();
+        const legacyTitles = [
+          'green text',
+          'helllo',
+          'hello',
+          'hero page',
+          'generate dashboard',
+          'design system token definition & ui kit',
+          'setup mongodb atlas connection & schema seeders',
+          'general management & team review',
+          'backlink',
+          'home page',
+          'bookmarking 20'
+        ];
+        if (legacyTitles.includes(title)) return true;
+        if (title.includes('token definition') || title.includes('schema seeders') || title.includes('bookmarking')) return true;
+        if (code === 'CPC-0' || t._id === 'tsk_003' || code.startsWith('MOCK')) return true;
+        return false;
+      };
+
+      // 1. Seed with local tasks first (excluding legacy test tasks)
+      localTasks.forEach(lt => {
+        const id = String(lt._id || lt.id);
+        if (id && !isLegacyTask(lt)) taskMap.set(id, { ...lt });
+      });
+
+      // 2. Merge backend tasks (excluding legacy test tasks)
+      (rawTsks || []).forEach(bt => {
+        const id = String(bt._id || bt.id);
+        if (id && !isLegacyTask(bt)) {
+          const existing = taskMap.get(id);
+          if (existing) {
+            const localSecs = Number(existing.timerSeconds) || 0;
+            const backendSecs = Number(bt.timerSeconds) || 0;
+            taskMap.set(id, {
+              ...bt,
+              ...existing,
+              timerSeconds: Math.max(localSecs, backendSecs),
+              status: existing.status || bt.status
+            });
+          } else {
+            taskMap.set(id, { ...bt });
+          }
+        }
+      });
+
+      // 3. Apply active timer state if running
+      const mergedList = Array.from(taskMap.values()).map(t => {
         const tId = String(t._id || t.id);
         const isActive = activeTimer && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
-
-        // Find local task copy to preserve today's paused or accumulated seconds
-        const localCopy = localTasks.find(lt => String(lt._id || lt.id) === tId);
-        const localSecs = (localCopy && (localCopy.sessionDate === today || !localCopy.sessionDate))
-          ? (Number(localCopy.timerSeconds) || 0)
-          : 0;
-
         if (isActive) {
-          const currentSecs = Math.max(getElapsedSeconds(activeTimer), localSecs, Number(t.timerSeconds) || 0);
+          const currentSecs = Math.max(getElapsedSeconds(activeTimer), Number(t.timerSeconds) || 0);
           return {
             ...t,
             timerRunning: !!activeTimer.timerRunning,
@@ -200,19 +247,19 @@ export const WorkProvider = ({ children }) => {
             hoursLoggedText: t.hoursLogged ? `${t.hoursLogged}h` : (t.hoursLoggedText || '0h')
           };
         }
-
-        const effectiveSecs = Math.max(Number(t.timerSeconds) || 0, localSecs);
         return {
           ...t,
           timerRunning: false,
-          timerSeconds: effectiveSecs,
-          liveDurationText: formatSeconds(effectiveSecs),
+          liveDurationText: formatSeconds(Number(t.timerSeconds) || 0),
           hoursLoggedText: t.hoursLogged ? `${t.hoursLogged}h` : (t.hoursLoggedText || '0h')
         };
       });
 
+      // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
+      localStorage.setItem(KEYS.TASKS, JSON.stringify(mergedList));
+
       setProjects(prjs || []);
-      setTasks(mergedTasks);
+      setTasks(mergedList);
       setTimesheets(times || []);
     } catch (err) {
       console.error('Error loading Work module data:', err);
@@ -479,7 +526,7 @@ export const WorkProvider = ({ children }) => {
         const allTasks = getCollection(KEYS.TASKS) || [];
         const updatedAll = allTasks.map(t => {
           if (t._id === activeTimer.taskId) {
-            return { ...t, timerRunning: false, timerSeconds: currentSecs };
+            return { ...t, timerRunning: false, timerSeconds: currentSecs, sessionDate: today };
           }
           return t;
         });
@@ -487,12 +534,29 @@ export const WorkProvider = ({ children }) => {
 
         setTasks(prev => prev.map(t => {
           if (t._id === activeTimer.taskId) {
-            return { ...t, timerRunning: false, timerSeconds: currentSecs, liveDurationText: formatSeconds(currentSecs) };
+            return { ...t, timerRunning: false, timerSeconds: currentSecs, sessionDate: today, liveDurationText: formatSeconds(currentSecs) };
           }
           return t;
         }));
 
-        addToast('Shift Clocked Out: Active task timer automatically paused ⏸️', 'info');
+        // Automatically log today's task session duration to timesheets
+        if (currentSecs > 0) {
+          workService.createTimesheet({
+            taskId: activeTimer.taskId,
+            taskCode: activeTimer.taskCode,
+            taskTitle: activeTimer.title,
+            projectName: activeTimer.projectName,
+            employeeId: activeTimer.assignedToId,
+            employeeName: activeTimer.assignedToName,
+            date: activeTimer.date || today,
+            totalDurationSeconds: currentSecs,
+            totalDurationText: formatSeconds(currentSecs),
+            memo: 'Shift clock-out session auto-save',
+            status: 'stopped'
+          }).catch(err => console.warn('Clock-out auto timesheet error:', err));
+        }
+
+        addToast('Shift Clocked Out: Active task timer paused & logged ⏸️', 'info');
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       }
     };
@@ -680,6 +744,17 @@ export const WorkProvider = ({ children }) => {
     }
   };
 
+  const purgeAllTasks = async () => {
+    try {
+      saveActiveTimerSnapshot(null);
+      await workService.purgeAllTasks();
+      addToast('🧹 All legacy tasks purged successfully! System ready for fresh tasks.', 'success');
+      await loadWorkData();
+    } catch (err) {
+      addToast('Failed to purge tasks', 'error');
+    }
+  };
+
   // ── Overdue Task Detection ──
   const isTaskOverdue = useCallback((task) => {
     if (!task || !task.dueDate || task.hasNoDueDate || task.status === 'completed') return false;
@@ -748,6 +823,34 @@ export const WorkProvider = ({ children }) => {
     const now = Date.now();
     const activeTimer = getActiveTimerSnapshot();
 
+    // If an unclosed timer from a previous date exists, auto-archive it so previous day's time is preserved
+    if (activeTimer && activeTimer.date && activeTimer.date !== today) {
+      const prevSecs = Number(activeTimer.accumulatedSeconds) || 0;
+      if (prevSecs > 0) {
+        workService.createTimesheet({
+          taskId: activeTimer.taskId,
+          taskCode: activeTimer.taskCode,
+          taskTitle: activeTimer.title,
+          projectName: activeTimer.projectName,
+          employeeId: activeTimer.assignedToId,
+          employeeName: activeTimer.assignedToName,
+          date: activeTimer.date,
+          totalDurationSeconds: prevSecs,
+          totalDurationText: formatSeconds(prevSecs),
+          memo: 'Auto-saved session from previous day',
+          status: 'stopped'
+        }).catch(err => console.warn('Auto timesheet archive error:', err));
+      }
+    }
+
+    // If a different task is currently running, auto-pause it and preserve its accumulated time
+    let previousTaskId = null;
+    let previousTaskElapsed = 0;
+    if (activeTimer && activeTimer.timerRunning && activeTimer.taskId !== taskId) {
+      previousTaskId = activeTimer.taskId;
+      previousTaskElapsed = getElapsedSeconds(activeTimer);
+    }
+
     // Check existing seconds for today's session
     let existingSecs = 0;
     if (activeTimer && activeTimer.taskId === taskId && activeTimer.date === today) {
@@ -772,16 +875,25 @@ export const WorkProvider = ({ children }) => {
 
     saveActiveTimerSnapshot(newTimerState);
 
-    // Save in storage collection - only pause other tasks belonging to THIS user
+    // Save in storage collection: pause previous task (saving its elapsed seconds) and start new task
     const allTasks = getCollection(KEYS.TASKS) || [];
     const updatedAll = allTasks.map(t => {
-      if (t._id === taskId) {
+      const tId = String(t._id || t.id);
+      if (tId === String(taskId)) {
         return {
           ...t,
           timerRunning: true,
           timerSeconds: existingSecs,
           sessionDate: today,
           status: t.status === 'incomplete' ? 'in_progress' : t.status
+        };
+      }
+      if (previousTaskId && tId === String(previousTaskId)) {
+        return {
+          ...t,
+          timerRunning: false,
+          timerSeconds: previousTaskElapsed,
+          sessionDate: today
         };
       }
       if (t.timerRunning && isTaskAssignedToMe(t)) {
@@ -793,7 +905,8 @@ export const WorkProvider = ({ children }) => {
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
 
     setTasks(prev => prev.map(t => {
-      if (t._id === taskId) {
+      const tId = String(t._id || t.id);
+      if (tId === String(taskId)) {
         return {
           ...t,
           timerRunning: true,
@@ -801,6 +914,15 @@ export const WorkProvider = ({ children }) => {
           sessionDate: today,
           liveDurationText: formatSeconds(existingSecs),
           status: t.status === 'incomplete' ? 'in_progress' : t.status
+        };
+      }
+      if (previousTaskId && tId === String(previousTaskId)) {
+        return {
+          ...t,
+          timerRunning: false,
+          timerSeconds: previousTaskElapsed,
+          sessionDate: today,
+          liveDurationText: formatSeconds(previousTaskElapsed)
         };
       }
       if (t.timerRunning) {
@@ -932,53 +1054,109 @@ export const WorkProvider = ({ children }) => {
   // =========================================================================
   // 🚀 COMPLETE TASK & ADVANCE TO NEXT TASK (Auto duration addition)
   // =========================================================================
-  const completeTask = async (taskId, customMemo = '') => {
+  const completeTask = async (taskId, customMemo = '', autoStartNext = false) => {
     try {
+      const todayStr = getTodayStr();
+      const completedIso = new Date().toISOString();
       const activeTimer = getActiveTimerSnapshot();
-      const targetTask = tasks.find(t => t._id === taskId);
+      
+      const localStoredTasks = getCollection(KEYS.TASKS) || [];
+      const targetTask = (tasks || []).find(t => String(t._id || t.id) === String(taskId)) ||
+        localStoredTasks.find(t => String(t._id || t.id) === String(taskId));
       if (!targetTask) return null;
 
-      // Calculate duration spent on this task
-      let durationSecs = (activeTimer && activeTimer.taskId === taskId)
+      // Calculate duration actually spent on this task session (strictly actual tracked time, never estimatedHours)
+      let durationSecs = (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)))
         ? getElapsedSeconds(activeTimer)
-        : ((targetTask.timerSeconds && targetTask.timerSeconds > 0)
-          ? targetTask.timerSeconds
-          : (targetTask.estimatedHours ? Math.round(targetTask.estimatedHours * 3600) : 3600));
+        : (Number(targetTask.timerSeconds) || Number(targetTask.durationSeconds) || 0);
 
-      if (durationSecs <= 0) durationSecs = 1800;
-
-      // Stop timer and log entry into timesheet
-      await workService.stopTimer({
-        taskId: targetTask._id,
-        totalDurationSeconds: durationSecs,
-        memo: customMemo || `Completed task: ${targetTask.title}`
-      });
+      // Only log timesheet entry if actual work time was tracked (> 0)
+      if (durationSecs > 0) {
+        try {
+          await workService.stopTimer({
+            taskId: targetTask._id || taskId,
+            taskCode: targetTask.taskCode,
+            taskTitle: targetTask.title,
+            projectName: targetTask.projectName,
+            totalDurationSeconds: durationSecs,
+            date: todayStr,
+            employeeId: currentUser?.employeeCode || currentUser?._id || targetTask.assignedToId,
+            employeeName: currentUser?.name || targetTask.assignedToName,
+            memo: customMemo || `Completed task: ${targetTask.title}`
+          });
+        } catch (stopErr) {
+          console.warn('Timesheet log error during task completion:', stopErr);
+        }
+      }
 
       saveActiveTimerSnapshot(null);
 
-      // Update status to completed with timestamp
-      const todayStr = getTodayStr();
-      const completedIso = new Date().toISOString();
-      await workService.updateTaskStatus(taskId, 'completed');
-      await workService.updateTask(taskId, {
-        status: 'completed',
-        progress: 100,
-        timerRunning: false,
-        timerSeconds: 0,
-        completedAt: completedIso,
-        completedOn: todayStr
-      });
+      // Update status to completed with timestamp and preserve tracked duration
+      const hoursLoggedNum = +(durationSecs / 3600).toFixed(2);
+      const hoursLoggedFormatted = formatSeconds(durationSecs);
 
-      // Refresh work data
-      await loadWorkData();
+      // 1. Direct local storage update for instant consistency
+      const updatedAll = (getCollection(KEYS.TASKS) || []).map(t => {
+        if (String(t._id || t.id) === String(taskId)) {
+          return {
+            ...t,
+            status: 'completed',
+            progress: 100,
+            timerRunning: false,
+            timerSeconds: durationSecs,
+            durationSeconds: durationSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            completedAt: completedIso,
+            completedOn: todayStr
+          };
+        }
+        return t;
+      });
+      saveCollection(KEYS.TASKS, updatedAll);
+
+      // 2. Service update
+      try {
+        await workService.updateTask(taskId, {
+          status: 'completed',
+          progress: 100,
+          timerRunning: false,
+          timerSeconds: durationSecs,
+          durationSeconds: durationSecs,
+          hoursLogged: hoursLoggedNum,
+          hoursLoggedText: hoursLoggedFormatted,
+          completedAt: completedIso,
+          completedOn: todayStr
+        });
+      } catch (svcErr) {
+        console.warn('workService updateTask completion error:', svcErr);
+      }
+
+      // Update local React state immediately
+      setTasks(prev => prev.map(t => {
+        if (String(t._id || t.id) === String(taskId)) {
+          return {
+            ...t,
+            status: 'completed',
+            progress: 100,
+            timerRunning: false,
+            timerSeconds: durationSecs,
+            durationSeconds: durationSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            completedAt: completedIso,
+            completedOn: todayStr
+          };
+        }
+        return t;
+      }));
 
       // Find remaining pending tasks assigned to this user
       const assignedEmpId = targetTask.assignedToId || currentUser?._id;
-      const updatedTasks = getCollection(KEYS.TASKS) || [];
-      const remainingTasks = updatedTasks.filter(t => 
-        (t.assignedToId === assignedEmpId || t.assignedToName === targetTask.assignedToName) && 
+      const remainingTasks = updatedAll.filter(t => 
+        (t.assignedToId === assignedEmpId || t.assignedToName === targetTask.assignedToName || isTaskAssignedToMe(t)) && 
         t.status !== 'completed' && 
-        t._id !== taskId
+        String(t._id || t.id) !== String(taskId)
       );
 
       const nextTask = remainingTasks[0] || null;
@@ -988,7 +1166,7 @@ export const WorkProvider = ({ children }) => {
       try {
         hrService.createAttendanceAuditLog({
           type: 'task_completed',
-          date: new Date().toISOString().split('T')[0],
+          date: todayStr,
           employeeId: userKey,
           employeeCode: currentUser?.employeeCode || userKey,
           employeeName: currentUser?.name || 'User',
@@ -1000,19 +1178,33 @@ export const WorkProvider = ({ children }) => {
         console.warn('Audit log error on task completion:', e);
       }
 
-      if (nextTask) {
-        addToast(`🎉 Task "${targetTask.title}" completed! ${hrsFormatted} added to duration. Next task "${nextTask.title}" is now active!`, 'success');
+      if (autoStartNext && nextTask) {
+        // Start timer automatically on the next task
+        setTimeout(() => {
+          startTaskTimer(nextTask._id);
+        }, 120);
+        addToast(`🚀 Task "${targetTask.title}" completed! Next task "${nextTask.title}" started automatically ⏱️`, 'success');
+      } else if (nextTask) {
+        // Simple completion without auto-starting next task
+        addToast(`✅ Task "${targetTask.title}" completed successfully! (${hrsFormatted} logged)`, 'success');
       } else {
-        addToast(`🏆 Task "${targetTask.title}" completed! ${hrsFormatted} added. All assigned tasks are done!`, 'success');
+        addToast(`🏆 Task "${targetTask.title}" completed! All assigned tasks are done!`, 'success');
       }
 
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+      await loadWorkData();
+
       return { completedTask: targetTask, nextTask };
     } catch (err) {
       console.error('Error completing task:', err);
       addToast('Failed to complete task', 'error');
       return null;
     }
+  };
+
+  const completeAndNextTask = async (taskId, customMemo = '') => {
+    return await completeTask(taskId, customMemo, true);
   };
 
   // =========================================================================
@@ -1214,53 +1406,66 @@ export const WorkProvider = ({ children }) => {
 
 
 
+  const workContextValue = useMemo(() => ({
+    loading,
+    projects,
+    tasks,
+    timesheets,
+    activeRunningTask,
+    // Filters
+    projectFilter,
+    setProjectFilter,
+    taskFilter,
+    setTaskFilter,
+    timesheetFilter,
+    setTimesheetFilter,
+    // Refetch
+    loadWorkData,
+    formatSeconds,
+    // Project Methods
+    createProject,
+    updateProject,
+    deleteProject,
+    // Task Methods
+    createTask,
+    updateTask,
+    changeTaskStatus,
+    completeTask,
+    completeAndNextTask,
+    deleteTask,
+    purgeAllTasks,
+    startTaskTimer,
+    resumeTaskTimer: startTaskTimer,
+    pauseTaskTimer,
+    stopTaskTimer,
+    snoozeTask,
+    resumeSnoozedTask,
+    dismissTaskReminder,
+    // Timesheet Methods
+    logTimesheet,
+    deleteTimesheet,
+    // HR cross connection
+    employees,
+    currentUser,
+    isEmployeeOnLeave,
+    // Overdue Task Guards
+    isTaskOverdue,
+    overdueTaskPrompt,
+    setOverdueTaskPrompt,
+    extendTaskDeadline
+  }), [
+    loading, projects, tasks, timesheets, activeRunningTask,
+    projectFilter, taskFilter, timesheetFilter, loadWorkData,
+    formatSeconds, createProject, updateProject, deleteProject,
+    createTask, updateTask, changeTaskStatus, completeTask,
+    completeAndNextTask, deleteTask, purgeAllTasks, startTaskTimer, pauseTaskTimer,
+    stopTaskTimer, snoozeTask, resumeSnoozedTask, dismissTaskReminder,
+    logTimesheet, deleteTimesheet, employees, currentUser,
+    isEmployeeOnLeave, isTaskOverdue, overdueTaskPrompt, extendTaskDeadline
+  ]);
+
   return (
-    <WorkContext.Provider value={{
-      loading,
-      projects,
-      tasks,
-      timesheets,
-      activeRunningTask,
-      // Filters
-      projectFilter,
-      setProjectFilter,
-      taskFilter,
-      setTaskFilter,
-      timesheetFilter,
-      setTimesheetFilter,
-      // Refetch
-      loadWorkData,
-      formatSeconds,
-      // Project Methods
-      createProject,
-      updateProject,
-      deleteProject,
-      // Task Methods
-      createTask,
-      updateTask,
-      changeTaskStatus,
-      completeTask,
-      deleteTask,
-      startTaskTimer,
-      resumeTaskTimer: startTaskTimer,
-      pauseTaskTimer,
-      stopTaskTimer,
-      snoozeTask,
-      resumeSnoozedTask,
-      dismissTaskReminder,
-      // Timesheet Methods
-      logTimesheet,
-      deleteTimesheet,
-      // HR cross connection
-      employees,
-      currentUser,
-      isEmployeeOnLeave,
-      // Overdue Task Guards
-      isTaskOverdue,
-      overdueTaskPrompt,
-      setOverdueTaskPrompt,
-      extendTaskDeadline
-    }}>
+    <WorkContext.Provider value={workContextValue}>
       {children}
       {overdueTaskPrompt && (
         <OverdueTaskModal

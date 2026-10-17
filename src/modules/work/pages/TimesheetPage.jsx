@@ -71,70 +71,86 @@ export const TimesheetPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Page Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+      {/* Header Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#64748b', marginBottom: '1px' }}>
-            <span>Work</span>
-            <span>•</span>
-            <span style={{ color: '#0f172a', fontWeight: '600' }}>Timesheet</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Clock size={17} />
           </div>
-          <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-            Timesheet & Time Tracking
-          </h1>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Timesheet & Time Tracking
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Live timers, work duration logs, and task time tracking.
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             onClick={handleExportCSV}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
-              padding: '5px 12px',
+              padding: '6px 11px',
               borderRadius: '6px',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
               fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              height: '30px'
+              fontWeight: '600',
+              cursor: 'pointer'
             }}
+            title="Export timesheets to CSV"
           >
-            <Download size={13} /> Export
+            <Download size={13} />
+            <span>Export CSV</span>
           </button>
 
           <button
             onClick={() => setIsLogModalOpen(true)}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '5px',
+              padding: '6px 12px',
+              borderRadius: '6px',
               backgroundColor: '#0284c7',
               color: '#ffffff',
               border: 'none',
-              padding: '6px 14px',
-              borderRadius: '6px',
               fontSize: '12px',
-              fontWeight: '600',
+              fontWeight: '700',
               cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
-              transition: 'all 0.15s ease',
-              height: '30px'
+              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0369a1'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0284c7'}
+            title="Manually log time"
           >
-            <Plus size={14} />
-            Log Time
+            <Plus size={13} />
+            <span>Log Time</span>
           </button>
         </div>
       </div>

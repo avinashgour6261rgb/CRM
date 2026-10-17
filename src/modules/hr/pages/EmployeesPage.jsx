@@ -26,6 +26,7 @@ import { AddEmployeeModal } from '../components/employees/AddEmployeeModal';
 import { PromoteEmployeeModal } from '../components/employees/PromoteEmployeeModal';
 import { EditProfileModal } from '../../../shared/components/modals/EditProfileModal';
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
+import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
 import { isAdmin, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
@@ -43,6 +44,7 @@ export const EmployeesPage = () => {
   const [selectedPromoteEmp, setSelectedPromoteEmp] = useState(null);
   const [selectedProfileEmp, setSelectedProfileEmp] = useState(null);
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
+  const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
 
   // Salary map from localStorage for quick lookup
   const [salaryMap, setSalaryMap] = useState(() => {
@@ -308,12 +310,14 @@ export const EmployeesPage = () => {
               border: '1px solid #cbd5e1',
               fontSize: '12px',
               backgroundColor: '#ffffff',
+              color: '#0f172a',
+              colorScheme: 'light',
               outline: 'none'
             }}
           >
-            <option value="all">All Departments ({departments.length})</option>
+            <option value="all" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>All Departments ({departments.length})</option>
             {departments.map(d => (
-              <option key={d} value={d}>{d}</option>
+              <option key={d} value={d} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{d}</option>
             ))}
           </select>
 
@@ -327,12 +331,14 @@ export const EmployeesPage = () => {
               border: '1px solid #cbd5e1',
               fontSize: '12px',
               backgroundColor: '#ffffff',
+              color: '#0f172a',
+              colorScheme: 'light',
               outline: 'none'
             }}
           >
-            <option value="all">All Roles & Posts</option>
+            <option value="all" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>All Roles & Posts</option>
             {systemRoles.map(r => (
-              <option key={r.id} value={r.name}>{r.name}</option>
+              <option key={r.id} value={r.name} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{r.name}</option>
             ))}
           </select>
         </div>
@@ -496,6 +502,29 @@ export const EmployeesPage = () => {
                             <span>Role</span>
                           </button>
 
+                          {/* Button 2.5: Granular Permissions & Access Rights Modal */}
+                          <button
+                            onClick={() => setSelectedPermsEmp(emp)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              padding: '3px 8px',
+                              borderRadius: '5px',
+                              backgroundColor: '#f5f3ff',
+                              color: '#7c3aed',
+                              border: '1px solid #ddd6fe',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              height: '24px'
+                            }}
+                            title="Manage Granular Module Permissions & Access Rights"
+                          >
+                            <ShieldCheck size={11} color="#7c3aed" />
+                            <span>Access</span>
+                          </button>
+
                           {/* Button 3: Full Profile & Role Edit */}
                           <button
                             onClick={() => setSelectedProfileEmp(emp)}
@@ -579,6 +608,12 @@ export const EmployeesPage = () => {
         employee={selectedSalaryEmp}
         currentSalaryData={selectedSalaryEmp ? salaryMap[selectedSalaryEmp.employeeCode] : null}
         onSalaryUpdated={handleSalaryUpdated}
+      />
+
+      <ManagePermissionsModal
+        isOpen={!!selectedPermsEmp}
+        onClose={() => setSelectedPermsEmp(null)}
+        employee={selectedPermsEmp}
       />
 
     </div>

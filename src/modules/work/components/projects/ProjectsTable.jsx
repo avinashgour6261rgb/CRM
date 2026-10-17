@@ -27,8 +27,9 @@ const STATUS_CONFIG = {
   under_review: { label: 'Under Review', color: '#9333ea', bg: '#faf5ff', dot: '#a855f7' }
 };
 
-export const ProjectsTable = ({ onSelectProject }) => {
-  const { projects, deleteProject, updateProject } = useWork();
+export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
+  const { projects: contextProjects, deleteProject, updateProject } = useWork();
+  const projects = propProjects !== undefined ? propProjects : (contextProjects || []);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const handleDelete = (id, e) => {

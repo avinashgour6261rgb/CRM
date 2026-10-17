@@ -1,21 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
+import { useToast } from '../../../../shared/context/ToastContext';
+import { canApproveLeaves, isAdmin } from '../../../../shared/utils/permissionUtils';
 import { UserCheck, ShieldAlert, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 export const NewLeaveModal = ({ isOpen, onClose }) => {
-  const { employees, currentUser, applyLeave } = useHR();
+  const { employees, currentUser: hrUser, applyLeave } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { addToast } = useToast();
 
-  // Potential approvers must exclude the applying employee
-  const currentApplicantId = currentUser?._id || 'emp_001';
-  const initialApprovers = employees.filter(e => e._id !== currentApplicantId);
-  const defaultApprover = initialApprovers.find(e => 
-    (e.role?.toLowerCase().includes('admin') || e.role?.toLowerCase().includes('hr') || e.role?.toLowerCase().includes('manager') || e.role?.toLowerCase().includes('lead'))
-  ) || initialApprovers[0];
+  // 1. Resolve Active Logged In Employee from Auth or Storage
+  const activeUser = useMemo(() => {
+    if (authUser && (authUser._id || authUser.employeeCode || authUser.email)) return authUser;
+    if (hrUser && (hrUser._id || hrUser.employeeCode || hrUser.email)) return hrUser;
+    try {
+      const s = localStorage.getItem('ems_auth_session');
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (parsed && (parsed._id || parsed.employeeCode || parsed.email)) return parsed.user || parsed;
+      }
+    } catch (_) {}
+    return employees?.[0] || null;
+  }, [authUser, hrUser, employees]);
+
+  // Only Master Administrator can apply on behalf of other employees; regular employees apply for themselves
+  const isPrivileged = useMemo(() => {
+    if (!activeUser) return false;
+    return activeUser.employeeCode === 'ADM-001' ||
+      activeUser.isSuperAdmin ||
+      activeUser.isAdmin ||
+      activeUser.systemRole === 'admin' ||
+      (activeUser.role || '').toLowerCase() === 'admin' ||
+      (activeUser.role || '').toLowerCase() === 'administrator';
+  }, [activeUser]);
+
+  const currentApplicantId = activeUser?._id || (employees && employees[0]?._id) || '';
+
+  // Helper to pick the best authority approver (Admin or HR Manager)
+  const getBestApprover = (list) => {
+    if (!list || list.length === 0) return null;
+    return list.find(e => 
+      e.employeeCode === 'ADM-001' || e.isSuperAdmin || e.isAdmin || (e.role || '').toLowerCase().includes('admin')
+    ) || list.find(e => 
+      (e.role || '').toLowerCase().includes('hr manager') || e.systemRole === 'hr'
+    ) || list[0];
+  };
 
   const [formData, setFormData] = useState({
     employeeId: currentApplicantId,
-    appliedToId: defaultApprover?._id || '',
+    appliedToId: '',
     leaveType: 'Casual Leave',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -24,18 +59,65 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     isPaid: true
   });
 
+  // 2. Strict Approvers Filter: ONLY employees with actual leave approval authority
+  const potentialApprovers = useMemo(() => {
+    const applicantId = formData.employeeId || activeUser?._id;
+    const applicantCode = activeUser?.employeeCode;
+
+    let approvers = (employees || []).filter(e => {
+      // Applicant cannot approve their own leave
+      if (String(e._id) === String(applicantId)) return false;
+      if (applicantCode && e.employeeCode && e.employeeCode === applicantCode) return false;
+      // Must have actual permission to approve leaves (Admin, HR Manager, or granted approveLeaves)
+      return canApproveLeaves(e);
+    });
+
+    // Safety Fallback: Ensure at least Administrator or HR Manager is available
+    if (approvers.length === 0) {
+      approvers = (employees || []).filter(e => {
+        if (String(e._id) === String(applicantId)) return false;
+        return e.isAdmin || e.isSuperAdmin || e.employeeCode === 'ADM-001' || e.email === 'admin@inforag.com' || (e.role || '').toLowerCase().includes('admin') || (e.role || '').toLowerCase().includes('hr manager');
+      });
+    }
+
+    return approvers;
+  }, [employees, formData.employeeId, activeUser]);
+
+  // Always auto-fill current logged in applicant & valid approver when modal opens
+  useEffect(() => {
+    if (isOpen && activeUser?._id) {
+      const myId = activeUser._id;
+      const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
+      const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));
+
+      setFormData(prev => ({
+        ...prev,
+        employeeId: myId,
+        appliedToId: best?._id || ''
+      }));
+    }
+  }, [isOpen, activeUser, employees]);
+
   const [submitting, setSubmitting] = useState(false);
 
-  const potentialApprovers = employees.filter(e => e._id !== formData.employeeId);
-  const selectedEmp = employees.find(e => e._id === formData.employeeId) || currentUser || employees[0];
+  const selectedEmp = (employees || []).find(e => e._id === formData.employeeId) || activeUser || employees[0];
   const selectedApprover = potentialApprovers.find(e => e._id === formData.appliedToId) || potentialApprovers[0];
 
-  // Real-time dynamic duration calculation
-  const start = new Date(formData.startDate);
-  const end = new Date(formData.endDate);
-  const isEndBeforeStart = end < start;
-  const rawDiffDays = isEndBeforeStart ? 0 : Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-  const calculatedDays = formData.durationType === 'full' ? rawDiffDays : 0.5;
+  // Robust calendar-based date calculation
+  const getDurationDays = () => {
+    if (formData.durationType !== 'full') return 0.5;
+    if (!formData.startDate || !formData.endDate) return 0;
+    const [sy, sm, sd] = formData.startDate.split('-').map(Number);
+    const [ey, em, ed] = formData.endDate.split('-').map(Number);
+    const s = new Date(sy, sm - 1, sd);
+    const e = new Date(ey, em - 1, ed);
+    const diff = Math.round((e - s) / (1000 * 60 * 60 * 24));
+    return diff < 0 ? -1 : diff + 1;
+  };
+
+  const rawDiff = getDurationDays();
+  const isEndBeforeStart = rawDiff < 0;
+  const calculatedDays = isEndBeforeStart ? 0 : rawDiff;
 
   const typeKeyMap = {
     'Casual Leave': 'casual',
@@ -45,16 +127,35 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
   };
   const balanceKey = typeKeyMap[formData.leaveType];
   const availableBalance = balanceKey && selectedEmp?.leaveBalance ? (selectedEmp.leaveBalance[balanceKey] || 0) : null;
-  const isBalanceExceeded = availableBalance !== null && formData.leaveType !== 'Unpaid Leave' && calculatedDays > availableBalance;
+  const isBalanceExceeded = availableBalance !== null && formData.leaveType !== 'Unpaid Leave' && formData.isPaid && calculatedDays > availableBalance;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isEndBeforeStart) {
-      alert('Error: To Date cannot be earlier than From Date.');
+      addToast('To Date cannot be earlier than From Date.', 'error');
+      return;
+    }
+    if (calculatedDays <= 0) {
+      addToast('Invalid duration. Leave duration must be at least 0.5 days.', 'error');
       return;
     }
     if (!formData.reason.trim()) {
-      alert('Please provide a reason for leave');
+      addToast('Please provide a valid reason for leave.', 'error');
+      return;
+    }
+    // Strict approver validation: must exist and have permission to approve leaves
+    if (!selectedApprover || !selectedApprover._id) {
+      addToast('Please select a valid reviewer who has permission to approve leaves.', 'error');
+      return;
+    }
+    // Strict self-approval prevention: applicant cannot approve own leave
+    if (selectedEmp._id === selectedApprover._id || formData.employeeId === formData.appliedToId) {
+      addToast('Security restriction: You cannot assign yourself as the leave approver. Please select a manager or HR.', 'error');
+      return;
+    }
+    // Quota / Balance verification
+    if (isBalanceExceeded && formData.isPaid && formData.leaveType !== 'Unpaid Leave') {
+      addToast(`Cannot apply: Requested ${calculatedDays} day(s) exceeds your available ${formData.leaveType} balance (${availableBalance} days). Please select Unpaid Leave or adjust dates.`, 'error');
       return;
     }
 
@@ -64,6 +165,8 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
       let durationText = `${calculatedDays} Day${calculatedDays > 1 ? 's' : ''}`;
       if (formData.durationType === 'first_half') durationText = 'Half Day (First Half)';
       else if (formData.durationType === 'second_half') durationText = 'Half Day (Second Half)';
+
+      const finalEndDate = formData.durationType !== 'full' ? formData.startDate : formData.endDate;
 
       await applyLeave({
         employeeId: selectedEmp._id,
@@ -76,7 +179,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         appliedToAvatar: selectedApprover?.avatar || '',
         leaveType: formData.leaveType,
         startDate: formData.startDate,
-        endDate: formData.endDate,
+        endDate: finalEndDate,
         durationDays: calculatedDays,
         durationText: durationText,
         reason: formData.reason.trim(),
@@ -87,6 +190,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
       onClose();
     } catch (err) {
       console.error(err);
+      addToast(err?.message || 'Failed to submit leave request', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -108,27 +212,45 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
               Applying Employee *
             </label>
-            <select
-              value={formData.employeeId}
-              onChange={(e) => {
-                const nextEmpId = e.target.value;
-                const nextApprovers = employees.filter(emp => emp._id !== nextEmpId);
-                const nextApprover = nextApprovers.find(emp => emp._id === formData.appliedToId) || nextApprovers[0];
-                setFormData({
-                  ...formData,
-                  employeeId: nextEmpId,
-                  appliedToId: nextApprover?._id || ''
-                });
-              }}
-              className="filter-select"
-              style={{ width: '100%', height: '42px', borderRadius: '8px' }}
-            >
-              {employees.map(emp => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} ({emp.role}) {emp._id === currentUser?._id ? "— You" : ''}
-                </option>
-              ))}
-            </select>
+            {!isPrivileged ? (
+              <div style={{
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #cbd5e1',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#0f172a'
+              }}>
+                <span>👤 {selectedEmp?.name || activeUser?.name || 'You'} ({selectedEmp?.role || activeUser?.role || 'Member'})</span>
+              </div>
+            ) : (
+              <select
+                value={formData.employeeId}
+                onChange={(e) => {
+                  const nextEmpId = e.target.value;
+                  const nextApprovers = (employees || []).filter(emp => emp._id !== nextEmpId && canApproveLeaves(emp));
+                  const nextApprover = nextApprovers.find(emp => emp._id === formData.appliedToId) || getBestApprover(nextApprovers) || nextApprovers[0];
+                  setFormData({
+                    ...formData,
+                    employeeId: nextEmpId,
+                    appliedToId: nextApprover?._id || ''
+                  });
+                }}
+                className="filter-select"
+                style={{ width: '100%', height: '42px', borderRadius: '8px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              >
+                {employees.map(emp => (
+                  <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+                    {emp.name} ({emp.role}) {emp._id === activeUser?._id ? "— You" : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Send Request To (Approver / Manager) */}
@@ -140,13 +262,17 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
               value={formData.appliedToId}
               onChange={(e) => setFormData({ ...formData, appliedToId: e.target.value })}
               className="filter-select"
-              style={{ width: '100%', height: '42px', borderRadius: '8px', border: '1.5px solid #3b82f6', background: '#eff6ff' }}
+              style={{ width: '100%', height: '42px', borderRadius: '8px', border: '1.5px solid #3b82f6', background: '#eff6ff', colorScheme: 'light', color: '#0f172a' }}
             >
-              {potentialApprovers.map(emp => (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} — {emp.role || 'Reviewer'}
-                </option>
-              ))}
+              {potentialApprovers.length === 0 ? (
+                <option value="">No authorized approvers found</option>
+              ) : (
+                potentialApprovers.map(emp => (
+                  <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+                    {emp.name} — {emp.role || 'Reviewer'}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
@@ -160,13 +286,13 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             value={formData.leaveType}
             onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
             className="filter-select"
-            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+            style={{ width: '100%', height: '40px', borderRadius: '8px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
           >
-            <option value="Casual Leave">Casual Leave (CL)</option>
-            <option value="Sick Leave">Sick Leave (SL)</option>
-            <option value="Earned Leave">Earned Leave (EL)</option>
-            <option value="Maternity/Paternity">Maternity / Paternity Leave</option>
-            <option value="Unpaid Leave">Unpaid Leave</option>
+            <option value="Casual Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Casual Leave (CL)</option>
+            <option value="Sick Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Sick Leave (SL)</option>
+            <option value="Earned Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Earned Leave (EL)</option>
+            <option value="Maternity/Paternity" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Maternity / Paternity Leave</option>
+            <option value="Unpaid Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Unpaid Leave</option>
           </select>
         </div>
 

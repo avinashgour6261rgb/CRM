@@ -22,7 +22,6 @@ import { ProfileTab } from '../components/ProfileTab';
 import { EmergencyContactsTab } from '../components/EmergencyContactsTab';
 import { SecuritySettingsTab } from '../components/SecuritySettingsTab';
 import { CompanyBrandingTab } from '../components/CompanyBrandingTab';
-import { RolesManagementTab } from '../components/RolesManagementTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -43,7 +42,7 @@ export const SettingsPage = () => {
   const [breakReminders, setBreakReminders] = useState(() => localStorage.getItem('ems_pref_break_reminders') !== 'false');
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('ems_pref_sound') !== 'false');
 
-  // Role-based menu items (Zero admin exposure for employees)
+  // Role-based menu items (Unified, clean single RBAC tab for Employee Access & Permissions)
   const menuItems = React.useMemo(() => {
     const baseItems = [
       { id: 'profile', label: 'My Profile & Details', icon: User, desc: 'Personal info & emergency contacts' },
@@ -53,9 +52,8 @@ export const SettingsPage = () => {
 
     if (isUserAdmin) {
       baseItems.push(
-        { id: 'permissions', label: 'Employee Access & Permissions', icon: ShieldCheck, desc: 'RBAC module toggles' },
-        { id: 'company', label: 'Company & Payslip Settings', icon: Building2, desc: 'Company policy & branding' },
-        { id: 'roles', label: 'Roles & Hierarchy RBAC', icon: Layers, desc: 'System authority levels' }
+        { id: 'permissions', label: 'Employee Access & Permissions', icon: ShieldCheck, desc: 'RBAC module toggles & privileges' },
+        { id: 'company', label: 'Company & Payslip Settings', icon: Building2, desc: 'Company policy & branding' }
       );
     }
 
@@ -64,7 +62,7 @@ export const SettingsPage = () => {
 
   // Fallback if employee lands on restricted admin tab
   React.useEffect(() => {
-    if (!isUserAdmin && ['permissions', 'company', 'roles'].includes(activeSection)) {
+    if (!isUserAdmin && ['permissions', 'company'].includes(activeSection)) {
       setActiveSection('profile');
     }
   }, [isUserAdmin, activeSection]);
@@ -379,12 +377,6 @@ export const SettingsPage = () => {
             </div>
           )}
 
-          {/* Section: Roles & Hierarchy RBAC (Admin Only) */}
-          {activeSection === 'roles' && isUserAdmin && (
-            <div>
-              <RolesManagementTab />
-            </div>
-          )}
 
           {/* Section: Employee Permissions Management (Admin Only) */}
           {activeSection === 'permissions' && isUserAdmin && (

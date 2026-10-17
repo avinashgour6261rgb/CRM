@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
-import { Plus, Trash2, Mail, Briefcase, Building, Search, Calendar, UserCheck, Award, User, Edit3, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, Mail, Briefcase, Building, Search, Calendar, UserCheck, Award, User, Edit3, ArrowUpDown, ShieldCheck } from 'lucide-react';
 import { AddEmployeeModal } from './AddEmployeeModal';
 import { PromoteEmployeeModal } from './PromoteEmployeeModal';
 import { EditProfileModal } from '../../../../shared/components/modals/EditProfileModal';
 import { SalaryIncrementModal } from '../../../finance/components/SalaryIncrementModal';
+import { ManagePermissionsModal } from './ManagePermissionsModal';
 
 export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const { employees, deleteEmployee } = useHR();
@@ -15,6 +16,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const [selectedPromoteEmp, setSelectedPromoteEmp] = useState(null);
   const [selectedProfileEmp, setSelectedProfileEmp] = useState(null);
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
+  const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
 
   const [salaryMap, setSalaryMap] = useState(() => {
     try {
@@ -214,6 +216,28 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                       </button>
 
                       <button
+                        onClick={() => setSelectedPermsEmp(emp)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          backgroundColor: '#f5f3ff',
+                          color: '#7c3aed',
+                          border: '1px solid #ddd6fe',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          marginRight: '6px'
+                        }}
+                        title="Configure Granular Module Permissions & Access Rights"
+                      >
+                        <ShieldCheck size={12} color="#7c3aed" />
+                        <span>Access Rights</span>
+                      </button>
+
+                      <button
                         onClick={() => setSelectedPromoteEmp(emp)}
                         style={{
                           display: 'inline-flex',
@@ -281,6 +305,12 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
         employee={selectedSalaryEmp}
         currentSalaryData={selectedSalaryEmp ? salaryMap[selectedSalaryEmp.employeeCode] : null}
         onSalaryUpdated={handleSalaryUpdated}
+      />
+
+      <ManagePermissionsModal
+        isOpen={!!selectedPermsEmp}
+        onClose={() => setSelectedPermsEmp(null)}
+        employee={selectedPermsEmp}
       />
     </>
   );

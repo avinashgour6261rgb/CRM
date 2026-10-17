@@ -18,7 +18,7 @@ const isBackendAvailable = async () => {
     return backendOnlineCache;
   }
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(800) });
+    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(350) });
     backendOnlineCache = res.ok;
   } catch {
     backendOnlineCache = false;
@@ -374,6 +374,22 @@ export const workService = {
     return true;
   },
 
+  async purgeAllTasks() {
+    if (await isBackendAvailable()) {
+      try {
+        await fetch(`${API_BASE_URL}/tasks/purge/all`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      } catch (err) {
+        console.warn('Backend purge failed, clearing local:', err);
+      }
+    }
+    saveCollection(KEYS.TASKS, []);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+    return true;
+  },
+
   // ==========================================
   // ⏱️ TIMESHEET & TRACKING
   // ==========================================
@@ -395,6 +411,9 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            saveCollection(KEYS.TIMESHEETS, json.data);
+          }
           return json.data;
         }
       } catch (err) {
@@ -461,6 +480,12 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
+          const timesheets = getCollection(KEYS.TIMESHEETS);
+          const idx = timesheets.findIndex(t => t._id === json.data._id);
+          if (idx !== -1) timesheets[idx] = json.data;
+          else timesheets.unshift(json.data);
+          saveCollection(KEYS.TIMESHEETS, timesheets);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
           return json.data;
         }
       } catch (err) {
@@ -501,11 +526,18 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/timesheet/stop`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify(stopData)
         });
         if (res.ok) {
           const json = await res.json();
+          const timesheets = getCollection(KEYS.TIMESHEETS);
+          const idx = timesheets.findIndex(t => t._id === json.data._id);
+          if (idx !== -1) timesheets[idx] = json.data;
+          else timesheets.unshift(json.data);
+          saveCollection(KEYS.TIMESHEETS, timesheets);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
           return json.data;
         }
       } catch (err) {
@@ -519,7 +551,8 @@ export const workService = {
     const task = tasks.find(t => t._id === taskId);
     if (task) {
       task.timerRunning = false;
-      task.timerSeconds = 0;
+      task.timerSeconds = totalDurationSeconds;
+      task.durationSeconds = totalDurationSeconds;
       const hoursAdded = totalDurationSeconds / 3600;
       task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
       const totalSecs = Math.round(task.hoursLogged * 3600);
@@ -539,14 +572,14 @@ export const workService = {
     const newLog = {
       _id: `time_${Date.now()}`,
       taskId: task?._id || taskId,
-      taskCode: task?.taskCode || '',
-      taskTitle: task?.title || 'Tracked Session',
+      taskCode: task?.taskCode || stopData.taskCode || '',
+      taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
       projectId: task?.projectId || '',
-      employeeId: authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
-      employeeName: authUser?.name || task?.assignedToName || 'Team Member',
+      employeeId: stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
+      employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
       employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
       employeeRole: authUser?.role || task?.assignedToRole || '',
-      date: getLocalDateString(),
+      date: stopData.date || getLocalDateString(),
       startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
       endTime: endTime || new Date().toTimeString().split(' ')[0],
       totalDurationSeconds,

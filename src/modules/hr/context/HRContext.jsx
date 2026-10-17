@@ -1,19 +1,30 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { hrService } from '../services/hrService';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getCollection, KEYS } from '../../../shared/services/storageService';
 
 const HRContext = createContext();
 
 export const HRProvider = ({ children }) => {
   const { addToast } = useToast();
 
-  const [employees, setEmployees] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [leaves, setLeaves] = useState([]);
-  const [attendance, setAttendance] = useState([]);
-  const [holidays, setHolidays] = useState([]);
-  const [appreciations, setAppreciations] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [employees, setEmployees] = useState(() => getCollection(KEYS.EMPLOYEES) || []);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const s = localStorage.getItem('ems_auth_session');
+      if (s) {
+        const parsed = JSON.parse(s);
+        return parsed?.user || parsed;
+      }
+    } catch {}
+    const emps = getCollection(KEYS.EMPLOYEES) || [];
+    return emps.find(e => e.isCurrentUser) || emps[0] || null;
+  });
+  const [leaves, setLeaves] = useState(() => getCollection(KEYS.LEAVES) || []);
+  const [attendance, setAttendance] = useState(() => getCollection(KEYS.ATTENDANCE) || []);
+  const [holidays, setHolidays] = useState(() => getCollection(KEYS.HOLIDAYS) || []);
+  const [appreciations, setAppreciations] = useState(() => getCollection(KEYS.APPRECIATIONS) || []);
+  const [auditLogs, setAuditLogs] = useState(() => getCollection(KEYS.ATTENDANCE_AUDIT) || []);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -21,7 +32,7 @@ export const HRProvider = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Load all initial data
   const loadData = useCallback(async () => {
@@ -61,9 +72,23 @@ export const HRProvider = ({ children }) => {
     loadData();
 
     // Listen for storage events across tabs or internal updates
-    const handleStorageUpdate = () => loadData();
+    const handleStorageUpdate = (e) => {
+      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'hrms_attendance', 'hrms_holidays', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
+      if (e.detail?.key && hrKeys.includes(e.detail.key)) {
+        loadData();
+      }
+    };
+    const handleNativeStorage = (e) => {
+      if (e.key === 'ems_auth_session' || e.key === 'hrms_employees') {
+        loadData();
+      }
+    };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
-    return () => window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+    window.addEventListener('storage', handleNativeStorage);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+      window.removeEventListener('storage', handleNativeStorage);
+    };
   }, [loadData]);
 
   // ================= EMPLOYEES =================
@@ -265,41 +290,51 @@ export const HRProvider = ({ children }) => {
     }
   };
 
+  const hrContextValue = useMemo(() => ({
+    loading,
+    employees,
+    currentUser,
+    leaves,
+    attendance,
+    auditLogs,
+    holidays,
+    appreciations,
+    selectedMonth,
+    setSelectedMonth,
+    selectedYear,
+    setSelectedYear,
+    selectedEmployeeId,
+    setSelectedEmployeeId,
+    searchQuery,
+    setSearchQuery,
+    dateRange,
+    setDateRange,
+    loadData,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
+    applyLeave,
+    updateLeaveStatus,
+    acknowledgeLeave,
+    deleteLeave,
+    markAttendanceRecord,
+    adminForceClockOut,
+    addHoliday,
+    deleteHoliday,
+    addAppreciation,
+    deleteAppreciation
+  }), [
+    loading, employees, currentUser, leaves, attendance, auditLogs,
+    holidays, appreciations, selectedMonth, selectedYear,
+    selectedEmployeeId, searchQuery, dateRange, loadData,
+    addEmployee, updateEmployee, deleteEmployee, applyLeave,
+    updateLeaveStatus, acknowledgeLeave, deleteLeave,
+    markAttendanceRecord, adminForceClockOut, addHoliday,
+    deleteHoliday, addAppreciation, deleteAppreciation
+  ]);
+
   return (
-    <HRContext.Provider value={{
-      loading,
-      employees,
-      currentUser,
-      leaves,
-      attendance,
-      auditLogs,
-      holidays,
-      appreciations,
-      selectedMonth,
-      setSelectedMonth,
-      selectedYear,
-      setSelectedYear,
-      selectedEmployeeId,
-      setSelectedEmployeeId,
-      searchQuery,
-      setSearchQuery,
-      dateRange,
-      setDateRange,
-      loadData,
-      addEmployee,
-      updateEmployee,
-      deleteEmployee,
-      applyLeave,
-      updateLeaveStatus,
-      acknowledgeLeave,
-      deleteLeave,
-      markAttendanceRecord,
-      adminForceClockOut,
-      addHoliday,
-      deleteHoliday,
-      addAppreciation,
-      deleteAppreciation
-    }}>
+    <HRContext.Provider value={hrContextValue}>
       {children}
     </HRContext.Provider>
   );
