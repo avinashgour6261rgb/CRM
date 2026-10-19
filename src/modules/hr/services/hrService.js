@@ -504,6 +504,7 @@ export const hrService = {
             try {
               this.createAttendanceAuditLog({
                 type: 'leave_approved',
+                action: 'leave_approved',
                 date: new Date().toISOString().split('T')[0],
                 employeeId: targetLeave.employeeId,
                 employeeName: targetLeave.employeeName,
@@ -735,8 +736,12 @@ export const hrService = {
     });
   },
 
-  async createAttendanceAuditLog(auditData) {
+  async createAttendanceAuditLog(auditData = {}) {
     const authUser = getAuthUser();
+    const type = auditData.type || auditData.action || 'system';
+    const action = auditData.action || auditData.type || 'audit';
+    const employeeId = auditData.employeeId || auditData.employeeCode || authUser?._id || authUser?.employeeCode || 'SYS';
+
     const enriched = {
       _id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
@@ -745,7 +750,10 @@ export const hrService = {
       actor: auditData.actor || (authUser?.isAdmin ? 'admin' : 'employee'),
       actorId: auditData.actorId || authUser?._id || authUser?.employeeCode || 'unknown',
       actorName: auditData.actorName || authUser?.name || 'User',
-      ...auditData
+      ...auditData,
+      employeeId,
+      type,
+      action
     };
 
     return fetchWithFallback(`${API_BASE}/attendance/audit`, {

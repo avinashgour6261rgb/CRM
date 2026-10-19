@@ -67,7 +67,13 @@ export const TasksPage = () => {
   // Handle Scope Switching
   const handleScopeChange = (mode) => {
     setScopeMode(mode);
-    if (mode === 'assigned_to_me') {
+    if (mode === 'personal') {
+      setTaskFilter(prev => ({
+        ...prev,
+        assignedTo: currentUser?._id || '',
+        assignedBy: 'all'
+      }));
+    } else if (mode === 'assigned_to_me') {
       setTaskFilter(prev => ({
         ...prev,
         assignedTo: currentUser?._id || '',
@@ -117,19 +123,44 @@ export const TasksPage = () => {
     return false;
   }, []);
 
-  // Filtered & strictly scoped tasks
+  // Filtered & strictly scoped tasks with personal task privacy isolation
   const displayTasks = React.useMemo(() => {
     let list = tasks || [];
 
+    // Personal Task Privacy Filter:
+    // Personal tasks are private to the creator/assignee.
+    // If Admin selects that employee in the Member dropdown, it will be visible for that member.
+    // In global/all-company view, hide other employees' personal tasks!
+    list = list.filter(t => {
+      if (!t.isPersonal) return true;
+      const isMyTask = isTaskAssignedToUser(t, currentUser) ||
+                       String(t.assignedById) === String(currentUser?._id) ||
+                       String(t.assignedToId) === String(currentUser?._id);
+
+      if (taskFilter.assignedTo && taskFilter.assignedTo !== 'all') {
+        const targetEmp = employees?.find(e => e._id === taskFilter.assignedTo || e.employeeCode === taskFilter.assignedTo);
+        if (targetEmp) return isTaskAssignedToUser(t, targetEmp);
+        return t.assignedToId === taskFilter.assignedTo || t.assignedTo === taskFilter.assignedTo || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(taskFilter.assignedTo));
+      }
+
+      return isMyTask;
+    });
+
     // 1. Role-based tenant isolation: Regular employees can strictly only view tasks assigned to or created by them
     if (!canViewAllTasks && currentUser) {
-      list = list.filter(t => isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id || t.assignedBy === currentUser.name);
+      if (scopeMode === 'personal') {
+        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id));
+      } else {
+        list = list.filter(t => isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id || t.assignedBy === currentUser.name);
+      }
     } else {
       // Admin / HR scope filtering
-      if (scopeMode === 'assigned_to_me') {
+      if (scopeMode === 'personal') {
+        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser?._id));
+      } else if (scopeMode === 'assigned_to_me') {
         list = list.filter(t => isTaskAssignedToUser(t, currentUser));
       } else if (scopeMode === 'assigned_by_me') {
-        list = list.filter(t => t.assignedById === currentUser?._id || t.assignedBy === currentUser?.name);
+        list = list.filter(t => (t.assignedById === currentUser?._id || t.assignedBy === currentUser?.name) && !t.isPersonal);
       }
     }
 
@@ -536,6 +567,24 @@ export const TasksPage = () => {
               }}
             >
               Assigned by Me
+            </button>
+            <button
+              onClick={() => handleScopeChange('personal')}
+              style={{
+                padding: '4px 10px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '11.5px',
+                fontWeight: scopeMode === 'personal' ? '700' : '500',
+                backgroundColor: scopeMode === 'personal' ? '#ffffff' : 'transparent',
+                color: scopeMode === 'personal' ? '#7c3aed' : '#64748b',
+                boxShadow: scopeMode === 'personal' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                height: '24px'
+              }}
+            >
+              🔒 My Personal Tasks
             </button>
           </div>
 

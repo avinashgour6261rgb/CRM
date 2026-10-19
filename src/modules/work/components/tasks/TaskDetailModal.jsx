@@ -206,7 +206,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 {task.timerRunning ? 'Work Session In Progress' : 'Work Session Timer'}
               </div>
               <div style={{ fontSize: '20px', fontWeight: '800', color: task.timerRunning ? '#0284c7' : '#0f172a', fontFamily: 'monospace' }}>
-                {task.hoursLoggedText || '00:00:00'}
+                {task.liveDurationText || task.hoursLoggedText || '00:00:00'}
               </div>
             </div>
 

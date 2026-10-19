@@ -331,6 +331,7 @@ export const TeamOperationsPage = () => {
 
       await hrService.createAttendanceAuditLog({
         type: 'admin_emergency_clock_in',
+        action: 'admin_emergency_clock_in',
         date: todayStr,
         employeeId: empKey,
         employeeCode: emp.employeeCode || empKey,
@@ -398,6 +399,7 @@ export const TeamOperationsPage = () => {
 
       await hrService.createAttendanceAuditLog({
         type: 'admin_emergency_clock_out',
+        action: 'admin_emergency_clock_out',
         date: todayStr,
         employeeId: empKey,
         employeeCode: emp.employeeCode || empKey,
@@ -449,6 +451,7 @@ export const TeamOperationsPage = () => {
 
       await hrService.createAttendanceAuditLog({
         type: 'admin_task_pause_override',
+        action: 'admin_task_pause_override',
         date: todayStr,
         employeeId: empKey,
         employeeCode: emp.employeeCode || empKey,

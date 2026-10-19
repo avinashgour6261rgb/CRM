@@ -21,6 +21,7 @@ import { isHRorAdmin, getUserModulePermissions, canManageProjects } from '../../
 import { ProjectsTable } from '../components/projects/ProjectsTable';
 import { AddProjectModal } from '../components/projects/AddProjectModal';
 import { ProjectDetailModal } from '../components/projects/ProjectDetailModal';
+import { ExtendDeadlineModal } from '../components/projects/ExtendDeadlineModal';
 
 export const ProjectsPage = () => {
   const { projects, projectFilter, setProjectFilter, loading } = useWork();
@@ -28,13 +29,15 @@ export const ProjectsPage = () => {
 
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canAddProject = isPrivileged || canManageProjects(currentUser);
+  // Any team member or employee can create projects and select who can see it
+  const canAddProject = true;
   const canViewAllProjects = isPrivileged || perms?.viewAllProjects;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [extendModalProject, setExtendModalProject] = useState(null);
 
-  // Scoped projects based on permissions
+  // Scoped projects based on permissions & creator visibility
   const displayProjects = React.useMemo(() => {
     let list = projects || [];
     if (!canViewAllProjects && currentUser) {
@@ -42,10 +45,38 @@ export const ProjectsPage = () => {
         const uId = String(currentUser._id || currentUser.id || '');
         const uCode = String(currentUser.employeeCode || '');
         const uName = (currentUser.name || '').toLowerCase().trim();
+        const uEmail = (currentUser.email || '').toLowerCase().trim();
+
+        // 1. Company-wide projects are visible to all employees
+        if (p.isCompanyWide === true || p.visibility === 'all') return true;
+
+        // 2. Project Creator ALWAYS sees their own project!
+        const isCreator = (
+          (p.createdBy && String(p.createdBy) === uId) ||
+          (p.createdById && String(p.createdById) === uId) ||
+          (p.createdBy && String(p.createdBy) === uCode) ||
+          (p.creatorName && p.creatorName.toLowerCase().trim() === uName) ||
+          (p.creatorEmail && p.creatorEmail.toLowerCase().trim() === uEmail)
+        );
+        if (isCreator) return true;
+
+        // 3. User is in visibleToIds list
+        if (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) {
+          return true;
+        }
+
+        // 4. User is an assigned member
+        const isMember = (
+          (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode || (m.email && m.email.toLowerCase() === uEmail))) ||
+          (Array.isArray(p.membersList) && p.membersList.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode || (m.email && m.email.toLowerCase() === uEmail))) ||
+          (Array.isArray(p.teamIds) && (p.teamIds.includes(uId) || p.teamIds.includes(uCode))) ||
+          (Array.isArray(p.team) && p.team.some(m => String(m._id || m.id) === uId || (m.name && m.name.toLowerCase().trim() === uName)))
+        );
+        if (isMember) return true;
+
+        // 5. Project lead
         const isLead = (p.leadId && (String(p.leadId) === uId || String(p.leadId) === uCode)) || (p.lead && p.lead.toLowerCase().trim() === uName);
-        const isMember = (Array.isArray(p.teamIds) && (p.teamIds.includes(uId) || p.teamIds.includes(uCode))) || (Array.isArray(p.team) && p.team.some(m => String(m._id || m.id) === uId || (m.name && m.name.toLowerCase().trim() === uName)));
-        const isCreator = p.createdBy === currentUser._id || p.createdBy === currentUser.name;
-        return isLead || isMember || isCreator;
+        return isLead;
       });
     }
 
@@ -345,7 +376,11 @@ export const ProjectsPage = () => {
       </div>
 
       {/* Projects Table */}
-      <ProjectsTable projects={displayProjects} onSelectProject={(proj) => setSelectedProject(proj)} />
+      <ProjectsTable
+        projects={displayProjects}
+        onSelectProject={(proj) => setSelectedProject(proj)}
+        onExtendDeadline={(proj) => setExtendModalProject(proj)}
+      />
 
       {/* Add Project Modal */}
       <AddProjectModal
@@ -357,6 +392,19 @@ export const ProjectsPage = () => {
       <ProjectDetailModal
         project={selectedProject}
         onClose={() => setSelectedProject(null)}
+        onExtendDeadline={(proj) => setExtendModalProject(proj)}
+      />
+
+      {/* Extend Deadline Modal */}
+      <ExtendDeadlineModal
+        isOpen={!!extendModalProject}
+        project={extendModalProject}
+        onClose={() => setExtendModalProject(null)}
+        onSuccess={(updated) => {
+          if (selectedProject && (selectedProject._id === updated._id || selectedProject.id === updated.id)) {
+            setSelectedProject(updated);
+          }
+        }}
       />
     </div>
   );

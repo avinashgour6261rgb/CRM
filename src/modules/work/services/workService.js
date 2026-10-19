@@ -262,7 +262,7 @@ export const workService = {
     const today = getLocalDateString();
     return list.map(t => ({
       ...t,
-      isOverdue: !!(t.dueDate && !t.hasNoDueDate && t.dueDate < today && t.status !== 'completed')
+      isOverdue: !!(t.dueDate && !t.hasNoDueDate && !t.isUntimed && t.dueDate < today && t.status !== 'completed')
     }));
   },
 

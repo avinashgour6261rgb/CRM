@@ -83,8 +83,7 @@ const ProjectSchema = new mongoose.Schema(
     },
     members: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Employee'
+        type: mongoose.Schema.Types.Mixed
       }
     ],
     membersList: [
@@ -93,6 +92,67 @@ const ProjectSchema = new mongoose.Schema(
         name: String,
         avatar: String,
         role: String
+      }
+    ],
+    createdBy: {
+      type: String,
+      default: null
+    },
+    createdById: {
+      type: String,
+      default: null
+    },
+    creatorName: {
+      type: String,
+      default: null
+    },
+    creatorRole: {
+      type: String,
+      default: null
+    },
+    creatorEmail: {
+      type: String,
+      default: null
+    },
+    creatorAvatar: {
+      type: String,
+      default: null
+    },
+    visibility: {
+      type: String,
+      enum: ['all', 'members'],
+      default: 'all'
+    },
+    isCompanyWide: {
+      type: Boolean,
+      default: true
+    },
+    visibleToIds: [
+      {
+        type: String
+      }
+    ],
+    hasDeadlineExtended: {
+      type: Boolean,
+      default: false
+    },
+    extensionCount: {
+      type: Number,
+      default: 0
+    },
+    deadlineExtensions: [
+      {
+        previousDeadline: String,
+        newDeadline: String,
+        reasonCategory: String,
+        reason: String,
+        extendedBy: String,
+        extendedByName: String,
+        extendedByRole: String,
+        extendedAt: {
+          type: String,
+          default: () => new Date().toISOString()
+        }
       }
     ]
   },

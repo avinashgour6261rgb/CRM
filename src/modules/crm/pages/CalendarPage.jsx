@@ -36,7 +36,7 @@ export const CalendarPage = () => {
   const { addToast } = useToast();
   const { events, deleteEvent, computedBirthdays, computedAnniversaries } = useCRM();
   const { holidays, currentUser, employees, leaves } = useHR();
-  const { tasks } = useWork();
+  const { tasks, projects } = useWork();
 
   const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
 
@@ -46,7 +46,7 @@ export const CalendarPage = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Category and View Filters
-  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'holiday' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
+  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'project' | 'holiday' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
   const [showShifts, setShowShifts] = useState(false);
 
   // Filters
@@ -69,23 +69,33 @@ export const CalendarPage = () => {
   ];
 
   // =========================================================================
-  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS
+  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + PROJECT DEADLINES
   // =========================================================================
   const allEvents = useMemo(() => {
-    // 1. Base User & Company Events
-    const baseEvents = (events || []).map(e => ({
-      _id: e._id || `ev_${Math.random()}`,
-      title: e.eventName || e.title || 'Company Event',
-      date: e.startDate || e.date || new Date().toISOString().split('T')[0],
-      endDate: e.endDate || e.startDate || e.date || new Date().toISOString().split('T')[0],
-      time: e.startTime || e.time || 'All Day',
-      type: e.eventType || e.type || 'Company Event',
-      location: e.location || 'Headquarters / Main Office',
-      description: e.description || 'Company scheduled event and meeting.',
-      isRecurring: !!e.isRecurring,
-      color: e.color || '#2563eb',
-      bgColor: e.bgColor || '#eff6ff'
-    }));
+    // 1. Base User & Company Events (Scoped: Personal Reminders visible only to creator!)
+    const baseEvents = (events || [])
+      .filter(e => {
+        const isPersonal = e.isPersonal === true || e.eventType === 'Personal Reminder' || e.type === 'Personal Reminder';
+        if (isPersonal) {
+          const isMine = (e.createdBy && (String(e.createdBy) === String(currentUser?._id) || String(e.createdBy) === String(currentUser?.employeeCode))) ||
+                         (e.createdByName && currentUser?.name && e.createdByName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
+          return isMine;
+        }
+        return true;
+      })
+      .map(e => ({
+        _id: e._id || `ev_${Math.random()}`,
+        title: e.eventName || e.title || 'Company Event',
+        date: e.startDate || e.date || new Date().toISOString().split('T')[0],
+        endDate: e.endDate || e.startDate || e.date || new Date().toISOString().split('T')[0],
+        time: e.startTime || e.time || 'All Day',
+        type: e.eventType || e.type || 'Company Event',
+        location: e.location || 'Headquarters / Main Office',
+        description: e.description || 'Company scheduled event and meeting.',
+        isRecurring: !!e.isRecurring,
+        color: e.color || '#2563eb',
+        bgColor: e.bgColor || '#eff6ff'
+      }));
 
     // 2. Dynamic Automatic Birthdays calculated from Employee Profiles (DOB)
     const dynamicBirthdayEvents = (computedBirthdays || []).map(b => ({
@@ -181,11 +191,17 @@ export const CalendarPage = () => {
       }
     });
 
-    // 6. Dynamic Tasks Due Dates (Scoped by user role)
+    // 6. Dynamic Tasks Due Dates (Scoped by user role & personal task isolation)
     const todayStr = new Date().toISOString().split('T')[0];
     const taskEvents = (tasks || [])
       .filter(t => t?.dueDate)
       .filter(t => {
+        // Personal tasks should ONLY appear on the creator/assigned employee's calendar
+        if (t.isPersonal) {
+          return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
+                  t.assignedById === currentUser?._id ||
+                  (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
+        }
         if (isPrivileged) return true;
         return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
                 t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
@@ -207,7 +223,27 @@ export const CalendarPage = () => {
         };
       });
 
-    // 7. Dynamic Work Shift Schedules (from Company Settings)
+    // 7. Dynamic Project Deadlines (Shared so any employee can see project deadlines and contribute)
+    const projectDeadlineEvents = (projects || [])
+      .filter(p => p?.deadline && p.status !== 'completed' && p.status !== 'cancelled')
+      .map(p => {
+        const isOverdue = p.deadline < todayStr;
+        return {
+          _id: `prj_dead_${p._id || p.id || Math.random()}`,
+          title: `🚀 Project Deadline: ${p.name || 'Project'}`,
+          date: p.deadline,
+          endDate: p.deadline,
+          time: '11:59 PM',
+          type: 'Project Deadline',
+          isProject: true,
+          location: p.client ? `Client: ${p.client}` : (p.department ? `Dept: ${p.department}` : 'All Teams'),
+          description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}. Open to all team members to view and contribute.`,
+          color: isOverdue ? '#dc2626' : '#7c3aed',
+          bgColor: isOverdue ? '#fee2e2' : '#f5f3ff'
+        };
+      });
+
+    // 8. Dynamic Work Shift Schedules (from Company Settings)
     const companySettings = getCompanySettings();
     const shiftStart = companySettings.shiftStartTime || '10:00 AM';
     const shiftEnd = companySettings.shiftEndTime || '07:00 PM';
@@ -247,9 +283,10 @@ export const CalendarPage = () => {
       ...holidayEvents,
       ...approvedLeaveEvents,
       ...taskEvents,
+      ...projectDeadlineEvents,
       ...shiftEvents
     ];
-  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, currentUser, currentDate]);
+  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate]);
 
   // 30-Day Upcoming Birthdays & Anniversaries Advance Alerts
   const upcomingCelebrations = useMemo(() => {
@@ -320,6 +357,8 @@ export const CalendarPage = () => {
         if (ev.type !== 'Work Anniversary') return false;
       } else if (eventTypeFilter === 'leave') {
         if (ev.type !== 'Approved Leave') return false;
+      } else if (eventTypeFilter === 'project') {
+        if (ev.type !== 'Project Deadline') return false;
       } else if (eventTypeFilter === 'task') {
         if (!ev.type?.toLowerCase().includes('task')) return false;
       } else if (eventTypeFilter === 'meeting') {
@@ -329,6 +368,7 @@ export const CalendarPage = () => {
           ev.isHoliday ||
           ev.type === 'Approved Leave' ||
           ev.type?.toLowerCase().includes('task') ||
+          ev.type === 'Project Deadline' ||
           ev.type === 'Shift Schedule'
         ) return false;
       }
@@ -695,6 +735,7 @@ export const CalendarPage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {[
             { id: 'all', label: 'All Items' },
+            { id: 'project', label: '🚀 Project Deadlines', count: (projects || []).filter(p => p.deadline && p.status !== 'completed').length },
             { id: 'holiday', label: '🏖️ Official Holidays', count: (holidays || []).length },
             { id: 'birthday', label: '🎂 Birthdays', count: (computedBirthdays || []).length },
             { id: 'anniversary', label: '🌟 Anniversaries', count: (computedAnniversaries || []).length },

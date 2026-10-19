@@ -56,6 +56,21 @@ export const LeavesPage = () => {
   // Dynamic Today reference for active leaves
   const todayStr = new Date().toISOString().split('T')[0];
 
+  // Dynamic calculation for Current Month Leaves Calendar
+  const currentMonthCalendar = useMemo(() => {
+    const now = new Date();
+    const monthTitle = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
+    const days = Array.from({ length: daysInCurrentMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      return { dayNum, dayStr };
+    });
+    return { monthTitle, days };
+  }, []);
+
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const isPrivileged = isHRorAdmin(currentUser) || canApproveLeaves(currentUser) || perms?.viewAllLeaves;
 
@@ -1031,19 +1046,18 @@ export const LeavesPage = () => {
       {/* Calendar Schedule View */}
       {viewMode === 'calendar' && (
         <div className="table-card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>September 2026 Leaves Calendar</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>{currentMonthCalendar.monthTitle} Leaves Calendar</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
               <div key={day} style={{ textAlign: 'center', fontWeight: '600', color: '#64748b', fontSize: '12px', paddingBottom: '8px' }}>
                 {day}
               </div>
             ))}
-            {Array.from({ length: 30 }, (_, i) => i + 1).map(day => {
-              const dayStr = `2026-09-${String(day).padStart(2, '0')}`;
+            {currentMonthCalendar.days.map(({ dayNum, dayStr }) => {
               const dayLeaves = leaves.filter(l => l.startDate <= dayStr && l.endDate >= dayStr);
               return (
                 <div
-                  key={day}
+                  key={dayNum}
                   style={{
                     minHeight: '80px',
                     border: '1px solid #f1f5f9',
@@ -1052,7 +1066,7 @@ export const LeavesPage = () => {
                     background: dayLeaves.length > 0 ? '#eff6ff' : '#ffffff'
                   }}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{day}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{dayNum}</div>
                   {dayLeaves.map(dl => (
                     <div
                       key={dl._id}

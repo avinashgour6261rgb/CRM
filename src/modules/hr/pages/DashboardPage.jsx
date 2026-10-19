@@ -211,7 +211,13 @@ export const DashboardPage = () => {
       setCurrentDateFormatted(prev => (prev !== newDateFormatted ? newDateFormatted : prev));
     };
     const clockInterval = setInterval(checkClock, 10000);
-    return () => clearInterval(clockInterval);
+    const tickInterval = setInterval(() => {
+      setSyncTick(t => t + 1);
+    }, 1000);
+    return () => {
+      clearInterval(clockInterval);
+      clearInterval(tickInterval);
+    };
   }, []);
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -335,16 +341,29 @@ export const DashboardPage = () => {
       if (rawTimer) activeTimer = JSON.parse(rawTimer);
     } catch {}
 
+    const isTimerTaskCompleted = (tasks || []).some(t =>
+      (String(t._id || t.id) === String(activeTimer?.taskId || activeTimer?._id)) && isTaskActuallyCompleted(t)
+    ) || isTaskActuallyCompleted(activeTimer);
+
+    if (isTimerTaskCompleted && activeTimer) {
+      try { localStorage.removeItem(`ems_active_task_timer_${empKey}`); } catch {}
+      activeTimer = null;
+    }
+
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-    const baseRunningTask = empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null);
+    const baseRunningTask = empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
+      (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null);
     let runningTask = null;
 
-    if (baseRunningTask) {
-      let liveTaskSecs = Number(baseRunningTask.timerSeconds) || 0;
+    if (baseRunningTask && !isTaskActuallyCompleted(baseRunningTask)) {
       const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? (typeof baseRunningTask.startedAt === 'number' ? baseRunningTask.startedAt : new Date(baseRunningTask.startedAt).getTime()) : 0);
+      const accumulated = (baseRunningTask.accumulatedSeconds !== undefined && baseRunningTask.accumulatedSeconds !== null)
+        ? Number(baseRunningTask.accumulatedSeconds)
+        : (Number(baseRunningTask.timerSeconds) || 0);
+
+      let liveTaskSecs = accumulated;
       if (baseRunningTask.timerRunning && startEpoch > 0) {
         const elapsed = Math.max(0, Math.floor((Date.now() - startEpoch) / 1000));
-        const accumulated = Number(baseRunningTask.accumulatedSeconds) || 0;
         liveTaskSecs = accumulated + elapsed;
       }
       runningTask = {
@@ -379,7 +398,7 @@ export const DashboardPage = () => {
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
     return (employees || []).map(e => getEmployeeTodayState(e)).filter(Boolean);
-  }, [employees, getEmployeeTodayState]);
+  }, [employees, getEmployeeTodayState, syncTick]);
 
   const teamStats = React.useMemo(() => {
     const total = teamTodayStates.length;
@@ -449,10 +468,28 @@ export const DashboardPage = () => {
   // Admin Pause Employee Task function
   const handleAdminPauseTask = (taskId, empKey, empName) => {
     try {
+      const now = Date.now();
       const allTasks = getCollection(KEYS.TASKS) || [];
       const updatedTasks = allTasks.map(t => {
-        if (t._id === taskId || (empKey && (t.assignedToId === empKey || t.assignedTo === empKey) && t.timerRunning)) {
-          return { ...t, timerRunning: false };
+        const isMatch = String(t._id || t.id) === String(taskId) ||
+          (empKey && (t.assignedToId === empKey || t.assignedTo === empKey) && t.timerRunning);
+        if (isMatch) {
+          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+            ? Number(t.accumulatedSeconds)
+            : (Number(t.timerSeconds) || 0);
+          if (t.timerRunning && t.startedAt) {
+            const elapsed = Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000));
+            currentSecs = currentSecs + elapsed;
+          }
+          return {
+            ...t,
+            timerRunning: false,
+            startedAt: null,
+            timerSeconds: currentSecs,
+            accumulatedSeconds: currentSecs,
+            sessionDate: todayStr,
+            liveDurationText: formatSeconds(currentSecs)
+          };
         }
         return t;
       });
@@ -464,8 +501,10 @@ export const DashboardPage = () => {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
+            const currentSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
             parsed.timerRunning = false;
             parsed.startedAt = null;
+            parsed.accumulatedSeconds = currentSecs;
             localStorage.setItem(timerKey, JSON.stringify(parsed));
           } catch {}
         }
@@ -629,6 +668,25 @@ export const DashboardPage = () => {
   const baseScopedTasks = React.useMemo(() => {
     return (tasks || []).filter(t => {
       if (!t) return false;
+
+      // Personal task privacy isolation:
+      // An employee's personal routine task is private to them.
+      // Admin's general overview is NOT cluttered with other employees' personal tasks!
+      if (t.isPersonal) {
+        const isMyTask = isTaskAssignedToUser(t, currentUser) ||
+                         String(t.assignedById) === String(currentUser?._id) ||
+                         String(t.assignedToId) === String(currentUser?._id);
+
+        if (isViewingOtherEmployee && activeViewUser) {
+          const isForActiveViewUser = isTaskAssignedToUser(t, activeViewUser) ||
+                                     String(t.assignedById) === String(activeViewUser?._id) ||
+                                     String(t.assignedToId) === String(activeViewUser?._id);
+          if (!isForActiveViewUser) return false;
+        } else if (!isMyTask) {
+          return false;
+        }
+      }
+
       if (taskCategoryFilter !== 'all' && t.category !== taskCategoryFilter) {
         return false;
       }
@@ -643,12 +701,12 @@ export const DashboardPage = () => {
         return isTaskAssignedToUser(t, currentUser);
       }
       if (taskScopeFilter === 'delegated') {
-        return t.assignedBy === currentUser?.name || t.assignedById === currentUser?._id;
+        return (t.assignedBy === currentUser?.name || t.assignedById === currentUser?._id) && !t.isPersonal;
       }
       if (isUserAdminOrHR || perms.viewAllTasks) return true;
       return isTaskAssignedToUser(t, currentUser);
     });
-  }, [tasks, taskCategoryFilter, taskMemberFilter, taskScopeFilter, currentUser, isUserAdminOrHR, perms.viewAllTasks]);
+  }, [tasks, taskCategoryFilter, taskMemberFilter, taskScopeFilter, currentUser, isUserAdminOrHR, perms.viewAllTasks, isViewingOtherEmployee, activeViewUser]);
 
   // 1. Active & Newly Assigned Tasks (Sorted by in_progress first, then newest assigned/created at top)
   const activeScopedTasks = React.useMemo(() => {
@@ -678,8 +736,8 @@ export const DashboardPage = () => {
 
   const scopedInProgressCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length, [baseScopedTasks]);
   const scopedPendingCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.status !== 'in_progress' && !t.timerRunning).length, [baseScopedTasks]);
-  const scopedDueTodayCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length, [baseScopedTasks, todayStr]);
-  const scopedOverdueCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length, [baseScopedTasks, todayStr]);
+  const scopedDueTodayCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && t.dueDate === todayStr).length, [baseScopedTasks, todayStr]);
+  const scopedOverdueCount = React.useMemo(() => baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr).length, [baseScopedTasks, todayStr]);
 
   // Filtered tasks for the "My Tasks & Delegation" table supporting all lifecycle states and search
   const tableDisplayTasks = React.useMemo(() => {
@@ -689,9 +747,9 @@ export const DashboardPage = () => {
     } else if (taskStatusTab === 'pending') {
       list = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.status !== 'in_progress' && !t.timerRunning);
     } else if (taskStatusTab === 'due_today') {
-      list = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr);
+      list = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && t.dueDate === todayStr);
     } else if (taskStatusTab === 'overdue') {
-      list = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr);
+      list = baseScopedTasks.filter(t => !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr);
     } else if (taskStatusTab === 'completed') {
       list = completedScopedTasks;
     } else if (taskStatusTab === 'active') {
@@ -806,26 +864,28 @@ export const DashboardPage = () => {
 
   // Active Task for "Active Timer" card (strictly bound to target user's direct assigned tasks)
   const displayActiveTask = React.useMemo(() => {
-    if (activeEmpState?.runningTask) {
+    if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
       const match = tasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
-      const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.timerSeconds) || 0;
-      return {
-        ...(match || {}),
-        ...activeEmpState.runningTask,
-        timerRunning: true,
-        timerSeconds: liveSecs,
-        liveDurationText: formatSeconds(liveSecs)
-      };
+      if (!match || !isTaskActuallyCompleted(match)) {
+        const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.timerSeconds) || 0;
+        return {
+          ...(match || {}),
+          ...activeEmpState.runningTask,
+          timerRunning: true,
+          timerSeconds: liveSecs,
+          liveDurationText: formatSeconds(liveSecs)
+        };
+      }
     }
-    if (activeRunningTask && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+    if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && (isTaskAssignedToUser(activeRunningTask, effectiveTargetUser) || (isUserAdminOrHR && !isViewingOtherEmployee))) {
       return activeRunningTask;
     }
     if (activeSelectedTaskId) {
-      const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId));
+      const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId) && !isTaskActuallyCompleted(t));
       if (found) return found;
     }
-    return myPendingTasks.find(t => !t.snoozed) || myTasks[0] || null;
-  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
+    return myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
+  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, isUserAdminOrHR, isViewingOtherEmployee, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks
@@ -2613,7 +2673,7 @@ export const DashboardPage = () => {
                             borderRadius: '4px'
                           }}>
                             ⏱️ Task: {displayActiveTask.timerRunning
-                              ? formatTimeDurationSafe(displayActiveTask.timerSeconds || 0)
+                              ? (displayActiveTask.liveDurationText || formatTimeDurationSafe(displayActiveTask.timerSeconds || 0))
                               : (displayActiveTask.timerSeconds > 0
                                 ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
                                 : '00:00:00')}
@@ -3523,8 +3583,8 @@ export const DashboardPage = () => {
                   })
                   .map(task => {
                     const isDone = isTaskActuallyCompleted(task);
-                    const isOverdue = !isDone && task.dueDate && task.dueDate < todayStr;
-                    const isDueToday = !isDone && task.dueDate === todayStr;
+                    const isOverdue = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr;
+                    const isDueToday = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate === todayStr;
                     const isRunningTask = task.timerRunning;
 
                     return (
@@ -3542,12 +3602,19 @@ export const DashboardPage = () => {
                           #{task.taskCode || 'TSK'}
                         </td>
                         <td style={{ padding: '8px 6px', color: '#0f172a', fontWeight: '600' }}>
-                          <div
-                            onClick={() => setSelectedTask(task)}
-                            style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}
-                            title="Click to view task details"
-                          >
-                            {task.title}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span
+                              onClick={() => setSelectedTask(task)}
+                              style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}
+                              title="Click to view task details"
+                            >
+                              {task.title}
+                            </span>
+                            {task.isUntimed && (
+                              <span style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                                ⚡ Normal Task
+                              </span>
+                            )}
                           </div>
                           {task.description && (
                             <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
@@ -3576,7 +3643,7 @@ export const DashboardPage = () => {
                             fontWeight: isOverdue || isDueToday ? '700' : '500',
                             color: isOverdue ? '#dc2626' : (isDueToday ? '#d97706' : '#64748b')
                           }}>
-                            {isOverdue ? `⚠️ ${task.dueDate}` : (isDueToday ? `📅 Today` : (task.dueDate || 'No date'))}
+                            {task.isUntimed ? '⚡ Flexible / Open' : (isOverdue ? `⚠️ ${task.dueDate}` : (isDueToday ? `📅 Today` : (task.hasNoDueDate ? 'No date' : (task.dueDate || 'No date'))))}
                           </span>
                         </td>
                         <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>

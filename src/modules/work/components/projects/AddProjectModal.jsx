@@ -14,9 +14,14 @@ import {
   CheckCircle2,
   Plus,
   Building2,
-  Globe
+  Globe,
+  Lock,
+  Shield,
+  Search,
+  UserCheck
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 
 const CATEGORIES = [
@@ -40,6 +45,7 @@ const DEPARTMENTS = [
 
 export const AddProjectModal = ({ isOpen, onClose }) => {
   const { createProject, employees, projects } = useWork();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
 
   const getTodayStr = () => {
@@ -55,6 +61,8 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
 
   const defaultCode = `PRJ-${String((projects?.length || 0) + 1).padStart(3, '0')}`;
 
+  const currentUserId = currentUser?._id || currentUser?.id || 'emp_001';
+
   const [formData, setFormData] = useState({
     name: '',
     projectCode: defaultCode,
@@ -67,9 +75,10 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     currency: 'INR',
     summary: '',
     isCompanyWide: true,
-    selectedMembers: (employees || []).map(e => e._id)
+    selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)]
   });
 
+  const [memberSearch, setMemberSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -79,6 +88,11 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   };
 
   const toggleMember = (empId) => {
+    // Creator cannot be removed from their own project
+    if (empId === currentUserId) {
+      addToast('Project creator must always remain included', 'info');
+      return;
+    }
     setFormData(prev => {
       const exists = prev.selectedMembers.includes(empId);
       const next = exists
@@ -86,8 +100,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         : [...prev.selectedMembers, empId];
       return {
         ...prev,
-        selectedMembers: next,
-        isCompanyWide: next.length === employees.length
+        selectedMembers: next
       };
     });
   };
@@ -95,16 +108,17 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   const selectAllMembers = () => {
     setFormData(prev => ({
       ...prev,
-      selectedMembers: employees.map(e => e._id),
+      selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)],
       isCompanyWide: true
     }));
   };
 
   const clearAllMembers = () => {
+    // Keep creator in selected members
     setFormData(prev => ({
       ...prev,
-      selectedMembers: [],
-      isCompanyWide: false
+      selectedMembers: [currentUserId],
+      isCompanyWide: true
     }));
   };
 
@@ -117,12 +131,41 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
 
     setSubmitting(true);
     try {
-      // Determine project members: if company-wide or all selected, include all employees
-      const memberList = formData.isCompanyWide || formData.selectedMembers.length === 0
-        ? employees.map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }))
-        : employees
-            .filter(e => formData.selectedMembers.includes(e._id))
-            .map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }));
+      const creatorId = String(currentUserId);
+      const creatorName = currentUser?.name || 'Authorized Member';
+      const creatorRole = currentUser?.role || 'Team Member';
+      const creatorEmail = currentUser?.email || '';
+
+      // Ensure creator is ALWAYS included in selected members list
+      const rawSelectedIds = Array.from(new Set([
+        creatorId,
+        ...formData.selectedMembers
+      ]));
+
+      // Build member list based on selected members
+      const allEmps = employees || [];
+      const memberList = allEmps
+        .filter(e => rawSelectedIds.includes(String(e._id || e.id)) || String(e._id || e.id) === creatorId)
+        .map(e => ({
+          _id: String(e._id || e.id),
+          name: e.name,
+          avatar: e.avatar,
+          role: e.role,
+          email: e.email,
+          employeeCode: e.employeeCode
+        }));
+
+      // Ensure creator object is in memberList
+      if (!memberList.some(m => String(m._id || m.id) === creatorId)) {
+        memberList.unshift({
+          _id: creatorId,
+          name: creatorName,
+          avatar: currentUser?.avatar,
+          role: creatorRole,
+          email: creatorEmail,
+          employeeCode: currentUser?.employeeCode
+        });
+      }
 
       await createProject({
         name: formData.name.trim(),
@@ -132,16 +175,28 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         department: formData.department,
         startDate: formData.startDate,
         deadline: formData.deadline,
+        hasNoDeadline: false,
         budget: Number(formData.budget) || 0,
         currency: formData.currency,
         summary: formData.summary.trim(),
         status: 'in_progress',
         progress: 0,
-        isCompanyWide: formData.isCompanyWide,
-        members: memberList
+        isCompanyWide: true,
+        visibility: 'all',
+        visibleToIds: [],
+        createdBy: creatorId,
+        createdById: creatorId,
+        creatorName: creatorName,
+        creatorRole: creatorRole,
+        creatorEmail: creatorEmail,
+        creatorAvatar: currentUser?.avatar,
+        members: memberList,
+        membersList: memberList,
+        teamIds: memberList.map(m => m._id),
+        team: memberList
       });
 
-      addToast(`Project "${formData.name}" created! Visible to all company members.`, 'success');
+      addToast(`Project "${formData.name}" created successfully! Deadlines shared with the team.`, 'success');
       onClose();
     } catch (err) {
       console.error(err);
@@ -396,78 +451,122 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Company-Wide Team Access (Key requirement!) */}
+          {/* Project Visibility & Team Access (Key Requirement) */}
           <div style={{
-            padding: '12px',
+            padding: '12px 14px',
             backgroundColor: '#f8fafc',
-            borderRadius: '10px',
+            borderRadius: '12px',
             border: '1px solid #e2e8f0',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px'
+            gap: '10px'
           }}>
+            {/* Header & Creator Attribution */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Building2 size={15} color="#0284c7" />
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                  Company-Wide Visibility & Members
+                <Users size={16} color="#0284c7" />
+                <span style={{ fontSize: '12.5px', fontWeight: '800', color: '#0f172a' }}>
+                  Project Team Members & Collaboration
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={selectAllMembers}
-                  style={{ fontSize: '10.5px', color: '#0284c7', background: '#e0f2fe', border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}
-                >
-                  All Employees ({employees?.length || 0})
-                </button>
-                <button
-                  type="button"
-                  onClick={clearAllMembers}
-                  style={{ fontSize: '10.5px', color: '#64748b', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  Clear
-                </button>
+              <div style={{
+                fontSize: '11px',
+                color: '#0369a1',
+                backgroundColor: '#e0f2fe',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <UserCheck size={12} />
+                Creator: {currentUser?.name || 'You'}
               </div>
             </div>
 
-            <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
-              All selected employees will see this project in their task assignments, project dashboard, and time tracker.
+            <p style={{ fontSize: '11px', color: '#64748b', margin: 0, lineHeight: '1.4' }}>
+              Select team members to assign to this project. Project milestones and deadlines remain open to all employees on the Calendar so anyone can contribute and help meet targets.
             </p>
 
-            {/* Member Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', maxHeight: '90px', overflowY: 'auto', paddingTop: '2px' }}>
-              {employees && employees.map(emp => {
-                const isSelected = formData.selectedMembers.includes(emp._id);
-                return (
+            {/* Member Selection Area */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                  Assigned Team Members ({formData.selectedMembers.length} selected):
+                </span>
+                <div style={{ display: 'flex', gap: '5px' }}>
                   <button
-                    key={emp._id}
                     type="button"
-                    onClick={() => toggleMember(emp._id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '4px 8px',
-                      borderRadius: '14px',
-                      border: isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                      backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
-                      color: isSelected ? '#0369a1' : '#475569',
-                      fontSize: '11px',
-                      fontWeight: isSelected ? '700' : '500',
-                      cursor: 'pointer'
-                    }}
+                    onClick={selectAllMembers}
+                    style={{ fontSize: '10.5px', color: '#0284c7', background: '#e0f2fe', border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}
                   >
-                    <img
-                      src={emp.avatar}
-                      alt={emp.name}
-                      style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                    <span>{emp.name}</span>
-                    {isSelected && <CheckCircle2 size={11} color="#0284c7" />}
+                    Select All
                   </button>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={clearAllMembers}
+                    style={{ fontSize: '10.5px', color: '#64748b', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    Clear Others
+                  </button>
+                </div>
+              </div>
+
+              {/* Member Chips */}
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '5px',
+                maxHeight: '110px',
+                overflowY: 'auto',
+                padding: '4px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px'
+              }}>
+                {employees && employees.map(emp => {
+                  const isCreator = String(emp._id) === String(currentUserId);
+                  const isSelected = isCreator || formData.selectedMembers.includes(emp._id);
+
+                  return (
+                    <button
+                      key={emp._id}
+                      type="button"
+                      onClick={() => toggleMember(emp._id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        padding: '3px 8px',
+                        borderRadius: '14px',
+                        border: isCreator
+                          ? '1.5px solid #2563eb'
+                          : isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                        backgroundColor: isCreator
+                          ? '#eff6ff'
+                          : isSelected ? '#f0fdf4' : '#ffffff',
+                        color: isCreator
+                          ? '#1d4ed8'
+                          : isSelected ? '#15803d' : '#475569',
+                        fontSize: '11px',
+                        fontWeight: isSelected ? '700' : '500',
+                        cursor: isCreator ? 'default' : 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title={isCreator ? 'You are the project creator (always included)' : `Click to toggle visibility for ${emp.name}`}
+                    >
+                      <img
+                        src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={emp.name}
+                        style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                      <span>{emp.name} {isCreator ? '(Creator)' : ''}</span>
+                      {isSelected && <CheckCircle2 size={11} color={isCreator ? '#2563eb' : '#16a34a'} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

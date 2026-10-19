@@ -27,10 +27,12 @@ const STATUS_CONFIG = {
   under_review: { label: 'Under Review', color: '#9333ea', bg: '#faf5ff', dot: '#a855f7' }
 };
 
-export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
+export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExtendDeadline }) => {
   const { projects: contextProjects, deleteProject, updateProject } = useWork();
   const projects = propProjects !== undefined ? propProjects : (contextProjects || []);
   const [activeMenuId, setActiveMenuId] = useState(null);
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const handleDelete = (id, e) => {
     e.stopPropagation();
@@ -100,7 +102,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
                 Department
               </th>
               <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
-                Timeline
+                Timeline & Deadline
               </th>
               <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                 Status
@@ -120,6 +122,8 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
             {projects.map((proj) => {
               const status = STATUS_CONFIG[proj.status] || STATUS_CONFIG.in_progress;
               const isMenuOpen = activeMenuId === proj._id;
+              const isOverdue = proj.deadline && !proj.hasNoDeadline && proj.deadline < todayStr && proj.status !== 'completed';
+              const isExtended = proj.hasDeadlineExtended || (Array.isArray(proj.deadlineExtensions) && proj.deadlineExtensions.length > 0);
 
               return (
                 <tr
@@ -128,10 +132,11 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
                   style={{
                     borderBottom: '1px solid #f1f5f9',
                     cursor: 'pointer',
-                    transition: 'background-color 0.15s ease'
+                    transition: 'background-color 0.15s ease',
+                    backgroundColor: isOverdue ? 'rgba(254, 242, 242, 0.35)' : 'transparent'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = isOverdue ? '#fef2f2' : '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = isOverdue ? 'rgba(254, 242, 242, 0.35)' : 'transparent'}
                 >
                   {/* Project Name & Short Code */}
                   <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
@@ -149,11 +154,17 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
                         {proj.projectCode || 'PRJ'}
                       </span>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                          {proj.name}
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{proj.name}</span>
                         </div>
-                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                          {proj.category || 'General'}
+                        <div style={{ fontSize: '10.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{proj.category || 'General'}</span>
+                          {proj.creatorName && (
+                            <>
+                              <span>•</span>
+                              <span style={{ color: '#0369a1' }}>By {proj.creatorName}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -182,12 +193,52 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
 
                   {/* Start Date & Deadline */}
                   <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: '11.5px', color: '#334155' }}>
-                      {proj.startDate}
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Start: {proj.startDate}
                     </div>
-                    <div style={{ fontSize: '10.5px', color: proj.hasNoDeadline ? '#94a3b8' : '#ef4444' }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: isOverdue ? '700' : '500', color: isOverdue ? '#dc2626' : '#334155' }}>
                       {proj.hasNoDeadline ? 'No deadline' : `Due: ${proj.deadline || 'Ongoing'}`}
                     </div>
+                    {isOverdue && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <span style={{
+                          fontSize: '9.5px',
+                          fontWeight: '800',
+                          color: '#dc2626',
+                          backgroundColor: '#fee2e2',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid #fca5a5'
+                        }}>
+                          ⚠️ OVERDUE
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onExtendDeadline && onExtendDeadline(proj);
+                          }}
+                          style={{
+                            backgroundColor: '#2563eb',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                          title="Extend project deadline with reason"
+                        >
+                          + Extend
+                        </button>
+                      </div>
+                    )}
+                    {isExtended && (
+                      <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '600', marginTop: '1px' }}>
+                        🔄 Extended ({proj.extensionCount || proj.deadlineExtensions?.length || 1}x)
+                      </div>
+                    )}
                   </td>
 
                   {/* Status Badge with colored dot */}
@@ -317,7 +368,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
                           border: '1px solid #e2e8f0',
                           padding: '6px',
                           zIndex: 50,
-                          minWidth: '160px',
+                          minWidth: '170px',
                           textAlign: 'left'
                         }}
                       >
@@ -341,6 +392,28 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject }) => {
                         >
                           <Eye size={14} color="#3b82f6" /> View Details
                         </div>
+
+                        <div
+                          onClick={() => {
+                            onExtendDeadline && onExtendDeadline(proj);
+                            setActiveMenuId(null);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 12px',
+                            fontSize: '12.5px',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            borderRadius: '4px'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Calendar size={14} color="#2563eb" /> Extend Deadline
+                        </div>
+
                         <div
                           onClick={(e) => handleDelete(proj._id, e)}
                           style={{

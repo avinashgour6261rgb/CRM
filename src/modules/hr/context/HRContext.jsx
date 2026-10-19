@@ -97,6 +97,7 @@ export const HRProvider = ({ children }) => {
       const created = await hrService.createEmployee(empData);
       setEmployees(prev => [...prev, created]);
       addToast(`Employee "${created.name}" added to database!`, 'success');
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
       await loadData();
       return created;
@@ -122,6 +123,7 @@ export const HRProvider = ({ children }) => {
       setEmployees(prev => prev.map(e => (e._id === employeeId || (e.isCurrentUser && updated.isCurrentUser) ? { ...e, ...updated } : e)));
 
       addToast('Profile & employee details updated successfully!', 'success');
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
       await loadData();
       return updated;

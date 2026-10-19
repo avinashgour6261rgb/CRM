@@ -104,17 +104,45 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                   onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
                 >
                   {/* Top Bar: Code & Project */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      color: '#2563eb',
-                      backgroundColor: '#eff6ff',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
-                    }}>
-                      {task.taskCode || 'TSK'}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        color: '#2563eb',
+                        backgroundColor: '#eff6ff',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        {task.taskCode || 'TSK'}
+                      </span>
+                      {task.isPersonal && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          color: '#7c3aed',
+                          backgroundColor: '#faf5ff',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid #e9d5ff'
+                        }}>
+                          🔒 Personal
+                        </span>
+                      )}
+                      {task.isUntimed && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          color: '#059669',
+                          backgroundColor: '#ecfdf5',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid #a7f3d0'
+                        }}>
+                          ⚡ Normal
+                        </span>
+                      )}
+                    </div>
                     <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>
                       {task.projectName || 'General'}
                     </span>
@@ -127,7 +155,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
 
                   {/* Action Bar (Timer Controls + Complete Button) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                    {task.timerRunning ? (
+                    {(task.timerRunning && task.status !== 'completed' && !task.completedAt) ? (
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -139,7 +167,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                         fontSize: '11px',
                         fontWeight: '700'
                       }}>
-                        <span>⏱️ {task.hoursLoggedText}</span>
+                        <span>⏱️ {task.liveDurationText || task.hoursLoggedText}</span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -285,7 +313,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                     )}
 
                     <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
-                      Due: {task.dueDate || 'N/A'}
+                      {task.isUntimed ? '⚡ Open Duration' : (task.hasNoDueDate ? 'No Due Date' : `Due: ${task.dueDate || 'N/A'}`)}
                     </div>
                   </div>
                 </div>

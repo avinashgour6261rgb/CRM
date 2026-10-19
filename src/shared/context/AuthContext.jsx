@@ -7,9 +7,9 @@ const AuthContext = createContext();
 
 export const PRESET_USERS = {
   admin: {
-    _id: '6acc811b9fa84342850a5ab9',
+    _id: '6ad22399c93908b02fffebe0',
     employeeCode: 'ADM-001',
-    name: 'Admin User',
+    name: 'Administrator',
     email: 'admin@inforag.com',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
     role: 'Administrator',
@@ -20,37 +20,72 @@ export const PRESET_USERS = {
     isCurrentUser: true,
     isAdmin: true,
     isSuperAdmin: true,
-    leaveBalance: { casual: 12, sick: 10, earned: 18, maternity: 0 }
+    password: 'admin123',
+    leaveBalance: { casual: 15, sick: 12, earned: 20, maternity: 0 }
   },
   hr: {
-    _id: '6acc811b9fa84342850a5aba',
-    employeeCode: 'HR-001',
-    name: 'Pooja Sharma',
-    email: 'hr@inforag.com',
+    _id: '6ad363ad24302c31848d32df',
+    employeeCode: 'EMP-003',
+    name: 'Janvi Hiwse',
+    email: 'janvi@inforag.com',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-    role: 'HR Manager',
+    role: 'HR Specialist & Recruiter',
     systemRole: ROLES.HR,
     department: 'Human Resources',
     status: 'active',
-    joiningDate: '2023-03-01',
+    joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 }
+    password: 'emp123',
+    leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
+  },
+  janvi: {
+    _id: '6ad363ad24302c31848d32df',
+    employeeCode: 'EMP-003',
+    name: 'Janvi Hiwse',
+    email: 'janvi@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+    role: 'HR Specialist & Recruiter',
+    systemRole: ROLES.HR,
+    department: 'Human Resources',
+    status: 'active',
+    joiningDate: '2024-01-01',
+    isCurrentUser: true,
+    isAdmin: false,
+    password: 'emp123',
+    leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
   },
   employee: {
-    _id: '6acc811b9fa84342850a5abb',
-    employeeCode: 'ENG-001',
-    name: 'Rahul Verma',
-    email: 'rahul.verma@inforag.com',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-    role: 'Senior Full Stack Developer',
+    _id: '6ad5b86d4cd8da54d020b12a',
+    employeeCode: 'EMP-002',
+    name: 'Sandeep Meena',
+    email: 'sandeep@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    role: 'Team Member',
     systemRole: ROLES.TEAM_MEMBER,
     department: 'Engineering',
     status: 'active',
-    joiningDate: '2023-02-15',
+    joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    leaveBalance: { casual: 10, sick: 6, earned: 14, maternity: 0 }
+    password: 'emp123',
+    leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
+  },
+  sandeep: {
+    _id: '6ad5b86d4cd8da54d020b12a',
+    employeeCode: 'EMP-002',
+    name: 'Sandeep Meena',
+    email: 'sandeep@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    role: 'Team Member',
+    systemRole: ROLES.TEAM_MEMBER,
+    department: 'Engineering',
+    status: 'active',
+    joiningDate: '2024-01-01',
+    isCurrentUser: true,
+    isAdmin: false,
+    password: 'emp123',
+    leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
   }
 };
 
@@ -170,9 +205,9 @@ export const AuthProvider = ({ children }) => {
     if (roleId === 'admin') {
       targetUser = employees.find(e => e.employeeCode === 'ADM-001' || e.role?.toLowerCase().includes('admin') || e.isAdmin) || PRESET_USERS.admin;
     } else if (roleId === 'hr') {
-      targetUser = employees.find(e => e.employeeCode === 'HR-001' || e.department === 'Human Resources') || PRESET_USERS.hr;
+      targetUser = employees.find(e => e.employeeCode === 'EMP-003' || e.employeeCode === 'HR-001' || e.email === 'janvi@inforag.com' || e.department === 'Human Resources') || PRESET_USERS.janvi || PRESET_USERS.hr;
     } else if (roleId === 'employee' || roleId === 'team_member') {
-      targetUser = employees.find(e => e.employeeCode === 'ENG-001' || e.department === 'Engineering') || PRESET_USERS.employee;
+      targetUser = employees.find(e => e.employeeCode === 'EMP-002' || e.email === 'sandeep@inforag.com' || e.employeeCode === 'ENG-001' || e.department === 'Engineering') || PRESET_USERS.sandeep || PRESET_USERS.employee;
     }
 
     setCurrentUser(targetUser);
@@ -224,7 +259,10 @@ export const AuthProvider = ({ children }) => {
 
   // Login handler with real credential verification (Email or Employee Code + Password)
   const login = useCallback(async ({ email, employeeCode, identifier, password, role }) => {
-    const inputId = (identifier || email || employeeCode || '').toLowerCase().trim();
+    let inputId = (identifier || email || employeeCode || '').toLowerCase().trim();
+    if (inputId === 'sandeep@infora.com') {
+      inputId = 'sandeep@inforag.com';
+    }
     const cleanPass = (password || '').trim();
 
     // 1. Fetch registered employees in storage
@@ -290,10 +328,10 @@ export const AuthProvider = ({ children }) => {
 
     // 4. Check Presets
     if (!matchedUser) {
-      if (inputId === 'hr@inforag.com' || inputId === 'hr-001' || role === 'hr') {
-        matchedUser = PRESET_USERS.hr;
-      } else if (inputId === 'employee@inforag.com' || inputId === 'eng-001' || role === 'employee') {
-        matchedUser = PRESET_USERS.employee;
+      if (inputId === 'janvi@inforag.com' || inputId === 'janvi' || inputId === 'hr@inforag.com' || inputId === 'hr-001' || inputId === 'emp-003' || role === 'hr') {
+        matchedUser = PRESET_USERS.janvi || PRESET_USERS.hr;
+      } else if (inputId === 'sandeep@inforag.com' || inputId === 'sandeep@infora.com' || inputId === 'sandeep' || inputId === 'emp-002' || inputId === 'employee@inforag.com' || inputId === 'eng-001' || role === 'employee') {
+        matchedUser = PRESET_USERS.sandeep || PRESET_USERS.employee;
       }
     }
 

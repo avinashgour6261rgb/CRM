@@ -60,36 +60,56 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  // 'none' (Standalone Task) | 'existing' (Company Project) | 'new' (Create Project on the fly)
-  const [projectMode, setProjectMode] = useState(
-    initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
-  );
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
 
-  const [formData, setFormData] = useState({
+  const getInitialFormData = () => ({
     title: '',
     category: 'General',
     projectId: initialProjectId || (projects && projects[0]?._id) || '',
     customProjectName: '',
     startDate: getTodayStr(),
     dueDate: getTodayStr(),
-    assignedToId: '',
-    assignedToIds: [],
+    assignedToId: !isPrivileged && currentUser?._id ? currentUser._id : '',
+    assignedToIds: !isPrivileged && currentUser?._id ? [currentUser._id] : [],
     priority: 'medium',
     estimatedHours: 4,
-    description: ''
+    isUntimed: false,
+    hasNoDueDate: false,
+    description: '',
+    isPersonal: !isPrivileged
   });
+
+  // 'none' (Standalone Task) | 'existing' (Company Project) | 'new' (Create Project on the fly)
+  const [projectMode, setProjectMode] = useState(
+    initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
+  );
+
+  // 'personal' (Private to this employee) | 'team' (Company/Team Task)
+  const [taskScope, setTaskScope] = useState(!isPrivileged ? 'personal' : 'team');
+
+  const [formData, setFormData] = useState(getInitialFormData);
 
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (initialProjectId) {
-      setProjectMode('existing');
-      setFormData(prev => ({ ...prev, projectId: initialProjectId }));
-    }
-  }, [initialProjectId]);
+  const resetForm = () => {
+    setFormData(getInitialFormData());
+    setProjectMode(initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none'));
+    setTaskScope(!isPrivileged ? 'personal' : 'team');
+    setMemberSearchQuery('');
+    setSubmitting(false);
+  };
 
-  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+  const handleClose = () => {
+    resetForm();
+    if (onClose) onClose();
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, initialProjectId]);
 
   if (!isOpen) return null;
 
@@ -196,17 +216,30 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
 
       // Resolve selected assignees
       const validEmpList = employees || [];
-      const selectedAssignees = validEmpList.filter(e => (formData.assignedToIds || []).includes(e._id));
-      
-      if (selectedAssignees.length === 0 && !formData.assignedToId) {
-        addToast('Please select at least one assignee for this task', 'error');
-        setSubmitting(false);
-        return;
-      }
+      const isPersonalTask = taskScope === 'personal';
+      let assigneesList = [];
 
-      const assigneesList = selectedAssignees.length > 0
-        ? selectedAssignees
-        : [validEmpList.find(e => e._id === formData.assignedToId)].filter(Boolean);
+      if (isPersonalTask) {
+        const myEmpObj = validEmpList.find(e => String(e._id) === String(currentUser?._id)) || {
+          _id: currentUser?._id || 'emp_self',
+          name: currentUser?.name || 'Self',
+          avatar: currentUser?.avatar || '',
+          role: currentUser?.role || 'Team Member',
+          email: currentUser?.email || '',
+          employeeCode: currentUser?.employeeCode || ''
+        };
+        assigneesList = [myEmpObj];
+      } else {
+        const selectedAssignees = validEmpList.filter(e => (formData.assignedToIds || []).includes(e._id));
+        if (selectedAssignees.length === 0 && !formData.assignedToId) {
+          addToast('Please select at least one assignee for this task', 'error');
+          setSubmitting(false);
+          return;
+        }
+        assigneesList = selectedAssignees.length > 0
+          ? selectedAssignees
+          : [validEmpList.find(e => e._id === formData.assignedToId)].filter(Boolean);
+      }
 
       const primaryAssignee = assigneesList[0];
       const isMultiple = assigneesList.length > 1;
@@ -224,9 +257,12 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         projectName: finalProjectName,
         projectCode: finalProjectCode,
         startDate: formData.startDate,
-        dueDate: formData.dueDate,
+        dueDate: formData.hasNoDueDate ? '' : formData.dueDate,
+        hasNoDueDate: !!(formData.hasNoDueDate || formData.isUntimed),
+        isUntimed: !!formData.isUntimed,
+        isPersonal: isPersonalTask,
         priority: formData.priority,
-        estimatedHours: Number(formData.estimatedHours) || 0,
+        estimatedHours: formData.isUntimed ? 0 : (Number(formData.estimatedHours) || 0),
         description: formData.description.trim(),
         // Multi-assignees
         assignedToIds: assigneesList.map(a => a._id),
@@ -258,17 +294,20 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         timerSeconds: 0
       });
 
-      addToast(`Task "${formData.title}" assigned to ${displayAssigneeName}!`, 'success');
+      if (isPersonalTask) {
+        addToast(`Personal task "${formData.title}" added to your queue! (Private to you)`, 'success');
+      } else {
+        addToast(`Task "${formData.title}" assigned to ${displayAssigneeName}!`, 'success');
+      }
 
       if (andAddMore) {
         setFormData(prev => ({
-          ...prev,
-          title: '',
-          description: '',
-          estimatedHours: 4
+          ...getInitialFormData(),
+          projectId: prev.projectId,
+          category: prev.category
         }));
       } else {
-        onClose();
+        handleClose();
       }
     } catch (err) {
       console.error(err);
@@ -339,7 +378,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close modal"
             style={{
               background: '#ffffff',
@@ -360,6 +399,86 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         {/* Scrollable Form Body */}
         <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
+          {/* Task Type & Visibility Privacy Scope */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              Task Type & Visibility
+            </label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '6px',
+              backgroundColor: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '8px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskScope('personal');
+                  handleAssignToMeOnly();
+                  setFormData(prev => ({ ...prev, isPersonal: true }));
+                }}
+                style={{
+                  padding: '7px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: taskScope === 'personal' ? '#ffffff' : 'transparent',
+                  color: taskScope === 'personal' ? '#7c3aed' : '#64748b',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: taskScope === 'personal' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <User size={13} />
+                <span>👤 My Personal Task (Private)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTaskScope('team');
+                  setFormData(prev => ({ ...prev, isPersonal: false }));
+                }}
+                style={{
+                  padding: '7px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: taskScope === 'team' ? '#ffffff' : 'transparent',
+                  color: taskScope === 'team' ? '#0284c7' : '#64748b',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: taskScope === 'team' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Users size={13} />
+                <span>🏢 Team / Project Task</span>
+              </button>
+            </div>
+
+            {taskScope === 'personal' ? (
+              <p style={{ margin: '5px 0 0', fontSize: '11px', color: '#7c3aed', fontWeight: '500' }}>
+                🔒 <strong>Personal Routine Work:</strong> Visible strictly on your dashboard and personal task list. Admin and other employees won't see your personal routine to-dos to keep the workspace clean and uncluttered.
+              </p>
+            ) : (
+              <p style={{ margin: '5px 0 0', fontSize: '11px', color: '#0369a1', fontWeight: '500' }}>
+                🌐 <strong>Team Deliverable:</strong> Shared with assigned members and company workspace to track deliverables and project milestones.
+              </p>
+            )}
+          </div>
+
           {/* 1. Project Assignment Segmented Toggle */}
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
@@ -559,16 +678,63 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
             </select>
           </div>
 
-          {/* 4. Assignee Selection (Any employee can assign to anyone or Admin) */}
-          <div style={{
-            backgroundColor: '#f8fafc',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: '10px',
-            padding: '12px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
+          {/* 4. Assignee Selection */}
+          {taskScope === 'personal' ? (
+            <div style={{
+              backgroundColor: '#faf5ff',
+              border: '1.5px solid #e9d5ff',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <img
+                  src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                  alt={currentUser?.name}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #a855f7' }}
+                />
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#6b21a8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>{currentUser?.name || 'You'}</span>
+                    <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f3e8ff', color: '#7c3aed', fontWeight: '800' }}>
+                      Self Assigned
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#7e22ce' }}>
+                    {currentUser?.role || 'Team Member'} • Private Routine Task (Visible only to you)
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                color: '#7c3aed',
+                backgroundColor: '#ffffff',
+                border: '1px solid #d8b4fe',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Check size={12} strokeWidth={3} />
+                Private
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              backgroundColor: '#f8fafc',
+              border: '1.5px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Users size={14} color="#0284c7" />
@@ -804,54 +970,139 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 })}
             </div>
           </div>
+          )}
 
           {/* 4. Estimated Time & Priority */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
-                Estimated Duration
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <input
-                  type="number"
-                  min="0.25"
-                  step="0.5"
-                  max="100"
-                  value={formData.estimatedHours}
-                  onChange={(e) => handleChange('estimatedHours', parseFloat(e.target.value) || 1)}
-                  style={{
-                    width: '64px',
-                    padding: '7px 8px',
-                    borderRadius: '6px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    color: '#0f172a',
-                    outline: 'none',
-                    textAlign: 'center'
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                  Duration / Time Limit
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      isUntimed: !prev.isUntimed,
+                      estimatedHours: !prev.isUntimed ? 0 : (prev.estimatedHours || 4),
+                      hasNoDueDate: !prev.isUntimed ? true : false
+                    }));
                   }}
-                />
-                <span style={{ fontSize: '11px', color: '#64748b', marginRight: '4px' }}>hours</span>
-                {HOUR_PRESETS.map(h => (
+                  style={{
+                    border: 'none',
+                    background: formData.isUntimed ? '#ecfdf5' : '#f1f5f9',
+                    color: formData.isUntimed ? '#059669' : '#64748b',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Toggle between fixed estimated time or open/untimed normal task"
+                >
+                  <Zap size={11} color={formData.isUntimed ? '#059669' : '#64748b'} />
+                  {formData.isUntimed ? 'Normal Task (No Time)' : 'Normal Task (Untimed)'}
+                </button>
+              </div>
+
+              {formData.isUntimed ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1.5px dashed #86efac',
+                  color: '#166534',
+                  fontSize: '11px',
+                  fontWeight: '600'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Sparkles size={13} color="#16a34a" />
+                    <span>⚡ <strong>Normal Task:</strong> No fixed time limit.</span>
+                  </div>
                   <button
-                    key={h}
                     type="button"
-                    onClick={() => handleChange('estimatedHours', h)}
+                    onClick={() => setFormData(prev => ({ ...prev, isUntimed: false, estimatedHours: 4, hasNoDueDate: false }))}
+                    style={{
+                      border: 'none',
+                      background: '#dcfce7',
+                      color: '#15803d',
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    Add Hours
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min="0.25"
+                    step="0.5"
+                    max="100"
+                    value={formData.estimatedHours}
+                    onChange={(e) => handleChange('estimatedHours', parseFloat(e.target.value) || 1)}
+                    style={{
+                      width: '64px',
+                      padding: '7px 8px',
+                      borderRadius: '6px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      outline: 'none',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <span style={{ fontSize: '11px', color: '#64748b', marginRight: '4px' }}>hours</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, isUntimed: true, estimatedHours: 0, hasNoDueDate: true }))}
                     style={{
                       padding: '4px 6px',
                       borderRadius: '5px',
-                      border: formData.estimatedHours === h ? '1px solid #0284c7' : '1px solid #e2e8f0',
-                      backgroundColor: formData.estimatedHours === h ? '#e0f2fe' : '#ffffff',
-                      color: formData.estimatedHours === h ? '#0284c7' : '#475569',
-                      fontSize: '10.5px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#f8fafc',
+                      color: '#0f172a',
+                      fontSize: '10px',
                       fontWeight: '700',
                       cursor: 'pointer'
                     }}
+                    title="No fixed time limit / Normal Task"
                   >
-                    {h}h
+                    ⚡ None
                   </button>
-                ))}
-              </div>
+                  {HOUR_PRESETS.map(h => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, estimatedHours: h, isUntimed: false }))}
+                      style={{
+                        padding: '4px 6px',
+                        borderRadius: '5px',
+                        border: (!formData.isUntimed && formData.estimatedHours === h) ? '1px solid #0284c7' : '1px solid #e2e8f0',
+                        backgroundColor: (!formData.isUntimed && formData.estimatedHours === h) ? '#e0f2fe' : '#ffffff',
+                        color: (!formData.isUntimed && formData.estimatedHours === h) ? '#0284c7' : '#475569',
+                        fontSize: '10.5px',
+                        fontWeight: '700',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
@@ -992,7 +1243,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         }}>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               padding: '7px 14px',
               borderRadius: '7px',

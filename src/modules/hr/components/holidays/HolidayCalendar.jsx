@@ -11,14 +11,15 @@ export const HolidayCalendar = () => {
 
   const canManageHolidays = isHRorAdmin(currentUser);
 
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 8, 1)); // September 2026
+  const now = new Date();
+  const [currentDate, setCurrentDate] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day', 'list'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState('');
 
-  const todayStr = '2026-09-22';
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth(); // 0-indexed (8 = September)
+  const currentMonth = currentDate.getMonth(); // 0-indexed
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -32,7 +33,8 @@ export const HolidayCalendar = () => {
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date(2026, 8, 1));
+    const todayNow = new Date();
+    setCurrentDate(new Date(todayNow.getFullYear(), todayNow.getMonth(), 1));
   };
 
   // Calendar calculations
@@ -47,10 +49,11 @@ export const HolidayCalendar = () => {
   // Previous month padding cells
   for (let i = startDayOffset - 1; i >= 0; i--) {
     const dayNum = daysInPrevMonth - i;
+    const d = new Date(currentYear, currentMonth - 1, dayNum);
     calendarCells.push({
       day: dayNum,
       isCurrentMonth: false,
-      dateStr: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+      dateStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     });
   }
 
@@ -67,10 +70,11 @@ export const HolidayCalendar = () => {
   // Next month padding cells
   const remainingCells = (7 - (calendarCells.length % 7)) % 7;
   for (let n = 1; n <= remainingCells; n++) {
+    const d = new Date(currentYear, currentMonth + 1, n);
     calendarCells.push({
       day: n,
       isCurrentMonth: false,
-      dateStr: `${currentYear}-${String(currentMonth + 2).padStart(2, '0')}-${String(n).padStart(2, '0')}`
+      dateStr: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     });
   }
 
@@ -272,7 +276,10 @@ export const HolidayCalendar = () => {
         <div style={{ padding: '20px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => {
-              const dayDateStr = `2026-09-${String(21 + idx).padStart(2, '0')}`;
+              const startOfWeek = new Date(currentDate);
+              const dayOffset = (startOfWeek.getDay() + 6) % 7;
+              startOfWeek.setDate(startOfWeek.getDate() - dayOffset + idx);
+              const dayDateStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
               const dayHols = holidays.filter(h => h.date === dayDateStr);
               return (
                 <div key={idx} style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', minHeight: '140px' }}>

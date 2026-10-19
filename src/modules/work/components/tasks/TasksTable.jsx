@@ -194,7 +194,23 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
 
                   {/* Timer Pill with Controls */}
                   <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    {task.timerRunning ? (
+                    {task.status === 'completed' || task.completedAt ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        backgroundColor: '#dcfce7',
+                        color: '#15803d',
+                        border: '1px solid #bbf7d0',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '700'
+                      }}>
+                        <CheckCircle2 size={12} color="#16a34a" />
+                        <span>Done ({task.hoursLoggedText || formatSeconds(task.timerSeconds || 0)})</span>
+                      </span>
+                    ) : task.timerRunning ? (
                       <div style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -342,7 +358,17 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                       <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.25' }}>
                         {task.title}
                       </span>
-                      {task.dueDate && task.dueDate < todayStr && task.status !== 'completed' && (
+                      {task.isPersonal && (
+                        <span style={{ fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#faf5ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>
+                          🔒 Personal
+                        </span>
+                      )}
+                      {task.isUntimed && (
+                        <span style={{ fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                          ⚡ Normal Task
+                        </span>
+                      )}
+                      {!task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr && task.status !== 'completed' && (
                         <span style={{ fontSize: '9.5px', fontWeight: '800', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}>
                           ⚠️ OVERDUE
                         </span>
@@ -364,7 +390,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           Start: {task.startDate || '—'}
                         </div>
                       </div>
-                    ) : task.dueDate && task.dueDate < todayStr && task.status !== 'completed' ? (
+                    ) : (!task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr && task.status !== 'completed') ? (
                       <div>
                         <span style={{
                           display: 'inline-flex',
@@ -387,7 +413,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                     ) : (
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: '700', color: task.dueDate === todayStr ? '#ea580c' : '#334155' }}>
-                          {task.hasNoDueDate ? 'No Due Date' : (task.dueDate === todayStr ? '🔥 Due Today' : `Due: ${task.dueDate}`)}
+                          {task.isUntimed ? '⚡ Flexible / Open' : (task.hasNoDueDate ? 'No Due Date' : (task.dueDate === todayStr ? '🔥 Due Today' : `Due: ${task.dueDate}`))}
                         </div>
                         <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>
                           Start: {task.startDate === todayStr ? 'Today' : (task.startDate || '—')}
@@ -410,9 +436,20 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             ⏸️ {formatSeconds(task.timerSeconds)} worked
                           </span>
                         ) : (
-                          <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'} / {task.estimatedHours ? `${task.estimatedHours}h` : 'Open'}</span>
+                          <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'} / {task.isUntimed || !task.estimatedHours ? 'Open' : `${task.estimatedHours}h`}</span>
                         )}
-                        {task.estimatedHours > 0 && (
+                        {task.isUntimed || !task.estimatedHours ? (
+                          <span style={{
+                            fontSize: '9.5px',
+                            fontWeight: '700',
+                            color: '#059669',
+                            backgroundColor: '#ecfdf5',
+                            padding: '1px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            ⚡ Open
+                          </span>
+                        ) : (
                           <span style={{
                             fontSize: '9.5px',
                             fontWeight: '800',
@@ -422,7 +459,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           </span>
                         )}
                       </div>
-                      {task.estimatedHours > 0 && (
+                      {!task.isUntimed && task.estimatedHours > 0 && (
                         <div style={{
                           width: '100%',
                           height: '4px',

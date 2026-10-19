@@ -202,9 +202,13 @@ const getAuditLogs = asyncHandler(async (req, res) => {
 
 // ─── POST /api/attendance/audit ──────────────────────────────────────────────
 const createAuditLog = asyncHandler(async (req, res) => {
-  const auditData = req.body;
-  if (!auditData.employeeId || !auditData.type || !auditData.action) {
-    return res.status(400).json({ success: false, message: 'employeeId, type, and action are required' });
+  const auditData = req.body || {};
+  const employeeId = auditData.employeeId || auditData.employeeCode || req.user?.id || req.user?._id;
+  const type = auditData.type || auditData.action || 'system';
+  const action = auditData.action || auditData.type || 'audit';
+
+  if (!employeeId) {
+    return res.status(400).json({ success: false, message: 'employeeId is required' });
   }
 
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr';
@@ -212,6 +216,9 @@ const createAuditLog = asyncHandler(async (req, res) => {
 
   const record = new AttendanceAudit({
     ...auditData,
+    employeeId,
+    type,
+    action,
     date: auditData.date || new Date().toISOString().split('T')[0],
     timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
     actor: auditData.actor || (isPrivileged ? 'admin' : 'employee'),

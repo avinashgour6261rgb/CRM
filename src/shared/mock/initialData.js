@@ -6,7 +6,7 @@
 
 export const INITIAL_EMPLOYEES = [
   {
-    _id: 'emp_admin',
+    _id: '6ad22399c93908b02fffebe0',
     employeeCode: 'ADM-001',
     name: 'Administrator',
     email: 'admin@inforag.com',
@@ -32,6 +32,62 @@ export const INITIAL_EMPLOYEES = [
       delegation: true
     },
     leaveBalance: { casual: 15, sick: 12, earned: 20, maternity: 0 },
+    customFields: []
+  },
+  {
+    _id: '6ad363ad24302c31848d32df',
+    employeeCode: 'EMP-003',
+    name: 'Janvi Hiwse',
+    email: 'janvi@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+    role: 'HR Specialist & Recruiter',
+    systemRole: 'hr',
+    department: 'Human Resources',
+    status: 'active',
+    joiningDate: '2024-01-01',
+    dob: '1996-08-20',
+    isCurrentUser: false,
+    isAdmin: false,
+    password: 'emp123',
+    permissions: {
+      tasks: true,
+      attendance: true,
+      leaves: true,
+      tickets: true,
+      crm: true,
+      finance: false,
+      directory: true,
+      delegation: false
+    },
+    leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 },
+    customFields: []
+  },
+  {
+    _id: '6ad5b86d4cd8da54d020b12a',
+    employeeCode: 'EMP-002',
+    name: 'Sandeep Meena',
+    email: 'sandeep@inforag.com',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    role: 'Team Member',
+    systemRole: 'team_member',
+    department: 'Engineering',
+    status: 'active',
+    joiningDate: '2024-01-01',
+    dob: '1995-10-12',
+    isCurrentUser: false,
+    isAdmin: false,
+    password: 'emp123',
+    permissions: {
+      tasks: true,
+      attendance: true,
+      leaves: true,
+      tickets: true,
+      crm: false,
+      finance: false,
+      directory: false,
+      delegation: false
+    },
+    leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 },
     customFields: []
   }
 ];

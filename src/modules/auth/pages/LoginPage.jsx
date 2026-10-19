@@ -10,7 +10,8 @@ import {
   ArrowRight,
   Sparkles,
   User,
-  Briefcase
+  Briefcase,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -57,12 +58,70 @@ export const LoginPage = () => {
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
   }, []);
 
-  const [showAdminCard, setShowAdminCard] = useState(false);
+  const demoAccounts = [
+    {
+      id: 'admin',
+      name: 'Administrator',
+      role: 'Master Admin',
+      badge: 'Admin',
+      badgeColor: '#ef4444',
+      badgeBg: 'rgba(239, 68, 68, 0.15)',
+      email: currentAdmin.email || 'admin@inforag.com',
+      code: currentAdmin.employeeCode || 'ADM-001',
+      password: currentAdmin.password || 'admin123',
+      icon: '👑',
+      desc: 'Full system control, directory, permissions & settings'
+    },
+    {
+      id: 'janvi',
+      name: 'Janvi Hiwse',
+      role: 'HR Specialist & Recruiter',
+      badge: 'HR / Approver',
+      badgeColor: '#ec4899',
+      badgeBg: 'rgba(236, 72, 153, 0.15)',
+      email: 'janvi@inforag.com',
+      code: 'EMP-003',
+      password: 'emp123',
+      icon: '💼',
+      desc: 'Manage & approve leaves, attendance, notices & reviews'
+    },
+    {
+      id: 'sandeep',
+      name: 'Sandeep Meena',
+      role: 'Team Member',
+      badge: 'Team Member',
+      badgeColor: '#3b82f6',
+      badgeBg: 'rgba(59, 130, 246, 0.15)',
+      email: 'sandeep@inforag.com',
+      code: 'EMP-002',
+      password: 'emp123',
+      icon: '👤',
+      desc: 'Personal tasks, live timer, shift clock & own leaves'
+    }
+  ];
 
   const fillCredentials = (id, pass) => {
     setIdentifier(id);
     setPassword(pass);
     setLoginError('');
+  };
+
+  const handleQuickLogin = async (id, pass, name) => {
+    setIdentifier(id);
+    setPassword(pass);
+    setLoginError('');
+    setLoading(true);
+    try {
+      const user = await login({ identifier: id, password: pass });
+      addToast(`Logged in as ${user.name || name || id}! Opening workspace...`, 'success');
+      navigate('/dashboard');
+    } catch (err) {
+      const msg = err?.message || 'Login failed. Please verify credentials.';
+      setLoginError(msg);
+      addToast(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -115,15 +174,15 @@ export const LoginPage = () => {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '1080px',
+        maxWidth: '1120px',
         backgroundColor: '#ffffff',
         borderRadius: '24px',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1)',
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
         overflow: 'hidden'
       }}>
-        {/* Left Side: Enterprise Branding & Subtle Admin Access */}
+        {/* Left Side: Enterprise Branding & 1-Click Demo Accounts */}
         <div style={{
           backgroundColor: '#0f172a',
           padding: '40px 32px',
@@ -135,7 +194,7 @@ export const LoginPage = () => {
         }}>
           <div>
             {/* Logo & Brand Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
               <div style={{
                 width: '44px',
                 height: '44px',
@@ -158,70 +217,122 @@ export const LoginPage = () => {
               </div>
             </div>
 
-            <p style={{ fontSize: '13.5px', color: '#94a3b8', lineHeight: '1.6', marginBottom: '24px' }}>
-              Welcome to your unified workspace. Sign in using your registered Work Email or Employee ID and password.
+            <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: '1.5', marginBottom: '20px' }}>
+              Sign in with your registered account, or use 1-click demo accounts below for instant testing.
             </p>
 
-            {/* Collapsible Master Admin Credentials Card */}
+            {/* 1-Click Demo Accounts Container */}
             <div style={{
-              backgroundColor: 'rgba(37, 99, 235, 0.08)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: '14px',
-              padding: '14px 16px',
-              marginBottom: '20px',
-              transition: 'all 0.2s ease'
+              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              padding: '16px',
+              marginBottom: '20px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShieldCheck size={18} color="#60a5fa" />
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#ffffff' }}>
-                    👑 Master Admin Access
+                  <Zap size={18} color="#38bdf8" />
+                  <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.02em' }}>
+                    ⚡ 1-Click Demo Accounts
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAdminCard(!showAdminCard)}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: '#93c5fd',
-                    border: '1px solid rgba(147, 197, 253, 0.3)',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {showAdminCard ? 'Hide' : 'Show Credentials'}
-                </button>
+                <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: '700', backgroundColor: 'rgba(56, 189, 248, 0.12)', padding: '2px 8px', borderRadius: '12px' }}>
+                  Tap to Login
+                </span>
               </div>
 
-              {showAdminCard && (
-                <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                  <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.6' }}>
-                    <div><strong>Email:</strong> <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.email}</code> or ID: <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.employeeCode}</code></div>
-                    <div style={{ marginTop: '4px' }}><strong>Password:</strong> <code style={{ color: '#93c5fd', backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: '4px' }}>{currentAdmin.password}</code></div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {demoAccounts.map(acc => (
+                  <div
+                    key={acc.id}
+                    style={{
+                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                        <span style={{ fontSize: '14px' }}>{acc.icon}</span>
+                        <strong style={{ fontSize: '13px', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {acc.name}
+                        </strong>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          color: acc.badgeColor,
+                          backgroundColor: acc.badgeBg,
+                          padding: '1px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {acc.badge}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{acc.email}</span>
+                        <span style={{ color: '#475569' }}>•</span>
+                        <span style={{ color: '#38bdf8', fontWeight: '600' }}>Pass: <code style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px' }}>{acc.password}</code></span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => fillCredentials(acc.email, acc.password)}
+                        title="Auto-fill credentials in form"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          color: '#cbd5e1',
+                          border: 'none',
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.16)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)'}
+                      >
+                        Fill
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin(acc.email, acc.password, acc.name)}
+                        disabled={loading}
+                        title={`Instantly open workspace as ${acc.name}`}
+                        style={{
+                          backgroundColor: '#2563eb',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: loading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => !loading && (e.currentTarget.style.backgroundColor = '#1d4ed8')}
+                        onMouseLeave={e => !loading && (e.currentTarget.style.backgroundColor = '#2563eb')}
+                      >
+                        <Zap size={12} />
+                        <span>Login</span>
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => fillCredentials(currentAdmin.email, currentAdmin.password)}
-                      style={{
-                        backgroundColor: '#2563eb',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⚡ Quick Admin Login
-                    </button>
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
 
             {/* Role Access Security Notice */}
@@ -229,20 +340,20 @@ export const LoginPage = () => {
               backgroundColor: 'rgba(255, 255, 255, 0.04)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '12px',
-              padding: '14px',
+              padding: '12px 14px',
               fontSize: '12px',
               color: '#cbd5e1'
             }}>
-              <div style={{ fontWeight: '700', color: '#38bdf8', marginBottom: '4px' }}>
+              <div style={{ fontWeight: '700', color: '#38bdf8', marginBottom: '3px' }}>
                 🔒 Strict Privacy & Access Control:
               </div>
-              <div>
-                Employees only see their own tasks, shift hours, and records. Cross-employee data is protected unless Admin explicitly grants extra permissions.
+              <div style={{ color: '#94a3b8', lineHeight: '1.5' }}>
+                Team members only see their own tasks and records. HR manages approvals. Admin oversees the entire organization.
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ marginTop: '20px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{companySettings?.showCompanyNameOnLogin && companySettings?.companyName ? `© ${new Date().getFullYear()} ${companySettings.companyName}` : `© ${new Date().getFullYear()} Enterprise Management System`}</span>
             <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
               ● System Online
@@ -250,14 +361,14 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        {/* Right Side: Clean Login Form */}
+        {/* Right Side: Clean Login Form + Fast Demo Switcher */}
         <div style={{
           padding: '40px 36px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center'
         }}>
-          <div style={{ marginBottom: '28px' }}>
+          <div style={{ marginBottom: '20px' }}>
             <span style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -268,7 +379,7 @@ export const LoginPage = () => {
               color: '#2563eb',
               fontSize: '12px',
               fontWeight: '700',
-              marginBottom: '12px'
+              marginBottom: '10px'
             }}>
               <Sparkles size={13} /> Secure Enterprise Authentication
             </span>
@@ -276,8 +387,123 @@ export const LoginPage = () => {
               Sign In to Your Workspace
             </h2>
             <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
-              Enter your work email or employee ID and password to access your workspace.
+              Click any quick demo account or enter your credentials to open your workspace.
             </p>
+          </div>
+
+          {/* Fast 1-Click Demo Buttons Bar (Direct Tap to Open) */}
+          <div style={{
+            marginBottom: '20px',
+            padding: '12px 14px',
+            backgroundColor: '#f0fdf4',
+            border: '1.5px solid #86efac',
+            borderRadius: '14px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#166534', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Zap size={14} color="#16a34a" /> ⚡ 1-Click Fast Login (Tap to Open):
+              </span>
+              <span style={{ fontSize: '10.5px', color: '#15803d', fontWeight: '600', backgroundColor: '#dcfce7', padding: '1px 6px', borderRadius: '6px' }}>
+                Instant Access
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123', 'Administrator')}
+                disabled={loading}
+                style={{
+                  padding: '8px 6px',
+                  backgroundColor: '#ffffff',
+                  border: '1.5px solid #bbf7d0',
+                  borderRadius: '10px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#22c55e';
+                  e.currentTarget.style.backgroundColor = '#f0fdf4';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#bbf7d0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>👑 Admin</span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>admin123</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('janvi@inforag.com', 'emp123', 'Janvi Hiwse')}
+                disabled={loading}
+                style={{
+                  padding: '8px 6px',
+                  backgroundColor: '#ffffff',
+                  border: '1.5px solid #bbf7d0',
+                  borderRadius: '10px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#22c55e';
+                  e.currentTarget.style.backgroundColor = '#f0fdf4';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#bbf7d0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>💼 Janvi (HR)</span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>emp123</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('sandeep@inforag.com', 'emp123', 'Sandeep Meena')}
+                disabled={loading}
+                style={{
+                  padding: '8px 6px',
+                  backgroundColor: '#ffffff',
+                  border: '1.5px solid #bbf7d0',
+                  borderRadius: '10px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '2px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#22c55e';
+                  e.currentTarget.style.backgroundColor = '#f0fdf4';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#bbf7d0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a' }}>👤 Sandeep</span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>emp123</span>
+              </button>
+            </div>
           </div>
 
           {loginError && (
@@ -295,7 +521,7 @@ export const LoginPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Email / ID Field */}
             <div>
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
@@ -307,7 +533,7 @@ export const LoginPage = () => {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. admin@inforag.com or ADM-001"
+                  placeholder="e.g. sandeep@inforag.com or EMP-002"
                   required
                   style={{
                     width: '100%',
@@ -334,25 +560,42 @@ export const LoginPage = () => {
 
             {/* Password Field */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
                   Password *
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>Fill:</span>
                   <span
-                    style={{ fontSize: '12px', color: '#2563eb', cursor: 'pointer', fontWeight: '600' }}
-                    onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || '')}
-                    title="Auto-fill active admin credentials"
+                    style={{ fontSize: '11px', color: '#2563eb', cursor: 'pointer', fontWeight: '700' }}
+                    onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
+                    title="Fill Admin"
                   >
-                    Fill Admin
+                    Admin
                   </span>
-                  <span style={{ color: '#cbd5e1', fontSize: '11px' }}>•</span>
+                  <span style={{ color: '#cbd5e1', fontSize: '10px' }}>•</span>
                   <span
-                    style={{ fontSize: '12px', color: '#dc2626', cursor: 'pointer', fontWeight: '600' }}
+                    style={{ fontSize: '11px', color: '#ec4899', cursor: 'pointer', fontWeight: '700' }}
+                    onClick={() => fillCredentials('janvi@inforag.com', 'emp123')}
+                    title="Fill Janvi"
+                  >
+                    Janvi
+                  </span>
+                  <span style={{ color: '#cbd5e1', fontSize: '10px' }}>•</span>
+                  <span
+                    style={{ fontSize: '11px', color: '#0284c7', cursor: 'pointer', fontWeight: '700' }}
+                    onClick={() => fillCredentials('sandeep@inforag.com', 'emp123')}
+                    title="Fill Sandeep"
+                  >
+                    Sandeep
+                  </span>
+                  <span style={{ color: '#cbd5e1', fontSize: '10px' }}>•</span>
+                  <span
+                    style={{ fontSize: '11px', color: '#dc2626', cursor: 'pointer', fontWeight: '600' }}
                     onClick={() => setIsForgotModalOpen(true)}
                     title="Request password reset or recover access"
                   >
-                    Forgot Password?
+                    Forgot?
                   </span>
                 </div>
               </div>
@@ -407,7 +650,7 @@ export const LoginPage = () => {
               type="submit"
               disabled={loading}
               style={{
-                marginTop: '8px',
+                marginTop: '6px',
                 padding: '13px 20px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
@@ -438,8 +681,8 @@ export const LoginPage = () => {
 
           {/* New Employee Notice */}
           <div style={{
-            marginTop: '20px',
-            padding: '12px 14px',
+            marginTop: '18px',
+            padding: '10px 12px',
             borderRadius: '10px',
             backgroundColor: '#f8fafc',
             border: '1px solid #e2e8f0',
@@ -447,7 +690,7 @@ export const LoginPage = () => {
             color: '#64748b',
             lineHeight: '1.5'
           }}>
-            💡 <strong>New Employee?</strong> Admin or HR registers your account and assigns your Employee ID and password in the Employee Directory. Use those credentials to sign in.
+            💡 <strong>Testing Tip:</strong> Simply tap any demo button above or on the left to immediately log in without typing!
           </div>
         </div>
       </div>
@@ -455,7 +698,7 @@ export const LoginPage = () => {
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
-        onAutoFillAdmin={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || '')}
+        onAutoFillAdmin={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
       />
     </div>
   );
