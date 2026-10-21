@@ -275,6 +275,21 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                       }} />
                       {status.label}
                     </span>
+                    {proj.finalApproved && proj.status === 'completed' && (
+                      <div style={{ fontSize: '10px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
+                        ✅ Final Approved
+                      </div>
+                    )}
+                    {proj.status === 'under_review' && (
+                      <div style={{ fontSize: '10px', color: '#9333ea', fontWeight: '600', marginTop: '2px' }}>
+                        ⏳ Awaiting Sign-Off
+                      </div>
+                    )}
+                    {proj.reopened && !proj.finalApproved && (
+                      <div style={{ fontSize: '10px', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title={proj.reopenReason}>
+                        ⚠️ Reopened
+                      </div>
+                    )}
                   </td>
 
                   {/* Progress Bar */}
@@ -426,6 +441,81 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                         >
                           <Calendar size={14} color="#2563eb" /> Extend Deadline
                         </div>
+
+                        {/* Submit for Completion */}
+                        {proj.status !== 'completed' && proj.status !== 'under_review' && (
+                          <div
+                            onClick={async () => {
+                              await submitProjectForCompletion(proj._id);
+                              setActiveMenuId(null);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 12px',
+                              fontSize: '12.5px',
+                              color: '#9333ea',
+                              cursor: 'pointer',
+                              borderRadius: '4px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <CheckCircle2 size={14} color="#9333ea" /> Submit for Sign-Off
+                          </div>
+                        )}
+
+                        {/* Admin 1-Click Final Approval */}
+                        {canManageApprovals && (proj.status === 'under_review' || (proj.status === 'completed' && !proj.finalApproved)) && (
+                          <div
+                            onClick={async () => {
+                              await approveProjectCompletion(proj._id);
+                              setActiveMenuId(null);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 12px',
+                              fontSize: '12.5px',
+                              color: '#16a34a',
+                              cursor: 'pointer',
+                              borderRadius: '4px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf4'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <CheckCircle2 size={14} color="#16a34a" /> Final Approve & Complete
+                          </div>
+                        )}
+
+                        {/* Admin Reopen Action */}
+                        {canManageApprovals && (proj.status === 'completed' || proj.status === 'under_review') && (
+                          <div
+                            onClick={async () => {
+                              const reason = window.prompt(`Reason to reopen project "${proj.name}":`, 'Reopened by Admin for required revisions');
+                              if (reason && reason.trim()) {
+                                await reopenProject(proj._id, reason.trim());
+                              }
+                              setActiveMenuId(null);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '8px 12px',
+                              fontSize: '12.5px',
+                              color: '#c2410c',
+                              cursor: 'pointer',
+                              borderRadius: '4px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fff7ed'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <span>🔄 Reopen Project</span>
+                          </div>
+                        )}
 
                         <div
                           onClick={(e) => handleDelete(proj._id, e)}

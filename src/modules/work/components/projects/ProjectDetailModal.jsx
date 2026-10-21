@@ -23,10 +23,23 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onExtendDeadline }) => {
-  const { tasks } = useWork();
+  const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion } = useWork();
+  const { currentUser } = useAuth();
   if (!project) return null;
+
+  const canManageApprovals = currentUser && (
+    currentUser.isAdmin ||
+    currentUser.isSuperAdmin ||
+    currentUser.systemRole === 'admin' ||
+    currentUser.systemRole === 'hr' ||
+    currentUser.role === 'Administrator' ||
+    currentUser.role === 'HR Manager' ||
+    currentUser.permissions?.canApproveProjects ||
+    currentUser.permissions?.manageProjects
+  );
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isOverdue = project.deadline && !project.hasNoDeadline && project.deadline < todayStr && project.status !== 'completed';
@@ -109,6 +122,45 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                 }}>
                   👥 Team Project
                 </span>
+                {project.finalApproved && project.status === 'completed' && (
+                  <span style={{
+                    padding: '3px 8px',
+                    backgroundColor: '#dcfce7',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    color: '#15803d',
+                    fontWeight: '800',
+                    border: '1px solid #86efac'
+                  }}>
+                    ✅ Final Approved by {project.finalApprovedBy || 'Admin'}
+                  </span>
+                )}
+                {project.status === 'under_review' && (
+                  <span style={{
+                    padding: '3px 8px',
+                    backgroundColor: '#faf5ff',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    color: '#7e22ce',
+                    fontWeight: '800',
+                    border: '1px solid #d8b4fe'
+                  }}>
+                    ⏳ Awaiting Final Sign-Off
+                  </span>
+                )}
+                {project.reopened && !project.finalApproved && (
+                  <span style={{
+                    padding: '3px 8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    color: '#c2410c',
+                    fontWeight: '800',
+                    border: '1px solid #fdba74'
+                  }} title={project.reopenReason}>
+                    ⚠️ Reopened ({project.reopenedBy || 'Admin'})
+                  </span>
+                )}
             </div>
             <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
               {project.name}
@@ -496,21 +548,108 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
             <span>Extend Project Deadline</span>
           </button>
 
-          <button
-            onClick={onClose}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              padding: '7px 16px',
-              borderRadius: '8px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Close
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Submit for Completion */}
+            {project.status !== 'completed' && project.status !== 'under_review' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await submitProjectForCompletion(project._id);
+                  onClose();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#9333ea',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(147, 51, 234, 0.3)'
+                }}
+              >
+                <CheckCircle2 size={13} />
+                <span>Submit for Final Sign-Off</span>
+              </button>
+            )}
+
+            {/* Admin 1-Click Final Approval */}
+            {canManageApprovals && (project.status === 'under_review' || (project.status === 'completed' && !project.finalApproved)) && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await approveProjectCompletion(project._id);
+                  onClose();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#16a34a',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(22, 163, 74, 0.3)'
+                }}
+              >
+                <CheckCircle2 size={13} />
+                <span>Final Approve & Complete</span>
+              </button>
+            )}
+
+            {/* Admin Reopen Action */}
+            {canManageApprovals && (project.status === 'completed' || project.status === 'under_review') && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const reason = window.prompt(`Enter reason to Reopen project "${project.name}":`, 'Reopened by Admin for required revisions');
+                  if (reason && reason.trim()) {
+                    await reopenProject(project._id, reason.trim());
+                    onClose();
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#fff7ed',
+                  color: '#c2410c',
+                  border: '1px solid #fed7aa',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>🔄 Reopen Project</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              style={{
+                backgroundColor: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '7px 16px',
+                borderRadius: '8px',
+                fontSize: '12.5px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

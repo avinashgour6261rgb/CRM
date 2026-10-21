@@ -113,7 +113,9 @@ export const DashboardPage = () => {
     snoozeTask,
     resumeSnoozedTask,
     dismissTaskReminder,
-    rescheduleTaskForFuture
+    rescheduleTaskForFuture,
+    approveProjectCompletion,
+    reopenProject
   } = useWork();
   const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs } = useCRM();
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
@@ -123,6 +125,28 @@ export const DashboardPage = () => {
   const [pendingTasksModalFilter, setPendingTasksModalFilter] = useState('all');
   const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
+
+  // Projects pending final sign-off
+  const pendingApprovalProjects = React.useMemo(() => {
+    return (projects || []).filter(p =>
+      p.status === 'under_review' ||
+      (p.status === 'completed' && !p.finalApproved && p.completionSubmittedBy)
+    );
+  }, [projects]);
+
+  // Projects reopened for current user
+  const reopenedProjectsForMe = React.useMemo(() => {
+    if (!currentUser) return [];
+    const uId = String(currentUser._id || currentUser.id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    return (projects || []).filter(p =>
+      p.reopened && !p.finalApproved && (
+        p.createdBy === uId || p.createdById === uId || p.createdBy === uCode ||
+        (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) ||
+        (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode))
+      )
+    );
+  }, [projects, currentUser]);
   const [activeLeftoverIdx, setActiveLeftoverIdx] = useState(0);
   const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(false);
   const {
@@ -1306,6 +1330,180 @@ export const DashboardPage = () => {
             >
               ✕
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ⚠️ REOPENED PROJECTS BANNER (FOR ASSIGNEES) ── */}
+      {reopenedProjectsForMe.length > 0 && (
+        <div style={{
+          backgroundColor: '#fff7ed',
+          border: '1.5px solid #fdba74',
+          borderRadius: '10px',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          boxShadow: '0 2px 6px rgba(194, 65, 12, 0.08)'
+        }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <div style={{ flex: 1, fontSize: '12px', color: '#9a3412' }}>
+            <strong>Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened by Admin: </strong>
+            {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
+          </div>
+          <button
+            onClick={() => navigate('/projects')}
+            style={{
+              padding: '4px 10px',
+              backgroundColor: '#c2410c',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            View Projects
+          </button>
+        </div>
+      )}
+
+      {/* ── 📋 PROJECT COMPLETION APPROVALS QUEUE (ADMIN / HR PERSPECTIVE) ── */}
+      {isUserAdminOrHR && pendingApprovalProjects.length > 0 && (
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1.5px solid #d8b4fe',
+          boxShadow: '0 4px 14px rgba(147, 51, 234, 0.08)',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '10px 16px',
+            backgroundColor: '#faf5ff',
+            borderBottom: '1px solid #f3e8ff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>📋</span>
+              <div>
+                <span style={{ fontSize: '13px', fontWeight: '800', color: '#581c87' }}>
+                  Project Completion Review Queue ({pendingApprovalProjects.length})
+                </span>
+                <span style={{ fontSize: '11px', color: '#7e22ce', marginLeft: '6px' }}>
+                  Submitted for final sign-off
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/projects')}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#7e22ce',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                textDecoration: 'underline'
+              }}
+            >
+              Manage All in Projects →
+            </button>
+          </div>
+
+          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {pendingApprovalProjects.map(proj => (
+              <div
+                key={proj._id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#fdf4ff',
+                  border: '1px solid #f5d0fe'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: '#9333ea',
+                    color: '#ffffff',
+                    fontSize: '10.5px',
+                    fontWeight: '800'
+                  }}>
+                    {proj.projectCode || 'PRJ'}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                      {proj.name}
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                      Submitted by: <strong>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
+                      {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={async () => {
+                      await approveProjectCompletion(proj._id);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: '#16a34a',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
+                    }}
+                    title="Official Final Sign-off: Marks Project permanently Complete in database"
+                  >
+                    <span>✅ Final Approve</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const reason = window.prompt(`Enter reason to Reopen project "${proj.name}" (e.g. pending deliverables, missing documentation):`, 'Reopened by Admin for required revisions');
+                      if (reason && reason.trim()) {
+                        await reopenProject(proj._id, reason.trim());
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: '#fff7ed',
+                      color: '#c2410c',
+                      border: '1px solid #fed7aa',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                    title="Send project back to in-progress with revision notes"
+                  >
+                    <span>🔄 Reopen</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

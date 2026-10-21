@@ -91,15 +91,7 @@ export function App() {
                       <Route path="projects"      element={<ProjectsPage />} />
                       <Route path="tasks"         element={<TasksPage />} />
                       <Route path="timesheet"     element={<TimesheetPage />} />
-                      <Route path="timesheets"    element={<TimesheetPage />} />
-                      <Route path="timer"         element={<TimesheetPage />} />
-                      <Route path="work-timer"    element={<TimesheetPage />} />
-                      <Route path="timelog"       element={<TimesheetPage />} />
-                      <Route path="timelogs"      element={<TimesheetPage />} />
-                      <Route path="time-tracker"  element={<TimesheetPage />} />
-                      <Route path="time-tracking" element={<TimesheetPage />} />
-                      <Route path="active-timer"  element={<TimesheetPage />} />
-                      <Route path="time"          element={<TimesheetPage />} />
+                      <Route path="timesheets"    element={<Navigate to="/timesheet" replace />} />
                       <Route path="work"          element={<Navigate to="/projects" replace />} />
 
                       {/* ── HR Module Routes ────────────────────────────────── */}
@@ -109,11 +101,6 @@ export function App() {
                       <Route path="operations"       element={<TeamOperationsPage />} />
                       <Route path="leaves"           element={<LeavesPage />} />
                       <Route path="attendance"       element={<AttendancePage />} />
-                      <Route path="attendance-clock" element={<AttendancePage />} />
-                      <Route path="clock"            element={<AttendancePage />} />
-                      <Route path="clock-in"         element={<AttendancePage />} />
-                      <Route path="break"            element={<AttendancePage />} />
-                      <Route path="breaks"           element={<AttendancePage />} />
                       <Route path="holiday"          element={<HolidayPage />} />
                       <Route path="holidays"         element={<HolidayPage />} />
                       <Route path="appreciation"     element={<AppreciationPage />} />
