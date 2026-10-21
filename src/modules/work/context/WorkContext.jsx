@@ -769,6 +769,108 @@ export const WorkProvider = ({ children }) => {
     }
   };
 
+  const submitProjectForCompletion = async (id, notes = '') => {
+    try {
+      const allProjects = getCollection(KEYS.PROJECTS) || [];
+      const targetProj = allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
+      const updatePayload = {
+        status: 'under_review',
+        progress: 100,
+        completionSubmittedBy: currentUser?.name || 'Team Member',
+        completionSubmittedById: currentUser?._id,
+        completionSubmittedAt: new Date().toISOString(),
+        completionNotes: notes || 'Project submitted for Admin final sign-off',
+        finalApproved: false,
+        reopened: false
+      };
+
+      const updated = await workService.updateProject(id, updatePayload);
+      addToast(`🚀 Project "${targetProj?.name || id}" submitted for Admin completion review!`, 'success');
+      await loadWorkData();
+      return updated;
+    } catch (err) {
+      console.error('Error submitting project for completion:', err);
+      addToast('Failed to submit project for completion', 'error');
+      throw err;
+    }
+  };
+
+  const approveProjectCompletion = async (id) => {
+    try {
+      const allProjects = getCollection(KEYS.PROJECTS) || [];
+      const targetProj = allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
+      const approverName = currentUser?.name || 'Admin';
+      const updatePayload = {
+        status: 'completed',
+        progress: 100,
+        finalApproved: true,
+        finalApprovedBy: approverName,
+        finalApprovedAt: new Date().toISOString(),
+        reopened: false,
+        reopenReason: ''
+      };
+
+      const updated = await workService.updateProject(id, updatePayload);
+
+      try {
+        hrService.createAttendanceAuditLog({
+          type: 'project_final_approved',
+          action: 'project_final_approved',
+          date: new Date().toISOString().split('T')[0],
+          employeeId: currentUser?._id || 'admin',
+          employeeName: approverName,
+          note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" officially finalized and approved by ${approverName}`
+        });
+      } catch (_) {}
+
+      addToast(`🎉 Project "${targetProj?.name || id}" officially finalized & marked complete!`, 'success');
+      await loadWorkData();
+      return updated;
+    } catch (err) {
+      console.error('Error approving project completion:', err);
+      addToast('Failed to approve project completion', 'error');
+      throw err;
+    }
+  };
+
+  const reopenProject = async (id, reason = 'Work incomplete / revisions required') => {
+    try {
+      const allProjects = getCollection(KEYS.PROJECTS) || [];
+      const targetProj = allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
+      const adminName = currentUser?.name || 'Admin';
+      const updatePayload = {
+        status: 'in_progress',
+        progress: 85,
+        finalApproved: false,
+        reopened: true,
+        reopenReason: reason || 'Reopened by Admin for required revisions',
+        reopenedBy: adminName,
+        reopenedAt: new Date().toISOString()
+      };
+
+      const updated = await workService.updateProject(id, updatePayload);
+
+      try {
+        hrService.createAttendanceAuditLog({
+          type: 'project_reopened',
+          action: 'project_reopened',
+          date: new Date().toISOString().split('T')[0],
+          employeeId: currentUser?._id || 'admin',
+          employeeName: adminName,
+          note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" reopened by ${adminName}: ${reason}`
+        });
+      } catch (_) {}
+
+      addToast(`🔄 Project "${targetProj?.name || id}" reopened for revisions!`, 'info');
+      await loadWorkData();
+      return updated;
+    } catch (err) {
+      console.error('Error reopening project:', err);
+      addToast('Failed to reopen project', 'error');
+      throw err;
+    }
+  };
+
   // =========================================================================
   // 📋 TASK ACTIONS & ROBUST TIMERS
   // =========================================================================
@@ -1563,8 +1665,15 @@ export const WorkProvider = ({ children }) => {
    */
   const snoozeTask = async (taskId, { remindInMinutes = 30, customDateTime = null, note = '' }) => {
     try {
-      const targetTask = tasks.find(t => t._id === taskId);
-      if (!targetTask) return;
+      let targetTask = tasks.find(t => String(t._id || t.id) === String(taskId) || t.taskCode === taskId);
+      if (!targetTask) {
+        const cached = getCollection(KEYS.TASKS) || [];
+        targetTask = cached.find(t => String(t._id || t.id) === String(taskId) || t.taskCode === taskId);
+      }
+      if (!targetTask) {
+        addToast('Task not found for snooze', 'error');
+        return;
+      }
 
       // 1. Pause active timer if running for this task and record time spent
       const activeTimer = getActiveTimerSnapshot();
@@ -1610,6 +1719,7 @@ export const WorkProvider = ({ children }) => {
 
       // 3. Update task in storage & state
       const updatePayload = {
+        status: 'on_hold',
         timerRunning: false,
         timerSeconds: currentSecs,
         snoozed: true,
@@ -1625,7 +1735,7 @@ export const WorkProvider = ({ children }) => {
       // Save collection update
       const allTasks = getCollection(KEYS.TASKS) || [];
       const updatedAll = allTasks.map(t => {
-        if (t._id === taskId) {
+        if (String(t._id || t.id) === String(taskId) || t.taskCode === taskId) {
           return { ...t, ...updatePayload };
         }
         return t;
@@ -1633,16 +1743,17 @@ export const WorkProvider = ({ children }) => {
       saveCollection(KEYS.TASKS, updatedAll);
 
       setTasks(prev => prev.map(t => {
-        if (t._id === taskId) {
+        if (String(t._id || t.id) === String(taskId) || t.taskCode === taskId) {
           return { ...t, ...updatePayload, hoursLoggedText: formatSeconds(currentSecs) };
         }
         return t;
       }));
 
-      addToast(`⏰ Task "#${targetTask.taskCode || 'TSK'}" paused & saved! CRM will remind you at ${reminderTimeStr}.`, 'info');
+      addToast(`⏰ Task "#${targetTask.taskCode || 'TSK'}" paused & snoozed! CRM will remind you at ${reminderTimeStr}.`, 'info');
 
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       window.dispatchEvent(new CustomEvent('ems_task_reminded', { detail: { taskId, remindAt: remindAtTimestamp } }));
+      return true;
     } catch (err) {
       console.error('Error snoozing task:', err);
       addToast('Failed to set task reminder', 'error');
@@ -1805,6 +1916,9 @@ export const WorkProvider = ({ children }) => {
     createProject,
     updateProject,
     deleteProject,
+    submitProjectForCompletion,
+    approveProjectCompletion,
+    reopenProject,
     // Task Methods
     createTask,
     updateTask,
@@ -1837,6 +1951,7 @@ export const WorkProvider = ({ children }) => {
     loading, projects, tasks, timesheets, activeRunningTask,
     projectFilter, taskFilter, timesheetFilter, loadWorkData,
     formatSeconds, createProject, updateProject, deleteProject,
+    submitProjectForCompletion, approveProjectCompletion, reopenProject,
     createTask, updateTask, changeTaskStatus, completeTask,
     completeAndNextTask, deleteTask, purgeAllTasks, startTaskTimer, pauseTaskTimer,
     stopTaskTimer, snoozeTask, resumeSnoozedTask, dismissTaskReminder,

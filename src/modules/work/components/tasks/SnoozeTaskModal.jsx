@@ -36,6 +36,11 @@ export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
   if (!isOpen || !task) return null;
 
   const handleSnooze = async () => {
+    const targetId = task._id || task.id;
+    if (!targetId) {
+      onClose();
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (selectedPreset === 'custom') {
@@ -44,20 +49,20 @@ export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
           setIsSubmitting(false);
           return;
         }
-        await snoozeTask(task._id, { customDateTime, note });
+        await snoozeTask(targetId, { customDateTime, note });
       } else if (selectedPreset === 'tomorrow_9am') {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(9, 0, 0, 0);
-        await snoozeTask(task._id, { customDateTime: tomorrow.toISOString(), note });
+        await snoozeTask(targetId, { customDateTime: tomorrow.toISOString(), note });
       } else {
-        await snoozeTask(task._id, { remindInMinutes: selectedPreset, note });
+        await snoozeTask(targetId, { remindInMinutes: selectedPreset, note });
       }
-      onClose();
     } catch (e) {
-      console.error(e);
+      console.error('Error during snooze:', e);
     } finally {
       setIsSubmitting(false);
+      onClose();
     }
   };
 

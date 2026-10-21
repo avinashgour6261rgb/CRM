@@ -24,7 +24,7 @@ import { ProjectDetailModal } from '../components/projects/ProjectDetailModal';
 import { ExtendDeadlineModal } from '../components/projects/ExtendDeadlineModal';
 
 export const ProjectsPage = () => {
-  const { projects, projectFilter, setProjectFilter, loading } = useWork();
+  const { projects, projectFilter, setProjectFilter, loading, approveProjectCompletion, reopenProject, submitProjectForCompletion } = useWork();
   const { currentUser } = useAuth();
 
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
@@ -33,9 +33,43 @@ export const ProjectsPage = () => {
   const canAddProject = true;
   const canViewAllProjects = isPrivileged || perms?.viewAllProjects;
 
+  const canManageApprovals = React.useMemo(() => {
+    if (!currentUser) return false;
+    return !!(
+      currentUser.isAdmin ||
+      currentUser.isSuperAdmin ||
+      currentUser.systemRole === 'admin' ||
+      currentUser.systemRole === 'hr' ||
+      currentUser.role === 'Administrator' ||
+      currentUser.role === 'HR Manager' ||
+      currentUser.permissions?.canApproveProjects ||
+      currentUser.permissions?.manageProjects
+    );
+  }, [currentUser]);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [extendModalProject, setExtendModalProject] = useState(null);
+
+  const pendingApprovalProjects = React.useMemo(() => {
+    return (projects || []).filter(p =>
+      p.status === 'under_review' ||
+      (p.status === 'completed' && !p.finalApproved && p.completionSubmittedBy)
+    );
+  }, [projects]);
+
+  const reopenedProjectsForMe = React.useMemo(() => {
+    if (!currentUser) return [];
+    const uId = String(currentUser._id || currentUser.id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    return (projects || []).filter(p =>
+      p.reopened && !p.finalApproved && (
+        p.createdBy === uId || p.createdById === uId || p.createdBy === uCode ||
+        (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) ||
+        (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode))
+      )
+    );
+  }, [projects, currentUser]);
 
   // Scoped projects based on permissions & creator visibility
   const displayProjects = React.useMemo(() => {
@@ -374,6 +408,160 @@ export const ProjectsPage = () => {
           </select>
         </div>
       </div>
+
+      {/* Reopened Projects Alert Banner for Assignees */}
+      {reopenedProjectsForMe.length > 0 && (
+        <div style={{
+          backgroundColor: '#fff7ed',
+          border: '1.5px solid #fdba74',
+          borderRadius: '10px',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          boxShadow: '0 1px 3px rgba(194, 65, 12, 0.08)'
+        }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <div style={{ flex: 1, fontSize: '12px', color: '#9a3412' }}>
+            <strong>{reopenedProjectsForMe.length} Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened for Revisions: </strong>
+            {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
+          </div>
+        </div>
+      )}
+
+      {/* ── PROJECT COMPLETION REVIEW & APPROVALS QUEUE (ADMIN / MANAGER ACCESS) ── */}
+      {canManageApprovals && pendingApprovalProjects.length > 0 && (
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1.5px solid #d8b4fe',
+          boxShadow: '0 4px 14px rgba(147, 51, 234, 0.08)',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            padding: '12px 18px',
+            backgroundColor: '#faf5ff',
+            borderBottom: '1px solid #f3e8ff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>📋</span>
+              <div>
+                <h3 style={{ fontSize: '13.5px', fontWeight: '800', color: '#581c87', margin: 0 }}>
+                  Project Completion Review Queue ({pendingApprovalProjects.length})
+                </h3>
+                <p style={{ fontSize: '11px', color: '#7e22ce', margin: '1px 0 0 0' }}>
+                  Submitted by team members for final sign-off. Approve to finalize or reopen if work remains.
+                </p>
+              </div>
+            </div>
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: '12px',
+              backgroundColor: '#9333ea',
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: '700'
+            }}>
+              {pendingApprovalProjects.length} Pending Sign-Off
+            </span>
+          </div>
+
+          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {pendingApprovalProjects.map(proj => (
+              <div key={proj._id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#fdf4ff',
+                border: '1px solid #f5d0fe'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: '#9333ea',
+                    color: '#ffffff',
+                    fontSize: '11px',
+                    fontWeight: '800'
+                  }}>
+                    {proj.projectCode || 'PRJ'}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                      {proj.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      Submitted by: <strong style={{ color: '#475569' }}>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
+                      {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+                      {proj.department && ` • ${proj.department}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={async () => {
+                      await approveProjectCompletion(proj._id);
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      backgroundColor: '#16a34a',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(22, 163, 74, 0.25)'
+                    }}
+                    title="Official Final Sign-off: Marks Project permanently Complete in database"
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Final Approve & Complete</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const reason = window.prompt(`Enter reason to Reopen project "${proj.name}" (e.g. pending deliverables, missing documentation):`, 'Reopened by Admin for required revisions');
+                      if (reason && reason.trim()) {
+                        await reopenProject(proj._id, reason.trim());
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      backgroundColor: '#fff7ed',
+                      color: '#c2410c',
+                      border: '1px solid #fed7aa',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                    title="Send project back to in-progress with revision notes"
+                  >
+                    <span>🔄 Reopen / Send Back</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Projects Table */}
       <ProjectsTable

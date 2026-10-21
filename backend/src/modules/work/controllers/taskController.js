@@ -182,8 +182,9 @@ exports.updateTask = async (req, res, next) => {
         new: true,
         runValidators: true
       });
-    } else {
-      task = await Task.findOneAndUpdate({ $or: [{ taskCode: req.params.id }, { _id: req.params.id }] }, updateData, {
+    }
+    if (!task) {
+      task = await Task.findOneAndUpdate({ taskCode: req.params.id }, updateData, {
         new: true,
         runValidators: true
       });

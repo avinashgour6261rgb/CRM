@@ -88,8 +88,14 @@ app.use('/api/timer',        require('./src/modules/work/routes/timesheetRoutes'
 app.use('/api/timelogs',     require('./src/modules/work/routes/timesheetRoutes'));
 app.use('/api/timelog',      require('./src/modules/work/routes/timesheetRoutes'));
 
-// CRM Module (Leads, etc.)
+// CRM Module (Leads, Notices, Tickets, Events)
 app.use('/api/leads',        require('./src/modules/crm/routes/leadRoutes'));
+app.use('/api/notices',      require('./src/modules/notices/routes/noticeRoutes'));
+app.use('/api/tickets',      require('./src/modules/tickets/routes/ticketRoutes'));
+app.use('/api/events',       require('./src/modules/events/routes/eventRoutes'));
+
+// Finance Module (Expenses)
+app.use('/api/expenses',     require('./src/modules/finance/routes/expenseRoutes'));
 
 // 404 & Error Handlers
 app.use(notFound);

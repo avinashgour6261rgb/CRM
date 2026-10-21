@@ -18,6 +18,7 @@ import {
   FolderGit2
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 const STATUS_CONFIG = {
   in_progress: { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
@@ -28,9 +29,21 @@ const STATUS_CONFIG = {
 };
 
 export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExtendDeadline }) => {
-  const { projects: contextProjects, deleteProject, updateProject } = useWork();
+  const { projects: contextProjects, deleteProject, updateProject, approveProjectCompletion, reopenProject, submitProjectForCompletion } = useWork();
+  const { currentUser } = useAuth();
   const projects = propProjects !== undefined ? propProjects : (contextProjects || []);
   const [activeMenuId, setActiveMenuId] = useState(null);
+
+  const canManageApprovals = currentUser && (
+    currentUser.isAdmin ||
+    currentUser.isSuperAdmin ||
+    currentUser.systemRole === 'admin' ||
+    currentUser.systemRole === 'hr' ||
+    currentUser.role === 'Administrator' ||
+    currentUser.role === 'HR Manager' ||
+    currentUser.permissions?.canApproveProjects ||
+    currentUser.permissions?.manageProjects
+  );
 
   const todayStr = new Date().toISOString().split('T')[0];
 

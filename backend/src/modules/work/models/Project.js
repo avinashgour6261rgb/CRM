@@ -73,6 +73,46 @@ const ProjectSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    finalApproved: {
+      type: Boolean,
+      default: false
+    },
+    finalApprovedBy: {
+      type: String,
+      default: null
+    },
+    finalApprovedAt: {
+      type: Date,
+      default: null
+    },
+    reopened: {
+      type: Boolean,
+      default: false
+    },
+    reopenReason: {
+      type: String,
+      default: ''
+    },
+    reopenedBy: {
+      type: String,
+      default: null
+    },
+    reopenedAt: {
+      type: Date,
+      default: null
+    },
+    completionSubmittedBy: {
+      type: String,
+      default: null
+    },
+    completionSubmittedAt: {
+      type: Date,
+      default: null
+    },
+    completionNotes: {
+      type: String,
+      default: ''
+    },
     budget: {
       type: Number,
       default: 0

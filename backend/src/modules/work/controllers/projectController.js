@@ -78,10 +78,19 @@ exports.createProject = async (req, res, next) => {
 // @route   PUT /api/projects/:id
 exports.updateProject = async (req, res, next) => {
   try {
-    const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    let project = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true
+      });
+    }
+    if (!project) {
+      project = await Project.findOneAndUpdate({ projectCode: req.params.id.toUpperCase() }, req.body, {
+        new: true,
+        runValidators: true
+      });
+    }
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }

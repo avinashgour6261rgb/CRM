@@ -231,7 +231,10 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          if (Array.isArray(json.data)) {
+            saveCollection(KEYS.TASKS, json.data);
+            return json.data;
+          }
         }
       } catch (err) {
         console.warn('Backend unavailable for tasks, using localStorage:', err);
@@ -381,20 +384,31 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
           body: JSON.stringify(updateData)
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          const updatedTask = json.data;
+          const tasks = getCollection(KEYS.TASKS) || [];
+          const index = tasks.findIndex(t => String(t._id || t.id) === String(id) || t.taskCode === id);
+          if (index !== -1) {
+            tasks[index] = { ...tasks[index], ...updatedTask };
+            saveCollection(KEYS.TASKS, tasks);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+          }
+          return updatedTask;
         }
       } catch (err) {
         console.warn('Backend task update failed, using local storage:', err);
       }
     }
 
-    const tasks = getCollection(KEYS.TASKS);
-    const index = tasks.findIndex(t => t._id === id);
+    const tasks = getCollection(KEYS.TASKS) || [];
+    const index = tasks.findIndex(t => String(t._id || t.id) === String(id) || t.taskCode === id);
     if (index !== -1) {
       const currentTask = tasks[index];
       const authUser = getAuthUser();

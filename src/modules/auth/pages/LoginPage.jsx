@@ -45,8 +45,8 @@ export const LoginPage = () => {
     return { email: 'admin@inforag.com', employeeCode: 'ADM-001', password: 'admin123' };
   }, []);
 
-  const [identifier, setIdentifier] = useState(() => currentAdmin.email || 'admin@inforag.com');
-  const [password, setPassword] = useState(() => currentAdmin.password || '');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loginError, setLoginError] = useState('');

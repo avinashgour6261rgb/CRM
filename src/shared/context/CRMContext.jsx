@@ -9,7 +9,17 @@ import { getCollection, saveCollection, KEYS } from '../services/storageService'
 import { useToast } from './ToastContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
-import { INITIAL_WEEKLY_TIMELOGS } from '../mock/initialData';
+import { API_BASE } from '../config/apiConfig';
+
+const DEFAULT_WEEKLY_TIMELOGS = [
+  { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Tuesday', shortDay: 'Tu', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Wednesday', shortDay: 'We', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Thursday', shortDay: 'Th', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Friday', shortDay: 'Fr', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Saturday', shortDay: 'Sa', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
+  { day: 'Sunday', shortDay: 'Su', date: '', durationText: '0h 00m', durationHours: 0, loginTime: 'Off', logoutTime: 'Off', breakDuration: '0m', isDayOff: true }
+];
 
 const CRMContext = createContext();
 
@@ -796,6 +806,18 @@ export const CRMProvider = ({ children }) => {
       ...expenseData
     };
 
+    try {
+      const res = await fetch(`${API_BASE}/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newExpense)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?._id) newExpense._id = json.data._id;
+      }
+    } catch (_) {}
+
     currentList.unshift(newExpense);
     saveCollection(KEYS.EXPENSES, currentList);
     setExpenses([...currentList]);
@@ -805,6 +827,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateExpense = async (expenseId, updateData) => {
+    try {
+      await fetch(`${API_BASE}/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.EXPENSES);
     const idx = currentList.findIndex(e => e._id === expenseId);
     if (idx !== -1) {
@@ -824,6 +854,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateExpenseStatus = async (expenseId, status) => {
+    try {
+      await fetch(`${API_BASE}/expenses/${expenseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.EXPENSES);
     const idx = currentList.findIndex(e => e._id === expenseId);
     if (idx !== -1) {
@@ -837,6 +875,10 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteExpense = async (expenseId) => {
+    try {
+      await fetch(`${API_BASE}/expenses/${expenseId}`, { method: 'DELETE' });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.EXPENSES);
     const filtered = currentList.filter(e => e._id !== expenseId);
     saveCollection(KEYS.EXPENSES, filtered);
@@ -912,6 +954,18 @@ export const CRMProvider = ({ children }) => {
       ...ticketData
     };
 
+    try {
+      const res = await fetch(`${API_BASE}/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTicket)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?._id) newTicket._id = json.data._id;
+      }
+    } catch (_) {}
+
     currentList.unshift(newTicket);
     saveCollection(KEYS.TICKETS, currentList);
     setTickets([...currentList]);
@@ -921,6 +975,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateTicketStatus = async (ticketId, status) => {
+    try {
+      await fetch(`${API_BASE}/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.TICKETS);
     const idx = currentList.findIndex(t => t._id === ticketId);
     if (idx !== -1) {
@@ -948,6 +1010,19 @@ export const CRMProvider = ({ children }) => {
         timestamp: new Date().toISOString(),
         isAdminReply: isUserAdmin
       };
+
+      try {
+        await fetch(`${API_BASE}/tickets/${ticketId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authorName: newReply.senderName,
+            authorAvatar: newReply.senderAvatar,
+            authorRole: isUserAdmin ? 'Administrator' : 'Team Member',
+            text: messageText
+          })
+        });
+      } catch (_) {}
 
       currentList[idx].replies = [...(currentList[idx].replies || []), newReply];
       // Automatically advance status to in_progress if currently open
@@ -988,6 +1063,13 @@ export const CRMProvider = ({ children }) => {
     if (idx !== -1 && emp) {
       currentList[idx].assignedToId = emp._id;
       currentList[idx].assignedToName = emp.name;
+      try {
+        await fetch(`${API_BASE}/tickets/${ticketId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignedTo: emp._id, assignedToName: emp.name })
+        });
+      } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -996,6 +1078,9 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteTicket = async (ticketId) => {
+    try {
+      await fetch(`${API_BASE}/tickets/${ticketId}`, { method: 'DELETE' });
+    } catch (_) {}
     const currentList = getCollection(KEYS.TICKETS);
     const filtered = currentList.filter(t => t._id !== ticketId);
     saveCollection(KEYS.TICKETS, filtered);
@@ -1030,6 +1115,18 @@ export const CRMProvider = ({ children }) => {
       ...eventData
     };
 
+    try {
+      const res = await fetch(`${API_BASE}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEvent)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?._id) newEvent._id = json.data._id;
+      }
+    } catch (_) {}
+
     currentList.unshift(newEvent);
     saveCollection(KEYS.EVENTS, currentList);
     setEvents([...currentList]);
@@ -1039,6 +1136,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateEvent = async (eventId, updateData) => {
+    try {
+      await fetch(`${API_BASE}/events/${eventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.EVENTS);
     const idx = currentList.findIndex(e => e._id === eventId);
     if (idx !== -1) {
@@ -1055,6 +1160,10 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteEvent = async (eventId) => {
+    try {
+      await fetch(`${API_BASE}/events/${eventId}`, { method: 'DELETE' });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.EVENTS);
     const filtered = currentList.filter(e => e._id !== eventId);
     saveCollection(KEYS.EVENTS, filtered);
@@ -1185,6 +1294,18 @@ export const CRMProvider = ({ children }) => {
       ...noticeData
     };
 
+    try {
+      const res = await fetch(`${API_BASE}/notices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newNotice)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?._id) newNotice._id = json.data._id;
+      }
+    } catch (_) {}
+
     currentList.unshift(newNotice);
     saveCollection(KEYS.NOTICES, currentList);
     setNotices([...currentList]);
@@ -1194,6 +1315,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateNotice = async (noticeId, updateData) => {
+    try {
+      await fetch(`${API_BASE}/notices/${noticeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.NOTICES);
     const idx = currentList.findIndex(n => n._id === noticeId);
     if (idx !== -1) {
@@ -1210,6 +1339,10 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteNotice = async (noticeId) => {
+    try {
+      await fetch(`${API_BASE}/notices/${noticeId}`, { method: 'DELETE' });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.NOTICES);
     const filtered = currentList.filter(n => n._id !== noticeId);
     saveCollection(KEYS.NOTICES, filtered);

@@ -838,6 +838,9 @@ export const DashboardPage = () => {
   const myLeftoverTasks = React.useMemo(() => {
     return myPendingTasks.filter(t => {
       if (t.isUntimed || t.hasNoDueDate) return false;
+      // If snoozed with an active reminder in future, exclude from leftover banner
+      if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
+      if (t.reminderDismissed) return false;
       const isPastDue = t.dueDate && t.dueDate < todayStr;
       const isPastStart = !t.dueDate && t.startDate && t.startDate < todayStr;
       return isPastDue || isPastStart;

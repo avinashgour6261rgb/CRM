@@ -188,7 +188,7 @@ export const TasksPage = () => {
     } else if (statusMode === 'completed') {
       list = list.filter(t => t.status === 'completed');
     } else if (statusMode === 'leftover') {
-      list = list.filter(t => t.status !== 'completed' && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr);
+      list = list.filter(t => t.status !== 'completed' && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr && !(t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()));
     } else if (statusMode === 'future') {
       list = list.filter(t => t.status !== 'completed' && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr && !t.timerRunning && t.status !== 'in_progress') || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now())));
     } else if (taskFilter.status && taskFilter.status !== 'all') {
@@ -223,6 +223,7 @@ export const TasksPage = () => {
   const leftoverCount = React.useMemo(() => {
     return (tasks || []).filter(t => {
       if (t.status === 'completed' || t.isUntimed || t.hasNoDueDate || !t.dueDate || t.dueDate >= todayStr) return false;
+      if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
       if (!canViewAllTasks && currentUser) return isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id;
       return true;
     }).length;

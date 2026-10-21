@@ -65,8 +65,36 @@ const TaskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['incomplete', 'in_progress', 'under_review', 'completed'],
+      enum: ['incomplete', 'in_progress', 'on_hold', 'under_review', 'completed'],
       default: 'incomplete'
+    },
+    finalApproved: {
+      type: Boolean,
+      default: false
+    },
+    finalApprovedBy: {
+      type: String,
+      default: null
+    },
+    finalApprovedAt: {
+      type: Date,
+      default: null
+    },
+    reopened: {
+      type: Boolean,
+      default: false
+    },
+    reopenReason: {
+      type: String,
+      default: ''
+    },
+    reopenedBy: {
+      type: String,
+      default: null
+    },
+    reopenedAt: {
+      type: Date,
+      default: null
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,

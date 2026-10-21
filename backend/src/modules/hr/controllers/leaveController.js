@@ -125,20 +125,85 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
   leave.approverRemarks = approverRemarks || '';
   await leave.save();
 
-  // Deduct leave balance on approval
-  if (status === 'approved' && leave.isPaid) {
-    const employee = await Employee.findById(leave.employee);
-    if (employee && employee.leaveBalance) {
-      const balance = { ...employee.leaveBalance };
-      const days = leave.durationDays || 1;
-      if (leave.leaveType.includes('Casual') && balance.casual !== undefined)
+  // Deduct leave balance on approval & mark attendance
+  if (status === 'approved') {
+    let employee = null;
+    if (leave.employee && mongoose.Types.ObjectId.isValid(leave.employee)) {
+      employee = await Employee.findById(leave.employee);
+    }
+    if (!employee && leave.employeeCode) {
+      employee = await Employee.findOne({ employeeCode: leave.employeeCode });
+    }
+    if (!employee && leave.employeeName) {
+      employee = await Employee.findOne({ name: leave.employeeName });
+    }
+
+    if (employee) {
+      const balance = {
+        casual: employee.leaveBalance?.casual ?? 10,
+        sick: employee.leaveBalance?.sick ?? 8,
+        earned: employee.leaveBalance?.earned ?? 15,
+        maternity: employee.leaveBalance?.maternity ?? 0
+      };
+      const days = Number(leave.durationDays) || 1;
+      const lt = (leave.leaveType || '').toLowerCase();
+
+      if (lt.includes('cas') || lt === 'cl') {
         balance.casual = Math.max(0, balance.casual - days);
-      else if (leave.leaveType.includes('Sick') && balance.sick !== undefined)
+      } else if (lt.includes('sic') || lt === 'sl') {
         balance.sick = Math.max(0, balance.sick - days);
-      else if (leave.leaveType.includes('Earned') && balance.earned !== undefined)
+      } else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') {
         balance.earned = Math.max(0, balance.earned - days);
+      } else if (lt.includes('mat') || lt.includes('pat')) {
+        balance.maternity = Math.max(0, balance.maternity - days);
+      } else {
+        if (balance.casual >= days) {
+          balance.casual -= days;
+        } else {
+          balance.earned = Math.max(0, balance.earned - days);
+        }
+      }
+
       employee.leaveBalance = balance;
       await employee.save();
+
+      // Connect approved leave into Attendance Matrix
+      try {
+        const Attendance = require('../models/Attendance');
+        const start = new Date(leave.startDate);
+        const end = new Date(leave.endDate || leave.startDate);
+        const cur = new Date(start);
+        while (cur <= end) {
+          const dateStr = cur.toISOString().split('T')[0];
+          await Attendance.findOneAndUpdate(
+            { employee: employee._id, date: dateStr },
+            {
+              employee: employee._id,
+              employeeName: employee.name,
+              employeeCode: employee.employeeCode,
+              employeeRole: employee.role,
+              date: dateStr,
+              status: 'on_leave',
+              notes: `Approved ${leave.leaveType} (${leave.durationDays}d)`
+            },
+            { upsert: true, new: true }
+          );
+          cur.setDate(cur.getDate() + 1);
+        }
+      } catch (attErr) {
+        console.warn('Attendance record creation for approved leave skipped:', attErr);
+      }
+
+      return res.json({
+        success: true,
+        data: leave,
+        updatedEmployee: {
+          _id: employee._id,
+          employeeCode: employee.employeeCode,
+          name: employee.name,
+          leaveBalance: employee.leaveBalance
+        }
+      });
     }
   }
 
