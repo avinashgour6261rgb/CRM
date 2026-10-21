@@ -104,10 +104,21 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       console.error('Error loading saved auth session:', e);
     }
-    return PRESET_USERS.admin;
+    return null;
   });
 
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.email && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  });
 
   // 1. Initial Load: Sync profile from backend without overwriting local terminal's user
   useEffect(() => {
@@ -401,6 +412,7 @@ export const AuthProvider = ({ children }) => {
   // Logout handler
   const logout = useCallback(() => {
     setIsAuthenticated(false);
+    setCurrentUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
   }, []);

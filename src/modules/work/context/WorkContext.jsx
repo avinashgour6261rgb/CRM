@@ -46,7 +46,7 @@ export const WorkProvider = ({ children }) => {
 
   // Derive stable userKey matching TimerContext for seamless cross-module sync
   const userKey = useMemo(() => {
-    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
+    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : (currentUser ? 'ADM-001' : ''));
   }, [currentUser]);
 
   const getTodayStr = () => new Date().toISOString().split('T')[0];
@@ -57,12 +57,16 @@ export const WorkProvider = ({ children }) => {
   const activeTimerKey = useMemo(() => `ems_active_task_timer_${userKey}`, [userKey]);
 
   const isTaskAssignedToMe = useCallback((t) => {
-    if (!t) return false;
+    if (!t || !currentUser) return false;
     const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email]
       .filter(Boolean)
       .map(s => String(s).toLowerCase());
 
-    const directIds = [t.assignedToId, t.assignedTo, t.employeeId, t.assignedToEmail]
+    const directAssignedTo = (t.assignedTo && typeof t.assignedTo === 'object')
+      ? String(t.assignedTo._id || t.assignedTo.id || '')
+      : String(t.assignedTo || '');
+
+    const directIds = [t.assignedToId, directAssignedTo, t.employeeId, t.assignedToEmail]
       .filter(Boolean)
       .map(s => String(s).toLowerCase());
     if (myIds.some(uid => directIds.includes(uid))) return true;
@@ -108,8 +112,7 @@ export const WorkProvider = ({ children }) => {
       const keysToCheck = [
         activeTimerKey,
         currentUser?.employeeCode ? `ems_active_task_timer_${currentUser.employeeCode}` : null,
-        currentUser?._id ? `ems_active_task_timer_${currentUser._id}` : null,
-        'ems_active_task_timer'
+        currentUser?._id ? `ems_active_task_timer_${currentUser._id}` : null
       ].filter(Boolean);
 
       const today = getTodayStr();
@@ -317,10 +320,11 @@ export const WorkProvider = ({ children }) => {
     }
   }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast]);
 
-  // Derived reactive active running task for easy access
+  // Derived reactive active running task strictly scoped to current logged-in user
   const activeRunningTask = useMemo(() => {
-    return tasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt) || null;
-  }, [tasks]);
+    if (!currentUser) return null;
+    return tasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t)) || null;
+  }, [tasks, currentUser, isTaskAssignedToMe]);
 
   useEffect(() => {
     loadWorkData();

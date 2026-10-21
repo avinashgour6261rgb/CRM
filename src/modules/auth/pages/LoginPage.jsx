@@ -20,9 +20,15 @@ import { ForgotPasswordModal } from '../../../shared/components/modals/ForgotPas
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, currentUser, isAuthenticated } = useAuth();
   const { addToast } = useToast();
   const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
+
+  React.useEffect(() => {
+    if (currentUser && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, isAuthenticated, navigate]);
 
   // Dynamically resolve actual admin credentials from storage
   const currentAdmin = React.useMemo(() => {

@@ -254,7 +254,10 @@ export const DashboardPage = () => {
   const isTaskAssignedToUser = (task, user) => {
     if (!task || !user) return false;
     const userIds = [user._id, user.id, user.employeeCode, user.email].filter(Boolean).map(s => String(s).toLowerCase());
-    const taskAssigneeIds = [task.assignedToId, task.assignedTo, task.employeeId, task.assignedToEmail].filter(Boolean).map(s => String(s).toLowerCase());
+    const directAssignedTo = (task.assignedTo && typeof task.assignedTo === 'object')
+      ? String(task.assignedTo._id || task.assignedTo.id || '')
+      : String(task.assignedTo || '');
+    const taskAssigneeIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToEmail].filter(Boolean).map(s => String(s).toLowerCase());
 
     if (userIds.some(uid => taskAssigneeIds.includes(uid))) return true;
 
@@ -585,8 +588,7 @@ export const DashboardPage = () => {
       try {
         empActiveTimer = JSON.parse(
           localStorage.getItem(`ems_active_task_timer_${empUserKey}`) ||
-          localStorage.getItem(`ems_active_task_timer_${emp?._id}`) ||
-          localStorage.getItem('ems_active_task_timer') || 'null'
+          localStorage.getItem(`ems_active_task_timer_${emp?._id}`) || 'null'
         );
       } catch (e) {}
 
@@ -927,7 +929,7 @@ export const DashboardPage = () => {
         };
       }
     }
-    if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && (isTaskAssignedToUser(activeRunningTask, effectiveTargetUser) || (isUserAdminOrHR && !isViewingOtherEmployee))) {
+    if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
       return activeRunningTask;
     }
     if (activeSelectedTaskId) {
@@ -935,7 +937,7 @@ export const DashboardPage = () => {
       if (found) return found;
     }
     return myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
-  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, isUserAdminOrHR, isViewingOtherEmployee, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
+  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks
@@ -971,10 +973,12 @@ export const DashboardPage = () => {
   const myTasksTodaySecs = (myTasks || [])
     .filter(t => !isTaskActuallyCompleted(t) && (t.sessionDate === todayStr || t.timerRunning) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
     .reduce((acc, t) => acc + (Number(t.timerSeconds) || 0), 0);
-  const liveActiveSecs = (activeRunningTask?.timerSeconds && !myTasks.some(t => t._id === activeRunningTask._id)) ? activeRunningTask.timerSeconds : 0;
+  const myRunningTaskSecs = (activeRunningTask && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser))
+    ? (Number(activeRunningTask.timerSeconds) || 0)
+    : 0;
   const currentTaskSecs = Math.max(
-    (activeRunningTask?.timerSeconds || 0),
-    myTasksTodaySecs + liveActiveSecs
+    myRunningTaskSecs,
+    myTasksTodaySecs
   );
 
   const totalTaskTodaySecs = totalLoggedTodaySecs + myCompletedTodaySecs + currentTaskSecs;

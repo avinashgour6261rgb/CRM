@@ -39,7 +39,7 @@ export const TimerProvider = ({ children }) => {
 
   // Derive stable userKey for multi-user storage isolation
   const userKey = useMemo(() => {
-    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
+    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : (currentUser ? 'ADM-001' : ''));
   }, [currentUser]);
 
   // Resolve canonical employee profile from storage to bridge _id, employeeCode, and name

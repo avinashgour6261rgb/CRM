@@ -17,8 +17,7 @@ export const HRProvider = ({ children }) => {
         return parsed?.user || parsed;
       }
     } catch {}
-    const emps = getCollection(KEYS.EMPLOYEES) || [];
-    return emps.find(e => e.isCurrentUser) || emps[0] || null;
+    return null;
   });
   const [leaves, setLeaves] = useState(() => getCollection(KEYS.LEAVES) || []);
   const [attendance, setAttendance] = useState(() => getCollection(KEYS.ATTENDANCE) || []);

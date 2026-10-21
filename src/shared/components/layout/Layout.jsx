@@ -1,9 +1,17 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopNavbar } from './TopNavbar';
+import { useAuth } from '../../context/AuthContext';
 
 export const Layout = () => {
+  const { currentUser, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  if (!currentUser || !isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
   return (
     <div className="app-container flex min-h-screen bg-[#f4f6fa]" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f6fa' }}>
       <Sidebar />
@@ -16,3 +24,4 @@ export const Layout = () => {
     </div>
   );
 };
+

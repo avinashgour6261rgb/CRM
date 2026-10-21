@@ -162,8 +162,7 @@ export const hrService = {
           return authUser;
         }
       } catch (e) {}
-      const employees = getCollection(KEYS.EMPLOYEES);
-      return employees.find(e => e.isCurrentUser) || employees[0];
+      return null;
     });
   },
 
