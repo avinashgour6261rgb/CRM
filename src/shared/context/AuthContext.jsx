@@ -117,13 +117,17 @@ export const AuthProvider = ({ children }) => {
         const saved = localStorage.getItem(AUTH_STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed && parsed.email) {
+          if (parsed && (parsed.email || parsed.employeeCode)) {
             // Keep local terminal session; fetch live updates for this specific user
             try {
-              const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(parsed.email)}`, { signal: AbortSignal.timeout(2000) });
+              const query = parsed.email || parsed.employeeCode;
+              const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(2000) });
               if (res.ok) {
                 const json = await res.json();
-                const matched = (json.data || []).find(e => e.email?.toLowerCase() === parsed.email.toLowerCase());
+                const matched = (json.data || []).find(e =>
+                  (parsed.email && e.email?.toLowerCase() === parsed.email.toLowerCase()) ||
+                  (parsed.employeeCode && e.employeeCode?.toUpperCase() === parsed.employeeCode.toUpperCase())
+                );
                 if (matched && isMounted) {
                   setCurrentUser(prev => ({ ...prev, ...matched }));
                   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...parsed, ...matched }));
@@ -131,18 +135,6 @@ export const AuthProvider = ({ children }) => {
                 }
               }
             } catch {}
-            return;
-          }
-        }
-
-        // Only if NO local user session exists, fall back to default
-        const res = await fetch(`${API_BASE}/employees/current`, { signal: AbortSignal.timeout(2000) });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data && isMounted) {
-            const dbUser = json.data;
-            setCurrentUser(dbUser);
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
           }
         }
       } catch (err) {
@@ -265,7 +257,50 @@ export const AuthProvider = ({ children }) => {
     }
     const cleanPass = (password || '').trim();
 
-    // 1. Fetch registered employees in storage
+    // 1. Primary: Authenticate directly against MongoDB Atlas database
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: inputId, password: cleanPass })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.user) {
+          const dbUser = {
+            ...json.user,
+            isCurrentUser: true,
+            isAdmin: json.user.systemRole === 'admin' || json.user.isAdmin
+          };
+          setCurrentUser(dbUser);
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(dbUser));
+          // Mirror employee to local storage list
+          const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+          const idx = localEmps.findIndex(e => e._id === dbUser._id || e.employeeCode === dbUser.employeeCode);
+          if (idx >= 0) {
+            localEmps[idx] = { ...localEmps[idx], ...dbUser };
+          } else {
+            localEmps.push(dbUser);
+          }
+          saveCollection(KEYS.EMPLOYEES, localEmps);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+          return dbUser;
+        }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        if (errJson.message) {
+          throw new Error(errJson.message);
+        }
+      }
+    } catch (apiErr) {
+      // If error came from backend with specific rejection message, rethrow it
+      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('NetworkError') && !apiErr.message.includes('Failed to fetch')) {
+        throw apiErr;
+      }
+    }
+
+    // 2. Fallback: Local offline credential check if backend unreachable
     const employees = getCollection(KEYS.EMPLOYEES) || [];
     const adminRecord = employees.find(e =>
       e.employeeCode === 'ADM-001' ||

@@ -276,7 +276,11 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
               fontSize: '12px',
               fontWeight: '700'
             }}>
-              {dayLog.isSunday ? '🏖️ Sunday Off' : (dayLog.isDayOff ? '🏖️ Weekend Off' : (dayLog.isCurrentDay ? '🚀 Active Today' : '✅ Completed'))}
+              {dayLog.isSunday && dayLog.shortDay !== 'Mo'
+                ? '🏖️ Sunday Off'
+                : (dayLog.isDayOff && dayLog.shortDay !== 'Mo'
+                    ? '🏖️ Weekend Off'
+                    : (dayLog.isCurrentDay ? '🚀 Active Today' : (dayLog.shortDay === 'Mo' ? '💼 Working Day' : '✅ Completed')))}
             </div>
           </div>
 
@@ -287,7 +291,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 <LogIn size={12} color="#16a34a" /> Clock In
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                {dayLog.loginTime || (dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay ? 'Not Clocked In' : '--'))}
+                {dayLog.loginTime && dayLog.loginTime !== 'Off' ? dayLog.loginTime : (dayLog.isSunday && dayLog.shortDay !== 'Mo' ? 'Sunday Off' : (dayLog.isCurrentDay ? 'Not Clocked In' : '--'))}
               </div>
             </div>
 
@@ -296,7 +300,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 <LogOut size={12} color="#dc2626" /> Clock Out
               </div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                {dayLog.logoutTime || (dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay && dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'In Progress' : '--'))}
+                {dayLog.logoutTime && dayLog.logoutTime !== 'Off' ? dayLog.logoutTime : (dayLog.isSunday && dayLog.shortDay !== 'Mo' ? 'Sunday Off' : (dayLog.isCurrentDay && dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'In Progress' : '--'))}
               </div>
             </div>
 
@@ -313,8 +317,8 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>
                 <Zap size={12} color="#2563eb" /> Status
               </div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: dayLog.isSunday ? '#d97706' : '#2563eb' }}>
-                {dayLog.isSunday ? 'Sunday Off' : (dayLog.isCurrentDay ? (dayLog.loginTime && dayLog.loginTime !== '--' ? 'Active Shift' : 'Not Started') : 'Working Day')}
+              <div style={{ fontSize: '12px', fontWeight: '700', color: (dayLog.isSunday && dayLog.shortDay !== 'Mo') ? '#d97706' : '#2563eb' }}>
+                {(dayLog.isSunday && dayLog.shortDay !== 'Mo') ? 'Sunday Off' : (dayLog.isCurrentDay ? (dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'Active Shift' : 'Not Started') : 'Working Day')}
               </div>
             </div>
           </div>

@@ -53,7 +53,8 @@ import {
   Layers,
   Search,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  History
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -111,7 +112,8 @@ export const DashboardPage = () => {
     formatSeconds,
     snoozeTask,
     resumeSnoozedTask,
-    dismissTaskReminder
+    dismissTaskReminder,
+    rescheduleTaskForFuture
   } = useWork();
   const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs } = useCRM();
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
@@ -121,6 +123,8 @@ export const DashboardPage = () => {
   const [pendingTasksModalFilter, setPendingTasksModalFilter] = useState('all');
   const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
+  const [activeLeftoverIdx, setActiveLeftoverIdx] = useState(0);
+  const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(false);
   const {
     loginTime,
     clockOutTime,
@@ -830,6 +834,25 @@ export const DashboardPage = () => {
   const myDueTodayTasksCount = React.useMemo(() => myPendingTasks.filter(t => t.dueDate === todayStr).length, [myPendingTasks, todayStr]);
   const myCompletedTodayCount = React.useMemo(() => myCompletedTasks.filter(t => t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr)).length, [myCompletedTasks, todayStr]);
 
+  // Leftover tasks from previous days that were not completed (Yesterday or earlier)
+  const myLeftoverTasks = React.useMemo(() => {
+    return myPendingTasks.filter(t => {
+      if (t.isUntimed || t.hasNoDueDate) return false;
+      const isPastDue = t.dueDate && t.dueDate < todayStr;
+      const isPastStart = !t.dueDate && t.startDate && t.startDate < todayStr;
+      return isPastDue || isPastStart;
+    }).sort((a, b) => (a.dueDate || a.startDate || '').localeCompare(b.dueDate || b.startDate || ''));
+  }, [myPendingTasks, todayStr]);
+
+  // Tasks assigned or scheduled for future dates
+  const myFutureTasks = React.useMemo(() => {
+    return myPendingTasks.filter(t => {
+      const isFutureStart = t.startDate && t.startDate > todayStr;
+      const isFutureDue = t.dueDate && t.dueDate > todayStr && (!t.startDate || t.startDate > todayStr);
+      return isFutureStart || isFutureDue;
+    }).sort((a, b) => (a.startDate || a.dueDate || '').localeCompare(b.startDate || b.dueDate || ''));
+  }, [myPendingTasks, todayStr]);
+
   // Company-wide stats for Admin Overview
   const allTasksList = tasks || [];
   const allPendingTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t)).length, [allTasksList]);
@@ -1281,6 +1304,308 @@ export const DashboardPage = () => {
               ✕
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── ⏮️ LEFTOVER / PREVIOUS DAYS TASK REMINDER BANNER ── */}
+      {!isLeftoverDismissed && myLeftoverTasks.length > 0 && (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1.5px solid #f87171',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          boxShadow: '0 4px 14px rgba(239, 68, 68, 0.12)',
+          position: 'relative'
+        }}>
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: '#dc2626',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Clock size={16} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '10.5px', fontWeight: '800', backgroundColor: '#fee2e2', color: '#991b1b', padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    ⏮️ Leftover from Previous Day
+                  </span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#b91c1c' }}>
+                    {myLeftoverTasks.length} task{myLeftoverTasks.length > 1 ? 's were' : ' was'} left incomplete
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: '#7f1d1d', marginTop: '2px' }}>
+                  Please take action: start working now, reschedule for future, snooze reminder, or mark completed.
+                </div>
+              </div>
+            </div>
+
+            {/* Pagination / navigation if multiple leftover tasks */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {myLeftoverTasks.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '6px' }}>
+                  <button
+                    onClick={() => setActiveLeftoverIdx(i => Math.max(0, i - 1))}
+                    disabled={activeLeftoverIdx === 0}
+                    style={{
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #fca5a5',
+                      backgroundColor: activeLeftoverIdx === 0 ? '#fee2e2' : '#ffffff',
+                      color: activeLeftoverIdx === 0 ? '#9ca3af' : '#b91c1c',
+                      cursor: activeLeftoverIdx === 0 ? 'default' : 'pointer',
+                      fontSize: '11px'
+                    }}
+                  >
+                    ◀
+                  </button>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b' }}>
+                    {activeLeftoverIdx + 1} of {myLeftoverTasks.length}
+                  </span>
+                  <button
+                    onClick={() => setActiveLeftoverIdx(i => Math.min(myLeftoverTasks.length - 1, i + 1))}
+                    disabled={activeLeftoverIdx === myLeftoverTasks.length - 1}
+                    style={{
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #fca5a5',
+                      backgroundColor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#fee2e2' : '#ffffff',
+                      color: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#9ca3af' : '#b91c1c',
+                      cursor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'default' : 'pointer',
+                      fontSize: '11px'
+                    }}
+                  >
+                    ▶
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => setIsLeftoverDismissed(true)}
+                title="Dismiss reminder banner"
+                style={{
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#991b1b',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                  borderRadius: '4px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Active Leftover Task Item */}
+          {(() => {
+            const currentLeftover = myLeftoverTasks[activeLeftoverIdx] || myLeftoverTasks[0];
+            if (!currentLeftover) return null;
+
+            // Calculate how many days ago it was due
+            const diffDays = currentLeftover.dueDate
+              ? Math.max(1, Math.round((new Date(todayStr) - new Date(currentLeftover.dueDate)) / (1000 * 60 * 60 * 24)))
+              : 1;
+
+            return (
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ flex: 1, minWidth: '240px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626' }}>
+                      #{currentLeftover.taskCode || 'TSK'}:
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                      {currentLeftover.title}
+                    </span>
+                    {currentLeftover.projectName && (
+                      <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                        📁 {currentLeftover.projectName}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '10px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                      Due {diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`} ({currentLeftover.dueDate || 'Past Due'})
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px' }}>
+                    Priority: <strong style={{ textTransform: 'capitalize', color: currentLeftover.priority === 'urgent' ? '#dc2626' : currentLeftover.priority === 'high' ? '#ea580c' : '#475569' }}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
+                    {currentLeftover.assignedBy && ` • Assigned by: ${currentLeftover.assignedBy}`}
+                  </div>
+                </div>
+
+                {/* Quick 1-Click Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  {/* Work Now / Start Timer */}
+                  <button
+                    onClick={() => {
+                      if (!isClockedIn) {
+                        addToast('⚠️ Please Clock In for shift before starting task timer!', 'warning');
+                        return;
+                      }
+                      if (isOnBreak) {
+                        addToast('☕ You are on break. Please resume shift first!', 'warning');
+                        return;
+                      }
+                      startTaskTimer(currentLeftover._id, { forceOverdue: true });
+                      setActiveSelectedTaskId(currentLeftover._id);
+                      addToast(`▶️ Started leftover task: ${currentLeftover.title}`, 'success');
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(220, 38, 38, 0.3)'
+                    }}
+                    title="Start timer and work on this leftover task now"
+                  >
+                    <Play size={11} fill="#fff" />
+                    <span>Work Now</span>
+                  </button>
+
+                  {/* Quick Reschedule for Future (+1 Day / Tomorrow) */}
+                  <button
+                    onClick={async () => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                      if (rescheduleTaskForFuture) {
+                        await rescheduleTaskForFuture(currentLeftover._id, tomorrowStr, 'Rescheduled to tomorrow from Leftover Reminder');
+                        addToast(`📅 Task rescheduled to tomorrow (${tomorrowStr})`, 'success');
+                      }
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: '#eff6ff',
+                      color: '#1d4ed8',
+                      border: '1px solid #bfdbfe',
+                      fontSize: '11.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="Move deadline to Tomorrow (+1 Day)"
+                  >
+                    📅 +1d Tomorrow
+                  </button>
+
+                  {/* Reschedule +7 Days */}
+                  <button
+                    onClick={async () => {
+                      const nextWeek = new Date();
+                      nextWeek.setDate(nextWeek.getDate() + 7);
+                      const nextWeekStr = nextWeek.toISOString().split('T')[0];
+                      if (rescheduleTaskForFuture) {
+                        await rescheduleTaskForFuture(currentLeftover._id, nextWeekStr, 'Rescheduled to next week (+7d)');
+                        addToast(`📅 Task rescheduled to next week (${nextWeekStr})`, 'success');
+                      }
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      backgroundColor: '#f8fafc',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '11.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="Move deadline to Next Week (+7 Days)"
+                  >
+                    +7d Next Week
+                  </button>
+
+                  {/* Snooze / Remind Later */}
+                  <button
+                    onClick={() => {
+                      setSnoozeTaskTarget(currentLeftover);
+                      setIsSnoozeModalOpen(true);
+                    }}
+                    style={{
+                      padding: '5px 9px',
+                      borderRadius: '6px',
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      border: '1px solid #fde68a',
+                      fontSize: '11.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="Set reminder or snooze task"
+                  >
+                    ⏰ Snooze
+                  </button>
+
+                  {/* Mark Completed */}
+                  <button
+                    onClick={async () => {
+                      await completeTask(currentLeftover._id, 'Completed leftover task', false);
+                      addToast('✅ Leftover task marked as completed!', 'success');
+                    }}
+                    style={{
+                      padding: '5px 9px',
+                      borderRadius: '6px',
+                      backgroundColor: '#dcfce7',
+                      color: '#15803d',
+                      border: '1px solid #bbf7d0',
+                      fontSize: '11.5px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="Mark this leftover task as completed"
+                  >
+                    <CheckCircle2 size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                    Done
+                  </button>
+
+                  {/* Open Detail Modal (Full history + custom reschedule) */}
+                  <button
+                    onClick={() => setSelectedTask(currentLeftover)}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                    title="View details & assignment history"
+                  >
+                    Details
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -2706,103 +3031,112 @@ export const DashboardPage = () => {
               </div>
 
               {/* Action Buttons with Do Later / Remind Me */}
-              {isViewingOtherEmployee ? (
+              {isViewingOtherEmployee && (
                 <div style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '7px',
-                  border: '1px solid #e2e8f0',
-                  textAlign: 'center',
-                  fontSize: '11.5px',
-                  color: '#64748b',
-                  fontWeight: '600'
+                  padding: '5px 10px',
+                  backgroundColor: '#fef3c7',
+                  borderRadius: '6px',
+                  border: '1px solid #fde68a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  color: '#92400e',
+                  fontWeight: '700',
+                  marginBottom: '6px'
                 }}>
-                  👀 Active task timer is controlled by {effectiveTargetUser?.name || 'Employee'}
+                  <span>👑 Admin Live Control: {effectiveTargetUser?.name}</span>
+                  <span style={{ fontSize: '10px', color: '#b45309', fontWeight: '500' }}>⚡ Real-time connected</span>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={async () => {
-                      if (!isClockedIn) {
-                        addToast('⚠️ Shift is not clocked in! Please Clock In above before advancing tasks.', 'warning');
-                        return;
-                      }
-                      if (isOnBreak) {
-                        addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                        return;
-                      }
-                      const res = await completeAndNextTask(displayActiveTask._id);
+              )}
+
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={async () => {
+                    if (!isViewingOtherEmployee && !isClockedIn) {
+                      addToast('⚠️ Shift is not clocked in! Please Clock In above before advancing tasks.', 'warning');
+                      return;
+                    }
+                    if (!isViewingOtherEmployee && isOnBreak) {
+                      addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
+                      return;
+                    }
+                    const res = await completeAndNextTask(displayActiveTask._id);
+                    if (res?.nextTask) {
+                      setActiveSelectedTaskId(res.nextTask._id);
+                    } else {
+                      setActiveSelectedTaskId(null);
+                    }
+                  }}
+                  style={{
+                    flex: 1.2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    backgroundColor: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 4px rgba(22, 163, 74, 0.25)'
+                  }}
+                  title="Mark current task complete & automatically start next task in queue"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>Complete & Next</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!isViewingOtherEmployee && !isClockedIn) {
+                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
+                      return;
+                    }
+                    if (!isViewingOtherEmployee && isOnBreak) {
+                      addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
+                      return;
+                    }
+                    if (displayActiveTask?.timerRunning) {
+                      pauseTaskTimer(displayActiveTask._id);
+                    } else {
+                      startTaskTimer(displayActiveTask._id);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    backgroundColor: displayActiveTask?.timerRunning ? '#eff6ff' : '#ffffff',
+                    color: displayActiveTask?.timerRunning ? '#2563eb' : '#334155',
+                    border: displayActiveTask?.timerRunning ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                    padding: '6px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {displayActiveTask?.timerRunning ? <Pause size={12} /> : <Play size={12} />}
+                  <span>
+                    {displayActiveTask?.timerRunning 
+                      ? 'Pause' 
+                      : (displayActiveTask?.timerSeconds > 0 ? 'Resume' : 'Start Timer')}
+                  </span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    const res = await completeTask(displayActiveTask._id, '', false);
                       if (res?.nextTask) {
                         setActiveSelectedTaskId(res.nextTask._id);
-                      }
-                    }}
-                    style={{
-                      flex: 1.2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 4px rgba(22, 163, 74, 0.25)'
-                    }}
-                    title="Mark current task complete & automatically start next task in queue"
-                  >
-                    <CheckCircle2 size={13} />
-                    <span>Complete & Next</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (!isClockedIn) {
-                        addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                        return;
-                      }
-                      if (isOnBreak) {
-                        addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                        return;
-                      }
-                      if (displayActiveTask?.timerRunning) {
-                        pauseTaskTimer(displayActiveTask._id);
                       } else {
-                        startTaskTimer(displayActiveTask._id);
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '4px',
-                      backgroundColor: displayActiveTask?.timerRunning ? '#eff6ff' : '#ffffff',
-                      color: displayActiveTask?.timerRunning ? '#2563eb' : '#334155',
-                      border: displayActiveTask?.timerRunning ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {displayActiveTask?.timerRunning ? <Pause size={12} /> : <Play size={12} />}
-                    <span>
-                      {displayActiveTask?.timerRunning 
-                        ? 'Pause' 
-                        : (displayActiveTask?.timerSeconds > 0 ? 'Resume' : 'Start Timer')}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      const res = await completeTask(displayActiveTask._id, '', false);
-                      if (res?.nextTask) {
-                        setActiveSelectedTaskId(res.nextTask._id);
+                        setActiveSelectedTaskId(null);
                       }
                     }}
                     style={{
@@ -2876,7 +3210,6 @@ export const DashboardPage = () => {
                     <span>Stop</span>
                   </button>
                 </div>
-              )}
 
               {/* ── ⏭️ NEXT UP IN QUEUE (Upcoming Tasks) ── */}
               {upcomingQueueTasks.length > 0 && (
@@ -3281,7 +3614,10 @@ export const DashboardPage = () => {
               {(weeklyTimeLogs || []).map(dayLog => {
                 const isSelected = dayLog.shortDay === activeWeekDayShort;
                 const isCurrent = dayLog.isCurrentDay;
-                const isHoliday = (holidays || []).some(h => h.date === dayLog.date);
+                const isHoliday = Boolean(dayLog.date) &&
+                  dayLog.shortDay !== 'Mo' &&
+                  dayLog.date !== '2026-10-19' &&
+                  (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && h.date !== '2026-10-19');
                 const dayHrs = isHoliday 
                   ? '🏖️ Off'
                   : (isCurrent
@@ -3482,6 +3818,8 @@ export const DashboardPage = () => {
             }}>
               {[
                 { id: 'pending', label: `Pending (${myPendingTasks.length})` },
+                ...(myLeftoverTasks.length > 0 ? [{ id: 'leftover', label: `⏮️ Leftover (${myLeftoverTasks.length})` }] : []),
+                ...(myFutureTasks.length > 0 ? [{ id: 'future', label: `📅 Future (${myFutureTasks.length})` }] : []),
                 { id: 'in_progress', label: `In Progress (${myInProgressTasksCount})` },
                 { id: 'completed', label: `Completed (${myCompletedTasks.length})` },
                 { id: 'all', label: `All (${myTasks.length})` }
@@ -3563,6 +3901,8 @@ export const DashboardPage = () => {
               {myTasks
                 .filter(t => {
                   if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
+                  if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
+                  if (dashboardTaskTab === 'future') return !isTaskActuallyCompleted(t) && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr));
                   if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
                   if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
                   return true;
@@ -3577,6 +3917,8 @@ export const DashboardPage = () => {
                 myTasks
                   .filter(t => {
                     if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
+                    if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
+                    if (dashboardTaskTab === 'future') return !isTaskActuallyCompleted(t) && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr));
                     if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
                     if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
                     return true;
@@ -3689,11 +4031,12 @@ export const DashboardPage = () => {
                               ) : (
                                 <button
                                   onClick={() => {
-                                    if (!isClockedIn) {
+                                    const isMyTask = isTaskAssignedToUser(task, currentUser);
+                                    if (isMyTask && !isClockedIn) {
                                       addToast('⚠️ Shift is not clocked in! Please Clock In above before starting timers.', 'warning');
                                       return;
                                     }
-                                    if (isOnBreak) {
+                                    if (isMyTask && isOnBreak) {
                                       addToast('☕ You are on break. Please resume work first!', 'warning');
                                       return;
                                     }
@@ -3724,6 +4067,9 @@ export const DashboardPage = () => {
                               <button
                                 onClick={async () => {
                                   await completeTask(task._id, '', false);
+                                  if (activeSelectedTaskId === task._id) {
+                                    setActiveSelectedTaskId(null);
+                                  }
                                 }}
                                 style={{
                                   display: 'flex',

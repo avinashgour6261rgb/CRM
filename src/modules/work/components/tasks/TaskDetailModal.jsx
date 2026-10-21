@@ -15,9 +15,13 @@ import {
   Tag,
   FolderGit2,
   CheckCircle2,
-  Check
+  Check,
+  History,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 export const TaskDetailModal = ({ task, onClose }) => {
   const {
@@ -27,10 +31,15 @@ export const TaskDetailModal = ({ task, onClose }) => {
     changeTaskStatus,
     completeTask,
     updateTask,
+    rescheduleTaskForFuture,
     employees
   } = useWork();
+  const { currentUser } = useAuth();
 
   const [isReassigning, setIsReassigning] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [customFutureDate, setCustomFutureDate] = useState('');
+  const [rescheduleNote, setRescheduleNote] = useState('');
 
   if (!task) return null;
 
@@ -44,12 +53,30 @@ export const TaskDetailModal = ({ task, onClose }) => {
         assignedToName: newAssignee.name,
         assignedToEmail: newAssignee.email || '',
         assignedToAvatar: newAssignee.avatar,
-        assignedToRole: newAssignee.role
+        assignedToRole: newAssignee.role,
+        assignedToIds: [newAssignee._id],
+        assignees: [newAssignee]
       });
       setIsReassigning(false);
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleQuickReschedule = async (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const newDateStr = d.toISOString().split('T')[0];
+    await rescheduleTaskForFuture(task._id, newDateStr, `Assigned +${days} day${days > 1 ? 's' : ''} ahead`);
+    setIsRescheduling(false);
+  };
+
+  const handleCustomReschedule = async () => {
+    if (!customFutureDate) return;
+    await rescheduleTaskForFuture(task._id, customFutureDate, rescheduleNote || 'Custom future date');
+    setIsRescheduling(false);
+    setCustomFutureDate('');
+    setRescheduleNote('');
   };
 
   return (
@@ -527,15 +554,74 @@ export const TaskDetailModal = ({ task, onClose }) => {
               </div>
             </div>
 
-            {/* Timeline */}
+            {/* Timeline & Quick Reschedule */}
             <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600', marginBottom: '6px' }}>Timeline</div>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
-                {task.startDate} → {task.hasNoDueDate ? 'No Due Date' : task.dueDate}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Timeline & Schedule</div>
+                <button
+                  onClick={() => setIsRescheduling(!isRescheduling)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#2563eb',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    padding: '0'
+                  }}
+                >
+                  {isRescheduling ? 'Cancel' : 'Reschedule for Future 📅'}
+                </button>
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                Priority: <strong style={{ color: '#0f172a', textTransform: 'capitalize' }}>{task.priority || 'Medium'}</strong>
-              </div>
+
+              {!isRescheduling ? (
+                <>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                    {task.startDate || '—'} → {task.hasNoDueDate ? 'No Due Date' : (task.dueDate || 'Open')}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                    Priority: <strong style={{ color: '#0f172a', textTransform: 'capitalize' }}>{task.priority || 'Medium'}</strong>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => handleQuickReschedule(1)}
+                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', color: '#1d4ed8', cursor: 'pointer' }}
+                    >
+                      +1d (Tomorrow)
+                    </button>
+                    <button
+                      onClick={() => handleQuickReschedule(3)}
+                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                    >
+                      +3 Days
+                    </button>
+                    <button
+                      onClick={() => handleQuickReschedule(7)}
+                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                    >
+                      +7 Days
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <input
+                      type="date"
+                      value={customFutureDate}
+                      onChange={e => setCustomFutureDate(e.target.value)}
+                      style={{ flex: 1, padding: '4px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none' }}
+                    />
+                    <button
+                      onClick={handleCustomReschedule}
+                      disabled={!customFutureDate}
+                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', backgroundColor: '#2563eb', color: '#fff', cursor: customFutureDate ? 'pointer' : 'not-allowed', opacity: customFutureDate ? 1 : 0.6 }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Status Selector */}
@@ -561,6 +647,119 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 <option value="under_review">🟣 Under Review</option>
                 <option value="completed">🟢 Completed</option>
               </select>
+            </div>
+          </div>
+
+          {/* 📋 Task Assignment & Activity History (Audit Trail) */}
+          <div style={{
+            marginTop: '8px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            padding: '16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <History size={16} color="#2563eb" />
+                <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Assignment & Activity History (Audit Trail)
+                </h4>
+              </div>
+              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                {(task.history && task.history.length > 0) ? `${task.history.length} Event${task.history.length > 1 ? 's' : ''}` : 'Activity Log'}
+              </span>
+            </div>
+
+            {/* Timeline List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {(() => {
+                let historyList = Array.isArray(task.history) && task.history.length > 0 ? [...task.history] : [];
+                if (historyList.length === 0) {
+                  if (task.createdAt) {
+                    historyList.push({
+                      id: 'hist_init',
+                      timestamp: task.createdAt,
+                      action: 'created',
+                      title: 'Task Created & Assigned',
+                      performedBy: task.assignedBy || 'Administrator',
+                      details: `Assigned to ${task.assignedToName || 'team member'} by ${task.assignedBy || 'Administrator'}. (Due: ${task.hasNoDueDate ? 'No Due Date' : (task.dueDate || 'Open')})`
+                    });
+                  }
+                  if (task.status === 'completed' || task.completedAt) {
+                    historyList.push({
+                      id: 'hist_completed',
+                      timestamp: task.completedAt || new Date().toISOString(),
+                      action: 'completed',
+                      title: 'Task Completed',
+                      performedBy: task.assignedToName || 'User',
+                      details: `Completed with ${task.hoursLoggedText || `${task.hoursLogged || 0}h`} logged.`
+                    });
+                  }
+                }
+
+                historyList.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+                return historyList.map((item, idx) => {
+                  const dateStr = item.timestamp
+                    ? new Date(item.timestamp).toLocaleString('en-US', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })
+                    : 'Recorded';
+
+                  return (
+                    <div
+                      key={item.id || idx}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            fontSize: '10.5px',
+                            fontWeight: '700',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: item.action === 'created' ? '#eff6ff' : (item.action === 'completed' ? '#f0fdf4' : (item.action === 'rescheduled' ? '#fff7ed' : '#f1f5f9')),
+                            color: item.action === 'created' ? '#1d4ed8' : (item.action === 'completed' ? '#15803d' : (item.action === 'rescheduled' ? '#c2410c' : '#334155')),
+                            border: `1px solid ${item.action === 'created' ? '#bfdbfe' : (item.action === 'completed' ? '#bbf7d0' : (item.action === 'rescheduled' ? '#fed7aa' : '#cbd5e1'))}`
+                          }}>
+                            {item.title || item.action}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                          {dateStr}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                        {item.details || item.title}
+                      </div>
+
+                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>By: <strong style={{ color: '#0f172a' }}>{item.performedBy || 'User'}</strong></span>
+                        {item.to && (
+                          <span>To: <strong style={{ color: '#0f172a' }}>{item.to}</strong></span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

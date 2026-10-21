@@ -18,7 +18,7 @@ const isBackendAvailable = async () => {
     return backendOnlineCache;
   }
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(350) });
+    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
     backendOnlineCache = res.ok;
   } catch {
     backendOnlineCache = false;
@@ -69,7 +69,11 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          if (Array.isArray(json.data)) {
+            // Persist to local mirror so projects survive offline/refreshes cleanly
+            saveCollection(KEYS.PROJECTS, json.data);
+            return json.data;
+          }
         }
       } catch (err) {
         console.warn('Backend unavailable for projects, using localStorage:', err);
@@ -77,7 +81,7 @@ export const workService = {
     }
 
     // LocalStorage Fallback
-    let list = getCollection(KEYS.PROJECTS);
+    let list = getCollection(KEYS.PROJECTS) || [];
     if (filters.status && filters.status !== 'all') {
       list = list.filter(p => p.status === filters.status);
     }
@@ -103,19 +107,33 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/projects`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
           body: JSON.stringify(projectData)
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          const createdPrj = json.data;
+          // Synchronize to local mirror immediately
+          const projects = getCollection(KEYS.PROJECTS) || [];
+          const existingIdx = projects.findIndex(p => p._id === createdPrj._id || (p.projectCode && p.projectCode === createdPrj.projectCode));
+          if (existingIdx >= 0) {
+            projects[existingIdx] = createdPrj;
+          } else {
+            projects.unshift(createdPrj);
+          }
+          saveCollection(KEYS.PROJECTS, projects);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
+          return createdPrj;
         }
       } catch (err) {
         console.warn('Backend project creation failed, using local storage:', err);
       }
     }
 
-    const projects = getCollection(KEYS.PROJECTS);
+    const projects = getCollection(KEYS.PROJECTS) || [];
     const newProject = {
       _id: `prj_${Date.now()}`,
       ...projectData,
@@ -132,19 +150,30 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
           body: JSON.stringify(updateData)
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          const updatedPrj = json.data;
+          const projects = getCollection(KEYS.PROJECTS) || [];
+          const index = projects.findIndex(p => p._id === id || p.projectCode === id);
+          if (index !== -1) {
+            projects[index] = { ...projects[index], ...updatedPrj };
+            saveCollection(KEYS.PROJECTS, projects);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
+          }
+          return updatedPrj;
         }
       } catch (err) {
         console.warn('Backend project update failed, using local storage:', err);
       }
     }
 
-    const projects = getCollection(KEYS.PROJECTS);
+    const projects = getCollection(KEYS.PROJECTS) || [];
     const index = projects.findIndex(p => p._id === id);
     if (index !== -1) {
       projects[index] = { ...projects[index], ...updateData };
@@ -158,14 +187,23 @@ export const workService = {
   async deleteProject(id) {
     if (await isBackendAvailable()) {
       try {
-        const res = await fetch(`${API_BASE_URL}/projects/${id}`, { method: 'DELETE' });
-        if (res.ok) return true;
+        const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          const projects = getCollection(KEYS.PROJECTS) || [];
+          const filtered = projects.filter(p => p._id !== id && p.projectCode !== id);
+          saveCollection(KEYS.PROJECTS, filtered);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
+          return true;
+        }
       } catch (err) {
         console.warn('Backend project deletion failed, using local storage:', err);
       }
     }
 
-    const projects = getCollection(KEYS.PROJECTS);
+    const projects = getCollection(KEYS.PROJECTS) || [];
     const filtered = projects.filter(p => p._id !== id);
     saveCollection(KEYS.PROJECTS, filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
@@ -271,12 +309,26 @@ export const workService = {
       try {
         const res = await fetch(`${API_BASE_URL}/tasks`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
           body: JSON.stringify(taskData)
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          const createdTask = json.data;
+          // Synchronize to local collection mirror immediately
+          const tasks = getCollection(KEYS.TASKS) || [];
+          const existingIdx = tasks.findIndex(t => t._id === createdTask._id || (t.taskCode && t.taskCode === createdTask.taskCode));
+          if (existingIdx >= 0) {
+            tasks[existingIdx] = createdTask;
+          } else {
+            tasks.unshift(createdTask);
+          }
+          saveCollection(KEYS.TASKS, tasks);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+          return createdTask;
         }
       } catch (err) {
         console.warn('Backend task creation failed, using local storage:', err);
@@ -285,6 +337,29 @@ export const workService = {
 
     const tasks = getCollection(KEYS.TASKS);
     const code = taskData.taskCode || `${taskData.projectCode || 'TSK'}-${tasks.length + 1}`;
+    const nowIso = new Date().toISOString();
+    const authUser = getAuthUser();
+
+    // Initialize full chronological assignment & creation history
+    const initialHistory = Array.isArray(taskData.history) && taskData.history.length > 0
+      ? taskData.history
+      : [{
+          id: `hist_${Date.now()}_create`,
+          action: 'created',
+          title: 'Task Created & Assigned',
+          timestamp: nowIso,
+          performedBy: taskData.assignedBy || authUser?.name || 'Administrator',
+          performedById: taskData.assignedById || authUser?._id || 'admin',
+          assignedTo: taskData.assignedToName || 'Unassigned',
+          details: `Task #${code} created and assigned to ${taskData.assignedToName || 'team members'} by ${taskData.assignedBy || authUser?.name || 'Administrator'}. (Due: ${taskData.hasNoDueDate ? 'No Due Date' : (taskData.dueDate || 'Open')})`,
+          metadata: {
+            priority: taskData.priority || 'medium',
+            category: taskData.category || 'General',
+            projectName: taskData.projectName || 'General Work',
+            isPersonal: !!taskData.isPersonal
+          }
+        }];
+
     const newTask = {
       _id: `tsk_${Date.now()}`,
       ...taskData,
@@ -293,7 +368,8 @@ export const workService = {
       hoursLoggedText: taskData.hoursLoggedText || '0s',
       timerRunning: false,
       timerSeconds: 0,
-      createdAt: new Date().toISOString()
+      history: initialHistory,
+      createdAt: nowIso
     };
     tasks.unshift(newTask);
     saveCollection(KEYS.TASKS, tasks);
@@ -320,7 +396,59 @@ export const workService = {
     const tasks = getCollection(KEYS.TASKS);
     const index = tasks.findIndex(t => t._id === id);
     if (index !== -1) {
-      tasks[index] = { ...tasks[index], ...updateData };
+      const currentTask = tasks[index];
+      const authUser = getAuthUser();
+      const nowIso = new Date().toISOString();
+      let newHistory = Array.isArray(currentTask.history) ? [...currentTask.history] : [];
+
+      if (updateData.history) {
+        newHistory = updateData.history;
+      } else {
+        // Track reassignment
+        if (updateData.assignedToName && updateData.assignedToName !== currentTask.assignedToName) {
+          newHistory.push({
+            id: `hist_${Date.now()}_reassigned`,
+            action: 'reassigned',
+            title: 'Task Reassigned',
+            timestamp: nowIso,
+            performedBy: authUser?.name || 'Manager',
+            performedById: authUser?._id,
+            from: currentTask.assignedToName || 'Previous Assignee',
+            to: updateData.assignedToName,
+            details: `Task reassigned from ${currentTask.assignedToName || 'Previous Assignee'} to ${updateData.assignedToName}`
+          });
+        }
+        // Track deadline / reschedule for future
+        if (updateData.dueDate && updateData.dueDate !== currentTask.dueDate) {
+          newHistory.push({
+            id: `hist_${Date.now()}_rescheduled`,
+            action: 'rescheduled',
+            title: 'Task Rescheduled / Deadline Updated',
+            timestamp: nowIso,
+            performedBy: authUser?.name || 'User',
+            performedById: authUser?._id,
+            from: currentTask.dueDate || 'None',
+            to: updateData.dueDate,
+            details: `Deadline updated from ${currentTask.dueDate || 'No Due Date'} to ${updateData.dueDate}${updateData.rescheduleNote ? ` (${updateData.rescheduleNote})` : ''}`
+          });
+        }
+        // Track status changes
+        if (updateData.status && updateData.status !== currentTask.status) {
+          newHistory.push({
+            id: `hist_${Date.now()}_status`,
+            action: 'status_changed',
+            title: `Status: ${updateData.status.replace('_', ' ').toUpperCase()}`,
+            timestamp: nowIso,
+            performedBy: authUser?.name || 'User',
+            performedById: authUser?._id,
+            from: currentTask.status,
+            to: updateData.status,
+            details: `Status transitioned from ${currentTask.status} to ${updateData.status}`
+          });
+        }
+      }
+
+      tasks[index] = { ...currentTask, ...updateData, history: newHistory };
       saveCollection(KEYS.TASKS, tasks);
       return tasks[index];
     }
@@ -347,9 +475,34 @@ export const workService = {
     const tasks = getCollection(KEYS.TASKS);
     const index = tasks.findIndex(t => t._id === id);
     if (index !== -1) {
-      tasks[index].status = status;
+      const currentTask = tasks[index];
+      const authUser = getAuthUser();
+      const nowIso = new Date().toISOString();
+      const oldStatus = currentTask.status;
+
+      const historyItem = {
+        id: `hist_${Date.now()}_status`,
+        action: 'status_changed',
+        title: `Status: ${status.replace('_', ' ').toUpperCase()}`,
+        timestamp: nowIso,
+        performedBy: authUser?.name || 'User',
+        performedById: authUser?._id,
+        from: oldStatus,
+        to: status,
+        details: `Task status changed from ${oldStatus} to ${status}`
+      };
+
+      const newHistory = [...(Array.isArray(currentTask.history) ? currentTask.history : []), historyItem];
+
+      tasks[index] = {
+        ...currentTask,
+        status,
+        history: newHistory
+      };
+
       if (status === 'completed') {
         tasks[index].completedOn = new Date().toISOString().split('T')[0];
+        tasks[index].completedAt = nowIso;
         tasks[index].timerRunning = false;
       }
       saveCollection(KEYS.TASKS, tasks);

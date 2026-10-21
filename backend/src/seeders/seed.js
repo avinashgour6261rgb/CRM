@@ -109,4 +109,4 @@ if (require.main === module) {
   seedDatabase();
 }
 
-module.exports = { seedDatabase, EMPLOYEES };
+module.exports = { seedDatabase, EMPLOYEES, HOLIDAYS };

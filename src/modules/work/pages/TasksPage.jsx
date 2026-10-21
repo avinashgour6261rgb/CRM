@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  Trash2
+  Trash2,
+  History
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -26,6 +27,7 @@ import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
 import { AddTaskModal } from '../components/tasks/AddTaskModal';
 import { TaskDetailModal } from '../components/tasks/TaskDetailModal';
+import { ProjectTaskHistoryModal } from '../components/tasks/ProjectTaskHistoryModal';
 
 export const TasksPage = () => {
   const {
@@ -46,9 +48,10 @@ export const TasksPage = () => {
 
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [scopeMode, setScopeMode] = useState(!canViewAllTasks ? 'assigned_to_me' : 'all');
-  const [statusMode, setStatusMode] = useState('all'); // 'all' | 'active' | 'completed'
+  const [statusMode, setStatusMode] = useState('all'); // 'all' | 'active' | 'leftover' | 'future' | 'completed'
 
   // Sync initial scope if not privileged and not permitted to view all tasks
   React.useEffect(() => {
@@ -101,6 +104,10 @@ export const TasksPage = () => {
       setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
     } else if (mode === 'completed') {
       setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: 'completed' }));
+    } else if (mode === 'leftover') {
+      setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
+    } else if (mode === 'future') {
+      setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
     } else {
       setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: 'all' }));
     }
@@ -173,11 +180,17 @@ export const TasksPage = () => {
       });
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     // 3. Status tab / filter
     if (statusMode === 'active') {
       list = list.filter(t => t.status !== 'completed');
     } else if (statusMode === 'completed') {
       list = list.filter(t => t.status === 'completed');
+    } else if (statusMode === 'leftover') {
+      list = list.filter(t => t.status !== 'completed' && !t.isUntimed && !t.hasNoDueDate && t.dueDate && t.dueDate < todayStr);
+    } else if (statusMode === 'future') {
+      list = list.filter(t => t.status !== 'completed' && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr && !t.timerRunning && t.status !== 'in_progress') || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now())));
     } else if (taskFilter.status && taskFilter.status !== 'all') {
       list = list.filter(t => t.status === taskFilter.status);
     } else if (taskFilter.hideCompleted) {
@@ -204,6 +217,26 @@ export const TasksPage = () => {
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
   }, [tasks, canViewAllTasks, currentUser, scopeMode, taskFilter, statusMode, employees, isTaskAssignedToUser]);
+
+  // Compute leftover & future counts
+  const todayStr = new Date().toISOString().split('T')[0];
+  const leftoverCount = React.useMemo(() => {
+    return (tasks || []).filter(t => {
+      if (t.status === 'completed' || t.isUntimed || t.hasNoDueDate || !t.dueDate || t.dueDate >= todayStr) return false;
+      if (!canViewAllTasks && currentUser) return isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id;
+      return true;
+    }).length;
+  }, [tasks, todayStr, canViewAllTasks, currentUser, isTaskAssignedToUser]);
+
+  const futureCount = React.useMemo(() => {
+    return (tasks || []).filter(t => {
+      if (t.status === 'completed') return false;
+      const isFuture = (t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr) || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now());
+      if (!isFuture) return false;
+      if (!canViewAllTasks && currentUser) return isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id;
+      return true;
+    }).length;
+  }, [tasks, todayStr, canViewAllTasks, currentUser, isTaskAssignedToUser]);
 
   // Export CSV
   const handleExportCSV = () => {
@@ -273,6 +306,29 @@ export const TasksPage = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Assignment & Project History Modal Button */}
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+            }}
+            title="View complete project assignment & activity history audit log"
+          >
+            <History size={13} color="#2563eb" />
+            <span>Assignment History</span>
+          </button>
+
           <button
             onClick={handleExportCSV}
             style={{
@@ -636,6 +692,60 @@ export const TasksPage = () => {
               ⚡ Active & New
             </button>
             <button
+              onClick={() => handleStatusModeChange('leftover')}
+              style={{
+                padding: '4px 9px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: statusMode === 'leftover' ? '700' : '500',
+                backgroundColor: statusMode === 'leftover' ? '#fee2e2' : 'transparent',
+                color: statusMode === 'leftover' ? '#dc2626' : '#64748b',
+                boxShadow: statusMode === 'leftover' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Tasks from previous days that were left incomplete"
+            >
+              <span>⏮️ Leftover / Past Days</span>
+              {leftoverCount > 0 && (
+                <span style={{ fontSize: '9.5px', fontWeight: '800', backgroundColor: '#dc2626', color: '#fff', borderRadius: '10px', padding: '0 5px' }}>
+                  {leftoverCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleStatusModeChange('future')}
+              style={{
+                padding: '4px 9px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: statusMode === 'future' ? '700' : '500',
+                backgroundColor: statusMode === 'future' ? '#fff7ed' : 'transparent',
+                color: statusMode === 'future' ? '#ea580c' : '#64748b',
+                boxShadow: statusMode === 'future' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Tasks assigned or scheduled for future dates"
+            >
+              <span>📅 Scheduled / Future</span>
+              {futureCount > 0 && (
+                <span style={{ fontSize: '9.5px', fontWeight: '800', backgroundColor: '#ea580c', color: '#fff', borderRadius: '10px', padding: '0 5px' }}>
+                  {futureCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => handleStatusModeChange('completed')}
               style={{
                 padding: '4px 9px',
@@ -654,6 +764,30 @@ export const TasksPage = () => {
               ✅ Recently Completed
             </button>
           </div>
+
+          {/* Assignment History Button */}
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            title="View complete project task assignment & activity audit history"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              backgroundColor: '#ffffff',
+              color: '#0f766e',
+              border: '1px solid #99f6e4',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              height: '30px',
+              boxShadow: '0 1px 2px rgba(15, 118, 110, 0.08)'
+            }}
+          >
+            <History size={13} color="#0f766e" />
+            Assignment History
+          </button>
 
           {/* Export Button */}
           <button
@@ -745,6 +879,12 @@ export const TasksPage = () => {
       <TaskDetailModal
         task={selectedTask}
         onClose={() => setSelectedTask(null)}
+      />
+
+      {/* Project Task Assignment & Activity History Modal */}
+      <ProjectTaskHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
       />
     </div>
   );

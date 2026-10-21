@@ -32,6 +32,7 @@ import {
   INITIAL_EMERGENCY_CONTACTS,
   INITIAL_STICKY_NOTES
 } from '../mock/initialData';
+import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from './realtimeSyncService';
 
 const KEYS = {
   EMPLOYEES: 'hrms_employees',
@@ -107,11 +108,8 @@ export const purgeStaleMockData = () => {
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
 
-      // 3. Set auth session to Master Admin
-      localStorage.setItem('ems_auth_session', JSON.stringify({
-        token: 'ems_master_admin_token',
-        user: INITIAL_EMPLOYEES[0]
-      }));
+      // 3. Keep auth session clean so users authenticate with their own credentials
+      // (Do not force auto-login to Master Admin across fresh devices/browsers)
 
       // 4. Mark migration complete
       localStorage.setItem(PROD_CLEAN_VERSION, 'true');
@@ -344,15 +342,25 @@ export const getCollection = (key) => {
   }
 };
 
-// Generic write with broadcast
+// Generic write with instant cross-tab broadcast
 export const saveCollection = (key, data) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key } }));
+    broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, { key });
   } catch (error) {
     console.error(`Error saving ${key} to storage:`, error);
   }
 };
+
+// Cross-tab reactive bridge: when another tab mutates a collection, emit locally
+if (typeof window !== 'undefined') {
+  subscribeToSyncEvents((event) => {
+    if (event?.type === SYNC_EVENTS.STORAGE_MUTATION && event.payload?.key) {
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: event.payload.key } }));
+    }
+  });
+}
 
 /**
  * Clear all dummy tasks, projects, leads, tickets, leaves, expenses, and notices

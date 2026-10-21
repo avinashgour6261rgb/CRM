@@ -18,6 +18,8 @@ import {
   Download
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { ActiveTimerCard } from '../components/timesheet/ActiveTimerCard';
 import { TimesheetTable } from '../components/timesheet/TimesheetTable';
 import { LogTimeModal } from '../components/timesheet/LogTimeModal';
@@ -33,21 +35,38 @@ export const TimesheetPage = () => {
     employees,
     activeRunningTask
   } = useWork();
+  const { currentUser } = useAuth();
+  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // Statistics calculation
-  const totalSeconds = timesheets.reduce((acc, curr) => acc + (curr.totalDurationSeconds || 0), 0);
-  const totalHoursLogged = (totalSeconds / 3600).toFixed(1);
-  const activeSessionsCount = timesheets.filter(t => t.status === 'active').length + (activeRunningTask ? 1 : 0);
-  const uniqueEmployees = new Set(timesheets.map(t => t.employeeId || t.employeeName)).size;
+  // Strictly scoped timesheets for privacy (regular employees only see their own timesheets)
+  const displayTimesheets = React.useMemo(() => {
+    let list = timesheets || [];
+    if (!isPrivileged && currentUser) {
+      list = list.filter(ts =>
+        ts.employeeId === currentUser._id ||
+        ts.employee === currentUser._id ||
+        ts.employeeId === currentUser.employeeCode ||
+        ts.employee === currentUser.employeeCode ||
+        (ts.employeeName && currentUser.name && ts.employeeName.toLowerCase() === currentUser.name.toLowerCase())
+      );
+    }
+    return list;
+  }, [timesheets, isPrivileged, currentUser]);
 
-  // Export CSV
+  // Statistics calculation strictly scoped to user view
+  const totalSeconds = displayTimesheets.reduce((acc, curr) => acc + (curr.totalDurationSeconds || 0), 0);
+  const totalHoursLogged = (totalSeconds / 3600).toFixed(1);
+  const activeSessionsCount = displayTimesheets.filter(t => t.status === 'active').length + (activeRunningTask ? 1 : 0);
+  const uniqueEmployees = new Set(displayTimesheets.map(t => t.employeeId || t.employeeName)).size;
+
+  // Export CSV strictly from scoped timesheets
   const handleExportCSV = () => {
-    if (!timesheets.length) return;
+    if (!displayTimesheets.length) return;
     const headers = ['Task Code', 'Task Title', 'Project', 'Employee', 'Date', 'Start Time', 'End Time', 'Duration', 'Status', 'Memo'];
-    const rows = timesheets.map(ts => [
+    const rows = displayTimesheets.map(ts => [
       ts.taskCode || '',
       `"${(ts.taskTitle || '').replace(/"/g, '""')}"`,
       `"${(ts.projectName || '').replace(/"/g, '""')}"`,
@@ -330,25 +349,27 @@ export const TimesheetPage = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Employee Filter */}
-          <select
-            value={timesheetFilter.employeeId}
-            onChange={e => setTimesheetFilter(prev => ({ ...prev, employeeId: e.target.value }))}
-            style={{
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              color: '#334155',
-              outline: 'none',
-              backgroundColor: '#ffffff'
-            }}
-          >
-            <option value="all">All Employees</option>
-            {employees.map(e => (
-              <option key={e._id} value={e._id}>{e.name}</option>
-            ))}
-          </select>
+          {/* Employee Filter (Admin/HR Only for Privacy) */}
+          {isPrivileged && (
+            <select
+              value={timesheetFilter.employeeId}
+              onChange={e => setTimesheetFilter(prev => ({ ...prev, employeeId: e.target.value }))}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13px',
+                color: '#334155',
+                outline: 'none',
+                backgroundColor: '#ffffff'
+              }}
+            >
+              <option value="all">All Employees</option>
+              {employees.map(e => (
+                <option key={e._id} value={e._id}>{e.name}</option>
+              ))}
+            </select>
+          )}
 
           {/* Project Filter */}
           <select
@@ -393,7 +414,7 @@ export const TimesheetPage = () => {
       </div>
 
       {/* Timesheet Table */}
-      <TimesheetTable />
+      <TimesheetTable timesheets={displayTimesheets} />
 
       {/* Log Time Modal */}
       <LogTimeModal

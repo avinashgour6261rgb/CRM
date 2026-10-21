@@ -853,6 +853,11 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
       window.dispatchEvent(new CustomEvent('ems_attendance_updated', { detail: { record } }));
+
+      // Immediately sync clock-in to MongoDB Atlas backend via hrService
+      try {
+        hrService.markAttendance(record).catch(err => console.warn('Sync clock in to backend notice:', err));
+      } catch (err) {}
     } catch (e) {
       console.error('Error recording clock-in to attendance:', e);
     }

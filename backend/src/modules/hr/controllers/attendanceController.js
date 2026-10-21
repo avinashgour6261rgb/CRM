@@ -16,11 +16,22 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
 
   // Tenant scoping: non-admin can only see own attendance
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const mongoose = require('mongoose');
+
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
-    query.$or = [{ employee: myId }, { employeeId: String(myId) }];
+    const myCode = req.user?.employeeCode;
+    const matchConditions = [];
+    if (myId && mongoose.Types.ObjectId.isValid(myId)) matchConditions.push({ employee: myId });
+    if (myCode) matchConditions.push({ employeeCode: myCode });
+    if (myId) matchConditions.push({ employeeId: String(myId) });
+    query.$or = matchConditions.length > 0 ? matchConditions : [{ employee: myId }];
   } else if (employeeId && employeeId !== 'all') {
-    query.$or = [{ employee: employeeId }, { employeeId: String(employeeId) }];
+    const matchConditions = [];
+    if (mongoose.Types.ObjectId.isValid(employeeId)) matchConditions.push({ employee: employeeId });
+    matchConditions.push({ employeeCode: String(employeeId).toUpperCase() });
+    matchConditions.push({ employeeId: String(employeeId) });
+    query.$or = matchConditions;
   }
 
   const records = await Attendance.find(query).sort({ date: 1, employee: 1 });
@@ -53,46 +64,108 @@ const getAttendanceSummary = asyncHandler(async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+// Helper: Robust AM/PM and 24-hr time parser to seconds
+const parseTimeStringToSeconds = (str) => {
+  if (!str) return 0;
+  const m = String(str).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const sec = parseInt(m[3] || '0', 10);
+  const ampm = (m[4] || '').toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return h * 3600 + min * 60 + sec;
+};
+
 // ─── POST /api/attendance/mark ────────────────────────────────────────────────
 const markAttendance = asyncHandler(async (req, res) => {
-  const { employee, date, status, clockInTime, clockOutTime, notes, markedBy, auditNote, isAdminOverride } = req.body;
+  const rawEmp = req.body.employee || req.body.employeeId || req.body.employeeCode;
+  const { date, status, clockInTime, clockOutTime, notes, markedBy, auditNote, isAdminOverride } = req.body;
 
-  if (!employee || !date || !status) {
+  if (!rawEmp || !date || !status) {
     return res.status(400).json({ success: false, message: 'employee, date, and status are required' });
   }
+
+  const Employee = require('../models/Employee');
+  const mongoose = require('mongoose');
+
+  let empDoc = null;
+  if (mongoose.Types.ObjectId.isValid(rawEmp)) {
+    empDoc = await Employee.findById(rawEmp);
+  }
+  if (!empDoc) {
+    empDoc = await Employee.findOne({
+      $or: [
+        { employeeCode: String(rawEmp).toUpperCase() },
+        { email: String(rawEmp).toLowerCase() },
+        { name: new RegExp(`^${String(req.body.employeeName || rawEmp)}$`, 'i') }
+      ]
+    });
+  }
+  if (!empDoc && req.user) {
+    empDoc = await Employee.findOne({
+      $or: [
+        { employeeCode: req.user.employeeCode },
+        { email: req.user.email }
+      ]
+    });
+  }
+
+  const targetEmpId = empDoc ? empDoc._id : (mongoose.Types.ObjectId.isValid(rawEmp) ? rawEmp : new mongoose.Types.ObjectId());
+  const targetEmpName = empDoc ? empDoc.name : (req.body.employeeName || 'Employee');
+  const targetEmpCode = empDoc ? empDoc.employeeCode : (req.body.employeeCode || String(rawEmp));
+  const targetEmpRole = empDoc ? empDoc.role : (req.body.employeeRole || 'Team Member');
+  const targetEmpAvatar = empDoc ? empDoc.avatar : (req.body.employeeAvatar || '');
 
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr';
   const adminActorId = req.user?.id || req.user?._id || markedBy || 'ADMIN';
   const adminActorName = req.user?.name || markedBy || 'HR Administrator';
 
+  // Compute working hours and late calculation if both times exist
+  let totalWorkingHours = 0;
+  let isLate = status === 'late';
+  let lateByMinutes = 0;
+
+  if (clockInTime && clockOutTime) {
+    const inSecs = parseTimeStringToSeconds(clockInTime);
+    const outSecs = parseTimeStringToSeconds(clockOutTime);
+    const diffSecs = Math.max(0, outSecs - inSecs);
+    totalWorkingHours = +(diffSecs / 3600).toFixed(2);
+    const graceLimit = 9 * 3600 + 30 * 60; // 09:30 AM
+    if (inSecs > graceLimit) {
+      isLate = true;
+      lateByMinutes = Math.floor((inSecs - graceLimit) / 60);
+    }
+  }
+
   // Upsert: update existing or create new
   const record = await Attendance.findOneAndUpdate(
-    { employee, date },
     {
-      employee,
+      date,
+      $or: [
+        { employee: targetEmpId },
+        { employeeCode: targetEmpCode }
+      ]
+    },
+    {
+      employee: targetEmpId,
+      employeeName: targetEmpName,
+      employeeCode: targetEmpCode,
+      employeeRole: targetEmpRole,
+      employeeAvatar: targetEmpAvatar,
       date,
       status,
-      clockInTime,
-      clockOutTime,
-      notes: notes || (auditNote ? `Adjusted by Admin ${adminActorName}: ${auditNote}` : ''),
+      clockInTime: clockInTime || undefined,
+      clockOutTime: clockOutTime || undefined,
+      totalWorkingHours: totalWorkingHours || undefined,
+      isLate,
+      lateByMinutes,
+      notes: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : ''),
       markedBy: adminActorName
     },
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
-
-  // Re-fetch so pre-save calculations are applied
-  if (clockInTime && clockOutTime) {
-    const [inH, inM, inS = 0] = clockInTime.split(':').map(Number);
-    const [outH, outM, outS = 0] = clockOutTime.split(':').map(Number);
-    const diffSecs = Math.max(0, (outH * 3600 + outM * 60 + outS) - (inH * 3600 + inM * 60 + inS));
-    record.totalWorkingHours = +(diffSecs / 3600).toFixed(2);
-    const graceLimit = 9 * 3600 + 30 * 60;
-    record.isLate = (inH * 3600 + inM * 60 + inS) > graceLimit;
-    record.lateByMinutes = record.isLate
-      ? Math.floor(((inH * 3600 + inM * 60 + inS) - graceLimit) / 60)
-      : 0;
-    await record.save();
-  }
 
   // Mandatory Audit Trail for Admin manual modifications
   if (auditNote || isAdminOverride || isPrivileged) {

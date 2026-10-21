@@ -33,12 +33,13 @@ import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin } from '../../../shared/utils/permissionUtils';
+import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
   const { currentUser, isHRorAdmin } = useAuth();
   const { employees, attendance, leaves, loadHRData } = useHR();
-  const { tasks, completeTask, formatSeconds } = useWork();
+  const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
   const { addToast } = useToast();
 
   const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
@@ -130,8 +131,12 @@ export const TeamOperationsPage = () => {
       window.removeEventListener('ems_clocked_out', handleStorage);
       window.removeEventListener('ems_force_clock_out', handleStorage);
       window.removeEventListener('ems_task_timer_started', handleStorage);
-      window.removeEventListener('ems_task_timer_paused', handleStorage);
     };
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToSyncEvents(() => setSyncTick(t => t + 1));
+    return unsub;
   }, []);
 
   // Helper: Format duration nicely
@@ -744,7 +749,6 @@ export const TeamOperationsPage = () => {
         </div>
 
         <div style={{
-          backgroundColor: '#ffffff',
           borderRadius: '10px',
           border: '1px solid #bbf7d0',
           backgroundColor: '#f0fdf4',
@@ -764,7 +768,6 @@ export const TeamOperationsPage = () => {
         </div>
 
         <div style={{
-          backgroundColor: '#ffffff',
           borderRadius: '10px',
           border: '1px solid #fde68a',
           backgroundColor: '#fffbeb',
@@ -803,7 +806,6 @@ export const TeamOperationsPage = () => {
         </div>
 
         <div style={{
-          backgroundColor: '#ffffff',
           borderRadius: '10px',
           border: '1px solid #bfdbfe',
           backgroundColor: '#eff6ff',
@@ -1065,28 +1067,63 @@ export const TeamOperationsPage = () => {
                             <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span>⏱️ <strong style={{ color: '#0284c7' }}>{item.runningTask.liveDurationText}</strong></span>
                               <button
-                                onClick={() => handleAdminPauseTask(item.runningTask, emp)}
+                                onClick={() => pauseTaskTimer(item.runningTask._id)}
                                 style={{
                                   border: '1px solid #bfdbfe',
                                   backgroundColor: '#eff6ff',
                                   color: '#1d4ed8',
                                   borderRadius: '3px',
-                                  padding: '1px 5px',
+                                  padding: '1px 6px',
                                   fontSize: '10px',
                                   fontWeight: '700',
                                   cursor: 'pointer'
                                 }}
-                                title="Pause runaway task timer for employee"
+                                title="Pause task timer for employee"
                               >
-                                Pause
+                                Pause ⏸️
                               </button>
                             </div>
                           </div>
-                        ) : (
-                          <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>
-                            No active timer
-                          </span>
-                        )}
+                        ) : (() => {
+                          const empPendingTasks = (tasks || []).filter(t => 
+                            (t.assignedToId === emp._id || t.assignedTo === emp.employeeCode || t.assignedToName?.toLowerCase() === emp.name?.toLowerCase()) && 
+                            t.status !== 'completed'
+                          );
+                          if (empPendingTasks.length > 0) {
+                            const firstTask = empPendingTasks[0];
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <button
+                                  onClick={() => startTaskTimer(firstTask._id)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    border: '1px solid #86efac',
+                                    backgroundColor: '#f0fdf4',
+                                    color: '#16a34a',
+                                    borderRadius: '4px',
+                                    padding: '2px 7px',
+                                    fontSize: '10.5px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
+                                >
+                                  <Play size={9} fill="#16a34a" /> Start #{firstTask.taskCode || 'TSK'}
+                                </button>
+                                {empPendingTasks.length > 1 && (
+                                  <span style={{ fontSize: '10px', color: '#64748b' }}>+{empPendingTasks.length - 1} more</span>
+                                )}
+                              </div>
+                            );
+                          }
+                          return (
+                            <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>
+                              No active tasks
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Admin Actions */}

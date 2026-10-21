@@ -13,6 +13,8 @@ import {
   FileText
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
+import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 
 const STATUS_CONFIG = {
   active: { label: 'Active (Running)', color: '#0284c7', bg: '#e0f2fe', dot: '#0284c7' },
@@ -21,8 +23,26 @@ const STATUS_CONFIG = {
   rejected: { label: 'Rejected', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' }
 };
 
-export const TimesheetTable = () => {
-  const { timesheets, deleteTimesheet } = useWork();
+export const TimesheetTable = ({ timesheets: propTimesheets }) => {
+  const { timesheets: contextTimesheets, deleteTimesheet } = useWork();
+  const { currentUser } = useAuth();
+  const isPrivileged = isHRorAdmin(currentUser);
+
+  const rawTimesheets = propTimesheets !== undefined ? propTimesheets : contextTimesheets;
+  const timesheets = React.useMemo(() => {
+    let list = rawTimesheets || [];
+    if (!isPrivileged && currentUser) {
+      list = list.filter(ts =>
+        ts.employeeId === currentUser._id ||
+        ts.employee === currentUser._id ||
+        ts.employeeId === currentUser.employeeCode ||
+        ts.employee === currentUser.employeeCode ||
+        (ts.employeeName && currentUser.name && ts.employeeName.toLowerCase() === currentUser.name.toLowerCase())
+      );
+    }
+    return list;
+  }, [rawTimesheets, isPrivileged, currentUser]);
+
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const handleDelete = (id, e) => {

@@ -117,31 +117,11 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleAssignee = (empId) => {
-    setFormData(prev => {
-      const currentIds = prev.assignedToIds || [];
-      const exists = currentIds.includes(empId);
-      let updated;
-      if (exists) {
-        updated = currentIds.filter(id => id !== empId);
-      } else {
-        updated = [...currentIds, empId];
-      }
-      return {
-        ...prev,
-        assignedToIds: updated,
-        assignedToId: updated[0] || ''
-      };
-    });
-  };
-
-  const handleSelectAllAssignees = () => {
-    if (!employees || employees.length === 0) return;
-    const allIds = employees.map(e => e._id);
+  const selectAssignee = (empId) => {
     setFormData(prev => ({
       ...prev,
-      assignedToIds: allIds,
-      assignedToId: allIds[0] || ''
+      assignedToId: prev.assignedToId === empId ? '' : empId,
+      assignedToIds: prev.assignedToId === empId ? [] : [empId]
     }));
   };
 
@@ -150,16 +130,16 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     if (!myId) return;
     setFormData(prev => ({
       ...prev,
-      assignedToIds: [myId],
-      assignedToId: myId
+      assignedToId: myId,
+      assignedToIds: [myId]
     }));
   };
 
-  const handleClearAssignees = () => {
+  const handleClearAssignee = () => {
     setFormData(prev => ({
       ...prev,
-      assignedToIds: [],
-      assignedToId: ''
+      assignedToId: '',
+      assignedToIds: []
     }));
   };
 
@@ -217,10 +197,10 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       // Resolve selected assignees
       const validEmpList = employees || [];
       const isPersonalTask = taskScope === 'personal';
-      let assigneesList = [];
+      let primaryAssignee = null;
 
       if (isPersonalTask) {
-        const myEmpObj = validEmpList.find(e => String(e._id) === String(currentUser?._id)) || {
+        primaryAssignee = validEmpList.find(e => String(e._id) === String(currentUser?._id)) || {
           _id: currentUser?._id || 'emp_self',
           name: currentUser?.name || 'Self',
           avatar: currentUser?.avatar || '',
@@ -228,27 +208,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
           email: currentUser?.email || '',
           employeeCode: currentUser?.employeeCode || ''
         };
-        assigneesList = [myEmpObj];
       } else {
-        const selectedAssignees = validEmpList.filter(e => (formData.assignedToIds || []).includes(e._id));
-        if (selectedAssignees.length === 0 && !formData.assignedToId) {
-          addToast('Please select at least one assignee for this task', 'error');
+        const targetId = formData.assignedToId || (formData.assignedToIds && formData.assignedToIds[0]);
+        primaryAssignee = validEmpList.find(e => e._id === targetId);
+        if (!primaryAssignee) {
+          addToast('Please select 1 person to assign this task to', 'error');
           setSubmitting(false);
           return;
         }
-        assigneesList = selectedAssignees.length > 0
-          ? selectedAssignees
-          : [validEmpList.find(e => e._id === formData.assignedToId)].filter(Boolean);
       }
-
-      const primaryAssignee = assigneesList[0];
-      const isMultiple = assigneesList.length > 1;
-      const displayAssigneeName = isMultiple
-        ? `${assigneesList[0].name} (+${assigneesList.length - 1} more)`
-        : (primaryAssignee?.name || 'Unassigned');
-      const displayAssigneeRole = isMultiple
-        ? `${assigneesList.length} Assigned Members`
-        : (primaryAssignee?.role || 'Team Member');
 
       await createTask({
         title: formData.title.trim(),
@@ -264,24 +232,23 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         priority: formData.priority,
         estimatedHours: formData.isUntimed ? 0 : (Number(formData.estimatedHours) || 0),
         description: formData.description.trim(),
-        // Multi-assignees
-        assignedToIds: assigneesList.map(a => a._id),
-        assignees: assigneesList.map(a => ({
-          _id: a._id,
-          id: a._id,
-          name: a.name,
-          email: a.email || '',
-          avatar: a.avatar || '',
-          role: a.role || '',
-          employeeCode: a.employeeCode || ''
-        })),
-        // Single fields for backwards compatibility
-        assignedTo: primaryAssignee?._id || null,
-        assignedToId: primaryAssignee?._id || '',
-        assignedToName: displayAssigneeName,
-        assignedToEmail: primaryAssignee?.email || '',
-        assignedToAvatar: primaryAssignee?.avatar || '',
-        assignedToRole: displayAssigneeRole,
+        // 1 Task = 1 Person (Single Assignee Architecture)
+        assignedTo: primaryAssignee._id,
+        assignedToId: primaryAssignee._id,
+        assignedToName: primaryAssignee.name,
+        assignedToEmail: primaryAssignee.email || '',
+        assignedToAvatar: primaryAssignee.avatar || '',
+        assignedToRole: primaryAssignee.role || 'Team Member',
+        assignedToIds: [primaryAssignee._id],
+        assignees: [{
+          _id: primaryAssignee._id,
+          id: primaryAssignee._id,
+          name: primaryAssignee.name,
+          email: primaryAssignee.email || '',
+          avatar: primaryAssignee.avatar || '',
+          role: primaryAssignee.role || 'Team Member',
+          employeeCode: primaryAssignee.employeeCode || ''
+        }],
         assignedBy: currentUser?.name || 'Admin',
         assignedById: currentUser?._id || 'emp_admin',
         assignedByAvatar: currentUser?.avatar || '',
@@ -297,7 +264,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       if (isPersonalTask) {
         addToast(`Personal task "${formData.title}" added to your queue! (Private to you)`, 'success');
       } else {
-        addToast(`Task "${formData.title}" assigned to ${displayAssigneeName}!`, 'success');
+        addToast(`Task "${formData.title}" assigned to ${primaryAssignee?.name || 'assignee'}!`, 'success');
       }
 
       if (andAddMore) {
@@ -739,17 +706,17 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Users size={14} color="#0284c7" />
                 <label style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
-                  Assign To Team Members
+                  Assign To (1 Person Responsible)
                 </label>
                 <span style={{
                   fontSize: '10px',
                   fontWeight: '700',
-                  color: (formData.assignedToIds || []).length > 0 ? '#0284c7' : '#ef4444',
-                  backgroundColor: (formData.assignedToIds || []).length > 0 ? '#e0f2fe' : '#fee2e2',
+                  color: formData.assignedToId ? '#0284c7' : '#ef4444',
+                  backgroundColor: formData.assignedToId ? '#e0f2fe' : '#fee2e2',
                   padding: '1px 6px',
                   borderRadius: '10px'
                 }}>
-                  {(formData.assignedToIds || []).length} Selected
+                  {formData.assignedToId ? '1 Assigned' : 'Required *'}
                 </span>
               </div>
 
@@ -772,26 +739,10 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                     Assign to Me
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={handleSelectAllAssignees}
-                  style={{
-                    border: '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#475569',
-                    fontSize: '10.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    padding: '2px 7px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  Select All
-                </button>
-                {(formData.assignedToIds || []).length > 0 && (
+                {formData.assignedToId && (
                   <button
                     type="button"
-                    onClick={handleClearAssignees}
+                    onClick={handleClearAssignee}
                     style={{
                       border: '1px solid #fecaca',
                       background: '#fff1f2',
@@ -809,63 +760,56 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
               </div>
             </div>
 
-            {/* Selected Members Chips */}
-            {(formData.assignedToIds || []).length > 0 && (
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '6px',
-                padding: '4px 0'
-              }}>
-                {(formData.assignedToIds || []).map(id => {
-                  const emp = (employees || []).find(e => e._id === id);
-                  if (!emp) return null;
-                  return (
-                    <span
-                      key={emp._id}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        padding: '2px 8px 2px 4px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #bfdbfe',
-                        borderRadius: '20px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        color: '#1e3a8a',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            {/* Selected Assignee Chip */}
+            {formData.assignedToId && (() => {
+              const emp = (employees || []).find(e => e._id === formData.assignedToId);
+              if (!emp) return null;
+              return (
+                <div style={{ padding: '2px 0' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '3px 10px 3px 6px',
+                      backgroundColor: '#eff6ff',
+                      border: '1.5px solid #93c5fd',
+                      borderRadius: '20px',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      color: '#1e40af',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                    }}
+                  >
+                    <img
+                      src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                      alt={emp.name}
+                      style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                    <span>{emp.name} ({emp.role || 'Member'})</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearAssignee();
                       }}
+                      style={{
+                        border: 'none',
+                        background: 'none',
+                        color: '#3b82f6',
+                        cursor: 'pointer',
+                        padding: '0 2px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title="Remove assignee"
                     >
-                      <img
-                        src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={emp.name}
-                        style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
-                      />
-                      <span>{emp.name}</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleAssignee(emp._id);
-                        }}
-                        style={{
-                          border: 'none',
-                          background: 'none',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                          padding: '0 1px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <X size={11} />
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+                      <X size={12} />
+                    </button>
+                  </span>
+                </div>
+              );
+            })()}
 
             {/* Search Input for Employees */}
             <div style={{ position: 'relative' }}>
@@ -874,7 +818,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                 type="text"
                 value={memberSearchQuery}
                 onChange={(e) => setMemberSearchQuery(e.target.value)}
-                placeholder="Search colleagues by name or role..."
+                placeholder="Search employee by name, role or department..."
                 style={{
                   width: '100%',
                   padding: '5px 8px 5px 26px',
@@ -905,12 +849,12 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                     (emp.department && emp.department.toLowerCase().includes(q));
                 })
                 .map(emp => {
-                  const isSelected = (formData.assignedToIds || []).includes(emp._id);
+                  const isSelected = formData.assignedToId === emp._id;
                   const isMe = emp._id === currentUser?._id;
                   return (
                     <div
                       key={emp._id}
-                      onClick={() => toggleAssignee(emp._id)}
+                      onClick={() => selectAssignee(emp._id)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -923,19 +867,21 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                         transition: 'all 0.15s ease'
                       }}
                     >
+                      {/* Radio Selection Indicator */}
                       <div style={{
                         width: '14px',
                         height: '14px',
-                        borderRadius: '3px',
-                        border: isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                        backgroundColor: isSelected ? '#0284c7' : '#ffffff',
+                        borderRadius: '50%',
+                        border: isSelected ? '2px solid #0284c7' : '1.5px solid #cbd5e1',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#ffffff',
+                        backgroundColor: '#ffffff',
                         flexShrink: 0
                       }}>
-                        {isSelected && <Check size={10} strokeWidth={3} />}
+                        {isSelected && (
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0284c7' }} />
+                        )}
                       </div>
 
                       <img

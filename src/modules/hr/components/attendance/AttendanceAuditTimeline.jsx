@@ -242,7 +242,6 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
         </div>
 
         <div style={{
-          backgroundColor: '#ffffff',
           borderRadius: '10px',
           padding: '12px 16px',
           border: '1px solid #fed7aa',

@@ -673,7 +673,27 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <Eye size={13} color="#3b82f6" /> View Details
+                          <Eye size={13} color="#3b82f6" /> View Details & History 📋
+                        </div>
+                        <div
+                          onClick={() => {
+                            onSelectTask && onSelectTask(task);
+                            setActiveMenuId(null);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 10px',
+                            fontSize: '11.5px',
+                            color: '#0284c7',
+                            cursor: 'pointer',
+                            borderRadius: '4px'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Calendar size={13} color="#0284c7" /> Reschedule for Future 📅
                         </div>
                         <div
                           onClick={() => {

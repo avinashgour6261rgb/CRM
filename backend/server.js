@@ -65,6 +65,9 @@ app.post('/api/seed', async (req, res) => {
   }
 });
 
+// ─── Public Authentication Routes (Login strictly against MongoDB Atlas) ────
+app.use('/api/auth', require('./src/modules/auth/routes/authRoutes'));
+
 // Authenticate user & tenant scoping middleware
 app.use('/api', authenticateUser);
 
