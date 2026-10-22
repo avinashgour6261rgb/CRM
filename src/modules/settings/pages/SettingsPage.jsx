@@ -73,7 +73,7 @@ export const SettingsPage = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      
+
       {/* ── Standard Compact Header ── */}
       <div style={{
         display: 'flex',
@@ -155,7 +155,7 @@ export const SettingsPage = () => {
         minHeight: '600px',
         boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
       }}>
-        
+
         {/* ── Left Sidebar Menu ── */}
         <div style={{
           borderRight: '1px solid #f1f5f9',
@@ -226,7 +226,7 @@ export const SettingsPage = () => {
 
         {/* ── Right Content Area ── */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          
+
           {/* Section: Profile Settings */}
           {activeSection === 'profile' && (
             <div>
@@ -374,6 +374,7 @@ export const SettingsPage = () => {
                         transition: 'left 0.2s'
                       }} />
                     </button>
+
                   </div>
                 ))}
               </div>
