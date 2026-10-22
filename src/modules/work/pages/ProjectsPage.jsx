@@ -139,23 +139,44 @@ export const ProjectsPage = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Page Header */}
+      {/* Header Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '10px',
+        backgroundColor: '#ffffff',
+        padding: '12px 16px',
+        borderRadius: '10px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: '#64748b', marginBottom: '1px' }}>
-            <span>Work</span>
-            <span>•</span>
-            <span style={{ color: '#0f172a', fontWeight: '600' }}>Projects</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            backgroundColor: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Briefcase size={17} />
           </div>
-          <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-            Projects Management
-          </h1>
+          <div>
+            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+              Projects Management
+            </h1>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              Track enterprise client projects, milestones, deliverables, and progress.
+            </p>
+          </div>
         </div>
 
         {canAddProject && (
@@ -163,26 +184,23 @@ export const ProjectsPage = () => {
             id="btn-add-project"
             onClick={() => setIsAddModalOpen(true)}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
               backgroundColor: '#0284c7',
               color: '#ffffff',
               border: 'none',
-              padding: '6px 14px',
+              padding: '0 12px',
               borderRadius: '6px',
               fontSize: '12px',
-              fontWeight: '600',
+              fontWeight: '700',
               cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
-              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.2)',
               height: '30px'
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0369a1'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0284c7'}
           >
             <Plus size={14} />
-            Add Project
+            <span>Add Project</span>
           </button>
         )}
       </div>

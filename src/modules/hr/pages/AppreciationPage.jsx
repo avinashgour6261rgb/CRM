@@ -137,7 +137,10 @@ export const AppreciationPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -172,8 +175,9 @@ export const AppreciationPage = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '7px',
+              padding: '0 12px',
+              height: '30px',
+              borderRadius: '6px',
               backgroundColor: '#ffffff',
               color: '#2563eb',
               border: '1px solid #cbd5e1',
@@ -191,8 +195,9 @@ export const AppreciationPage = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '7px',
+              padding: '0 12px',
+              height: '30px',
+              borderRadius: '6px',
               backgroundColor: '#2563eb',
               color: '#ffffff',
               border: 'none',

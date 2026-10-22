@@ -129,7 +129,10 @@ export const DocumentationPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -146,7 +149,7 @@ export const DocumentationPage = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Documentation & KYC Hub</h1>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Documentation & KYC Hub</h1>
               <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#16a34a', fontWeight: '700' }}>
                 Verified Cloud
               </span>
@@ -163,8 +166,9 @@ export const DocumentationPage = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '7px',
+            padding: '0 12px',
+            height: '30px',
+            borderRadius: '6px',
             backgroundColor: '#2563eb',
             color: '#ffffff',
             border: 'none',

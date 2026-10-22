@@ -189,7 +189,10 @@ export const PayrollPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{

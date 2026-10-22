@@ -85,7 +85,10 @@ export const SettingsPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -104,7 +107,7 @@ export const SettingsPage = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+              <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2', letterSpacing: '-0.01em' }}>
                 {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip Settings'}
               </h1>
               <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 7px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
@@ -112,7 +115,7 @@ export const SettingsPage = () => {
               </span>
             </div>
             <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
-              Home • Settings • {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip'}
+              Manage account profile, security credentials, RBAC permissions & company details.
             </p>
           </div>
         </div>

@@ -11,6 +11,7 @@ const {
   forceClockOut
 } = require('../controllers/attendanceController');
 
+router.get('/', getMonthlyAttendance);
 router.get('/monthly', getMonthlyAttendance);
 router.get('/daily', getAttendanceByDate);
 router.post('/bulk', bulkMarkAttendance);

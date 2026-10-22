@@ -708,13 +708,13 @@ export const CRMProvider = ({ children }) => {
         }
       } else if (dayTotalTaskSeconds > 0) {
         // If tasks or timesheets were recorded for this day, strictly use actual task hours
+        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
         const hrs = Math.floor(dayTotalTaskSeconds / 3600);
         const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
         finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
         finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
         dayBreakDuration = pastAttRec?.totalBreakHours ? `${Math.round(pastAttRec.totalBreakHours * 60)}m` : '0m';
 
-        const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
         if (pastAttRec) {
           if (pastAttRec.clockInTime) dayLoginTime = pastAttRec.clockInTime;
           if (pastAttRec.clockOutTime) dayLogoutTime = pastAttRec.clockOutTime;

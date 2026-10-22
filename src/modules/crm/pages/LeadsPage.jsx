@@ -305,7 +305,10 @@ export const LeadsPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -416,11 +419,12 @@ export const LeadsPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '6px 14px',
+                padding: '0 12px',
+                height: '30px',
                 backgroundColor: '#0284c7',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '7px',
+                borderRadius: '6px',
                 fontSize: '12px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -437,11 +441,12 @@ export const LeadsPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '6px 12px',
+                padding: '0 12px',
+                height: '30px',
                 backgroundColor: '#ffffff',
                 color: '#334155',
                 border: '1px solid #cbd5e1',
-                borderRadius: '7px',
+                borderRadius: '6px',
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer'
@@ -457,11 +462,12 @@ export const LeadsPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                padding: '6px 12px',
+                padding: '0 12px',
+                height: '30px',
                 backgroundColor: '#ffffff',
                 color: '#334155',
                 border: '1px solid #cbd5e1',
-                borderRadius: '7px',
+                borderRadius: '6px',
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer'

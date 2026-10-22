@@ -466,7 +466,10 @@ export const CalendarPage = () => {
         padding: '12px 16px',
         borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -483,7 +486,7 @@ export const CalendarPage = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Company Calendar & Schedules</h1>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Company Calendar & Schedules</h1>
               <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: '700' }}>
                 {filteredEvents.length} Events & Birthdays
               </span>
@@ -500,15 +503,16 @@ export const CalendarPage = () => {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '7px 15px',
-            borderRadius: '8px',
+            padding: '0 12px',
+            height: '30px',
+            borderRadius: '6px',
             backgroundColor: '#2563eb',
             color: '#ffffff',
             border: 'none',
-            fontSize: '12.5px',
+            fontSize: '12px',
             fontWeight: '700',
             cursor: 'pointer',
-            boxShadow: '0 2px 5px rgba(37,99,235,0.25)'
+            boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
           }}
         >
           <Plus size={14} />

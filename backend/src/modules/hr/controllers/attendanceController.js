@@ -7,12 +7,11 @@ const asyncHandler = require('../../../shared/middleware/asyncHandler');
 const getMonthlyAttendance = asyncHandler(async (req, res) => {
   const { month, year, employeeId } = req.query;
 
-  if (!month || !year) {
-    return res.status(400).json({ success: false, message: 'month and year query params are required' });
+  const query = {};
+  if (month && year) {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    query.date = new RegExp(`^${monthStr}`);
   }
-
-  const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-  const query = { date: new RegExp(`^${monthStr}`) };
 
   // Tenant scoping: non-admin can only see own attendance
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
@@ -34,7 +33,7 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
     query.$or = matchConditions;
   }
 
-  const records = await Attendance.find(query).sort({ date: 1, employee: 1 });
+  const records = await Attendance.find(query).sort(month && year ? { date: 1, employee: 1 } : { date: -1, employee: 1 });
 
   res.json({ success: true, count: records.length, data: records });
 });

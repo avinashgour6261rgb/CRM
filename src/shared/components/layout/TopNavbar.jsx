@@ -227,6 +227,10 @@ export const TopNavbar = () => {
   return (
     <header style={{
       height: '64px',
+      minHeight: '64px',
+      maxHeight: '64px',
+      flexShrink: 0,
+      boxSizing: 'border-box',
       backgroundColor: '#ffffff',
       borderBottom: '1px solid #e2e8f0',
       display: 'flex',
@@ -238,24 +242,22 @@ export const TopNavbar = () => {
       zIndex: 90,
       boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
     }}>
-      {/* ── LEFT: Title & Breadcrumbs matching Novainfinity Screenshots ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* ── LEFT: Clean Page Title ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         <h1 style={{
           fontSize: '16px',
           fontWeight: '700',
           color: '#1e293b',
           margin: 0,
+          lineHeight: '1',
           letterSpacing: '-0.01em'
         }}>
           {pageTitle}
         </h1>
-        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
-          {pageBreadcrumb}
-        </span>
       </div>
 
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
 
         {/* ── Working Timer Widget (e.g. 02:16:05 with blue/red controls) ── */}
         <div style={{

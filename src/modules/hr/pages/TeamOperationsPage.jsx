@@ -542,54 +542,57 @@ export const TeamOperationsPage = () => {
       {/* ── HEADER BANNER ── */}
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '12px',
+        borderRadius: '10px',
         border: '1px solid #e2e8f0',
-        padding: '18px 22px',
+        padding: '12px 16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        gap: '10px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        minHeight: '68px',
+        boxSizing: 'border-box',
+        flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '10px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
             backgroundColor: '#fff7ed',
             border: '1px solid #fed7aa',
             color: '#ea580c',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(234, 88, 12, 0.15)'
+            flexShrink: 0
           }}>
-            <Zap size={22} fill="#ea580c" />
+            <Zap size={17} fill="#ea580c" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
                 Live Operations & Shift Controls
               </h1>
               <span style={{
-                fontSize: '11px',
+                fontSize: '10.5px',
                 fontWeight: '700',
                 backgroundColor: '#dcfce7',
                 color: '#15803d',
                 border: '1px solid #bbf7d0',
-                padding: '2px 8px',
-                borderRadius: '12px',
+                padding: '1px 6px',
+                borderRadius: '10px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px'
               }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
                 Real-Time Sync
               </span>
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
-              Administrative operational hub for real-time shift oversight, power cut / offline assistance, emergency clock-in/out, and task controls.
+            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+              Administrative operational hub for real-time shift oversight, emergency overrides, and task controls.
             </p>
           </div>
         </div>
