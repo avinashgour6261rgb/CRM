@@ -44,6 +44,11 @@ export const WorkProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [overdueTaskPrompt, setOverdueTaskPrompt] = useState(null);
 
+  // Network storm & debounce guards to prevent ERR_INSUFFICIENT_RESOURCES
+  const isFetchingRef = useRef(false);
+  const debounceTimerRef = useRef(null);
+  const alertedTaskIdsRef = useRef(new Set());
+
   // Derive stable userKey matching TimerContext for seamless cross-module sync
   const userKey = useMemo(() => {
     return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : (currentUser ? 'ADM-001' : ''));
@@ -190,7 +195,9 @@ export const WorkProvider = ({ children }) => {
 
   // Load all Work module data and merge active persistent timer
   const loadWorkData = useCallback(async () => {
+    if (isFetchingRef.current) return;
     try {
+      isFetchingRef.current = true;
       setLoading(true);
       const [prjs, rawTsks, times] = await Promise.all([
         workService.getProjects(projectFilter),
@@ -316,6 +323,7 @@ export const WorkProvider = ({ children }) => {
       console.error('Error loading Work module data:', err);
       addToast('Failed to sync Work module data', 'error');
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast]);
@@ -329,6 +337,13 @@ export const WorkProvider = ({ children }) => {
   useEffect(() => {
     loadWorkData();
 
+    const scheduleDebouncedLoad = () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        loadWorkData();
+      }, 300);
+    };
+
     const handleStorageUpdate = (e) => {
       const changedKey = e?.key || e?.detail?.key;
       if (
@@ -337,13 +352,13 @@ export const WorkProvider = ({ children }) => {
         changedKey.startsWith('ems_active_task_timer') ||
         changedKey.startsWith('ems_timer_')
       ) {
-        loadWorkData();
+        scheduleDebouncedLoad();
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
 
-    // Cross-tab real-time event subscription for 0ms latency sync
+    // Cross-tab real-time event subscription for 0ms latency sync (debounced to avoid connection flooding)
     const unsubscribeSync = subscribeToSyncEvents((ev) => {
       if ([
         SYNC_EVENTS.TASK_TIMER_STARTED,
@@ -352,11 +367,12 @@ export const WorkProvider = ({ children }) => {
         SYNC_EVENTS.TASK_COMPLETED,
         SYNC_EVENTS.STORAGE_MUTATION
       ].includes(ev.type)) {
-        loadWorkData();
+        scheduleDebouncedLoad();
       }
     });
 
     return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       unsubscribeSync();
@@ -1753,6 +1769,10 @@ export const WorkProvider = ({ children }) => {
         return t;
       }));
 
+      // Clear alerted cache so new reminder can fire when its new time comes
+      alertedTaskIdsRef.current.delete(String(taskId));
+      if (targetTask?.taskCode) alertedTaskIdsRef.current.delete(String(targetTask.taskCode));
+
       addToast(`⏰ Task "#${targetTask.taskCode || 'TSK'}" paused & snoozed! CRM will remind you at ${reminderTimeStr}.`, 'info');
 
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
@@ -1807,6 +1827,10 @@ export const WorkProvider = ({ children }) => {
         return t;
       }));
 
+      // Mark as alerted in-memory so reminder never triggers again
+      alertedTaskIdsRef.current.add(String(taskId));
+      if (targetTask?.taskCode) alertedTaskIdsRef.current.add(String(targetTask.taskCode));
+
       // Start the task timer right away
       startTaskTimer(taskId);
     } catch (err) {
@@ -1820,20 +1844,25 @@ export const WorkProvider = ({ children }) => {
    */
   const dismissTaskReminder = async (taskId) => {
     try {
+      alertedTaskIdsRef.current.add(String(taskId));
       const updatePayload = {
         snoozed: false,
         remindAt: null,
+        reminderAlerted: true,
         reminderDismissed: true
       };
       await workService.updateTask(taskId, updatePayload);
-      setTasks(prev => prev.map(t => t._id === taskId ? { ...t, ...updatePayload } : t));
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const updatedAll = allTasks.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t);
+      saveCollection(KEYS.TASKS, updatedAll);
+      setTasks(prev => prev.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t));
       addToast('Task reminder dismissed', 'info');
     } catch (e) {
       console.error(e);
     }
   };
 
-  // Heartbeat checker for due reminders
+  // Heartbeat checker for due reminders (strictly once per task, scoped to current assignee)
   useEffect(() => {
     const reminderInterval = setInterval(() => {
       const now = Date.now();
@@ -1841,24 +1870,36 @@ export const WorkProvider = ({ children }) => {
       let hasUpdate = false;
 
       allTasks.forEach(t => {
-        if (t.snoozed && t.remindAt && Number(t.remindAt) <= now && !t.reminderAlerted && !t.reminderDismissed) {
+        const tId = String(t._id || t.id);
+        const isDue = t.snoozed && t.remindAt && Number(t.remindAt) <= now;
+        const alreadyAlerted = t.reminderAlerted || t.reminderDismissed || alertedTaskIdsRef.current.has(tId);
+
+        if (isDue && !alreadyAlerted && isTaskAssignedToMe(t)) {
           hasUpdate = true;
           t.reminderAlerted = true;
+          alertedTaskIdsRef.current.add(tId);
+          if (t.taskCode) alertedTaskIdsRef.current.add(String(t.taskCode));
+
           addToast(`⏰ Reminder: Time to resume task "#${t.taskCode || 'TSK'}: ${t.title}"! (Paused at ${formatSeconds(t.timerSeconds || 0)})`, 'warning');
+
+          // Persist reminderAlerted flag to backend so MongoDB keeps it
+          workService.updateTask(tId, { reminderAlerted: true }).catch(err => {
+            console.warn('Failed to persist reminderAlerted to backend:', err);
+          });
         }
       });
 
       if (hasUpdate) {
         saveCollection(KEYS.TASKS, allTasks);
         setTasks(prev => prev.map(t => {
-          const matched = allTasks.find(x => x._id === t._id);
+          const matched = allTasks.find(x => String(x._id || x.id) === String(t._id || t.id));
           return matched ? { ...t, reminderAlerted: matched.reminderAlerted } : t;
         }));
       }
     }, 8000);
 
     return () => clearInterval(reminderInterval);
-  }, [formatSeconds, addToast]);
+  }, [formatSeconds, addToast, isTaskAssignedToMe]);
 
   // =========================================================================
   // ⏱️ TIMESHEET ACTIONS

@@ -10,6 +10,7 @@ import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/per
 
 let backendOnlineCache = null;
 let lastCheckTime = 0;
+let backendCheckPromise = null;
 const CACHE_TTL_MS = 25000; // 25s cache to prevent repeated 500 error spam when backend is offline
 
 const isBackendAvailable = async () => {
@@ -17,14 +18,22 @@ const isBackendAvailable = async () => {
   if (backendOnlineCache !== null && (now - lastCheckTime < CACHE_TTL_MS)) {
     return backendOnlineCache;
   }
-  try {
-    const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
-    backendOnlineCache = res.ok;
-  } catch {
-    backendOnlineCache = false;
+  if (backendCheckPromise) {
+    return backendCheckPromise;
   }
-  lastCheckTime = now;
-  return backendOnlineCache;
+  backendCheckPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET', signal: AbortSignal.timeout(3000) });
+      backendOnlineCache = res.ok;
+    } catch {
+      backendOnlineCache = false;
+    } finally {
+      lastCheckTime = Date.now();
+      backendCheckPromise = null;
+    }
+    return backendOnlineCache;
+  })();
+  return backendCheckPromise;
 };
 
 const getLocalDateString = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -70,8 +79,8 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Persist to local mirror so projects survive offline/refreshes cleanly
-            saveCollection(KEYS.PROJECTS, json.data);
+            // Silently persist to local mirror without triggering recursive storage events
+            localStorage.setItem(KEYS.PROJECTS, JSON.stringify(json.data));
             return json.data;
           }
         }
@@ -250,7 +259,8 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            saveCollection(KEYS.TASKS, json.data);
+            // Silently persist to local mirror without triggering recursive storage events
+            localStorage.setItem(KEYS.TASKS, JSON.stringify(json.data));
             return json.data;
           }
         }
@@ -607,7 +617,8 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data) && json.data.length > 0) {
-            saveCollection(KEYS.TIMESHEETS, json.data);
+            // Silently persist to local mirror without triggering recursive storage events
+            localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(json.data));
           }
           return json.data;
         }

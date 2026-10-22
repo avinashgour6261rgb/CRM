@@ -529,8 +529,8 @@ export const CRMProvider = ({ children }) => {
         const bHrs = Math.floor(rawBreakSecs / 3600);
         const bMins = Math.floor((rawBreakSecs % 3600) / 60);
         dayBreakDuration = bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m` : '0m');
-        dayTeaBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('tea')).length || (rawBreakSecs > 0 ? 1 : 0);
-        dayLunchBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('lunch')).length || 0;
+        dayTeaBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('tea')).length;
+        dayLunchBreaks = todayBreakHistory.filter(b => b.type?.toLowerCase().includes('lunch')).length;
 
         // 1. Check live active task timer from localStorage
         const activeTimerKey = `ems_active_task_timer_${userKey}`;
@@ -712,7 +712,7 @@ export const CRMProvider = ({ children }) => {
         const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
         finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
         finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
-        dayBreakDuration = '45m';
+        dayBreakDuration = pastAttRec?.totalBreakHours ? `${Math.round(pastAttRec.totalBreakHours * 60)}m` : '0m';
 
         const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
         if (pastAttRec) {
@@ -737,7 +737,7 @@ export const CRMProvider = ({ children }) => {
           finalDurationHours = +workHours.toFixed(2);
           dayLoginTime = pastAttRec.clockInTime || '--';
           dayLogoutTime = pastAttRec.clockOutTime || '--';
-          dayBreakDuration = '45m';
+          dayBreakDuration = pastAttRec?.totalBreakHours ? `${Math.round(pastAttRec.totalBreakHours * 60)}m` : '0m';
         } else {
           // No work or attendance logged for this employee on this past day — strictly 0h 00m
           dayTotalTaskSeconds = 0;

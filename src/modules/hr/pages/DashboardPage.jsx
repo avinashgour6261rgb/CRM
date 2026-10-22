@@ -363,6 +363,11 @@ export const DashboardPage = () => {
     const storedClockOut = localStorage.getItem(`ems_timer_${empKey}_clock_out`);
     const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
     const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || 0;
+    const storedBreakHistoryRaw = localStorage.getItem(`ems_timer_${empKey}_break_history`);
+    let storedBreakHistory = [];
+    try {
+      if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
+    } catch {}
 
     const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
@@ -439,6 +444,7 @@ export const DashboardPage = () => {
       clockOutTime,
       workSecs,
       breakSecs: storedBreakSecs,
+      breakHistory: storedBreakHistory,
       runningTask,
       empTasks,
       completedTasksToday
@@ -691,9 +697,9 @@ export const DashboardPage = () => {
       durationText: customDate === todayStr
         ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : (empState?.workSecs ? formatTimeDurationSafe(empState.workSecs) : '0h 0m'))
         : pastDayDuration,
-      breakDuration: customDate === todayStr ? `${Math.round((empState?.breakSecs || 0) / 60)}m` : (targetWeekLog?.breakDuration || '45m'),
-      teaBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Tea') ? 1 : (empState?.breakSecs > 0 ? 1 : 0),
-      lunchBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Lunch') ? 1 : (empState?.breakSecs > 900 ? 1 : 0),
+      breakDuration: customDate === todayStr ? `${Math.round((empState?.breakSecs || 0) / 60)}m` : (targetWeekLog?.breakDuration || '0m'),
+      teaBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Tea') ? 1 : (empState?.breakHistory?.filter(b => b.type?.toLowerCase().includes('tea')).length || 0),
+      lunchBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Lunch') ? 1 : (empState?.breakHistory?.filter(b => b.type?.toLowerCase().includes('lunch')).length || 0),
       tasksWorked: effectiveTasksWorked
     };
 

@@ -217,6 +217,10 @@ const TaskSchema = new mongoose.Schema(
     reminderDismissed: {
       type: Boolean,
       default: false
+    },
+    reminderAlerted: {
+      type: Boolean,
+      default: false
     }
   },
   {

@@ -486,7 +486,8 @@ export const TimerProvider = ({ children }) => {
       } catch {}
 
       let activeBreakSecs = 0;
-      if (onBreakVal) {
+      // Break is strictly counted ONLY if user is clocked in AND has explicitly started a break
+      if (inVal && onBreakVal) {
         if (!breakStartTs) {
           breakStartTs = Date.now();
           localStorage.setItem(`ems_timer_${userKey}_break_start_timestamp`, breakStartTs.toString());
@@ -503,6 +504,15 @@ export const TimerProvider = ({ children }) => {
             message: `You've been on ${breakType} for ${Math.floor(threshold / 60)} minutes. Remember to resume when ready!`,
             type: 'warning'
           });
+        }
+      } else {
+        // User is working or not on break - clean up any stale break timestamps
+        activeBreakSecs = 0;
+        setCurrentBreakSeconds(0);
+        if (!onBreakVal) {
+          localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
+          localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+          localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
         }
       }
 
@@ -795,6 +805,14 @@ export const TimerProvider = ({ children }) => {
     let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
     if (isFirstClockIn || !clockInTs) {
       setLoginTime(nowStr);
+      setWorkSeconds(0);
+      setBreakSeconds(0);
+      setCurrentBreakSeconds(0);
+      setBreakHistory([]);
+      localStorage.setItem(`ems_timer_${userKey}_break_history`, JSON.stringify([]));
+      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
       localStorage.setItem(`ems_timer_${userKey}_login_time`, nowStr);
       localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, nowMs.toString());
     }
@@ -814,6 +832,8 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
     localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
     localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
+    localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
     localStorage.setItem(`ems_timer_${userKey}_reclock_status`, 'none');
     localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, '0');
 
@@ -933,6 +953,9 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
     localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
     localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+    localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+    localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
+    localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
 
     // Notify WorkContext and other modules that employee clocked out!
     window.dispatchEvent(new CustomEvent('ems_clocked_out', {
