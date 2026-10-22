@@ -20,13 +20,14 @@ import {
   Shield,
   UserCheck,
   ArrowRight,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 
 export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onExtendDeadline }) => {
-  const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion } = useWork();
+  const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion, deleteProject } = useWork();
   const { currentUser } = useAuth();
   if (!project) return null;
 
@@ -631,6 +632,35 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                 }}
               >
                 <span>🔄 Reopen Project</span>
+              </button>
+            )}
+
+            {canManageApprovals && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm(`Are you sure you want to permanently delete project "${project.name}" (#${project.projectCode || ''})? This will also remove all associated tasks.`)) {
+                    await deleteProject(project._id || project.projectCode);
+                    onClose();
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+                title="Permanently delete project"
+              >
+                <Trash2 size={13} />
+                <span>Delete Project</span>
               </button>
             )}
 

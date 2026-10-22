@@ -18,7 +18,8 @@ import {
   Check,
   History,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
@@ -31,6 +32,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
     changeTaskStatus,
     completeTask,
     updateTask,
+    deleteTask,
     rescheduleTaskForFuture,
     employees
   } = useWork();
@@ -42,6 +44,20 @@ export const TaskDetailModal = ({ task, onClose }) => {
   const [rescheduleNote, setRescheduleNote] = useState('');
 
   if (!task) return null;
+
+  const canDeleteTask = currentUser && (
+    currentUser.isAdmin ||
+    currentUser.isSuperAdmin ||
+    currentUser.systemRole === 'admin' ||
+    currentUser.systemRole === 'hr' ||
+    currentUser.role === 'Administrator' ||
+    currentUser.role === 'HR Manager' ||
+    currentUser.permissions?.manageTasks ||
+    currentUser.permissions?.deleteTasks ||
+    task.assignedById === currentUser?._id ||
+    task.createdBy === currentUser?.name ||
+    task.createdById === currentUser?._id
+  );
 
   const handleReassign = async (newEmpId) => {
     const newAssignee = employees.find(e => e._id === newEmpId);
@@ -769,11 +785,42 @@ export const TaskDetailModal = ({ task, onClose }) => {
           padding: '16px 28px',
           borderTop: '1px solid #f1f5f9',
           display: 'flex',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           backgroundColor: '#f8fafc',
           borderBottomLeftRadius: '16px',
           borderBottomRightRadius: '16px'
         }}>
+          <div>
+            {canDeleteTask && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm(`Are you sure you want to permanently delete task "${task.title}" (#${task.taskCode || ''})?`)) {
+                    await deleteTask(task._id);
+                    onClose();
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                title="Permanently delete task"
+              >
+                <Trash2 size={14} />
+                <span>Delete Task</span>
+              </button>
+            )}
+          </div>
           <button
             onClick={onClose}
             style={{

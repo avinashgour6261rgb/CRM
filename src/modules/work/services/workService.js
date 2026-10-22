@@ -193,8 +193,17 @@ export const workService = {
         });
         if (res.ok) {
           const projects = getCollection(KEYS.PROJECTS) || [];
-          const filtered = projects.filter(p => p._id !== id && p.projectCode !== id);
+          const filtered = projects.filter(p => String(p._id || p.id) !== String(id) && p.projectCode !== id);
           saveCollection(KEYS.PROJECTS, filtered);
+
+          // Also remove associated tasks locally
+          const tasks = getCollection(KEYS.TASKS) || [];
+          const remainingTasks = tasks.filter(t => String(t.projectId || t.project) !== String(id) && t.projectCode !== id);
+          if (remainingTasks.length !== tasks.length) {
+            saveCollection(KEYS.TASKS, remainingTasks);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+          }
+
           window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
           return true;
         }
@@ -204,8 +213,17 @@ export const workService = {
     }
 
     const projects = getCollection(KEYS.PROJECTS) || [];
-    const filtered = projects.filter(p => p._id !== id);
+    const filtered = projects.filter(p => String(p._id || p.id) !== String(id) && p.projectCode !== id);
     saveCollection(KEYS.PROJECTS, filtered);
+
+    // Also remove associated tasks locally
+    const tasks = getCollection(KEYS.TASKS) || [];
+    const remainingTasks = tasks.filter(t => String(t.projectId || t.project) !== String(id) && t.projectCode !== id);
+    if (remainingTasks.length !== tasks.length) {
+      saveCollection(KEYS.TASKS, remainingTasks);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+    }
+
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
     return true;
   },
@@ -528,16 +546,26 @@ export const workService = {
   async deleteTask(id) {
     if (await isBackendAvailable()) {
       try {
-        const res = await fetch(`${API_BASE_URL}/tasks/${id}`, { method: 'DELETE' });
-        if (res.ok) return true;
+        const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          const tasks = getCollection(KEYS.TASKS) || [];
+          const filtered = tasks.filter(t => String(t._id || t.id) !== String(id) && t.taskCode !== id);
+          saveCollection(KEYS.TASKS, filtered);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+          return true;
+        }
       } catch (err) {
         console.warn('Backend task delete failed, using local storage:', err);
       }
     }
 
-    const tasks = getCollection(KEYS.TASKS);
-    const filtered = tasks.filter(t => t._id !== id);
+    const tasks = getCollection(KEYS.TASKS) || [];
+    const filtered = tasks.filter(t => String(t._id || t.id) !== String(id) && t.taskCode !== id);
     saveCollection(KEYS.TASKS, filtered);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
     return true;
   },
 

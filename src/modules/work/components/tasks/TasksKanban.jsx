@@ -11,9 +11,11 @@ import {
   Square,
   MoreVertical,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
 
 const COLUMNS = [
   { key: 'incomplete', title: 'Incomplete / Pending', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -24,8 +26,26 @@ const COLUMNS = [
 ];
 
 export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
-  const { tasks: contextTasks, changeTaskStatus, startTaskTimer, pauseTaskTimer, stopTaskTimer, completeTask } = useWork();
+  const { tasks: contextTasks, changeTaskStatus, startTaskTimer, pauseTaskTimer, stopTaskTimer, completeTask, deleteTask } = useWork();
+  const { currentUser } = useAuth();
   const tasks = propTasks !== undefined ? propTasks : (contextTasks || []);
+
+  const canDeleteTask = (task) => {
+    if (!currentUser) return false;
+    return (
+      currentUser.isAdmin ||
+      currentUser.isSuperAdmin ||
+      currentUser.systemRole === 'admin' ||
+      currentUser.systemRole === 'hr' ||
+      currentUser.role === 'Administrator' ||
+      currentUser.role === 'HR Manager' ||
+      currentUser.permissions?.manageTasks ||
+      currentUser.permissions?.deleteTasks ||
+      task?.assignedById === currentUser?._id ||
+      task?.createdBy === currentUser?.name ||
+      task?.createdById === currentUser?._id
+    );
+  };
 
   return (
     <div style={{
@@ -143,9 +163,38 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>
-                      {task.projectName || 'General'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>
+                        {task.projectName || 'General'}
+                      </span>
+                      {canDeleteTask(task) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+                              deleteTask(task._id);
+                            }
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#94a3b8',
+                            padding: '2px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            transition: 'color 0.15s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                          title="Delete task"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Title */}

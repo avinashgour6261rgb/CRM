@@ -5,6 +5,7 @@
 
 const mongoose = require('mongoose');
 const Project = require('../models/Project');
+const Task = require('../models/Task');
 
 // @desc    Get all projects with optional filtering
 // @route   GET /api/projects
@@ -108,13 +109,32 @@ exports.updateProject = async (req, res, next) => {
 // @route   DELETE /api/projects/:id
 exports.deleteProject = async (req, res, next) => {
   try {
-    const project = await Project.findByIdAndDelete(req.params.id);
+    let project = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      project = await Project.findByIdAndDelete(req.params.id);
+    } else {
+      project = await Project.findOneAndDelete({ $or: [{ projectCode: req.params.id }, { _id: req.params.id }] });
+    }
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
+
+    // Cleanup child tasks associated with this project
+    try {
+      await Task.deleteMany({
+        $or: [
+          { project: project._id },
+          { projectId: String(project._id) },
+          { projectCode: project.projectCode }
+        ]
+      });
+    } catch (cleanErr) {
+      console.warn('Child tasks cleanup warning:', cleanErr);
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Project deleted successfully'
+      message: 'Project and associated tasks deleted successfully'
     });
   } catch (error) {
     next(error);
