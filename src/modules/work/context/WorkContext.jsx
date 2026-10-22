@@ -214,23 +214,7 @@ export const WorkProvider = ({ children }) => {
 
       const isLegacyTask = (t) => {
         if (!t) return true;
-        const title = (t.title || '').toLowerCase().trim();
         const code = (t.taskCode || '').toUpperCase().trim();
-        const legacyTitles = [
-          'green text',
-          'helllo',
-          'hello',
-          'hero page',
-          'generate dashboard',
-          'design system token definition & ui kit',
-          'setup mongodb atlas connection & schema seeders',
-          'general management & team review',
-          'backlink',
-          'home page',
-          'bookmarking 20'
-        ];
-        if (legacyTitles.includes(title)) return true;
-        if (title.includes('token definition') || title.includes('schema seeders') || title.includes('bookmarking')) return true;
         if (code === 'CPC-0' || t._id === 'tsk_003' || code.startsWith('MOCK')) return true;
         return false;
       };
@@ -897,7 +881,6 @@ export const WorkProvider = ({ children }) => {
   const createTask = async (taskData) => {
     try {
       const created = await workService.createTask(taskData);
-      addToast(`Task "${created.title}" assigned successfully!`, 'success');
       await loadWorkData();
       return created;
     } catch (err) {

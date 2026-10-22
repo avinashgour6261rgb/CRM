@@ -23,7 +23,10 @@ import {
   Check
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useHR } from '../../../hr/context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { getCollection, KEYS } from '../../../../shared/services/storageService';
 
 const CATEGORIES = [
   'General',
@@ -45,9 +48,18 @@ const PRIORITIES = [
 
 const HOUR_PRESETS = [1, 2, 4, 6, 8];
 
-export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
-  const { createTask, projects, employees, currentUser, createProject } = useWork();
+export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskCreated = null }) => {
+  const { createTask, projects, employees: workEmployees, currentUser: workUser, createProject } = useWork();
+  const { employees: hrEmployees, currentUser: hrUser } = useHR();
   const { addToast } = useToast();
+
+  const currentUser = workUser || hrUser;
+
+  const employees = React.useMemo(() => {
+    if (workEmployees && workEmployees.length > 0) return workEmployees;
+    if (hrEmployees && hrEmployees.length > 0) return hrEmployees;
+    return getCollection(KEYS.EMPLOYEES) || [];
+  }, [workEmployees, hrEmployees]);
 
   const getTodayStr = () => {
     const d = new Date();
@@ -60,32 +72,36 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+  const isPrivileged = isHRorAdmin(currentUser);
 
-  const getInitialFormData = () => ({
-    title: '',
-    category: 'General',
-    projectId: initialProjectId || (projects && projects[0]?._id) || '',
-    customProjectName: '',
-    startDate: getTodayStr(),
-    dueDate: getTodayStr(),
-    assignedToId: !isPrivileged && currentUser?._id ? currentUser._id : '',
-    assignedToIds: !isPrivileged && currentUser?._id ? [currentUser._id] : [],
-    priority: 'medium',
-    estimatedHours: 4,
-    isUntimed: false,
-    hasNoDueDate: false,
-    description: '',
-    isPersonal: !isPrivileged
-  });
+  const getInitialFormData = () => {
+    // Default assignee to currentUser so user can easily self-assign or pick any team member
+    const defaultEmpId = currentUser?._id || (employees && employees[0]?._id) || '';
+    return {
+      title: '',
+      category: 'General',
+      projectId: initialProjectId || (projects && projects[0]?._id) || '',
+      customProjectName: '',
+      startDate: getTodayStr(),
+      dueDate: getTodayStr(),
+      assignedToId: defaultEmpId,
+      assignedToIds: defaultEmpId ? [defaultEmpId] : [],
+      priority: 'medium',
+      estimatedHours: 4,
+      isUntimed: false,
+      hasNoDueDate: false,
+      description: '',
+      isPersonal: false
+    };
+  };
 
   // 'none' (Standalone Task) | 'existing' (Company Project) | 'new' (Create Project on the fly)
   const [projectMode, setProjectMode] = useState(
     initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
   );
 
-  // 'personal' (Private to this employee) | 'team' (Company/Team Task)
-  const [taskScope, setTaskScope] = useState(!isPrivileged ? 'personal' : 'team');
+  // 'team' (Company/Team Task, default for all tasks) | 'personal' (Private to this employee)
+  const [taskScope, setTaskScope] = useState('team');
 
   const [formData, setFormData] = useState(getInitialFormData);
 
@@ -95,7 +111,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
   const resetForm = () => {
     setFormData(getInitialFormData());
     setProjectMode(initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none'));
-    setTaskScope(!isPrivileged ? 'personal' : 'team');
+    setTaskScope('team');
     setMemberSearchQuery('');
     setSubmitting(false);
   };
@@ -118,15 +134,16 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
   };
 
   const selectAssignee = (empId) => {
+    const idStr = String(empId || '');
     setFormData(prev => ({
       ...prev,
-      assignedToId: prev.assignedToId === empId ? '' : empId,
-      assignedToIds: prev.assignedToId === empId ? [] : [empId]
+      assignedToId: String(prev.assignedToId || '') === idStr ? '' : idStr,
+      assignedToIds: String(prev.assignedToId || '') === idStr ? [] : [idStr]
     }));
   };
 
   const handleAssignToMeOnly = () => {
-    const myId = currentUser?._id;
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '');
     if (!myId) return;
     setFormData(prev => ({
       ...prev,
@@ -200,8 +217,13 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       let primaryAssignee = null;
 
       if (isPersonalTask) {
-        primaryAssignee = validEmpList.find(e => String(e._id) === String(currentUser?._id)) || {
+        primaryAssignee = validEmpList.find(e =>
+          String(e._id) === String(currentUser?._id) ||
+          String(e.id) === String(currentUser?._id) ||
+          String(e.employeeCode) === String(currentUser?.employeeCode)
+        ) || {
           _id: currentUser?._id || 'emp_self',
+          id: currentUser?._id || 'emp_self',
           name: currentUser?.name || 'Self',
           avatar: currentUser?.avatar || '',
           role: currentUser?.role || 'Team Member',
@@ -210,15 +232,47 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         };
       } else {
         const targetId = formData.assignedToId || (formData.assignedToIds && formData.assignedToIds[0]);
-        primaryAssignee = validEmpList.find(e => e._id === targetId);
-        if (!primaryAssignee) {
+        if (!targetId) {
           addToast('Please select 1 person to assign this task to', 'error');
           setSubmitting(false);
           return;
         }
+
+        primaryAssignee = validEmpList.find(e =>
+          String(e._id) === String(targetId) ||
+          String(e.id) === String(targetId) ||
+          String(e.employeeCode) === String(targetId) ||
+          (e.name && e.name.toLowerCase() === String(targetId).toLowerCase())
+        );
+
+        if (!primaryAssignee && currentUser && (
+          String(currentUser._id) === String(targetId) ||
+          String(currentUser.id) === String(targetId) ||
+          String(currentUser.employeeCode) === String(targetId) ||
+          (currentUser.name && currentUser.name.toLowerCase() === String(targetId).toLowerCase())
+        )) {
+          primaryAssignee = currentUser;
+        }
+
+        if (!primaryAssignee) {
+          primaryAssignee = {
+            _id: String(targetId),
+            id: String(targetId),
+            name: 'Assigned Member',
+            avatar: '',
+            role: 'Team Member',
+            employeeCode: String(targetId)
+          };
+        }
       }
 
-      await createTask({
+      const assigneeId = String(primaryAssignee._id || primaryAssignee.id || primaryAssignee.employeeCode || '');
+      const assigneeCode = String(primaryAssignee.employeeCode || '');
+      const currentUserId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'admin');
+      const currentUserCode = String(currentUser?.employeeCode || '');
+      const allAssigneeIds = [assigneeId, assigneeCode].filter(Boolean);
+
+      const createdTask = await createTask({
         title: formData.title.trim(),
         category: formData.category,
         projectId: finalProjectId,
@@ -229,28 +283,31 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
         hasNoDueDate: !!(formData.hasNoDueDate || formData.isUntimed),
         isUntimed: !!formData.isUntimed,
         isPersonal: isPersonalTask,
+        isPrivate: isPersonalTask,
         priority: formData.priority,
         estimatedHours: formData.isUntimed ? 0 : (Number(formData.estimatedHours) || 0),
         description: formData.description.trim(),
-        // 1 Task = 1 Person (Single Assignee Architecture)
-        assignedTo: primaryAssignee._id,
-        assignedToId: primaryAssignee._id,
+        // 1 Task = 1 Person (Single + Multi-Assignee Architecture)
+        assignedTo: primaryAssignee._id || primaryAssignee.id || assigneeId,
+        assignedToId: assigneeId,
+        assignedToCode: assigneeCode,
         assignedToName: primaryAssignee.name,
         assignedToEmail: primaryAssignee.email || '',
         assignedToAvatar: primaryAssignee.avatar || '',
         assignedToRole: primaryAssignee.role || 'Team Member',
-        assignedToIds: [primaryAssignee._id],
+        assignedToIds: allAssigneeIds,
         assignees: [{
-          _id: primaryAssignee._id,
-          id: primaryAssignee._id,
+          _id: assigneeId,
+          id: assigneeId,
           name: primaryAssignee.name,
           email: primaryAssignee.email || '',
           avatar: primaryAssignee.avatar || '',
           role: primaryAssignee.role || 'Team Member',
-          employeeCode: primaryAssignee.employeeCode || ''
+          employeeCode: assigneeCode
         }],
-        assignedBy: currentUser?.name || 'Admin',
-        assignedById: currentUser?._id || 'emp_admin',
+        assignedBy: currentUser?.name || 'Administrator',
+        assignedById: currentUserId,
+        assignedByCode: currentUserCode,
         assignedByAvatar: currentUser?.avatar || '',
         assignedByRole: currentUser?.role || 'Administrator',
         status: 'incomplete',
@@ -262,9 +319,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
       });
 
       if (isPersonalTask) {
-        addToast(`Personal task "${formData.title}" added to your queue! (Private to you)`, 'success');
+        addToast(`Personal task "${formData.title}" added to your queue! (Private)`, 'success');
       } else {
-        addToast(`Task "${formData.title}" assigned to ${primaryAssignee?.name || 'assignee'}!`, 'success');
+        addToast(`Task "${formData.title}" assigned to ${primaryAssignee?.name || 'team member'}!`, 'success');
+      }
+
+      if (onTaskCreated && createdTask) {
+        try {
+          onTaskCreated(createdTask);
+        } catch (_) {}
       }
 
       if (andAddMore) {
@@ -762,7 +825,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
 
             {/* Selected Assignee Chip */}
             {formData.assignedToId && (() => {
-              const emp = (employees || []).find(e => e._id === formData.assignedToId);
+              const emp = (employees || []).find(e =>
+                String(e._id) === String(formData.assignedToId) ||
+                String(e.id) === String(formData.assignedToId) ||
+                String(e.employeeCode) === String(formData.assignedToId)
+              ) || (currentUser && (
+                String(currentUser._id) === String(formData.assignedToId) ||
+                String(currentUser.id) === String(formData.assignedToId) ||
+                String(currentUser.employeeCode) === String(formData.assignedToId)
+              ) ? currentUser : null);
               if (!emp) return null;
               return (
                 <div style={{ padding: '2px 0' }}>
@@ -849,12 +920,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null }) => {
                     (emp.department && emp.department.toLowerCase().includes(q));
                 })
                 .map(emp => {
-                  const isSelected = formData.assignedToId === emp._id;
-                  const isMe = emp._id === currentUser?._id;
+                  const empId = String(emp._id || emp.id || emp.employeeCode || '');
+                  const isSelected = String(formData.assignedToId || '') === empId ||
+                    (emp.employeeCode && String(formData.assignedToId || '') === String(emp.employeeCode)) ||
+                    (emp._id && String(formData.assignedToId || '') === String(emp._id));
+                  const isMe = empId === String(currentUser?._id || currentUser?.id || currentUser?.employeeCode);
                   return (
                     <div
-                      key={emp._id}
-                      onClick={() => selectAssignee(emp._id)}
+                      key={empId}
+                      onClick={() => selectAssignee(empId)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

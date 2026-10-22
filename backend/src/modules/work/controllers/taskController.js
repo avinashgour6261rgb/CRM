@@ -145,9 +145,16 @@ exports.createTask = async (req, res, next) => {
       taskCode: req.body.taskCode || `TSK-${count + 1}`
     };
 
-    // Sanitize ObjectId fields
+    // Sanitize ObjectId fields while preserving string IDs
+    const rawAssignedTo = taskData.assignedTo;
     if (!taskData.assignedTo || !mongoose.Types.ObjectId.isValid(taskData.assignedTo)) {
+      taskData.assignedToId = taskData.assignedToId || (rawAssignedTo ? String(rawAssignedTo) : '');
       taskData.assignedTo = null;
+    }
+    if (!taskData.assignedToIds || !Array.isArray(taskData.assignedToIds) || taskData.assignedToIds.length === 0) {
+      if (taskData.assignedToId) {
+        taskData.assignedToIds = [taskData.assignedToId];
+      }
     }
     if (!taskData.project || !mongoose.Types.ObjectId.isValid(taskData.project)) {
       taskData.project = null;
@@ -170,7 +177,13 @@ exports.updateTask = async (req, res, next) => {
   try {
     const updateData = { ...req.body };
     if (updateData.assignedTo !== undefined && (!updateData.assignedTo || !mongoose.Types.ObjectId.isValid(updateData.assignedTo))) {
+      updateData.assignedToId = updateData.assignedToId || (updateData.assignedTo ? String(updateData.assignedTo) : '');
       updateData.assignedTo = null;
+    }
+    if (!updateData.assignedToIds || !Array.isArray(updateData.assignedToIds) || updateData.assignedToIds.length === 0) {
+      if (updateData.assignedToId) {
+        updateData.assignedToIds = [updateData.assignedToId];
+      }
     }
     if (updateData.project !== undefined && (!updateData.project || !mongoose.Types.ObjectId.isValid(updateData.project))) {
       updateData.project = null;

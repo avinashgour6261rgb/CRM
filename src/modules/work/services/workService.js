@@ -41,7 +41,9 @@ const getLocalDateString = (d = new Date()) => `${d.getFullYear()}-${String(d.ge
 const getAuthUser = () => {
   try {
     const s = localStorage.getItem('ems_auth_session');
-    return s ? JSON.parse(s) : null;
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    return parsed?.user || parsed;
   } catch (e) {
     return null;
   }
@@ -51,8 +53,8 @@ const getAuthHeaders = () => {
   const u = getAuthUser();
   if (u) {
     return {
-      'x-user-id': u._id || u.employeeCode || '',
-      'x-user-role': u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member'))
+      'x-user-id': String(u._id || u.id || u.employeeCode || ''),
+      'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
     };
   }
   return {};
@@ -259,9 +261,20 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Silently persist to local mirror without triggering recursive storage events
-            localStorage.setItem(KEYS.TASKS, JSON.stringify(json.data));
-            return json.data;
+            // Silently persist to local mirror without overwriting unsynced local tasks
+            const localList = getCollection(KEYS.TASKS) || [];
+            const remoteList = json.data;
+            const mergedMap = new Map();
+            remoteList.forEach(t => mergedMap.set(String(t._id || t.id), t));
+            localList.forEach(lt => {
+              const id = String(lt._id || lt.id);
+              if (id && !mergedMap.has(id)) {
+                mergedMap.set(id, lt);
+              }
+            });
+            const merged = Array.from(mergedMap.values());
+            localStorage.setItem(KEYS.TASKS, JSON.stringify(merged));
+            return merged;
           }
         }
       } catch (err) {
@@ -270,7 +283,7 @@ export const workService = {
     }
 
     // LocalStorage Fallback
-    let list = getCollection(KEYS.TASKS);
+    let list = getCollection(KEYS.TASKS) || [];
     const authUser = getAuthUser();
     const isPrivileged = authUser && isHRorAdmin(authUser);
     const perms = getUserModulePermissions(authUser);
@@ -279,28 +292,39 @@ export const workService = {
     // Strict tenant isolation: regular employees can ONLY view tasks assigned to or created by them unless granted viewAllTasks
     if (!canViewAll && authUser) {
       list = list.filter(t => {
+        const uId = String(authUser._id || authUser.id || '').toLowerCase();
+        const uCode = String(authUser.employeeCode || '').toLowerCase();
+        const uName = String(authUser.name || '').trim().toLowerCase();
+
         const isDirectAssignee =
-          t.assignedToId === authUser._id ||
-          t.assignedTo === authUser._id ||
-          t.assignedToId === authUser.employeeCode ||
-          t.assignedTo === authUser.employeeCode ||
-          (t.assignedToName && authUser.name && t.assignedToName.toLowerCase() === authUser.name.toLowerCase());
+          (t.assignedToId && (String(t.assignedToId).toLowerCase() === uId || String(t.assignedToId).toLowerCase() === uCode)) ||
+          (t.assignedToCode && String(t.assignedToCode).toLowerCase() === uCode) ||
+          (t.assignedTo && (String(t.assignedTo).toLowerCase() === uId || String(t.assignedTo).toLowerCase() === uCode)) ||
+          (t.assignedToName && t.assignedToName.trim().toLowerCase() === uName);
+
         const isMultiAssignee =
-          (Array.isArray(t.assignedToIds) && (t.assignedToIds.includes(authUser._id) || t.assignedToIds.includes(authUser.employeeCode))) ||
-          (Array.isArray(t.assignees) && t.assignees.some(a => a._id === authUser._id || a.employeeCode === authUser.employeeCode || (a.name && authUser.name && a.name.toLowerCase() === authUser.name.toLowerCase())));
+          (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => String(id).toLowerCase() === uId || String(id).toLowerCase() === uCode)) ||
+          (Array.isArray(t.assignees) && t.assignees.some(a =>
+            String(a._id).toLowerCase() === uId ||
+            String(a.employeeCode).toLowerCase() === uCode ||
+            (a.name && a.name.trim().toLowerCase() === uName)
+          ));
+
         const isCreator =
-          t.assignedById === authUser._id ||
-          t.assignedBy === authUser._id ||
-          t.assignedById === authUser.employeeCode ||
-          (t.assignedBy && authUser.name && t.assignedBy.toLowerCase() === authUser.name.toLowerCase());
+          (t.assignedById && (String(t.assignedById).toLowerCase() === uId || String(t.assignedById).toLowerCase() === uCode)) ||
+          (t.assignedByCode && String(t.assignedByCode).toLowerCase() === uCode) ||
+          (t.assignedBy && (String(t.assignedBy).toLowerCase() === uId || t.assignedBy.trim().toLowerCase() === uName));
+
         return isDirectAssignee || isMultiAssignee || isCreator;
       });
     } else if (filters.assignedTo && filters.assignedTo !== 'all') {
+      const targetFilter = String(filters.assignedTo).toLowerCase();
       list = list.filter(t =>
-        t.assignedToId === filters.assignedTo ||
-        t.assignedTo === filters.assignedTo ||
-        (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(filters.assignedTo)) ||
-        (Array.isArray(t.assignees) && t.assignees.some(a => a._id === filters.assignedTo || a.employeeCode === filters.assignedTo))
+        String(t.assignedToId).toLowerCase() === targetFilter ||
+        String(t.assignedTo).toLowerCase() === targetFilter ||
+        String(t.assignedToCode).toLowerCase() === targetFilter ||
+        (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => String(id).toLowerCase() === targetFilter)) ||
+        (Array.isArray(t.assignees) && t.assignees.some(a => String(a._id).toLowerCase() === targetFilter || String(a.employeeCode).toLowerCase() === targetFilter))
       );
     }
 
@@ -366,7 +390,7 @@ export const workService = {
       }
     }
 
-    const tasks = getCollection(KEYS.TASKS);
+    const tasks = getCollection(KEYS.TASKS) || [];
     const code = taskData.taskCode || `${taskData.projectCode || 'TSK'}-${tasks.length + 1}`;
     const nowIso = new Date().toISOString();
     const authUser = getAuthUser();
@@ -404,6 +428,7 @@ export const workService = {
     };
     tasks.unshift(newTask);
     saveCollection(KEYS.TASKS, tasks);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
     return newTask;
   },
 

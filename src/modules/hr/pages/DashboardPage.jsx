@@ -126,6 +126,7 @@ export const DashboardPage = () => {
   const [isPendingTasksModalOpen, setIsPendingTasksModalOpen] = useState(false);
   const [pendingTasksModalFilter, setPendingTasksModalFilter] = useState('all');
   const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
+  const [dashboardTaskScope, setDashboardTaskScope] = useState('assigned_to_me'); // 'assigned_to_me' | 'delegated' | 'all'
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
 
   // Projects pending final sign-off
@@ -711,12 +712,30 @@ export const DashboardPage = () => {
     return (tasks || []).filter(t => isTaskAssignedToUser(t, currentUser));
   }, [tasks, currentUser]);
 
-  // Tasks delegated / assigned by this user (Admin / HR)
+  // Tasks delegated / assigned by this user (Admin / HR / Team Member)
   const delegatedByMeTasks = React.useMemo(() => {
-    return (tasks || []).filter(t =>
-      (t?.assignedBy === currentUser?.name || t?.assignedById === currentUser?._id) &&
-      !isTaskAssignedToUser(t, currentUser)
-    );
+    if (!currentUser) return [];
+    const myIds = [currentUser._id, currentUser.id, currentUser.employeeCode].filter(Boolean).map(s => String(s).toLowerCase());
+    const myName = (currentUser.name || '').trim().toLowerCase();
+    return (tasks || []).filter(t => {
+      if (!t) return false;
+      const assignerId = String(t.assignedById || t.createdById || '').toLowerCase();
+      const assignerCode = String(t.assignedByCode || '').toLowerCase();
+      const assignerName = String(t.assignedBy || t.createdBy || '').trim().toLowerCase();
+      const isByMe = (assignerId && myIds.includes(assignerId)) ||
+        (assignerCode && myIds.includes(assignerCode)) ||
+        (assignerName && assignerName === myName);
+      return isByMe && !isTaskAssignedToUser(t, currentUser);
+    });
+  }, [tasks, currentUser]);
+
+  // All visible team tasks
+  const allTeamTasks = React.useMemo(() => {
+    return (tasks || []).filter(t => {
+      if (!t) return false;
+      if (!t.isPersonal) return true;
+      return isTaskAssignedToUser(t, currentUser) || String(t.assignedById) === String(currentUser?._id);
+    });
   }, [tasks, currentUser]);
 
   // Base Scoped Tasks
@@ -906,6 +925,34 @@ export const DashboardPage = () => {
       return isFutureStart || isFutureDue;
     }).sort((a, b) => (a.startDate || a.dueDate || '').localeCompare(b.startDate || b.dueDate || ''));
   }, [myPendingTasks, todayStr]);
+
+  // Current active pool of tasks displayed in the Dashboard tasks section
+  const currentScopePool = React.useMemo(() => {
+    if (dashboardTaskScope === 'delegated') return delegatedByMeTasks;
+    if (dashboardTaskScope === 'all') return allTeamTasks;
+    return myTasks;
+  }, [dashboardTaskScope, delegatedByMeTasks, allTeamTasks, myTasks]);
+
+  const poolPendingTasks = React.useMemo(() => currentScopePool.filter(t => !isTaskActuallyCompleted(t)), [currentScopePool]);
+  const poolCompletedTasks = React.useMemo(() => currentScopePool.filter(t => isTaskActuallyCompleted(t)), [currentScopePool]);
+  const poolInProgressTasksCount = React.useMemo(() => poolPendingTasks.filter(t => t.status === 'in_progress' || t.timerRunning).length, [poolPendingTasks]);
+  const poolLeftoverTasks = React.useMemo(() => {
+    return poolPendingTasks.filter(t => {
+      if (t.isUntimed || t.hasNoDueDate) return false;
+      if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
+      if (t.reminderDismissed) return false;
+      const isPastDue = t.dueDate && t.dueDate < todayStr;
+      const isPastStart = !t.dueDate && t.startDate && t.startDate < todayStr;
+      return isPastDue || isPastStart;
+    }).sort((a, b) => (a.dueDate || a.startDate || '').localeCompare(b.dueDate || b.startDate || ''));
+  }, [poolPendingTasks, todayStr]);
+  const poolFutureTasks = React.useMemo(() => {
+    return poolPendingTasks.filter(t => {
+      const isFutureStart = t.startDate && t.startDate > todayStr;
+      const isFutureDue = t.dueDate && t.dueDate > todayStr && (!t.startDate || t.startDate > todayStr);
+      return isFutureStart || isFutureDue;
+    }).sort((a, b) => (a.startDate || a.dueDate || '').localeCompare(b.startDate || b.dueDate || ''));
+  }, [poolPendingTasks, todayStr]);
 
   // Company-wide stats for Admin Overview
   const allTasksList = tasks || [];
@@ -4026,29 +4073,111 @@ export const DashboardPage = () => {
               <ListTodo size={18} color="#0284c7" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                  My Tasks
+                  {dashboardTaskScope === 'delegated' ? 'Delegated Tasks' : (dashboardTaskScope === 'all' ? 'All Company Tasks' : 'My Tasks')}
                 </h3>
                 <span style={{
                   fontSize: '11px',
                   fontWeight: '700',
-                  color: '#0284c7',
-                  backgroundColor: '#e0f2fe',
+                  color: dashboardTaskScope === 'delegated' ? '#7c3aed' : '#0284c7',
+                  backgroundColor: dashboardTaskScope === 'delegated' ? '#f3e8ff' : '#e0f2fe',
                   padding: '1px 7px',
                   borderRadius: '10px'
                 }}>
-                  {myTasks.length} Assigned
+                  {currentScopePool.length} {dashboardTaskScope === 'delegated' ? 'Delegated' : (dashboardTaskScope === 'all' ? 'Total' : 'Assigned')}
                 </span>
               </div>
               <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
-                {effectiveTargetUser?.name || 'Employee'}'s current assignments, priority levels & status
+                {dashboardTaskScope === 'delegated'
+                  ? `Tasks assigned by ${currentUser?.name || 'you'} to other team members`
+                  : (dashboardTaskScope === 'all'
+                    ? 'All company & team tasks across all projects'
+                    : `${effectiveTargetUser?.name || 'Employee'}'s current assignments, priority levels & status`)}
               </p>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Filter Pills */}
+            {/* Primary Task Scope Switcher: Assigned to Me vs Delegated by Me vs All */}
+            <div style={{
+              display: 'flex',
+              gap: '3px',
+              backgroundColor: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <button
+                type="button"
+                onClick={() => { setDashboardTaskScope('assigned_to_me'); setDashboardTaskTab('pending'); }}
+                style={{
+                  border: 'none',
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  backgroundColor: dashboardTaskScope === 'assigned_to_me' ? '#ffffff' : 'transparent',
+                  color: dashboardTaskScope === 'assigned_to_me' ? '#0284c7' : '#64748b',
+                  boxShadow: dashboardTaskScope === 'assigned_to_me' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📥 Assigned to Me ({myTasks.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setDashboardTaskScope('delegated'); setDashboardTaskTab('all'); }}
+                style={{
+                  border: 'none',
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  backgroundColor: dashboardTaskScope === 'delegated' ? '#ffffff' : 'transparent',
+                  color: dashboardTaskScope === 'delegated' ? '#7c3aed' : '#64748b',
+                  boxShadow: dashboardTaskScope === 'delegated' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📤 Delegated ({delegatedByMeTasks.length})</span>
+              </button>
+
+              {(isUserAdminOrHR || perms?.viewAllTasks) && (
+                <button
+                  type="button"
+                  onClick={() => { setDashboardTaskScope('all'); setDashboardTaskTab('all'); }}
+                  style={{
+                    border: 'none',
+                    padding: '4px 9px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    backgroundColor: dashboardTaskScope === 'all' ? '#ffffff' : 'transparent',
+                    color: dashboardTaskScope === 'all' ? '#0f172a' : '#64748b',
+                    boxShadow: dashboardTaskScope === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>🏢 All ({allTeamTasks.length})</span>
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter Pills */}
             <div style={{
               display: 'flex',
               gap: '4px',
@@ -4057,21 +4186,21 @@ export const DashboardPage = () => {
               borderRadius: '8px'
             }}>
               {[
-                { id: 'pending', label: `Pending (${myPendingTasks.length})` },
-                ...(myLeftoverTasks.length > 0 ? [{ id: 'leftover', label: `⏮️ Leftover (${myLeftoverTasks.length})` }] : []),
-                ...(myFutureTasks.length > 0 ? [{ id: 'future', label: `📅 Future (${myFutureTasks.length})` }] : []),
-                { id: 'in_progress', label: `In Progress (${myInProgressTasksCount})` },
-                { id: 'completed', label: `Completed (${myCompletedTasks.length})` },
-                { id: 'all', label: `All (${myTasks.length})` }
+                { id: 'pending', label: `Pending (${poolPendingTasks.length})` },
+                ...(poolLeftoverTasks.length > 0 ? [{ id: 'leftover', label: `⏮️ Leftover (${poolLeftoverTasks.length})` }] : []),
+                ...(poolFutureTasks.length > 0 ? [{ id: 'future', label: `📅 Future (${poolFutureTasks.length})` }] : []),
+                { id: 'in_progress', label: `In Progress (${poolInProgressTasksCount})` },
+                { id: 'completed', label: `Completed (${poolCompletedTasks.length})` },
+                { id: 'all', label: `All (${currentScopePool.length})` }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setDashboardTaskTab(tab.id)}
                   style={{
                     border: 'none',
-                    padding: '4px 10px',
+                    padding: '4px 9px',
                     borderRadius: '6px',
-                    fontSize: '11.5px',
+                    fontSize: '11px',
                     fontWeight: '700',
                     cursor: 'pointer',
                     backgroundColor: dashboardTaskTab === tab.id ? '#ffffff' : 'transparent',
@@ -4130,6 +4259,7 @@ export const DashboardPage = () => {
               <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
                 <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task#</th>
                 <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task Title</th>
+                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Assignee</th>
                 <th style={{ padding: '8px 6px', fontWeight: '600' }}>Project</th>
                 <th style={{ padding: '8px 6px', fontWeight: '600' }}>Priority</th>
                 <th style={{ padding: '8px 6px', fontWeight: '600' }}>Due Date</th>
@@ -4138,7 +4268,7 @@ export const DashboardPage = () => {
               </tr>
             </thead>
             <tbody>
-              {myTasks
+              {currentScopePool
                 .filter(t => {
                   if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
                   if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
@@ -4149,12 +4279,12 @@ export const DashboardPage = () => {
                 })
                 .length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '24px 8px', textAlign: 'center', color: '#94a3b8' }}>
-                    No tasks found under "{dashboardTaskTab.replace('_', ' ')}". Click "Add Task" to create one.
+                  <td colSpan={8} style={{ padding: '24px 8px', textAlign: 'center', color: '#94a3b8' }}>
+                    No tasks found under "{dashboardTaskTab.replace('_', ' ')}"{dashboardTaskScope === 'delegated' ? ' in delegated tasks' : ''}. Click "Add Task" to create one.
                   </td>
                 </tr>
               ) : (
-                myTasks
+                currentScopePool
                   .filter(t => {
                     if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
                     if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
@@ -4187,7 +4317,7 @@ export const DashboardPage = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <span
                               onClick={() => setSelectedTask(task)}
-                              style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}
+                              style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}
                               title="Click to view task details"
                             >
                               {task.title}
@@ -4199,10 +4329,29 @@ export const DashboardPage = () => {
                             )}
                           </div>
                           {task.description && (
-                            <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+                            <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>
                               {task.description}
                             </div>
                           )}
+                        </td>
+                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <img
+                              src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                              alt={task.assignedToName}
+                              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }}
+                            />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
+                                {task.assignedToName || 'Unassigned'}
+                              </span>
+                              {task.assignedBy && task.assignedBy !== task.assignedToName && (
+                                <span style={{ fontSize: '9.5px', color: '#64748b' }}>
+                                  by {task.assignedBy}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td style={{ padding: '8px 6px', color: '#475569', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
                           {task.projectName || 'General Work'}
@@ -5415,6 +5564,15 @@ export const DashboardPage = () => {
       <AddTaskModal
         isOpen={isAddTaskOpen}
         onClose={() => setIsAddTaskOpen(false)}
+        onTaskCreated={(newTask) => {
+          if (newTask && !isTaskAssignedToUser(newTask, currentUser)) {
+            setDashboardTaskScope('delegated');
+            setDashboardTaskTab('all');
+          } else {
+            setDashboardTaskScope('assigned_to_me');
+            setDashboardTaskTab('all');
+          }
+        }}
       />
 
       <SnoozeTaskModal

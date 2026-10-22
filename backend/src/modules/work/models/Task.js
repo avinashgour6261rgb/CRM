@@ -118,6 +118,10 @@ const TaskSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    assignedToCode: {
+      type: String,
+      default: ''
+    },
     // Multi-Assignee & Team Delegation
     assignedToIds: [
       {
@@ -134,6 +138,10 @@ const TaskSchema = new mongoose.Schema(
     assignedById: {
       type: String,
       trim: true,
+      default: ''
+    },
+    assignedByCode: {
+      type: String,
       default: ''
     },
     assignedByAvatar: {
@@ -163,6 +171,10 @@ const TaskSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
       default: null
+    },
+    isPersonal: {
+      type: Boolean,
+      default: false
     },
     isPrivate: {
       type: Boolean,

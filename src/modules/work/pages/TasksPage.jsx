@@ -58,76 +58,58 @@ export const TasksPage = () => {
     if (!canViewAllTasks && currentUser) {
       if (scopeMode === 'all') {
         setScopeMode('assigned_to_me');
-        setTaskFilter(prev => ({
-          ...prev,
-          assignedTo: currentUser._id || '',
-          assignedBy: 'all'
-        }));
       }
     }
-  }, [canViewAllTasks, currentUser, scopeMode, setTaskFilter]);
+  }, [canViewAllTasks, currentUser, scopeMode]);
 
-  // Handle Scope Switching
+  // Handle Scope Switching in UI
   const handleScopeChange = (mode) => {
     setScopeMode(mode);
-    if (mode === 'personal') {
-      setTaskFilter(prev => ({
-        ...prev,
-        assignedTo: currentUser?._id || '',
-        assignedBy: 'all'
-      }));
-    } else if (mode === 'assigned_to_me') {
-      setTaskFilter(prev => ({
-        ...prev,
-        assignedTo: currentUser?._id || '',
-        assignedBy: 'all'
-      }));
-    } else if (mode === 'assigned_by_me') {
-      setTaskFilter(prev => ({
-        ...prev,
-        assignedTo: 'all',
-        assignedBy: currentUser?._id || currentUser?.name || 'Admin'
-      }));
-    } else {
-      setTaskFilter(prev => ({
-        ...prev,
-        assignedTo: 'all',
-        assignedBy: 'all'
-      }));
-    }
   };
 
   // Handle Quick Status Tab Switching
   const handleStatusModeChange = (mode) => {
     setStatusMode(mode);
-    if (mode === 'active') {
-      setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
-    } else if (mode === 'completed') {
-      setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: 'completed' }));
-    } else if (mode === 'leftover') {
-      setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
-    } else if (mode === 'future') {
-      setTaskFilter(prev => ({ ...prev, hideCompleted: true, status: 'all' }));
-    } else {
-      setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: 'all' }));
-    }
   };
 
   // Match task assignment (single and multi-assignee)
   const isTaskAssignedToUser = React.useCallback((task, user) => {
     if (!task || !user) return false;
-    const uId = String(user._id || user.id || '');
-    const uCode = String(user.employeeCode || '');
+    const uIds = [user._id, user.id, user.employeeCode, user.email].filter(Boolean).map(s => String(s).toLowerCase());
     const uName = (user.name || '').toLowerCase().trim();
 
-    if (task.assignedToId && (String(task.assignedToId) === uId || String(task.assignedToId) === uCode)) return true;
-    if (task.assignedTo && (String(task.assignedTo) === uId || String(task.assignedTo) === uCode)) return true;
+    const directAssignedTo = (task.assignedTo && typeof task.assignedTo === 'object')
+      ? String(task.assignedTo._id || task.assignedTo.id || '')
+      : String(task.assignedTo || '');
+
+    const directIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToCode, task.assignedToEmail]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase());
+
+    if (uIds.some(uid => directIds.includes(uid))) return true;
+
     if (task.assignedToName && task.assignedToName.toLowerCase().trim() === uName) return true;
 
-    if (Array.isArray(task.assignedToIds) && (task.assignedToIds.includes(uId) || task.assignedToIds.includes(uCode))) return true;
-    if (Array.isArray(task.assignees) && task.assignees.some(a => String(a._id) === uId || String(a.employeeCode) === uCode || (a.name && a.name.toLowerCase().trim() === uName))) return true;
+    if (Array.isArray(task.assignedToIds) && task.assignedToIds.some(id => uIds.includes(String(id).toLowerCase()))) return true;
+    if (Array.isArray(task.assignees) && task.assignees.some(a => {
+      const aIds = [a._id, a.id, a.employeeCode, a.email].filter(Boolean).map(s => String(s).toLowerCase());
+      if (uIds.some(uid => aIds.includes(uid))) return true;
+      if (a.name && a.name.toLowerCase().trim() === uName) return true;
+      return false;
+    })) return true;
 
     return false;
+  }, []);
+
+  // Match task creation/delegation by a user
+  const isTaskDelegatedByUser = React.useCallback((task, user) => {
+    if (!task || !user) return false;
+    const uIds = [user._id, user.id, user.employeeCode].filter(Boolean).map(s => String(s).toLowerCase());
+    const uName = (user.name || '').trim().toLowerCase();
+    const aId = String(task.assignedById || task.createdById || '').toLowerCase();
+    const aCode = String(task.assignedByCode || '').toLowerCase();
+    const aName = String(task.assignedBy || task.createdBy || '').trim().toLowerCase();
+    return (aId && uIds.includes(aId)) || (aCode && uIds.includes(aCode)) || (aName && aName === uName);
   }, []);
 
   // Filtered & strictly scoped tasks with personal task privacy isolation
@@ -153,21 +135,25 @@ export const TasksPage = () => {
       return isMyTask;
     });
 
-    // 1. Role-based tenant isolation: Regular employees can strictly only view tasks assigned to or created by them
+    // 1. Role-based scope filtering (Assigned to Me vs Delegated by Me vs All vs Personal)
     if (!canViewAllTasks && currentUser) {
       if (scopeMode === 'personal') {
-        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id));
+        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || isTaskDelegatedByUser(t, currentUser)));
+      } else if (scopeMode === 'assigned_to_me') {
+        list = list.filter(t => isTaskAssignedToUser(t, currentUser));
+      } else if (scopeMode === 'assigned_by_me') {
+        list = list.filter(t => isTaskDelegatedByUser(t, currentUser) && !isTaskAssignedToUser(t, currentUser));
       } else {
-        list = list.filter(t => isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser._id || t.assignedBy === currentUser.name);
+        list = list.filter(t => isTaskAssignedToUser(t, currentUser) || isTaskDelegatedByUser(t, currentUser));
       }
     } else {
       // Admin / HR scope filtering
       if (scopeMode === 'personal') {
-        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || t.assignedById === currentUser?._id));
+        list = list.filter(t => t.isPersonal && (isTaskAssignedToUser(t, currentUser) || isTaskDelegatedByUser(t, currentUser)));
       } else if (scopeMode === 'assigned_to_me') {
         list = list.filter(t => isTaskAssignedToUser(t, currentUser));
       } else if (scopeMode === 'assigned_by_me') {
-        list = list.filter(t => (t.assignedById === currentUser?._id || t.assignedBy === currentUser?.name) && !t.isPersonal);
+        list = list.filter(t => isTaskDelegatedByUser(t, currentUser) && !t.isPersonal);
       }
     }
 
@@ -881,6 +867,13 @@ export const TasksPage = () => {
       <AddTaskModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        onTaskCreated={(newTask) => {
+          if (newTask && !isTaskAssignedToMe(newTask)) {
+            setTaskScopeFilter('assigned_by_me');
+          } else {
+            setTaskScopeFilter('assigned_to_me');
+          }
+        }}
       />
 
       {/* Task Detail Modal */}
