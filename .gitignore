@@ -4,19 +4,36 @@ backend/node_modules/
 .pnp
 .pnp.js
 
-# Production builds
+# Production builds & Caches
 dist/
 dist-ssr/
 build/
+out/
+.vite/
+.cache/
+.parcel-cache/
+.eslintcache
+.tempmediaStorage/
 *.local
 *.tsbuildinfo
 
-# Environment and sensitive configuration files (Passwords, DB keys)
-.env
-.env.*
-*.env
-backend/.env
-backend/.env.*
+# Environment & Sensitive Secrets (Passwords, DB keys, Tokens)
+**/.env
+**/.env.*
+**/*.env
+!**/.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Database & Storage files
+*.sqlite
+*.sqlite3
+*.db
+dump.rdb
 
 # Logs & Debugging
 npm-debug.log*
@@ -36,6 +53,8 @@ logs/
 ehthumbs.db
 Thumbs.db
 desktop.ini
+[Dd]esktop.ini
+[Tt]humbs.db
 
 # IDE & Editor specific files
 .vscode/
@@ -45,16 +64,23 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+*.temp
 *.sublime-project
 *.sublime-workspace
 
-# Cache & Temporary Storage
-.cache/
-.parcel-cache/
-.eslintcache
-.tempmediaStorage/
+# AI & Assistant configs
+.agents/
+.gemini/
+.claude/
+.cursor/
+.windsurf/
 
 # Documentation & Local notes (excluded from git)
 DEPLOYMENT.md
-.agents/
+
 
