@@ -261,17 +261,52 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Silently persist to local mirror without overwriting unsynced local tasks
+            // Silently persist to local mirror without overwriting live/accumulated timer data
             const localList = getCollection(KEYS.TASKS) || [];
             const remoteList = json.data;
             const mergedMap = new Map();
-            remoteList.forEach(t => mergedMap.set(String(t._id || t.id), t));
+
+            // 1. Seed with local tasks first
             localList.forEach(lt => {
               const id = String(lt._id || lt.id);
-              if (id && !mergedMap.has(id)) {
-                mergedMap.set(id, lt);
+              if (id) mergedMap.set(id, lt);
+            });
+
+            // 2. Merge remote tasks without wiping local timer progress
+            remoteList.forEach(rt => {
+              const id = String(rt._id || rt.id);
+              if (!id) return;
+              const local = mergedMap.get(id);
+              if (local) {
+                const localTimerSecs = Number(local.timerSeconds) || 0;
+                const remoteTimerSecs = Number(rt.timerSeconds) || 0;
+                const localAccum = Number(local.accumulatedSeconds) || 0;
+                const remoteAccum = Number(rt.accumulatedSeconds) || 0;
+                const localHoursLogged = Number(local.hoursLogged) || 0;
+                const remoteHoursLogged = Number(rt.hoursLogged) || 0;
+
+                const isLocalActive = Boolean(local.timerRunning || local.startedAt);
+                const maxSecs = Math.max(localTimerSecs, remoteTimerSecs);
+                const maxAccum = Math.max(localAccum, remoteAccum);
+                const maxHours = Math.max(localHoursLogged, remoteHoursLogged);
+
+                mergedMap.set(id, {
+                  ...rt,
+                  ...local,
+                  timerRunning: isLocalActive ? true : (rt.timerRunning ?? local.timerRunning ?? false),
+                  startedAt: isLocalActive ? (local.startedAt || rt.startedAt) : (rt.startedAt ?? local.startedAt ?? null),
+                  timerSeconds: maxSecs,
+                  accumulatedSeconds: maxAccum,
+                  hoursLogged: maxHours,
+                  hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
+                  sessionDate: local.sessionDate || rt.sessionDate,
+                  status: local.status === 'completed' ? 'completed' : (rt.status || local.status)
+                });
+              } else {
+                mergedMap.set(id, rt);
               }
             });
+
             const merged = Array.from(mergedMap.values());
             localStorage.setItem(KEYS.TASKS, JSON.stringify(merged));
             return merged;
@@ -641,11 +676,26 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            // Silently persist to local mirror without triggering recursive storage events
-            localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(json.data));
+          if (Array.isArray(json.data)) {
+            const localTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+            const remoteTimesheets = json.data;
+            const tsMap = new Map();
+            remoteTimesheets.forEach(ts => {
+              const id = String(ts._id || ts.id);
+              if (id) tsMap.set(id, ts);
+            });
+            localTimesheets.forEach(lts => {
+              const id = String(lts._id || lts.id);
+              if (id && !tsMap.has(id)) {
+                tsMap.set(id, lts);
+              }
+            });
+            const merged = Array.from(tsMap.values());
+            if (merged.length > 0) {
+              localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
+            }
+            return merged;
           }
-          return json.data;
         }
       } catch (err) {
         console.warn('Backend timesheet fetch failed, using local storage:', err);

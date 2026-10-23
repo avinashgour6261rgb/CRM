@@ -108,7 +108,7 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        
+
         {/* Header */}
         <div style={{
           padding: '20px 24px',
@@ -350,7 +350,7 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
           borderRadius: '0 0 18px 18px'
         }}>
           <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-            Enterprise Management System v5.4.0
+            Enterprise Management System v1.0.0
           </span>
 
           <button

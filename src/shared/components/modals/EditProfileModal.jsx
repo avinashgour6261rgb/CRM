@@ -693,66 +693,36 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             </div>
           </div>
 
-          {/* Working Mode (Office / Remote / Hybrid) & Employee ID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                🏢 Working Mode
+          {/* Employee ID / Code */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                🆔 Employee ID / Code
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
-                {['Office', 'Remote', 'Hybrid'].map(mode => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => handleChange('workingMode', mode)}
-                    style={{
-                      padding: '7px 4px',
-                      borderRadius: '8px',
-                      border: formData.workingMode === mode ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                      background: formData.workingMode === mode ? '#eff6ff' : '#ffffff',
-                      color: formData.workingMode === mode ? '#1d4ed8' : '#475569',
-                      fontWeight: formData.workingMode === mode ? '700' : '500',
-                      fontSize: '11.5px',
-                      cursor: 'pointer',
-                      textAlign: 'center'
-                    }}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
+              {!isActorAdmin && (
+                <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
+                  🔒 Fixed
+                </span>
+              )}
             </div>
-
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-                  🆔 Employee ID / Code
-                </label>
-                {!isActorAdmin && (
-                  <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
-                    🔒 Fixed
-                  </span>
-                )}
-              </div>
-              <input
-                type="text"
-                disabled={!isActorAdmin}
-                value={formData.employeeCode}
-                onChange={e => handleChange('employeeCode', e.target.value)}
-                placeholder="EMP-001"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  fontWeight: '600',
-                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
-                  color: isActorAdmin ? '#0f172a' : '#64748b'
-                }}
-              />
-            </div>
+            <input
+              type="text"
+              disabled={!isActorAdmin}
+              value={formData.employeeCode}
+              onChange={e => handleChange('employeeCode', e.target.value)}
+              placeholder="EMP-001"
+              style={{
+                width: '100%',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13.5px',
+                outline: 'none',
+                fontWeight: '600',
+                backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
+                color: isActorAdmin ? '#0f172a' : '#64748b'
+              }}
+            />
           </div>
 
           {/* Bio */}

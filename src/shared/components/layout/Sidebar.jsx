@@ -283,131 +283,45 @@ export const Sidebar = () => {
 
         {/* Leads - Core CRM Prospect & Deal Pipeline Section */}
         {canAccessModule(currentUser, 'leads') && (
-        <div>
-          <div
-            onClick={() => toggleSection('leads')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: isLeadsActive ? '#ffffff' : '#94a3b8',
-              backgroundColor: isLeadsActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-              fontSize: '13.5px',
-              fontWeight: isLeadsActive ? '600' : '500',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Users2 size={18} color={isLeadsActive ? '#3b82f6' : '#94a3b8'} />
-              {!collapsed && <span>Leads</span>}
-            </div>
-            {!collapsed && (
-              leadsExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
-            )}
-          </div>
-
-          {/* Submenu for Leads */}
-          {leadsExpanded && (
-            <div style={{
-              marginTop: '4px',
-              marginLeft: collapsed ? '0' : '16px',
-              paddingLeft: collapsed ? '0' : '12px',
-              borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px'
-            }}>
-              <NavLink
-                to="/lead-contact"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <UserCheck size={15} />
-                {!collapsed && <span>Lead Contact</span>}
-              </NavLink>
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* HR - Dedicated Personnel & Attendance Section */}
-        {(canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance')) && (
-        <div>
-          <div
-            onClick={() => toggleSection('hr')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: isHrActive ? '#ffffff' : '#94a3b8',
-              backgroundColor: isHrActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-              fontSize: '13.5px',
-              fontWeight: isHrActive ? '600' : '500',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Briefcase size={18} color={isHrActive ? '#3b82f6' : '#94a3b8'} />
-              {!collapsed && <span>HR</span>}
-            </div>
-            {!collapsed && (
-              hrExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
-            )}
-          </div>
-
-          {/* Submenu for HR */}
-          {hrExpanded && (
-            <div style={{
-              marginTop: '4px',
-              marginLeft: collapsed ? '0' : '16px',
-              paddingLeft: collapsed ? '0' : '12px',
-              borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px'
-            }}>
-              {canAccessModule(currentUser, 'leaves') && (
-                <NavLink
-                  to="/leaves"
-                  style={({ isActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    color: isActive ? '#ffffff' : '#94a3b8',
-                    backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                    textDecoration: 'none',
-                    fontSize: '13px',
-                    fontWeight: isActive ? '600' : '400',
-                    transition: 'all 0.15s ease'
-                  })}
-                >
-                  <Palmtree size={15} />
-                  {!collapsed && <span>Leaves</span>}
-                </NavLink>
+          <div>
+            <div
+              onClick={() => toggleSection('leads')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                color: isLeadsActive ? '#ffffff' : '#94a3b8',
+                backgroundColor: isLeadsActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                fontSize: '13.5px',
+                fontWeight: isLeadsActive ? '600' : '500',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Users2 size={18} color={isLeadsActive ? '#3b82f6' : '#94a3b8'} />
+                {!collapsed && <span>Leads</span>}
+              </div>
+              {!collapsed && (
+                leadsExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
               )}
+            </div>
 
-              {canAccessModule(currentUser, 'attendance') && (
+            {/* Submenu for Leads */}
+            {leadsExpanded && (
+              <div style={{
+                marginTop: '4px',
+                marginLeft: collapsed ? '0' : '16px',
+                paddingLeft: collapsed ? '0' : '12px',
+                borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}>
                 <NavLink
-                  to="/attendance"
+                  to="/lead-contact"
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
@@ -423,53 +337,98 @@ export const Sidebar = () => {
                   })}
                 >
                   <UserCheck size={15} />
-                  {!collapsed && <span>Attendance</span>}
+                  {!collapsed && <span>Lead Contact</span>}
                 </NavLink>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* HR - Dedicated Personnel & Attendance Section */}
+        {(canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance')) && (
+          <div>
+            <div
+              onClick={() => toggleSection('hr')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                color: isHrActive ? '#ffffff' : '#94a3b8',
+                backgroundColor: isHrActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                fontSize: '13.5px',
+                fontWeight: isHrActive ? '600' : '500',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Briefcase size={18} color={isHrActive ? '#3b82f6' : '#94a3b8'} />
+                {!collapsed && <span>HR</span>}
+              </div>
+              {!collapsed && (
+                hrExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
               )}
+            </div>
 
-              <NavLink
-                to="/holiday"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <CalendarCheck size={15} />
-                {!collapsed && <span>Holiday</span>}
-              </NavLink>
+            {/* Submenu for HR */}
+            {hrExpanded && (
+              <div style={{
+                marginTop: '4px',
+                marginLeft: collapsed ? '0' : '16px',
+                paddingLeft: collapsed ? '0' : '12px',
+                borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}>
+                {canAccessModule(currentUser, 'leaves') && (
+                  <NavLink
+                    to="/leaves"
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.15s ease'
+                    })}
+                  >
+                    <Palmtree size={15} />
+                    {!collapsed && <span>Leaves</span>}
+                  </NavLink>
+                )}
 
-              <NavLink
-                to="/appreciation"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <Award size={15} />
-                {!collapsed && <span>Appreciation</span>}
-              </NavLink>
+                {canAccessModule(currentUser, 'attendance') && (
+                  <NavLink
+                    to="/attendance"
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.15s ease'
+                    })}
+                  >
+                    <UserCheck size={15} />
+                    {!collapsed && <span>Attendance</span>}
+                  </NavLink>
+                )}
 
-              {(isHRorAdmin || canAccessModule(currentUser, 'documentation') || currentUser?.isDelegatedAdmin) && (
                 <NavLink
-                  to="/documents"
+                  to="/holiday"
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
@@ -484,57 +443,119 @@ export const Sidebar = () => {
                     transition: 'all 0.15s ease'
                   })}
                 >
-                  <FolderGit2 size={15} />
-                  {!collapsed && <span>Documents & KYC</span>}
+                  <CalendarCheck size={15} />
+                  {!collapsed && <span>Holiday</span>}
                 </NavLink>
-              )}
-            </div>
-          )}
-        </div>
+
+                <NavLink
+                  to="/appreciation"
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    color: isActive ? '#ffffff' : '#94a3b8',
+                    backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '600' : '400',
+                    transition: 'all 0.15s ease'
+                  })}
+                >
+                  <Award size={15} />
+                  {!collapsed && <span>Appreciation</span>}
+                </NavLink>
+
+                {(isHRorAdmin || canAccessModule(currentUser, 'documentation') || currentUser?.isDelegatedAdmin) && (
+                  <NavLink
+                    to="/documents"
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.15s ease'
+                    })}
+                  >
+                    <FolderGit2 size={15} />
+                    {!collapsed && <span>Documents & KYC</span>}
+                  </NavLink>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Work - Core Daily Work Section */}
         {canAccessModule(currentUser, 'tasks') && (
-        <div>
-          <div
-            onClick={() => toggleSection('work')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: isWorkActive ? '#ffffff' : '#94a3b8',
-              backgroundColor: isWorkActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-              fontSize: '13.5px',
-              fontWeight: isWorkActive ? '600' : '500',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Layers size={18} color={isWorkActive ? '#3b82f6' : '#94a3b8'} />
-              {!collapsed && <span>Work</span>}
+          <div>
+            <div
+              onClick={() => toggleSection('work')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                color: isWorkActive ? '#ffffff' : '#94a3b8',
+                backgroundColor: isWorkActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                fontSize: '13.5px',
+                fontWeight: isWorkActive ? '600' : '500',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Layers size={18} color={isWorkActive ? '#3b82f6' : '#94a3b8'} />
+                {!collapsed && <span>Work</span>}
+              </div>
+              {!collapsed && (
+                workExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
+              )}
             </div>
-            {!collapsed && (
-              workExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
-            )}
-          </div>
 
-          {/* Submenu for Work */}
-          {workExpanded && (
-            <div style={{
-              marginTop: '4px',
-              marginLeft: collapsed ? '0' : '16px',
-              paddingLeft: collapsed ? '0' : '12px',
-              borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px'
-            }}>
-              {(isLeaderOrAbove || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+            {/* Submenu for Work */}
+            {workExpanded && (
+              <div style={{
+                marginTop: '4px',
+                marginLeft: collapsed ? '0' : '16px',
+                paddingLeft: collapsed ? '0' : '12px',
+                borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}>
+                {(isLeaderOrAbove || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+                  <NavLink
+                    to="/projects"
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.15s ease'
+                    })}
+                  >
+                    <FolderGit2 size={15} />
+                    {!collapsed && <span>Projects</span>}
+                  </NavLink>
+                )}
+
                 <NavLink
-                  to="/projects"
+                  to="/tasks"
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
@@ -549,117 +570,75 @@ export const Sidebar = () => {
                     transition: 'all 0.15s ease'
                   })}
                 >
-                  <FolderGit2 size={15} />
-                  {!collapsed && <span>Projects</span>}
+                  <ListTodo size={15} />
+                  {!collapsed && <span>Tasks</span>}
                 </NavLink>
-              )}
 
-              <NavLink
-                to="/tasks"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <ListTodo size={15} />
-                {!collapsed && <span>Tasks</span>}
-              </NavLink>
-
-              <NavLink
-                to="/timesheet"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <Clock size={15} />
-                {!collapsed && <span>Timesheet</span>}
-              </NavLink>
-            </div>
-          )}
-        </div>
+                <NavLink
+                  to="/timesheet"
+                  style={({ isActive }) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    color: isActive ? '#ffffff' : '#94a3b8',
+                    backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '600' : '400',
+                    transition: 'all 0.15s ease'
+                  })}
+                >
+                  <Clock size={15} />
+                  {!collapsed && <span>Timesheet</span>}
+                </NavLink>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Finance - Dedicated Financial Section (Admin / HR full access, employees only personal expenses) */}
         {(isHRorAdmin || canAccessModule(currentUser, 'expenses')) && (
-        <div>
-          <div
-            onClick={() => toggleSection('finance')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              color: isFinanceActive ? '#ffffff' : '#94a3b8',
-              backgroundColor: isFinanceActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-              fontSize: '13.5px',
-              fontWeight: isFinanceActive ? '600' : '500',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <DollarSign size={18} color={isFinanceActive ? '#3b82f6' : '#94a3b8'} />
-              {!collapsed && <span>Finance</span>}
+          <div>
+            <div
+              onClick={() => toggleSection('finance')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                color: isFinanceActive ? '#ffffff' : '#94a3b8',
+                backgroundColor: isFinanceActive ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                fontSize: '13.5px',
+                fontWeight: isFinanceActive ? '600' : '500',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <DollarSign size={18} color={isFinanceActive ? '#3b82f6' : '#94a3b8'} />
+                {!collapsed && <span>Finance</span>}
+              </div>
+              {!collapsed && (
+                financeExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
+              )}
             </div>
-            {!collapsed && (
-              financeExpanded ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#64748b" />
-            )}
-          </div>
 
-          {/* Submenu for Finance */}
-          {financeExpanded && (
-            <div style={{
-              marginTop: '4px',
-              marginLeft: collapsed ? '0' : '16px',
-              paddingLeft: collapsed ? '0' : '12px',
-              borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2px'
-            }}>
-              <NavLink
-                to="/expenses"
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  borderRadius: '6px',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  backgroundColor: isActive ? '#1d4ed8' : 'transparent',
-                  textDecoration: 'none',
-                  fontSize: '13px',
-                  fontWeight: isActive ? '600' : '400',
-                  transition: 'all 0.15s ease'
-                })}
-              >
-                <DollarSign size={15} />
-                {!collapsed && <span>Expenses</span>}
-              </NavLink>
-
-              {isHRorAdmin && (
+            {/* Submenu for Finance */}
+            {financeExpanded && (
+              <div style={{
+                marginTop: '4px',
+                marginLeft: collapsed ? '0' : '16px',
+                paddingLeft: collapsed ? '0' : '12px',
+                borderLeft: collapsed ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}>
                 <NavLink
-                  to="/payroll"
+                  to="/expenses"
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
@@ -675,56 +654,77 @@ export const Sidebar = () => {
                   })}
                 >
                   <DollarSign size={15} />
-                  {!collapsed && <span>Salary & Payslips</span>}
+                  {!collapsed && <span>Expenses</span>}
                 </NavLink>
-              )}
-            </div>
-          )}
-        </div>
+
+                {isHRorAdmin && (
+                  <NavLink
+                    to="/payroll"
+                    style={({ isActive }) => ({
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      color: isActive ? '#ffffff' : '#94a3b8',
+                      backgroundColor: isActive ? '#1d4ed8' : 'transparent',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: isActive ? '600' : '400',
+                      transition: 'all 0.15s ease'
+                    })}
+                  >
+                    <DollarSign size={15} />
+                    {!collapsed && <span>Salary & Payslips</span>}
+                  </NavLink>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {canAccessModule(currentUser, 'tickets') && (
-        <NavLink
-          to="/tickets"
-          style={({ isActive }) => ({
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: '8px',
-            color: isActive ? '#ffffff' : '#94a3b8',
-            backgroundColor: isActive ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
-            textDecoration: 'none',
-            fontSize: '13.5px',
-            fontWeight: isActive ? '600' : '500',
-            transition: 'all 0.15s ease'
-          })}
-        >
-          <Ticket size={18} color={location.pathname === '/tickets' ? '#60a5fa' : '#94a3b8'} />
-          {!collapsed && <span>Tickets</span>}
-        </NavLink>
+          <NavLink
+            to="/tickets"
+            style={({ isActive }) => ({
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              color: isActive ? '#ffffff' : '#94a3b8',
+              backgroundColor: isActive ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
+              textDecoration: 'none',
+              fontSize: '13.5px',
+              fontWeight: isActive ? '600' : '500',
+              transition: 'all 0.15s ease'
+            })}
+          >
+            <Ticket size={18} color={location.pathname === '/tickets' ? '#60a5fa' : '#94a3b8'} />
+            {!collapsed && <span>Tickets</span>}
+          </NavLink>
         )}
 
         {canAccessModule(currentUser, 'events') && (
-        <NavLink
-          to="/events"
-          style={({ isActive }) => ({
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: '8px',
-            color: isActive ? '#ffffff' : '#94a3b8',
-            backgroundColor: isActive ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
-            textDecoration: 'none',
-            fontSize: '13.5px',
-            fontWeight: isActive ? '600' : '500',
-            transition: 'all 0.15s ease'
-          })}
-        >
-          <Calendar size={18} color={location.pathname === '/events' ? '#60a5fa' : '#94a3b8'} />
-          {!collapsed && <span>Events</span>}
-        </NavLink>
+          <NavLink
+            to="/events"
+            style={({ isActive }) => ({
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              color: isActive ? '#ffffff' : '#94a3b8',
+              backgroundColor: isActive ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
+              textDecoration: 'none',
+              fontSize: '13.5px',
+              fontWeight: isActive ? '600' : '500',
+              transition: 'all 0.15s ease'
+            })}
+          >
+            <Calendar size={18} color={location.pathname === '/events' ? '#60a5fa' : '#94a3b8'} />
+            {!collapsed && <span>Events</span>}
+          </NavLink>
         )}
 
         <NavLink
@@ -798,7 +798,7 @@ export const Sidebar = () => {
         fontSize: '12px',
         color: '#64748b'
       }}>
-        {!collapsed && <span>v5.4.0</span>}
+        {!collapsed && <span>v1.0.0</span>}
         <button
           onClick={() => setCollapsed(!collapsed)}
           style={{

@@ -516,6 +516,13 @@ export const CRMProvider = ({ children }) => {
       let dayTotalTaskSeconds = timesheetTaskSeconds;
       let activeTimerTask = null;
       let liveActiveTimerSecs = 0;
+      // Also find any tasks completed on this date that aren't already captured in timesheets
+      const matchingCompletedTasks = allTasks.filter(t => {
+        if (!isTaskForMe(t)) return false;
+        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+        const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id || ts.taskCode === t.taskCode);
+        return isCompletedOnDate && !alreadyInTimesheets;
+      });
 
       if (isCurrentDay) {
         const rawLogin = localStorage.getItem(`ems_timer_${userKey}_login_time`);
@@ -539,50 +546,58 @@ export const CRMProvider = ({ children }) => {
           activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || localStorage.getItem('ems_active_task_timer') || 'null');
         } catch (e) {}
 
-        if (activeTimer && activeTimer.date === dateStr) {
+        if (activeTimer && activeTimer.date === dateStr && (isClockedInToday || hadClockedOutToday)) {
           const nowMs = Date.now();
           const runningElapsed = activeTimer.timerRunning && activeTimer.startedAt
-            ? Math.floor((nowMs - activeTimer.startedAt) / 1000)
+            ? Math.max(0, Math.floor((nowMs - Number(activeTimer.startedAt)) / 1000))
             : 0;
           liveActiveTimerSecs = (Number(activeTimer.accumulatedSeconds) || 0) + runningElapsed;
           activeTimerTask = activeTimer;
-          // Add active timer if not already logged into matchingTimesheets
-          const alreadyLogged = matchingTimesheets.some(ts => ts.taskId === activeTimer.taskId);
-          if (!alreadyLogged) {
-            dayTotalTaskSeconds += liveActiveTimerSecs;
-          }
+
+          const timesheetsForThisTask = matchingTimesheets
+            .filter(ts => String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode))
+            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+          const unsubmitted = Math.max(0, liveActiveTimerSecs - timesheetsForThisTask);
+          dayTotalTaskSeconds += unsubmitted;
         }
 
-        // 2. Check any other paused tasks worked today that haven't been stopped into timesheets yet
-        allTasks.forEach(t => {
-          if (!isTaskForMe(t)) return;
-          if (activeTimerTask && activeTimerTask.taskId === t._id) return;
-          const alreadyLogged = matchingTimesheets.some(ts => ts.taskId === t._id);
-          const secs = Number(t.timerSeconds) || 0;
-          if (!alreadyLogged && secs > 0) {
-            dayTotalTaskSeconds += secs;
-          }
-        });
+        // 2. Check any other paused or worked tasks today (strictly tasks worked today!)
+        if (isClockedInToday || hadClockedOutToday) {
+          allTasks.forEach(t => {
+            if (!isTaskForMe(t)) return;
+            const tId = String(t._id || t.id);
+            if (activeTimerTask && (String(activeTimerTask.taskId) === tId || String(activeTimerTask._id) === tId)) return;
+
+            // Strict guard: Skip tasks completed on other days
+            const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+            if (t.status === 'completed' && !isCompletedToday) return;
+
+            // Only consider tasks worked on this date
+            const isWorkedToday = t.sessionDate === dateStr || t.timerRunning || isCompletedToday;
+            if (!isWorkedToday) return;
+
+            const timesheetsForThisTask = matchingTimesheets
+              .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
+              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+            const taskSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+            const unsubmitted = Math.max(0, taskSecs - timesheetsForThisTask);
+            dayTotalTaskSeconds += unsubmitted;
+          });
+        }
+      } else {
+        const completedTaskSeconds = matchingCompletedTasks.reduce((acc, curr) => {
+          const secs = Number(curr.timerSeconds) > 0
+            ? Number(curr.timerSeconds)
+            : (Number(curr.durationSeconds) > 0
+                ? Number(curr.durationSeconds)
+                : (Number(curr.hoursLogged) > 0 ? Math.round(Number(curr.hoursLogged) * 3600) : 0));
+          return acc + secs;
+        }, 0);
+
+        dayTotalTaskSeconds += completedTaskSeconds;
       }
-
-      // Also find any tasks completed on this date that aren't already captured in timesheets
-      const matchingCompletedTasks = allTasks.filter(t => {
-        if (!isTaskForMe(t)) return false;
-        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
-        const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id || ts.taskCode === t.taskCode);
-        return isCompletedOnDate && !alreadyInTimesheets;
-      });
-
-      const completedTaskSeconds = matchingCompletedTasks.reduce((acc, curr) => {
-        const secs = Number(curr.timerSeconds) > 0
-          ? Number(curr.timerSeconds)
-          : (Number(curr.durationSeconds) > 0
-              ? Number(curr.durationSeconds)
-              : (Number(curr.hoursLogged) > 0 ? Math.round(Number(curr.hoursLogged) * 3600) : 0));
-        return acc + secs;
-      }, 0);
-
-      dayTotalTaskSeconds += completedTaskSeconds;
 
       // Map tasks worked with budget estimate comparison
       let dayTasks = [];
@@ -639,14 +654,14 @@ export const CRMProvider = ({ children }) => {
 
       if (isCurrentDay) {
         // Paused tasks worked today that haven't been stopped into timesheets yet
-        const pausedTasks = allTasks.filter(t => {
+        const pausedTasks = (isClockedInToday || hadClockedOutToday) ? allTasks.filter(t => {
           if (!isTaskForMe(t)) return false;
-          if (activeTimerTask && (activeTimerTask.taskId === t._id || activeTimerTask._id === t._id)) return false;
+          if (activeTimerTask && (String(activeTimerTask.taskId) === String(t._id) || String(activeTimerTask._id) === String(t._id))) return false;
           const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id);
           const alreadyInCompleted = matchingCompletedTasks.some(ct => ct._id === t._id);
-          const secs = Number(t.timerSeconds) || 0;
-          return !alreadyInTimesheets && !alreadyInCompleted && secs > 0 && (t.sessionDate === dateStr || t.status === 'in_progress' || t.status === 'on_hold' || t.status === 'incomplete');
-        });
+          const secs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
+          return !alreadyInTimesheets && !alreadyInCompleted && secs > 0 && (t.sessionDate === dateStr || t.timerRunning);
+        }) : [];
 
         pausedTasks.forEach(pt => {
           const secs = Number(pt.timerSeconds) || 0;
@@ -672,6 +687,14 @@ export const CRMProvider = ({ children }) => {
             timerRunning: false
           });
         });
+
+        // Shift work seconds guard: Task time today cannot exceed shift login time
+        const rawShiftWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
+        if (!isClockedInToday && !hadClockedOutToday && rawShiftWorkSecs === 0 && matchingTimesheets.length === 0) {
+          dayTotalTaskSeconds = 0;
+        } else if (rawShiftWorkSecs > 0) {
+          dayTotalTaskSeconds = Math.min(dayTotalTaskSeconds, rawShiftWorkSecs);
+        }
 
         if (dayTotalTaskSeconds > 0) {
           const hrs = Math.floor(dayTotalTaskSeconds / 3600);
@@ -709,10 +732,20 @@ export const CRMProvider = ({ children }) => {
       } else if (dayTotalTaskSeconds > 0) {
         // If tasks or timesheets were recorded for this day, strictly use actual task hours
         const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
-        const hrs = Math.floor(dayTotalTaskSeconds / 3600);
-        const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
+        const shiftDurationSecs = pastAttRec && Number(pastAttRec.totalWorkingHours) > 0
+          ? Math.round(Number(pastAttRec.totalWorkingHours) * 3600)
+          : 0;
+
+        // Hard upper bound: Task time cannot exceed shift login time!
+        const boundedTaskSecs = (shiftDurationSecs > 0)
+          ? Math.min(dayTotalTaskSeconds, shiftDurationSecs)
+          : dayTotalTaskSeconds;
+
+        const hrs = Math.floor(boundedTaskSecs / 3600);
+        const mins = Math.floor((boundedTaskSecs % 3600) / 60);
         finalDurationText = `${hrs}h ${String(mins).padStart(2, '0')}m`;
-        finalDurationHours = +(dayTotalTaskSeconds / 3600).toFixed(2);
+        finalDurationHours = +(boundedTaskSecs / 3600).toFixed(2);
+        dayTotalTaskSeconds = boundedTaskSecs;
         dayBreakDuration = pastAttRec?.totalBreakHours ? `${Math.round(pastAttRec.totalBreakHours * 60)}m` : '0m';
 
         if (pastAttRec) {

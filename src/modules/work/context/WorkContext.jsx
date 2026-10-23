@@ -440,7 +440,8 @@ export const WorkProvider = ({ children }) => {
               accumulatedSeconds: base,
               timerSeconds: liveSecs,
               liveDurationText: text,
-              hoursLoggedText: text
+              hoursLoggedText: text,
+              sessionDate: getTodayStr()
             };
           }
           return t;
@@ -1058,6 +1059,7 @@ export const WorkProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`, 'true');
         }
         window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey, employeeId: currentUser?._id, employeeCode: currentUser?.employeeCode, loginTime: nowStr, date: today } }));
+        window.dispatchEvent(new CustomEvent('ems_request_clock_in', { detail: { userKey, employeeId: currentUser?._id, employeeCode: currentUser?.employeeCode, loginTime: nowStr, date: today } }));
       }
 
       // 2. Break Guard for self
@@ -1184,7 +1186,20 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        return { ...t, timerRunning: false, startedAt: null };
+        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
+        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          ? Number(t.accumulatedSeconds)
+          : (Number(t.timerSeconds) || 0);
+        const tTotal = tBase + tElapsed;
+        return {
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: tTotal,
+          timerSeconds: tTotal,
+          liveDurationText: formatSeconds(tTotal),
+          sessionDate: today
+        };
       }
       return t;
     });
@@ -1238,7 +1253,20 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        return { ...t, timerRunning: false, startedAt: null };
+        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
+        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          ? Number(t.accumulatedSeconds)
+          : (Number(t.timerSeconds) || 0);
+        const tTotal = tBase + tElapsed;
+        return {
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: tTotal,
+          timerSeconds: tTotal,
+          liveDurationText: formatSeconds(tTotal),
+          sessionDate: today
+        };
       }
       return t;
     }));
@@ -1357,6 +1385,19 @@ export const WorkProvider = ({ children }) => {
       return t;
     }));
 
+    // Persist paused state to backend
+    try {
+      workService.updateTask(taskId, {
+        timerRunning: false,
+        startedAt: null,
+        accumulatedSeconds: currentSecs,
+        timerSeconds: currentSecs,
+        sessionDate: today,
+        hoursLogged: +(currentSecs / 3600).toFixed(2),
+        hoursLoggedText: formatSeconds(currentSecs)
+      });
+    } catch (e) {}
+
     // Daily Activity Audit Record
     try {
       hrService.createAttendanceAuditLog({
@@ -1420,16 +1461,25 @@ export const WorkProvider = ({ children }) => {
         try { localStorage.removeItem(`ems_active_task_timer_${targetTask.activeUserId}`); } catch {}
       }
 
-      // In storage tasks collection reset timer
-      const updatedAll = allTasks.map(t => {
+      const todayStr = getTodayStr();
+      const hoursLoggedNum = +(totalSecs / 3600).toFixed(2);
+      const hoursLoggedFormatted = formatSeconds(totalSecs);
+
+      // In storage tasks collection update timer to stopped but preserve total time logged
+      const freshAllTasks = getCollection(KEYS.TASKS) || [];
+      const updatedAll = freshAllTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           return {
             ...t,
             timerRunning: false,
             startedAt: null,
-            accumulatedSeconds: 0,
-            timerSeconds: 0,
-            liveDurationText: '00:00:00'
+            accumulatedSeconds: totalSecs,
+            timerSeconds: totalSecs,
+            durationSeconds: totalSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            liveDurationText: hoursLoggedFormatted,
+            sessionDate: todayStr
           };
         }
         return t;
@@ -1442,9 +1492,13 @@ export const WorkProvider = ({ children }) => {
             ...t,
             timerRunning: false,
             startedAt: null,
-            accumulatedSeconds: 0,
-            timerSeconds: 0,
-            liveDurationText: '00:00:00'
+            accumulatedSeconds: totalSecs,
+            timerSeconds: totalSecs,
+            durationSeconds: totalSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            liveDurationText: hoursLoggedFormatted,
+            sessionDate: todayStr
           };
         }
         return t;

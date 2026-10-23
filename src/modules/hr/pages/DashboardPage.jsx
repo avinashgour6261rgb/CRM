@@ -368,7 +368,7 @@ export const DashboardPage = () => {
     let storedBreakHistory = [];
     try {
       if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
-    } catch {}
+    } catch { }
 
     const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
@@ -645,26 +645,28 @@ export const DashboardPage = () => {
       }
 
       // 2. Add all paused tasks worked today that have accumulated seconds
-      empTasks.forEach(pt => {
-        const ptId = String(pt._id || pt.id);
-        if (runningTaskId && ptId === runningTaskId) return;
-        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
-        const secs = Number(pt.timerSeconds) || 0;
-        if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.status === 'in_progress' || pt.status === 'on_hold' || pt.status === 'incomplete')) {
-          tasksWorked.push({
-            taskId: ptId,
-            taskCode: pt.taskCode || 'TSK',
-            taskTitle: pt.title,
-            projectName: pt.projectName || 'General Work',
-            durationText: formatSeconds(secs),
-            durationSeconds: secs,
-            status: pt.status === 'completed' ? 'completed' : 'on_hold',
-            isCompleted: pt.status === 'completed',
-            timerRunning: false,
-            memo: `Paused last work session (${formatSeconds(secs)} logged)`
-          });
-        }
-      });
+      if (empState?.isClockedIn || empState?.hadClockedOut) {
+        empTasks.forEach(pt => {
+          const ptId = String(pt._id || pt.id);
+          if (runningTaskId && ptId === runningTaskId) return;
+          const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
+          const secs = Number(pt.timerSeconds) || Number(pt.accumulatedSeconds) || 0;
+          if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.timerRunning)) {
+            tasksWorked.push({
+              taskId: ptId,
+              taskCode: pt.taskCode || 'TSK',
+              taskTitle: pt.title,
+              projectName: pt.projectName || 'General Work',
+              durationText: formatSeconds(secs),
+              durationSeconds: secs,
+              status: pt.status === 'completed' ? 'completed' : 'on_hold',
+              isCompleted: pt.status === 'completed',
+              timerRunning: false,
+              memo: `Paused work session (${formatSeconds(secs)} logged)`
+            });
+          }
+        });
+      }
     }
 
     const targetWeekLog = (weeklyTimeLogs || []).find(l => l.date === customDate) ||
@@ -1036,39 +1038,60 @@ export const DashboardPage = () => {
 
   const totalLoggedTodaySecs = todayTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
-  // Sum completed tasks today that might not be in timesheets yet
-  const myCompletedTodaySecs = (myTasks || [])
-    .filter(t => isTaskActuallyCompleted(t) && (t.completedOn === todayStr || t.completedAt?.startsWith(todayStr)) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
-    .reduce((acc, t) => acc + (Number(t.timerSeconds) || Number(t.durationSeconds) || (t.hoursLogged ? Math.round(Number(t.hoursLogged) * 3600) : 0)), 0);
+  // Unsubmitted seconds across user's tasks worked today (live ticking timer OR paused today)
+  // Strictly filters for tasks actually worked today (sessionDate === todayStr || t.timerRunning || completed today)
+  // Excludes completed tasks from previous days and historical tasks!
+  const unsubmittedTodayTaskSecs = (myTasks || []).reduce((acc, t) => {
+    const tId = String(t._id || t.id);
 
-  // Sum unsubmitted timerSeconds across user's tasks worked today (active or paused today)
-  const myTasksTodaySecs = (myTasks || [])
-    .filter(t => !isTaskActuallyCompleted(t) && (t.sessionDate === todayStr || t.timerRunning) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
-    .reduce((acc, t) => acc + (Number(t.timerSeconds) || 0), 0);
-  const myRunningTaskSecs = (activeRunningTask && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser))
-    ? (Number(activeRunningTask.timerSeconds) || 0)
-    : 0;
-  const currentTaskSecs = Math.max(
-    myRunningTaskSecs,
-    myTasksTodaySecs
-  );
+    // Skip tasks completed on other days
+    const isCompletedToday = t.completedOn === todayStr || (t.completedAt && String(t.completedAt).startsWith(todayStr));
+    if (t.status === 'completed' && !isCompletedToday) return acc;
 
-  const totalTaskTodaySecs = totalLoggedTodaySecs + myCompletedTodaySecs + currentTaskSecs;
+    // Check if task was worked today
+    const isRunningNow = t.timerRunning || (activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
+    const isWorkedToday = isRunningNow || t.sessionDate === todayStr || isCompletedToday;
+    if (!isWorkedToday) return acc;
+
+    const loggedForThisTaskToday = todayTimesheets
+      .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+    const taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+    const unsubmitted = Math.max(0, taskCurrentSecs - loggedForThisTaskToday);
+    return acc + unsubmitted;
+  }, 0);
+
+  const rawTotalTaskTodaySecs = totalLoggedTodaySecs + unsubmittedTodayTaskSecs;
+
+  // Active shift work seconds guard
+  const currentShiftSecs = isViewingOtherEmployee
+    ? (activeEmpState?.workSecs || 0)
+    : (workSeconds || activeEmpState?.workSecs || 0);
+  const currentIsClockedIn = isViewingOtherEmployee
+    ? (activeEmpState?.isClockedIn || false)
+    : (displayedIsClockedIn || activeEmpState?.isClockedIn || false);
+  const currentHadClockedOut = isViewingOtherEmployee
+    ? (activeEmpState?.hadClockedOut || false)
+    : (displayedHadClockedOut || activeEmpState?.hadClockedOut || false);
+
+  // Today's total task seconds strictly derives from actual tasks worked today,
+  // and is bounded by today's shift login time so task time never exceeds login time!
+  let totalTaskTodaySecs = 0;
+  if (currentIsClockedIn || currentHadClockedOut || currentShiftSecs > 0) {
+    totalTaskTodaySecs = currentShiftSecs > 0
+      ? Math.min(rawTotalTaskTodaySecs, currentShiftSecs)
+      : rawTotalTaskTodaySecs;
+  } else if (todayTimesheets.length > 0) {
+    totalTaskTodaySecs = totalLoggedTodaySecs;
+  }
+
   const taskTodayH = Math.floor(totalTaskTodaySecs / 3600);
   const taskTodayM = Math.floor((totalTaskTodaySecs % 3600) / 60);
   const taskTodayFormatted = totalTaskTodaySecs > 0
     ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${taskTodayH}h ${String(taskTodayM).padStart(2, '0')}m`)
     : '0h 0m';
-  const taskTodayCode = formatTimeDurationSafe(totalTaskTodaySecs);
 
-  // Stable logged duration (updates upon pause, resume, stop, or task completion)
-  const stableLoggedTodaySecs = totalTaskTodaySecs;
-
-  const stableActivityFormatted = (() => {
-    if (stableLoggedTodaySecs > 0) return formatTimeDurationSafe(stableLoggedTodaySecs);
-    return '00:00:00';
-  })();
-  const totalActivityFormatted = stableActivityFormatted;
 
   // Task-based Weekly Calculation (User requirement):
   // 1. Day-wise time accumulates based on tasks worked on that day
@@ -2776,12 +2799,8 @@ export const DashboardPage = () => {
                 </span>
               </div>
 
-              {/* Attendance & Shift Time row */}
+              {/* Shift Working Time & Day Log button */}
               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <span>Clock In: <strong style={{ color: '#0f172a' }}>{displayedLoginTime || (displayedIsClockedIn ? 'Active' : '--')}</strong></span>
-                <span>•</span>
-                <span>Clock Out: <strong style={{ color: displayedClockOutTime ? '#dc2626' : '#64748b' }}>{displayedClockOutTime || (displayedIsClockedIn ? 'Active' : '--')}</strong></span>
-                <span>•</span>
                 <span>Working Time: <strong style={{ color: '#0284c7' }}>{displayedWorkDuration || '0h 0m'}</strong></span>
                 <button
                   id="btn-eye-shift-top"
@@ -3080,13 +3099,25 @@ export const DashboardPage = () => {
                 )
               )}
 
-              <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
-                {displayedIsClockedIn
-                  ? `Shift Active (${displayedWorkDuration || '0h 0m'})`
-                  : (displayedHadClockedOut
-                    ? `Ended at ${displayedClockOutTime || 'Today'} (${displayedWorkDuration})`
-                    : 'Shift not active')}
-              </span>
+              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                {displayedIsClockedIn ? (
+                  <>
+                    <span>Clock In: <strong style={{ color: '#0f172a' }}>{displayedLoginTime || 'Active'}</strong></span>
+                    <span>•</span>
+                    <span style={{ color: '#16a34a', fontWeight: '700' }}>Active ({displayedWorkDuration || '0h 0m'})</span>
+                  </>
+                ) : displayedHadClockedOut ? (
+                  <>
+                    <span>Clock In: <strong style={{ color: '#0f172a' }}>{displayedLoginTime || '--'}</strong></span>
+                    <span>•</span>
+                    <span>Clock Out: <strong style={{ color: '#dc2626' }}>{displayedClockOutTime || '--'}</strong></span>
+                    <span>•</span>
+                    <span>({displayedWorkDuration})</span>
+                  </>
+                ) : (
+                  <span style={{ color: '#94a3b8' }}>Shift not active</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -3123,12 +3154,6 @@ export const DashboardPage = () => {
               >
                 My Active Timer ⏱️
               </h3>
-              <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Today Activity:</span>
-                <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}>
-                  {stableActivityFormatted}
-                </span>
-              </div>
             </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
               {currentDateFormatted}
@@ -3285,17 +3310,6 @@ export const DashboardPage = () => {
                               : (displayActiveTask.timerSeconds > 0
                                 ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
                                 : '00:00:00')}
-                          </span>
-                          <span style={{
-                            color: '#15803d',
-                            fontWeight: '700',
-                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                            fontSize: '11px',
-                            backgroundColor: '#dcfce7',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }} title="Total task work completed today across all tasks + active timer">
-                            📊 Day Total: {taskTodayCode}
                           </span>
                         </div>
                       </div>
@@ -5347,59 +5361,6 @@ export const DashboardPage = () => {
               <div style={{ fontSize: '11.5px' }}>No leaves today</div>
             </div>
           )}
-        </div>
-
-        {/* On Work From Home Today */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-            🏠 Work From Home Today
-          </h3>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px',
-            maxHeight: '140px',
-            overflowY: 'auto'
-          }}>
-            {(wfhEmployees || []).map(emp => (
-              <div
-                key={emp?.id || Math.random()}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '5px 7px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '5px'
-                }}
-              >
-                <img
-                  src={emp?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                  alt={emp?.name}
-                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
-                />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {emp?.name} {emp?.isCurrentUser && <span style={{ fontSize: '9px', color: '#2563eb' }}>(You)</span>}
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {emp?.role}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
