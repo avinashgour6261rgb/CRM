@@ -256,6 +256,9 @@ export const isLeaveDesignatedApprover = (leave, user) => {
   if (uName && lAppName) {
     if (uName === lAppName) return true;
     if (uName.includes(lAppName) || lAppName.includes(uName)) return true;
+    const uFirst = uName.split(/\s+/)[0];
+    const lFirst = lAppName.split(/\s+/)[0];
+    if (uFirst && lFirst && uFirst.length >= 3 && uFirst === lFirst) return true;
   }
   if (uEmail && lAppEmail && uEmail === lAppEmail) return true;
 

@@ -13,8 +13,10 @@ const Employee = require('../../modules/hr/models/Employee');
  */
 exports.authenticateUser = async (req, res, next) => {
   try {
-    const userIdHeader = req.headers['x-user-id'];
-    const userRoleHeader = req.headers['x-user-role'];
+    const userIdHeader = (req.headers['x-user-id'] || '').trim();
+    const userRoleHeader = (req.headers['x-user-role'] || '').trim();
+    const userEmailHeader = (req.headers['x-user-email'] || '').trim();
+    const userCodeHeader = (req.headers['x-user-code'] || '').trim();
 
     let user = null;
 
@@ -25,16 +27,25 @@ exports.authenticateUser = async (req, res, next) => {
       if (!user) {
         user = await Employee.findOne({ employeeCode: userIdHeader });
       }
+      if (!user) {
+        user = await Employee.findOne({ email: new RegExp(`^${userIdHeader}$`, 'i') });
+      }
     }
 
-    // Fallback: lookup employee flagged with isCurrentUser: true in DB
-    if (!user) {
+    if (!user && userEmailHeader) {
+      user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader}$`, 'i') });
+    }
+
+    if (!user && userCodeHeader) {
+      user = await Employee.findOne({ employeeCode: userCodeHeader });
+    }
+
+    // Only fallback to DB isCurrentUser or ADM-001 if NO client identifiers were provided
+    if (!user && !userIdHeader && !userEmailHeader && !userCodeHeader) {
       user = await Employee.findOne({ isCurrentUser: true });
-    }
-
-    // Default fallback to Admin if none flagged
-    if (!user) {
-      user = (await Employee.findOne({ employeeCode: 'ADM-001' })) || (await Employee.findOne());
+      if (!user) {
+        user = (await Employee.findOne({ employeeCode: 'ADM-001' })) || (await Employee.findOne());
+      }
     }
 
     if (user) {
@@ -49,6 +60,22 @@ exports.authenticateUser = async (req, res, next) => {
         email: user.email,
         role: user.role,
         department: user.department,
+        systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
+        isAdmin: isSystemAdmin
+      };
+    } else if (userIdHeader || userEmailHeader || userCodeHeader) {
+      // Ephemeral authenticated user (e.g. from client session or newly created account)
+      const isSystemAdmin = userRoleHeader === 'admin' || userCodeHeader === 'ADM-001';
+      const isSystemHR = userRoleHeader === 'hr';
+
+      req.user = {
+        _id: userIdHeader || userCodeHeader || 'user_client',
+        id: userIdHeader || userCodeHeader || 'user_client',
+        employeeCode: userCodeHeader || userIdHeader || '',
+        name: userEmailHeader ? userEmailHeader.split('@')[0] : (userIdHeader || 'User'),
+        email: userEmailHeader || '',
+        role: isSystemAdmin ? 'Administrator' : (isSystemHR ? 'HR Manager' : 'Team Member'),
+        department: isSystemHR ? 'Human Resources' : 'General',
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
         isAdmin: isSystemAdmin
       };

@@ -14,25 +14,62 @@ const getLeaves = asyncHandler(async (req, res) => {
 
   // Tenant / User Scoping: Non-admins view leaves where they are either applicant or designated reviewer
   if (!isPrivileged && user) {
-    const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : null;
-    const userLeaveFilter = userObjId
-      ? [{ employee: userObjId }, { employeeId: String(user._id) }, { appliedToId: String(user._id) }]
-      : [];
-    if (user.employeeCode) {
-      userLeaveFilter.push({ employeeCode: user.employeeCode });
-      userLeaveFilter.push({ employeeId: user.employeeCode });
-      userLeaveFilter.push({ appliedToId: user.employeeCode });
-      userLeaveFilter.push({ appliedToCode: user.employeeCode });
+    const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? new mongoose.Types.ObjectId(user._id) : null;
+    const userStrId = String(user._id || user.id || '').trim();
+    const userCode = String(user.employeeCode || '').trim();
+    const userName = (user.name || '').trim();
+    const userEmail = (user.email || '').trim();
+
+    const escapeRegex = (s) => (s || '').replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+    const userLeaveFilter = [];
+
+    // 1. Match IDs (handles both ObjectId and String formats)
+    const validIds = [userStrId];
+    if (userObjId) validIds.push(userObjId);
+
+    for (const idVal of validIds) {
+      userLeaveFilter.push({ employee: idVal });
+      userLeaveFilter.push({ employeeId: idVal });
+      userLeaveFilter.push({ appliedTo: idVal });
+      userLeaveFilter.push({ appliedToId: idVal });
+      userLeaveFilter.push({ approverId: idVal });
     }
-    if (user.name) {
-      userLeaveFilter.push({ employeeName: new RegExp(`^${user.name}$`, 'i') });
-      userLeaveFilter.push({ appliedToName: new RegExp(`^${user.name}$`, 'i') });
+
+    // 2. Match Employee Code
+    if (userCode) {
+      userLeaveFilter.push({ employeeCode: userCode });
+      userLeaveFilter.push({ employeeId: userCode });
+      userLeaveFilter.push({ appliedToCode: userCode });
+      userLeaveFilter.push({ appliedToId: userCode });
+      userLeaveFilter.push({ approverId: userCode });
     }
-    if (user.email) {
-      userLeaveFilter.push({ employeeEmail: new RegExp(`^${user.email}$`, 'i') });
-      userLeaveFilter.push({ appliedToEmail: new RegExp(`^${user.email}$`, 'i') });
+
+    // 3. Match Name (exact, substring, and first-name / individual name components)
+    if (userName) {
+      const escapedName = escapeRegex(userName);
+      userLeaveFilter.push({ employeeName: new RegExp(`^${escapedName}$`, 'i') });
+      userLeaveFilter.push({ appliedToName: new RegExp(`^${escapedName}$`, 'i') });
+      userLeaveFilter.push({ approverName: new RegExp(`^${escapedName}$`, 'i') });
+      userLeaveFilter.push({ appliedToName: new RegExp(escapedName, 'i') });
+      userLeaveFilter.push({ approverName: new RegExp(escapedName, 'i') });
+
+      const nameTokens = userName.split(/\s+/).filter(t => t.length >= 3);
+      for (const token of nameTokens) {
+        userLeaveFilter.push({ appliedToName: new RegExp(escapeRegex(token), 'i') });
+        userLeaveFilter.push({ approverName: new RegExp(escapeRegex(token), 'i') });
+      }
     }
-    query.$or = userLeaveFilter.length > 0 ? userLeaveFilter : [{ employeeCode: user.employeeCode || '__none__' }];
+
+    // 4. Match Email
+    if (userEmail) {
+      const escapedEmail = escapeRegex(userEmail);
+      userLeaveFilter.push({ employeeEmail: new RegExp(`^${escapedEmail}$`, 'i') });
+      userLeaveFilter.push({ appliedToEmail: new RegExp(`^${escapedEmail}$`, 'i') });
+      userLeaveFilter.push({ approverEmail: new RegExp(`^${escapedEmail}$`, 'i') });
+    }
+
+    query.$or = userLeaveFilter.length > 0 ? userLeaveFilter : [{ employeeCode: userCode || '__none__' }];
   } else if (employeeId && employeeId !== 'all') {
     const isObjId = mongoose.Types.ObjectId.isValid(employeeId);
     query.$or = isObjId ? [{ employee: employeeId }, { employeeCode: employeeId }] : [{ employeeCode: employeeId }];
@@ -194,14 +231,35 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
   const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+  const uId = String(user?._id || user?.id || '').trim();
+  const uCode = String(user?.employeeCode || '').trim();
+  const uName = String(user?.name || '').trim().toLowerCase();
+  const uEmail = String(user?.email || '').trim().toLowerCase();
+
+  const lAppId = String(leave.appliedToId || leave.appliedTo?._id || leave.appliedTo || leave.approverId || '').trim();
+  const lAppCode = String(leave.appliedToCode || '').trim();
+  const lAppName = String(leave.appliedToName || leave.appliedTo?.name || leave.approverName || '').trim().toLowerCase();
+  const lAppEmail = String(leave.appliedToEmail || leave.appliedTo?.email || leave.approverEmail || '').trim().toLowerCase();
+
   const isDesignatedApprover = user && (
-    (leave.appliedToId && String(leave.appliedToId) === String(user._id)) ||
-    (leave.appliedToName && user.name && leave.appliedToName.trim().toLowerCase() === user.name.trim().toLowerCase())
+    (uId && lAppId && (uId === lAppId || uId.toLowerCase() === lAppId.toLowerCase())) ||
+    (uCode && lAppId && (uCode === lAppId || uCode.toLowerCase() === lAppId.toLowerCase())) ||
+    (uCode && lAppCode && (uCode === lAppCode || uCode.toLowerCase() === lAppCode.toLowerCase())) ||
+    (uName && lAppName && (uName === lAppName || uName.includes(lAppName) || lAppName.includes(uName))) ||
+    (uEmail && lAppEmail && uEmail === lAppEmail) ||
+    (uName && lAppName && uName.split(' ')[0] && lAppName.split(' ')[0] && uName.split(' ')[0].length >= 3 && uName.split(' ')[0] === lAppName.split(' ')[0])
   );
+
+  const lEmpId = String(leave.employeeId || leave.employee?._id || leave.employee || '').trim();
+  const lEmpCode = String(leave.employeeCode || '').trim();
+  const lEmpName = String(leave.employeeName || '').trim().toLowerCase();
+  const lEmpEmail = String(leave.employeeEmail || '').trim().toLowerCase();
+
   const isApplicant = user && (
-    (leave.employee && String(leave.employee) === String(user._id)) ||
-    (leave.employeeCode && user.employeeCode && leave.employeeCode === user.employeeCode) ||
-    (leave.employeeName && user.name && leave.employeeName.trim().toLowerCase() === user.name.trim().toLowerCase())
+    (uId && lEmpId && uId === lEmpId) ||
+    (uCode && lEmpCode && uCode === lEmpCode) ||
+    (uName && lEmpName && uName === lEmpName) ||
+    (uEmail && lEmpEmail && uEmail === lEmpEmail)
   );
 
   // Self-approval protection: applicant cannot approve their own leave
