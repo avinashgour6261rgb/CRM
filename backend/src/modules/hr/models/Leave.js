@@ -16,6 +16,8 @@ const LeaveSchema = new mongoose.Schema(
 
     // Reviewer/Approver fields
     appliedToId: { type: String, default: '' },
+    appliedToCode: { type: String, default: '' },
+    appliedToEmail: { type: String, default: '' },
     appliedToName: { type: String, default: '' },
     appliedToRole: { type: String, default: '' },
     appliedToAvatar: { type: String, default: '' },

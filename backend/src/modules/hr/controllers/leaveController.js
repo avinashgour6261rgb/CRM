@@ -16,13 +16,23 @@ const getLeaves = asyncHandler(async (req, res) => {
   if (!isPrivileged && user) {
     const userObjId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : null;
     const userLeaveFilter = userObjId
-      ? [{ employee: userObjId }, { employeeCode: user.employeeCode }, { appliedToId: String(user._id) }]
-      : [{ employeeCode: user.employeeCode }];
+      ? [{ employee: userObjId }, { employeeId: String(user._id) }, { appliedToId: String(user._id) }]
+      : [];
+    if (user.employeeCode) {
+      userLeaveFilter.push({ employeeCode: user.employeeCode });
+      userLeaveFilter.push({ employeeId: user.employeeCode });
+      userLeaveFilter.push({ appliedToId: user.employeeCode });
+      userLeaveFilter.push({ appliedToCode: user.employeeCode });
+    }
     if (user.name) {
       userLeaveFilter.push({ employeeName: new RegExp(`^${user.name}$`, 'i') });
       userLeaveFilter.push({ appliedToName: new RegExp(`^${user.name}$`, 'i') });
     }
-    query.$or = userLeaveFilter;
+    if (user.email) {
+      userLeaveFilter.push({ employeeEmail: new RegExp(`^${user.email}$`, 'i') });
+      userLeaveFilter.push({ appliedToEmail: new RegExp(`^${user.email}$`, 'i') });
+    }
+    query.$or = userLeaveFilter.length > 0 ? userLeaveFilter : [{ employeeCode: user.employeeCode || '__none__' }];
   } else if (employeeId && employeeId !== 'all') {
     const isObjId = mongoose.Types.ObjectId.isValid(employeeId);
     query.$or = isObjId ? [{ employee: employeeId }, { employeeCode: employeeId }] : [{ employeeCode: employeeId }];
