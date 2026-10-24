@@ -92,19 +92,29 @@ exports.createTimesheet = async (req, res, next) => {
     const payload = { ...req.body };
     const user = req.user;
 
-    if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
-      payload.employee = user._id;
-    }
+    // Enrich with authenticated user details if missing
     if (!payload.employeeId && user) {
-      payload.employeeId = user._id;
+      payload.employeeId = user._id || user.employeeCode || '';
     }
     if (!payload.employeeName && user) {
-      payload.employeeName = user.name;
+      payload.employeeName = user.name || 'Employee';
+    }
+    // Preserve employeeCode for cross-referencing
+    if (!payload.employeeCode && user) {
+      payload.employeeCode = user.employeeCode || '';
     }
 
-    if (!payload.task || !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
-    if (!payload.project || !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
-    if (!payload.employee || !mongoose.Types.ObjectId.isValid(payload.employee)) delete payload.employee;
+    // Set the employee ObjectId ref only when it's a valid ObjectId
+    // — keep employeeId (string) field for code-based lookups regardless
+    if (payload.employee && !mongoose.Types.ObjectId.isValid(payload.employee)) {
+      delete payload.employee; // Don't set invalid ObjectId
+    } else if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
+      payload.employee = user._id;
+    }
+
+    // Clean ObjectId-typed refs — remove invalid ones so Mongoose doesn't throw CastError
+    if (payload.task && !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
+    if (payload.project && !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
 
     const timesheet = await Timesheet.create(payload);
 
@@ -114,6 +124,13 @@ exports.createTimesheet = async (req, res, next) => {
       await Task.findByIdAndUpdate(req.body.taskId, {
         $inc: { hoursLogged: durationHours }
       });
+    } else if (req.body.taskId) {
+      // Handle string taskCode / non-ObjectId taskId
+      const durationHours = (req.body.totalDurationSeconds || 0) / 3600;
+      await Task.findOneAndUpdate(
+        { $or: [{ taskCode: req.body.taskId }, { _id: req.body.taskId }] },
+        { $inc: { hoursLogged: durationHours } }
+      ).catch(() => {}); // Non-fatal if task not found by code
     }
 
     res.status(201).json({
@@ -141,8 +158,10 @@ exports.stopTimer = async (req, res, next) => {
     }
     if (task) {
       task.timerRunning = false;
+      task.startedAt = null;
       task.timerSeconds = totalDurationSeconds;
       task.durationSeconds = totalDurationSeconds;
+      task.accumulatedSeconds = totalDurationSeconds;
       const hoursAdded = totalDurationSeconds / 3600;
       task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
       const totalSecs = Math.round(task.hoursLogged * 3600);

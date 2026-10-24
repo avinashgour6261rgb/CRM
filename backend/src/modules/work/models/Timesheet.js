@@ -49,6 +49,10 @@ const TimesheetSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    employeeCode: {
+      type: String,
+      default: ''
+    },
     employeeName: {
       type: String,
       trim: true,

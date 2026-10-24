@@ -272,7 +272,7 @@ export const workService = {
               if (id) mergedMap.set(id, lt);
             });
 
-            // 2. Merge remote tasks without wiping local timer progress
+            // 2. Merge remote tasks with backend authority for cross-device real-time sync (Localhost & Vercel)
             remoteList.forEach(rt => {
               const id = String(rt._id || rt.id);
               if (!id) return;
@@ -285,22 +285,27 @@ export const workService = {
                 const localHoursLogged = Number(local.hoursLogged) || 0;
                 const remoteHoursLogged = Number(rt.hoursLogged) || 0;
 
-                const isLocalActive = Boolean(local.timerRunning || local.startedAt);
-                const maxSecs = Math.max(localTimerSecs, remoteTimerSecs);
-                const maxAccum = Math.max(localAccum, remoteAccum);
+                const isRemoteActive = Boolean(rt.timerRunning && rt.startedAt);
+                const localStartedRecently = Boolean(local.timerRunning && local.startedAt && (Date.now() - Number(local.startedAt) < 4000));
+
+                // Backend is authoritative: if remote explicitly pauses or resumes, follow it
+                const effectiveRunning = isRemoteActive ? true : (localStartedRecently ? true : false);
+                const effectiveStartedAt = isRemoteActive ? rt.startedAt : (localStartedRecently ? local.startedAt : null);
+                const effectiveSecs = effectiveRunning ? Math.max(localTimerSecs, remoteTimerSecs) : remoteTimerSecs;
+                const effectiveAccum = effectiveRunning ? Math.max(localAccum, remoteAccum) : remoteAccum;
                 const maxHours = Math.max(localHoursLogged, remoteHoursLogged);
 
                 mergedMap.set(id, {
-                  ...rt,
                   ...local,
-                  timerRunning: isLocalActive ? true : (rt.timerRunning ?? local.timerRunning ?? false),
-                  startedAt: isLocalActive ? (local.startedAt || rt.startedAt) : (rt.startedAt ?? local.startedAt ?? null),
-                  timerSeconds: maxSecs,
-                  accumulatedSeconds: maxAccum,
+                  ...rt,
+                  timerRunning: effectiveRunning,
+                  startedAt: effectiveStartedAt,
+                  timerSeconds: effectiveSecs,
+                  accumulatedSeconds: effectiveAccum,
                   hoursLogged: maxHours,
                   hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
-                  sessionDate: local.sessionDate || rt.sessionDate,
-                  status: local.status === 'completed' ? 'completed' : (rt.status || local.status)
+                  sessionDate: rt.sessionDate || local.sessionDate,
+                  status: rt.status || local.status
                 });
               } else {
                 mergedMap.set(id, rt);
@@ -693,6 +698,7 @@ export const workService = {
             const merged = Array.from(tsMap.values());
             if (merged.length > 0) {
               localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
             }
             return merged;
           }
@@ -749,6 +755,7 @@ export const workService = {
     const enrichedData = {
       ...entryData,
       employeeId: entryData.employeeId || authUser?._id || authUser?.employeeCode || '',
+      employeeCode: entryData.employeeCode || authUser?.employeeCode || '',
       employeeName: entryData.employeeName || authUser?.name || 'Employee'
     };
 
@@ -857,6 +864,7 @@ export const workService = {
       taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
       projectId: task?.projectId || '',
       employeeId: stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
+      employeeCode: stopData.employeeCode || authUser?.employeeCode || '',
       employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
       employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
       employeeRole: authUser?.role || task?.assignedToRole || '',
