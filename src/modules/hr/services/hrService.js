@@ -151,15 +151,27 @@ export const hrService = {
   },
 
   async getCurrentUser() {
+    const authUser = getAuthUser();
+    if (authUser) {
+      const employees = getCollection(KEYS.EMPLOYEES) || [];
+      const matched = employees.find(e =>
+        (authUser._id && String(e._id) === String(authUser._id)) ||
+        (authUser.employeeCode && String(e.employeeCode) === String(authUser.employeeCode)) ||
+        (authUser.email && e.email?.toLowerCase() === authUser.email?.toLowerCase())
+      );
+      if (matched) return { ...authUser, ...matched, isCurrentUser: true };
+      return authUser;
+    }
+
     return fetchWithFallback(`${API_BASE}/employees/current`, { method: 'GET' }, async () => {
       try {
         const savedAuth = localStorage.getItem('ems_auth_session');
         if (savedAuth) {
-          const authUser = JSON.parse(savedAuth);
+          const parsedAuth = JSON.parse(savedAuth);
           const employees = getCollection(KEYS.EMPLOYEES) || [];
-          const matched = employees.find(e => e._id === authUser._id || e.id === authUser._id || e.email?.toLowerCase() === authUser.email?.toLowerCase());
-          if (matched) return { ...authUser, ...matched, isCurrentUser: true };
-          return authUser;
+          const matched = employees.find(e => e._id === parsedAuth._id || e.id === parsedAuth._id || e.email?.toLowerCase() === parsedAuth.email?.toLowerCase());
+          if (matched) return { ...parsedAuth, ...matched, isCurrentUser: true };
+          return parsedAuth;
         }
       } catch (e) {}
       return null;
@@ -333,15 +345,34 @@ export const hrService = {
       const authUser = getAuthUser();
       const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
 
-      // Strict tenant isolation: regular employees can ONLY view their own leaves
+      // Scoping: Non-privileged users view leaves where they are either applicant or designated reviewer
       if (!isPrivileged && authUser) {
-        leaves = leaves.filter(l =>
-          l.employeeId === authUser._id ||
-          l.employee === authUser._id ||
-          l.employeeCode === authUser.employeeCode ||
-          l.employeeId === authUser.employeeCode ||
-          (l.employeeName && authUser.name && l.employeeName.toLowerCase() === authUser.name.toLowerCase())
-        );
+        const uId = String(authUser._id || authUser.id || '').trim();
+        const uCode = String(authUser.employeeCode || '').trim();
+        const uName = String(authUser.name || '').trim().toLowerCase();
+        const uEmail = String(authUser.email || '').trim().toLowerCase();
+
+        leaves = leaves.filter(l => {
+          const isApplicant =
+            (uId && (l.employeeId === uId || l.employee === uId)) ||
+            (uCode && (l.employeeCode === uCode || l.employeeId === uCode)) ||
+            (uName && l.employeeName && l.employeeName.toLowerCase() === uName) ||
+            (uEmail && l.employeeEmail && l.employeeEmail.toLowerCase() === uEmail);
+
+          const lAppId = String(l.appliedToId || l.approverId || '').trim();
+          const lAppCode = String(l.appliedToCode || '').trim();
+          const lAppName = String(l.appliedToName || l.approverName || '').trim().toLowerCase();
+          const lAppEmail = String(l.appliedToEmail || l.approverEmail || '').trim().toLowerCase();
+
+          const isApprover =
+            (uId && lAppId && (uId === lAppId || uId.toLowerCase() === lAppId.toLowerCase())) ||
+            (uCode && lAppId && (uCode === lAppId || uCode.toLowerCase() === lAppId.toLowerCase())) ||
+            (uCode && lAppCode && (uCode === lAppCode || uCode.toLowerCase() === lAppCode.toLowerCase())) ||
+            (uName && lAppName && uName === lAppName) ||
+            (uEmail && lAppEmail && uEmail === lAppEmail);
+
+          return isApplicant || isApprover;
+        });
       } else if (filters.employeeId && filters.employeeId !== 'all') {
         leaves = leaves.filter(l => l.employeeId === filters.employeeId || l.employee === filters.employeeId || l.employeeCode === filters.employeeId);
       }

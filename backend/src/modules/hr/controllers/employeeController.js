@@ -29,7 +29,16 @@ const getEmployees = asyncHandler(async (req, res) => {
 
 // ─── GET /api/employees/current ───────────────────────────────────────────────
 const getCurrentUser = asyncHandler(async (req, res) => {
-  let user = await Employee.findOne({ isCurrentUser: true });
+  let user = null;
+  if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    user = await Employee.findById(req.user._id);
+  }
+  if (!user && req.user?.employeeCode) {
+    user = await Employee.findOne({ employeeCode: req.user.employeeCode });
+  }
+  if (!user) {
+    user = await Employee.findOne({ isCurrentUser: true });
+  }
   if (!user) {
     user = (await Employee.findOne({ employeeCode: 'ADM-001' })) ||
            (await Employee.findOne({ isAdmin: true })) ||

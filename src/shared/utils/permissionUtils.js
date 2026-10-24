@@ -253,7 +253,10 @@ export const isLeaveDesignatedApprover = (leave, user) => {
   if (uId && lAppId && (uId === lAppId || uId.toLowerCase() === lAppId.toLowerCase())) return true;
   if (uCode && lAppId && (uCode === lAppId || uCode.toLowerCase() === lAppId.toLowerCase())) return true;
   if (uCode && lAppCode && (uCode === lAppCode || uCode.toLowerCase() === lAppCode.toLowerCase())) return true;
-  if (uName && lAppName && uName === lAppName) return true;
+  if (uName && lAppName) {
+    if (uName === lAppName) return true;
+    if (uName.includes(lAppName) || lAppName.includes(uName)) return true;
+  }
   if (uEmail && lAppEmail && uEmail === lAppEmail) return true;
 
   return false;

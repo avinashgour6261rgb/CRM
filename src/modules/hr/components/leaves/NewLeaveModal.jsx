@@ -170,10 +170,14 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
       await applyLeave({
         employeeId: selectedEmp._id,
+        employeeCode: selectedEmp.employeeCode || '',
+        employeeEmail: selectedEmp.email || '',
         employeeName: selectedEmp.name,
         employeeAvatar: selectedEmp.avatar || '',
         employeeRole: selectedEmp.role || 'Member',
         appliedToId: selectedApprover?._id || '',
+        appliedToCode: selectedApprover?.employeeCode || '',
+        appliedToEmail: selectedApprover?.email || '',
         appliedToName: selectedApprover?.name || 'HR Admin',
         appliedToRole: selectedApprover?.role || 'Administrator',
         appliedToAvatar: selectedApprover?.avatar || '',
