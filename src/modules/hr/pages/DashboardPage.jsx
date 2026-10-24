@@ -63,7 +63,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
@@ -85,6 +85,7 @@ import { TicketDetailModal } from '../../crm/components/tickets/TicketDetailModa
 import { EmployeeDirectoryModal } from '../components/employees/EmployeeDirectoryModal';
 import { SnoozeTaskModal } from '../../work/components/tasks/SnoozeTaskModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
+import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 const formatTimeDurationSafe = (totalSecs) => {
@@ -100,7 +101,16 @@ export const DashboardPage = () => {
   const { addToast } = useToast();
   const { currentUser: authUser, role: authRole, roleConfig: authRoleConfig } = useAuth();
   const { employees, leaves, attendance, holidays, appreciations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave, updateEmployee } = useHR();
-  const currentUser = authUser || hrUser;
+  const baseUser = authUser || hrUser;
+  const currentUser = React.useMemo(() => {
+    if (!baseUser) return null;
+    const found = (employees || []).find(e =>
+      (baseUser._id && String(e._id) === String(baseUser._id)) ||
+      (baseUser.employeeCode && String(e.employeeCode) === String(baseUser.employeeCode)) ||
+      (baseUser.email && e.email?.toLowerCase() === baseUser.email.toLowerCase())
+    );
+    return found ? { ...baseUser, ...found, leaveBalance: found.leaveBalance || baseUser.leaveBalance } : baseUser;
+  }, [baseUser, employees]);
   const {
     projects,
     tasks,
@@ -130,6 +140,7 @@ export const DashboardPage = () => {
   const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
   const [dashboardTaskScope, setDashboardTaskScope] = useState('assigned_to_me'); // 'assigned_to_me' | 'delegated' | 'all'
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
+  const [cancellingLeaveTarget, setCancellingLeaveTarget] = useState(null);
 
   // Projects pending final sign-off
   const pendingApprovalProjects = React.useMemo(() => {
@@ -1368,34 +1379,26 @@ export const DashboardPage = () => {
     l?.status === 'approved' && l?.startDate <= todayStr && l?.endDate >= todayStr
   );
 
-  // 1. Pending leave requests waiting for my review (EXCLUDING applicant's own leaves!)
+  // 1. Pending leave requests waiting for my review (Strictly designated reviewer chosen by applicant, NOT applicant!)
   const pendingLeaveRequestsForMe = (leaves || []).filter(l => {
     if (l?.status !== 'pending') return false;
-    // CRITICAL: Employee can NEVER review or approve their own leave application!
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    if (isApplicant) return false;
+    // Applicant can never approve own leave
+    if (isLeaveApplicant(l, currentUser)) return false;
 
-    // Admin / HR can approve any employee's leave
-    if (isUserAdminOrHR || isHRorAdmin(currentUser)) return true;
+    // Strict designated approver isolation: Only show if this leave was explicitly sent to the current user
+    const isTargetReviewer = isLeaveDesignatedApprover(l, currentUser);
+    if (isTargetReviewer) return true;
 
-    // Team Leader can approve if assigned/routed to them
-    if (canApproveLeaves(currentUser) && (
-      (l.appliedToId && String(l.appliedToId) === String(currentUser?._id)) ||
-      (l.appliedToName && currentUser?.name && l.appliedToName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
-    )) {
-      return true;
-    }
+    // Safety fallback: if no approver was specified at all (legacy record) and current user is primary Admin
+    const hasExplicitReviewer = !!(l.appliedToId || l.appliedTo || l.appliedToName || l.approverId);
+    if (!hasExplicitReviewer && isAdmin(currentUser)) return true;
 
     return false;
   });
 
-  // 2. Pending leaves submitted BY the current user (awaiting review by Admin/HR)
+  // 2. Pending leaves submitted BY the current user (awaiting review by Admin/HR/Approver)
   const myPendingLeaves = (leaves || []).filter(l => {
-    if (l?.status !== 'pending') return false;
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return l?.status === 'pending' && isLeaveApplicant(l, currentUser);
   });
 
   // 3. Recently decided leaves for current user (approved or rejected, not yet acknowledged)
@@ -1407,16 +1410,12 @@ export const DashboardPage = () => {
     } catch (_) { }
     const ackSet = new Set(ackList.map(String));
     if (l.isAcknowledged || ackSet.has(String(l._id))) return false;
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return isLeaveApplicant(l, currentUser);
   });
 
   // 4. All personal leaves of current user (for history/status display)
   const myRecentLeaves = (leaves || []).filter(l => {
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return isLeaveApplicant(l, currentUser);
   });
 
   return (
@@ -2241,52 +2240,28 @@ export const DashboardPage = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {isUserAdminOrHR && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#9a3412' }}>View Perspective:</span>
-                <select
-                  value={selectedAdminEmpId}
-                  onChange={(e) => setSelectedAdminEmpId(e.target.value)}
-                  style={{
-                    padding: '5px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid #fed7aa',
-                    backgroundColor: '#ffffff',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    color: '#0f172a',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="me">My Dashboard ({currentUser?.name})</option>
-                  {(employees || []).filter(e => e._id !== currentUser?._id).map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} — {emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={() => navigate('/team-operations')}
               style={{
-                padding: '6px 14px',
-                borderRadius: '7px',
+                padding: '7px 16px',
+                borderRadius: '8px',
                 border: 'none',
                 backgroundColor: '#ea580c',
                 color: '#ffffff',
-                fontSize: '12px',
+                fontSize: '12.5px',
                 fontWeight: '700',
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
-                boxShadow: '0 1px 4px rgba(234, 88, 12, 0.25)',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
                 transition: 'background-color 0.15s ease'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c2410c'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ea580c'}
             >
+              <Zap size={14} fill="#ffffff" />
               <span>Open Live Operations →</span>
             </button>
           </div>
@@ -2700,7 +2675,14 @@ export const DashboardPage = () => {
                 <Palmtree size={13} color="#059669" />
               </div>
               <div style={{ fontSize: '16px', fontWeight: '800', color: '#059669' }}>
-                {currentUser?.leaveBalance?.casual ?? 8} Days
+                {currentUser?.leaveBalance ? (
+                  (Number(currentUser.leaveBalance.casual) || 0) +
+                  (Number(currentUser.leaveBalance.sick) || 0) +
+                  (Number(currentUser.leaveBalance.earned) || 0)
+                ) : 35} Days
+              </div>
+              <div style={{ fontSize: '10px', color: '#64748b' }}>
+                CL: {currentUser?.leaveBalance?.casual ?? 10} • SL: {currentUser?.leaveBalance?.sick ?? 8} • EL: {currentUser?.leaveBalance?.earned ?? 15}
               </div>
             </div>
           </>
@@ -5504,11 +5486,7 @@ export const DashboardPage = () => {
                         ⏳ Pending Approval
                       </span>
                       <button
-                        onClick={() => {
-                          if (confirm('Do you want to cancel this leave application?')) {
-                            updateLeaveStatus(l._id, 'rejected', 'Cancelled by applicant');
-                          }
-                        }}
+                        onClick={() => setCancellingLeaveTarget(l)}
                         style={{ padding: '2px 5px', borderRadius: '3px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
                         title="Cancel this leave request"
                       >
@@ -5558,10 +5536,12 @@ export const DashboardPage = () => {
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
-              <Plane size={22} style={{ margin: '0 auto 3px' }} />
-              <div style={{ fontSize: '11.5px' }}>No leaves today</div>
-            </div>
+            pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
+                <Plane size={22} style={{ margin: '0 auto 3px' }} />
+                <div style={{ fontSize: '11.5px' }}>No leaves today</div>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -5792,6 +5772,18 @@ export const DashboardPage = () => {
         onConfirm={(reason) => {
           if (rejectingLeaveTarget?._id) {
             updateLeaveStatus(rejectingLeaveTarget._id, 'rejected', reason);
+          }
+        }}
+      />
+
+      <CancelLeaveModal
+        isOpen={!!cancellingLeaveTarget}
+        leave={cancellingLeaveTarget}
+        isApplicant={true}
+        onClose={() => setCancellingLeaveTarget(null)}
+        onConfirm={async (reason) => {
+          if (cancellingLeaveTarget?._id) {
+            await updateLeaveStatus(cancellingLeaveTarget._id, 'cancelled', reason);
           }
         }}
       />

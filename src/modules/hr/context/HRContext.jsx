@@ -72,13 +72,13 @@ export const HRProvider = ({ children }) => {
 
     // Listen for storage events across tabs or internal updates
     const handleStorageUpdate = (e) => {
-      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'hrms_attendance', 'hrms_holidays', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
+      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
         loadData();
       }
     };
     const handleNativeStorage = (e) => {
-      if (e.key === 'ems_auth_session' || e.key === 'hrms_employees') {
+      if (e.key === 'ems_auth_session' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
         loadData();
       }
     };
@@ -157,7 +157,11 @@ export const HRProvider = ({ children }) => {
       // Instant React state update
       setLeaves(prev => [created, ...(prev || [])]);
       addToast('Leave request submitted successfully! HR will review.', 'success');
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
       await loadData();
       return created;
     } catch (err) {
@@ -174,16 +178,18 @@ export const HRProvider = ({ children }) => {
 
       // Instant React memory update with audit logs
       setLeaves(prev => (prev || []).map(l => {
-        if (l._id === leaveId) {
+        if (l._id === leaveId || l.id === leaveId) {
           return {
             ...l,
             status,
             approvedBy: status === 'approved' ? approver : null,
             rejectedBy: status === 'rejected' ? approver : null,
+            cancelledBy: status === 'cancelled' ? approver : null,
             actionBy: approver,
             actionDate: new Date().toISOString(),
             actionDateFormatted,
             rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null,
+            cancellationReason: status === 'cancelled' ? (rejectionReason || 'Cancelled by reviewer') : null,
             isAcknowledged: false,
             updatedAt: new Date().toISOString()
           };
@@ -194,10 +200,17 @@ export const HRProvider = ({ children }) => {
       addToast(
         status === 'approved'
           ? `🎉 Leave request approved successfully!`
+          : status === 'cancelled'
+          ? `Leave request has been cancelled.`
           : `Leave request has been denied.`,
         status === 'approved' ? 'success' : 'info'
       );
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
       window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status, approver } }));
       await loadData();
     } catch (err) {
@@ -227,6 +240,10 @@ export const HRProvider = ({ children }) => {
       setLeaves(prev => (prev || []).filter(l => l._id !== leaveId));
       addToast('Leave request removed', 'info');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
       await loadData();
     } catch (err) {
       addToast('Failed to delete leave', 'error');

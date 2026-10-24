@@ -25,7 +25,8 @@ import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
-import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
+import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -44,6 +45,7 @@ export const LeavesPage = () => {
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [rejectingLeave, setRejectingLeave] = useState(null);
+  const [cancellingLeave, setCancellingLeave] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list', 'calendar', 'card'
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,7 +83,8 @@ export const LeavesPage = () => {
       (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
       (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
       (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+      isLeaveDesignatedApprover(l, currentUser)
     );
   }, [leaves, currentUser, isPrivileged]);
 
@@ -117,7 +120,11 @@ export const LeavesPage = () => {
   // Selected Employee / Current user leave balance
   const activeEmployeeObj = (isPrivileged && filterEmployee !== 'all')
     ? employees.find(e => e._id === filterEmployee)
-    : (currentUser || employees[0]);
+    : ((employees || []).find(e =>
+        (currentUser?._id && String(e._id) === String(currentUser._id)) ||
+        (currentUser?.employeeCode && String(e.employeeCode) === String(currentUser.employeeCode)) ||
+        (currentUser?.email && e.email?.toLowerCase() === currentUser.email.toLowerCase())
+      ) || currentUser || employees[0]);
 
   const activeBalance = activeEmployeeObj?.leaveBalance || { casual: 8, sick: 6, earned: 12, maternity: 0 };
   const totalBalanceDays = Object.values(activeBalance).reduce((a, b) => (Number(a) || 0) + (Number(b) || 0), 0);
@@ -753,12 +760,9 @@ export const LeavesPage = () => {
                       <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           {(() => {
-                            const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-                              (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-                            const canReview = !isApplicant && (
-                              isHRorAdmin(currentUser) ||
-                              (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-                            );
+                            const isApplicant = isLeaveApplicant(leave, currentUser);
+                            const canReview = canReviewLeave(leave, currentUser);
+                            const canCancel = canCancelLeave(leave, currentUser);
 
                             if (leave.status === 'pending' && canReview) {
                               return (
@@ -820,11 +824,7 @@ export const LeavesPage = () => {
                                     ⏳ Awaiting Review
                                   </span>
                                   <button
-                                    onClick={async () => {
-                                      if (confirm('Cancel your pending leave request?')) {
-                                        await deleteLeave(leave._id);
-                                      }
-                                    }}
+                                    onClick={() => setCancellingLeave(leave)}
                                     style={{
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -843,6 +843,30 @@ export const LeavesPage = () => {
                                     <Trash2 size={12} /> Cancel
                                   </button>
                                 </div>
+                              );
+                            }
+
+                            if (leave.status === 'approved' && canCancel) {
+                              return (
+                                <button
+                                  onClick={() => setCancellingLeave(leave)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    background: '#fee2e2',
+                                    color: '#dc2626',
+                                    border: '1px solid #fecaca',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Cancel / Revoke Approved Leave"
+                                >
+                                  <XCircle size={12} /> Cancel Leave
+                                </button>
                               );
                             }
 
@@ -974,18 +998,15 @@ export const LeavesPage = () => {
               </p>
 
               {(() => {
-                const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-                  (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-                const canReview = !isApplicant && (
-                  isHRorAdmin(currentUser) ||
-                  (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-                );
+                const isApplicant = isLeaveApplicant(leave, currentUser);
+                const canReview = canReviewLeave(leave, currentUser);
+                const canCancel = canCancelLeave(leave, currentUser);
 
                 if (leave.status === 'pending' && canReview) {
                   return (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => updateLeaveStatus(leave._id, 'rejected')}
+                        onClick={() => setRejectingLeave(leave)}
                         className="btn btn-outline"
                         style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', color: '#ef4444' }}
                       >
@@ -1009,11 +1030,7 @@ export const LeavesPage = () => {
                         ⏳ Pending Approval
                       </span>
                       <button
-                        onClick={async () => {
-                          if (confirm('Cancel your pending leave request?')) {
-                            await deleteLeave(leave._id);
-                          }
-                        }}
+                        onClick={() => setCancellingLeave(leave)}
                         className="btn btn-outline"
                         style={{ height: '26px', padding: '0 10px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
                       >
@@ -1025,8 +1042,31 @@ export const LeavesPage = () => {
 
                 if (leave.status === 'approved') {
                   return (
-                    <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600' }}>
-                      ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ fontSize: '11.5px', color: '#16a34a', fontWeight: '600' }}>
+                        ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}
+                      </div>
+                      {canCancel && (
+                        <button
+                          onClick={() => setCancellingLeave(leave)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            padding: '3px 8px',
+                            borderRadius: '5px',
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
+                          title="Cancel this approved leave"
+                        >
+                          <XCircle size={12} /> Cancel
+                        </button>
+                      )}
                     </div>
                   );
                 }
@@ -1119,6 +1159,23 @@ export const LeavesPage = () => {
         onConfirm={(reason) => {
           if (rejectingLeave?._id) {
             updateLeaveStatus(rejectingLeave._id, 'rejected', reason);
+          }
+        }}
+      />
+
+      <CancelLeaveModal
+        isOpen={!!cancellingLeave}
+        leave={cancellingLeave}
+        isApplicant={(cancellingLeave?.employeeId && currentUser?._id && cancellingLeave.employeeId === currentUser._id) ||
+          (cancellingLeave?.employeeName && currentUser?.name && cancellingLeave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())}
+        onClose={() => setCancellingLeave(null)}
+        onConfirm={async (reason) => {
+          if (cancellingLeave?._id) {
+            if (cancellingLeave.status === 'pending') {
+              await deleteLeave(cancellingLeave._id);
+            } else {
+              await updateLeaveStatus(cancellingLeave._id, 'cancelled', reason);
+            }
           }
         }}
       />

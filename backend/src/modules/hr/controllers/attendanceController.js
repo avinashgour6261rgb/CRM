@@ -120,6 +120,14 @@ const markAttendance = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'employee, date, and status are required' });
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (date > todayStr && ['present', 'late', 'half_day', 'absent'].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Cannot mark attendance as '${status}' for a future date (${date}). Attendance can only be recorded for today or past dates.`
+    });
+  }
+
   const Employee = require('../models/Employee');
   const mongoose = require('mongoose');
 

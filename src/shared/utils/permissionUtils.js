@@ -211,6 +211,84 @@ export const canApproveLeaves = (user) => {
   const perms = getUserModulePermissions(user);
   return !!(perms?.approveLeaves || perms?.viewAllLeaves || perms?.allLeaves);
 };
+
+/**
+ * Check if the active user is the applicant who requested the leave
+ */
+export const isLeaveApplicant = (leave, user) => {
+  if (!leave || !user) return false;
+  const uId = String(user._id || user.id || '').trim();
+  const uCode = String(user.employeeCode || '').trim();
+  const uName = String(user.name || '').trim().toLowerCase();
+  const uEmail = String(user.email || '').trim().toLowerCase();
+
+  const lEmpId = String(leave.employeeId || leave.employee || '').trim();
+  const lEmpCode = String(leave.employeeCode || '').trim();
+  const lEmpName = String(leave.employeeName || leave.name || '').trim().toLowerCase();
+  const lEmpEmail = String(leave.employeeEmail || leave.email || '').trim().toLowerCase();
+
+  return (
+    (uId && lEmpId && uId === lEmpId) ||
+    (uCode && lEmpCode && uCode === lEmpCode) ||
+    (uName && lEmpName && uName === lEmpName) ||
+    (uEmail && lEmpEmail && uEmail === lEmpEmail)
+  );
+};
+
+/**
+ * Check if the active user is the designated approver chosen for this specific leave
+ */
+export const isLeaveDesignatedApprover = (leave, user) => {
+  if (!leave || !user) return false;
+  const uId = String(user._id || user.id || '').trim();
+  const uCode = String(user.employeeCode || '').trim();
+  const uName = String(user.name || '').trim().toLowerCase();
+  const uEmail = String(user.email || '').trim().toLowerCase();
+
+  const lAppId = String(leave.appliedToId || leave.appliedTo?._id || leave.appliedTo || leave.approverId || '').trim();
+  const lAppCode = String(leave.appliedToCode || '').trim();
+  const lAppName = String(leave.appliedToName || leave.appliedTo?.name || leave.approverName || '').trim().toLowerCase();
+  const lAppEmail = String(leave.appliedToEmail || leave.appliedTo?.email || leave.approverEmail || '').trim().toLowerCase();
+
+  if (uId && lAppId && (uId === lAppId || uId.toLowerCase() === lAppId.toLowerCase())) return true;
+  if (uCode && lAppId && (uCode === lAppId || uCode.toLowerCase() === lAppId.toLowerCase())) return true;
+  if (uCode && lAppCode && (uCode === lAppCode || uCode.toLowerCase() === lAppCode.toLowerCase())) return true;
+  if (uName && lAppName && uName === lAppName) return true;
+  if (uEmail && lAppEmail && uEmail === lAppEmail) return true;
+
+  return false;
+};
+
+/**
+ * Check if user is authorized to cancel a leave:
+ * Strictly:
+ * 1. The employee who requested the leave (Applicant)
+ * 2. The designated approver to whom the request was sent
+ * 3. HR or Admin (System Authority)
+ * NO ONE ELSE!
+ */
+export const canCancelLeave = (leave, user) => {
+  if (!leave || !user) return false;
+  if (isHRorAdmin(user)) return true;
+  if (isLeaveApplicant(leave, user)) return true;
+  if (isLeaveDesignatedApprover(leave, user)) return true;
+  return false;
+};
+
+/**
+ * Check if user is authorized to review (Approve / Reject) a pending leave:
+ * Strictly:
+ * 1. Cannot be applicant themselves (an employee can NEVER approve own leave)
+ * 2. The designated approver, OR HR, OR Admin
+ * NO ONE ELSE!
+ */
+export const canReviewLeave = (leave, user) => {
+  if (!leave || !user) return false;
+  if (isLeaveApplicant(leave, user)) return false;
+  if (isHRorAdmin(user)) return true;
+  if (isLeaveDesignatedApprover(leave, user)) return true;
+  return false;
+};
 export const canManageCompanyHolidays = (user) => isHRorAdmin(user);
 export const canManagePayroll = (user) => isHRorAdmin(user);
 export const canManageProjects = (user) => {

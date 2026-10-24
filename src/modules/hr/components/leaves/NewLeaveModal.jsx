@@ -48,16 +48,24 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     ) || list[0];
   };
 
-  const [formData, setFormData] = useState({
-    employeeId: currentApplicantId,
-    appliedToId: '',
-    leaveType: 'Casual Leave',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-    durationType: 'full', // 'full', 'first_half', 'second_half'
-    reason: '',
-    isPaid: true
-  });
+  const getInitialFormData = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const myId = activeUser?._id || (employees && employees[0]?._id) || '';
+    const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
+    const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));
+    return {
+      employeeId: myId,
+      appliedToId: best?._id || '',
+      leaveType: 'Casual Leave',
+      startDate: today,
+      endDate: today,
+      durationType: 'full', // 'full', 'first_half', 'second_half'
+      reason: '',
+      isPaid: true
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
 
   // 2. Strict Approvers Filter: ONLY employees with actual leave approval authority
   const potentialApprovers = useMemo(() => {
@@ -83,18 +91,10 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     return approvers;
   }, [employees, formData.employeeId, activeUser]);
 
-  // Always auto-fill current logged in applicant & valid approver when modal opens
+  // Always completely fresh form reset whenever modal is opened
   useEffect(() => {
-    if (isOpen && activeUser?._id) {
-      const myId = activeUser._id;
-      const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
-      const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));
-
-      setFormData(prev => ({
-        ...prev,
-        employeeId: myId,
-        appliedToId: best?._id || ''
-      }));
+    if (isOpen) {
+      setFormData(getInitialFormData());
     }
   }, [isOpen, activeUser, employees]);
 
@@ -187,6 +187,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         status: 'pending'
       });
 
+      setFormData(getInitialFormData());
       onClose();
     } catch (err) {
       console.error(err);
@@ -196,10 +197,15 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    setFormData(getInitialFormData());
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Apply For Leave"
       subtitle="Submit a new leave request. Your selected reviewer will receive a notification to accept or deny."
     >

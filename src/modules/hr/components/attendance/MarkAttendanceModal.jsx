@@ -51,6 +51,12 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (formData.date > todayStr && ['present', 'late', 'half_day', 'absent'].includes(formData.status)) {
+      alert(`Cannot mark attendance as '${formData.status}' for a future date (${formData.date}). Attendance can only be recorded for today or past dates.`);
+      return;
+    }
+
     if (isPrivileged && initialData && !formData.auditNote.trim()) {
       alert('Administrator Override Note is required. Please explain why this record is being modified.');
       return;
@@ -124,6 +130,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             <input
               type="date"
               value={formData.date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="filter-input"
               style={{ width: '100%', height: '40px', paddingLeft: '12px' }}

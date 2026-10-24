@@ -112,15 +112,17 @@ export const AttendancePage = () => {
     }
   }
 
-  const presentCount = currentMonthRecords.filter(a => a.status === 'present').length;
-  const lateCount = currentMonthRecords.filter(a => a.status === 'late').length;
-  const halfDayCount = currentMonthRecords.filter(a => a.status === 'half_day').length;
-  const absentCount = currentMonthRecords.filter(a => a.status === 'absent').length;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const presentCount = currentMonthRecords.filter(a => a.status === 'present' && a.date <= todayStr).length;
+  const lateCount = currentMonthRecords.filter(a => a.status === 'late' && a.date <= todayStr).length;
+  const halfDayCount = currentMonthRecords.filter(a => a.status === 'half_day' && a.date <= todayStr).length;
+  const absentCount = currentMonthRecords.filter(a => a.status === 'absent' && a.date <= todayStr).length;
   const onLeaveCount = currentMonthRecords.filter(a => a.status === 'on_leave').length;
   const holidayCount = currentMonthRecords.filter(a => a.status === 'holiday').length;
   const dayOffCount = currentMonthRecords.filter(a => a.status === 'day_off').length;
 
-  const totalWorkingHoursSum = currentMonthRecords.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
+  const validPresenceLogs = currentMonthRecords.filter(a => a.date <= todayStr);
+  const totalWorkingHoursSum = validPresenceLogs.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
   const effectiveDays = presentCount + lateCount + (halfDayCount * 0.5);
   const employeeMultiplier = selectedEmployeeId === 'all' ? (employees.length || 1) : 1;
   const totalExpectedWorkingDays = workingDaysCount * employeeMultiplier;

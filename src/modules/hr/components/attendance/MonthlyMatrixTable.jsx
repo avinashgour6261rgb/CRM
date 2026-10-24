@@ -34,7 +34,22 @@ export const MonthlyMatrixTable = ({
     : employees.filter(e => e._id === selectedEmployeeId);
 
   // Get status icon & styling for a specific cell
-  const getStatusDisplay = (record, isWeekend) => {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const getStatusDisplay = (record, isWeekend, isFuture = false) => {
+    if (isFuture) {
+      if (record?.status === 'on_leave') {
+        return { icon: '✈️', color: '#0284c7', bg: '#e0f2fe', label: 'On Leave (Scheduled)' };
+      }
+      if (record?.status === 'holiday') {
+        return { icon: '⭐', color: '#854d0e', bg: '#fef9c3', label: 'Holiday' };
+      }
+      if (isWeekend) {
+        return { icon: '📅', color: '#94a3b8', bg: '#f1f5f9', label: 'Day Off' };
+      }
+      return { icon: '—', color: '#cbd5e1', bg: '#ffffff', label: 'Upcoming' };
+    }
+
     if (!record) {
       if (isWeekend) {
         return { icon: '📅', color: '#64748b', bg: '#f1f5f9', label: 'Day Off' };
@@ -133,10 +148,12 @@ export const MonthlyMatrixTable = ({
                        a.employeeCode === emp._id ||
                        (a.employeeName && emp.name && a.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase());
               });
-              const fullDaysPresent = empRecords.filter(a => a.status === 'present' || a.status === 'late').length;
-              const halfDaysCount = empRecords.filter(a => a.status === 'half_day').length;
+              // Only past and current dates (<= todayStr) can count toward present totals
+              const validPresenceRecords = empRecords.filter(a => a.date <= todayStr);
+              const fullDaysPresent = validPresenceRecords.filter(a => a.status === 'present' || a.status === 'late').length;
+              const halfDaysCount = validPresenceRecords.filter(a => a.status === 'half_day').length;
               const effectivePresentDays = fullDaysPresent + (halfDaysCount * 0.5);
-              const totalHoursWorked = empRecords.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
+              const totalHoursWorked = validPresenceRecords.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
 
               return (
                 <tr key={emp._id}>
@@ -170,41 +187,45 @@ export const MonthlyMatrixTable = ({
                     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const dayName = getDayName(day);
                     const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+                    const isFuture = dateStr > todayStr;
 
                     const record = empRecords.find(a => a.date === dateStr);
-                    const display = getStatusDisplay(record, isWeekend);
+                    // Safe guard: future dates must NEVER show presence/late
+                    const safeRecord = (isFuture && record && record.status !== 'on_leave' && record.status !== 'holiday') ? null : record;
+                    const display = getStatusDisplay(safeRecord, isWeekend, isFuture);
 
                     // Check if matching status filter
-                    const effectiveStatus = record ? record.status : (isWeekend ? 'day_off' : 'not_marked');
+                    const effectiveStatus = safeRecord ? safeRecord.status : (isFuture ? 'upcoming' : (isWeekend ? 'day_off' : 'not_marked'));
                     const isMuted = statusFilter !== 'all' && effectiveStatus !== statusFilter;
 
-                    const inStr = record?.clockInTime || record?.clockIn;
-                    const outStr = record?.clockOutTime || record?.clockOut;
+                    const inStr = safeRecord?.clockInTime || safeRecord?.clockIn;
+                    const outStr = safeRecord?.clockOutTime || safeRecord?.clockOut;
                     const timeDetail = inStr ? ` | In: ${inStr}${outStr ? ` • Out: ${outStr}` : ' (Active)'}` : '';
 
                     return (
                       <td
                         key={day}
                         onClick={() => {
+                          if (isFuture) return; // Future dates cannot be marked for daily shift attendance
                           setActiveRecordModal({
                             employeeId: emp._id,
                             date: dateStr,
-                            status: record ? record.status : (isWeekend ? 'day_off' : 'present'),
+                            status: safeRecord ? safeRecord.status : (isWeekend ? 'day_off' : 'present'),
                             clockInTime: inStr,
                             clockOutTime: outStr,
-                            notes: record?.notes
+                            notes: safeRecord?.notes
                           });
                         }}
                         style={{
                           textAlign: 'center',
                           padding: '6px 2px',
                           borderRight: '1px solid #f1f5f9',
-                          cursor: 'pointer',
-                          backgroundColor: isMuted ? '#f8fafc' : (record?.status === 'late' ? '#fef3c7' : (record?.status === 'absent' ? '#fee2e2' : (isWeekend ? '#fafafa' : 'transparent'))),
+                          cursor: isFuture ? 'default' : 'pointer',
+                          backgroundColor: isMuted ? '#f8fafc' : (isFuture ? '#fafafa' : (safeRecord?.status === 'late' ? '#fef3c7' : (safeRecord?.status === 'absent' ? '#fee2e2' : (isWeekend ? '#fafafa' : 'transparent')))),
                           opacity: isMuted ? 0.3 : 1,
                           transition: 'all 0.15s'
                         }}
-                        title={`${emp.name} - ${dateStr}: ${display.label}${timeDetail}`}
+                        title={isFuture ? `${emp.name} - ${dateStr}: ${display.label}` : `${emp.name} - ${dateStr}: ${display.label}${timeDetail}`}
                       >
                         <span style={{
                           fontSize: '12px',

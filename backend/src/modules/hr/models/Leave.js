@@ -8,10 +8,17 @@ const LeaveSchema = new mongoose.Schema(
       required: [true, 'Employee reference is required']
     },
     // Denormalized for fast table rendering without populate
+    employeeId: { type: String },
     employeeName: { type: String, required: true },
     employeeAvatar: { type: String, default: '' },
     employeeRole: { type: String, required: true },
     employeeCode: { type: String },
+
+    // Reviewer/Approver fields
+    appliedToId: { type: String, default: '' },
+    appliedToName: { type: String, default: '' },
+    appliedToRole: { type: String, default: '' },
+    appliedToAvatar: { type: String, default: '' },
 
     leaveType: {
       type: String,
@@ -59,6 +66,30 @@ const LeaveSchema = new mongoose.Schema(
     approverRemarks: {
       type: String,
       default: ''
+    },
+    cancelledBy: {
+      type: String,
+      default: null
+    },
+    cancellationReason: {
+      type: String,
+      default: ''
+    },
+    rejectedBy: {
+      type: String,
+      default: null
+    },
+    rejectionReason: {
+      type: String,
+      default: ''
+    },
+    actionBy: {
+      type: String,
+      default: null
+    },
+    actionDate: {
+      type: Date,
+      default: null
     },
     isAcknowledged: {
       type: Boolean,

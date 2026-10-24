@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
 import { Check, X, Trash2, Calendar, Clock, User, ShieldCheck, ShieldAlert, UserCheck } from 'lucide-react';
-import { canApproveLeaves, isHRorAdmin, isAdmin } from '../../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../../shared/utils/permissionUtils';
+import { CancelLeaveModal } from '../../../../shared/components/modals/CancelLeaveModal';
 
 export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   const { updateLeaveStatus, deleteLeave, currentUser } = useHR();
   const [rejectionNote, setRejectionNote] = useState('');
   const [showDenyInput, setShowDenyInput] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   if (!leave) return null;
 
-  const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-    (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-  const canApprove = !isApplicant && (
-    isHRorAdmin(currentUser) ||
-    (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-  );
+  const isApplicant = isLeaveApplicant(leave, currentUser);
+  const isDesignatedApprover = isLeaveDesignatedApprover(leave, currentUser);
+  const canApprove = canReviewLeave(leave, currentUser);
+  const canCancel = canCancelLeave(leave, currentUser);
   const canDelete = isAdmin(currentUser);
 
   const handleApprove = async () => {
@@ -308,12 +308,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
             {leave.status === 'pending' && isApplicant && (
               <button
                 type="button"
-                onClick={async () => {
-                  if (confirm('Are you sure you want to cancel your leave application?')) {
-                    await deleteLeave(leave._id);
-                    onClose();
-                  }
-                }}
+                onClick={() => setIsCancelModalOpen(true)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -370,7 +365,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
                     cursor: 'pointer',
                     fontSize: '13px',
                     fontWeight: '700',
-                    boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
+                    boxShadow: '0 2px 6px rgba(220, 38, 38, 0.3)'
                   }}
                 >
                   <Check size={15} />
@@ -378,12 +373,53 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
                 </button>
               </>
             )}
+            {leave.status === 'approved' && canCancel && (
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '700'
+                }}
+                title="Cancel / Revoke Approved Leave"
+              >
+                <X size={15} />
+                <span>Cancel Approved Leave</span>
+              </button>
+            )}
+
             <button onClick={onClose} className="btn btn-outline">
               Close
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modern Cancel Leave Modal */}
+      <CancelLeaveModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        leave={leave}
+        isApplicant={isApplicant}
+        onConfirm={async (reason) => {
+          if (leave.status === 'pending' && isApplicant) {
+            await deleteLeave(leave._id);
+          } else {
+            await updateLeaveStatus(leave._id, 'cancelled', reason);
+          }
+          setIsCancelModalOpen(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 };

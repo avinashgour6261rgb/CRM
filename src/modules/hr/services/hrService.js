@@ -390,7 +390,7 @@ export const hrService = {
       employeeCode: leaveData.employeeCode || authUser?.employeeCode || '',
       employeeRole: leaveData.employeeRole || authUser?.role || 'Team Member'
     };
-    return fetchWithFallback(`${API_BASE}/leaves`, {
+    const createdLeave = await fetchWithFallback(`${API_BASE}/leaves`, {
       method: 'POST',
       body: JSON.stringify(enriched)
     }, async () => {
@@ -406,12 +406,72 @@ export const hrService = {
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       return newLeave;
     });
+
+    if (createdLeave) {
+      const leaves = getCollection(KEYS.LEAVES) || [];
+      const idx = leaves.findIndex(l => String(l._id || l.id) === String(createdLeave._id || createdLeave.id));
+      if (idx === -1) {
+        leaves.unshift(createdLeave);
+      } else {
+        leaves[idx] = createdLeave;
+      }
+      saveCollection(KEYS.LEAVES, leaves);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+
+      // Deduct employee leave balance upon leave application
+      if (createdLeave.isPaid !== false && createdLeave.leaveType !== 'Unpaid Leave') {
+        let employees = getCollection(KEYS.EMPLOYEES) || [];
+        const targetEmpKey = createdLeave.employeeId || createdLeave.employee || createdLeave.employeeCode;
+        const empIdx = employees.findIndex(e =>
+          String(e._id) === String(targetEmpKey) ||
+          (e.employeeCode && (e.employeeCode === targetEmpKey || e.employeeCode === createdLeave.employeeCode)) ||
+          (e.name && createdLeave.employeeName && e.name.toLowerCase() === createdLeave.employeeName.toLowerCase())
+        );
+
+        if (empIdx >= 0) {
+          const emp = employees[empIdx];
+          const balance = { ...(emp.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 }) };
+          const days = Number(createdLeave.durationDays) || 1;
+          const lt = (createdLeave.leaveType || '').toLowerCase();
+
+          if (lt.includes('cas') || lt === 'cl') balance.casual = Math.max(0, (balance.casual || 10) - days);
+          else if (lt.includes('sic') || lt === 'sl') balance.sick = Math.max(0, (balance.sick || 8) - days);
+          else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = Math.max(0, (balance.earned || 15) - days);
+          else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = Math.max(0, (balance.maternity || 0) - days);
+          else {
+            if ((balance.casual || 0) >= days) balance.casual -= days;
+            else balance.earned = Math.max(0, (balance.earned || 0) - days);
+          }
+
+          emp.leaveBalance = balance;
+          employees[empIdx] = emp;
+          saveCollection(KEYS.EMPLOYEES, employees);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+
+          const authRaw = localStorage.getItem('ems_auth_session') || localStorage.getItem('hrms_current_user');
+          if (authRaw) {
+            try {
+              const authObj = JSON.parse(authRaw);
+              if (authObj && (String(authObj._id) === String(emp._id) || authObj.employeeCode === emp.employeeCode)) {
+                const updatedAuth = { ...authObj, leaveBalance: balance };
+                localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
+                localStorage.setItem('hrms_current_user', JSON.stringify(updatedAuth));
+                window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    }
+    return createdLeave;
   },
 
   async updateLeaveStatus(leaveId, status, approverName = 'HR Admin', rejectionReason = '') {
     const updateLocalState = (targetLeave, updatedEmployeeBalance = null) => {
       const leaves = getCollection(KEYS.LEAVES) || [];
       const index = leaves.findIndex(l => String(l._id || l.id) === String(leaveId));
+      const previousStatus = index !== -1 ? leaves[index].status : targetLeave.status;
+
       if (index !== -1) {
         leaves[index] = {
           ...leaves[index],
@@ -419,7 +479,11 @@ export const hrService = {
           status,
           approvedBy: status === 'approved' ? approverName : null,
           rejectedBy: status === 'rejected' ? approverName : null,
+          cancelledBy: status === 'cancelled' ? approverName : null,
           rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null,
+          cancellationReason: status === 'cancelled' ? (rejectionReason || 'Cancelled by reviewer') : null,
+          actionBy: approverName,
+          actionDate: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         saveCollection(KEYS.LEAVES, leaves);
@@ -437,18 +501,31 @@ export const hrService = {
       if (empIdx >= 0) {
         const emp = employees[empIdx];
         let balance = updatedEmployeeBalance || { ...(emp.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 }) };
-        if (!updatedEmployeeBalance && status === 'approved') {
-          const days = Number(targetLeave.durationDays) || 1;
-          const lt = (targetLeave.leaveType || '').toLowerCase();
-          if (lt.includes('cas') || lt === 'cl') balance.casual = Math.max(0, (balance.casual || 10) - days);
-          else if (lt.includes('sic') || lt === 'sl') balance.sick = Math.max(0, (balance.sick || 8) - days);
-          else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = Math.max(0, (balance.earned || 15) - days);
-          else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = Math.max(0, (balance.maternity || 0) - days);
-          else {
-            if ((balance.casual || 0) >= days) balance.casual -= days;
-            else balance.earned = Math.max(0, (balance.earned || 0) - days);
+        const days = Number(targetLeave.durationDays) || 1;
+        const lt = (targetLeave.leaveType || '').toLowerCase();
+
+        if (!updatedEmployeeBalance) {
+          // If previous was pending, it was already deducted on apply; only deduct if previously cancelled or rejected
+          if (status === 'approved' && previousStatus !== 'approved' && previousStatus !== 'pending') {
+            // Deduct on approval
+            if (lt.includes('cas') || lt === 'cl') balance.casual = Math.max(0, (balance.casual || 10) - days);
+            else if (lt.includes('sic') || lt === 'sl') balance.sick = Math.max(0, (balance.sick || 8) - days);
+            else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = Math.max(0, (balance.earned || 15) - days);
+            else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = Math.max(0, (balance.maternity || 0) - days);
+            else {
+              if ((balance.casual || 0) >= days) balance.casual -= days;
+              else balance.earned = Math.max(0, (balance.earned || 0) - days);
+            }
+          } else if ((previousStatus === 'approved' || previousStatus === 'pending') && (status === 'cancelled' || status === 'rejected')) {
+            // Restore on cancellation/rejection
+            if (lt.includes('cas') || lt === 'cl') balance.casual = (balance.casual || 0) + days;
+            else if (lt.includes('sic') || lt === 'sl') balance.sick = (balance.sick || 0) + days;
+            else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = (balance.earned || 0) + days;
+            else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = (balance.maternity || 0) + days;
+            else balance.casual = (balance.casual || 0) + days;
           }
         }
+
         emp.leaveBalance = balance;
         employees[empIdx] = emp;
         saveCollection(KEYS.EMPLOYEES, employees);
@@ -469,6 +546,59 @@ export const hrService = {
         }
       }
 
+      // Synchronize Attendance Matrix in local mirror
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let attendance = getCollection(KEYS.ATTENDANCE) || [];
+        const start = new Date(targetLeave.startDate);
+        const end = new Date(targetLeave.endDate || targetLeave.startDate);
+        const cur = new Date(start);
+
+        if (status === 'approved') {
+          while (cur <= end) {
+            const dStr = cur.toISOString().split('T')[0];
+            const existingIdx = attendance.findIndex(a =>
+              a.date === dStr && (
+                String(a.employeeId) === String(targetEmpKey) ||
+                String(a.employee) === String(targetEmpKey) ||
+                (a.employeeCode && (a.employeeCode === targetEmpKey || a.employeeCode === targetLeave.employeeCode))
+              )
+            );
+            const onLeaveRec = {
+              employee: targetEmpKey,
+              employeeId: targetEmpKey,
+              employeeName: targetLeave.employeeName,
+              employeeCode: targetLeave.employeeCode,
+              employeeRole: targetLeave.employeeRole,
+              date: dStr,
+              status: 'on_leave',
+              notes: `Approved ${targetLeave.leaveType} (${targetLeave.durationDays}d)`
+            };
+            if (existingIdx >= 0) attendance[existingIdx] = { ...attendance[existingIdx], ...onLeaveRec };
+            else attendance.push(onLeaveRec);
+            cur.setDate(cur.getDate() + 1);
+          }
+        } else if (status === 'cancelled' || status === 'rejected') {
+          while (cur <= end) {
+            const dStr = cur.toISOString().split('T')[0];
+            attendance = attendance.filter(a => {
+              const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
+                String(a.employee) === String(targetEmpKey) ||
+                (a.employeeCode && (a.employeeCode === targetEmpKey || a.employeeCode === targetLeave.employeeCode));
+              if (!matchesEmp || a.date !== dStr) return true;
+              if (dStr > todayStr) return false; // Delete future attendance
+              if (a.status === 'on_leave') return false; // Delete on_leave
+              return true;
+            });
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+        saveCollection(KEYS.ATTENDANCE, attendance);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      } catch (attErr) {
+        console.warn('Local attendance sync for leave failed:', attErr);
+      }
+
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status, approverName } }));
     };
@@ -479,7 +609,7 @@ export const hrService = {
 
     const resData = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status, approvedBy: approverName, rejectionReason })
+      body: JSON.stringify({ status, approverName, approvedBy: approverName, rejectionReason, cancellationReason: rejectionReason })
     }, async () => {
       const targetLeave = { ...existingTarget, status };
       updateLocalState(targetLeave);
@@ -525,12 +655,62 @@ export const hrService = {
   },
 
   async deleteLeave(leaveId) {
+    const leaves = getCollection(KEYS.LEAVES) || [];
+    const targetLeave = leaves.find(l => String(l._id || l.id) === String(leaveId));
+
+    if (targetLeave && targetLeave.status === 'approved') {
+      // Restore balance & clean attendance
+      let employees = getCollection(KEYS.EMPLOYEES) || [];
+      const targetEmpKey = targetLeave.employeeId || targetLeave.employee || targetLeave.employeeCode;
+      const empIdx = employees.findIndex(e =>
+        String(e._id) === String(targetEmpKey) ||
+        (e.employeeCode && (e.employeeCode === targetEmpKey || e.employeeCode === targetLeave.employeeCode))
+      );
+      if (empIdx >= 0) {
+        const emp = employees[empIdx];
+        const days = Number(targetLeave.durationDays) || 1;
+        const lt = (targetLeave.leaveType || '').toLowerCase();
+        const balance = { ...(emp.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 }) };
+        if (lt.includes('cas') || lt === 'cl') balance.casual = (balance.casual || 0) + days;
+        else if (lt.includes('sic') || lt === 'sl') balance.sick = (balance.sick || 0) + days;
+        else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = (balance.earned || 0) + days;
+        else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = (balance.maternity || 0) + days;
+        else balance.casual = (balance.casual || 0) + days;
+        emp.leaveBalance = balance;
+        employees[empIdx] = emp;
+        saveCollection(KEYS.EMPLOYEES, employees);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      }
+
+      // Cleanup attendance
+      const todayStr = new Date().toISOString().split('T')[0];
+      let attendance = getCollection(KEYS.ATTENDANCE) || [];
+      const start = new Date(targetLeave.startDate);
+      const end = new Date(targetLeave.endDate || targetLeave.startDate);
+      const cur = new Date(start);
+      while (cur <= end) {
+        const dStr = cur.toISOString().split('T')[0];
+        attendance = attendance.filter(a => {
+          const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
+            String(a.employee) === String(targetEmpKey) ||
+            (a.employeeCode && (a.employeeCode === targetEmpKey || a.employeeCode === targetLeave.employeeCode));
+          if (!matchesEmp || a.date !== dStr) return true;
+          if (dStr > todayStr) return false;
+          if (a.status === 'on_leave') return false;
+          return true;
+        });
+        cur.setDate(cur.getDate() + 1);
+      }
+      saveCollection(KEYS.ATTENDANCE, attendance);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+    }
+
     return fetchWithFallback(`${API_BASE}/leaves/${leaveId}`, {
       method: 'DELETE'
     }, async () => {
-      let leaves = getCollection(KEYS.LEAVES);
-      leaves = leaves.filter(l => l._id !== leaveId);
-      saveCollection(KEYS.LEAVES, leaves);
+      let remaining = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
+      saveCollection(KEYS.LEAVES, remaining);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       return { success: true };
     });
   },
