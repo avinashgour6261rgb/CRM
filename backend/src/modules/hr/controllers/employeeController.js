@@ -157,10 +157,20 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     ? { _id: id }
     : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
 
-  const employee = await Employee.findOneAndDelete(query);
+  const employee = await Employee.findOne(query);
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
+
+  // Prevent deleting your own active account if user is attached to request
+  if (req.user && String(req.user._id) === String(employee._id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'You cannot delete your own active administrator account.'
+    });
+  }
+
+  await Employee.deleteOne({ _id: employee._id });
   res.json({ success: true, message: 'Employee removed', data: {} });
 });
 

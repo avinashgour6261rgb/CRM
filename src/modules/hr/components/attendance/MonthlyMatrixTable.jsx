@@ -8,8 +8,15 @@ export const MonthlyMatrixTable = ({
   selectedEmployeeId = 'all',
   statusFilter = 'all'
 }) => {
-  const { employees, attendance } = useHR();
+  const { employees, attendance, currentUser } = useHR();
   const [activeRecordModal, setActiveRecordModal] = useState(null);
+
+  const isEmployeeSelf = (emp) => {
+    if (!currentUser || !emp) return false;
+    return String(emp._id || emp.id) === String(currentUser._id || currentUser.id) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
+  };
 
   // Number of days in the given month/year
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -149,7 +156,7 @@ export const MonthlyMatrixTable = ({
                       <div className="employee-name-group">
                         <span className="employee-name" style={{ fontSize: '13px' }}>
                           {emp.name}
-                          {emp.isCurrentUser && (
+                          {isEmployeeSelf(emp) && (
                             <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px' }}>It's You</span>
                           )}
                         </span>

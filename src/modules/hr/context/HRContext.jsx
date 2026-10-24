@@ -134,13 +134,18 @@ export const HRProvider = ({ children }) => {
 
   const deleteEmployee = async (employeeId) => {
     try {
+      if (currentUser && (String(currentUser._id) === String(employeeId) || String(currentUser.id) === String(employeeId))) {
+        addToast('You cannot delete your own active administrator account!', 'warning');
+        return;
+      }
+
       await hrService.deleteEmployee(employeeId);
-      setEmployees(prev => prev.filter(e => e._id !== employeeId));
+      setEmployees(prev => prev.filter(e => e._id !== employeeId && e.id !== employeeId));
       addToast('Employee removed from roster', 'info');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
       await loadData();
     } catch (err) {
-      addToast('Failed to delete employee', 'error');
+      addToast(err?.message || 'Failed to delete employee', 'error');
       throw err;
     }
   };

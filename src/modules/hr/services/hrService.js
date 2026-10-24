@@ -645,6 +645,14 @@ export const hrService = {
         isLate: isLateCalc,
         lateByMinutes,
         notes: notes || '',
+        clockInTimestamp: attendanceData.clockInTimestamp !== undefined ? attendanceData.clockInTimestamp : (existingIndex >= 0 ? attendance[existingIndex].clockInTimestamp : undefined),
+        clockOutTimestamp: attendanceData.clockOutTimestamp !== undefined ? attendanceData.clockOutTimestamp : (existingIndex >= 0 ? attendance[existingIndex].clockOutTimestamp : undefined),
+        workSeconds: attendanceData.workSeconds !== undefined ? attendanceData.workSeconds : (existingIndex >= 0 ? attendance[existingIndex].workSeconds : 0),
+        breakSeconds: attendanceData.breakSeconds !== undefined ? attendanceData.breakSeconds : (existingIndex >= 0 ? attendance[existingIndex].breakSeconds : 0),
+        isOnBreak: attendanceData.isOnBreak !== undefined ? attendanceData.isOnBreak : false,
+        breakType: attendanceData.breakType !== undefined ? attendanceData.breakType : null,
+        breakHistory: attendanceData.breakHistory !== undefined ? attendanceData.breakHistory : (existingIndex >= 0 ? attendance[existingIndex].breakHistory : []),
+        isClockedIn: attendanceData.isClockedIn !== undefined ? attendanceData.isClockedIn : (Boolean(finalClockIn) && !finalClockOut),
         updatedAt: new Date().toISOString()
       };
 
@@ -894,8 +902,8 @@ export const hrService = {
     if (filters.employeeId && filters.employeeId !== 'all') query.append('employeeId', filters.employeeId);
     if (filters.search) query.append('search', filters.search);
 
-    return fetchWithFallback(`${API_BASE}/appreciations?${query.toString()}`, { method: 'GET' }, async () => {
-      let appreciations = getCollection(KEYS.APPRECIATIONS);
+    const res = await fetchWithFallback(`${API_BASE}/appreciations?${query.toString()}`, { method: 'GET' }, async () => {
+      let appreciations = getCollection(KEYS.APPRECIATIONS) || [];
 
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -906,19 +914,26 @@ export const hrService = {
         );
       }
       if (filters.employeeId && filters.employeeId !== 'all') {
-        appreciations = appreciations.filter(a => a.givenToId === filters.employeeId);
+        appreciations = appreciations.filter(a => a.givenToId === filters.employeeId || a.givenTo === filters.employeeId);
       }
 
       return appreciations.sort((a, b) => (b.givenOn || '').localeCompare(a.givenOn || ''));
     });
+
+    if (Array.isArray(res) && !filters.employeeId && !filters.search) {
+      try {
+        saveCollection(KEYS.APPRECIATIONS, res);
+      } catch (_) {}
+    }
+    return res;
   },
 
   async createAppreciation(appreciationData) {
-    return fetchWithFallback(`${API_BASE}/appreciations`, {
+    const res = await fetchWithFallback(`${API_BASE}/appreciations`, {
       method: 'POST',
       body: JSON.stringify(appreciationData)
     }, async () => {
-      const appreciations = getCollection(KEYS.APPRECIATIONS);
+      const appreciations = getCollection(KEYS.APPRECIATIONS) || [];
       const newAppreciation = {
         _id: `app_${Date.now()}`,
         createdAt: new Date().toISOString(),
@@ -928,16 +943,38 @@ export const hrService = {
       saveCollection(KEYS.APPRECIATIONS, appreciations);
       return newAppreciation;
     });
+
+    if (res) {
+      try {
+        const local = getCollection(KEYS.APPRECIATIONS) || [];
+        const exists = local.some(a => String(a._id) === String(res._id));
+        if (!exists) {
+          local.unshift(res);
+          saveCollection(KEYS.APPRECIATIONS, local);
+        }
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.APPRECIATIONS } }));
+      } catch (_) {}
+    }
+    return res;
   },
 
   async deleteAppreciation(appreciationId) {
-    return fetchWithFallback(`${API_BASE}/appreciations/${appreciationId}`, {
+    const res = await fetchWithFallback(`${API_BASE}/appreciations/${appreciationId}`, {
       method: 'DELETE'
     }, async () => {
-      let appreciations = getCollection(KEYS.APPRECIATIONS);
+      let appreciations = getCollection(KEYS.APPRECIATIONS) || [];
       appreciations = appreciations.filter(a => a._id !== appreciationId);
       saveCollection(KEYS.APPRECIATIONS, appreciations);
       return { success: true };
     });
+
+    try {
+      let appreciations = getCollection(KEYS.APPRECIATIONS) || [];
+      appreciations = appreciations.filter(a => String(a._id) !== String(appreciationId));
+      saveCollection(KEYS.APPRECIATIONS, appreciations);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.APPRECIATIONS } }));
+    } catch (_) {}
+
+    return res;
   }
 };

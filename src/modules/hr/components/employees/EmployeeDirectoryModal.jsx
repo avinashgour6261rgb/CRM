@@ -9,8 +9,15 @@ import { SalaryIncrementModal } from '../../../finance/components/SalaryIncremen
 import { ManagePermissionsModal } from './ManagePermissionsModal';
 
 export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
-  const { employees, deleteEmployee } = useHR();
+  const { employees, deleteEmployee, currentUser } = useHR();
   const [search, setSearch] = useState('');
+
+  const isEmployeeSelf = (emp) => {
+    if (!currentUser || !emp) return false;
+    return String(emp._id || emp.id) === String(currentUser._id || currentUser.id) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
+  };
   const [selectedDept, setSelectedDept] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedPromoteEmp, setSelectedPromoteEmp] = useState(null);
@@ -136,7 +143,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                         <div className="employee-name-group">
                           <span className="employee-name" style={{ color: '#2563eb', textDecoration: 'underline' }}>
                             {emp.name}
-                            {emp.isCurrentUser && (
+                            {isEmployeeSelf(emp) && (
                               <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '6px' }}>It's You</span>
                             )}
                           </span>
@@ -259,7 +266,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                         <span>Promote</span>
                       </button>
 
-                      {!emp.isCurrentUser && (
+                      {!isEmployeeSelf(emp) && (
                         <button
                           onClick={() => {
                             if (confirm(`Are you sure you want to remove employee ${emp.name}?`)) {

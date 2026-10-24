@@ -24,7 +24,8 @@ import { useHR } from '../../hr/context/HRContext';
 import { NewConversationModal } from '../components/messages/NewConversationModal';
 
 export const MessagesPage = () => {
-  const { conversations, activeConversationId, setActiveConversationId, sendMessage } = useCRM();
+  const { conversations, activeConversationId, setActiveConversationId, sendMessage, darkMode } = useCRM();
+  const isDark = !!darkMode;
   const { currentUser } = useHR();
 
   const [searchContact, setSearchContact] = useState('');
@@ -66,11 +67,11 @@ export const MessagesPage = () => {
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '10px',
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         padding: '12px 16px',
         borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.02)',
         minHeight: '68px',
         boxSizing: 'border-box',
         flexShrink: 0
@@ -80,8 +81,8 @@ export const MessagesPage = () => {
             width: '32px',
             height: '32px',
             borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
+            backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+            color: '#38bdf8',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -90,12 +91,12 @@ export const MessagesPage = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Team Chat & Direct Messages</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#16a34a', fontWeight: '700' }}>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', lineHeight: '1.2' }}>Team Chat & Direct Messages</h1>
+              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: isDark ? '#064e3b' : '#dcfce7', color: isDark ? '#4ade80' : '#16a34a', fontWeight: '700' }}>
                 Online
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
               Real-time collaboration, direct messages, project group threads & attachments
             </p>
           </div>
@@ -129,23 +130,23 @@ export const MessagesPage = () => {
         flex: 1,
         display: 'grid',
         gridTemplateColumns: '290px 1fr',
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         borderRadius: '10px',
-        border: '1px solid #e2e8f0',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
         overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 2px rgba(0,0,0,0.02)'
       }}>
         
         {/* Left Sidebar: Contact Search & Conversation List */}
         <div style={{
-          borderRight: '1px solid #f1f5f9',
+          borderRight: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#f8fafc'
+          backgroundColor: isDark ? '#0f172a' : '#f8fafc'
         }}>
           
           {/* Search Bar */}
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #f1f5f9', backgroundColor: '#ffffff' }}>
+          <div style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9', backgroundColor: isDark ? '#151e32' : '#ffffff' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -153,10 +154,10 @@ export const MessagesPage = () => {
               padding: '0 8px',
               height: '30px',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc'
+              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+              backgroundColor: isDark ? '#1e293b' : '#f8fafc'
             }}>
-              <Search size={13} color="#94a3b8" />
+              <Search size={13} color={isDark ? '#38bdf8' : '#94a3b8'} />
               <input
                 type="text"
                 placeholder="Type to search contact"
@@ -168,7 +169,7 @@ export const MessagesPage = () => {
                   outline: 'none',
                   fontSize: '12.5px',
                   width: '100%',
-                  color: '#0f172a'
+                  color: isDark ? '#f8fafc' : '#0f172a'
                 }}
               />
             </div>
@@ -204,12 +205,12 @@ export const MessagesPage = () => {
                       padding: '12px',
                       borderRadius: '10px',
                       cursor: 'pointer',
-                      backgroundColor: isSelected ? '#ffffff' : 'transparent',
-                      boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
-                      border: isSelected ? '1px solid #e2e8f0' : '1px solid transparent',
+                      backgroundColor: isSelected ? (isDark ? '#1e2d4a' : '#ffffff') : 'transparent',
+                      boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
+                      border: isSelected ? (isDark ? '1px solid #2e436c' : '1px solid #e2e8f0') : '1px solid transparent',
                       transition: 'all 0.15s ease'
                     }}
-                    onMouseEnter={e => !isSelected && (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                    onMouseEnter={e => !isSelected && (e.currentTarget.style.backgroundColor = isDark ? '#162238' : '#f1f5f9')}
                     onMouseLeave={e => !isSelected && (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
                     {/* Avatar & Online Dot */}
@@ -228,7 +229,7 @@ export const MessagesPage = () => {
                           height: '10px',
                           borderRadius: '50%',
                           backgroundColor: '#10b981',
-                          border: '2px solid #ffffff'
+                          border: `2px solid ${isDark ? '#0f172a' : '#ffffff'}`
                         }} />
                       )}
                     </div>
@@ -236,17 +237,17 @@ export const MessagesPage = () => {
                     {/* Contact Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13.5px', fontWeight: isSelected ? '700' : '600', color: '#0f172a' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: isSelected ? '700' : '600', color: isDark ? '#f8fafc' : '#0f172a' }}>
                           {conv.participantName}
                         </span>
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                        <span style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#94a3b8' }}>
                           {conv.lastMessageTime}
                         </span>
                       </div>
 
                       <div style={{
                         fontSize: '12px',
-                        color: isSelected ? '#334155' : '#64748b',
+                        color: isSelected ? (isDark ? '#93c5fd' : '#334155') : (isDark ? '#94a3b8' : '#64748b'),
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -280,7 +281,7 @@ export const MessagesPage = () => {
         <div style={{
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#ffffff'
+          backgroundColor: isDark ? '#151e32' : '#ffffff'
         }}>
           
           {/* If No Conversation Selected: Empty State Matching Screenshot 4 */}
@@ -293,21 +294,21 @@ export const MessagesPage = () => {
               justifyContent: 'center',
               gap: '16px',
               padding: '40px',
-              color: '#64748b'
+              color: isDark ? '#94a3b8' : '#64748b'
             }}>
               <div style={{
                 width: '64px',
                 height: '64px',
                 borderRadius: '50%',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
+                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                color: '#38bdf8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
                 <MessageSquare size={32} />
               </div>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: '#64748b' }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#cbd5e1' : '#64748b' }}>
                 - Select a conversation to send a message -
               </div>
               <button
@@ -336,11 +337,11 @@ export const MessagesPage = () => {
               {/* Chat Header Matching Screenshot */}
               <div style={{
                 padding: '14px 20px',
-                borderBottom: '1px solid #f1f5f9',
+                borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: '#ffffff'
+                backgroundColor: isDark ? '#151e32' : '#ffffff'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ position: 'relative' }}>
@@ -358,15 +359,15 @@ export const MessagesPage = () => {
                         height: '9px',
                         borderRadius: '50%',
                         backgroundColor: '#10b981',
-                        border: '2px solid #ffffff'
+                        border: `2px solid ${isDark ? '#151e32' : '#ffffff'}`
                       }} />
                     )}
                   </div>
                   <div>
-                    <div style={{ fontSize: '14.5px', fontWeight: '800', color: '#0f172a' }}>
+                    <div style={{ fontSize: '14.5px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a' }}>
                       {activeConv.participantName}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                    <div style={{ fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
                       {activeConv.participantRole} • {activeConv.isOnline ? '🟢 Active Now' : 'Offline'}
                     </div>
                   </div>
@@ -405,7 +406,7 @@ export const MessagesPage = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '14px',
-                backgroundColor: '#f8fafc'
+                backgroundColor: isDark ? '#0b1120' : '#f8fafc'
               }}>
                 {activeConv.messages.map(msg => (
                   <div
@@ -418,7 +419,7 @@ export const MessagesPage = () => {
                     }}
                   >
                     {!msg.isOutgoing && (
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '3px', marginLeft: '4px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: isDark ? '#38bdf8' : '#64748b', marginBottom: '3px', marginLeft: '4px' }}>
                         {activeConv.participantName}
                       </span>
                     )}
@@ -426,19 +427,19 @@ export const MessagesPage = () => {
                     <div style={{
                       padding: '10px 16px',
                       borderRadius: msg.isOutgoing ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                      backgroundColor: msg.isOutgoing ? '#2563eb' : '#ffffff',
-                      color: msg.isOutgoing ? '#ffffff' : '#0f172a',
-                      border: msg.isOutgoing ? 'none' : '1px solid #e2e8f0',
+                      backgroundColor: msg.isOutgoing ? '#2563eb' : (isDark ? '#1e293b' : '#ffffff'),
+                      color: msg.isOutgoing ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a'),
+                      border: msg.isOutgoing ? 'none' : (isDark ? '1px solid #2e436c' : '1px solid #e2e8f0'),
                       fontSize: '13.5px',
                       lineHeight: '1.5',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                      boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)'
                     }}>
                       {msg.text}
                     </div>
 
                     <div style={{
                       fontSize: '10.5px',
-                      color: '#94a3b8',
+                      color: isDark ? '#64748b' : '#94a3b8',
                       marginTop: '3px',
                       alignSelf: msg.isOutgoing ? 'flex-end' : 'flex-start',
                       display: 'flex',
@@ -446,7 +447,7 @@ export const MessagesPage = () => {
                       gap: '4px'
                     }}>
                       <span>{msg.timestamp}</span>
-                      {msg.isOutgoing && <CheckCheck size={13} color="#2563eb" />}
+                      {msg.isOutgoing && <CheckCheck size={13} color="#60a5fa" />}
                     </div>
                   </div>
                 ))}
@@ -458,11 +459,11 @@ export const MessagesPage = () => {
                 onSubmit={handleSend}
                 style={{
                   padding: '14px 18px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
-                  backgroundColor: '#ffffff'
+                  backgroundColor: isDark ? '#151e32' : '#ffffff'
                 }}
               >
                 <button
@@ -470,7 +471,7 @@ export const MessagesPage = () => {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#64748b',
+                    color: isDark ? '#94a3b8' : '#64748b',
                     cursor: 'pointer',
                     padding: '4px'
                   }}
@@ -488,10 +489,11 @@ export const MessagesPage = () => {
                     flex: 1,
                     padding: '10px 16px',
                     borderRadius: '24px',
-                    border: '1px solid #cbd5e1',
+                    border: isDark ? '1px solid #2e436c' : '1px solid #cbd5e1',
                     fontSize: '13px',
                     outline: 'none',
-                    backgroundColor: '#f8fafc'
+                    backgroundColor: isDark ? '#18233c' : '#f8fafc',
+                    color: isDark ? '#f8fafc' : '#0f172a'
                   }}
                 />
 
@@ -503,7 +505,7 @@ export const MessagesPage = () => {
                     height: '38px',
                     borderRadius: '50%',
                     border: 'none',
-                    backgroundColor: inputText.trim() ? '#2563eb' : '#e2e8f0',
+                    backgroundColor: inputText.trim() ? '#2563eb' : (isDark ? '#243049' : '#e2e8f0'),
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',

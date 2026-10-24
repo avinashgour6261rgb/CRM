@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getMonthlyAttendance,
+  getAttendanceSummary,
   getAttendanceByDate,
   markAttendance,
   bulkMarkAttendance,
@@ -13,6 +14,7 @@ const {
 
 router.get('/', getMonthlyAttendance);
 router.get('/monthly', getMonthlyAttendance);
+router.get('/summary', getAttendanceSummary);
 router.get('/daily', getAttendanceByDate);
 router.post('/bulk', bulkMarkAttendance);
 router.post('/mark', markAttendance);

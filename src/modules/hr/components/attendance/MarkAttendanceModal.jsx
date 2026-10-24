@@ -105,11 +105,14 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             className="filter-select"
             style={{ width: '100%', height: '40px' }}
           >
-            {employees.map(emp => (
-              <option key={emp._id} value={emp._id}>
-                {emp.name} ({emp.role}) {emp.isCurrentUser ? "— It's You" : ''}
-              </option>
-            ))}
+            {employees.map(emp => {
+              const isSelf = currentUser && (String(emp._id || emp.id) === String(currentUser._id || currentUser.id) || (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) || (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase()));
+              return (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name} ({emp.role}) {isSelf ? "— It's You" : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 

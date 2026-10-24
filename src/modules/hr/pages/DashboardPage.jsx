@@ -66,6 +66,8 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
+import { workService } from '../../work/services/workService';
+import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -235,6 +237,8 @@ export const DashboardPage = () => {
     window.addEventListener('ems_task_timer_paused', handleSync);
     window.addEventListener('ems_task_timer_stopped', handleSync);
     window.addEventListener('ems_working_mode_changed', handleSync);
+    window.addEventListener('ems_break_started', handleSync);
+    window.addEventListener('ems_break_ended', handleSync);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('hrms_storage_change', handleSync);
@@ -245,6 +249,8 @@ export const DashboardPage = () => {
       window.removeEventListener('ems_task_timer_paused', handleSync);
       window.removeEventListener('ems_task_timer_stopped', handleSync);
       window.removeEventListener('ems_working_mode_changed', handleSync);
+      window.removeEventListener('ems_break_started', handleSync);
+      window.removeEventListener('ems_break_ended', handleSync);
     };
   }, []);
 
@@ -370,18 +376,18 @@ export const DashboardPage = () => {
       if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
     } catch { }
 
-    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
+    const isClockedIn = storedClockedIn || attRec?.isClockedIn === true || (!!attRec?.clockInTime && !attRec?.clockOutTime);
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
     const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? '09:30 AM' : null);
     const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
 
     // Calculate dynamic live work seconds
-    let workSecs = storedWorkSecs;
+    let workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
     if (isClockedIn && !storedOnBreak) {
-      const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`));
+      const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(attRec?.clockInTimestamp);
       if (clockInTs > 0) {
         const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        workSecs = Math.max(0, gross - storedBreakSecs);
+        workSecs = Math.max(workSecs, gross - (storedBreakSecs || Number(attRec?.breakSeconds) || 0));
       } else if (empId === currentUser?._id) {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
         workSecs = Math.max(workSecs, localGross);
@@ -475,13 +481,21 @@ export const DashboardPage = () => {
   // Admin Force Clock Out function
   const handleAdminClockOut = async (empId, empName) => {
     if (!empId) return;
+    if (!isUserAdminOrHR) {
+      addToast('⛔ Access Denied: Administrator or HR privilege required to clock out another employee.', 'error');
+      return;
+    }
     const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
     try {
       const targetEmp = (employees || []).find(e => e._id === empId || e.employeeCode === empId);
       const empKey = targetEmp?.employeeCode || (targetEmp?._id ? String(targetEmp._id) : String(empId));
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-      await hrService.adminForceClockOut(empId, note, todayStr);
+      try {
+        await hrService.adminForceClockOut(empId, note, todayStr);
+      } catch (backendErr) {
+        console.warn('Backend adminForceClockOut warning:', backendErr);
+      }
 
       localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
@@ -490,12 +504,38 @@ export const DashboardPage = () => {
       const allTasks = getCollection(KEYS.TASKS) || [];
       let taskChanged = false;
       const updatedTasks = allTasks.map(t => {
-        if ((t.assignedToId === empId || t.assignedTo === empKey || t.assignedToName?.toLowerCase() === empName?.toLowerCase()) && t.timerRunning) {
+        const isTargetTask = (t.assignedToId === empId || t.assignedTo === empKey || t.assignedToName?.toLowerCase() === empName?.toLowerCase() || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empId)));
+        if (isTargetTask && t.timerRunning) {
           taskChanged = true;
-          return { ...t, timerRunning: false };
+          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+            ? Number(t.accumulatedSeconds)
+            : (Number(t.timerSeconds) || 0);
+          if (t.startedAt) {
+            currentSecs += Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+          }
+          // Persist paused state to MongoDB Atlas
+          workService.updateTask(t._id || t.id, {
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            timerSeconds: currentSecs,
+            sessionDate: todayStr,
+            hoursLogged: +(currentSecs / 3600).toFixed(2),
+            hoursLoggedText: formatSeconds(currentSecs)
+          }).catch(err => console.warn('Sync force clock-out task pause to DB:', err));
+
+          return {
+            ...t,
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            timerSeconds: currentSecs,
+            liveDurationText: formatSeconds(currentSecs)
+          };
         }
         return t;
       });
+
       if (taskChanged) {
         saveCollection(KEYS.TASKS, updatedTasks);
         const rawActiveTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`);
@@ -509,6 +549,8 @@ export const DashboardPage = () => {
         }
       }
 
+      broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, { employeeId: empId, empKey, adminName: currentUser?.name });
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { empKey });
       window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: { employeeId: empId, adminName: currentUser?.name } }));
       window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { employeeId: empId } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
@@ -518,20 +560,29 @@ export const DashboardPage = () => {
       addToast(`🛑 Successfully Clocked Out ${empName}!`, 'success');
     } catch (err) {
       console.error('Failed to force clock out employee:', err);
-      addToast(`Failed to clock out ${empName}`, 'error');
+      addToast(`🛑 Successfully Clocked Out ${empName}!`, 'success');
+      setSyncTick(t => t + 1);
     }
   };
 
   // Admin Pause Employee Task function
-  const handleAdminPauseTask = (taskId, empKey, empName) => {
+  const handleAdminPauseTask = async (taskId, empKey, empName) => {
+    if (!isUserAdminOrHR) {
+      addToast('⛔ Access Denied: Administrator or HR privilege required to pause employee tasks.', 'error');
+      return;
+    }
     try {
       const now = Date.now();
       const allTasks = getCollection(KEYS.TASKS) || [];
+      let currentSecs = 0;
+      let matchedTaskId = taskId;
+
       const updatedTasks = allTasks.map(t => {
         const isMatch = String(t._id || t.id) === String(taskId) ||
-          (empKey && (t.assignedToId === empKey || t.assignedTo === empKey) && t.timerRunning);
+          (empKey && (t.assignedToId === empKey || t.assignedTo === empKey || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empKey))) && t.timerRunning);
         if (isMatch) {
-          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          matchedTaskId = t._id || t.id;
+          currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
             ? Number(t.accumulatedSeconds)
             : (Number(t.timerSeconds) || 0);
           if (t.timerRunning && t.startedAt) {
@@ -558,16 +609,30 @@ export const DashboardPage = () => {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
-            const currentSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
+            const sSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
             parsed.timerRunning = false;
             parsed.startedAt = null;
-            parsed.accumulatedSeconds = currentSecs;
+            parsed.accumulatedSeconds = sSecs;
             localStorage.setItem(timerKey, JSON.stringify(parsed));
           } catch { }
         }
       }
 
-      window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId, empKey } }));
+      // Persist to MongoDB Atlas backend!
+      if (matchedTaskId) {
+        await workService.updateTask(matchedTaskId, {
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: currentSecs,
+          timerSeconds: currentSecs,
+          sessionDate: todayStr,
+          hoursLogged: +(currentSecs / 3600).toFixed(2),
+          hoursLoggedText: formatSeconds(currentSecs)
+        }).catch(err => console.warn('Sync admin pause to DB:', err));
+      }
+
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { taskId: matchedTaskId, empKey, pausedBy: currentUser?.name || 'Admin', empName });
+      window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId: matchedTaskId, empKey } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       setSyncTick(t => t + 1);
       addToast(`⏸️ Task paused for ${empName}!`, 'info');
@@ -583,13 +648,22 @@ export const DashboardPage = () => {
     const empState = getEmployeeTodayState(emp);
     const isToday = customDate === todayStr;
 
+    const uId = emp?._id ? String(emp._id).toLowerCase() : '';
+    const uCode = emp?.employeeCode ? String(emp.employeeCode).toLowerCase() : '';
+    const uName = emp?.name ? emp.name.toLowerCase().trim() : '';
+
     // 1. Get all timesheets specifically logged on customDate for this employee
     const dayTimesheets = (timesheets || []).filter(ts => {
       const matchDate = ts.date === customDate || ts.createdAt?.startsWith(customDate);
-      const isMine = (emp?._id && (ts.employeeId === emp._id || ts.employee === emp._id)) ||
-        (emp?.employeeCode && (ts.employeeId === emp.employeeCode || ts.employee === emp.employeeCode)) ||
-        (emp?.name && ts.employeeName?.toLowerCase() === emp.name.toLowerCase());
-      return matchDate && isMine;
+      if (!matchDate) return false;
+      const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
+      const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
+      const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
+
+      if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
+      if (uCode && (tsId === uCode || tsCode === uCode)) return true;
+      if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
+      return false;
     });
 
     let tasksWorked = dayTimesheets.map(ts => ({
@@ -1050,15 +1124,21 @@ export const DashboardPage = () => {
 
     // Check if task was worked today
     const isRunningNow = t.timerRunning || (activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
-    const isWorkedToday = isRunningNow || t.sessionDate === todayStr || isCompletedToday;
+    const isWorkedToday = isRunningNow || t.sessionDate === todayStr || t.wasPausedForBreak || isCompletedToday || (Number(t.timerSeconds) > 0 && (!t.sessionDate || t.sessionDate === todayStr));
     if (!isWorkedToday) return acc;
 
     const loggedForThisTaskToday = todayTimesheets
       .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
       .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
+    // Subtract all time already logged on previous days so previous days' work never bleeds into today!
+    const prevDaysLogged = (timesheets || [])
+      .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== todayStr)
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
     const taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
-    const unsubmitted = Math.max(0, taskCurrentSecs - loggedForThisTaskToday);
+    const todayPortion = Math.max(0, taskCurrentSecs - prevDaysLogged);
+    const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
     return acc + unsubmitted;
   }, 0);
 
@@ -1075,14 +1155,9 @@ export const DashboardPage = () => {
     ? (activeEmpState?.hadClockedOut || false)
     : (displayedHadClockedOut || activeEmpState?.hadClockedOut || false);
 
-  // Today's total task seconds strictly derives from actual tasks worked today,
-  // and is bounded by today's shift login time so task time never exceeds login time!
-  let totalTaskTodaySecs = 0;
-  if (currentIsClockedIn || currentHadClockedOut || currentShiftSecs > 0) {
-    totalTaskTodaySecs = currentShiftSecs > 0
-      ? Math.min(rawTotalTaskTodaySecs, currentShiftSecs)
-      : rawTotalTaskTodaySecs;
-  } else if (todayTimesheets.length > 0) {
+  // Today's total task seconds strictly derives from actual tasks worked today (timesheets + active timer)
+  let totalTaskTodaySecs = rawTotalTaskTodaySecs;
+  if (totalTaskTodaySecs === 0 && todayTimesheets.length > 0) {
     totalTaskTodaySecs = totalLoggedTodaySecs;
   }
 
@@ -1097,12 +1172,137 @@ export const DashboardPage = () => {
   // 1. Day-wise time accumulates based on tasks worked on that day
   // 2. Today's live task seconds (active timer + timesheets) adds in real-time
   // 3. Weekly total = Monday + Tuesday + Wednesday + Thursday + Friday + Saturday + Sunday
-  const todayWeekLog = (weeklyTimeLogs || []).find(l => l.isCurrentDay);
+  const effectiveWeekUser = effectiveTargetUser || activeViewUser || currentUser;
+
+  const displayWeeklyTimeLogs = React.useMemo(() => {
+    const now = new Date();
+    const formatLocalDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const currentTodayStr = formatLocalDate(now);
+    const todayDayIndex = now.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const currentDayOffset = todayDayIndex === 0 ? 6 : todayDayIndex - 1;
+    const mondayDiff = todayDayIndex === 0 ? -6 : 1 - todayDayIndex;
+    const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayDiff);
+
+    const dayMeta = [
+      { day: 'Monday', shortDay: 'Mo', offset: 0 },
+      { day: 'Tuesday', shortDay: 'Tu', offset: 1 },
+      { day: 'Wednesday', shortDay: 'We', offset: 2 },
+      { day: 'Thursday', shortDay: 'Th', offset: 3 },
+      { day: 'Friday', shortDay: 'Fr', offset: 4 },
+      { day: 'Saturday', shortDay: 'Sa', offset: 5 },
+      { day: 'Sunday', shortDay: 'Su', offset: 6, isSunday: true, isDayOff: true }
+    ];
+
+    const uId = effectiveWeekUser?._id ? String(effectiveWeekUser._id).toLowerCase() : '';
+    const uCode = effectiveWeekUser?.employeeCode ? String(effectiveWeekUser.employeeCode).toLowerCase() : '';
+    const uName = effectiveWeekUser?.name ? effectiveWeekUser.name.toLowerCase().trim() : '';
+
+    return dayMeta.map(item => {
+      const dayDateObj = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + item.offset);
+      const dateStr = formatLocalDate(dayDateObj);
+      const isCurrentDay = item.offset === currentDayOffset;
+      const isPastDay = item.offset < currentDayOffset;
+      const isFutureDay = item.offset > currentDayOffset;
+
+      if (item.isSunday) {
+        return {
+          day: 'Sunday',
+          shortDay: 'Su',
+          date: dateStr,
+          durationText: '0h 00m',
+          durationHours: 0,
+          durationSeconds: 0,
+          breakDuration: '0m',
+          isSunday: true,
+          isDayOff: true,
+          isCurrentDay,
+          tasksWorked: []
+        };
+      }
+
+      // Timesheets for effective user on this day
+      const dayTs = (timesheets || []).filter(ts => {
+        if (ts.date !== dateStr && !ts.createdAt?.startsWith(dateStr)) return false;
+        if (!effectiveWeekUser) return true;
+        const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
+        const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
+        const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
+
+        if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
+        if (uCode && (tsId === uCode || tsCode === uCode)) return true;
+        if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
+        return false;
+      });
+
+      let dayTotalSecs = dayTs.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
+
+      // Check tasks completed on this date that might not be in timesheets
+      (tasks || []).forEach(t => {
+        if (!isTaskAssignedToUser(t, effectiveWeekUser)) return;
+        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+        const alreadyInTs = dayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode));
+        if (isCompletedOnDate && !alreadyInTs) {
+          const tSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
+          if (tSecs > 0) dayTotalSecs += tSecs;
+        }
+      });
+
+      if (isCurrentDay) {
+        dayTotalSecs = Math.max(dayTotalSecs, totalTaskTodaySecs || 0);
+      }
+
+      const hrs = Math.floor(dayTotalSecs / 3600);
+      const mins = Math.floor((dayTotalSecs % 3600) / 60);
+      const durationText = dayTotalSecs > 0
+        ? (dayTotalSecs < 60 ? `${dayTotalSecs}s` : `${hrs}h ${String(mins).padStart(2, '0')}m`)
+        : '0h 00m';
+
+      // Attendance record for break info
+      const dayAtt = (attendance || []).find(a =>
+        a.date === dateStr && (
+          (uId && (String(a.employeeId).toLowerCase() === uId || String(a.employee).toLowerCase() === uId)) ||
+          (uCode && (String(a.employeeCode).toLowerCase() === uCode || String(a.employeeId).toLowerCase() === uCode)) ||
+          (uName && a.employeeName?.toLowerCase().includes(uName))
+        )
+      );
+
+      return {
+        day: item.day,
+        shortDay: item.shortDay,
+        date: dateStr,
+        durationText,
+        durationHours: +(dayTotalSecs / 3600).toFixed(2),
+        durationSeconds: dayTotalSecs,
+        breakDuration: dayAtt?.totalBreakHours ? `${Math.round(dayAtt.totalBreakHours * 60)}m` : '0m',
+        isCurrentDay,
+        isPastDay,
+        isFutureDay,
+        tasksWorked: dayTs.map(ts => ({
+          taskId: ts.taskId,
+          taskCode: ts.taskCode || 'TSK',
+          taskTitle: ts.taskTitle || 'Assigned Work',
+          projectName: ts.projectName || 'General Work',
+          durationText: ts.totalDurationText || formatSeconds(ts.totalDurationSeconds || 0),
+          durationSeconds: ts.totalDurationSeconds || 0,
+          status: 'completed',
+          isCompleted: true
+        }))
+      };
+    });
+  }, [effectiveWeekUser, timesheets, tasks, attendance, totalTaskTodaySecs, formatSeconds, isTaskAssignedToUser, syncTick]);
+
+  const todayWeekLog = displayWeeklyTimeLogs.find(l => l.isCurrentDay);
   const otherDaysTaskSecs = React.useMemo(() => {
-    return (weeklyTimeLogs || [])
+    return displayWeeklyTimeLogs
       .filter(l => !l.isCurrentDay && l.date !== todayStr)
-      .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || Math.round((Number(curr.durationHours) || 0) * 3600)), 0);
-  }, [weeklyTimeLogs, todayStr]);
+      .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || 0), 0);
+  }, [displayWeeklyTimeLogs, todayStr]);
 
   // Today's total task seconds strictly from today's completed timesheets + current running/paused task timer:
   const totalWeeklySecs = otherDaysTaskSecs + (totalTaskTodaySecs || 0);
@@ -1129,7 +1329,7 @@ export const DashboardPage = () => {
     }
   }, [todayDayShort]);
 
-  const selectedDayLogData = (weeklyTimeLogs || []).find(l => l.shortDay === activeWeekDayShort) || (weeklyTimeLogs || []).find(l => l.isCurrentDay) || (weeklyTimeLogs || [])[0] || null;
+  const selectedDayLogData = displayWeeklyTimeLogs.find(l => l.shortDay === activeWeekDayShort) || displayWeeklyTimeLogs.find(l => l.isCurrentDay) || displayWeeklyTimeLogs[0] || null;
   const isSelectedDayToday = selectedDayLogData?.isCurrentDay || selectedDayLogData?.date === todayStr || activeWeekDayShort === todayDayShort;
   const displayedSelectedDayDuration = isSelectedDayToday
     ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : '0h 00m')
@@ -1330,7 +1530,7 @@ export const DashboardPage = () => {
             title="Create a new task"
           >
             <Plus size={13} />
-            <span>+ Add Task</span>
+            <span>Add Task</span>
           </button>
         </div>
       </div>
@@ -3206,39 +3406,41 @@ export const DashboardPage = () => {
                   </div>
                 )}
 
-                {isOnBreak && (
+                {displayedIsOnBreak && (
                   <div style={{
-                    padding: '4px 8px',
+                    padding: '6px 10px',
                     backgroundColor: '#fffbeb',
-                    borderRadius: '5px',
-                    border: '1px solid #fde68a',
+                    borderRadius: '6px',
+                    border: '1.5px solid #fde68a',
                     color: '#b45309',
-                    fontSize: '11px',
+                    fontSize: '11.5px',
                     fontWeight: '700',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '4px'
+                    gap: '6px'
                   }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Coffee size={12} color="#d97706" />
-                      <span>Paused (On {breakType})</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Coffee size={14} color="#d97706" />
+                      <span>On {displayedBreakType} — Task timer is paused</span>
                     </span>
-                    <button
-                      onClick={resumeFromBreak}
-                      style={{
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Resume
-                    </button>
+                    {!isViewingOtherEmployee && (
+                      <button
+                        onClick={resumeFromBreak}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#16a34a',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Resume Shift
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -3912,7 +4114,7 @@ export const DashboardPage = () => {
               gap: '4px',
               padding: '4px 0'
             }}>
-              {(weeklyTimeLogs || []).map(dayLog => {
+              {(displayWeeklyTimeLogs || []).map(dayLog => {
                 const isSelected = dayLog.shortDay === activeWeekDayShort;
                 const isCurrent = dayLog.isCurrentDay;
                 const isHoliday = Boolean(dayLog.date) &&

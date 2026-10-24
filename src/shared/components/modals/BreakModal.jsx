@@ -8,7 +8,7 @@
  * 5. Complete Break History Timeline Log tracking every break with start/end times and durations.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Coffee,
@@ -68,6 +68,12 @@ export const BreakModal = ({ isOpen, onClose }) => {
   const [breakNotes, setBreakNotes] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customBreakTitle, setCustomBreakTitle] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(isOnBreak ? 'active' : 'choose');
+    }
+  }, [isOpen, isOnBreak]);
 
   if (!isOpen) return null;
 

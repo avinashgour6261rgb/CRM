@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
 
@@ -6,13 +6,19 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
   const { employees, currentUser, addAppreciation } = useHR();
 
   const [formData, setFormData] = useState({
-    givenToId: 'emp_001',
+    givenToId: '',
     awardName: 'Star Performer of the Month',
     awardBadgeIcon: 'trophy',
     givenOn: new Date().toISOString().split('T')[0],
     rewardPointsOrCash: '₹5,000 Bonus / Gift Voucher',
     appreciationNote: ''
   });
+
+  useEffect(() => {
+    if (isOpen && employees && employees.length > 0 && !formData.givenToId) {
+      setFormData(prev => ({ ...prev, givenToId: employees[0]._id }));
+    }
+  }, [isOpen, employees, formData.givenToId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,18 +27,28 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const selectedEmp = employees.find(e => e._id === formData.givenToId) || employees[0];
+    const selectedEmp = (employees || []).find(emp => 
+      String(emp._id) === String(formData.givenToId) || 
+      String(emp.employeeCode) === String(formData.givenToId)
+    ) || employees[0];
+
+    if (!selectedEmp) {
+      alert('Please select an employee to recognize.');
+      return;
+    }
 
     await addAppreciation({
-      givenToId: selectedEmp._id,
+      givenTo: selectedEmp._id,
+      givenToId: String(selectedEmp._id),
       givenToName: selectedEmp.name,
-      givenToAvatar: selectedEmp.avatar,
-      givenToRole: selectedEmp.role,
+      givenToAvatar: selectedEmp.avatar || '',
+      givenToRole: selectedEmp.role || selectedEmp.designation || 'Team Member',
       awardName: formData.awardName,
       awardBadgeIcon: formData.awardBadgeIcon,
       givenOn: formData.givenOn,
-      givenById: currentUser?._id || 'emp_004',
-      givenByName: currentUser?.name || 'Admin',
+      givenBy: currentUser?._id,
+      givenById: currentUser?._id ? String(currentUser._id) : '',
+      givenByName: currentUser?.name || 'Administrator',
       rewardPointsOrCash: formData.rewardPointsOrCash,
       appreciationNote: formData.appreciationNote
     });
@@ -58,11 +74,14 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
             className="filter-select"
             style={{ width: '100%', height: '40px' }}
           >
-            {employees.map(emp => (
-              <option key={emp._id} value={emp._id}>
-                {emp.name} — {emp.role} {emp.isCurrentUser ? "(It's You)" : ''}
-              </option>
-            ))}
+            {employees.map(emp => {
+              const isSelf = currentUser && (String(emp._id || emp.id) === String(currentUser._id || currentUser.id) || (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) || (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase()));
+              return (
+                <option key={emp._id} value={emp._id}>
+                  {emp.name} — {emp.role} {isSelf ? "(It's You)" : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 

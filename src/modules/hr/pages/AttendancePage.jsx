@@ -48,6 +48,13 @@ export const AttendancePage = () => {
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance;
 
+  const isEmployeeSelf = React.useCallback((emp) => {
+    if (!currentUser || !emp) return false;
+    return String(emp._id || emp.id) === String(currentUser._id || currentUser.id) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
+  }, [currentUser]);
+
   // Automatically lock selectedEmployeeId to currentUser when not permitted to view all attendance
   React.useEffect(() => {
     if (!canViewAllAttendance && currentUser) {
@@ -351,7 +358,7 @@ export const AttendancePage = () => {
                   <option value="all">All Employees</option>
                   {employees.map(emp => (
                     <option key={emp._id} value={emp._id}>
-                      {emp.name} {emp.isCurrentUser ? "— It's You" : ''}
+                      {emp.name} {isEmployeeSelf(emp) ? "— It's You" : ''}
                     </option>
                   ))}
                 </>
@@ -557,7 +564,7 @@ export const AttendancePage = () => {
                             <div className="employee-name-group">
                               <span className="employee-name">
                                 {emp?.name || record.employeeName || 'Employee'}
-                                {emp?.isCurrentUser && (
+                                {isEmployeeSelf(emp) && (
                                   <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '6px' }}>It's You</span>
                                 )}
                               </span>

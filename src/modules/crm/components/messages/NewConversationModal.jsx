@@ -17,7 +17,8 @@ import { useCRM } from '../../../../shared/context/CRMContext';
 
 export const NewConversationModal = ({ isOpen, onClose }) => {
   const { employees, currentUser } = useHR();
-  const { startConversation } = useCRM();
+  const { startConversation, darkMode } = useCRM();
+  const isDark = !!darkMode;
   const [search, setSearch] = useState('');
 
   if (!isOpen) return null;
@@ -38,7 +39,7 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
     <div style={{
       position: 'fixed',
       inset: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
       backdropFilter: 'blur(4px)',
       display: 'flex',
       alignItems: 'center',
@@ -47,25 +48,25 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
       padding: '20px'
     }}>
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         borderRadius: '16px',
         width: '100%',
         maxWidth: '480px',
         maxHeight: '85vh',
         overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
+        boxShadow: isDark ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)' : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
         display: 'flex',
         flexDirection: 'column'
       }}>
         {/* Header */}
         <div style={{
           padding: '18px 20px',
-          borderBottom: '1px solid #f1f5f9',
+          borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
+          backgroundColor: isDark ? '#101726' : '#f8fafc',
           borderTopLeftRadius: '16px',
           borderTopRightRadius: '16px'
         }}>
@@ -74,8 +75,8 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
+              backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+              color: '#38bdf8',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -83,10 +84,10 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
               <MessageSquare size={18} />
             </div>
             <div>
-              <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', margin: 0 }}>
                 New Direct Conversation
               </h2>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b', margin: '2px 0 0 0' }}>
                 Select a team member to start chatting
               </p>
             </div>
@@ -95,15 +96,15 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
           <button
             onClick={onClose}
             style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
+              background: isDark ? '#1e293b' : '#ffffff',
+              border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
               borderRadius: '8px',
               width: '30px',
               height: '30px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#64748b',
+              color: isDark ? '#cbd5e1' : '#64748b',
               cursor: 'pointer'
             }}
           >
@@ -112,17 +113,17 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Search */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '16px 20px', borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
             borderRadius: '8px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#f8fafc'
+            border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+            backgroundColor: isDark ? '#1e293b' : '#f8fafc'
           }}>
-            <Search size={16} color="#94a3b8" />
+            <Search size={16} color={isDark ? '#38bdf8' : '#94a3b8'} />
             <input
               type="text"
               placeholder="Search by name, role or department..."
@@ -134,7 +135,7 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
                 outline: 'none',
                 fontSize: '13px',
                 width: '100%',
-                color: '#0f172a'
+                color: isDark ? '#f8fafc' : '#0f172a'
               }}
             />
           </div>
@@ -154,10 +155,10 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'background-color 0.15s',
-                backgroundColor: '#ffffff'
+                backgroundColor: isDark ? '#151e32' : '#ffffff'
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = isDark ? '#151e32' : '#ffffff'}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ position: 'relative' }}>
@@ -174,20 +175,20 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
                     height: '9px',
                     borderRadius: '50%',
                     backgroundColor: '#10b981',
-                    border: '2px solid #ffffff'
+                    border: `2px solid ${isDark ? '#151e32' : '#ffffff'}`
                   }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {emp.name}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  <div style={{ fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
                     {emp.role} • {emp.department}
                   </div>
                 </div>
               </div>
 
-              <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: '600' }}>
+              <span style={{ fontSize: '12px', color: isDark ? '#38bdf8' : '#2563eb', fontWeight: '600' }}>
                 Chat 💬
               </span>
             </div>

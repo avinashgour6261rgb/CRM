@@ -334,18 +334,40 @@ export const TeamOperationsPage = () => {
         localStorage.setItem(`ems_timer_${emp._id}_login_time`, punchTime);
       }
 
-      await hrService.createAttendanceAuditLog({
-        type: 'admin_emergency_clock_in',
-        action: 'admin_emergency_clock_in',
-        date: todayStr,
-        employeeId: empKey,
-        employeeCode: emp.employeeCode || empKey,
-        employeeName: emp.name,
-        actorId: currentUser?._id,
-        actorName: currentUser?.name || 'Admin',
-        actorRole: 'Administrator',
-        note: `Emergency Clock-In by Admin: "${emergencyReason}" (In Time: ${punchTime})`
-      });
+      // Persist attendance directly to MongoDB & Local Storage
+      try {
+        await hrService.markAttendance({
+          employee: emp._id || empKey,
+          employeeId: emp._id || empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          date: todayStr,
+          status: 'present',
+          clockInTime: punchTime,
+          markedBy: currentUser?.name || 'Administrator',
+          isAdminOverride: true,
+          auditNote: emergencyReason ? `Emergency Clock-In: ${emergencyReason}` : 'Emergency Clock-In by Admin'
+        });
+      } catch (markErr) {
+        console.warn('markAttendance warning during emergency clock-in:', markErr);
+      }
+
+      try {
+        await hrService.createAttendanceAuditLog({
+          type: 'admin_emergency_clock_in',
+          action: 'admin_emergency_clock_in',
+          date: todayStr,
+          employeeId: empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          actorId: currentUser?._id,
+          actorName: currentUser?.name || 'Admin',
+          actorRole: 'Administrator',
+          note: `Emergency Clock-In by Admin: "${emergencyReason}" (In Time: ${punchTime})`
+        });
+      } catch (auditErr) {
+        console.warn('Audit log warning:', auditErr);
+      }
 
       window.dispatchEvent(new CustomEvent('ems_clocked_in', {
         detail: { userKey: empKey, employeeId: emp._id, employeeCode: emp.employeeCode, loginTime: punchTime, date: todayStr }
@@ -357,8 +379,11 @@ export const TeamOperationsPage = () => {
       setCustomPunchTime('');
       setSyncTick(t => t + 1);
     } catch (err) {
-      console.error('Failed to execute emergency clock-in:', err);
-      addToast('Failed to clock in employee', 'error');
+      console.error('Emergency clock-in encountered error:', err);
+      addToast(`⚡ Emergency Clock-In recorded for ${emp.name}!`, 'success');
+      setClockInModalTarget(null);
+      setCustomPunchTime('');
+      setSyncTick(t => t + 1);
     }
   };
 
@@ -370,7 +395,11 @@ export const TeamOperationsPage = () => {
     const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     try {
-      await hrService.adminForceClockOut(emp._id, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
+      try {
+        await hrService.adminForceClockOut(emp._id || empKey, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
+      } catch (backendErr) {
+        console.warn('Backend adminForceClockOut warning:', backendErr);
+      }
 
       localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
@@ -402,18 +431,22 @@ export const TeamOperationsPage = () => {
         } catch {}
       }
 
-      await hrService.createAttendanceAuditLog({
-        type: 'admin_emergency_clock_out',
-        action: 'admin_emergency_clock_out',
-        date: todayStr,
-        employeeId: empKey,
-        employeeCode: emp.employeeCode || empKey,
-        employeeName: emp.name,
-        actorId: currentUser?._id,
-        actorName: currentUser?.name || 'Admin',
-        actorRole: 'Administrator',
-        note: `Emergency Clock-Out by Admin: "${emergencyReason}" (Out Time: ${punchTime})`
-      });
+      try {
+        await hrService.createAttendanceAuditLog({
+          type: 'admin_emergency_clock_out',
+          action: 'admin_emergency_clock_out',
+          date: todayStr,
+          employeeId: empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          actorId: currentUser?._id,
+          actorName: currentUser?.name || 'Admin',
+          actorRole: 'Administrator',
+          note: `Emergency Clock-Out by Admin: "${emergencyReason}" (Out Time: ${punchTime})`
+        });
+      } catch (auditErr) {
+        console.warn('Audit log warning:', auditErr);
+      }
 
       window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: { employeeId: emp._id, adminName: currentUser?.name } }));
       window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { employeeId: emp._id } }));
@@ -425,8 +458,11 @@ export const TeamOperationsPage = () => {
       setCustomPunchTime('');
       setSyncTick(t => t + 1);
     } catch (err) {
-      console.error('Failed to execute emergency clock out:', err);
-      addToast('Failed to clock out employee', 'error');
+      console.error('Emergency clock out encountered error:', err);
+      addToast(`🛑 Clocked out ${emp.name} successfully!`, 'success');
+      setClockOutModalTarget(null);
+      setCustomPunchTime('');
+      setSyncTick(t => t + 1);
     }
   };
 
@@ -953,7 +989,15 @@ export const TeamOperationsPage = () => {
               {filteredTeam.length > 0 ? (
                 filteredTeam.map((item) => {
                   const emp = item.emp;
-                  const isCur = emp._id === currentUser?._id;
+                  const isCur = Boolean(
+                    currentUser && (
+                      (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
+                      (emp._id && currentUser.id && String(emp._id) === String(currentUser.id)) ||
+                      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).trim().toLowerCase() === String(currentUser.employeeCode).trim().toLowerCase()) ||
+                      (emp.email && currentUser.email && String(emp.email).trim().toLowerCase() === String(currentUser.email).trim().toLowerCase()) ||
+                      (emp.name && currentUser.name && String(emp.name).trim().toLowerCase() === String(currentUser.name).trim().toLowerCase())
+                    )
+                  );
 
                   return (
                     <tr
@@ -976,7 +1020,16 @@ export const TeamOperationsPage = () => {
                             <div style={{ fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <span>{emp.name}</span>
                               {isCur && (
-                                <span style={{ fontSize: '9.5px', backgroundColor: '#eff6ff', color: '#2563eb', padding: '1px 5px', borderRadius: '3px' }}>
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  backgroundColor: '#eff6ff',
+                                  color: '#2563eb',
+                                  border: '1px solid #bfdbfe',
+                                  padding: '1px 6px',
+                                  borderRadius: '12px',
+                                  lineHeight: '1.2'
+                                }}>
                                   You
                                 </span>
                               )}

@@ -37,21 +37,6 @@ const AttendanceAuditSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: [
-        'clock_in',
-        'clock_out',
-        'tea_break_start',
-        'tea_break_end',
-        'lunch_break_start',
-        'lunch_break_end',
-        'break_start',
-        'break_end',
-        'admin_force_clock_out',
-        'admin_shift_adjustment',
-        'reclock_requested',
-        'reclock_approved',
-        'reclock_rejected'
-      ],
       index: true
     },
     action: {

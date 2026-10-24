@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const AttendanceAudit = require('../models/AttendanceAudit');
+const Task = require('../../work/models/Task');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
 // ─── GET /api/attendance ─────────────────────────────────────────────────────
@@ -24,7 +25,16 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
     if (myId && mongoose.Types.ObjectId.isValid(myId)) matchConditions.push({ employee: myId });
     if (myCode) matchConditions.push({ employeeCode: myCode });
     if (myId) matchConditions.push({ employeeId: String(myId) });
-    query.$or = matchConditions.length > 0 ? matchConditions : [{ employee: myId }];
+
+    if (matchConditions.length === 0 && employeeId && employeeId !== 'all') {
+      if (mongoose.Types.ObjectId.isValid(employeeId)) matchConditions.push({ employee: employeeId });
+      matchConditions.push({ employeeCode: String(employeeId).toUpperCase() });
+      matchConditions.push({ employeeId: String(employeeId) });
+    }
+
+    if (matchConditions.length > 0) {
+      query.$or = matchConditions;
+    }
   } else if (employeeId && employeeId !== 'all') {
     const matchConditions = [];
     if (mongoose.Types.ObjectId.isValid(employeeId)) matchConditions.push({ employee: employeeId });
@@ -45,7 +55,14 @@ const getAttendanceSummary = asyncHandler(async (req, res) => {
   const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
   const matchStage = { date: new RegExp(`^${monthStr}`) };
-  if (employeeId && employeeId !== 'all') matchStage.employee = require('mongoose').Types.ObjectId.createFromHexString(employeeId);
+  const mongoose = require('mongoose');
+  if (employeeId && employeeId !== 'all') {
+    if (mongoose.Types.ObjectId.isValid(employeeId)) {
+      matchStage.employee = new mongoose.Types.ObjectId(employeeId);
+    } else {
+      matchStage.employeeCode = String(employeeId).toUpperCase();
+    }
+  }
 
   const summary = await Attendance.aggregate([
     { $match: matchStage },
@@ -80,7 +97,24 @@ const parseTimeStringToSeconds = (str) => {
 // ─── POST /api/attendance/mark ────────────────────────────────────────────────
 const markAttendance = asyncHandler(async (req, res) => {
   const rawEmp = req.body.employee || req.body.employeeId || req.body.employeeCode;
-  const { date, status, clockInTime, clockOutTime, notes, markedBy, auditNote, isAdminOverride } = req.body;
+  const {
+    date,
+    status,
+    clockInTime,
+    clockOutTime,
+    clockInTimestamp,
+    clockOutTimestamp,
+    workSeconds,
+    breakSeconds,
+    isOnBreak,
+    breakType,
+    breakHistory,
+    isClockedIn,
+    notes,
+    markedBy,
+    auditNote,
+    isAdminOverride
+  } = req.body;
 
   if (!rawEmp || !date || !status) {
     return res.status(400).json({ success: false, message: 'employee, date, and status are required' });
@@ -139,6 +173,44 @@ const markAttendance = asyncHandler(async (req, res) => {
   }
 
   // Upsert: update existing or create new
+  const updateFields = {
+    employee: targetEmpId,
+    employeeName: targetEmpName,
+    employeeCode: targetEmpCode,
+    employeeRole: targetEmpRole,
+    employeeAvatar: targetEmpAvatar,
+    date,
+    status,
+    notes: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : ''),
+    markedBy: adminActorName
+  };
+
+  if (clockInTime !== undefined) updateFields.clockInTime = clockInTime;
+  if ('clockOutTime' in req.body) updateFields.clockOutTime = clockOutTime;
+  if (clockInTimestamp !== undefined) updateFields.clockInTimestamp = clockInTimestamp;
+  if ('clockOutTimestamp' in req.body) updateFields.clockOutTimestamp = clockOutTimestamp;
+  if (workSeconds !== undefined) updateFields.workSeconds = Number(workSeconds) || 0;
+  if (breakSeconds !== undefined) updateFields.breakSeconds = Number(breakSeconds) || 0;
+  if (isOnBreak !== undefined) updateFields.isOnBreak = Boolean(isOnBreak);
+  if (breakType !== undefined) updateFields.breakType = breakType;
+  if (breakHistory !== undefined) updateFields.breakHistory = breakHistory;
+
+  if (isClockedIn !== undefined) {
+    updateFields.isClockedIn = Boolean(isClockedIn);
+  } else if (clockInTime && !clockOutTime) {
+    updateFields.isClockedIn = true;
+  } else if (clockOutTime) {
+    updateFields.isClockedIn = false;
+  }
+
+  if (totalWorkingHours > 0) {
+    updateFields.totalWorkingHours = totalWorkingHours;
+  } else if (workSeconds > 0) {
+    updateFields.totalWorkingHours = +(Number(workSeconds) / 3600).toFixed(2);
+  }
+  updateFields.isLate = isLate;
+  updateFields.lateByMinutes = lateByMinutes;
+
   const record = await Attendance.findOneAndUpdate(
     {
       date,
@@ -147,22 +219,7 @@ const markAttendance = asyncHandler(async (req, res) => {
         { employeeCode: targetEmpCode }
       ]
     },
-    {
-      employee: targetEmpId,
-      employeeName: targetEmpName,
-      employeeCode: targetEmpCode,
-      employeeRole: targetEmpRole,
-      employeeAvatar: targetEmpAvatar,
-      date,
-      status,
-      clockInTime: clockInTime || undefined,
-      clockOutTime: clockOutTime || undefined,
-      totalWorkingHours: totalWorkingHours || undefined,
-      isLate,
-      lateByMinutes,
-      notes: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : ''),
-      markedBy: adminActorName
-    },
+    updateFields,
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
 
@@ -170,8 +227,8 @@ const markAttendance = asyncHandler(async (req, res) => {
   if (auditNote || isAdminOverride || isPrivileged) {
     try {
       await AttendanceAudit.create({
-        employee,
-        employeeId: String(employee),
+        employee: targetEmpId,
+        employeeId: String(targetEmpId),
         employeeName: record.employeeName || 'Employee',
         employeeCode: record.employeeCode || '',
         date,
@@ -315,33 +372,80 @@ const forceClockOut = asyncHandler(async (req, res) => {
   if (!employeeId) {
     return res.status(400).json({ success: false, message: 'employeeId is required' });
   }
-  if (!auditNote || !auditNote.trim()) {
-    return res.status(400).json({ success: false, message: 'Audit note explaining administrator override is mandatory' });
-  }
 
+  const noteText = (auditNote && auditNote.trim()) ? auditNote.trim() : 'Manual clock out by administrator';
   const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const adminId = req.user?.id || req.user?._id || 'ADMIN';
   const adminName = req.user?.name || 'Administrator';
+  const Employee = require('../models/Employee');
+  const mongoose = require('mongoose');
 
-  // Find target attendance record to update
+  // Safely resolve employee document
+  let empDoc = null;
+  if (mongoose.Types.ObjectId.isValid(employeeId)) {
+    empDoc = await Employee.findById(employeeId);
+  }
+  if (!empDoc) {
+    empDoc = await Employee.findOne({
+      $or: [
+        { employeeCode: String(employeeId).toUpperCase() },
+        { email: String(employeeId).toLowerCase() },
+        { name: new RegExp(`^${String(employeeId)}$`, 'i') }
+      ]
+    });
+  }
+
+  const targetEmpId = empDoc ? empDoc._id : (mongoose.Types.ObjectId.isValid(employeeId) ? employeeId : null);
+  const targetEmpCode = empDoc ? empDoc.employeeCode : String(employeeId);
+  const targetEmpName = empDoc ? empDoc.name : 'Employee';
+
+  // Build match query for Attendance record without invalid ObjectId casting
+  const matchOr = [
+    { employeeId: String(targetEmpCode) },
+    { employeeId: String(employeeId) },
+    { employeeCode: String(targetEmpCode) }
+  ];
+  if (targetEmpId) {
+    matchOr.unshift({ employee: targetEmpId });
+  }
+
   let attRecord = await Attendance.findOne({
-    $or: [{ employee: employeeId }, { employeeId }],
+    $or: matchOr,
     date: targetDate
   });
 
   if (attRecord) {
     attRecord.clockOutTime = nowStr;
+    attRecord.clockOutTimestamp = Date.now();
+    attRecord.isClockedIn = false;
+    attRecord.isOnBreak = false;
     attRecord.status = attRecord.status || 'present';
-    attRecord.notes = `Manual Clock-Out by Admin ${adminName} (${adminId}): "${auditNote.trim()}"`;
+    attRecord.notes = `Manual Clock-Out by Admin ${adminName}: "${noteText}"`;
     attRecord.markedBy = adminName;
     await attRecord.save();
+  } else {
+    attRecord = await Attendance.create({
+      employee: targetEmpId || new mongoose.Types.ObjectId(),
+      employeeName: targetEmpName,
+      employeeCode: targetEmpCode,
+      employeeRole: empDoc ? empDoc.role : 'Team Member',
+      date: targetDate,
+      status: 'present',
+      clockInTime: '09:30 AM',
+      clockOutTime: nowStr,
+      clockOutTimestamp: Date.now(),
+      isClockedIn: false,
+      isOnBreak: false,
+      markedBy: adminName,
+      notes: `Manual Clock-Out by Admin ${adminName}: "${noteText}"`
+    });
   }
 
   // Create official Audit Trail record
   const auditEntry = new AttendanceAudit({
-    employeeId: String(employeeId),
-    employeeName: attRecord?.employeeName || 'Employee',
-    employeeCode: attRecord?.employeeCode || '',
+    employeeId: String(targetEmpCode || employeeId),
+    employeeName: targetEmpName,
+    employeeCode: targetEmpCode,
     date: targetDate,
     timeFormatted: nowStr,
     type: 'admin_force_clock_out',
@@ -352,11 +456,49 @@ const forceClockOut = asyncHandler(async (req, res) => {
     isAdminOverride: true,
     adminId: String(adminId),
     adminName,
-    auditNote: auditNote.trim(),
-    details: `Administrator ${adminName} [ID: ${adminId}] manually forced shift clock-out. Reason: "${auditNote.trim()}"`
+    auditNote: noteText,
+    details: `Administrator ${adminName} [ID: ${adminId}] manually forced shift clock-out. Reason: "${noteText}"`
   });
 
-  await auditEntry.save();
+  // Automatically pause any running task in MongoDB for this employee
+  try {
+    const taskMatch = [
+      { assignedToId: String(employeeId) },
+      { assignedToId: String(targetEmpCode) },
+      { assignedToIds: String(employeeId) },
+      { assignedToIds: String(targetEmpCode) },
+      { activeUserId: String(employeeId) },
+      { activeUserId: String(targetEmpCode) }
+    ];
+    if (targetEmpId) {
+      taskMatch.push({ assignedTo: targetEmpId });
+    }
+    const runningTasks = await Task.find({
+      timerRunning: true,
+      $or: taskMatch
+    });
+    for (const rt of runningTasks) {
+      let currentSecs = (rt.accumulatedSeconds !== undefined && rt.accumulatedSeconds !== null)
+        ? Number(rt.accumulatedSeconds)
+        : (Number(rt.timerSeconds) || 0);
+      if (rt.startedAt) {
+        currentSecs += Math.max(0, Math.floor((Date.now() - Number(rt.startedAt)) / 1000));
+      }
+      rt.timerRunning = false;
+      rt.startedAt = null;
+      rt.accumulatedSeconds = currentSecs;
+      rt.timerSeconds = currentSecs;
+      await rt.save();
+    }
+  } catch (taskErr) {
+    console.warn('Failed to auto-pause tasks during force clock-out:', taskErr);
+  }
+
+  try {
+    await auditEntry.save();
+  } catch (auditErr) {
+    console.warn('Could not save auditEntry in forceClockOut:', auditErr);
+  }
 
   res.status(200).json({
     success: true,

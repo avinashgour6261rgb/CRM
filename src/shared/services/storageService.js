@@ -105,10 +105,29 @@ export const syncDatabaseToStorage = async () => {
       { key: KEYS.EXPENSES, url: `${API_BASE}/expenses` }
     ];
 
+    const authHeaders = (() => {
+      try {
+        const s = localStorage.getItem('ems_auth_session');
+        if (!s) return {};
+        const parsed = JSON.parse(s);
+        const u = parsed?.user || parsed;
+        if (u) {
+          return {
+            'x-user-id': String(u._id || u.id || u.employeeCode || ''),
+            'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
+          };
+        }
+      } catch {}
+      return {};
+    })();
+
     await Promise.all(
       endpoints.map(async ({ key, url }) => {
         try {
-          const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+          const res = await fetch(url, {
+            headers: authHeaders,
+            signal: AbortSignal.timeout(4000)
+          });
           if (res.ok) {
             const json = await res.json();
             const data = json.data !== undefined ? json.data : json;

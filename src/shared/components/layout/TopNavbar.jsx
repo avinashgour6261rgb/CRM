@@ -21,7 +21,9 @@ import {
   Palmtree,
   CheckCircle2,
   AlertCircle,
-  Key
+  Key,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimer } from '../../context/TimerContext';
@@ -68,7 +70,8 @@ export const TopNavbar = () => {
     ? 'admin'
     : (currentUser?.systemRole === 'hr' || currentUser?.role?.toLowerCase().includes('hr') ? 'hr' : 'employee');
 
-  const { tickets, computedBirthdays, computedAnniversaries } = useCRM();
+  const { darkMode, toggleDarkMode, tickets, computedBirthdays, computedAnniversaries } = useCRM();
+  const theme = darkMode ? 'dark' : 'light';
   const { tasks, projects } = useWork();
 
   // Dropdown States
@@ -225,14 +228,14 @@ export const TopNavbar = () => {
   };
 
   return (
-    <header style={{
+    <header className="top-navbar-container" style={{
       height: '64px',
       minHeight: '64px',
       maxHeight: '64px',
       flexShrink: 0,
       boxSizing: 'border-box',
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e2e8f0',
+      backgroundColor: theme === 'dark' ? '#151e32' : '#ffffff',
+      borderBottom: theme === 'dark' ? '1px solid #243049' : '1px solid #e2e8f0',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -240,17 +243,19 @@ export const TopNavbar = () => {
       position: 'sticky',
       top: 0,
       zIndex: 90,
-      boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+      boxShadow: theme === 'dark' ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 2px rgba(0,0,0,0.02)',
+      transition: 'background-color 0.2s ease, border-color 0.2s ease'
     }}>
       {/* ── LEFT: Clean Page Title ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         <h1 style={{
           fontSize: '16px',
           fontWeight: '700',
-          color: '#1e293b',
+          color: theme === 'dark' ? '#f8fafc' : '#1e293b',
           margin: 0,
           lineHeight: '1',
-          letterSpacing: '-0.01em'
+          letterSpacing: '-0.01em',
+          transition: 'color 0.2s ease'
         }}>
           {pageTitle}
         </h1>
@@ -264,18 +269,20 @@ export const TopNavbar = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #e2e8f0',
+          backgroundColor: theme === 'dark' ? '#1e293b' : '#f8fafc',
+          border: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
           borderRadius: '8px',
           padding: '4px 10px',
-          height: '34px'
+          height: '34px',
+          transition: 'background-color 0.2s ease, border-color 0.2s ease'
         }}>
           <span style={{
             fontFamily: 'monospace',
             fontSize: '13.5px',
             fontWeight: '700',
-            color: '#1e293b',
-            letterSpacing: '0.02em'
+            color: theme === 'dark' ? '#f8fafc' : '#1e293b',
+            letterSpacing: '0.02em',
+            transition: 'color 0.2s ease'
           }}>
             {timeString || '00:00:00'}
           </span>
@@ -428,41 +435,41 @@ export const TopNavbar = () => {
               top: '42px',
               right: 0,
               width: '320px',
-              backgroundColor: '#ffffff',
+              backgroundColor: theme === 'dark' ? '#151e32' : '#ffffff',
               borderRadius: '10px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              border: '1px solid #e2e8f0',
+              boxShadow: theme === 'dark' ? '0 12px 30px rgba(0,0,0,0.5)' : '0 10px 25px rgba(0,0,0,0.1)',
+              border: theme === 'dark' ? '1px solid #243049' : '1px solid #e2e8f0',
               overflow: 'hidden',
               zIndex: 300
             }}>
               <div style={{
                 padding: '12px 16px',
-                borderBottom: '1px solid #f1f5f9',
+                borderBottom: theme === 'dark' ? '1px solid #243049' : '1px solid #f1f5f9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: '#f8fafc'
+                backgroundColor: theme === 'dark' ? '#101726' : '#f8fafc'
               }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: theme === 'dark' ? '#f8fafc' : '#1e293b' }}>
                   Notifications
                 </span>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                <span style={{ fontSize: '11px', color: theme === 'dark' ? '#94a3b8' : '#64748b' }}>
                   {totalNotifications} New
                 </span>
               </div>
 
               <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
                 {myPendingTasks.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', marginBottom: '4px' }}>
+                  <div style={{ padding: '8px', borderBottom: theme === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#38bdf8', marginBottom: '4px' }}>
                       ASSIGNED TASKS ({myPendingTasks.length})
                     </div>
                     {myPendingTasks.slice(0, 2).map(task => (
                       <div
                         key={task._id}
                         onClick={() => { setShowNotifications(false); navigate('/tasks'); }}
-                        style={{ padding: '6px', fontSize: '12px', color: '#334155', cursor: 'pointer', borderRadius: '6px' }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                        style={{ padding: '6px', fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : '#334155', cursor: 'pointer', borderRadius: '6px' }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         📌 {task.title}
@@ -472,12 +479,12 @@ export const TopNavbar = () => {
                 )}
 
                 {todayBirthdaysList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#db2777', marginBottom: '4px' }}>
+                  <div style={{ padding: '8px', borderBottom: theme === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#f472b6', marginBottom: '4px' }}>
                       🎂 TODAY'S BIRTHDAYS
                     </div>
                     {todayBirthdaysList.map(b => (
-                      <div key={b.name} style={{ fontSize: '12px', color: '#334155', padding: '4px' }}>
+                      <div key={b.name} style={{ fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : '#334155', padding: '4px' }}>
                         🎉 Wish {b.name} a Happy Birthday!
                       </div>
                     ))}
@@ -485,42 +492,42 @@ export const TopNavbar = () => {
                 )}
 
                 {upcomingBirthdaysList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#ea580c', marginBottom: '4px' }}>
+                  <div style={{ padding: '8px', borderBottom: theme === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#fb923c', marginBottom: '4px' }}>
                       🎂 UPCOMING BIRTHDAYS (30-DAY ADVANCE)
                     </div>
                     {upcomingBirthdaysList.slice(0, 3).map(b => (
-                      <div key={b.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={b.name} style={{ fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
                         <span>🎂 {b.name}</span>
-                        <span style={{ fontSize: '10.5px', color: '#ea580c', fontWeight: '600' }}>📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
+                        <span style={{ fontSize: '10.5px', color: '#fb923c', fontWeight: '600' }}>📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {todayAnnivList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#7c3aed', marginBottom: '4px' }}>
+                  <div style={{ padding: '8px', borderBottom: theme === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#a78bfa', marginBottom: '4px' }}>
                       🌟 TODAY'S WORK ANNIVERSARIES
                     </div>
                     {todayAnnivList.map(a => (
-                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={a._id || a.name} style={{ fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
                         <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span style={{ fontSize: '10.5px', color: '#7c3aed', fontWeight: '700' }}>🎉 TODAY!</span>
+                        <span style={{ fontSize: '10.5px', color: '#a78bfa', fontWeight: '700' }}>🎉 TODAY!</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {upcomingAnnivList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#6d28d9', marginBottom: '4px' }}>
+                  <div style={{ padding: '8px', borderBottom: theme === 'dark' ? '1px solid #1e293b' : '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#c084fc', marginBottom: '4px' }}>
                       🌟 UPCOMING ANNIVERSARIES (30-DAY ADVANCE)
                     </div>
                     {upcomingAnnivList.slice(0, 3).map(a => (
-                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={a._id || a.name} style={{ fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
                         <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span style={{ fontSize: '10.5px', color: '#6d28d9', fontWeight: '600' }}>📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
+                        <span style={{ fontSize: '10.5px', color: '#c084fc', fontWeight: '600' }}>📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
                       </div>
                     ))}
                   </div>
@@ -563,8 +570,9 @@ export const TopNavbar = () => {
             padding: '0 10px',
             borderRadius: '7px',
             border: 'none',
-            backgroundColor: isClockedIn ? '#f0fdf4' : '#eff6ff',
-            color: isClockedIn ? '#16a34a' : '#2563eb',
+            backgroundColor: isOnBreak ? '#fffbeb' : (isClockedIn ? '#f0fdf4' : '#eff6ff'),
+            color: isOnBreak ? '#b45309' : (isClockedIn ? '#16a34a' : '#2563eb'),
+            border: isOnBreak ? '1px solid #fde68a' : 'none',
             fontSize: '12px',
             fontWeight: '600',
             cursor: 'pointer',
@@ -573,10 +581,30 @@ export const TopNavbar = () => {
             gap: '6px',
             transition: 'all 0.15s ease'
           }}
-          title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
+          title={isOnBreak ? `Currently on ${breakType}. Click to view options or resume shift.` : (isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift')}
         >
-          <Clock size={14} />
-          <span>{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
+          <Clock size={14} color={isOnBreak ? '#b45309' : (isClockedIn ? '#16a34a' : '#2563eb')} />
+          <span>{isOnBreak ? `☕ On ${breakType || 'Break'}` : (isClockedIn ? 'Clocked In' : 'Clock In')}</span>
+        </button>
+
+        {/* ── ☀️ / 🌙 Dark/Light Theme Toggle ── */}
+        <button
+          onClick={toggleDarkMode}
+          style={{
+            ...iconButtonStyle,
+            backgroundColor: darkMode ? '#1e293b' : '#f8fafc',
+            border: darkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+            borderRadius: '8px',
+            color: darkMode ? '#fbbf24' : '#64748b',
+            boxShadow: darkMode ? '0 1px 2px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.03)'
+          }}
+          title={darkMode ? 'Switch to Light Mode ☀️' : 'Switch to Dark Mode 🌙'}
+        >
+          {darkMode ? (
+            <Sun size={17} color="#fbbf24" style={{ transition: 'transform 0.2s ease' }} />
+          ) : (
+            <Moon size={17} color="#64748b" style={{ transition: 'transform 0.2s ease' }} />
+          )}
         </button>
 
         {/* ── ⚙️ Settings Icon ── */}
@@ -585,7 +613,7 @@ export const TopNavbar = () => {
           style={iconButtonStyle}
           title="Settings"
         >
-          <Settings size={18} color="#64748b" />
+          <Settings size={18} color={darkMode ? '#94a3b8' : '#64748b'} />
         </button>
 
         {/* ── 👤 User Avatar Pill (Matching 'A Work' in Novainfinity Screenshot) ── */}
@@ -646,10 +674,10 @@ export const TopNavbar = () => {
               top: '42px',
               right: 0,
               width: '260px',
-              backgroundColor: '#ffffff',
+              backgroundColor: theme === 'dark' ? '#151e32' : '#ffffff',
               borderRadius: '12px',
-              boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
-              border: '1px solid #e2e8f0',
+              boxShadow: theme === 'dark' ? '0 12px 30px rgba(0,0,0,0.5)' : '0 12px 30px rgba(0,0,0,0.12)',
+              border: theme === 'dark' ? '1px solid #243049' : '1px solid #e2e8f0',
               overflow: 'hidden',
               zIndex: 300,
               padding: '12px'
@@ -660,7 +688,7 @@ export const TopNavbar = () => {
                 alignItems: 'center',
                 gap: '10px',
                 paddingBottom: '12px',
-                borderBottom: '1px solid #f1f5f9'
+                borderBottom: theme === 'dark' ? '1px solid #243049' : '1px solid #f1f5f9'
               }}>
                 <div style={{
                   width: '40px',
@@ -678,21 +706,21 @@ export const TopNavbar = () => {
                   {currentUser?.name?.charAt(0) || 'A'}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: theme === 'dark' ? '#f8fafc' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {currentUser?.name || 'Avinash'}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  <div style={{ fontSize: '11.5px', color: theme === 'dark' ? '#94a3b8' : '#64748b' }}>
                     {currentUser?.role || 'UI/UX Designer'}
                   </div>
-                  <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '1px' }}>
+                  <div style={{ fontSize: '10.5px', color: theme === 'dark' ? '#64748b' : '#94a3b8', marginTop: '1px' }}>
                     ID: #{currentUser?.employeeCode || 'EMP-001'}
                   </div>
                 </div>
               </div>
 
               {/* Working Mode Selector */}
-              <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+              <div style={{ padding: '10px 0', borderBottom: theme === 'dark' ? '1px solid #243049' : '1px solid #f1f5f9' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: theme === 'dark' ? '#94a3b8' : '#64748b', marginBottom: '6px' }}>
                   WORKING MODE
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
@@ -705,9 +733,9 @@ export const TopNavbar = () => {
                         fontSize: '11px',
                         fontWeight: '600',
                         borderRadius: '6px',
-                        border: workingMode === mode ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                        backgroundColor: workingMode === mode ? '#eff6ff' : '#ffffff',
-                        color: workingMode === mode ? '#1d4ed8' : '#475569',
+                        border: workingMode === mode ? (theme === 'dark' ? '1.5px solid #3b82f6' : '1.5px solid #2563eb') : (theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0'),
+                        backgroundColor: workingMode === mode ? (theme === 'dark' ? '#1e3a8a' : '#eff6ff') : (theme === 'dark' ? '#1e293b' : '#ffffff'),
+                        color: workingMode === mode ? (theme === 'dark' ? '#60a5fa' : '#1d4ed8') : (theme === 'dark' ? '#94a3b8' : '#475569'),
                         cursor: 'pointer'
                       }}
                     >
@@ -732,13 +760,13 @@ export const TopNavbar = () => {
                     borderRadius: '6px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: '#334155',
+                    color: theme === 'dark' ? '#cbd5e1' : '#334155',
                     fontSize: '12.5px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     textAlign: 'left'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   <Edit3 size={14} color="#64748b" />
@@ -758,16 +786,16 @@ export const TopNavbar = () => {
                     borderRadius: '6px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: '#334155',
+                    color: theme === 'dark' ? '#cbd5e1' : '#334155',
                     fontSize: '12.5px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     textAlign: 'left'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <Key size={14} color="#2563eb" />
+                  <Key size={14} color="#38bdf8" />
                   <span>Change Password</span>
                 </button>
 
@@ -784,13 +812,13 @@ export const TopNavbar = () => {
                     borderRadius: '6px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: '#334155',
+                    color: theme === 'dark' ? '#cbd5e1' : '#334155',
                     fontSize: '12.5px',
                     fontWeight: '500',
                     cursor: 'pointer',
                     textAlign: 'left'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   <Clock size={14} color="#64748b" />
@@ -837,12 +865,12 @@ export const TopNavbar = () => {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#ffffff',
+              backgroundColor: theme === 'dark' ? '#151e32' : '#ffffff',
               borderRadius: '12px',
               width: '100%',
               maxWidth: '540px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-              border: '1px solid #e2e8f0',
+              boxShadow: theme === 'dark' ? '0 20px 40px rgba(0,0,0,0.6)' : '0 20px 40px rgba(0,0,0,0.15)',
+              border: theme === 'dark' ? '1px solid #243049' : '1px solid #e2e8f0',
               overflow: 'hidden'
             }}
           >
@@ -850,10 +878,10 @@ export const TopNavbar = () => {
               display: 'flex',
               alignItems: 'center',
               padding: '14px 16px',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: theme === 'dark' ? '1px solid #243049' : '1px solid #e2e8f0',
               gap: '10px'
             }}>
-              <Search size={18} color="#94a3b8" />
+              <Search size={18} color={theme === 'dark' ? '#38bdf8' : '#94a3b8'} />
               <input
                 autoFocus
                 type="text"
@@ -865,10 +893,18 @@ export const TopNavbar = () => {
                   outline: 'none',
                   width: '100%',
                   fontSize: '14px',
-                  color: '#1e293b'
+                  backgroundColor: 'transparent',
+                  color: theme === 'dark' ? '#f8fafc' : '#1e293b'
                 }}
               />
-              <span style={{ fontSize: '11px', color: '#94a3b8', backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+              <span style={{
+                fontSize: '11px',
+                color: theme === 'dark' ? '#94a3b8' : '#94a3b8',
+                backgroundColor: theme === 'dark' ? '#1e293b' : '#f1f5f9',
+                border: theme === 'dark' ? '1px solid #334155' : '1px solid transparent',
+                padding: '2px 6px',
+                borderRadius: '4px'
+              }}>
                 ESC
               </span>
             </div>
@@ -876,18 +912,27 @@ export const TopNavbar = () => {
             <div style={{ maxHeight: '340px', overflowY: 'auto', padding: '8px' }}>
               {filteredTasks.length > 0 && (
                 <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: theme === 'dark' ? '#94a3b8' : '#64748b', padding: '4px 8px' }}>
                     TASKS
                   </div>
                   {filteredTasks.map(t => (
                     <div
                       key={t._id}
                       onClick={() => { setShowSearchModal(false); navigate('/tasks'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: theme === 'dark' ? '#f8fafc' : '#1e293b'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <ListTodo size={14} color="#2563eb" />
+                      <ListTodo size={14} color="#38bdf8" />
                       <span>{t.title}</span>
                     </div>
                   ))}
@@ -896,18 +941,27 @@ export const TopNavbar = () => {
 
               {filteredProjects.length > 0 && (
                 <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: theme === 'dark' ? '#94a3b8' : '#64748b', padding: '4px 8px' }}>
                     PROJECTS
                   </div>
                   {filteredProjects.map(p => (
                     <div
                       key={p._id}
                       onClick={() => { setShowSearchModal(false); navigate('/projects'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: theme === 'dark' ? '#f8fafc' : '#1e293b'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <FolderGit2 size={14} color="#0284c7" />
+                      <FolderGit2 size={14} color="#0ea5e9" />
                       <span>{p.name}</span>
                     </div>
                   ))}
@@ -916,18 +970,27 @@ export const TopNavbar = () => {
 
               {filteredEmployees.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: theme === 'dark' ? '#94a3b8' : '#64748b', padding: '4px 8px' }}>
                     TEAMMATES
                   </div>
                   {filteredEmployees.map(e => (
                     <div
                       key={e._id}
                       onClick={() => { setShowSearchModal(false); navigate('/employees'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: theme === 'dark' ? '#f8fafc' : '#1e293b'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#1e293b' : '#f1f5f9'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <Users2 size={14} color="#16a34a" />
+                      <Users2 size={14} color="#4ade80" />
                       <span>{e.name} ({e.role})</span>
                     </div>
                   ))}

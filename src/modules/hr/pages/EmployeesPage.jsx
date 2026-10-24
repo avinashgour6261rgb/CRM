@@ -73,6 +73,13 @@ export const EmployeesPage = () => {
     localStorage.setItem('EMS_SALARY_MAP', JSON.stringify(updated));
   };
 
+  const isEmployeeSelf = (emp) => {
+    if (!currentUser || !emp) return false;
+    return String(emp._id || emp.id) === String(currentUser._id || currentUser.id) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
+  };
+
   const isActorAdmin = isAdmin(currentUser);
   const isActorHR = isHRorAdmin(currentUser);
 
@@ -403,7 +410,7 @@ export const EmployeesPage = () => {
                           <div>
                             <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', lineHeight: '1.2' }}>
                               <span>{emp.name}</span>
-                              {emp.isCurrentUser && (
+                              {isEmployeeSelf(emp) && (
                                 <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: '700' }}>
                                   You
                                 </span>
@@ -551,12 +558,11 @@ export const EmployeesPage = () => {
                             <span>Edit</span>
                           </button>
 
-                          {!emp.isCurrentUser && (
+                          {!isEmployeeSelf(emp) && (
                             <button
                               onClick={() => {
                                 if (confirm(`Are you sure you want to remove employee ${emp.name}?`)) {
                                   deleteEmployee(emp._id);
-                                  addToast('Employee removed', 'info');
                                 }
                               }}
                               style={{
@@ -573,7 +579,7 @@ export const EmployeesPage = () => {
                               }}
                               title="Delete Employee"
                             >
-                              <Trash2 size={11} />
+                              <Trash2 size={12} />
                             </button>
                           )}
                         </div>

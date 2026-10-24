@@ -34,7 +34,8 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const CalendarPage = () => {
   const { addToast } = useToast();
-  const { events, deleteEvent, computedBirthdays, computedAnniversaries } = useCRM();
+  const { events, deleteEvent, computedBirthdays, computedAnniversaries, darkMode } = useCRM();
+  const isDark = !!darkMode;
   const { holidays, currentUser, employees, leaves } = useHR();
   const { tasks, projects } = useWork();
 
@@ -462,11 +463,11 @@ export const CalendarPage = () => {
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '10px',
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         padding: '12px 16px',
         borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.02)',
         minHeight: '68px',
         boxSizing: 'border-box',
         flexShrink: 0
@@ -476,8 +477,8 @@ export const CalendarPage = () => {
             width: '32px',
             height: '32px',
             borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
+            backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+            color: '#38bdf8',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -486,12 +487,12 @@ export const CalendarPage = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Company Calendar & Schedules</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: '700' }}>
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', lineHeight: '1.2' }}>Company Calendar & Schedules</h1>
+              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: isDark ? '#1e3a8a' : '#eff6ff', color: isDark ? '#93c5fd' : '#2563eb', fontWeight: '700' }}>
                 {filteredEvents.length} Events & Birthdays
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
               Synchronized view of meetings, birthdays, work anniversaries & holiday schedule
             </p>
           </div>
@@ -522,21 +523,21 @@ export const CalendarPage = () => {
 
       {/* Filter and Top Navigation Bar */}
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         borderRadius: '10px',
-        border: '1px solid #e2e8f0',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
         padding: '8px 12px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.02)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           
           {/* Employee Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b' }}>
             <span style={{ fontWeight: '600' }}>Employee:</span>
             <div style={{
               display: 'flex',
@@ -545,8 +546,8 @@ export const CalendarPage = () => {
               padding: '0 8px',
               height: '30px',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc'
+              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+              backgroundColor: isDark ? '#1e293b' : '#f8fafc'
             }}>
               <img
                 src={selectedEmployee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -564,7 +565,7 @@ export const CalendarPage = () => {
                   outline: 'none',
                   fontSize: '12px',
                   fontWeight: '600',
-                  color: !isPrivileged ? '#64748b' : '#0f172a',
+                  color: !isPrivileged ? (isDark ? '#94a3b8' : '#64748b') : (isDark ? '#f8fafc' : '#0f172a'),
                   cursor: !isPrivileged ? 'not-allowed' : 'pointer'
                 }}
               >
@@ -584,7 +585,7 @@ export const CalendarPage = () => {
           </div>
 
           {/* Client Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b' }}>
             <span style={{ fontWeight: '600' }}>Client:</span>
             <select
               value={clientFilter}
@@ -593,10 +594,10 @@ export const CalendarPage = () => {
                 height: '30px',
                 padding: '0 8px',
                 borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
+                border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
                 fontSize: '12px',
-                color: '#0f172a',
+                color: isDark ? '#f8fafc' : '#0f172a',
                 outline: 'none',
                 cursor: 'pointer'
               }}
@@ -615,11 +616,11 @@ export const CalendarPage = () => {
             padding: '0 10px',
             height: '30px',
             borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
+            border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+            backgroundColor: isDark ? '#1e293b' : '#ffffff',
             minWidth: '220px'
           }}>
-            <Search size={13} color="#94a3b8" />
+            <Search size={13} color={isDark ? '#38bdf8' : '#94a3b8'} />
             <input
               type="text"
               placeholder="Search event, milestone, birthday..."
@@ -631,7 +632,7 @@ export const CalendarPage = () => {
                 fontSize: '12px',
                 width: '100%',
                 backgroundColor: 'transparent',
-                color: '#0f172a'
+                color: isDark ? '#f8fafc' : '#0f172a'
               }}
             />
           </div>
@@ -641,20 +642,20 @@ export const CalendarPage = () => {
       {/* 30-Day Celebrations Advance Alerts Banner */}
       {upcomingCelebrations.length > 0 && (
         <div style={{
-          backgroundColor: '#ffffff',
+          backgroundColor: isDark ? '#151e32' : '#ffffff',
           borderRadius: '10px',
-          border: '1px solid #fed7aa',
+          border: isDark ? '1px solid #7c2d12' : '1px solid #fed7aa',
           padding: '12px 16px',
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
-          background: 'linear-gradient(135deg, #fffaf5 0%, #ffffff 100%)',
-          boxShadow: '0 1px 3px rgba(249, 115, 22, 0.08)'
+          background: isDark ? 'linear-gradient(135deg, #1f1410 0%, #151e32 100%)' : 'linear-gradient(135deg, #fffaf5 0%, #ffffff 100%)',
+          boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(249, 115, 22, 0.08)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '16px' }}>🎉</span>
-              <span style={{ fontSize: '13px', fontWeight: '800', color: '#9a3412' }}>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: isDark ? '#fb923c' : '#9a3412' }}>
                 Upcoming Celebrations (Next 30 Days)
               </span>
               <span style={{
@@ -662,13 +663,13 @@ export const CalendarPage = () => {
                 fontWeight: '700',
                 padding: '2px 8px',
                 borderRadius: '12px',
-                backgroundColor: '#ffedd5',
-                color: '#c2410c'
+                backgroundColor: isDark ? '#431407' : '#ffedd5',
+                color: isDark ? '#fdba74' : '#c2410c'
               }}>
                 {upcomingCelebrations.length} upcoming
               </span>
             </div>
-            <span style={{ fontSize: '11.5px', color: '#9a3412', fontWeight: '500' }}>
+            <span style={{ fontSize: '11.5px', color: isDark ? '#fdba74' : '#9a3412', fontWeight: '500' }}>
               Advance notification to plan wishes & team greetings
             </span>
           </div>
@@ -688,8 +689,8 @@ export const CalendarPage = () => {
                   gap: '10px',
                   padding: '7px 12px',
                   borderRadius: '8px',
-                  backgroundColor: c.type === 'birthday' ? '#fff7ed' : '#f5f3ff',
-                  border: `1px solid ${c.type === 'birthday' ? '#fed7aa' : '#ddd6fe'}`,
+                  backgroundColor: isDark ? '#1e293b' : (c.type === 'birthday' ? '#fff7ed' : '#f5f3ff'),
+                  border: isDark ? '1px solid #334155' : `1px solid ${c.type === 'birthday' ? '#fed7aa' : '#ddd6fe'}`,
                   minWidth: '220px',
                   flexShrink: 0
                 }}
@@ -700,10 +701,10 @@ export const CalendarPage = () => {
                   style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: isDark ? '#f8fafc' : '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {c.type === 'birthday' ? '🎂' : '🌟'} {c.name}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b' }}>
                     {c.type === 'birthday' ? 'Birthday' : `${c.yearsText} Anniversary`} • {c.date}
                   </div>
                 </div>
@@ -726,15 +727,16 @@ export const CalendarPage = () => {
 
       {/* Category Filter Pills Bar */}
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         borderRadius: '10px',
-        border: '1px solid #e2e8f0',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
         padding: '8px 12px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '8px'
+        gap: '8px',
+        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : 'none'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           {[
@@ -755,9 +757,9 @@ export const CalendarPage = () => {
                 style={{
                   padding: '5px 12px',
                   borderRadius: '6px',
-                  border: isActive ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                  backgroundColor: isActive ? '#eff6ff' : '#ffffff',
-                  color: isActive ? '#1d4ed8' : '#475569',
+                  border: isActive ? (isDark ? '1px solid #3b82f6' : '1px solid #2563eb') : (isDark ? '1px solid #334155' : '1px solid #e2e8f0'),
+                  backgroundColor: isActive ? (isDark ? '#1e3a8a' : '#eff6ff') : (isDark ? '#1e293b' : '#ffffff'),
+                  color: isActive ? (isDark ? '#93c5fd' : '#1d4ed8') : (isDark ? '#cbd5e1' : '#475569'),
                   fontSize: '12px',
                   fontWeight: isActive ? '700' : '500',
                   cursor: 'pointer',
@@ -774,8 +776,8 @@ export const CalendarPage = () => {
                     fontWeight: '700',
                     padding: '1px 5px',
                     borderRadius: '10px',
-                    backgroundColor: isActive ? '#2563eb' : '#f1f5f9',
-                    color: isActive ? '#ffffff' : '#64748b'
+                    backgroundColor: isActive ? '#2563eb' : (isDark ? '#243049' : '#f1f5f9'),
+                    color: isActive ? '#ffffff' : (isDark ? '#cbd5e1' : '#64748b')
                   }}>
                     {tab.count}
                   </span>
@@ -791,11 +793,11 @@ export const CalendarPage = () => {
           alignItems: 'center',
           gap: '6px',
           fontSize: '12px',
-          color: '#475569',
+          color: isDark ? '#cbd5e1' : '#475569',
           cursor: 'pointer',
           padding: '4px 8px',
           borderRadius: '6px',
-          backgroundColor: showShifts ? '#f1f5f9' : 'transparent'
+          backgroundColor: showShifts ? (isDark ? '#1e293b' : '#f1f5f9') : 'transparent'
         }}>
           <input
             type="checkbox"
@@ -809,11 +811,11 @@ export const CalendarPage = () => {
 
       {/* Calendar Viewport Matching Screenshot 3 */}
       <div style={{
-        backgroundColor: '#ffffff',
+        backgroundColor: isDark ? '#151e32' : '#ffffff',
         borderRadius: '12px',
-        border: '1px solid #e2e8f0',
+        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
         padding: '18px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.02)'
       }}>
         
         {/* Calendar Nav Bar (< > today, Month Year, month/week/day/list switcher) */}
@@ -827,16 +829,16 @@ export const CalendarPage = () => {
         }}>
           {/* Navigation Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', borderRadius: '8px', border: '1px solid #cbd5e1', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', borderRadius: '8px', border: isDark ? '1px solid #334155' : '1px solid #cbd5e1', overflow: 'hidden' }}>
               <button
                 onClick={handlePrevMonth}
                 style={{
                   padding: '6px 12px',
-                  background: '#ffffff',
+                  background: isDark ? '#1e293b' : '#ffffff',
                   border: 'none',
-                  borderRight: '1px solid #cbd5e1',
+                  borderRight: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
                   cursor: 'pointer',
-                  color: '#475569'
+                  color: isDark ? '#cbd5e1' : '#475569'
                 }}
               >
                 <ChevronLeft size={16} />
@@ -845,10 +847,10 @@ export const CalendarPage = () => {
                 onClick={handleNextMonth}
                 style={{
                   padding: '6px 12px',
-                  background: '#ffffff',
+                  background: isDark ? '#1e293b' : '#ffffff',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#475569'
+                  color: isDark ? '#cbd5e1' : '#475569'
                 }}
               >
                 <ChevronRight size={16} />
@@ -860,9 +862,9 @@ export const CalendarPage = () => {
               style={{
                 padding: '6px 14px',
                 borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
+                border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                color: isDark ? '#cbd5e1' : '#475569',
                 fontSize: '13px',
                 fontWeight: '600',
                 cursor: 'pointer'
@@ -873,17 +875,17 @@ export const CalendarPage = () => {
           </div>
 
           {/* Current Month & Year Display */}
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+          <div style={{ fontSize: '18px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a' }}>
             {monthNames[month]} {year}
           </div>
 
           {/* View Switcher (month, week, day, list) */}
           <div style={{
             display: 'flex',
-            backgroundColor: '#f1f5f9',
+            backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
             padding: '3px',
             borderRadius: '8px',
-            border: '1px solid #e2e8f0'
+            border: isDark ? '1px solid #334155' : '1px solid #e2e8f0'
           }}>
             {['month', 'week', 'day', 'list'].map(view => (
               <button
@@ -896,8 +898,8 @@ export const CalendarPage = () => {
                   fontSize: '12.5px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  backgroundColor: currentView === view ? '#0f172a' : 'transparent',
-                  color: currentView === view ? '#ffffff' : '#64748b',
+                  backgroundColor: currentView === view ? '#2563eb' : 'transparent',
+                  color: currentView === view ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
                   transition: 'all 0.15s ease',
                   textTransform: 'capitalize'
                 }}
@@ -912,12 +914,12 @@ export const CalendarPage = () => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          borderBottom: '1px solid #e2e8f0',
+          borderBottom: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
           paddingBottom: '8px',
           textAlign: 'center',
           fontSize: '13px',
           fontWeight: '700',
-          color: '#475569'
+          color: isDark ? '#cbd5e1' : '#475569'
         }}>
           {DAYS_OF_WEEK.map(day => (
             <div key={day}>{day}</div>
@@ -929,8 +931,8 @@ export const CalendarPage = () => {
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(7, 1fr)',
-            borderLeft: '1px solid #f1f5f9',
-            borderTop: '1px solid #f1f5f9'
+            borderLeft: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
+            borderTop: isDark ? '1px solid #243049' : '1px solid #f1f5f9'
           }}>
             {calendarDays.map((day, idx) => {
               const isHolidayDay = day.events?.some(ev => 
@@ -945,12 +947,12 @@ export const CalendarPage = () => {
                   key={idx}
                   style={{
                     minHeight: '100px',
-                    borderRight: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
-                    borderBottom: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
+                    borderRight: isHolidayDay ? (isDark ? '1.5px solid #7f1d1d' : '1.5px solid #fca5a5') : (isDark ? '1px solid #243049' : '1px solid #f1f5f9'),
+                    borderBottom: isHolidayDay ? (isDark ? '1.5px solid #7f1d1d' : '1.5px solid #fca5a5') : (isDark ? '1px solid #243049' : '1px solid #f1f5f9'),
                     padding: '6px 8px',
                     backgroundColor: isHolidayDay 
-                      ? '#fef2f2' 
-                      : (day.isCurrentMonth ? '#ffffff' : '#fafafa'),
+                      ? (isDark ? '#2a1215' : '#fef2f2')
+                      : (day.isCurrentMonth ? (isDark ? '#151e32' : '#ffffff') : (isDark ? '#0d1322' : '#fafafa')),
                     position: 'relative',
                     transition: 'background-color 0.15s ease'
                   }}
@@ -967,8 +969,8 @@ export const CalendarPage = () => {
                         <span style={{
                           fontSize: '9px',
                           fontWeight: '800',
-                          color: '#dc2626',
-                          backgroundColor: '#fee2e2',
+                          color: '#f87171',
+                          backgroundColor: isDark ? '#451a1a' : '#fee2e2',
                           padding: '1px 5px',
                           borderRadius: '4px',
                           letterSpacing: '0.2px'
@@ -980,8 +982,8 @@ export const CalendarPage = () => {
                         <span style={{
                           fontSize: '9px',
                           fontWeight: '800',
-                          color: '#1d4ed8',
-                          backgroundColor: '#dbeafe',
+                          color: isDark ? '#93c5fd' : '#1d4ed8',
+                          backgroundColor: isDark ? '#1e3a8a' : '#dbeafe',
                           padding: '1px 5px',
                           borderRadius: '4px',
                           letterSpacing: '0.2px'
@@ -993,15 +995,15 @@ export const CalendarPage = () => {
                     <span style={{
                       fontSize: '12.5px',
                       fontWeight: '700',
-                      color: isHolidayDay ? '#dc2626' : (day.dateStr === new Date().toISOString().split('T')[0] ? '#2563eb' : (day.isCurrentMonth ? '#0f172a' : '#cbd5e1')),
+                      color: isHolidayDay ? '#f87171' : (day.dateStr === new Date().toISOString().split('T')[0] ? '#60a5fa' : (day.isCurrentMonth ? (isDark ? '#f8fafc' : '#0f172a') : (isDark ? '#475569' : '#cbd5e1'))),
                       width: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
                       height: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       borderRadius: '50%',
-                      backgroundColor: day.dateStr === new Date().toISOString().split('T')[0] ? '#eff6ff' : 'transparent',
-                      border: day.dateStr === new Date().toISOString().split('T')[0] ? '1px solid #93c5fd' : 'none'
+                      backgroundColor: day.dateStr === new Date().toISOString().split('T')[0] ? (isDark ? '#1e3a8a' : '#eff6ff') : 'transparent',
+                      border: day.dateStr === new Date().toISOString().split('T')[0] ? (isDark ? '1px solid #3b82f6' : '1px solid #93c5fd') : 'none'
                     }}>
                       {day.dayNum}
                     </span>
@@ -1020,14 +1022,18 @@ export const CalendarPage = () => {
                             borderRadius: '4px',
                             fontSize: '11px',
                             fontWeight: '700',
-                            backgroundColor: isEvHoliday ? '#fee2e2' : (ev.bgColor || '#eff6ff'),
-                            color: isEvHoliday ? '#b91c1c' : (ev.color || '#2563eb'),
+                            backgroundColor: isEvHoliday 
+                              ? (isDark ? '#451a1a' : '#fee2e2') 
+                              : (isDark ? '#1e293b' : (ev.bgColor || '#eff6ff')),
+                            color: isEvHoliday 
+                              ? '#fca5a5' 
+                              : (isDark ? '#f8fafc' : (ev.color || '#2563eb')),
                             borderLeft: `3px solid ${isEvHoliday ? '#ef4444' : (ev.color || '#2563eb')}`,
                             cursor: 'pointer',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                            boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.04)'
                           }}
                           title={`${ev.title} (${ev.time})`}
                         >
@@ -1258,13 +1264,13 @@ export const CalendarPage = () => {
           padding: '20px'
         }}>
           <div style={{
-            backgroundColor: '#ffffff',
+            backgroundColor: isDark ? '#151e32' : '#ffffff',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '480px',
             padding: '24px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0'
+            boxShadow: isDark ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)' : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: isDark ? '1px solid #243049' : '1px solid #e2e8f0'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <span style={{
@@ -1272,20 +1278,20 @@ export const CalendarPage = () => {
                 borderRadius: '6px',
                 fontSize: '12px',
                 fontWeight: '700',
-                backgroundColor: selectedEvent.bgColor,
-                color: selectedEvent.color
+                backgroundColor: isDark ? '#1e293b' : selectedEvent.bgColor,
+                color: isDark ? '#38bdf8' : selectedEvent.color
               }}>
                 {selectedEvent.type}
               </span>
               <button
                 onClick={() => setSelectedEvent(null)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: isDark ? '#cbd5e1' : '#64748b', cursor: 'pointer' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', margin: '0 0 12px' }}>
               {selectedEvent.title}
             </h3>
 
@@ -1296,9 +1302,9 @@ export const CalendarPage = () => {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px 14px',
-                backgroundColor: selectedEvent.bgColor,
+                backgroundColor: isDark ? '#1e293b' : selectedEvent.bgColor,
                 borderRadius: '10px',
-                border: `1px solid ${selectedEvent.color}30`,
+                border: isDark ? '1px solid #334155' : `1px solid ${selectedEvent.color}30`,
                 marginBottom: '16px'
               }}>
                 <img
@@ -1307,18 +1313,18 @@ export const CalendarPage = () => {
                   style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${selectedEvent.color}` }}
                 />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {selectedEvent.employeeName}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  <div style={{ fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b' }}>
                     {selectedEvent.employeeRole || 'Colleague'}
                   </div>
                 </div>
                 <span style={{
                   fontSize: '11.5px',
                   fontWeight: '700',
-                  color: selectedEvent.color,
-                  backgroundColor: '#ffffff',
+                  color: isDark ? '#38bdf8' : selectedEvent.color,
+                  backgroundColor: isDark ? '#151e32' : '#ffffff',
                   padding: '4px 8px',
                   borderRadius: '6px',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
@@ -1328,21 +1334,21 @@ export const CalendarPage = () => {
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#475569', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: isDark ? '#cbd5e1' : '#475569', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarIcon size={16} color="#2563eb" />
-                <span>Date: <strong>{selectedEvent.date}</strong></span>
+                <CalendarIcon size={16} color="#38bdf8" />
+                <span>Date: <strong style={{ color: isDark ? '#ffffff' : '#0f172a' }}>{selectedEvent.date}</strong></span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={16} color="#2563eb" />
+                <Clock size={16} color="#38bdf8" />
                 <span>Time: {selectedEvent.time}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={16} color="#2563eb" />
+                <MapPin size={16} color="#38bdf8" />
                 <span>Location: {selectedEvent.location}</span>
               </div>
               {selectedEvent.isRecurring && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', fontWeight: '600' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#4ade80', fontWeight: '600' }}>
                   <Repeat size={15} />
                   <span>Annual Recurring Event (Automatically repeats every year)</span>
                 </div>
@@ -1353,9 +1359,9 @@ export const CalendarPage = () => {
               <div style={{
                 padding: '12px',
                 borderRadius: '8px',
-                backgroundColor: '#f8fafc',
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
                 fontSize: '13px',
-                color: '#334155',
+                color: isDark ? '#cbd5e1' : '#334155',
                 lineHeight: '1.5',
                 marginBottom: '18px'
               }}>
@@ -1415,9 +1421,9 @@ export const CalendarPage = () => {
                 style={{
                   padding: '8px 16px',
                   borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
+                  border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  color: isDark ? '#cbd5e1' : '#475569',
                   fontSize: '12.5px',
                   fontWeight: '600',
                   cursor: 'pointer'
