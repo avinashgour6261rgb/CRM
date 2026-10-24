@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
+  X,
   XCircle,
   AlertTriangle,
   AlertCircle,
@@ -141,6 +142,26 @@ export const DashboardPage = () => {
   const [dashboardTaskScope, setDashboardTaskScope] = useState('assigned_to_me'); // 'assigned_to_me' | 'delegated' | 'all'
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
   const [cancellingLeaveTarget, setCancellingLeaveTarget] = useState(null);
+
+  // Top Alert Banners Dismissal State (Dismissing persists for current browser session)
+  const [dismissedTopAlerts, setDismissedTopAlerts] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('ems_dismissed_top_alerts') || '[]');
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const dismissTopAlert = (alertId) => {
+    if (!alertId) return;
+    setDismissedTopAlerts(prev => {
+      const next = [...new Set([...prev, String(alertId)])];
+      try {
+        sessionStorage.setItem('ems_dismissed_top_alerts', JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+  };
 
   // Projects pending final sign-off
   const pendingApprovalProjects = React.useMemo(() => {
@@ -1413,6 +1434,19 @@ export const DashboardPage = () => {
     return isLeaveApplicant(l, currentUser);
   });
 
+  // Active Top Alerts for upper dashboard (undismissed by cross button)
+  const activeTopLeaveRequests = React.useMemo(() => {
+    return (pendingLeaveRequestsForMe || []).filter(l => !dismissedTopAlerts.includes(String(l._id)));
+  }, [pendingLeaveRequestsForMe, dismissedTopAlerts]);
+
+  const activeTopNotices = React.useMemo(() => {
+    return (notices || []).filter(not => {
+      const notId = String(not?._id || not?.id || '');
+      if (dismissedTopAlerts.includes(notId)) return false;
+      return not?.isImportant || not?.priority === 'urgent' || not?.priority === 'high' || not?.category === 'Company Announcement';
+    });
+  }, [notices, dismissedTopAlerts]);
+
   // 4. All personal leaves of current user (for history/status display)
   const myRecentLeaves = (leaves || []).filter(l => {
     return isLeaveApplicant(l, currentUser);
@@ -2192,6 +2226,247 @@ export const DashboardPage = () => {
                   }}
                 >
                   View Details
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 📩 TOP ALERT BANNER: INCOMING LEAVE REQUESTS FOR YOUR REVIEW (DISMISSIBLE VIA CROSS) ── */}
+      {activeTopLeaveRequests.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {activeTopLeaveRequests.map(l => (
+            <div
+              key={`top_leave_${l._id}`}
+              style={{
+                backgroundColor: '#fffbeb',
+                border: '1.5px solid #fde68a',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.12)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '9px',
+                  backgroundColor: '#f59e0b',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Palmtree size={20} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>
+                      📩 New Leave Request Pending Your Approval
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      backgroundColor: '#fef3c7',
+                      color: '#b45309',
+                      border: '1px solid #fde68a',
+                      padding: '1px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      Needs Review
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#78350f', marginTop: '2px' }}>
+                    <strong>{l.employeeName}</strong> ({l.employeeRole || 'Member'}) has requested <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong>
+                    {l.reason && <span> • <em>"{l.reason}"</em></span>}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => updateLeaveStatus(l._id, 'approved')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  title="Approve this leave request"
+                >
+                  ✓ Accept
+                </button>
+                <button
+                  onClick={() => setRejectingLeaveTarget(l)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  title="Deny this leave request"
+                >
+                  ✕ Deny
+                </button>
+                <button
+                  onClick={() => navigate('/leaves')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Manage →
+                </button>
+                <button
+                  onClick={() => dismissTopAlert(l._id)}
+                  style={{
+                    padding: '5px',
+                    borderRadius: '6px',
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    border: '1px solid #fde68a',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: '4px'
+                  }}
+                  title="Dismiss alert from top (remains available in Leave section below)"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 📢 TOP ALERT BANNER: IMPORTANT COMPANY ANNOUNCEMENTS (DISMISSIBLE VIA CROSS) ── */}
+      {activeTopNotices.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {activeTopNotices.slice(0, 2).map(not => (
+            <div
+              key={`top_notice_${not._id || not.id}`}
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '1.5px solid #bfdbfe',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '9px',
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Bell size={20} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af' }}>
+                      📢 Important Announcement: {not.title}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      backgroundColor: not.isImportant ? '#fee2e2' : '#dbeafe',
+                      color: not.isImportant ? '#dc2626' : '#1d4ed8',
+                      border: `1px solid ${not.isImportant ? '#fecaca' : '#bfdbfe'}`,
+                      padding: '1px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      {not.category || 'Company Notice'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#1e3a8a', marginTop: '2px' }}>
+                    {not.shortDescription || not.description || not.fullContent}
+                    {not.postedBy && <span style={{ color: '#64748b', marginLeft: '6px' }}>• Posted by <strong>{not.postedBy}</strong></span>}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setSelectedNotice(not)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Read Notice →
+                </button>
+                <button
+                  onClick={() => navigate('/notice-board')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Notice Board
+                </button>
+                <button
+                  onClick={() => dismissTopAlert(not._id || not.id)}
+                  style={{
+                    padding: '5px',
+                    borderRadius: '6px',
+                    backgroundColor: '#dbeafe',
+                    color: '#1e40af',
+                    border: '1px solid #bfdbfe',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: '4px'
+                  }}
+                  title="Dismiss announcement from top (remains available in Notices section below)"
+                >
+                  <X size={15} />
                 </button>
               </div>
             </div>
@@ -5544,114 +5819,136 @@ export const DashboardPage = () => {
             )
           )}
         </div>
-      </div>
 
-      {/* ─────────────────────────────────────────────────────────────────────────
-          BOTTOM SECTION: Company Notices / Announcements (Compact & Sleek)
-      ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-          <div>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-              📢 Company Notices & Announcements
-            </h3>
-            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '1px 0 0 0' }}>
-              Official HR notices, policy updates, and team announcements
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isUserAdminOrHR && (
-              <button
-                onClick={() => setIsAddNoticeOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '4px 10px',
-                  borderRadius: '5px',
-                  fontSize: '11.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                <Plus size={12} /> Add Notice
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/notice-board')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-            >
-              All Notices →
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', alignItems: 'start' }}>
-          {(notices || []).map(not => (
-            <div
-              key={not?._id || Math.random()}
-              onClick={() => setSelectedNotice(not)}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#ffffff';
-                e.currentTarget.style.boxShadow = '0 3px 8px rgba(0,0,0,0.04)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#f8fafc';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    color: not?.isImportant ? '#dc2626' : '#2563eb',
-                    backgroundColor: not?.isImportant ? '#fee2e2' : '#eff6ff',
-                    padding: '1px 5px',
-                    borderRadius: '3px'
-                  }}>
-                    {not?.category}
-                  </span>
-                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>{not?.date}</span>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', lineHeight: '1.3' }}>
-                  {not?.title}
-                </div>
-                <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px', lineHeight: '1.4' }}>
-                  {not?.shortDescription}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px', borderTop: '1px solid #e2e8f0', fontSize: '11px', color: '#64748b' }}>
-                <span style={{ fontSize: '11.5px', color: '#64748b' }}>By: <strong>{not?.postedBy}</strong></span>
-                <span style={{ fontSize: '12px', color: '#0284c7', fontWeight: '600' }}>View Details →</span>
-              </div>
+        {/* Right Column: 📢 Company Notices & Announcements */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+          padding: '14px 18px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          gap: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+            <div>
+              <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                📢 Company Notices & Announcements
+              </h3>
+              <p style={{ fontSize: '11px', color: '#64748b', margin: '1px 0 0 0' }}>
+                Official HR notices, policy updates, and team announcements
+              </p>
             </div>
-          ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isUserAdminOrHR && (
+                <button
+                  onClick={() => setIsAddNoticeOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '5px',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Plus size={12} /> Add Notice
+                </button>
+              )}
+              <button
+                onClick={() => navigate('/notice-board')}
+                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                All Notices →
+              </button>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            maxHeight: '430px',
+            overflowY: 'auto',
+            paddingRight: '2px'
+          }}>
+            {(notices || []).length > 0 ? (
+              (notices || []).map(not => (
+                <div
+                  key={not?._id || not?.id || Math.random()}
+                  onClick={() => setSelectedNotice(not)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#f8fafc',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.borderColor = '#93c5fd';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = '#f8fafc';
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        color: not?.isImportant ? '#dc2626' : '#2563eb',
+                        backgroundColor: not?.isImportant ? '#fee2e2' : '#eff6ff',
+                        padding: '1px 6px',
+                        borderRadius: '3px'
+                      }}>
+                        {not?.category || 'Announcement'}
+                      </span>
+                      {not?.isImportant && (
+                        <span style={{ fontSize: '9.5px', fontWeight: '800', color: '#dc2626' }}>
+                          ⚡ Important
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>{not?.date}</span>
+                  </div>
+
+                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', lineHeight: '1.3' }}>
+                    {not?.title}
+                  </div>
+
+                  <div style={{ fontSize: '11.5px', color: '#64748b', lineHeight: '1.4' }}>
+                    {not?.shortDescription || not?.description}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px', borderTop: '1px solid #f1f5f9', fontSize: '11px', color: '#64748b' }}>
+                    <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
+                    <span style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '600' }}>View Details →</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '28px 0', color: '#94a3b8' }}>
+                <Bell size={24} style={{ margin: '0 auto 6px', color: '#cbd5e1' }} />
+                <div style={{ fontSize: '12px', fontWeight: '600' }}>No active company notices</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Company announcements will appear here</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
