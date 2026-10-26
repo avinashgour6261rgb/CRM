@@ -52,9 +52,26 @@ export const HRProvider = ({ children }) => {
         hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear })
       ]);
 
+      // Resilient leave merging to prevent UI disappearing on network sync
+      const localLeaves = getCollection(KEYS.LEAVES) || [];
+      const leaveMap = new Map();
+      localLeaves.forEach(l => {
+        const id = String(l._id || l.id);
+        if (id) leaveMap.set(id, l);
+      });
+      (lvs || []).forEach(l => {
+        const id = String(l._id || l.id);
+        if (id) leaveMap.set(id, { ...(leaveMap.get(id) || {}), ...l });
+      });
+      const mergedLeaves = Array.from(leaveMap.values());
+      const effectiveLeaves = (lvs && lvs.length > 0) ? (mergedLeaves.length > 0 ? mergedLeaves : lvs) : (localLeaves.length > 0 ? localLeaves : (lvs || []));
+
       setEmployees(emps || []);
       setCurrentUser(curr);
-      setLeaves(lvs || []);
+      setLeaves(effectiveLeaves);
+      if (effectiveLeaves.length > 0) {
+        saveCollection(KEYS.LEAVES, effectiveLeaves);
+      }
       setAttendance(atts || []);
       setHolidays(hols || []);
       setAppreciations(apps || []);

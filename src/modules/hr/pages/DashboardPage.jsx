@@ -342,8 +342,12 @@ export const DashboardPage = () => {
 
     const userName = (user.name || '').trim().toLowerCase();
     const taskAssigneeName = (task.assignedToName || '').trim().toLowerCase();
-    if (userName && taskAssigneeName && userName === taskAssigneeName) {
-      return true;
+    if (userName && taskAssigneeName) {
+      if (userName === taskAssigneeName) return true;
+      if (userName.includes(taskAssigneeName) || taskAssigneeName.includes(userName)) return true;
+      const userTokens = userName.split(/\s+/).filter(t => t.length >= 3);
+      const assigneeTokens = taskAssigneeName.split(/\s+/).filter(t => t.length >= 3);
+      if (userTokens.some(ut => assigneeTokens.includes(ut))) return true;
     }
     return false;
   };
@@ -418,8 +422,14 @@ export const DashboardPage = () => {
     if (isClockedIn && !storedOnBreak) {
       const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(attRec?.clockInTimestamp);
       if (clockInTs > 0) {
-        const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        workSecs = Math.max(workSecs, gross - (storedBreakSecs || Number(attRec?.breakSeconds) || 0));
+        // Runaway cross-day check: if clockInTs is from previous calendar day or > 14h, cap at 9h
+        const inDate = new Date(clockInTs).toISOString().split('T')[0];
+        const rawGross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+        if (inDate !== todayStr || rawGross > 14 * 3600) {
+          workSecs = 32400; // 9.0 hours standard
+        } else {
+          workSecs = Math.max(workSecs, rawGross - (storedBreakSecs || Number(attRec?.breakSeconds) || 0));
+        }
       } else if (empId === currentUser?._id) {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
         workSecs = Math.max(workSecs, localGross);
@@ -3259,6 +3269,19 @@ export const DashboardPage = () => {
               {/* Shift Working Time & Day Log button */}
               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <span>Working Time: <strong style={{ color: '#0284c7' }}>{displayedWorkDuration || '0h 0m'}</strong></span>
+                {((isViewingOtherEmployee ? (activeEmpState?.workSecs || 0) : (workSeconds || 0)) > 9 * 3600) && (
+                  <span style={{
+                    backgroundColor: '#dcfce7',
+                    color: '#15803d',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '4px',
+                    padding: '1px 6px',
+                    fontSize: '10.5px',
+                    fontWeight: '700'
+                  }}>
+                    +{Math.floor(((isViewingOtherEmployee ? (activeEmpState?.workSecs || 0) : (workSeconds || 0)) - 9 * 3600) / 3600)}h {Math.floor((((isViewingOtherEmployee ? (activeEmpState?.workSecs || 0) : (workSeconds || 0)) - 9 * 3600) % 3600) / 60)}m Overtime
+                  </span>
+                )}
                 <button
                   id="btn-eye-shift-top"
                   onClick={() => openDayLogModalForUser(effectiveTargetUser, todayStr)}

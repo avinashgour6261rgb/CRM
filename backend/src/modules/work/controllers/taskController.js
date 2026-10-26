@@ -51,8 +51,23 @@ exports.getTasks = async (req, res, next) => {
       if (user.name) {
         const escapedName = String(user.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         userAssignedFilter.push({ assignedToName: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ assignedToName: new RegExp(escapedName, 'i') });
         userAssignedFilter.push({ assignedBy: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ assignedBy: new RegExp(escapedName, 'i') });
         userAssignedFilter.push({ 'assignees.name': new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ 'assignees.name': new RegExp(escapedName, 'i') });
+
+        const parts = String(user.name).trim().split(/\s+/).filter(p => p.length >= 3);
+        for (const p of parts) {
+          const escP = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          userAssignedFilter.push({ assignedToName: new RegExp(escP, 'i') });
+          userAssignedFilter.push({ 'assignees.name': new RegExp(escP, 'i') });
+        }
+      }
+      if (user.email) {
+        const escEmail = String(user.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        userAssignedFilter.push({ assignedToEmail: new RegExp(`^${escEmail}$`, 'i') });
+        userAssignedFilter.push({ 'assignees.email': new RegExp(`^${escEmail}$`, 'i') });
       }
 
       if (query.$or) {

@@ -443,15 +443,8 @@ export const TimerProvider = ({ children }) => {
         setLoginTime(inTime);
         setClockOutTime(null);
         setHadClockedOutToday(false);
-        // DO NOT call setWorkSeconds here — the wall-clock tick (1s interval) accurately
-        // computes net work seconds in real-time. Overwriting it from DB sync every 5s
-        // causes visible counter jumps/flickers. Only restore from DB on initial mount
-        // (when clock_in_timestamp is not yet set in localStorage).
-        const existingTs = localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`);
-        if (!existingTs || existingTs === 'NaN' || existingTs === '0') {
-          // First load — no timestamp yet, seed from DB record
-          localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(inTs));
-        }
+        setBreakSeconds(bSecs);
+        setWorkSeconds(effectiveWorkSecs);
         if (rec.breakType) setBreakType(rec.breakType);
         if (Array.isArray(rec.breakHistory) && rec.breakHistory.length > 0) {
           setBreakHistory(rec.breakHistory);
@@ -463,11 +456,10 @@ export const TimerProvider = ({ children }) => {
         localStorage.setItem(`ems_timer_${userKey}_is_running`, effectiveOnBreak ? 'false' : 'true');
         localStorage.setItem(`ems_timer_${userKey}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
         localStorage.setItem(`ems_timer_${userKey}_login_time`, inTime);
+        localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(inTs));
         localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
-        if (!existingTs || existingTs === 'NaN' || existingTs === '0') {
-          localStorage.setItem(`ems_timer_${userKey}_break_seconds`, String(bSecs));
-          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(effectiveWorkSecs));
-        }
+        localStorage.setItem(`ems_timer_${userKey}_break_seconds`, String(bSecs));
+        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(effectiveWorkSecs));
         localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
         localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
       } else if (isActuallyClockedOut) {
@@ -612,29 +604,16 @@ export const TimerProvider = ({ children }) => {
   }, [breakHistory, userKey]);
 
   // ── True Wall-Clock Timestamp Engine (Immune to tab sleep, throttle & page reloads) ──
-  // Uses refs for volatile values so the setInterval NEVER restarts on state change (eliminates flicker).
-  const breakTypeRef = React.useRef(breakType);
-  const breakReminderSentRef = React.useRef(breakReminderSent);
-  const reclockStatusRef = React.useRef(reclockStatus);
-  const addToastRef = React.useRef(addToast);
-  React.useEffect(() => { breakTypeRef.current = breakType; }, [breakType]);
-  React.useEffect(() => { breakReminderSentRef.current = breakReminderSent; }, [breakReminderSent]);
-  React.useEffect(() => { reclockStatusRef.current = reclockStatus; }, [reclockStatus]);
-  React.useEffect(() => { addToastRef.current = addToast; }, [addToast]);
-
   useEffect(() => {
-    let lastStorageWriteTs = 0;
+    let interval = null;
 
     const tick = () => {
       const today = getTodayStr();
-      // Read directly from localStorage — avoids stale closure over React state
       const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
       const onBreakVal = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
       const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
       let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
       let breakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
-      const currentBreakType = breakTypeRef.current;
-      const currentReclockStatus = reclockStatusRef.current;
 
       // Calculate past completed breaks for today from break_history
       let pastBreakSecs = 0;
@@ -649,7 +628,7 @@ export const TimerProvider = ({ children }) => {
       } catch {}
 
       let activeBreakSecs = 0;
-      // Break counted ONLY if user is clocked in AND has explicitly started a break
+      // Break is strictly counted ONLY if user is clocked in AND has explicitly started a break
       if (inVal && onBreakVal) {
         if (!breakStartTs) {
           breakStartTs = Date.now();
@@ -659,17 +638,17 @@ export const TimerProvider = ({ children }) => {
         setCurrentBreakSeconds(activeBreakSecs);
         localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, activeBreakSecs.toString());
 
-        const threshold = BREAK_THRESHOLDS[currentBreakType] || (20 * 60);
-        if (activeBreakSecs >= threshold && !breakReminderSentRef.current) {
+        const threshold = BREAK_THRESHOLDS[breakType] || (20 * 60);
+        if (activeBreakSecs >= threshold && !breakReminderSent) {
           setBreakReminderSent(true);
-          breakReminderSentRef.current = true;
-          addToastRef.current({
-            title: `☕ Break Reminder (${currentBreakType})`,
-            message: `You've been on ${currentBreakType} for ${Math.floor(threshold / 60)} minutes. Remember to resume when ready!`,
+          addToast({
+            title: `☕ Break Reminder (${breakType})`,
+            message: `You've been on ${breakType} for ${Math.floor(threshold / 60)} minutes. Remember to resume when ready!`,
             type: 'warning'
           });
         }
       } else {
+        // User is working or not on break - clean up any stale break timestamps
         activeBreakSecs = 0;
         setCurrentBreakSeconds(0);
         if (!onBreakVal) {
@@ -683,47 +662,11 @@ export const TimerProvider = ({ children }) => {
       setBreakSeconds(totalBreaks);
 
       if (inVal) {
-        if (!clockInTs || isNaN(clockInTs)) {
+        if (!clockInTs) {
           clockInTs = Date.now() - (Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0) * 1000);
           localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, clockInTs.toString());
         }
-
-        // 🛡️ RUNAWAY TIMER PROTECTION (Cross-day or > 14 hours runaway):
-        const inDateStr = new Date(clockInTs).toISOString().split('T')[0];
-        const rawGrossSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        const isRunawayCrossDay = inDateStr !== today || rawGrossSecs > 14 * 3600;
-
-        if (isRunawayCrossDay) {
-          // Auto-close runaway session from yesterday / previous date at 07:45 PM (standard 9 hours)
-          setIsClockedIn(false);
-          setIsRunning(false);
-          setIsOnBreak(false);
-          setHadClockedOutToday(false);
-          setLoginTime(null);
-          setClockOutTime(null);
-          setWorkSeconds(0);
-          setBreakSeconds(0);
-
-          localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
-          localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
-          localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-          localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
-          localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
-          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
-          localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
-          localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
-          localStorage.removeItem(`ems_timer_${userKey}_login_time`);
-          localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
-
-          addToastRef.current({
-            title: '🕒 Shift Session Reset for Today',
-            message: 'Yesterday’s shift was automatically closed at 07:45 PM (9.0h). You can now Clock In fresh for today.',
-            type: 'info'
-          });
-          return;
-        }
-
-        const grossShiftSecs = rawGrossSecs;
+        const grossShiftSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
         const netWorkSecs = Math.max(0, grossShiftSecs - totalBreaks);
         setWorkSeconds(netWorkSecs);
 
@@ -734,35 +677,38 @@ export const TimerProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${userKey}_work_seconds`, netWorkSecs.toString());
         }
 
-        if (currentReclockStatus === 'pending') {
+        if (reclockStatus === 'pending') {
           const rBase = Number(localStorage.getItem(`ems_timer_${userKey}_saved_official_seconds`) || 0);
           const rSecs = Math.max(0, netWorkSecs - rBase);
           setReclockSessionSeconds(rSecs);
           localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, rSecs.toString());
         }
       } else if (!hadOutVal) {
+        // Not clocked in
         setWorkSeconds(0);
       }
     };
 
+    let lastStorageWriteTs = 0;
+
     tick();
-    const interval = setInterval(tick, 1000);
+    interval = setInterval(tick, 1000);
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') tick();
+      if (document.visibilityState === 'visible') {
+        tick();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  // Only restart interval if userKey changes (user switches account)
-  // All other volatile values are read via refs or localStorage directly
-  }, [userKey]);
+  }, [isClockedIn, isOnBreak, breakType, breakReminderSent, reclockStatus, userKey, addToast]);
 
 
 
@@ -1490,14 +1436,11 @@ export const TimerProvider = ({ children }) => {
   };
 
   // ── Format Helpers & Target Calculations ──
-  const TARGET_SHIFT_SECONDS = 9 * 3600; // Strict standard 9 hours daily shift target
+  const TARGET_SHIFT_SECONDS = 8.5 * 3600; // Standard 8 hours 30 mins daily shift target
   const targetShiftSeconds = TARGET_SHIFT_SECONDS;
-  const targetShiftHoursText = '9h 00m';
+  const targetShiftHoursText = '8h 30m';
   const shiftProgressPercent = Math.min(100, Math.round((workSeconds / TARGET_SHIFT_SECONDS) * 100));
   const isShiftTargetReached = workSeconds >= TARGET_SHIFT_SECONDS;
-  const isOvertime = workSeconds > TARGET_SHIFT_SECONDS;
-  const overtimeSeconds = Math.max(0, workSeconds - TARGET_SHIFT_SECONDS);
-  const overtimeText = formatHoursMinutes(overtimeSeconds);
   const remainingShiftSeconds = Math.max(0, TARGET_SHIFT_SECONDS - workSeconds);
 
   const formatSeconds = (totalSecs) => {
@@ -1554,13 +1497,10 @@ export const TimerProvider = ({ children }) => {
       targetShiftHoursText,
       shiftProgressPercent,
       isShiftTargetReached,
-      isOvertime,
-      overtimeSeconds,
-      overtimeText,
       remainingShiftSeconds,
       remainingShiftText: isShiftTargetReached
-        ? (overtimeSeconds > 0 ? `🎉 9h Target Reached (+${overtimeText} Overtime)` : '🎉 9h Shift Target Completed!')
-        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 9h target`,
+        ? '🎉 8h 30m Shift Target Completed!'
+        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 8h 30m target`,
       timeString: formatSeconds(workSeconds),
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),

@@ -97,8 +97,13 @@ export const WorkProvider = ({ children }) => {
       return true;
     }
 
-    if (t.assignedToName && currentUser?.name && t.assignedToName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) {
-      return true;
+    if (t.assignedToName && currentUser?.name) {
+      const myName = currentUser.name.trim().toLowerCase();
+      const aName = t.assignedToName.trim().toLowerCase();
+      if (myName === aName || myName.includes(aName) || aName.includes(myName)) return true;
+      const myTokens = myName.split(/\s+/).filter(tok => tok.length >= 3);
+      const aTokens = aName.split(/\s+/).filter(tok => tok.length >= 3);
+      if (myTokens.some(mt => aTokens.includes(mt))) return true;
     }
     return false;
   }, [userKey, currentUser]);
