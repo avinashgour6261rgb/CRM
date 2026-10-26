@@ -204,7 +204,16 @@ export const WorkProvider = ({ children }) => {
     }
     const startTs = typeof timerState.startedAt === 'number' ? timerState.startedAt : new Date(timerState.startedAt).getTime();
     if (!startTs || isNaN(startTs)) return base;
-    const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    if (startTs < todayMidnightMs) {
+      // Started on a previous day: do not accumulate runaway time across days!
+      return base;
+    }
+
+    const elapsedSinceStart = Math.min(Math.max(0, Math.floor((Date.now() - startTs) / 1000)), 14 * 3600);
     return base + elapsedSinceStart;
   }, []);
 
@@ -248,17 +257,18 @@ export const WorkProvider = ({ children }) => {
         return false;
       };
 
-      // 1. Seed with local tasks first (excluding legacy test tasks)
+      // Authoritative task list from backend MongoDB Atlas
+      const localMap = new Map();
       localTasks.forEach(lt => {
         const id = String(lt._id || lt.id);
-        if (id && !isLegacyTask(lt)) taskMap.set(id, { ...lt });
+        if (id && !isLegacyTask(lt)) localMap.set(id, lt);
       });
 
-      // 2. Merge backend tasks (excluding legacy test tasks)
+      // 1. Map backend tasks with live timer overlay
       (rawTsks || []).forEach(bt => {
         const id = String(bt._id || bt.id);
         if (id && !isLegacyTask(bt)) {
-          const existing = taskMap.get(id);
+          const existing = localMap.get(id);
           if (existing) {
             const localSecs = Number(existing.timerSeconds) || 0;
             const backendSecs = Number(bt.timerSeconds) || 0;
@@ -288,6 +298,15 @@ export const WorkProvider = ({ children }) => {
           } else {
             taskMap.set(id, { ...bt });
           }
+        }
+      });
+
+      // 2. Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
+      const remoteIds = new Set((rawTsks || []).map(r => String(r._id || r.id)));
+      localTasks.forEach(lt => {
+        const id = String(lt._id || lt.id);
+        if (id.startsWith('tsk_') && !remoteIds.has(id) && !isLegacyTask(lt)) {
+          taskMap.set(id, { ...lt });
         }
       });
 
@@ -402,7 +421,6 @@ export const WorkProvider = ({ children }) => {
       setTimesheets(times || []);
       if (Array.isArray(times) && times.length > 0) {
         localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(times));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
       }
     } catch (err) {
       console.error('Error loading Work module data:', err);
@@ -426,7 +444,7 @@ export const WorkProvider = ({ children }) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
         loadWorkData(silent);
-      }, 250);
+      }, 400);
     };
 
     const handleStorageUpdate = (e) => {
@@ -456,12 +474,12 @@ export const WorkProvider = ({ children }) => {
       }
     });
 
-    // Periodic synchronization from DB (every 3 seconds) + tab focus across laptops (Localhost vs Vercel Live)
+    // Periodic synchronization from DB (every 12 seconds) + tab focus across laptops (Localhost vs Vercel Live)
     const syncInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         scheduleDebouncedLoad(true);
       }
-    }, 3000);
+    }, 12000);
 
     const handleFocus = () => scheduleDebouncedLoad(true);
     const handleVisibility = () => {
@@ -492,7 +510,11 @@ export const WorkProvider = ({ children }) => {
       const isShiftOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
         (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
 
-      if (isShiftOnBreak && activeTimer?.timerRunning) {
+      const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
+        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
+
+      // Auto-pause task timer when employee is clocked out or on break
+      if ((!isShiftClockedIn || isShiftOnBreak) && activeTimer?.timerRunning) {
         const currentSecs = getElapsedSeconds(activeTimer);
         const today = getTodayStr();
         const pausedTimerState = {
@@ -501,14 +523,25 @@ export const WorkProvider = ({ children }) => {
           startedAt: null,
           accumulatedSeconds: currentSecs,
           date: today,
-          wasPausedForBreak: true
+          wasPausedForBreak: isShiftOnBreak,
+          wasPausedForClockOut: !isShiftClockedIn
         };
         saveActiveTimerSnapshot(pausedTimerState);
 
         const allTasks = getCollection(KEYS.TASKS) || [];
         const updatedAll = allTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
-            return { ...t, timerRunning: false, startedAt: null, accumulatedSeconds: currentSecs, timerSeconds: currentSecs };
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: isShiftOnBreak,
+              wasPausedForClockOut: !isShiftClockedIn
+            };
           }
           return t;
         });
@@ -516,10 +549,37 @@ export const WorkProvider = ({ children }) => {
 
         setTasks(prevTasks => prevTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
-            return { ...t, timerRunning: false, startedAt: null, accumulatedSeconds: currentSecs, timerSeconds: currentSecs, liveDurationText: formatSeconds(currentSecs) };
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: isShiftOnBreak,
+              wasPausedForClockOut: !isShiftClockedIn
+            };
           }
           return t;
         }));
+
+        // Log session to timesheet if clock-out caused pause
+        if (!isShiftClockedIn && currentSecs > 0) {
+          workService.createTimesheet({
+            taskId: activeTimer.taskId,
+            taskCode: activeTimer.taskCode,
+            taskTitle: activeTimer.title,
+            projectName: activeTimer.projectName,
+            employeeId: activeTimer.assignedToId || userKey,
+            employeeName: activeTimer.assignedToName || currentUser?.name || 'User',
+            date: activeTimer.date || today,
+            totalDurationSeconds: currentSecs,
+            totalDurationText: formatSeconds(currentSecs),
+            memo: 'Shift clock-out auto-save',
+            status: 'stopped'
+          }).catch(() => {});
+        }
         return;
       }
 
@@ -542,7 +602,7 @@ export const WorkProvider = ({ children }) => {
           const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
 
-          if (isAssignedToMe && !isMyActive && t.timerRunning) {
+          if (isAssignedToMe && (!isMyActive || !isShiftClockedIn) && t.timerRunning) {
             changed = true;
             return { ...t, timerRunning: false, startedAt: null };
           }
@@ -552,7 +612,7 @@ export const WorkProvider = ({ children }) => {
           const todayMidnightMs = todayMidnight.getTime();
           const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
 
-          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive) : Boolean(t.timerRunning && isStartedToday);
+          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive && isShiftClockedIn) : Boolean(t.timerRunning && isStartedToday);
 
           if (isTaskRunning) {
             changed = true;
@@ -560,8 +620,9 @@ export const WorkProvider = ({ children }) => {
             const base = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
               ? Number(activeTimer.accumulatedSeconds)
               : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : (Number(t.timerSeconds) || 0));
-            const elapsed = Math.max(0, Math.floor((now - startTs) / 1000));
-            const liveSecs = base + elapsed;
+            const safeStartTs = Math.max(startTs, todayMidnightMs);
+            const elapsed = Math.min(Math.max(0, Math.floor((now - safeStartTs) / 1000)), 14 * 3600);
+            const liveSecs = Math.min(base + elapsed, 14 * 3600);
             const text = formatSeconds(liveSecs);
 
             return {

@@ -73,6 +73,9 @@ async function checkHrBackendOnline() {
  * Safe fetch helper that attempts backend API first, falling back to local storage
  */
 async function fetchWithFallback(url, options, fallbackFn) {
+  const method = (options?.method || 'GET').toUpperCase();
+  const isReadOp = method === 'GET';
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -91,11 +94,14 @@ async function fetchWithFallback(url, options, fallbackFn) {
     if (res.ok) {
       hrBackendOnline = true;
       lastHrCheckTime = Date.now();
-      const json = await res.json();
-      return json.data !== undefined ? json.data : json;
+      const json = await res.json().catch(() => null);
+      if (json !== null) {
+        return json.data !== undefined ? json.data : json;
+      }
     } else {
       const errJson = await res.json().catch(() => null);
-      if (errJson?.message) {
+      // For mutation requests (POST/PUT/DELETE), propagate validation/conflict errors to user
+      if (!isReadOp && errJson?.message) {
         if (res.status === 409 || res.status === 400 || res.status === 422) {
           throw new Error(errJson.message);
         }
@@ -104,15 +110,20 @@ async function fetchWithFallback(url, options, fallbackFn) {
       lastHrCheckTime = Date.now();
     }
   } catch (err) {
-    // If it's a conflict or explicit validation error from backend, rethrow it
-    if (err?.message && !err.message.includes('fetch') && !err.message.includes('abort') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+    // Only rethrow validation/conflict errors on explicit write operations (POST/PUT/DELETE)
+    if (!isReadOp && err?.message && !err.message.includes('fetch') && !err.message.includes('abort') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
       throw err;
     }
     hrBackendOnline = false;
     lastHrCheckTime = Date.now();
   }
 
-  return await fallbackFn();
+  try {
+    return await fallbackFn();
+  } catch (fbErr) {
+    console.warn('Fallback error in fetchWithFallback:', fbErr);
+    return [];
+  }
 }
 
 export const hrService = {
@@ -658,6 +669,25 @@ export const hrService = {
     return leaveData;
   },
 
+  async deleteLeave(leaveId) {
+    if (!leaveId) return false;
+    const res = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}`, {
+      method: 'DELETE'
+    }, async () => {
+      let leaves = getCollection(KEYS.LEAVES) || [];
+      leaves = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
+      saveCollection(KEYS.LEAVES, leaves);
+      return { success: true };
+    });
+
+    let leaves = getCollection(KEYS.LEAVES) || [];
+    leaves = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
+    localStorage.setItem(KEYS.LEAVES, JSON.stringify(leaves));
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+    window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status: 'deleted' } }));
+    return res;
+  },
+
   async acknowledgeLeave(leaveId) {
     if (!leaveId) return null;
     try {
@@ -853,8 +883,7 @@ export const hrService = {
         clockInTime: finalClockIn,
         clockIn: finalClockIn,
         clockOutTime: finalClockOut,
-        clockOut: finalClockOut,
-        totalWorkingHours: computedHours || (attendanceData.totalWorkingHours ? parseFloat(attendanceData.totalWorkingHours) : 0),
+        totalWorkingHours: (attendanceData.workSeconds ? +(Number(attendanceData.workSeconds) / 3600).toFixed(2) : (computedHours || (attendanceData.totalWorkingHours ? parseFloat(attendanceData.totalWorkingHours) : 0))),
         isLate: isLateCalc,
         lateByMinutes,
         notes: notes || '',
@@ -865,6 +894,7 @@ export const hrService = {
         isOnBreak: attendanceData.isOnBreak !== undefined ? attendanceData.isOnBreak : false,
         breakType: attendanceData.breakType !== undefined ? attendanceData.breakType : null,
         breakHistory: attendanceData.breakHistory !== undefined ? attendanceData.breakHistory : (existingIndex >= 0 ? attendance[existingIndex].breakHistory : []),
+        punchSessions: attendanceData.punchSessions !== undefined ? attendanceData.punchSessions : (existingIndex >= 0 ? attendance[existingIndex].punchSessions : []),
         isClockedIn: attendanceData.isClockedIn !== undefined ? attendanceData.isClockedIn : (Boolean(finalClockIn) && !finalClockOut),
         updatedAt: new Date().toISOString()
       };
@@ -1049,6 +1079,109 @@ export const hrService = {
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
 
       return { attendance: attendance[existingIdx], audit: auditEntry };
+    });
+  },
+
+  // =========================================================================
+  // ⏱️ OVERTIME REQUESTS & APPROVALS
+  // =========================================================================
+
+  async getOvertimeRequests() {
+    return fetchWithFallback(`${API_BASE}/attendance/overtime`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    }, async () => {
+      let overtimes = getCollection(KEYS.ATTENDANCE_OVERTIME) || [];
+      return overtimes;
+    });
+  },
+
+  async requestOvertime(overtimeData) {
+    const enriched = {
+      _id: `ot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      createdAt: new Date().toISOString(),
+      ...overtimeData,
+      status: overtimeData.isSelfApproved ? 'approved' : 'pending'
+    };
+
+    return fetchWithFallback(`${API_BASE}/attendance/overtime`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(enriched)
+    }, async () => {
+      let overtimes = getCollection(KEYS.ATTENDANCE_OVERTIME) || [];
+      overtimes.unshift(enriched);
+      saveCollection(KEYS.ATTENDANCE_OVERTIME, overtimes);
+
+      // Also update attendance collection record for that day
+      let attendance = getCollection(KEYS.ATTENDANCE) || [];
+      const targetDate = enriched.date || new Date().toISOString().split('T')[0];
+      const idx = attendance.findIndex(a => a.date === targetDate && (
+        String(a.employeeId) === String(enriched.employeeId) ||
+        (a.employeeCode && a.employeeCode === enriched.employeeCode)
+      ));
+      if (idx >= 0) {
+        attendance[idx] = {
+          ...attendance[idx],
+          overtimeHours: enriched.overtimeHours,
+          overtimeSeconds: enriched.overtimeSeconds,
+          overtimeStatus: enriched.status,
+          overtimeReason: enriched.overtimeReason,
+          overtimeTasks: enriched.overtimeTasks,
+          overtimeApprovedBy: enriched.isSelfApproved ? (enriched.employeeName || 'Admin') : '',
+          overtimeApprovedAt: enriched.isSelfApproved ? new Date().toISOString() : null
+        };
+        saveCollection(KEYS.ATTENDANCE, attendance);
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE_OVERTIME } }));
+      window.dispatchEvent(new CustomEvent('ems_overtime_updated', { detail: enriched }));
+      return enriched;
+    });
+  },
+
+  async updateOvertimeStatus(overtimeId, status, approverName = 'Admin', rejectionReason = '') {
+    return fetchWithFallback(`${API_BASE}/attendance/overtime/${overtimeId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ status, approverName, rejectionReason })
+    }, async () => {
+      let overtimes = getCollection(KEYS.ATTENDANCE_OVERTIME) || [];
+      const idx = overtimes.findIndex(o => String(o._id || o.id) === String(overtimeId));
+      if (idx >= 0) {
+        overtimes[idx] = {
+          ...overtimes[idx],
+          status,
+          approverName,
+          approvedBy: approverName,
+          approvedAt: new Date().toISOString(),
+          rejectionReason
+        };
+        saveCollection(KEYS.ATTENDANCE_OVERTIME, overtimes);
+      }
+
+      // Sync to attendance record
+      let attendance = getCollection(KEYS.ATTENDANCE) || [];
+      const targetOt = idx >= 0 ? overtimes[idx] : null;
+      if (targetOt) {
+        const attIdx = attendance.findIndex(a => a.date === targetOt.date && (
+          String(a.employeeId) === String(targetOt.employeeId) ||
+          (a.employeeCode && a.employeeCode === targetOt.employeeCode)
+        ));
+        if (attIdx >= 0) {
+          attendance[attIdx] = {
+            ...attendance[attIdx],
+            overtimeStatus: status,
+            overtimeApprovedBy: approverName,
+            overtimeApprovedAt: new Date().toISOString()
+          };
+          saveCollection(KEYS.ATTENDANCE, attendance);
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE_OVERTIME } }));
+      window.dispatchEvent(new CustomEvent('ems_overtime_updated', { detail: { overtimeId, status, approverName } }));
+      return { success: true };
     });
   },
 

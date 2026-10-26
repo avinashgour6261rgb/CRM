@@ -28,8 +28,11 @@ import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable'
 import { MarkAttendanceModal } from '../components/attendance/MarkAttendanceModal';
 import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAuditTimeline';
 import { AdminForceClockOutModal } from '../components/attendance/AdminForceClockOutModal';
+import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
+import { useToast } from '../../../shared/context/ToastContext';
 
 export const AttendancePage = () => {
+  const { addToast } = useToast();
   const { currentUser: authUser } = useAuth();
   const {
     employees,
@@ -506,12 +509,34 @@ export const AttendancePage = () => {
               <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
               <span style={{ fontSize: '11px', fontWeight: '700' }}>Audit Trail</span>
             </button>
+            <button
+              onClick={() => setViewMode('overtime')}
+              className={`view-switch-btn ${viewMode === 'overtime' ? 'active' : ''}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '0 10px',
+                color: viewMode === 'overtime' ? '#ea580c' : '#64748b',
+                backgroundColor: viewMode === 'overtime' ? '#fff7ed' : 'transparent',
+                borderColor: viewMode === 'overtime' ? '#fed7aa' : 'transparent'
+              }}
+              title="Overtime Requests & Approvals"
+            >
+              <Clock size={15} color={viewMode === 'overtime' ? '#ea580c' : '#64748b'} />
+              <span style={{ fontSize: '11px', fontWeight: '700' }}>Overtime</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Legend Ribbon with all 8 statuses (only for matrix/logs) */}
-      {viewMode !== 'audit' && <AttendanceLegend />}
+      {viewMode !== 'audit' && viewMode !== 'overtime' && <AttendanceLegend />}
+
+      {/* Overtime Requests & Approvals Panel */}
+      {viewMode === 'overtime' && (
+        <OvertimeManagementPanel currentUser={currentUser} addToast={addToast} />
+      )}
 
       {/* Audit Trail View (Complete Admin & Employee Audit Trail) */}
       {viewMode === 'audit' && (
@@ -600,7 +625,30 @@ export const AttendancePage = () => {
                             {clockOutDisplay || (record.status === 'present' ? '🟢 Active' : '—')}
                           </span>
                         </td>
-                        <td>{record.totalWorkingHours ? `${record.totalWorkingHours} hrs` : '—'}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 700 }}>
+                              {record.totalWorkingHours ? `${record.totalWorkingHours} hrs` : (record.workSeconds ? `${(record.workSeconds / 3600).toFixed(2)} hrs` : '—')}
+                            </span>
+                            {Array.isArray(record.punchSessions) && record.punchSessions.length > 1 && (
+                              <span
+                                title={record.punchSessions.map((s, idx) => `Session ${idx + 1}: ${s.inTime} - ${s.outTime} (${s.durationText || Math.round((s.durationSeconds || 0) / 60) + 'm'})`).join('\n')}
+                                style={{
+                                  cursor: 'help',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  background: '#f0fdf4',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: '4px',
+                                  padding: '1px 5px'
+                                }}
+                              >
+                                {record.punchSessions.length} sessions
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td style={{ color: '#64748b', fontSize: '12px' }}>{record.notes || '—'}</td>
                       </tr>
                     );

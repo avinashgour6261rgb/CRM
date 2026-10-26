@@ -32,12 +32,16 @@ export const HRProvider = ({ children }) => {
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
 
   const [loading, setLoading] = useState(false);
+  const isFetchingRef = React.useRef(false);
+  const debounceTimerRef = React.useRef(null);
 
-  // Load all initial data
+  // Load all initial data from MongoDB Atlas / LocalStorage fallback
   const loadData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       setLoading(true);
-      const [emps, curr, lvs, atts, hols, apps, auds] = await Promise.all([
+      const results = await Promise.allSettled([
         hrService.getEmployees(),
         hrService.getCurrentUser(),
         hrService.getLeaves({
@@ -52,56 +56,64 @@ export const HRProvider = ({ children }) => {
         hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear })
       ]);
 
-      // Resilient leave merging to prevent UI disappearing on network sync
-      const localLeaves = getCollection(KEYS.LEAVES) || [];
-      const leaveMap = new Map();
-      localLeaves.forEach(l => {
-        const id = String(l._id || l.id);
-        if (id) leaveMap.set(id, l);
-      });
-      (lvs || []).forEach(l => {
-        const id = String(l._id || l.id);
-        if (id) leaveMap.set(id, { ...(leaveMap.get(id) || {}), ...l });
-      });
-      const mergedLeaves = Array.from(leaveMap.values());
-      const effectiveLeaves = (lvs && lvs.length > 0) ? (mergedLeaves.length > 0 ? mergedLeaves : lvs) : (localLeaves.length > 0 ? localLeaves : (lvs || []));
+      const [empsRes, currRes, lvsRes, attsRes, holsRes, appsRes, audsRes] = results;
+
+      const emps = empsRes.status === 'fulfilled' && empsRes.value ? empsRes.value : (getCollection(KEYS.EMPLOYEES) || []);
+      const curr = currRes.status === 'fulfilled' ? currRes.value : null;
+      const lvs = lvsRes.status === 'fulfilled' && lvsRes.value ? lvsRes.value : (getCollection(KEYS.LEAVES) || []);
+      const atts = attsRes.status === 'fulfilled' && attsRes.value ? attsRes.value : (getCollection(KEYS.ATTENDANCE) || []);
+      const hols = holsRes.status === 'fulfilled' && holsRes.value ? holsRes.value : (getCollection(KEYS.HOLIDAYS) || []);
+      const apps = appsRes.status === 'fulfilled' && appsRes.value ? appsRes.value : (getCollection(KEYS.APPRECIATIONS) || []);
+      const auds = audsRes.status === 'fulfilled' && audsRes.value ? audsRes.value : (getCollection(KEYS.ATTENDANCE_AUDIT) || []);
+
+      // Authoritative list: If server returned array, respect it directly (including deletions)
+      const effectiveLeaves = Array.isArray(lvs) ? lvs : (getCollection(KEYS.LEAVES) || []);
 
       setEmployees(emps || []);
-      setCurrentUser(curr);
+      if (curr) setCurrentUser(curr);
       setLeaves(effectiveLeaves);
-      if (effectiveLeaves.length > 0) {
-        saveCollection(KEYS.LEAVES, effectiveLeaves);
-      }
+      // Silently persist to localStorage without dispatching self-triggering storage event loop
+      try {
+        localStorage.setItem(KEYS.LEAVES, JSON.stringify(effectiveLeaves));
+      } catch (_) {}
       setAttendance(atts || []);
       setHolidays(hols || []);
       setAppreciations(apps || []);
       setAuditLogs(auds || []);
     } catch (err) {
-      console.error('Error loading HRMS data:', err);
-      addToast('Failed to sync HRMS data', 'error');
+      console.warn('Graceful sync fallback in loadData:', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
-  }, [selectedEmployeeId, searchQuery, dateRange, selectedMonth, selectedYear, addToast]);
+  }, [selectedEmployeeId, searchQuery, dateRange, selectedMonth, selectedYear]);
 
   useEffect(() => {
     loadData();
+
+    const scheduleDebouncedLoad = () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        loadData();
+      }, 500);
+    };
 
     // Listen for storage events across tabs or internal updates
     const handleStorageUpdate = (e) => {
       const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
-        loadData();
+        scheduleDebouncedLoad();
       }
     };
     const handleNativeStorage = (e) => {
       if (e.key === 'ems_auth_session' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
-        loadData();
+        scheduleDebouncedLoad();
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
     window.addEventListener('storage', handleNativeStorage);
     return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleNativeStorage);
     };
@@ -254,15 +266,17 @@ export const HRProvider = ({ children }) => {
   const deleteLeave = async (leaveId) => {
     try {
       await hrService.deleteLeave(leaveId);
-      setLeaves(prev => (prev || []).filter(l => l._id !== leaveId));
-      addToast('Leave request removed', 'info');
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
+      setLeaves(prev => (prev || []).filter(l => String(l._id || l.id) !== String(leaveId)));
+      // Update local storage
+      const leaves = getCollection(KEYS.LEAVES) || [];
+      const remaining = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
+      localStorage.setItem(KEYS.LEAVES, JSON.stringify(remaining));
+      addToast('Leave request deleted successfully', 'info');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_employees' } }));
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+      window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status: 'deleted' } }));
       await loadData();
     } catch (err) {
+      console.error('Failed to delete leave:', err);
       addToast('Failed to delete leave', 'error');
     }
   };

@@ -206,6 +206,7 @@ const markAttendance = asyncHandler(async (req, res) => {
   if (isOnBreak !== undefined) updateFields.isOnBreak = Boolean(isOnBreak);
   if (breakType !== undefined) updateFields.breakType = breakType;
   if (breakHistory !== undefined) updateFields.breakHistory = breakHistory;
+  if ('punchSessions' in req.body) updateFields.punchSessions = req.body.punchSessions;
 
   if (isClockedIn !== undefined) {
     updateFields.isClockedIn = Boolean(isClockedIn);
@@ -215,10 +216,10 @@ const markAttendance = asyncHandler(async (req, res) => {
     updateFields.isClockedIn = false;
   }
 
-  if (totalWorkingHours > 0) {
-    updateFields.totalWorkingHours = totalWorkingHours;
-  } else if (workSeconds > 0) {
+  if (workSeconds !== undefined && Number(workSeconds) > 0) {
     updateFields.totalWorkingHours = +(Number(workSeconds) / 3600).toFixed(2);
+  } else if (totalWorkingHours > 0) {
+    updateFields.totalWorkingHours = totalWorkingHours;
   }
   updateFields.isLate = isLate;
   updateFields.lateByMinutes = lateByMinutes;
@@ -519,6 +520,100 @@ const forceClockOut = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── GET /api/attendance/overtime ─────────────────────────────────────────────
+const getOvertimeRequests = asyncHandler(async (req, res) => {
+  const query = { overtimeStatus: { $in: ['pending', 'approved', 'rejected'] } };
+  const records = await Attendance.find(query).sort({ date: -1, updatedAt: -1 });
+  res.json({ success: true, count: records.length, data: records });
+});
+
+// ─── POST /api/attendance/overtime ────────────────────────────────────────────
+const requestOvertime = asyncHandler(async (req, res) => {
+  const { employeeId, employeeCode, employeeName, date, overtimeHours, overtimeSeconds, overtimeReason, overtimeTasks, requestedToId, requestedToName, isSelfApproved } = req.body;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+
+  const mongoose = require('mongoose');
+  let attRecord = await Attendance.findOne({
+    date: targetDate,
+    $or: [
+      { employeeCode: employeeCode ? String(employeeCode).toUpperCase() : undefined },
+      { employeeId: String(employeeId) },
+      mongoose.Types.ObjectId.isValid(employeeId) ? { employee: employeeId } : null
+    ].filter(Boolean)
+  });
+
+  const status = isSelfApproved ? 'approved' : 'pending';
+  const approverName = isSelfApproved ? (employeeName || req.user?.name || 'Admin') : '';
+  const approvedAt = isSelfApproved ? new Date() : null;
+
+  if (attRecord) {
+    attRecord.overtimeHours = Number(overtimeHours) || +(Number(overtimeSeconds) / 3600).toFixed(2);
+    attRecord.overtimeSeconds = Number(overtimeSeconds) || 0;
+    attRecord.overtimeStatus = status;
+    attRecord.overtimeReason = overtimeReason || '';
+    attRecord.overtimeTasks = overtimeTasks || [];
+    attRecord.overtimeRequestedTo = requestedToName || '';
+    attRecord.overtimeApprovedBy = approverName;
+    attRecord.overtimeApprovedAt = approvedAt;
+    await attRecord.save();
+  }
+
+  // Create audit log
+  try {
+    const auditEntry = new AttendanceAudit({
+      employee: attRecord?.employee || employeeId,
+      employeeName: employeeName || 'Employee',
+      employeeCode: employeeCode || '',
+      type: 'overtime_request',
+      action: isSelfApproved ? 'overtime_self_approved' : 'overtime_requested',
+      date: targetDate,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      performedBy: employeeName || req.user?.name || 'User',
+      note: `${isSelfApproved ? 'Self-approved' : 'Submitted'} overtime of ${overtimeHours || 0}h: ${overtimeReason || ''}`
+    });
+    await auditEntry.save();
+  } catch (_) {}
+
+  res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
+});
+
+// ─── PUT /api/attendance/overtime/:id/status ──────────────────────────────────
+const updateOvertimeStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, approverName, rejectionReason } = req.body;
+
+  const attRecord = await Attendance.findById(id);
+  if (!attRecord) {
+    return res.status(404).json({ success: false, message: 'Attendance record not found' });
+  }
+
+  attRecord.overtimeStatus = status;
+  attRecord.overtimeApprovedBy = approverName || req.user?.name || 'Admin';
+  attRecord.overtimeApprovedAt = new Date();
+  if (rejectionReason) {
+    attRecord.notes = attRecord.notes ? `${attRecord.notes} | Overtime rejected: ${rejectionReason}` : `Overtime rejected: ${rejectionReason}`;
+  }
+  await attRecord.save();
+
+  // Create audit log
+  try {
+    const auditEntry = new AttendanceAudit({
+      employee: attRecord.employee,
+      employeeName: attRecord.employeeName,
+      employeeCode: attRecord.employeeCode,
+      type: 'overtime_decision',
+      action: `overtime_${status}`,
+      date: attRecord.date,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      performedBy: approverName || req.user?.name || 'Admin',
+      note: `Overtime ${status} by ${approverName || 'Admin'}${rejectionReason ? `: ${rejectionReason}` : ''}`
+    });
+    await auditEntry.save();
+  } catch (_) {}
+
+  res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
+});
+
 module.exports = {
   getMonthlyAttendance,
   getAttendanceSummary,
@@ -529,5 +624,8 @@ module.exports = {
   deleteAttendanceRecord,
   getAuditLogs,
   createAuditLog,
-  forceClockOut
+  forceClockOut,
+  getOvertimeRequests,
+  requestOvertime,
+  updateOvertimeStatus
 };

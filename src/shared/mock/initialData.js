@@ -23,4 +23,3 @@ export const INITIAL_EVENTS = [];
 export const INITIAL_CONVERSATIONS = [];
 export const INITIAL_LEADS = [];
 export const INITIAL_EMERGENCY_CONTACTS = [];
-export const INITIAL_STICKY_NOTES = [];

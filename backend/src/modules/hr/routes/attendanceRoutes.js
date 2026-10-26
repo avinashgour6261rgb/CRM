@@ -9,7 +9,10 @@ const {
   deleteAttendance,
   getAuditLogs,
   createAuditLog,
-  forceClockOut
+  forceClockOut,
+  getOvertimeRequests,
+  requestOvertime,
+  updateOvertimeStatus
 } = require('../controllers/attendanceController');
 
 router.get('/', getMonthlyAttendance);
@@ -19,6 +22,11 @@ router.get('/daily', getAttendanceByDate);
 router.post('/bulk', bulkMarkAttendance);
 router.post('/mark', markAttendance);
 router.delete('/:id', deleteAttendance);
+
+// Overtime Requests & Approvals
+router.get('/overtime', getOvertimeRequests);
+router.post('/overtime', requestOvertime);
+router.put('/overtime/:id/status', updateOvertimeStatus);
 
 // Audit Trail & Admin Override routes
 router.get('/audit', getAuditLogs);

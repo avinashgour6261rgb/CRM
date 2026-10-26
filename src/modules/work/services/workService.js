@@ -263,22 +263,19 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Silently persist to local mirror without overwriting live/accumulated timer data
+            // Authoritative remoteList from MongoDB Atlas (including deletions and reassignments)
             const localList = getCollection(KEYS.TASKS) || [];
             const remoteList = json.data;
-            const mergedMap = new Map();
-
-            // 1. Seed with local tasks first
+            const localMap = new Map();
             localList.forEach(lt => {
               const id = String(lt._id || lt.id);
-              if (id) mergedMap.set(id, lt);
+              if (id) localMap.set(id, lt);
             });
 
-            // 2. Merge remote tasks with backend authority for cross-device real-time sync (Localhost & Vercel)
-            remoteList.forEach(rt => {
+            // Map authoritative remote tasks, overlaying live ticking timer only if running locally
+            const merged = remoteList.map(rt => {
               const id = String(rt._id || rt.id);
-              if (!id) return;
-              const local = mergedMap.get(id);
+              const local = localMap.get(id);
               if (local) {
                 const localTimerSecs = Number(local.timerSeconds) || 0;
                 const remoteTimerSecs = Number(rt.timerSeconds) || 0;
@@ -290,14 +287,13 @@ export const workService = {
                 const isRemoteActive = Boolean(rt.timerRunning && rt.startedAt);
                 const localStartedRecently = Boolean(local.timerRunning && local.startedAt && (Date.now() - Number(local.startedAt) < 4000));
 
-                // Backend is authoritative: if remote explicitly pauses or resumes, follow it
                 const effectiveRunning = isRemoteActive ? true : (localStartedRecently ? true : false);
                 const effectiveStartedAt = isRemoteActive ? rt.startedAt : (localStartedRecently ? local.startedAt : null);
                 const effectiveSecs = effectiveRunning ? Math.max(localTimerSecs, remoteTimerSecs) : remoteTimerSecs;
                 const effectiveAccum = effectiveRunning ? Math.max(localAccum, remoteAccum) : remoteAccum;
                 const maxHours = Math.max(localHoursLogged, remoteHoursLogged);
 
-                mergedMap.set(id, {
+                return {
                   ...local,
                   ...rt,
                   timerRunning: effectiveRunning,
@@ -308,13 +304,20 @@ export const workService = {
                   hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
                   sessionDate: rt.sessionDate || local.sessionDate,
                   status: rt.status || local.status
-                });
-              } else {
-                mergedMap.set(id, rt);
+                };
+              }
+              return rt;
+            });
+
+            // Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
+            const remoteIds = new Set(remoteList.map(r => String(r._id || r.id)));
+            localList.forEach(lt => {
+              const id = String(lt._id || lt.id);
+              if (id.startsWith('tsk_') && !remoteIds.has(id)) {
+                merged.push(lt);
               }
             });
 
-            const merged = Array.from(mergedMap.values());
             localStorage.setItem(KEYS.TASKS, JSON.stringify(merged));
             return merged;
           }

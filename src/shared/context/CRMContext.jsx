@@ -11,6 +11,8 @@ import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
 import { API_BASE } from '../config/apiConfig';
 
+import { calculateComputedBirthdays, calculateComputedAnniversaries } from '../../modules/crm/utils/celebrationUtils';
+
 const DEFAULT_WEEKLY_TIMELOGS = [
   { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
   { day: 'Tuesday', shortDay: 'Tu', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
@@ -58,7 +60,6 @@ export const CRMProvider = ({ children }) => {
   const [storedWeeklyTimeLogs, setStoredWeeklyTimeLogs] = useState(() => getCollection(KEYS.WEEKLY_TIMELOGS));
   const [leads, setLeads] = useState(() => getCollection(KEYS.LEADS));
   const [emergencyContacts, setEmergencyContacts] = useState(() => getCollection(KEYS.EMERGENCY_CONTACTS));
-  const [stickyNotes, setStickyNotes] = useState(() => getCollection(KEYS.STICKY_NOTES));
   const [userSettings, setUserSettings] = useState(() => {
     const saved = localStorage.getItem(KEYS.USER_SETTINGS);
     if (saved) {
@@ -136,14 +137,13 @@ export const CRMProvider = ({ children }) => {
     setStoredWeeklyTimeLogs(getCollection(KEYS.WEEKLY_TIMELOGS));
     setLeads(getCollection(KEYS.LEADS));
     setEmergencyContacts(getCollection(KEYS.EMERGENCY_CONTACTS));
-    setStickyNotes(getCollection(KEYS.STICKY_NOTES));
     setStorageTick(prev => prev + 1);
   };
 
   useEffect(() => {
     const handleStorageUpdate = (e) => {
       // FIX: Use 'hrms_attendance' (not 'ems_attendance') to match TimerContext dispatch key
-      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_sticky_notes', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
+      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
         syncWithStorage();
       }
     };
@@ -193,197 +193,10 @@ export const CRMProvider = ({ children }) => {
   }, []);
 
   // =========================================================================
-  // 🎂 AUTOMATIC BIRTHDAY ENGINE (Calculates directly from Employee DOB)
+  // 🎂 AUTOMATIC BIRTHDAY & ANNIVERSARY ENGINE (Pure Calculation Helper)
   // =========================================================================
-  const computedBirthdays = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    return employees
-      .filter(emp => emp.dob || emp.birthdayDate)
-      .map(emp => {
-        let birthMonth = 9; // 0-indexed default
-        let birthDay = 15;
-        let dobStr = emp.dob;
-
-        if (dobStr) {
-          // Parse YYYY-MM-DD or DD-MM-YYYY
-          const parts = dobStr.split(/[-/]/);
-          if (parts.length === 3) {
-            if (parts[0].length === 4) {
-              // YYYY-MM-DD
-              birthMonth = parseInt(parts[1], 10) - 1;
-              birthDay = parseInt(parts[2], 10);
-            } else {
-              // DD-MM-YYYY
-              birthDay = parseInt(parts[0], 10);
-              birthMonth = parseInt(parts[1], 10) - 1;
-            }
-          }
-        }
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-        const birthdayThisYear = new Date(currentYear, birthMonth, birthDay);
-        const birthdayFormattedDate = `${birthDay.toString().padStart(2, '0')} ${monthNames[birthMonth]}`;
-        const birthdayEventDate = `${currentYear}-${(birthMonth + 1).toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`;
-
-        // Calculate days remaining
-        const diffTime = birthdayThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        let targetEventDate = birthdayEventDate;
-
-        if (diffDays < 0) {
-          // If already occurred this calendar year, roll to next year's birthday
-          const nextYearBday = new Date(currentYear + 1, birthMonth, birthDay);
-          diffDays = Math.ceil((nextYearBday.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-          targetEventDate = `${currentYear + 1}-${(birthMonth + 1).toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`;
-        }
-
-        // 🌟 Strict Rule: Only display birthdays within 1 month (<= 30 days). If > 30 days, do NOT show!
-        if (diffDays < 0 || diffDays > 30) {
-          return null;
-        }
-
-        let daysRemainingText = '';
-        if (diffDays === 0) {
-          daysRemainingText = "Today! 🎉 Happy Birthday!";
-        } else if (diffDays === 1) {
-          daysRemainingText = 'Tomorrow 🎂';
-        } else {
-          daysRemainingText = `In ${diffDays} days`;
-        }
-
-        return {
-          _id: `bday_auto_${emp._id}`,
-          employeeId: emp._id,
-          name: emp.name,
-          role: emp.role,
-          department: emp.department,
-          avatar: emp.avatar,
-          dob: emp.dob,
-          birthdayDate: birthdayFormattedDate,
-          eventDate: targetEventDate,
-          daysRemainingText,
-          diffDays,
-          isUpcoming30Days: true,
-          isToday: diffDays === 0,
-          fullMonth: fullMonthNames[birthMonth],
-          dayOfMonth: birthDay
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.diffDays - b.diffDays);
-  }, [employees]);
-
-  // =========================================================================
-  // 💼 AUTOMATIC WORK ANNIVERSARY ENGINE (Calculates directly from Employee joiningDate)
-  // =========================================================================
-  const computedAnniversaries = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    return employees
-      .filter(emp => emp && (emp.joiningDate || emp.joinDate))
-      .map(emp => {
-        let joinMonth = -1;
-        let joinDay = 1;
-        let joinYear = currentYear;
-        const joinStr = emp.joiningDate || emp.joinDate;
-
-        if (joinStr) {
-          const parts = String(joinStr).split(/[-/]/);
-          if (parts.length === 3) {
-            if (parts[0].length === 4) {
-              // YYYY-MM-DD
-              joinYear = parseInt(parts[0], 10);
-              joinMonth = parseInt(parts[1], 10) - 1;
-              joinDay = parseInt(parts[2], 10);
-            } else {
-              // DD-MM-YYYY
-              joinDay = parseInt(parts[0], 10);
-              joinMonth = parseInt(parts[1], 10) - 1;
-              joinYear = parseInt(parts[2], 10);
-            }
-          }
-        }
-
-        // 🌟 Strict Rule: Employees joined this year (e.g. 2026) or with 0 years have NO anniversary!
-        const serviceYears = currentYear - joinYear;
-        if (serviceYears < 1 || isNaN(serviceYears) || joinMonth < 0 || isNaN(joinMonth)) {
-          return null;
-        }
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-        const getOrdinal = (n) => {
-          const s = ['th', 'st', 'nd', 'rd'];
-          const v = n % 100;
-          return n + (s[(v - 20) % 10] || s[v] || s[0]);
-        };
-        const serviceYearsText = getOrdinal(serviceYears);
-
-        const annivThisYear = new Date(currentYear, joinMonth, joinDay);
-        const annivFormattedDate = `${joinDay.toString().padStart(2, '0')} ${monthNames[joinMonth]}`;
-        const annivEventDate = `${currentYear}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
-
-        const diffTime = annivThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        let targetEventDate = annivEventDate;
-        let milestoneYears = serviceYears;
-
-        if (diffDays < 0) {
-          // If already celebrated this calendar year, roll to upcoming milestone next year
-          const nextYearAnniv = new Date(currentYear + 1, joinMonth, joinDay);
-          diffDays = Math.ceil((nextYearAnniv.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-          targetEventDate = `${currentYear + 1}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
-          milestoneYears = serviceYears + 1;
-        }
-
-        const milestoneYearsText = getOrdinal(milestoneYears);
-
-        // 🌟 Strict Rule: Only display work anniversaries within 1 month (<= 30 days). If > 30 days, do NOT show!
-        if (diffDays < 0 || diffDays > 30) {
-          return null;
-        }
-
-        let daysRemainingText = '';
-        if (diffDays === 0) {
-          daysRemainingText = `Today! 🌟 ${serviceYearsText} Work Anniversary!`;
-        } else if (diffDays === 1) {
-          daysRemainingText = `Tomorrow 💼 (${milestoneYearsText} Anniversary)`;
-        } else {
-          daysRemainingText = `In ${diffDays} days (${milestoneYearsText} Anniversary)`;
-        }
-
-        return {
-          _id: `anniv_auto_${emp._id}`,
-          employeeId: emp._id,
-          name: emp.name,
-          role: emp.role,
-          department: emp.department,
-          avatar: emp.avatar,
-          joiningDate: joinStr,
-          serviceYears: milestoneYears,
-          serviceYearsText: milestoneYearsText,
-          anniversaryDate: annivFormattedDate,
-          annivFormattedDate: annivFormattedDate,
-          eventDate: targetEventDate,
-          daysRemainingText,
-          diffDays,
-          isUpcoming30Days: true,
-          isToday: diffDays === 0,
-          fullMonth: fullMonthNames[joinMonth],
-          dayOfMonth: joinDay
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.diffDays - b.diffDays);
-  }, [employees]);
+  const computedBirthdays = useMemo(() => calculateComputedBirthdays(employees), [employees]);
+  const computedAnniversaries = useMemo(() => calculateComputedAnniversaries(employees), [employees]);
 
   // =========================================================================
   // ⏱️ DYNAMIC WEEKLY TIME LOGS & TASK ACTIVITY ENGINE (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
@@ -1630,69 +1443,7 @@ export const CRMProvider = ({ children }) => {
     addToast('Emergency contact removed', 'info');
   };
 
-  // =========================================================================
-  // 📝 STICKY NOTES
-  // =========================================================================
-  const createStickyNote = async (noteData) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const newNote = {
-      _id: `note_${Date.now()}`,
-      title: noteData.title || 'Untitled Note',
-      content: noteData.content || '',
-      color: noteData.color || '#fef08a',
-      isPinned: !!noteData.isPinned,
-      isCompleted: false,
-      createdAt: new Date().toISOString()
-    };
-    currentList.unshift(newNote);
-    saveCollection(KEYS.STICKY_NOTES, currentList);
-    setStickyNotes([...currentList]);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    addToast('Sticky note created!', 'success');
-    return newNote;
-  };
 
-  const updateStickyNote = async (noteId, updateData) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx] = { ...currentList[idx], ...updateData, updatedAt: new Date().toISOString() };
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
-
-  const deleteStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const filtered = currentList.filter(n => n._id !== noteId);
-    saveCollection(KEYS.STICKY_NOTES, filtered);
-    setStickyNotes(filtered);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    addToast('Note deleted', 'info');
-  };
-
-  const togglePinStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx].isPinned = !currentList[idx].isPinned;
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
-
-  const toggleCompleteStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx].isCompleted = !currentList[idx].isCompleted;
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
 
   // =========================================================================
   // ⚙️ USER SETTINGS
@@ -1754,13 +1505,6 @@ export const CRMProvider = ({ children }) => {
     updateEmergencyContact,
     deleteEmergencyContact,
 
-    stickyNotes,
-    createStickyNote,
-    updateStickyNote,
-    deleteStickyNote,
-    togglePinStickyNote,
-    toggleCompleteStickyNote,
-
     userSettings,
     updateUserSettings,
 
@@ -1773,7 +1517,7 @@ export const CRMProvider = ({ children }) => {
   }), [
     expenses, tickets, events, computedBirthdays, computedAnniversaries,
     conversations, activeConversationId, notices, leads, leadsFilter,
-    emergencyContacts, stickyNotes, userSettings, wfhEmployees,
+    emergencyContacts, userSettings, wfhEmployees,
     computedWeeklyTimeLogs, darkMode
   ]);
 

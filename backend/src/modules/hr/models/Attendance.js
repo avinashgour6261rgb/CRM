@@ -81,6 +81,37 @@ const AttendanceSchema = new mongoose.Schema(
     markedBy: {
       type: String,
       default: 'System'
+    },
+    overtimeHours: {
+      type: Number,
+      default: 0
+    },
+    overtimeSeconds: {
+      type: Number,
+      default: 0
+    },
+    overtimeStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none'
+    },
+    overtimeReason: {
+      type: String,
+      default: ''
+    },
+    punchSessions: [mongoose.Schema.Types.Mixed],
+    overtimeTasks: [mongoose.Schema.Types.Mixed],
+    overtimeRequestedTo: {
+      type: String,
+      default: ''
+    },
+    overtimeApprovedBy: {
+      type: String,
+      default: ''
+    },
+    overtimeApprovedAt: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -94,8 +125,7 @@ const AttendanceSchema = new mongoose.Schema(
 AttendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 AttendanceSchema.index({ date: 1, status: 1 });
 
-// Auto-compute totalWorkingHours from clock times
-// Uses regex parser to handle both "HH:MM:SS" and "HH:MM AM/PM" formats safely
+// Auto-compute totalWorkingHours from clock times or exact cumulative workSeconds
 const parseAttendanceTime = (str) => {
   if (!str) return 0;
   const m = String(str).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
@@ -111,19 +141,23 @@ const parseAttendanceTime = (str) => {
 };
 
 AttendanceSchema.pre('save', function (next) {
-  if (this.clockInTime && this.clockOutTime) {
+  if (this.workSeconds > 0) {
+    this.totalWorkingHours = +(this.workSeconds / 3600).toFixed(2);
+  } else if (this.clockInTime && this.clockOutTime) {
     const inTotal = parseAttendanceTime(this.clockInTime);
     const outTotal = parseAttendanceTime(this.clockOutTime);
     if (inTotal > 0 && outTotal > 0) {
       const diffSecs = Math.max(0, outTotal - inTotal);
       this.totalWorkingHours = +(diffSecs / 3600).toFixed(2);
+    }
+  }
 
-      // Late if clock-in after 09:30 AM
-      const graceLimit = 9 * 3600 + 30 * 60;
-      if (inTotal > graceLimit) {
-        this.isLate = true;
-        this.lateByMinutes = Math.floor((inTotal - graceLimit) / 60);
-      }
+  if (this.clockInTime) {
+    const inTotal = parseAttendanceTime(this.clockInTime);
+    const graceLimit = 9 * 3600 + 30 * 60;
+    if (inTotal > graceLimit) {
+      this.isLate = true;
+      this.lateByMinutes = Math.floor((inTotal - graceLimit) / 60);
     }
   }
   next();
