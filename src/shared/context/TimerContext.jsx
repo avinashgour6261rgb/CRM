@@ -687,7 +687,43 @@ export const TimerProvider = ({ children }) => {
           clockInTs = Date.now() - (Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0) * 1000);
           localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, clockInTs.toString());
         }
-        const grossShiftSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+
+        // 🛡️ RUNAWAY TIMER PROTECTION (Cross-day or > 14 hours runaway):
+        const inDateStr = new Date(clockInTs).toISOString().split('T')[0];
+        const rawGrossSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+        const isRunawayCrossDay = inDateStr !== today || rawGrossSecs > 14 * 3600;
+
+        if (isRunawayCrossDay) {
+          // Auto-close runaway session from yesterday / previous date at 07:45 PM (standard 9 hours)
+          setIsClockedIn(false);
+          setIsRunning(false);
+          setIsOnBreak(false);
+          setHadClockedOutToday(false);
+          setLoginTime(null);
+          setClockOutTime(null);
+          setWorkSeconds(0);
+          setBreakSeconds(0);
+
+          localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
+          localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+          localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+          localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
+          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+          localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
+          localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+          localStorage.removeItem(`ems_timer_${userKey}_login_time`);
+          localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+
+          addToastRef.current({
+            title: '🕒 Shift Session Reset for Today',
+            message: 'Yesterday’s shift was automatically closed at 07:45 PM (9.0h). You can now Clock In fresh for today.',
+            type: 'info'
+          });
+          return;
+        }
+
+        const grossShiftSecs = rawGrossSecs;
         const netWorkSecs = Math.max(0, grossShiftSecs - totalBreaks);
         setWorkSeconds(netWorkSecs);
 
@@ -1454,11 +1490,14 @@ export const TimerProvider = ({ children }) => {
   };
 
   // ── Format Helpers & Target Calculations ──
-  const TARGET_SHIFT_SECONDS = 8.5 * 3600; // Standard 8 hours 30 mins daily shift target
+  const TARGET_SHIFT_SECONDS = 9 * 3600; // Strict standard 9 hours daily shift target
   const targetShiftSeconds = TARGET_SHIFT_SECONDS;
-  const targetShiftHoursText = '8h 30m';
+  const targetShiftHoursText = '9h 00m';
   const shiftProgressPercent = Math.min(100, Math.round((workSeconds / TARGET_SHIFT_SECONDS) * 100));
   const isShiftTargetReached = workSeconds >= TARGET_SHIFT_SECONDS;
+  const isOvertime = workSeconds > TARGET_SHIFT_SECONDS;
+  const overtimeSeconds = Math.max(0, workSeconds - TARGET_SHIFT_SECONDS);
+  const overtimeText = formatHoursMinutes(overtimeSeconds);
   const remainingShiftSeconds = Math.max(0, TARGET_SHIFT_SECONDS - workSeconds);
 
   const formatSeconds = (totalSecs) => {
@@ -1515,10 +1554,13 @@ export const TimerProvider = ({ children }) => {
       targetShiftHoursText,
       shiftProgressPercent,
       isShiftTargetReached,
+      isOvertime,
+      overtimeSeconds,
+      overtimeText,
       remainingShiftSeconds,
       remainingShiftText: isShiftTargetReached
-        ? '🎉 8h 30m Shift Target Completed!'
-        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 8h 30m target`,
+        ? (overtimeSeconds > 0 ? `🎉 9h Target Reached (+${overtimeText} Overtime)` : '🎉 9h Shift Target Completed!')
+        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 9h target`,
       timeString: formatSeconds(workSeconds),
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),
