@@ -4,7 +4,7 @@ import { RefreshCw, Home, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false };
+    this.state = { hasError: false, error: null, errorInfo: null, showDetails: true };
   }
 
   static getDerivedStateFromError(error) {
@@ -14,6 +14,14 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
+    try {
+      localStorage.setItem('ems_last_boundary_error', JSON.stringify({
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        time: new Date().toISOString()
+      }));
+    } catch {}
   }
 
   handleReset = () => {
@@ -81,6 +89,32 @@ export class ErrorBoundary extends React.Component {
             <p style={{ fontSize: '13.5px', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 24px 0' }}>
               Your workspace data and timelogs are safely preserved. A quick view refresh will restore full dashboard functionality.
             </p>
+
+            {this.state.error && (
+              <div style={{
+                textAlign: 'left',
+                backgroundColor: '#090d16',
+                border: '1px solid #ef4444',
+                borderRadius: '8px',
+                padding: '12px',
+                margin: '0 0 20px 0',
+                color: '#f87171',
+                fontSize: '11px',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                maxHeight: '180px',
+                overflowY: 'auto'
+              }}>
+                <div style={{ fontWeight: '700', marginBottom: '4px' }}>
+                  {this.state.error?.name || 'Error'}: {this.state.error?.message || 'Unknown runtime error'}
+                </div>
+                {this.state.error?.stack && (
+                  <div style={{ color: '#94a3b8', fontSize: '10px' }}>
+                    {this.state.error.stack}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '18px' }}>
               <button

@@ -383,11 +383,9 @@ export const Sidebar = () => {
 
             width: "20rem",
             height: "15rem",
-            padding: "20px",
             boxSizing: "border-box",
             background: "white",
-
-            padding: "2rem",
+            padding: "20px",
             color: "#111827",
             borderRadius: "12px ",
             boxShadow: "0 8px 30px rgba(0,0,0,0.20)",
