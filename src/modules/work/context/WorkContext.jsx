@@ -264,7 +264,12 @@ export const WorkProvider = ({ children }) => {
             const backendSecs = Number(bt.timerSeconds) || 0;
             const localAccum = Number(existing.accumulatedSeconds) || 0;
             const backendAccum = Number(bt.accumulatedSeconds) || 0;
-            const isBackendActive = Boolean(bt.timerRunning && bt.startedAt);
+
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
+            const todayMidnightMs = todayMidnight.getTime();
+            const isStartedToday = bt.startedAt && Number(bt.startedAt) >= todayMidnightMs;
+            const isBackendActive = Boolean(bt.timerRunning && isStartedToday);
             const localStartedRecently = Boolean(existing.timerRunning && existing.startedAt && (Date.now() - Number(existing.startedAt) < 4000));
 
             // Backend is authoritative unless a user just started the timer locally in the last 4 seconds
@@ -286,7 +291,11 @@ export const WorkProvider = ({ children }) => {
         }
       });
 
-      // 3. Apply active timer state if running (unified across user perspectives & assignments)
+      // 3. Apply active timer state if running (strictly 1 active running task per user)
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const todayMidnightMs = todayMidnight.getTime();
+
       const mergedList = Array.from(taskMap.values()).map(t => {
         const tId = String(t._id || t.id);
         const isCompleted = t.status === 'completed' || !!t.completedAt;
@@ -305,16 +314,24 @@ export const WorkProvider = ({ children }) => {
           };
         }
 
-        const isActive = activeTimer && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
-        // Only run if the task itself is marked running in the authoritative taskMap
-        const isRunning = Boolean(t.timerRunning && (t.startedAt || (isActive && activeTimer.startedAt)));
+        const isAssignedToMe = isTaskAssignedToMe(t);
+        const isActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
+
+        // For current user: ONLY the single active task timer is running!
+        let isRunning = false;
+        if (isAssignedToMe) {
+          isRunning = Boolean(isActive);
+        } else {
+          const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+          isRunning = Boolean(t.timerRunning && isStartedToday);
+        }
 
         if (isRunning) {
-          const startedAtTs = t.startedAt || (isActive && activeTimer.startedAt) || Date.now();
-          const baseSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-            ? Number(t.accumulatedSeconds)
-            : ((isActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
-              ? Number(activeTimer.accumulatedSeconds)
+          const startedAtTs = (isActive && activeTimer.startedAt) ? activeTimer.startedAt : (t.startedAt || Date.now());
+          const baseSecs = (isActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
+            ? Number(activeTimer.accumulatedSeconds)
+            : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+              ? Number(t.accumulatedSeconds)
               : (Number(t.timerSeconds) || 0));
           const elapsed = Math.max(0, Math.floor((Date.now() - Number(startedAtTs)) / 1000));
           const currentSecs = baseSecs + elapsed;
@@ -522,8 +539,20 @@ export const WorkProvider = ({ children }) => {
             return t;
           }
 
+          const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
-          const isTaskRunning = isMyActive || (t.timerRunning && t.startedAt);
+
+          if (isAssignedToMe && !isMyActive && t.timerRunning) {
+            changed = true;
+            return { ...t, timerRunning: false, startedAt: null };
+          }
+
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          const todayMidnightMs = todayMidnight.getTime();
+          const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+
+          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive) : Boolean(t.timerRunning && isStartedToday);
 
           if (isTaskRunning) {
             changed = true;
@@ -1393,7 +1422,7 @@ export const WorkProvider = ({ children }) => {
           sessionDate: today
         };
       }
-      if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
+      if (t.timerRunning && ((!isForOtherEmployee && isTaskAssignedToMe(t)) || String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
         const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
         const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
           ? Number(t.accumulatedSeconds)

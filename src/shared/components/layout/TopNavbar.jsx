@@ -569,7 +569,6 @@ export const TopNavbar = () => {
             height: '32px',
             padding: '0 10px',
             borderRadius: '7px',
-            border: 'none',
             backgroundColor: isOnBreak ? '#fffbeb' : (isClockedIn ? '#f0fdf4' : '#eff6ff'),
             color: isOnBreak ? '#b45309' : (isClockedIn ? '#16a34a' : '#2563eb'),
             border: isOnBreak ? '1px solid #fde68a' : 'none',

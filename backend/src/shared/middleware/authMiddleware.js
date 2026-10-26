@@ -20,31 +20,33 @@ exports.authenticateUser = async (req, res, next) => {
 
     let user = null;
 
-    if (userIdHeader) {
-      if (mongoose.Types.ObjectId.isValid(userIdHeader)) {
-        user = await Employee.findById(userIdHeader);
+    if (mongoose.connection.readyState === 1) {
+      if (userIdHeader) {
+        if (mongoose.Types.ObjectId.isValid(userIdHeader)) {
+          user = await Employee.findById(userIdHeader);
+        }
+        if (!user) {
+          user = await Employee.findOne({ employeeCode: userIdHeader });
+        }
+        if (!user) {
+          user = await Employee.findOne({ email: new RegExp(`^${userIdHeader}$`, 'i') });
+        }
       }
-      if (!user) {
-        user = await Employee.findOne({ employeeCode: userIdHeader });
+
+      if (!user && userEmailHeader) {
+        user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader}$`, 'i') });
       }
-      if (!user) {
-        user = await Employee.findOne({ email: new RegExp(`^${userIdHeader}$`, 'i') });
+
+      if (!user && userCodeHeader) {
+        user = await Employee.findOne({ employeeCode: userCodeHeader });
       }
-    }
 
-    if (!user && userEmailHeader) {
-      user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader}$`, 'i') });
-    }
-
-    if (!user && userCodeHeader) {
-      user = await Employee.findOne({ employeeCode: userCodeHeader });
-    }
-
-    // Only fallback to DB isCurrentUser or ADM-001 if NO client identifiers were provided
-    if (!user && !userIdHeader && !userEmailHeader && !userCodeHeader) {
-      user = await Employee.findOne({ isCurrentUser: true });
-      if (!user) {
-        user = (await Employee.findOne({ employeeCode: 'ADM-001' })) || (await Employee.findOne());
+      // Only fallback to DB isCurrentUser or ADM-001 if NO client identifiers were provided
+      if (!user && !userIdHeader && !userEmailHeader && !userCodeHeader) {
+        user = await Employee.findOne({ isCurrentUser: true });
+        if (!user) {
+          user = (await Employee.findOne({ employeeCode: 'ADM-001' })) || (await Employee.findOne());
+        }
       }
     }
 

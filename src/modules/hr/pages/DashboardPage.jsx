@@ -1106,6 +1106,9 @@ export const DashboardPage = () => {
 
   // Active Task for "Active Timer" card (strictly bound to target user's direct assigned tasks)
   const displayActiveTask = React.useMemo(() => {
+    if (!isViewingOtherEmployee && activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+      return activeRunningTask;
+    }
     if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
       const match = tasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
@@ -1127,7 +1130,7 @@ export const DashboardPage = () => {
       if (found) return found;
     }
     return myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
-  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
+  }, [isViewingOtherEmployee, activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks
@@ -1164,9 +1167,10 @@ export const DashboardPage = () => {
     const isCompletedToday = t.completedOn === todayStr || (t.completedAt && String(t.completedAt).startsWith(todayStr));
     if (t.status === 'completed' && !isCompletedToday) return acc;
 
-    // Check if task was worked today
-    const isRunningNow = t.timerRunning || (activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
-    const isWorkedToday = isRunningNow || t.sessionDate === todayStr || t.wasPausedForBreak || isCompletedToday || (Number(t.timerSeconds) > 0 && (!t.sessionDate || t.sessionDate === todayStr));
+    // Check if task was worked today:
+    // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr), or completed today
+    const isRunningNow = (t.timerRunning && activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
+    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr && !t.completedAt) || isCompletedToday;
     if (!isWorkedToday) return acc;
 
     const loggedForThisTaskToday = todayTimesheets

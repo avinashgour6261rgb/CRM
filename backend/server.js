@@ -10,6 +10,8 @@ const { errorHandler, notFound } = require('./src/shared/middleware/errorHandler
 const { authenticateUser } = require('./src/shared/middleware/authMiddleware');
 
 // Load environment variables
+const path = require('path');
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 // Connect to MongoDB

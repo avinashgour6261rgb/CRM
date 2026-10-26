@@ -6,6 +6,11 @@ const asyncHandler = require('../../../shared/middleware/asyncHandler');
 // ─── GET /api/attendance ─────────────────────────────────────────────────────
 // Query: ?month=9&year=2026&employeeId=...
 const getMonthlyAttendance = asyncHandler(async (req, res) => {
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ success: false, message: 'Database connecting, standby', data: [] });
+  }
+
   const { month, year, employeeId } = req.query;
 
   const query = {};
@@ -16,7 +21,6 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
 
   // Tenant scoping: non-admin can only see own attendance
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
-  const mongoose = require('mongoose');
 
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;

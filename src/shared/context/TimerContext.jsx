@@ -171,8 +171,29 @@ export const TimerProvider = ({ children }) => {
   }, [userKey, currentUser, addToast]);
 
   // ── 1. Daily Clock In / Out State (User-Scoped & Validated against Today) ──
+  // ── 1. Daily Clock In / Out State (User-Scoped & Validated against Today) ──
   const [sessionDate, setSessionDate] = useState(() => {
-    return localStorage.getItem(`ems_timer_${userKey}_work_session_date`) || getTodayStr();
+    const today = getTodayStr();
+    const stored = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
+    if (stored && stored !== today) {
+      // Stale session from previous day/weekend! Wipe stale timer storage immediately
+      localStorage.removeItem(`ems_timer_${userKey}_login_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
+      localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
+      localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
+      return today;
+    }
+    return stored || today;
   });
 
   const isTodaySession = sessionDate === getTodayStr();
@@ -246,7 +267,7 @@ export const TimerProvider = ({ children }) => {
   const [workSeconds, setWorkSeconds] = useState(() => {
     if (!isTodaySession) return 0;
     const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
-    if (saved) return parseInt(saved, 10);
+    if (saved) return Math.min(24 * 3600, Math.max(0, parseInt(saved, 10)));
     return 0;
   });
 
@@ -350,6 +371,21 @@ export const TimerProvider = ({ children }) => {
       setReclockStatus('none');
       setReclockSessionSeconds(0);
       setSavedOfficialWorkSeconds(0);
+
+      localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
+      localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+      localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
+      localStorage.removeItem(`ems_timer_${userKey}_login_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
+      localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
     } else {
       const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`);
       setIsClockedIn(inVal ? JSON.parse(inVal) : false);
@@ -358,7 +394,7 @@ export const TimerProvider = ({ children }) => {
       setIsRunning(runVal ? JSON.parse(runVal) : false);
 
       const secVal = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
-      setWorkSeconds(secVal ? parseInt(secVal, 10) : 0);
+      setWorkSeconds(secVal ? Math.min(24 * 3600, Math.max(0, parseInt(secVal, 10))) : 0);
 
       const brkSec = localStorage.getItem(`ems_timer_${userKey}_break_seconds`);
       setBreakSeconds(brkSec ? parseInt(brkSec, 10) : 0);
@@ -421,15 +457,17 @@ export const TimerProvider = ({ children }) => {
       if (isActuallyClockedIn) {
         const inTime = rec.clockInTime || rec.clockIn || '09:30 AM';
         let inTs = Number(rec.clockInTimestamp);
-        if (!inTs) {
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        if (!inTs || inTs < todayMidnight.getTime()) {
           const parsedSecs = parseTimeToSeconds(inTime);
-          const midnight = new Date();
-          midnight.setHours(0, 0, 0, 0);
-          inTs = midnight.getTime() + parsedSecs * 1000;
+          inTs = todayMidnight.getTime() + parsedSecs * 1000;
         }
 
         const bSecs = Number(rec.breakSeconds) || 0;
-        const grossSecs = Math.max(0, Math.floor((Date.now() - inTs) / 1000));
+        const maxGrossSecs = Math.max(0, Math.floor((Date.now() - todayMidnight.getTime()) / 1000));
+        const grossSecs = Math.min(maxGrossSecs, Math.max(0, Math.floor((Date.now() - inTs) / 1000)));
         const effectiveWorkSecs = Math.max(0, grossSecs - bSecs);
         const localIsOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
         const localBreakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
@@ -444,7 +482,10 @@ export const TimerProvider = ({ children }) => {
         setClockOutTime(null);
         setHadClockedOutToday(false);
         setBreakSeconds(bSecs);
-        setWorkSeconds(effectiveWorkSecs);
+
+        // 🌟 FLICKER PREVENTION: Never overwrite live ticking workSeconds if local timer is already active!
+        setWorkSeconds(prev => (prev > 0 ? prev : effectiveWorkSecs));
+
         if (rec.breakType) setBreakType(rec.breakType);
         if (Array.isArray(rec.breakHistory) && rec.breakHistory.length > 0) {
           setBreakHistory(rec.breakHistory);
@@ -456,10 +497,15 @@ export const TimerProvider = ({ children }) => {
         localStorage.setItem(`ems_timer_${userKey}_is_running`, effectiveOnBreak ? 'false' : 'true');
         localStorage.setItem(`ems_timer_${userKey}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
         localStorage.setItem(`ems_timer_${userKey}_login_time`, inTime);
-        localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(inTs));
+        if (!localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`)) {
+          localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(inTs));
+        }
         localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
         localStorage.setItem(`ems_timer_${userKey}_break_seconds`, String(bSecs));
-        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(effectiveWorkSecs));
+        const curLocalWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
+        if (curLocalWorkSecs === 0 && effectiveWorkSecs > 0) {
+          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(effectiveWorkSecs));
+        }
         localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
         localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
       } else if (isActuallyClockedOut) {
@@ -609,11 +655,48 @@ export const TimerProvider = ({ children }) => {
 
     const tick = () => {
       const today = getTodayStr();
+      const storedDate = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
+      if (storedDate && storedDate !== today) {
+        // Date changed! Reset and exit tick
+        localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
+        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+        localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
+        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
+        localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${userKey}_login_time`);
+        localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+        setWorkSeconds(0);
+        setIsClockedIn(false);
+        setIsRunning(false);
+        return;
+      }
+
       const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
       const onBreakVal = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
       const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
       let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
       let breakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
+
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const todayMidnightMs = todayMidnight.getTime();
+      const maxPossibleGrossSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
+
+      // Guard: clockInTs must strictly be from today! If from earlier day, auto-clear!
+      if (clockInTs && clockInTs < todayMidnightMs) {
+        clockInTs = null;
+        localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+        setIsClockedIn(false);
+        setIsRunning(false);
+        setWorkSeconds(0);
+        return;
+      }
 
       // Calculate past completed breaks for today from break_history
       let pastBreakSecs = 0;
@@ -663,10 +746,11 @@ export const TimerProvider = ({ children }) => {
 
       if (inVal) {
         if (!clockInTs) {
-          clockInTs = Date.now() - (Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0) * 1000);
+          const storedWorkSecs = Math.min(maxPossibleGrossSecs, Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0));
+          clockInTs = Date.now() - (storedWorkSecs * 1000);
           localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, clockInTs.toString());
         }
-        const grossShiftSecs = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+        const grossShiftSecs = Math.min(maxPossibleGrossSecs, Math.max(0, Math.floor((Date.now() - clockInTs) / 1000)));
         const netWorkSecs = Math.max(0, grossShiftSecs - totalBreaks);
         setWorkSeconds(netWorkSecs);
 
@@ -1016,7 +1100,11 @@ export const TimerProvider = ({ children }) => {
     setSessionDate(today);
     const nowMs = Date.now();
     let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
-    if (isFirstClockIn || !clockInTs) {
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    if (isFirstClockIn || !clockInTs || clockInTs < todayMidnight.getTime()) {
+      clockInTs = nowMs;
       setLoginTime(nowStr);
       setWorkSeconds(0);
       setBreakSeconds(0);

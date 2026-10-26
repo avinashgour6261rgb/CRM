@@ -549,9 +549,14 @@ export const CRMProvider = ({ children }) => {
           activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || localStorage.getItem('ems_active_task_timer') || 'null');
         } catch (e) {}
 
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
+
         if (activeTimer && activeTimer.date === dateStr && (isClockedInToday || hadClockedOutToday)) {
           const nowMs = Date.now();
-          const runningElapsed = activeTimer.timerRunning && activeTimer.startedAt
+          const isStartedToday = activeTimer.startedAt && Number(activeTimer.startedAt) >= todayMidnightMs;
+          const runningElapsed = activeTimer.timerRunning && isStartedToday
             ? Math.max(0, Math.floor((nowMs - Number(activeTimer.startedAt)) / 1000))
             : 0;
           const liveActiveTimerSecs = (Number(activeTimer.accumulatedSeconds) || 0) + runningElapsed;
@@ -581,8 +586,8 @@ export const CRMProvider = ({ children }) => {
             const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
             if (t.status === 'completed' && !isCompletedToday) return;
 
-            // Only consider tasks worked on this date
-            const isWorkedToday = t.sessionDate === dateStr || t.timerRunning || isCompletedToday;
+            // Only consider tasks explicitly worked/paused on this date or completed today
+            const isWorkedToday = (t.sessionDate === dateStr && !t.completedAt) || isCompletedToday;
             if (!isWorkedToday) return;
 
             const timesheetsForThisTask = matchingTimesheets
@@ -742,13 +747,11 @@ export const CRMProvider = ({ children }) => {
           });
         });
 
-        // Shift work seconds guard: Task time today cannot exceed shift login time
+        // Shift work seconds guard: Ensure valid tracking without artificially clamping independent task time
         const rawShiftWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
         const isOnBreakToday = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
-        if (!isClockedInToday && !isOnBreakToday && !hadClockedOutToday && rawShiftWorkSecs === 0 && matchingTimesheets.length === 0) {
+        if (!isClockedInToday && !isOnBreakToday && !hadClockedOutToday && rawShiftWorkSecs === 0 && matchingTimesheets.length === 0 && !activeTimerTask) {
           dayTotalTaskSeconds = 0;
-        } else if (rawShiftWorkSecs > 0) {
-          dayTotalTaskSeconds = Math.min(dayTotalTaskSeconds, rawShiftWorkSecs);
         }
 
         if (dayTotalTaskSeconds > 0) {
