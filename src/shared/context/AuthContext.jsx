@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }) => {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+        if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
           return parsed;
         }
       }
@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }) => {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email && !parsed.name?.includes('Avinash') && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+        if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
           return true;
         }
       }

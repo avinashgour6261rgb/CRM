@@ -169,7 +169,6 @@ export const purgeStaleMockData = () => {
             key.includes('emp_00') ||
             key.includes('EMP-00') ||
             key.includes('Priya') ||
-            key.includes('Avinash') ||
             key === 'hrms_tasks'
           )
         ) {
