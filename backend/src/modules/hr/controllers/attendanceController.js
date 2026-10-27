@@ -344,8 +344,11 @@ const getAuditLogs = asyncHandler(async (req, res) => {
 
 // ─── POST /api/attendance/audit ──────────────────────────────────────────────
 const createAuditLog = asyncHandler(async (req, res) => {
-  const auditData = req.body || {};
-  const employeeId = auditData.employeeId || auditData.employeeCode || req.user?.id || req.user?._id;
+  const auditData = { ...(req.body || {}) };
+  // Remove client-generated custom string _id so MongoDB creates a valid ObjectId
+  delete auditData._id;
+
+  const employeeId = String(auditData.employeeId || auditData.employeeCode || req.user?.id || req.user?._id || '');
   const type = auditData.type || auditData.action || 'system';
   const action = auditData.action || auditData.type || 'audit';
 
@@ -356,14 +359,31 @@ const createAuditLog = asyncHandler(async (req, res) => {
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr';
   const isAdminOverride = !!auditData.isAdminOverride || (isPrivileged && auditData.actor === 'admin');
 
+  // Sanitize employee field - must be valid Mongo ObjectId or omitted
+  const mongoose = require('mongoose');
+  let validEmployeeObjId = undefined;
+  if (auditData.employee && mongoose.Types.ObjectId.isValid(auditData.employee)) {
+    validEmployeeObjId = auditData.employee;
+  }
+  delete auditData.employee;
+
+  let actor = auditData.actor || (isPrivileged ? 'admin' : 'employee');
+  if (!['employee', 'admin', 'system'].includes(actor)) {
+    actor = isPrivileged ? 'admin' : 'employee';
+  }
+
+  const employeeName = auditData.employeeName || req.user?.name || 'Employee';
+
   const record = new AttendanceAudit({
     ...auditData,
+    employee: validEmployeeObjId,
     employeeId,
+    employeeName,
     type,
     action,
     date: auditData.date || new Date().toISOString().split('T')[0],
     timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-    actor: auditData.actor || (isPrivileged ? 'admin' : 'employee'),
+    actor,
     actorId: auditData.actorId || req.user?.id || req.user?._id || 'unknown',
     actorName: auditData.actorName || req.user?.name || 'User',
     isAdminOverride,

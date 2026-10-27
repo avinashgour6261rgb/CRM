@@ -203,6 +203,8 @@ export const TimerProvider = ({ children }) => {
     const scoped = localStorage.getItem(`ems_timer_${userKey}_login_time`);
     if (scoped) return scoped;
     try {
+      const isClockedInLocal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+      if (!isClockedInLocal) return null;
       const attRaw = localStorage.getItem('hrms_attendance');
       if (attRaw) {
         const att = JSON.parse(attRaw);
@@ -214,7 +216,7 @@ export const TimerProvider = ({ children }) => {
           a.employeeCode === targetEmpCode ||
           (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
         ));
-        if (rec?.clockInTime || rec?.clockIn) return rec.clockInTime || rec.clockIn;
+        if (rec?.isClockedIn && (rec?.clockInTime || rec?.clockIn)) return rec.clockInTime || rec.clockIn;
       }
     } catch {}
     return null;
@@ -465,12 +467,13 @@ export const TimerProvider = ({ children }) => {
       const localIsClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
       const localHadClockedOut = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
 
-      const isActuallyClockedIn = localIsClockedIn || Boolean(rec.isClockedIn || (rec.clockInTime && !rec.clockOutTime && !localHadClockedOut));
-      const isActuallyClockedOut = !localIsClockedIn && Boolean(rec.clockOutTime && !rec.isClockedIn);
+      const isActuallyClockedIn = localIsClockedIn || Boolean(rec?.isClockedIn === true && rec?.clockInTime && !rec?.clockOutTime && !localHadClockedOut);
+      const isActuallyClockedOut = !localIsClockedIn && Boolean(rec?.clockOutTime && !rec?.isClockedIn);
 
       if (isActuallyClockedIn) {
-        const inTime = rec.clockInTime || rec.clockIn || loginTime || localStorage.getItem(`ems_timer_${userKey}_login_time`) || '10:10 AM';
-        let inTs = Number(rec.clockInTimestamp);
+        const inTime = rec?.clockInTime || rec?.clockIn || loginTime || localStorage.getItem(`ems_timer_${userKey}_login_time`);
+        if (!inTime) return;
+        let inTs = Number(rec?.clockInTimestamp);
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
 
@@ -479,11 +482,11 @@ export const TimerProvider = ({ children }) => {
           inTs = todayMidnight.getTime() + parsedSecs * 1000;
         }
 
-        const bSecs = Number(rec.breakSeconds) || 0;
+        const bSecs = Number(rec?.breakSeconds) || 0;
         const maxGrossSecs = Math.max(0, Math.floor((Date.now() - todayMidnight.getTime()) / 1000));
 
         // 🌟 Option 1: Multi-session calculation for effectiveWorkSecs to prevent gap accumulation
-        let remoteSessions = Array.isArray(rec.punchSessions) ? rec.punchSessions : [];
+        let remoteSessions = Array.isArray(rec?.punchSessions) ? rec.punchSessions : [];
         if (remoteSessions.length > 0) {
           setPunchSessions(remoteSessions);
           localStorage.setItem(`ems_timer_${userKey}_punch_sessions`, JSON.stringify(remoteSessions));
@@ -496,7 +499,9 @@ export const TimerProvider = ({ children }) => {
         const pastSessionsSecs = remoteSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
         let sessStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`)) || inTs;
         const curSessionGrossSecs = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
-        const effectiveWorkSecs = Math.min(maxGrossSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - bSecs));
+        const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${userKey}_session_break_baseline`)) || 0;
+        const curSessionBreaks = Math.max(0, bSecs - sessionBreakBaseline);
+        const effectiveWorkSecs = Math.min(maxGrossSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
 
         const localIsOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
         const localBreakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
@@ -796,8 +801,11 @@ export const TimerProvider = ({ children }) => {
         }
 
         const curSessionGrossSecs = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
-        // Total working time = all completed sessions + (current active session minus active break)
-        const netWorkSecs = Math.min(maxPossibleGrossSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - activeBreakSecs));
+        const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${userKey}_session_break_baseline`)) || 0;
+        // Total break duration strictly incurred during this active session
+        const curSessionBreaks = Math.max(0, totalBreaks - sessionBreakBaseline);
+        // Total working time = all completed sessions + (current active session minus active & completed breaks in this session)
+        const netWorkSecs = Math.min(maxPossibleGrossSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
         setWorkSeconds(netWorkSecs);
 
         const nowTs = Date.now();
@@ -1175,6 +1183,7 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, nowMs.toString());
       localStorage.setItem(`ems_timer_${userKey}_current_session_in`, nowStr);
     }
+    localStorage.setItem(`ems_timer_${userKey}_session_break_baseline`, (breakSeconds || 0).toString());
     setClockOutTime(null);
     setIsClockedIn(true);
     setIsRunning(true);

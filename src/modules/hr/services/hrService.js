@@ -888,8 +888,8 @@ export const hrService = {
         computedHours = 4.0;
       }
 
-      const finalClockIn = ['present', 'late', 'half_day'].includes(status) ? (effectiveClockIn || '09:15 AM') : null;
-      const finalClockOut = ['present', 'late', 'half_day'].includes(status) ? (effectiveClockOut || null) : null;
+      const finalClockIn = effectiveClockIn || null;
+      const finalClockOut = effectiveClockOut || null;
 
       const record = {
         _id: existingIndex >= 0 ? attendance[existingIndex]._id : `att_${targetEmp?._id || employeeId}_${Date.now()}`,
@@ -992,15 +992,20 @@ export const hrService = {
       action
     };
 
+    const { _id, ...backendPayload } = enriched;
+
     return fetchWithFallback(`${API_BASE}/attendance/audit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify(enriched)
+      body: JSON.stringify(backendPayload)
     }, async () => {
       const logs = getCollection(KEYS.ATTENDANCE_AUDIT);
       logs.unshift(enriched);
       saveCollection(KEYS.ATTENDANCE_AUDIT, logs);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE_AUDIT } }));
+      return enriched;
+    }).catch(err => {
+      console.warn('Attendance audit log backend sync notice:', err);
       return enriched;
     });
   },

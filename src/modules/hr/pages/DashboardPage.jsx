@@ -412,9 +412,9 @@ export const DashboardPage = () => {
       if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
     } catch { }
 
-    const isClockedIn = storedClockedIn || attRec?.isClockedIn === true || (!!attRec?.clockInTime && !attRec?.clockOutTime);
+    const isClockedIn = storedClockedIn || (attRec?.isClockedIn === true && !!attRec?.clockInTime && !attRec?.clockOutTime);
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? '09:30 AM' : null);
+    const loginTime = attRec?.clockInTime || storedLogin || null;
     const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
 
     // Calculate dynamic live work seconds
@@ -1169,8 +1169,11 @@ export const DashboardPage = () => {
 
     // Check if task was worked today:
     // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr), or completed today
-    const isRunningNow = (t.timerRunning && activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
-    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr && !t.completedAt) || isCompletedToday;
+    const isRunningNow = Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const wasStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnight.getTime();
+    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || wasStartedToday || isCompletedToday;
     if (!isWorkedToday) return acc;
 
     const loggedForThisTaskToday = todayTimesheets
@@ -1182,7 +1185,10 @@ export const DashboardPage = () => {
       .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== todayStr)
       .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
-    const taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+    let taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+    if (t.timerRunning && t.startedAt) {
+      taskCurrentSecs += Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+    }
     const todayPortion = Math.max(0, taskCurrentSecs - prevDaysLogged);
     const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
     return acc + unsubmitted;
