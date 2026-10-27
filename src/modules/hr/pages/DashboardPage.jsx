@@ -1180,16 +1180,25 @@ export const DashboardPage = () => {
       .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
       .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
-    // Subtract all time already logged on previous days so previous days' work never bleeds into today!
+    // Subtract all time already logged on previous days only if taskCurrentSecs represents total cumulative time
     const prevDaysLogged = (timesheets || [])
       .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== todayStr)
       .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
-    let taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+    let taskCurrentSecs = 0;
     if (t.timerRunning && t.startedAt) {
-      taskCurrentSecs += Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+      const base = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+        ? Number(t.accumulatedSeconds)
+        : (Number(t.timerSeconds) || 0);
+      const elapsed = Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+      taskCurrentSecs = base + elapsed;
+    } else {
+      taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
     }
-    const todayPortion = Math.max(0, taskCurrentSecs - prevDaysLogged);
+
+    const todayPortion = (taskCurrentSecs > prevDaysLogged)
+      ? (taskCurrentSecs - prevDaysLogged)
+      : taskCurrentSecs;
     const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
     return acc + unsubmitted;
   }, 0);
@@ -2909,7 +2918,9 @@ export const DashboardPage = () => {
                 <Clock size={13} color="#0284c7" />
               </div>
               <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-                {displayedWorkDuration || '0h 0m'}
+                {totalTaskTodaySecs > 0
+                  ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`)
+                  : (displayedWorkDuration || '0h 0m')}
               </div>
             </div>
 
@@ -3938,8 +3949,7 @@ export const DashboardPage = () => {
                 <button
                   onClick={async () => {
                     if (!isViewingOtherEmployee && !isClockedIn) {
-                      addToast('⚠️ Shift is not clocked in! Please Clock In above before advancing tasks.', 'warning');
-                      return;
+                      handleClockIn();
                     }
                     if (!isViewingOtherEmployee && isOnBreak) {
                       addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
@@ -3977,8 +3987,7 @@ export const DashboardPage = () => {
                 <button
                   onClick={() => {
                     if (!isViewingOtherEmployee && !isClockedIn) {
-                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                      return;
+                      handleClockIn();
                     }
                     if (!isViewingOtherEmployee && isOnBreak) {
                       addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
@@ -5023,8 +5032,7 @@ export const DashboardPage = () => {
                                   onClick={() => {
                                     const isMyTask = isTaskAssignedToUser(task, currentUser);
                                     if (isMyTask && !isClockedIn) {
-                                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting timers.', 'warning');
-                                      return;
+                                      handleClockIn();
                                     }
                                     if (isMyTask && isOnBreak) {
                                       addToast('☕ You are on break. Please resume work first!', 'warning');

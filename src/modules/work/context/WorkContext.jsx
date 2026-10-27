@@ -280,11 +280,11 @@ export const WorkProvider = ({ children }) => {
             const todayMidnightMs = todayMidnight.getTime();
             const isStartedToday = bt.startedAt && Number(bt.startedAt) >= todayMidnightMs;
             const isBackendActive = Boolean(bt.timerRunning && isStartedToday);
-            const localStartedRecently = Boolean(existing.timerRunning && existing.startedAt && (Date.now() - Number(existing.startedAt) < 4000));
+            const isLocalActive = Boolean(existing.timerRunning || (activeTimer && String(activeTimer.taskId) === id && activeTimer.timerRunning));
 
-            // Backend is authoritative unless a user just started the timer locally in the last 4 seconds
-            const effectiveRunning = isBackendActive ? true : (localStartedRecently ? true : false);
-            const effectiveStartedAt = isBackendActive ? bt.startedAt : (localStartedRecently ? existing.startedAt : null);
+            // Keep timer running if actively running locally or on backend
+            const effectiveRunning = isLocalActive || isBackendActive;
+            const effectiveStartedAt = isLocalActive ? (existing.startedAt || activeTimer?.startedAt || Date.now()) : (isBackendActive ? bt.startedAt : null);
 
             taskMap.set(id, {
               ...existing,
@@ -511,10 +511,12 @@ export const WorkProvider = ({ children }) => {
         (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
 
       const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
+        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true') ||
+        (currentUser?._id && localStorage.getItem(`ems_timer_${currentUser._id}_is_clocked_in`) === 'true') ||
+        Boolean(activeTimer?.timerRunning);
 
-      // Auto-pause task timer when employee is clocked out or on break
-      if ((!isShiftClockedIn || isShiftOnBreak) && activeTimer?.timerRunning) {
+      // Auto-pause task timer strictly when employee is on break
+      if (isShiftOnBreak && activeTimer?.timerRunning) {
         const currentSecs = getElapsedSeconds(activeTimer);
         const today = getTodayStr();
         const pausedTimerState = {
@@ -523,8 +525,8 @@ export const WorkProvider = ({ children }) => {
           startedAt: null,
           accumulatedSeconds: currentSecs,
           date: today,
-          wasPausedForBreak: isShiftOnBreak,
-          wasPausedForClockOut: !isShiftClockedIn
+          wasPausedForBreak: true,
+          wasPausedForClockOut: false
         };
         saveActiveTimerSnapshot(pausedTimerState);
 
