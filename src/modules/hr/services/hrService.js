@@ -57,7 +57,13 @@ async function checkHrBackendOnline() {
       const timeoutId = setTimeout(() => controller.abort(), 2500);
       const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      hrBackendOnline = res.ok;
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) {
+        const json = await res.json().catch(() => null);
+        hrBackendOnline = !!(json && (json.status === 'online' || json.status === 'ok' || json.success));
+      } else {
+        hrBackendOnline = false;
+      }
     } catch {
       hrBackendOnline = false;
     }
@@ -91,7 +97,10 @@ async function fetchWithFallback(url, options, fallbackFn) {
     });
     clearTimeout(timeoutId);
 
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    const isJson = ct.includes('application/json');
+
+    if (res.ok && isJson) {
       hrBackendOnline = true;
       lastHrCheckTime = Date.now();
       const json = await res.json().catch(() => null);
@@ -99,7 +108,7 @@ async function fetchWithFallback(url, options, fallbackFn) {
         return json.data !== undefined ? json.data : json;
       }
     } else {
-      const errJson = await res.json().catch(() => null);
+      const errJson = isJson ? await res.json().catch(() => null) : null;
       // For mutation requests (POST/PUT/DELETE), propagate validation/conflict errors to user
       if (!isReadOp && errJson?.message) {
         if (res.status === 409 || res.status === 400 || res.status === 422) {
@@ -127,6 +136,9 @@ async function fetchWithFallback(url, options, fallbackFn) {
 }
 
 export const hrService = {
+  isBackendOnline() {
+    return hrBackendOnline === true;
+  },
   // =========================================================================
   // 👥 EMPLOYEES & WORKFORCE MANAGEMENT
   // =========================================================================
@@ -432,7 +444,13 @@ export const hrService = {
       employeeId: leaveData.employeeId || authUser?._id || authUser?.employeeCode || '',
       employeeName: leaveData.employeeName || authUser?.name || 'Employee',
       employeeCode: leaveData.employeeCode || authUser?.employeeCode || '',
-      employeeRole: leaveData.employeeRole || authUser?.role || 'Team Member'
+      employeeRole: leaveData.employeeRole || authUser?.role || 'Team Member',
+      appliedToId: leaveData.appliedToId || '',
+      appliedToCode: leaveData.appliedToCode || '',
+      appliedToEmail: leaveData.appliedToEmail || '',
+      appliedToName: leaveData.appliedToName || 'Reviewer',
+      appliedToRole: leaveData.appliedToRole || 'Approver',
+      appliedToAvatar: leaveData.appliedToAvatar || ''
     };
     const createdLeave = await fetchWithFallback(`${API_BASE}/leaves`, {
       method: 'POST',

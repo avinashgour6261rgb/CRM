@@ -72,9 +72,24 @@ export const HRProvider = ({ children }) => {
       setEmployees(emps || []);
       if (curr) setCurrentUser(curr);
       setLeaves(effectiveLeaves);
-      // Silently persist to localStorage without dispatching self-triggering storage event loop
+      // Silently persist to localStorage without wiping other employees' leaves
       try {
-        localStorage.setItem(KEYS.LEAVES, JSON.stringify(effectiveLeaves));
+        const isOnline = hrService.isBackendOnline ? hrService.isBackendOnline() : false;
+        if (isOnline && Array.isArray(lvs)) {
+          localStorage.setItem(KEYS.LEAVES, JSON.stringify(effectiveLeaves));
+        } else if (Array.isArray(lvs) && lvs.length > 0) {
+          const existing = getCollection(KEYS.LEAVES) || [];
+          const mergedMap = new Map();
+          existing.forEach(item => {
+            const id = String(item._id || item.id || '');
+            if (id) mergedMap.set(id, item);
+          });
+          lvs.forEach(item => {
+            const id = String(item._id || item.id || '');
+            if (id) mergedMap.set(id, { ...(mergedMap.get(id) || {}), ...item });
+          });
+          localStorage.setItem(KEYS.LEAVES, JSON.stringify(Array.from(mergedMap.values())));
+        }
       } catch (_) {}
       setAttendance(atts || []);
       setHolidays(hols || []);
@@ -185,7 +200,8 @@ export const HRProvider = ({ children }) => {
       const created = await hrService.createLeave(leaveData);
       // Instant React state update
       setLeaves(prev => [created, ...(prev || [])]);
-      addToast('Leave request submitted successfully! HR will review.', 'success');
+      const reviewer = leaveData.appliedToName || 'reviewer';
+      addToast(`Leave request submitted successfully! Sent to ${reviewer} for review.`, 'success');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_leaves' } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));

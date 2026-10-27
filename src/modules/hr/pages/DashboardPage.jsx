@@ -1414,19 +1414,20 @@ export const DashboardPage = () => {
     l?.status === 'approved' && l?.startDate <= todayStr && l?.endDate >= todayStr
   );
 
-  // 1. Pending leave requests waiting for my review (Strictly designated reviewer chosen by applicant, NOT applicant!)
+  // 1. Pending leave requests waiting for my review
   const pendingLeaveRequestsForMe = (leaves || []).filter(l => {
     if (l?.status !== 'pending') return false;
     // Applicant can never approve own leave
     if (isLeaveApplicant(l, currentUser)) return false;
 
-    // Strict designated approver isolation: Only show if this leave was explicitly sent to the current user
-    const isTargetReviewer = isLeaveDesignatedApprover(l, currentUser);
-    if (isTargetReviewer) return true;
+    // Designated reviewer
+    if (isLeaveDesignatedApprover(l, currentUser)) return true;
 
-    // Safety fallback: if no approver was specified at all (legacy record) and current user is primary Admin
-    const hasExplicitReviewer = !!(l.appliedToId || l.appliedTo || l.appliedToName || l.approverId);
-    if (!hasExplicitReviewer && isAdmin(currentUser)) return true;
+    // Master Administrator has full oversight over pending leaves in the organization
+    if (isAdmin(currentUser)) return true;
+
+    // HR Manager has oversight over general or HR directed leaves
+    if (isHR(currentUser) && (!l.appliedToRole || l.appliedToRole.toLowerCase().includes('hr') || !l.appliedToId)) return true;
 
     return false;
   });
@@ -2240,6 +2241,100 @@ export const DashboardPage = () => {
                   }}
                 >
                   View Details
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 📋 TOP ALERT BANNER: MY SUBMITTED LEAVE REQUEST (PENDING REVIEW) ── */}
+      {myPendingLeaves.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {myPendingLeaves.slice(0, 1).map(l => (
+            <div
+              key={`my_pending_top_${l._id}`}
+              style={{
+                backgroundColor: '#eff6ff',
+                border: '1.5px solid #bfdbfe',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '9px',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af' }}>
+                      📋 Your Leave Application is Pending Review
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      backgroundColor: '#dbeafe',
+                      color: '#1d4ed8',
+                      border: '1px solid #bfdbfe',
+                      padding: '1px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      Awaiting Decision
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#1e3a8a', marginTop: '2px' }}>
+                    <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong> • Sent to <strong>{l.appliedToName || 'Reviewer'}</strong> ({l.appliedToRole || 'Approver'})
+                    {l.reason && <span> • <em>"{l.reason}"</em></span>}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setCancellingLeaveTarget(l)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#ffffff',
+                    color: '#dc2626',
+                    border: '1px solid #fca5a5',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  title="Withdraw / Cancel this request"
+                >
+                  Cancel Request
+                </button>
+                <button
+                  onClick={() => navigate('/leaves')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#1d4ed8',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  View Details →
                 </button>
               </div>
             </div>
@@ -5780,7 +5875,7 @@ export const DashboardPage = () => {
                         {l.leaveType} ({l.durationText})
                       </div>
                       <div style={{ fontSize: '10px', color: '#64748b' }}>
-                        📅 {l.startDate} • Sent to {l.appliedToName || 'HR Admin'}
+                        📅 {l.startDate} • Sent to {l.appliedToName || 'Reviewer'}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

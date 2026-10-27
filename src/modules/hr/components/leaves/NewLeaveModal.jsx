@@ -100,8 +100,12 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedEmp = (employees || []).find(e => e._id === formData.employeeId) || activeUser || employees[0];
-  const selectedApprover = potentialApprovers.find(e => e._id === formData.appliedToId) || potentialApprovers[0];
+  const selectedEmp = (employees || []).find(e => String(e._id) === String(formData.employeeId)) || activeUser || employees[0];
+  const selectedApprover = potentialApprovers.find(e =>
+    (e._id && String(e._id) === String(formData.appliedToId)) ||
+    (e.id && String(e.id) === String(formData.appliedToId)) ||
+    (e.employeeCode && String(e.employeeCode) === String(formData.appliedToId))
+  ) || potentialApprovers[0];
 
   // Robust calendar-based date calculation
   const getDurationDays = () => {
@@ -178,8 +182,8 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         appliedToId: selectedApprover?._id || '',
         appliedToCode: selectedApprover?.employeeCode || '',
         appliedToEmail: selectedApprover?.email || '',
-        appliedToName: selectedApprover?.name || 'HR Admin',
-        appliedToRole: selectedApprover?.role || 'Administrator',
+        appliedToName: selectedApprover?.name || 'Reviewer',
+        appliedToRole: selectedApprover?.role || 'Approver',
         appliedToAvatar: selectedApprover?.avatar || '',
         leaveType: formData.leaveType,
         startDate: formData.startDate,
@@ -266,7 +270,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
           {/* Send Request To (Approver / Manager) */}
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e40af', marginBottom: '6px' }}>
-              Send Request To (Approver / HR) *
+              Send Request To (Select Approver / Manager / HR) *
             </label>
             <select
               value={formData.appliedToId}

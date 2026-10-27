@@ -238,7 +238,8 @@ export const syncDatabaseToStorage = async () => {
             headers: authHeaders,
             signal: AbortSignal.timeout(4000)
           });
-          if (res.ok) {
+          const ct = res.headers.get('content-type') || '';
+          if (res.ok && ct.includes('application/json')) {
             const json = await res.json();
             const data = json.data !== undefined ? json.data : json;
             if (Array.isArray(data)) {
