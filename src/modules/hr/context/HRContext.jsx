@@ -66,31 +66,52 @@ export const HRProvider = ({ children }) => {
       const apps = appsRes.status === 'fulfilled' && appsRes.value ? appsRes.value : (getCollection(KEYS.APPRECIATIONS) || []);
       const auds = audsRes.status === 'fulfilled' && audsRes.value ? audsRes.value : (getCollection(KEYS.ATTENDANCE_AUDIT) || []);
 
-      // Authoritative list: If server returned array, respect it directly (including deletions)
-      const effectiveLeaves = Array.isArray(lvs) ? lvs : (getCollection(KEYS.LEAVES) || []);
+      // Smart Merging: preserve any local leaves created recently or pending sync
+      const localLeaves = getCollection(KEYS.LEAVES) || [];
+      const serverLeaves = Array.isArray(lvs) ? lvs : [];
+      const serverIds = new Set(serverLeaves.map(l => String(l._id || l.id)));
+
+      // Keep any local leaves that were created recently (last 90s) or have temporary IDs (e.g. leave_...)
+      const unSyncedLocalLeaves = localLeaves.filter(l => {
+        const id = String(l._id || l.id || '');
+        if (!id) return false;
+        if (serverIds.has(id)) return false; // already on server
+        const isLocalTemporary = id.startsWith('leave_');
+        const createdAtTime = l.createdAt ? new Date(l.createdAt).getTime() : (l.appliedOn ? new Date(l.appliedOn).getTime() : 0);
+        const isRecent = (Date.now() - createdAtTime) < 90000;
+        return isLocalTemporary || isRecent;
+      });
+
+      const effectiveLeaves = [...unSyncedLocalLeaves, ...serverLeaves];
 
       setEmployees(emps || []);
       if (curr) setCurrentUser(curr);
       setLeaves(effectiveLeaves);
-      // Silently persist to localStorage without wiping other employees' leaves
+
+      // Persist to localStorage
       try {
-        const isOnline = hrService.isBackendOnline ? hrService.isBackendOnline() : false;
-        if (isOnline && Array.isArray(lvs)) {
-          localStorage.setItem(KEYS.LEAVES, JSON.stringify(effectiveLeaves));
-        } else if (Array.isArray(lvs) && lvs.length > 0) {
-          const existing = getCollection(KEYS.LEAVES) || [];
-          const mergedMap = new Map();
-          existing.forEach(item => {
-            const id = String(item._id || item.id || '');
-            if (id) mergedMap.set(id, item);
-          });
-          lvs.forEach(item => {
-            const id = String(item._id || item.id || '');
-            if (id) mergedMap.set(id, { ...(mergedMap.get(id) || {}), ...item });
-          });
-          localStorage.setItem(KEYS.LEAVES, JSON.stringify(Array.from(mergedMap.values())));
-        }
+        localStorage.setItem(KEYS.LEAVES, JSON.stringify(effectiveLeaves));
       } catch (_) {}
+
+      // Background Sync: If there are temporary un-synced local leaves and backend is online, sync them to backend
+      if (unSyncedLocalLeaves.length > 0) {
+        unSyncedLocalLeaves.forEach(async (unsynced) => {
+          if (String(unsynced._id || '').startsWith('leave_')) {
+            try {
+              const { _id, ...leavePayload } = unsynced;
+              const res = await hrService.createLeave(leavePayload);
+              if (res && res._id && !String(res._id).startsWith('leave_')) {
+                let cur = getCollection(KEYS.LEAVES) || [];
+                cur = cur.map(item => String(item._id) === String(_id) ? res : item);
+                saveCollection(KEYS.LEAVES, cur);
+                window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+              }
+            } catch (syncErr) {
+              console.warn('Background sync for leave failed:', syncErr);
+            }
+          }
+        });
+      }
       setAttendance(atts || []);
       setHolidays(hols || []);
       setAppreciations(apps || []);
@@ -289,6 +310,8 @@ export const HRProvider = ({ children }) => {
       localStorage.setItem(KEYS.LEAVES, JSON.stringify(remaining));
       addToast('Leave request deleted successfully', 'info');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
       window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status: 'deleted' } }));
       await loadData();
     } catch (err) {

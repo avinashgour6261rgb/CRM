@@ -411,11 +411,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         leave={leave}
         isApplicant={isApplicant}
         onConfirm={async (reason) => {
-          if (leave.status === 'pending' && isApplicant) {
-            await deleteLeave(leave._id);
-          } else {
-            await updateLeaveStatus(leave._id, 'cancelled', reason);
-          }
+          await updateLeaveStatus(leave._id, 'cancelled', reason);
           setIsCancelModalOpen(false);
           onClose();
         }}

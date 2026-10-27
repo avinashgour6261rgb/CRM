@@ -49,7 +49,7 @@ const LeaveSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: [true, 'Reason for leave is required'],
-      minlength: [5, 'Please provide a proper reason (min 5 characters)'],
+      minlength: [2, 'Please provide a proper reason (min 2 characters)'],
       maxlength: [500, 'Reason too long (max 500 characters)']
     },
     isPaid: {

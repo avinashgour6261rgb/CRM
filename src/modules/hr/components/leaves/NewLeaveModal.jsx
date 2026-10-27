@@ -173,6 +173,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
       const finalEndDate = formData.durationType !== 'full' ? formData.startDate : formData.endDate;
 
       await applyLeave({
+        employee: selectedEmp._id,
         employeeId: selectedEmp._id,
         employeeCode: selectedEmp.employeeCode || '',
         employeeEmail: selectedEmp.email || '',

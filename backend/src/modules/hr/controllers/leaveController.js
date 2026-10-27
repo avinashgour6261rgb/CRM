@@ -127,6 +127,17 @@ const createLeave = asyncHandler(async (req, res) => {
   const user = req.user;
   const leaveData = { ...req.body };
 
+  // Normalize dates to strict YYYY-MM-DD
+  if (leaveData.startDate && typeof leaveData.startDate === 'string' && leaveData.startDate.includes('T')) {
+    leaveData.startDate = leaveData.startDate.split('T')[0];
+  }
+  if (leaveData.endDate && typeof leaveData.endDate === 'string' && leaveData.endDate.includes('T')) {
+    leaveData.endDate = leaveData.endDate.split('T')[0];
+  }
+  if (!leaveData.endDate) {
+    leaveData.endDate = leaveData.startDate;
+  }
+
   // 1. Resolve Employee from body or authenticated user
   let employee = null;
   const empRef = leaveData.employee || leaveData.employeeId;
@@ -159,7 +170,7 @@ const createLeave = asyncHandler(async (req, res) => {
     const firstEmp = await Employee.findOne();
     if (firstEmp) {
       leaveData.employee = firstEmp._id;
-      leaveData.employeeId = firstEmp._id.toString();
+      leaveData.employeeId = leaveData.employeeId || firstEmp._id.toString();
       leaveData.employeeName = leaveData.employeeName || firstEmp.name;
       leaveData.employeeCode = leaveData.employeeCode || firstEmp.employeeCode;
       leaveData.employeeRole = leaveData.employeeRole || firstEmp.role;
@@ -212,6 +223,7 @@ const createLeave = asyncHandler(async (req, res) => {
     updatedEmployee: employee ? {
       _id: employee._id,
       employeeCode: employee.employeeCode,
+      name: employee.name,
       leaveBalance: employee.leaveBalance
     } : null
   });
@@ -476,9 +488,9 @@ const deleteLeave = asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Security restriction: You do not have permission to delete this leave.' });
   }
 
+  let employee = null;
   // If the leave was approved or pending, restore balance and cleanup attendance before deleting
   if (leave.status === 'approved' || leave.status === 'pending') {
-    let employee = null;
     if (leave.employee && mongoose.Types.ObjectId.isValid(leave.employee)) {
       employee = await Employee.findById(leave.employee);
     }
@@ -514,7 +526,17 @@ const deleteLeave = asyncHandler(async (req, res) => {
   }
 
   await Leave.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Leave record deleted', data: {} });
+  res.json({
+    success: true,
+    message: 'Leave record deleted',
+    data: {},
+    updatedEmployee: employee ? {
+      _id: employee._id,
+      employeeCode: employee.employeeCode,
+      name: employee.name,
+      leaveBalance: employee.leaveBalance
+    } : null
+  });
 });
 
 // ─── GET /api/leaves/stats ────────────────────────────────────────────────────

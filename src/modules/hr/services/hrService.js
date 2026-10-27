@@ -598,7 +598,7 @@ export const hrService = {
         if (authRaw) {
           try {
             const authObj = JSON.parse(authRaw);
-            if (authObj && (String(authObj._id) === String(emp._id) || authObj.employeeCode === emp.employeeCode)) {
+            if (authObj && (String(authObj._id) === String(emp._id) || (authObj.employeeCode && emp.employeeCode && authObj.employeeCode === emp.employeeCode) || (authObj.name && emp.name && authObj.name.toLowerCase() === emp.name.toLowerCase()))) {
               const updatedAuth = { ...authObj, leaveBalance: balance };
               localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
               localStorage.setItem('hrms_current_user', JSON.stringify(updatedAuth));
@@ -687,25 +687,6 @@ export const hrService = {
     return leaveData;
   },
 
-  async deleteLeave(leaveId) {
-    if (!leaveId) return false;
-    const res = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}`, {
-      method: 'DELETE'
-    }, async () => {
-      let leaves = getCollection(KEYS.LEAVES) || [];
-      leaves = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
-      saveCollection(KEYS.LEAVES, leaves);
-      return { success: true };
-    });
-
-    let leaves = getCollection(KEYS.LEAVES) || [];
-    leaves = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
-    localStorage.setItem(KEYS.LEAVES, JSON.stringify(leaves));
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
-    window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status: 'deleted' } }));
-    return res;
-  },
-
   async acknowledgeLeave(leaveId) {
     if (!leaveId) return null;
     try {
@@ -736,64 +717,101 @@ export const hrService = {
   },
 
   async deleteLeave(leaveId) {
+    if (!leaveId) return false;
+
+    const restoreLocalBalanceAndAttendance = (targetLeave, updatedBalance = null) => {
+      if (!targetLeave) return;
+      const days = Number(targetLeave.durationDays) || 1;
+      const targetEmpKey = targetLeave.employeeId || targetLeave.employee || targetLeave.employeeCode;
+
+      // 1. Restore employee leave balance if leave was paid and was pending or approved
+      if (targetLeave.isPaid !== false && targetLeave.leaveType !== 'Unpaid Leave' && (targetLeave.status === 'pending' || targetLeave.status === 'approved')) {
+        let employees = getCollection(KEYS.EMPLOYEES) || [];
+        const empIdx = employees.findIndex(e =>
+          String(e._id) === String(targetEmpKey) ||
+          (e.employeeCode && (e.employeeCode === targetEmpKey || e.employeeCode === targetLeave.employeeCode)) ||
+          (e.name && targetLeave.employeeName && e.name.toLowerCase() === targetLeave.employeeName.toLowerCase())
+        );
+
+        if (empIdx >= 0) {
+          const emp = employees[empIdx];
+          let balance = updatedBalance || { ...(emp.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 }) };
+          if (!updatedBalance) {
+            const lt = (targetLeave.leaveType || '').toLowerCase();
+            if (lt.includes('cas') || lt === 'cl') balance.casual = (balance.casual || 0) + days;
+            else if (lt.includes('sic') || lt === 'sl') balance.sick = (balance.sick || 0) + days;
+            else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = (balance.earned || 0) + days;
+            else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = (balance.maternity || 0) + days;
+            else balance.casual = (balance.casual || 0) + days;
+          }
+
+          emp.leaveBalance = balance;
+          employees[empIdx] = emp;
+          saveCollection(KEYS.EMPLOYEES, employees);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+
+          // Update active auth session if current user
+          const authRaw = localStorage.getItem('ems_auth_session') || localStorage.getItem('hrms_current_user');
+          if (authRaw) {
+            try {
+              const authObj = JSON.parse(authRaw);
+              if (authObj && (String(authObj._id) === String(emp._id) || authObj.employeeCode === emp.employeeCode || (authObj.name && emp.name && authObj.name.toLowerCase() === emp.name.toLowerCase()))) {
+                const updatedAuth = { ...authObj, leaveBalance: balance };
+                localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
+                localStorage.setItem('hrms_current_user', JSON.stringify(updatedAuth));
+                window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      // 2. Clean up attendance matrix if leave was approved
+      if (targetLeave.status === 'approved') {
+        const todayStr = new Date().toISOString().split('T')[0];
+        let attendance = getCollection(KEYS.ATTENDANCE) || [];
+        const start = new Date(targetLeave.startDate);
+        const end = new Date(targetLeave.endDate || targetLeave.startDate);
+        const cur = new Date(start);
+        while (cur <= end) {
+          const dStr = cur.toISOString().split('T')[0];
+          attendance = attendance.filter(a => {
+            const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
+              String(a.employee) === String(targetEmpKey) ||
+              (a.employeeCode && (a.employeeCode === targetEmpKey || a.employeeCode === targetLeave.employeeCode));
+            if (!matchesEmp || a.date !== dStr) return true;
+            if (dStr > todayStr) return false;
+            if (a.status === 'on_leave') return false;
+            return true;
+          });
+          cur.setDate(cur.getDate() + 1);
+        }
+        saveCollection(KEYS.ATTENDANCE, attendance);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      }
+    };
+
     const leaves = getCollection(KEYS.LEAVES) || [];
     const targetLeave = leaves.find(l => String(l._id || l.id) === String(leaveId));
 
-    if (targetLeave && targetLeave.status === 'approved') {
-      // Restore balance & clean attendance
-      let employees = getCollection(KEYS.EMPLOYEES) || [];
-      const targetEmpKey = targetLeave.employeeId || targetLeave.employee || targetLeave.employeeCode;
-      const empIdx = employees.findIndex(e =>
-        String(e._id) === String(targetEmpKey) ||
-        (e.employeeCode && (e.employeeCode === targetEmpKey || e.employeeCode === targetLeave.employeeCode))
-      );
-      if (empIdx >= 0) {
-        const emp = employees[empIdx];
-        const days = Number(targetLeave.durationDays) || 1;
-        const lt = (targetLeave.leaveType || '').toLowerCase();
-        const balance = { ...(emp.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 }) };
-        if (lt.includes('cas') || lt === 'cl') balance.casual = (balance.casual || 0) + days;
-        else if (lt.includes('sic') || lt === 'sl') balance.sick = (balance.sick || 0) + days;
-        else if (lt.includes('earn') || lt.includes('ann') || lt.includes('paid') || lt === 'el') balance.earned = (balance.earned || 0) + days;
-        else if (lt.includes('mat') || lt.includes('pat')) balance.maternity = (balance.maternity || 0) + days;
-        else balance.casual = (balance.casual || 0) + days;
-        emp.leaveBalance = balance;
-        employees[empIdx] = emp;
-        saveCollection(KEYS.EMPLOYEES, employees);
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
-      }
-
-      // Cleanup attendance
-      const todayStr = new Date().toISOString().split('T')[0];
-      let attendance = getCollection(KEYS.ATTENDANCE) || [];
-      const start = new Date(targetLeave.startDate);
-      const end = new Date(targetLeave.endDate || targetLeave.startDate);
-      const cur = new Date(start);
-      while (cur <= end) {
-        const dStr = cur.toISOString().split('T')[0];
-        attendance = attendance.filter(a => {
-          const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
-            String(a.employee) === String(targetEmpKey) ||
-            (a.employeeCode && (a.employeeCode === targetEmpKey || a.employeeCode === targetLeave.employeeCode));
-          if (!matchesEmp || a.date !== dStr) return true;
-          if (dStr > todayStr) return false;
-          if (a.status === 'on_leave') return false;
-          return true;
-        });
-        cur.setDate(cur.getDate() + 1);
-      }
-      saveCollection(KEYS.ATTENDANCE, attendance);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
-    }
-
-    return fetchWithFallback(`${API_BASE}/leaves/${leaveId}`, {
+    const res = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}`, {
       method: 'DELETE'
     }, async () => {
       let remaining = leaves.filter(l => String(l._id || l.id) !== String(leaveId));
       saveCollection(KEYS.LEAVES, remaining);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+      restoreLocalBalanceAndAttendance(targetLeave);
       return { success: true };
     });
+
+    let remainingLeaves = (getCollection(KEYS.LEAVES) || []).filter(l => String(l._id || l.id) !== String(leaveId));
+    saveCollection(KEYS.LEAVES, remainingLeaves);
+
+    const updatedBal = (res && res.updatedEmployee && res.updatedEmployee.leaveBalance) ? res.updatedEmployee.leaveBalance : null;
+    restoreLocalBalanceAndAttendance(targetLeave, updatedBal);
+
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEAVES } }));
+    window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: { leaveId, status: 'deleted' } }));
+    return res;
   },
 
   // =========================================================================

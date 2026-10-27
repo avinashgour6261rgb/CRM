@@ -1171,11 +1171,7 @@ export const LeavesPage = () => {
         onClose={() => setCancellingLeave(null)}
         onConfirm={async (reason) => {
           if (cancellingLeave?._id) {
-            if (cancellingLeave.status === 'pending') {
-              await deleteLeave(cancellingLeave._id);
-            } else {
-              await updateLeaveStatus(cancellingLeave._id, 'cancelled', reason);
-            }
+            await updateLeaveStatus(cancellingLeave._id, 'cancelled', reason);
           }
         }}
       />
