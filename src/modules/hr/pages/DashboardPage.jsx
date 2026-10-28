@@ -466,21 +466,58 @@ export const DashboardPage = () => {
       if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
     } catch { }
 
-    const isClockedIn = storedClockedIn || (attRec?.isClockedIn === true && !!attRec?.clockInTime && !attRec?.clockOutTime);
+    // Check if clockIn was from a previous calendar day (forgotten clock-out)
+    const rawClockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(attRec?.clockInTimestamp);
+    let isStaleFromPreviousDay = false;
+    if (rawClockInTs > 0) {
+      const inDate = new Date(rawClockInTs).toISOString().split('T')[0];
+      if (inDate !== todayStr) {
+        isStaleFromPreviousDay = true;
+        // Auto-close stale yesterday session in background
+        try {
+          localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
+          localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
+          localStorage.removeItem(`ems_timer_${empKey}_login_time`);
+          const rawAtt = localStorage.getItem('hrms_attendance');
+          if (rawAtt) {
+            const list = JSON.parse(rawAtt);
+            let changed = false;
+            const updated = list.map(a => {
+              if (a.date === inDate && (a.employeeId === empId || a.employeeCode === emp.employeeCode || a.employeeCode === empKey) && !a.clockOutTime) {
+                changed = true;
+                return {
+                  ...a,
+                  clockOutTime: '07:00 PM',
+                  isClockedIn: false,
+                  workSeconds: 32400,
+                  totalWorkingHours: 9.0,
+                  notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (forgotten clock-out)'
+                };
+              }
+              return a;
+            });
+            if (changed) {
+              localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    const isClockedIn = !isStaleFromPreviousDay && (storedClockedIn || (attRec?.isClockedIn === true && !!attRec?.clockInTime && !attRec?.clockOutTime));
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || null;
-    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
+    const loginTime = !isStaleFromPreviousDay ? (attRec?.clockInTime || storedLogin || null) : null;
+    const clockOutTime = !isStaleFromPreviousDay ? (attRec?.clockOutTime || storedClockOut || null) : null;
 
     // Calculate dynamic live work seconds
-    let workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
-    if (isClockedIn && !storedOnBreak) {
-      const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(attRec?.clockInTimestamp);
+    let workSecs = !isStaleFromPreviousDay ? (storedWorkSecs || Number(attRec?.workSeconds) || 0) : 0;
+    if (isClockedIn && !storedOnBreak && !isStaleFromPreviousDay) {
+      const clockInTs = rawClockInTs;
       if (clockInTs > 0) {
-        // Runaway cross-day check: if clockInTs is from previous calendar day or > 14h, cap at 9h
-        const inDate = new Date(clockInTs).toISOString().split('T')[0];
         const rawGross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        if (inDate !== todayStr || rawGross > 14 * 3600) {
-          workSecs = 32400; // 9.0 hours standard
+        if (rawGross > 14 * 3600) {
+          workSecs = 32400; // Cap runaway session at 9.0 hours standard
         } else {
           workSecs = Math.max(workSecs, rawGross - (storedBreakSecs || Number(attRec?.breakSeconds) || 0));
         }
@@ -488,7 +525,7 @@ export const DashboardPage = () => {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
         workSecs = Math.max(workSecs, localGross);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
+    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours && !isStaleFromPreviousDay) {
       workSecs = Math.round(attRec.totalWorkingHours * 3600);
     }
 

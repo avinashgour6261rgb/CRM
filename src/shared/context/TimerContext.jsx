@@ -648,7 +648,44 @@ export const TimerProvider = ({ children }) => {
   useEffect(() => {
     const today = getTodayStr();
     if (sessionDate !== today) {
-      setSessionDate(today);
+      // 1. Auto-close previous day's shift session in hrms_attendance so forgotten clock-outs are cleanly finalized!
+      try {
+        const rawAtt = localStorage.getItem('hrms_attendance');
+        if (rawAtt) {
+          const list = JSON.parse(rawAtt);
+          if (Array.isArray(list)) {
+            let changed = false;
+            const updated = list.map(a => {
+              const isMatch = a.date === sessionDate && (
+                String(a.employeeId) === String(userKey) ||
+                String(a.employee) === String(userKey) ||
+                (targetEmpCode && String(a.employeeCode) === String(targetEmpCode)) ||
+                (targetEmpId && String(a.employeeId) === String(targetEmpId))
+              );
+              if (isMatch && !a.clockOutTime) {
+                changed = true;
+                const prevSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || Number(a.workSeconds) || 32400;
+                const cappedSecs = Math.min(Math.max(prevSecs, 28800), 32400); // 8-9h standard
+                return {
+                  ...a,
+                  clockOutTime: '11:59 PM',
+                  isClockedIn: false,
+                  status: 'present',
+                  workSeconds: cappedSecs,
+                  totalWorkingHours: +(cappedSecs / 3600).toFixed(2),
+                  notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (forgotten clock-out)'
+                };
+              }
+              return a;
+            });
+            if (changed) {
+              localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+            }
+          }
+        }
+      } catch (_) {}
+
       localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
       setWorkSeconds(0);
       setBreakSeconds(0);
@@ -726,8 +763,48 @@ export const TimerProvider = ({ children }) => {
 
       // Guard: clockInTs must strictly be from today! If from earlier day, auto-clear!
       if (clockInTs && clockInTs < todayMidnightMs) {
+        // Auto-close yesterday's attendance record in background
+        try {
+          const inDate = new Date(clockInTs).toISOString().split('T')[0];
+          const rawAtt = localStorage.getItem('hrms_attendance');
+          if (rawAtt) {
+            const list = JSON.parse(rawAtt);
+            if (Array.isArray(list)) {
+              let changed = false;
+              const updated = list.map(a => {
+                const isMatch = a.date === inDate && (
+                  String(a.employeeId) === String(userKey) ||
+                  String(a.employee) === String(userKey) ||
+                  (targetEmpCode && String(a.employeeCode) === String(targetEmpCode)) ||
+                  (targetEmpId && String(a.employeeId) === String(targetEmpId))
+                );
+                if (isMatch && !a.clockOutTime) {
+                  changed = true;
+                  const prevSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || Number(a.workSeconds) || 32400;
+                  const cappedSecs = Math.min(Math.max(prevSecs, 28800), 32400);
+                  return {
+                    ...a,
+                    clockOutTime: '11:59 PM',
+                    isClockedIn: false,
+                    status: 'present',
+                    workSeconds: cappedSecs,
+                    totalWorkingHours: +(cappedSecs / 3600).toFixed(2),
+                    notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (forgotten clock-out)'
+                  };
+                }
+                return a;
+              });
+              if (changed) {
+                localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+                window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+              }
+            }
+          }
+        } catch (_) {}
+
         clockInTs = null;
         localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${userKey}_login_time`);
         localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
         localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
         localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');

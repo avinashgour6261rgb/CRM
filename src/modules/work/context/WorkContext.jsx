@@ -209,8 +209,9 @@ export const WorkProvider = ({ children }) => {
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
     if (startTs < todayMidnightMs) {
-      // Started on a previous day: do not accumulate runaway time across days!
-      return base;
+      // Started on a previous day: cap to seconds before midnight so runaway ghost time is never added to today!
+      const elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnightMs - startTs) / 1000));
+      return base + Math.min(elapsedBeforeMidnight, 14 * 3600);
     }
 
     const elapsedSinceStart = Math.min(Math.max(0, Math.floor((Date.now() - startTs) / 1000)), 14 * 3600);
@@ -901,47 +902,64 @@ export const WorkProvider = ({ children }) => {
         localStorage.setItem(`ems_work_session_date_${userKey}`, today);
         setWorkSessionDate(today);
 
-        // Check if yesterday had an active unclosed timer
+        // Check if yesterday had an active unclosed timer across midnight
         const rawSaved = localStorage.getItem(activeTimerKey);
         if (rawSaved) {
           try {
             const prev = JSON.parse(rawSaved);
             if (prev && prev.date && prev.date !== today) {
-              const duration = Number(prev.accumulatedSeconds) || 60;
-              workService.createTimesheet({
-                taskId: prev.taskId,
-                taskCode: prev.taskCode,
-                taskTitle: prev.title,
-                projectName: prev.projectName,
-                employeeId: prev.assignedToId,
-                employeeName: prev.assignedToName,
-                date: prev.date || storedWorkDate,
-                totalDurationSeconds: Math.min(duration, 8 * 3600),
-                totalDurationText: formatSeconds(Math.min(duration, 8 * 3600)),
-                memo: 'Automatic end-of-day timesheet close',
-                status: 'stopped'
-              }).catch(e => console.warn('Auto timesheet close error:', e));
+              const prevStartTs = prev.startedAt ? Number(prev.startedAt) : null;
+              let elapsedBeforeMidnight = 0;
+              if (prev.timerRunning && prevStartTs) {
+                const todayMidnight = new Date();
+                todayMidnight.setHours(0, 0, 0, 0);
+                elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnight.getTime() - prevStartTs) / 1000));
+              }
+              const duration = (Number(prev.accumulatedSeconds) || 0) + elapsedBeforeMidnight;
+              if (duration > 0) {
+                workService.createTimesheet({
+                  taskId: prev.taskId,
+                  taskCode: prev.taskCode,
+                  taskTitle: prev.title || prev.taskTitle,
+                  projectName: prev.projectName,
+                  employeeId: prev.assignedToId || userKey,
+                  employeeName: prev.assignedToName || currentUser?.name,
+                  date: prev.date || storedWorkDate,
+                  totalDurationSeconds: Math.min(duration, 14 * 3600),
+                  totalDurationText: formatSeconds(Math.min(duration, 14 * 3600)),
+                  memo: 'Automatic midnight rollover session save',
+                  status: 'stopped'
+                }).catch(e => console.warn('Auto timesheet close error:', e));
+              }
             }
           } catch (e) {}
         }
 
-        // Reset active timer snapshot for the new day
+        // Reset active timer snapshot for the new day so Day 2 starts clean
         saveActiveTimerSnapshot(null);
 
-        // Reset all tasks' session timer to 0 for the fresh new day
+        // Stop running state on all tasks for new day so ghost hours do not count while sleeping
         const allTasks = getCollection(KEYS.TASKS) || [];
-        const resetTasks = allTasks.map(t => ({
-          ...t,
-          timerRunning: false,
-          timerSeconds: 0,
-          sessionDate: today
-        }));
+        const resetTasks = allTasks.map(t => {
+          if (t.timerRunning) {
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              sessionDate: today
+            };
+          }
+          return {
+            ...t,
+            sessionDate: today
+          };
+        });
         saveCollection(KEYS.TASKS, resetTasks);
 
         setTasks(prev => prev.map(t => ({
           ...t,
           timerRunning: false,
-          timerSeconds: 0,
+          startedAt: null,
           sessionDate: today
         })));
 
