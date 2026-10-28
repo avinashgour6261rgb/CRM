@@ -1100,6 +1100,17 @@ export const DashboardPage = () => {
     addToast?.(`Working mode updated: ${newMode}`, 'success');
   };
 
+  const isReminderDismissedForActiveUser = (t) => {
+    const uid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
+    const code = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    if (Array.isArray(t?.reminderDismissedBy)) {
+      if (uid && t.reminderDismissedBy.includes(uid)) return true;
+      if (code && t.reminderDismissedBy.includes(code)) return true;
+      return false;
+    }
+    return !!t?.reminderDismissed;
+  };
+
   const myTasks = React.useMemo(() => {
     return (tasks || []).filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
   }, [tasks, effectiveTargetUser]);
@@ -1185,16 +1196,6 @@ export const DashboardPage = () => {
   const activeProjectsCount = (projects || []).filter(p => p?.status === 'in_progress').length || 0;
   const overdueProjectsCount = (projects || []).filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
 
-  const isReminderDismissedForActiveUser = (t) => {
-    const uid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
-    const code = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
-    if (Array.isArray(t?.reminderDismissedBy)) {
-      if (uid && t.reminderDismissedBy.includes(uid)) return true;
-      if (code && t.reminderDismissedBy.includes(code)) return true;
-      return false;
-    }
-    return !!t?.reminderDismissed;
-  };
 
   // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder — strictly scoped per user)
   const snoozedTasks = (tasks || []).filter(t =>
