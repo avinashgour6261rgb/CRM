@@ -169,6 +169,8 @@ export const DashboardPage = () => {
     return String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || 'global');
   }, [effectiveTargetUser?._id, effectiveTargetUser?.employeeCode, currentUser?._id, currentUser?.employeeCode]);
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const userAlertKey = React.useMemo(() => {
     return `ems_dismissed_top_alerts_${targetActiveUid}`;
   }, [targetActiveUid]);
@@ -373,8 +375,6 @@ export const DashboardPage = () => {
       clearInterval(tickInterval);
     };
   }, []);
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   // Helper for matching tasks assigned to a specific user (handles IDs, codes, names, emails, and multi-assignees)
   const isTaskAssignedToUser = (task, user) => {
