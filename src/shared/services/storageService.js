@@ -36,7 +36,9 @@ export const KEYS = {
   SETTINGS: 'hrms_settings',
   ATTENDANCE_AUDIT: 'ems_attendance_audit_logs',
   ATTENDANCE_OVERTIME: 'ems_attendance_overtime',
-  DOCUMENTS: 'ems_documents'
+  DOCUMENTS: 'ems_documents',
+  USER_DATE_MEMORIES: 'ems_user_date_memories',
+  SUGGESTED_HOLIDAYS: 'ems_suggested_holidays'
 };
 
 const PROD_CLEAN_VERSION = 'ems_clean_multiuser_prod_v6';

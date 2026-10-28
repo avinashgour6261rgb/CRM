@@ -354,6 +354,44 @@ export const hrService = {
     });
   },
 
+  async toggleHolidayConfirmation(holidayId, isConfirmed, adminUser) {
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    const hol = holidays.find(h => h._id === holidayId);
+    if (hol) {
+      hol.isConfirmed = !!isConfirmed;
+      hol.confirmedBy = adminUser?.name || 'Admin';
+      hol.confirmedAt = new Date().toISOString();
+      saveCollection(KEYS.HOLIDAYS, holidays);
+    }
+    return { success: true };
+  },
+
+  async bulkConfirmGazetted(year, allHolidays, adminUser) {
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    holidays.forEach(h => {
+      if (h.date && h.date.startsWith(String(year))) {
+        h.isConfirmed = true;
+        h.confirmedBy = adminUser?.name || 'Admin';
+        h.confirmedAt = new Date().toISOString();
+      }
+    });
+    saveCollection(KEYS.HOLIDAYS, holidays);
+    return { success: true };
+  },
+
+  async resetHolidayConfirmations(year) {
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    holidays.forEach(h => {
+      if (h.date && h.date.startsWith(String(year))) {
+        delete h.isConfirmed;
+        delete h.confirmedBy;
+        delete h.confirmedAt;
+      }
+    });
+    saveCollection(KEYS.HOLIDAYS, holidays);
+    return { success: true };
+  },
+
   // =========================================================================
   // 🌴 LEAVES MANAGEMENT
   // =========================================================================

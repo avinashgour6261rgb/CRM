@@ -1,6 +1,7 @@
 /**
  * @file CalendarPage.jsx
- * @description Interactive Company Events & Calendar page matching Screenshot 3 with automatic birthday generation.
+ * @description Interactive Company Events & Calendar page with Google Calendar festivals,
+ * Admin holiday approval, and user-isolated private date memories.
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,13 +22,18 @@ import {
   Repeat,
   Bell,
   Heart,
-  Award
+  Award,
+  Lock,
+  Check
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { AddEventModal } from '../../../shared/components/modals/AddEventModal';
+import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
+import { dateMemoryService } from '../services/dateMemoryService';
+import { holidaySyncService } from '../../hr/services/holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -46,8 +52,14 @@ export const CalendarPage = () => {
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
+  // Private Date Memory Modal State
+  const [isDateMemoryOpen, setIsDateMemoryOpen] = useState(false);
+  const [selectedMemoryDate, setSelectedMemoryDate] = useState('');
+  const [userMemories, setUserMemories] = useState([]);
+  const [suggestedHolidays, setSuggestedHolidays] = useState([]);
+
   // Category and View Filters
-  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'project' | 'holiday' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
+  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'project' | 'holiday' | 'festival' | 'memory' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
   const [showShifts, setShowShifts] = useState(false);
 
   // Filters
@@ -58,6 +70,7 @@ export const CalendarPage = () => {
       setSelectedEmployeeId(currentUser._id);
     }
   }, [isPrivileged, currentUser?._id]);
+
   const [clientFilter, setClientFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -69,8 +82,43 @@ export const CalendarPage = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  // Load User's Private Memories (strictly isolated) & Suggested Festivals
+  const loadUserMemories = () => {
+    if (currentUser) {
+      setUserMemories(dateMemoryService.getUserMemories(currentUser));
+    }
+  };
+
+  const loadFestivals = async () => {
+    try {
+      const list = await holidaySyncService.getSuggestedHolidays(year);
+      setSuggestedHolidays(list);
+    } catch {
+      // Graceful fallback
+    }
+  };
+
+  useEffect(() => {
+    loadUserMemories();
+    loadFestivals();
+
+    const handleSync = () => {
+      loadUserMemories();
+      loadFestivals();
+    };
+
+    window.addEventListener('ems_user_memories_updated', handleSync);
+    window.addEventListener('ems_holidays_updated', handleSync);
+    window.addEventListener('hrms_storage_change', handleSync);
+    return () => {
+      window.removeEventListener('ems_user_memories_updated', handleSync);
+      window.removeEventListener('ems_holidays_updated', handleSync);
+      window.removeEventListener('hrms_storage_change', handleSync);
+    };
+  }, [currentUser?._id, year]);
+
   // =========================================================================
-  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + PROJECT DEADLINES
+  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + MEMORIES + FESTIVALS
   // =========================================================================
   const allEvents = useMemo(() => {
     // 1. Base User & Company Events (Scoped: Personal Reminders visible only to creator!)
@@ -156,14 +204,14 @@ export const CalendarPage = () => {
 
     // 5. Dynamic Approved Leaves from Database
     const approvedLeaveEvents = [];
-    const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+    const isPrivilegedUser = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
     (leaves || []).filter(l => l.status === 'approved').forEach(l => {
       const isMine = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
                      (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
                      (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
                      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
 
-      if (!isPrivileged && !isMine) return;
+      if (!isPrivilegedUser && !isMine) return;
 
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
@@ -197,13 +245,12 @@ export const CalendarPage = () => {
     const taskEvents = (tasks || [])
       .filter(t => t?.dueDate)
       .filter(t => {
-        // Personal tasks should ONLY appear on the creator/assigned employee's calendar
         if (t.isPersonal) {
           return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
                   t.assignedById === currentUser?._id ||
                   (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
         }
-        if (isPrivileged) return true;
+        if (isPrivilegedUser) return true;
         return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
                 t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
                 (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
@@ -218,15 +265,16 @@ export const CalendarPage = () => {
           time: '06:00 PM',
           type: isOverdue ? 'Overdue Task' : 'Task Deadline',
           location: t.projectName || 'Work Module',
-          description: `Task assigned to ${t.assignedToName || 'team'}. Status: ${t.status || 'Active'}. ${isOverdue ? '⚠️ Deadline Expired!' : ''}`,
-          color: isOverdue ? '#dc2626' : '#0891b2',
-          bgColor: isOverdue ? '#fee2e2' : '#ecfeff'
+          description: `Task: ${t.title}. Priority: ${t.priority || 'Medium'}. Status: ${t.status || 'Pending'}. Assigned to: ${t.assignedToName || 'Team'}.`,
+          isTask: true,
+          color: isOverdue ? '#dc2626' : '#2563eb',
+          bgColor: isOverdue ? '#fee2e2' : '#eff6ff'
         };
       });
 
-    // 7. Dynamic Project Deadlines (Shared so any employee can see project deadlines and contribute)
+    // 7. Dynamic Project Delivery Deadlines
     const projectDeadlineEvents = (projects || [])
-      .filter(p => p?.deadline && p.status !== 'completed' && p.status !== 'cancelled')
+      .filter(p => p?.deadline)
       .map(p => {
         const isOverdue = p.deadline < todayStr;
         return {
@@ -277,6 +325,39 @@ export const CalendarPage = () => {
       }
     }
 
+    // 9. Personal Date Memories & Daily Notes (Strictly isolated to currentUser)
+    const privateMemoryEvents = (userMemories || []).map(m => ({
+      _id: m._id,
+      title: `${m.isCompleted ? '✅' : '📌'} ${m.time && m.time !== 'All Day' ? `[${m.time}] ` : ''}${m.title}`,
+      rawTitle: m.title,
+      date: m.date,
+      endDate: m.date,
+      time: m.time || 'All Day',
+      type: 'Private Memory',
+      tag: m.tag,
+      isCompleted: m.isCompleted,
+      isPrivateMemory: true,
+      description: m.description || 'Personal date memory & note.',
+      color: m.isCompleted ? '#64748b' : '#7c3aed',
+      bgColor: m.isCompleted ? '#f1f5f9' : '#f5f3ff'
+    }));
+
+    // 10. Major Indian Cultural Festivals & Observances (Google Calendar / Master List)
+    const festivalEvents = (suggestedHolidays || [])
+      .filter(s => !s.isConfirmed)
+      .map(s => ({
+        _id: `fest_${s.code}`,
+        title: `${s.icon || '🪔'} ${s.name}`,
+        date: s.date,
+        endDate: s.date,
+        time: 'All Day',
+        type: 'Major Festival',
+        isFestival: true,
+        description: s.description || 'Major cultural celebration.',
+        color: '#d97706',
+        bgColor: '#fef3c7'
+      }));
+
     return [
       ...baseEvents,
       ...dynamicBirthdayEvents,
@@ -285,9 +366,11 @@ export const CalendarPage = () => {
       ...approvedLeaveEvents,
       ...taskEvents,
       ...projectDeadlineEvents,
-      ...shiftEvents
+      ...shiftEvents,
+      ...privateMemoryEvents,
+      ...festivalEvents
     ];
-  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate]);
+  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate, userMemories, suggestedHolidays]);
 
   // 30-Day Upcoming Birthdays & Anniversaries Advance Alerts
   const upcomingCelebrations = useMemo(() => {
@@ -340,6 +423,31 @@ export const CalendarPage = () => {
     return celebrations.sort((a, b) => a.diffDays - b.diffDays);
   }, [computedBirthdays, computedAnniversaries]);
 
+  // Next Upcoming Major Festival or Holiday Countdown
+  const todayStr = new Date().toISOString().split('T')[0];
+  const nextFestivalOrHoliday = useMemo(() => {
+    const combined = [
+      ...(suggestedHolidays || []),
+      ...(holidays || []).map(h => ({
+        code: h._id,
+        name: h.name,
+        date: h.date,
+        icon: h.icon || '🏖️',
+        isConfirmed: true,
+        dayOfWeek: h.dayOfWeek
+      }))
+    ];
+
+    const upcoming = combined
+      .filter(item => item.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (upcoming.length === 0) return null;
+    const next = upcoming[0];
+    const diffDays = Math.max(0, Math.ceil((new Date(next.date + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / (1000 * 60 * 60 * 24)));
+    return { ...next, diffDays };
+  }, [suggestedHolidays, holidays, todayStr]);
+
   // Filter events by search, category pill, and shift visibility
   const filteredEvents = useMemo(() => {
     return allEvents.filter(ev => {
@@ -352,6 +460,10 @@ export const CalendarPage = () => {
       if (eventTypeFilter === 'holiday') {
         const isHol = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
         if (!isHol) return false;
+      } else if (eventTypeFilter === 'festival') {
+        if (!ev.isFestival && !ev.isHoliday) return false;
+      } else if (eventTypeFilter === 'memory') {
+        if (!ev.isPrivateMemory) return false;
       } else if (eventTypeFilter === 'birthday') {
         if (ev.type !== 'Birthday') return false;
       } else if (eventTypeFilter === 'anniversary') {
@@ -367,6 +479,8 @@ export const CalendarPage = () => {
           ev.type === 'Birthday' ||
           ev.type === 'Work Anniversary' ||
           ev.isHoliday ||
+          ev.isFestival ||
+          ev.isPrivateMemory ||
           ev.type === 'Approved Leave' ||
           ev.type?.toLowerCase().includes('task') ||
           ev.type === 'Project Deadline' ||
@@ -396,6 +510,12 @@ export const CalendarPage = () => {
 
   const handleToday = () => {
     setCurrentDate(new Date());
+  };
+
+  // Open Date Memory Modal on Date Click
+  const handleOpenDateMemory = (dateString) => {
+    setSelectedMemoryDate(dateString);
+    setIsDateMemoryOpen(true);
   };
 
   // Calendar days generation
@@ -454,7 +574,7 @@ export const CalendarPage = () => {
   const selectedEmployee = employees.find(e => e._id === selectedEmployeeId) || currentUser;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 animate-fade-in">
       
       {/* Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-md min-h-[68px] box-border shrink-0">
@@ -464,25 +584,71 @@ export const CalendarPage = () => {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Company Calendar & Schedules</h1>
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Company Calendar & Daily Planner</h1>
               <span className="text-[10.5px] px-1.5 py-[1px] rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 font-bold">
-                {filteredEvents.length} Events & Birthdays
+                {filteredEvents.length} Items & Milestones
               </span>
             </div>
             <p className="mt-[1px] mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
-              Synchronized view of meetings, birthdays, work anniversaries & holiday schedule
+              National festivals, gazetted holidays, team milestones & your private daily notes
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsAddEventOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
-        >
-          <Plus size={14} />
-          Add Event / Reminder
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Quick Add Private Note Button */}
+          <button
+            onClick={() => handleOpenDateMemory(todayStr)}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-purple-600 hover:bg-purple-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-colors"
+            title="Add a private memory or task for today or any date"
+          >
+            <Lock size={12} />
+            <span>+ Private Note</span>
+          </button>
+
+          {/* Add Public Event Button */}
+          <button
+            onClick={() => setIsAddEventOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
+          >
+            <Plus size={14} />
+            <span>Add Event</span>
+          </button>
+        </div>
       </div>
+
+      {/* Upcoming Festive Celebration Countdown Ribbon */}
+      {nextFestivalOrHoliday && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300/80 dark:border-amber-800/60 rounded-[10px] p-2.5 px-4 flex items-center justify-between flex-wrap gap-2 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">{nextFestivalOrHoliday.icon || '🪔'}</span>
+            <div>
+              <span className="font-extrabold text-amber-950 dark:text-amber-200 text-xs">
+                Next Celebration: {nextFestivalOrHoliday.name}
+              </span>
+              <span className="text-slate-600 dark:text-slate-400 font-medium ml-1.5">
+                • {nextFestivalOrHoliday.date} ({nextFestivalOrHoliday.dayOfWeek || ''})
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-700 text-[11px]">
+              {nextFestivalOrHoliday.diffDays === 0 ? 'Today! 🎉' : nextFestivalOrHoliday.diffDays === 1 ? 'Tomorrow 🌟' : `In ${nextFestivalOrHoliday.diffDays} days`}
+            </span>
+            {isPrivileged && !nextFestivalOrHoliday.isConfirmed && (
+              <button
+                onClick={() => {
+                  holidaySyncService.confirmHolidayAsCompanyOff(nextFestivalOrHoliday, currentUser);
+                  addToast(`Confirmed "${nextFestivalOrHoliday.name}" as official paid company holiday!`, 'success');
+                }}
+                className="text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1 rounded cursor-pointer transition-colors shadow-xs"
+              >
+                Confirm as Off
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter and Top Navigation Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-md">
@@ -540,7 +706,7 @@ export const CalendarPage = () => {
             <Search size={13} className="text-slate-400 dark:text-sky-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search event, milestone, birthday..."
+              placeholder="Search event, milestone, note, festival..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
@@ -606,13 +772,15 @@ export const CalendarPage = () => {
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'all', label: 'All Items' },
-            { id: 'project', label: '🚀 Project Deadlines', count: (projects || []).filter(p => p.deadline && p.status !== 'completed').length },
+            { id: 'memory', label: '🔒 My Private Notes', count: (userMemories || []).length },
             { id: 'holiday', label: '🏖️ Official Holidays', count: (holidays || []).length },
+            { id: 'festival', label: '🪔 Festivals & Vrats' },
+            { id: 'project', label: '🚀 Projects Due', count: (projects || []).filter(p => p.deadline && p.status !== 'completed').length },
             { id: 'birthday', label: '🎂 Birthdays', count: (computedBirthdays || []).length },
             { id: 'anniversary', label: '🌟 Anniversaries', count: (computedAnniversaries || []).length },
-            { id: 'leave', label: '🌴 Approved Leaves' },
+            { id: 'leave', label: '🌴 Leaves' },
             { id: 'task', label: '📌 Tasks Due' },
-            { id: 'meeting', label: '🏢 Company Events' }
+            { id: 'meeting', label: '🏢 Events' }
           ].map(tab => {
             const isActive = eventTypeFilter === tab.id;
             return (
@@ -654,7 +822,7 @@ export const CalendarPage = () => {
         </label>
       </div>
 
-      {/* Calendar Viewport Matching Screenshot 3 */}
+      {/* Calendar Viewport */}
       <div className="bg-white dark:bg-[#151e32] rounded-xl border border-slate-200 dark:border-[#243049] p-[18px] shadow-sm dark:shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
         
         {/* Calendar Nav Bar (< > today, Month Year, month/week/day/list switcher) */}
@@ -724,12 +892,14 @@ export const CalendarPage = () => {
                 ev.title?.toLowerCase().includes('holiday') ||
                 ev._id?.startsWith('hol_')
               );
-              const isToday = day.dateStr === new Date().toISOString().split('T')[0];
+              const isToday = day.dateStr === todayStr;
+              const privateNotesCount = day.events.filter(e => e.isPrivateMemory).length;
 
               return (
                 <div
                   key={idx}
-                  className={`min-h-[100px] p-1.5 px-2 relative transition-colors ${
+                  onClick={() => handleOpenDateMemory(day.dateStr)}
+                  className={`min-h-[105px] p-1.5 px-2 relative transition-all cursor-pointer group hover:bg-blue-50/25 dark:hover:bg-blue-900/10 ${
                     isHolidayDay
                       ? 'border-r-[1.5px] border-b-[1.5px] border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-[#2a1215]'
                       : `border-r border-b border-slate-100 dark:border-[#243049] ${
@@ -738,13 +908,14 @@ export const CalendarPage = () => {
                             : 'bg-slate-50/60 dark:bg-[#0d1322]'
                         }`
                   }`}
+                  title="Click on any date to write private memory / view daily schedule"
                 >
-                  {/* Day Number, Today & Holiday Tag */}
+                  {/* Day Number, Tags & Quick Add Pin */}
                   <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {isHolidayDay && (
-                        <span className="text-[9px] font-extrabold text-red-400 bg-red-100 dark:bg-[#451a1a] py-0.5 px-1.5 rounded tracking-wide">
-                          🏖️ HOLIDAY
+                        <span className="text-[9px] font-extrabold text-red-500 bg-red-100 dark:bg-[#451a1a] py-0.5 px-1.5 rounded tracking-wide">
+                          🏖️ OFF
                         </span>
                       )}
                       {isToday && (
@@ -752,39 +923,62 @@ export const CalendarPage = () => {
                           TODAY
                         </span>
                       )}
+                      {privateNotesCount > 0 && (
+                        <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 py-0.5 px-1.5 rounded tracking-wide flex items-center gap-0.5">
+                          📌 {privateNotesCount}
+                        </span>
+                      )}
                     </div>
-                    <span className={`text-[12.5px] font-bold flex items-center justify-center rounded-full ${
-                      isToday
-                        ? 'w-[22px] h-[22px] text-blue-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-500'
-                        : isHolidayDay
-                        ? 'text-red-400'
-                        : day.isCurrentMonth
-                        ? 'text-slate-900 dark:text-slate-50'
-                        : 'text-slate-300 dark:text-slate-600'
-                    }`}>
-                      {day.dayNum}
-                    </span>
+
+                    <div className="flex items-center gap-1">
+                      {/* Hover Quick Add Indicator */}
+                      <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-slate-800 px-1 rounded transition-opacity">
+                        +Note
+                      </span>
+                      <span className={`text-[12.5px] font-bold flex items-center justify-center rounded-full ${
+                        isToday
+                          ? 'w-[22px] h-[22px] text-blue-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-500'
+                          : isHolidayDay
+                          ? 'text-red-400'
+                          : day.isCurrentMonth
+                          ? 'text-slate-900 dark:text-slate-50'
+                          : 'text-slate-300 dark:text-slate-600'
+                      }`}>
+                        {day.dayNum}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Event Pills */}
+                  {/* Event & Note Pills */}
                   <div className="flex flex-col gap-0.5">
                     {day.events.slice(0, 3).map(ev => {
                       const isEvHoliday = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev.title?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
+                      const isEvPrivate = ev.isPrivateMemory;
+
                       return (
                         <div
                           key={ev._id}
-                          onClick={() => setSelectedEvent(ev)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isEvPrivate) {
+                              handleOpenDateMemory(ev.date);
+                            } else {
+                              setSelectedEvent(ev);
+                            }
+                          }}
                           className={`py-0.5 px-1.5 rounded text-[11px] font-bold cursor-pointer truncate shadow-xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] ${
                             isEvHoliday
-                              ? 'bg-red-100 dark:bg-[#451a1a] text-red-300 border-l-[3px] border-red-500'
+                              ? 'bg-red-100 dark:bg-[#451a1a] text-red-500 dark:text-red-300 border-l-[3px] border-red-500'
+                              : isEvPrivate
+                              ? 'bg-purple-100/80 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-l-[3px] border-purple-500'
                               : 'dark:bg-slate-800 dark:text-slate-100'
                           }`}
-                          style={!isEvHoliday ? {
+                          style={(!isEvHoliday && !isEvPrivate) ? {
                             backgroundColor: isDark ? undefined : (ev.bgColor || '#eff6ff'),
                             color: isDark ? undefined : (ev.color || '#2563eb'),
                             borderLeft: `3px solid ${ev.color || '#2563eb'}`
                           } : undefined}
-                          title={`${ev.title} (${ev.time})`}
+                          title={`${ev.title} (${ev.time || 'All Day'})`}
                         >
                           {ev.title}
                         </div>
@@ -792,7 +986,8 @@ export const CalendarPage = () => {
                     })}
                     {day.events.length > 3 && (
                       <div
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setCurrentDate(new Date(day.dateStr));
                           setCurrentView('day');
                         }}
@@ -815,16 +1010,29 @@ export const CalendarPage = () => {
             {calendarDays.slice(0, 7).map((day, idx) => (
               <div
                 key={idx}
-                className="min-h-[260px] border-r border-b border-slate-100 dark:border-slate-800 p-2.5 bg-white dark:bg-[#151e32]"
+                onClick={() => handleOpenDateMemory(day.dateStr)}
+                className="min-h-[260px] border-r border-b border-slate-100 dark:border-slate-800 p-2.5 bg-white dark:bg-[#151e32] cursor-pointer hover:bg-slate-50/50"
               >
-                <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100 mb-2">
-                  {DAYS_OF_WEEK[idx]} ({day.dateStr})
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100">
+                    {DAYS_OF_WEEK[idx]} ({day.dateStr})
+                  </div>
+                  <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1 rounded">
+                    +Note
+                  </span>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {day.events.map(ev => (
                     <div
                       key={ev._id}
-                      onClick={() => setSelectedEvent(ev)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (ev.isPrivateMemory) {
+                          handleOpenDateMemory(ev.date);
+                        } else {
+                          setSelectedEvent(ev);
+                        }
+                      }}
                       className="p-1.5 px-2 rounded-md text-[11.5px] font-bold cursor-pointer shadow-xs"
                       style={{
                         backgroundColor: ev.bgColor,
@@ -845,14 +1053,29 @@ export const CalendarPage = () => {
         {/* Day View */}
         {currentView === 'day' && (
           <div className="mt-4 flex flex-col gap-3">
-            <div className="p-3.5 px-[18px] bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-sm text-slate-900 dark:text-slate-100">
-              Events for {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            <div className="p-3.5 px-[18px] bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+              <div className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                Events for {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </div>
+              <button
+                onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-purple-600 text-white text-xs font-bold cursor-pointer hover:bg-purple-700 transition-colors"
+              >
+                <Lock size={11} />
+                <span>+ Add Note for this Day</span>
+              </button>
             </div>
             {filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).length > 0 ? (
               filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).map(ev => (
                 <div
                   key={ev._id}
-                  onClick={() => setSelectedEvent(ev)}
+                  onClick={() => {
+                    if (ev.isPrivateMemory) {
+                      handleOpenDateMemory(ev.date);
+                    } else {
+                      setSelectedEvent(ev);
+                    }
+                  }}
                   className="p-4 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#151e32] flex items-center justify-between cursor-pointer hover:border-blue-400"
                 >
                   <div className="flex items-center gap-3.5">
@@ -868,7 +1091,7 @@ export const CalendarPage = () => {
                     <div>
                       <div className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{ev.title}</div>
                       <div className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {ev.type} • {ev.location}
+                        {ev.type} • {ev.location || 'Personal Planner'}
                       </div>
                     </div>
                   </div>
@@ -887,6 +1110,12 @@ export const CalendarPage = () => {
               <div className="text-center py-10 text-slate-400">
                 <CalendarIcon size={32} className="mx-auto mb-2 opacity-50" />
                 <div className="text-[13.5px]">No events scheduled for this day</div>
+                <button
+                  onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700"
+                >
+                  + Add First Note / Task
+                </button>
               </div>
             )}
           </div>
@@ -898,7 +1127,13 @@ export const CalendarPage = () => {
             {filteredEvents.map(ev => (
               <div
                 key={ev._id}
-                onClick={() => setSelectedEvent(ev)}
+                onClick={() => {
+                  if (ev.isPrivateMemory) {
+                    handleOpenDateMemory(ev.date);
+                  } else {
+                    setSelectedEvent(ev);
+                  }
+                }}
                 className="py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#151e32] flex items-center justify-between cursor-pointer hover:border-blue-400"
               >
                 <div className="flex items-center gap-3">
@@ -916,7 +1151,7 @@ export const CalendarPage = () => {
                       {ev.title}
                     </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {ev.time} • {ev.type} • {ev.location}
+                      {ev.time} • {ev.type} • {ev.location || 'Calendar Record'}
                     </div>
                   </div>
                 </div>
@@ -936,10 +1171,19 @@ export const CalendarPage = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Add Public Event Modal */}
       <AddEventModal
         isOpen={isAddEventOpen}
         onClose={() => setIsAddEventOpen(false)}
+      />
+
+      {/* Private Date Memory Modal (User Isolated) */}
+      <DateMemoryModal
+        isOpen={isDateMemoryOpen}
+        onClose={() => setIsDateMemoryOpen(false)}
+        selectedDate={selectedMemoryDate}
+        currentUser={currentUser}
+        dayEvents={filteredEvents.filter(e => e.date === selectedMemoryDate)}
       />
 
       {/* Event Detail Modal */}

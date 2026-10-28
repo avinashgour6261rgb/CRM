@@ -136,7 +136,7 @@ export const HRProvider = ({ children }) => {
 
     // Listen for storage events across tabs or internal updates
     const handleStorageUpdate = (e) => {
-      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
+      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
         scheduleDebouncedLoad();
       }
@@ -362,6 +362,36 @@ export const HRProvider = ({ children }) => {
     }
   };
 
+  const toggleHolidayConfirmation = async (holidayId, isConfirmed) => {
+    try {
+      await hrService.toggleHolidayConfirmation(holidayId, isConfirmed, currentUser);
+      addToast(isConfirmed ? 'Holiday declared as Official Paid Holiday! ✅' : 'Holiday set to Optional / Working Day 🏢', 'success');
+      await loadData();
+    } catch (err) {
+      addToast('Failed to update holiday status', 'error');
+    }
+  };
+
+  const bulkConfirmGazetted = async (year) => {
+    try {
+      await hrService.bulkConfirmGazetted(year, holidays, currentUser);
+      addToast(`All Gazetted Holidays for ${year} confirmed as Official Paid Offs! 🏛️`, 'success');
+      await loadData();
+    } catch (err) {
+      addToast('Failed to confirm gazetted holidays', 'error');
+    }
+  };
+
+  const resetHolidayConfirmations = async (year) => {
+    try {
+      await hrService.resetHolidayConfirmations(year);
+      addToast(`Holiday confirmations for ${year} reset to default policy.`, 'info');
+      await loadData();
+    } catch (err) {
+      addToast('Failed to reset holiday confirmations', 'error');
+    }
+  };
+
   // ================= APPRECIATIONS =================
   const addAppreciation = async (data) => {
     try {
@@ -414,6 +444,9 @@ export const HRProvider = ({ children }) => {
     adminForceClockOut,
     addHoliday,
     deleteHoliday,
+    toggleHolidayConfirmation,
+    bulkConfirmGazetted,
+    resetHolidayConfirmations,
     addAppreciation,
     deleteAppreciation
   }), [
@@ -423,7 +456,7 @@ export const HRProvider = ({ children }) => {
     addEmployee, updateEmployee, deleteEmployee, applyLeave,
     updateLeaveStatus, acknowledgeLeave, deleteLeave,
     markAttendanceRecord, adminForceClockOut, addHoliday,
-    deleteHoliday, addAppreciation, deleteAppreciation
+    deleteHoliday, toggleHolidayConfirmation, bulkConfirmGazetted, resetHolidayConfirmations, addAppreciation, deleteAppreciation
   ]);
 
   return (
