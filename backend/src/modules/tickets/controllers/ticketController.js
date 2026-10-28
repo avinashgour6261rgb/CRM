@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
@@ -19,17 +20,29 @@ exports.getTickets = asyncHandler(async (req, res) => {
 exports.createTicket = asyncHandler(async (req, res) => {
   const count = await Ticket.countDocuments();
   const ticketCode = req.body.ticketCode || `TKT-${100 + count + 1}`;
-  const ticket = await Ticket.create({
-    ...req.body,
-    ticketCode
-  });
+  const ticketData = { ...req.body };
+  if (ticketData._id && !mongoose.Types.ObjectId.isValid(ticketData._id)) {
+    delete ticketData._id;
+  }
+  ticketData.ticketCode = ticketCode;
+  const ticket = await Ticket.create(ticketData);
   res.status(201).json({ success: true, data: ticket });
 });
 
 // @desc    Update a ticket
 // @route   PUT /api/tickets/:id
 exports.updateTicket = asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: false });
+  const { id } = req.params;
+  const updateData = { ...req.body };
+  if (updateData._id) delete updateData._id;
+
+  let ticket = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    ticket = await Ticket.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });
+  } else {
+    ticket = await Ticket.findOneAndUpdate({ ticketCode: id }, updateData, { new: true, runValidators: false });
+  }
+
   if (!ticket) {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
@@ -39,7 +52,14 @@ exports.updateTicket = asyncHandler(async (req, res) => {
 // @desc    Add comment to ticket
 // @route   POST /api/tickets/:id/comments
 exports.addComment = asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
+  const { id } = req.params;
+  let ticket = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    ticket = await Ticket.findById(id);
+  } else {
+    ticket = await Ticket.findOne({ ticketCode: id });
+  }
+
   if (!ticket) {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
@@ -51,9 +71,17 @@ exports.addComment = asyncHandler(async (req, res) => {
 // @desc    Delete a ticket
 // @route   DELETE /api/tickets/:id
 exports.deleteTicket = asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findByIdAndDelete(req.params.id);
+  const { id } = req.params;
+  let ticket = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    ticket = await Ticket.findByIdAndDelete(id);
+  } else {
+    ticket = await Ticket.findOneAndDelete({ ticketCode: id });
+  }
+
   if (!ticket) {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
   res.json({ success: true, message: 'Ticket removed', data: {} });
 });
+

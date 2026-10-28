@@ -123,6 +123,22 @@ export const CRMProvider = ({ children }) => {
     });
   };
 
+  const getAuthHeaders = () => {
+    try {
+      const s = localStorage.getItem('ems_auth_session');
+      if (!s) return { 'Content-Type': 'application/json' };
+      const parsed = JSON.parse(s);
+      const u = parsed?.user || parsed;
+      return {
+        'Content-Type': 'application/json',
+        'x-user-id': String(u?._id || u?.id || u?.employeeCode || ''),
+        'x-user-role': String(u?.systemRole || (u?.isAdmin ? 'admin' : (u?.department === 'Human Resources' ? 'hr' : 'team_member')))
+      };
+    } catch {
+      return { 'Content-Type': 'application/json' };
+    }
+  };
+
   const [storageTick, setStorageTick] = useState(0);
   const [companySettings, setCompanySettings] = useState(getCompanySettings);
 
@@ -854,14 +870,17 @@ export const CRMProvider = ({ children }) => {
     };
 
     try {
+      const payload = { ...newTicket };
+      delete payload._id;
       const res = await fetch(`${API_BASE}/tickets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTicket)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newTicket._id = json.data._id;
+        if (json.data?._id) newTicket._id = String(json.data._id);
+        if (json.data?.ticketCode) newTicket.ticketCode = json.data.ticketCode;
       }
     } catch (_) {}
 
@@ -877,13 +896,13 @@ export const CRMProvider = ({ children }) => {
     try {
       await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const idx = currentList.findIndex(t => t._id === ticketId || t.id === ticketId || t.ticketCode === ticketId);
     if (idx !== -1) {
       currentList[idx].status = status;
       currentList[idx].updatedAt = new Date().toISOString();
@@ -1015,14 +1034,16 @@ export const CRMProvider = ({ children }) => {
     };
 
     try {
+      const payload = { ...newEvent };
+      delete payload._id;
       const res = await fetch(`${API_BASE}/events`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEvent)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newEvent._id = json.data._id;
+        if (json.data?._id) newEvent._id = String(json.data._id);
       }
     } catch (_) {}
 
@@ -1036,15 +1057,17 @@ export const CRMProvider = ({ children }) => {
 
   const updateEvent = async (eventId, updateData) => {
     try {
+      const payload = { ...updateData };
+      delete payload._id;
       await fetch(`${API_BASE}/events/${eventId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EVENTS);
-    const idx = currentList.findIndex(e => e._id === eventId);
+    const idx = currentList.findIndex(e => e._id === eventId || e.id === eventId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1060,11 +1083,14 @@ export const CRMProvider = ({ children }) => {
 
   const deleteEvent = async (eventId) => {
     try {
-      await fetch(`${API_BASE}/events/${eventId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/events/${eventId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EVENTS);
-    const filtered = currentList.filter(e => e._id !== eventId);
+    const filtered = currentList.filter(e => e._id !== eventId && e.id !== eventId);
     saveCollection(KEYS.EVENTS, filtered);
     setEvents(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EVENTS } }));
@@ -1173,8 +1199,7 @@ export const CRMProvider = ({ children }) => {
   const createNotice = async (noticeData) => {
     const currentList = getCollection(KEYS.NOTICES);
     const now = new Date();
-    const newNotice = {
-      _id: `not_${Date.now()}`,
+    const noticePayload = {
       title: noticeData.title || 'Company Notice',
       description: noticeData.description || noticeData.shortDescription || '',
       shortDescription: noticeData.shortDescription || noticeData.description || '',
@@ -1187,43 +1212,62 @@ export const CRMProvider = ({ children }) => {
       date: noticeData.date || now.toISOString().split('T')[0],
       expiryDate: noticeData.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       attachment: noticeData.attachment || '',
-      isImportant: noticeData.priority === 'urgent' || noticeData.priority === 'high',
-      fullContent: noticeData.description || '',
+      isImportant: noticeData.priority === 'urgent' || noticeData.priority === 'high' || !!noticeData.isImportant,
+      fullContent: noticeData.description || noticeData.fullContent || '',
       createdAt: now.toISOString(),
       ...noticeData
+    };
+    // Never send client-side temporary string ID to backend
+    delete noticePayload._id;
+
+    let savedNotice = {
+      _id: `not_${Date.now()}`,
+      ...noticePayload
     };
 
     try {
       const res = await fetch(`${API_BASE}/notices`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newNotice)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(noticePayload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newNotice._id = json.data._id;
+        if (json.data) {
+          savedNotice = {
+            ...savedNotice,
+            ...json.data,
+            _id: String(json.data._id || savedNotice._id)
+          };
+        }
+      } else {
+        console.warn('Backend rejected notice creation:', await res.text());
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Notice saved locally, offline sync will propagate to MongoDB:', err);
+    }
 
-    currentList.unshift(newNotice);
+    currentList.unshift(savedNotice);
     saveCollection(KEYS.NOTICES, currentList);
     setNotices([...currentList]);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
     addToast('Company announcement published to Notice Board & Dashboards!', 'success');
-    return newNotice;
+    return savedNotice;
   };
 
   const updateNotice = async (noticeId, updateData) => {
     try {
+      const payload = { ...updateData };
+      delete payload._id;
       await fetch(`${API_BASE}/notices/${noticeId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.NOTICES);
-    const idx = currentList.findIndex(n => n._id === noticeId);
+    const idx = currentList.findIndex(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1239,11 +1283,14 @@ export const CRMProvider = ({ children }) => {
 
   const deleteNotice = async (noticeId) => {
     try {
-      await fetch(`${API_BASE}/notices/${noticeId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/notices/${noticeId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.NOTICES);
-    const filtered = currentList.filter(n => n._id !== noticeId);
+    const filtered = currentList.filter(n => n._id !== noticeId && n.id !== noticeId && n.noticeCode !== noticeId);
     saveCollection(KEYS.NOTICES, filtered);
     setNotices(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
@@ -1268,10 +1315,9 @@ export const CRMProvider = ({ children }) => {
     const nextNum = (currentList.length > 0 ? Math.max(...currentList.map(l => l.idNumber || 0)) + 1 : 1);
     const now = new Date();
 
-    const newLead = {
-      _id: `lead_${Date.now()}`,
+    const leadPayload = {
       idNumber: nextNum,
-      leadCode: `LEAD-${1000 + nextNum}`,
+      leadCode: leadData.leadCode || `LEAD-${1000 + nextNum}`,
       name: leadData.name || leadData.contactPerson,
       contactPerson: leadData.contactPerson || leadData.name,
       companyName: leadData.companyName || leadData.client || 'Enterprise Client',
@@ -1298,18 +1344,52 @@ export const CRMProvider = ({ children }) => {
       notes: leadData.notes || '',
       ...leadData
     };
+    delete leadPayload._id;
 
-    currentList.unshift(newLead);
+    let savedLead = {
+      _id: `lead_${Date.now()}`,
+      ...leadPayload
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/leads`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(leadPayload)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          savedLead = {
+            ...savedLead,
+            ...json.data,
+            _id: String(json.data._id || savedLead._id)
+          };
+        }
+      }
+    } catch (_) {}
+
+    currentList.unshift(savedLead);
     saveCollection(KEYS.LEADS, currentList);
     setLeads([...currentList]);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
-    addToast(`Lead "${newLead.name}" added successfully!`, 'success');
-    return newLead;
+    addToast(`Lead "${savedLead.name}" added successfully!`, 'success');
+    return savedLead;
   };
 
   const updateLead = async (leadId, updateData) => {
+    try {
+      const payload = { ...updateData };
+      delete payload._id;
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const idx = currentList.findIndex(l => l._id === leadId);
+    const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1325,8 +1405,16 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateLeadStatus = async (leadId, status) => {
+    try {
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const idx = currentList.findIndex(l => l._id === leadId);
+    const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
     if (idx !== -1) {
       const prevStatus = currentList[idx].status;
       currentList[idx].status = status;
@@ -1344,8 +1432,15 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteLead = async (leadId) => {
+    try {
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const filtered = currentList.filter(l => l._id !== leadId);
+    const filtered = currentList.filter(l => l._id !== leadId && l.id !== leadId && l.leadCode !== leadId);
     saveCollection(KEYS.LEADS, filtered);
     setLeads(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
