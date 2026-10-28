@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 
 const QUICK_SNOOZE_PRESETS = [
   { label: '15 Minutes', minutes: 15, icon: '⚡' },
@@ -28,6 +29,7 @@ const QUICK_SNOOZE_PRESETS = [
 
 export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
   const { snoozeTask, formatSeconds } = useWork();
+  const { addToast } = useToast();
   const [selectedPreset, setSelectedPreset] = useState(30);
   const [customDateTime, setCustomDateTime] = useState('');
   const [note, setNote] = useState('');
@@ -45,7 +47,7 @@ export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
     try {
       if (selectedPreset === 'custom') {
         if (!customDateTime) {
-          alert('Please select a reminder date and time');
+          addToast('Please select a reminder date and time', 'warning');
           setIsSubmitting(false);
           return;
         }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { Plus, Trash2, Mail, Briefcase, Building, Search, Calendar, UserCheck, Award, User, Edit3, ArrowUpDown, ShieldCheck } from 'lucide-react';
 import { AddEmployeeModal } from './AddEmployeeModal';
 import { PromoteEmployeeModal } from './PromoteEmployeeModal';
@@ -10,6 +11,7 @@ import { ManagePermissionsModal } from './ManagePermissionsModal';
 
 export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const { employees, deleteEmployee, currentUser } = useHR();
+  const { confirm } = useConfirm();
   const [search, setSearch] = useState('');
 
   const isEmployeeSelf = (emp) => {
@@ -268,8 +270,14 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
 
                       {!isEmployeeSelf(emp) && (
                         <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to remove employee ${emp.name}?`)) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Remove Employee',
+                              message: `Are you sure you want to remove employee "${emp.name}"? This action cannot be undone.`,
+                              confirmText: 'Remove Employee',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               deleteEmployee(emp._id);
                             }
                           }}

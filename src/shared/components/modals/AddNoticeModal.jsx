@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
+import { useToast } from '../../context/ToastContext';
 
 export const AddNoticeModal = ({ isOpen, onClose }) => {
   const { createNotice } = useCRM();
   const { currentUser } = useHR();
+  const { addToast } = useToast();
 
   const now = new Date().toISOString().split('T')[0];
   const defaultExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -47,7 +49,7 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.description.trim()) {
-      alert('Please fill in the Notice Title and Description');
+      addToast('Please fill in the Notice Title and Description', 'warning');
       return;
     }
 

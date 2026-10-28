@@ -95,6 +95,10 @@ const NoticeSchema = new mongoose.Schema(
     acknowledgedBy: {
       type: [String],
       default: []
+    },
+    dismissedBy: {
+      type: [String],
+      default: []
     }
   },
   {

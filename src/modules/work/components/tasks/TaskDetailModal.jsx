@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 export const TaskDetailModal = ({ task, onClose }) => {
   const {
@@ -796,7 +797,13 @@ export const TaskDetailModal = ({ task, onClose }) => {
               <button
                 type="button"
                 onClick={async () => {
-                  if (window.confirm(`Are you sure you want to permanently delete task "${task.title}" (#${task.taskCode || ''})?`)) {
+                  const ok = await confirmDialog({
+                    title: 'Delete Task',
+                    message: `Are you sure you want to permanently delete task "${task.title}" (#${task.taskCode || ''})? This action cannot be reversed.`,
+                    confirmText: 'Delete Task',
+                    variant: 'danger'
+                  });
+                  if (ok) {
                     await deleteTask(task._id);
                     onClose();
                   }

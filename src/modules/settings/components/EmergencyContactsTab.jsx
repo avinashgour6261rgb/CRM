@@ -6,10 +6,12 @@
 import React, { useState } from 'react';
 import { Plus, Edit3, Trash2, Phone, Mail, UserCheck, List } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddEmergencyContactModal } from './AddEmergencyContactModal';
 
 export const EmergencyContactsTab = () => {
   const { emergencyContacts, deleteEmergencyContact } = useCRM();
+  const { confirm } = useConfirm();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
 
@@ -18,8 +20,14 @@ export const EmergencyContactsTab = () => {
     setIsAddModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to remove this emergency contact?')) {
+  const handleDelete = async (id) => {
+    const ok = await confirm({
+      title: 'Remove Contact',
+      message: 'Are you sure you want to remove this emergency contact?',
+      confirmText: 'Remove Contact',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteEmergencyContact(id);
     }
   };

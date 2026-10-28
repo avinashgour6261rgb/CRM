@@ -1281,6 +1281,33 @@ export const CRMProvider = ({ children }) => {
     }
   };
 
+  const dismissNoticeForUser = async (noticeId, userIdentifier) => {
+    if (!noticeId || !userIdentifier) return;
+    const currentList = getCollection(KEYS.NOTICES) || [];
+    const idx = currentList.findIndex(n => String(n._id) === String(noticeId) || String(n.id) === String(noticeId) || String(n.noticeCode) === String(noticeId));
+    if (idx !== -1) {
+      const existingDismissed = Array.isArray(currentList[idx].dismissedBy) ? currentList[idx].dismissedBy : [];
+      const updatedDismissed = [...new Set([...existingDismissed, String(userIdentifier)])];
+      currentList[idx] = {
+        ...currentList[idx],
+        dismissedBy: updatedDismissed,
+        updatedAt: new Date().toISOString()
+      };
+      saveCollection(KEYS.NOTICES, currentList);
+      setNotices([...currentList]);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
+
+      try {
+        const realId = currentList[idx]._id || noticeId;
+        await fetch(`${API_BASE}/notices/${realId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ dismissedBy: updatedDismissed })
+        });
+      } catch (_) {}
+    }
+  };
+
   const deleteNotice = async (noticeId) => {
     try {
       await fetch(`${API_BASE}/notices/${noticeId}`, {
@@ -1585,6 +1612,7 @@ export const CRMProvider = ({ children }) => {
     createNotice,
     updateNotice,
     deleteNotice,
+    dismissNoticeForUser,
 
     leads,
     leadsFilter,

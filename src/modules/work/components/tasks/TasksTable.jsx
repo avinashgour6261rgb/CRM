@@ -19,6 +19,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
+import { useConfirm, confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { SnoozeTaskModal } from './SnoozeTaskModal';
 
 const STATUS_CONFIG = {
@@ -66,12 +67,18 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
     );
   };
 
-  const handleDelete = (id, e) => {
+  const handleDelete = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this task?')) {
+    setActiveMenuId(null);
+    const ok = await confirmDialog({
+      title: 'Delete Task',
+      message: 'Are you sure you want to permanently delete this task? This cannot be undone.',
+      confirmText: 'Delete Task',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteTask(id);
     }
-    setActiveMenuId(null);
   };
 
   if (!tasks || tasks.length === 0) {

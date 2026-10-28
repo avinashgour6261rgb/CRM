@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { AlertTriangle, Calendar, Clock, CheckCircle2, Play, X, ArrowRight } from 'lucide-react';
+import { useToast } from '../../../../shared/context/ToastContext';
 
 export const OverdueTaskModal = ({
   task,
@@ -18,6 +19,7 @@ export const OverdueTaskModal = ({
 
   const [customDate, setCustomDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleQuickExtend = async (days) => {
     setSubmitting(true);
@@ -34,7 +36,7 @@ export const OverdueTaskModal = ({
     try {
       const today = new Date().toISOString().split('T')[0];
       if (customDate < today) {
-        alert('Please choose a future date for the new deadline.');
+        addToast('Please choose a future date for the new deadline.', 'warning');
         return;
       }
       // Calculate diff in days

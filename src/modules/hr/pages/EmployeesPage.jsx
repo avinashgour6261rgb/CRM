@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { useNavigate } from 'react-router-dom';
 import { AddEmployeeModal } from '../components/employees/AddEmployeeModal';
 import { PromoteEmployeeModal } from '../components/employees/PromoteEmployeeModal';
@@ -34,6 +35,7 @@ export const EmployeesPage = () => {
   const navigate = useNavigate();
   const { employees, deleteEmployee, currentUser } = useHR();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('all');
@@ -560,8 +562,14 @@ export const EmployeesPage = () => {
 
                           {!isEmployeeSelf(emp) && (
                             <button
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove employee ${emp.name}?`)) {
+                              onClick={async () => {
+                                const ok = await confirm({
+                                  title: 'Remove Employee',
+                                  message: `Are you sure you want to remove employee "${emp.name}" (${emp.employeeCode || emp.designation})? This will deactivate their account.`,
+                                  confirmText: 'Remove Employee',
+                                  variant: 'danger'
+                                });
+                                if (ok) {
                                   deleteEmployee(emp._id);
                                 }
                               }}

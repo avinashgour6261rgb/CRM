@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const EVENT_TYPES = [
   { value: 'Personal Reminder', label: '⏰ Personal Reminder / Task Reminder', color: '#d97706', bg: '#fffbeb' },
@@ -34,6 +35,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
   const { createEvent, darkMode } = useCRM();
   const isDark = !!darkMode;
   const { currentUser } = useAuth();
+  const { addToast } = useToast();
 
   const now = new Date().toISOString().split('T')[0];
 
@@ -60,7 +62,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.eventName.trim()) {
-      alert('Please enter an event or reminder title');
+      addToast('Please enter an event or reminder title', 'warning');
       return;
     }
 

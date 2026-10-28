@@ -31,6 +31,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { confirmDialog } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 // Components
@@ -211,11 +212,18 @@ export const LeadsPage = () => {
     endDateFilter !== '';
 
   // Batch actions
-  const handleBatchDelete = () => {
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected leads?`)) {
+  const handleBatchDelete = async () => {
+    const ok = await confirmDialog({
+      title: 'Delete Selected Leads',
+      message: `Are you sure you want to permanently delete ${selectedIds.length} selected lead(s)? This action cannot be reversed.`,
+      confirmText: `Delete ${selectedIds.length} Lead(s)`,
+      variant: 'danger'
+    });
+    if (ok) {
       selectedIds.forEach(id => deleteLead(id));
+      const count = selectedIds.length;
       setSelectedIds([]);
-      addToast(`Deleted ${selectedIds.length} leads`, 'info');
+      addToast(`Deleted ${count} leads`, 'info');
     }
   };
 

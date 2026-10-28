@@ -15,6 +15,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const STATUS_CONFIG = {
   active: { label: 'Active (Running)', color: '#0284c7', bg: '#e0f2fe', dot: '#0284c7' },
@@ -45,12 +46,18 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
 
   const [activeMenuId, setActiveMenuId] = useState(null);
 
-  const handleDelete = (id, e) => {
+  const handleDelete = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this timesheet entry?')) {
+    setActiveMenuId(null);
+    const ok = await confirmDialog({
+      title: 'Delete Timesheet Entry',
+      message: 'Are you sure you want to delete this timesheet entry? This log will be permanently removed.',
+      confirmText: 'Delete Entry',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteTimesheet(id);
     }
-    setActiveMenuId(null);
   };
 
   if (!timesheets || timesheets.length === 0) {

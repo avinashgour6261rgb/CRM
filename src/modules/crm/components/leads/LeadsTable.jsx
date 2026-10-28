@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 
 export const LeadsTable = ({
   leads = [],
@@ -35,6 +36,7 @@ export const LeadsTable = ({
 }) => {
   const { updateLeadStatus, deleteLead } = useCRM();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
   const [sortField, setSortField] = useState('idNumber');
@@ -495,9 +497,15 @@ export const LeadsTable = ({
                           <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
 
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               setActiveMenuId(null);
-                              if (confirm(`Are you sure you want to delete lead "${lead.name}"?`)) {
+                              const ok = await confirm({
+                                title: 'Delete Lead',
+                                message: `Are you sure you want to delete lead "${lead.name}"? This action cannot be undone.`,
+                                confirmText: 'Delete Lead',
+                                variant: 'danger'
+                              });
+                              if (ok) {
                                 deleteLead(lead._id);
                               }
                             }}

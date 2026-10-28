@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const STATUS_CONFIG = {
   in_progress: { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
@@ -47,12 +48,18 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const handleDelete = (id, e) => {
+  const handleDelete = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this project and all its associated data?')) {
+    setActiveMenuId(null);
+    const ok = await confirmDialog({
+      title: 'Delete Project',
+      message: 'Are you sure you want to delete this project and all its associated tasks? This cannot be recovered.',
+      confirmText: 'Delete Project',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteProject(id);
     }
-    setActiveMenuId(null);
   };
 
   const handleStatusChange = async (projectId, newStatus, e) => {

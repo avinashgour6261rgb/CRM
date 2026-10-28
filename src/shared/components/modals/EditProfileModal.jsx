@@ -184,7 +184,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
     // Security Check: HR cannot promote/assign Admin
     if (canEditRole && !isActorAdmin && formData.role.toLowerCase().includes('admin')) {
-      alert('🔒 Security Restriction: HR Managers cannot create or assign Admin accounts. Only Super Admin has this privilege.');
+      addToast('Security Restriction: HR Managers cannot create or assign Admin accounts. Only Super Admin has this privilege.', 'error');
       return;
     }
 

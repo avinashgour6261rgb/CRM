@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onExtendDeadline }) => {
   const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion, deleteProject } = useWork();
@@ -639,7 +640,13 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
               <button
                 type="button"
                 onClick={async () => {
-                  if (window.confirm(`Are you sure you want to permanently delete project "${project.name}" (#${project.projectCode || ''})? This will also remove all associated tasks.`)) {
+                  const ok = await confirmDialog({
+                    title: 'Delete Project',
+                    message: `Are you sure you want to permanently delete project "${project.name}" (#${project.projectCode || ''})? This will also remove all associated tasks and logs.`,
+                    confirmText: 'Delete Project',
+                    variant: 'danger'
+                  });
+                  if (ok) {
                     await deleteProject(project._id || project.projectCode);
                     onClose();
                   }

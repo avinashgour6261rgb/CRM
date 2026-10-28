@@ -27,6 +27,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
   const { updateLeadStatus, deleteLead } = useCRM();
@@ -309,8 +310,14 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             borderTop: '1px solid #f1f5f9'
           }}>
             <button
-              onClick={() => {
-                if (confirm(`Are you sure you want to delete lead "${lead.name}"?`)) {
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: 'Delete Lead',
+                  message: `Are you sure you want to permanently delete lead "${lead.name}"? This cannot be undone.`,
+                  confirmText: 'Delete Lead',
+                  variant: 'danger'
+                });
+                if (ok) {
                   deleteLead(lead._id);
                   onClose();
                 }

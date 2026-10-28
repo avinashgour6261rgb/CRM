@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Trash2
 } from 'lucide-react';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 export const DashboardTasksSection = ({
   dashboardTaskScope = 'assigned_to_me',
@@ -493,9 +494,15 @@ export const DashboardTasksSection = ({
 
                           {canDeleteTask(task) && (
                             <button
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+                                const ok = await confirmDialog({
+                                  title: 'Delete Task',
+                                  message: `Are you sure you want to delete task "${task.title}"?`,
+                                  confirmText: 'Delete Task',
+                                  variant: 'danger'
+                                });
+                                if (ok) {
                                   deleteTask(task._id);
                                 }
                               }}

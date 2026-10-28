@@ -17,12 +17,14 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { AddAppreciationModal } from '../components/appreciation/AddAppreciationModal';
 
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
   const { appreciations, employees, currentUser: hrUser, searchQuery, setSearchQuery, deleteAppreciation } = useHR();
+  const { confirm, alert } = useConfirm();
   const currentUser = authUser || hrUser;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -101,7 +103,11 @@ export const AppreciationPage = () => {
 
   const handleExportCSV = () => {
     if (filteredAppreciations.length === 0) {
-      alert('No appreciation records to export.');
+      alert({
+        title: 'Export Appreciations',
+        message: 'No appreciation records to export.',
+        variant: 'primary'
+      });
       return;
     }
     const headers = ['Employee Name', 'Role', 'Award / Reason', 'Given On', 'Given By', 'Reward', 'Appreciation Message'];
@@ -512,8 +518,14 @@ export const AppreciationPage = () => {
                       {/* Action */}
                       <td style={{ textAlign: 'right' }}>
                         <button
-                          onClick={() => {
-                            if (confirm(`Remove appreciation for ${item.givenToName}?`)) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Delete Appreciation',
+                              message: `Are you sure you want to remove appreciation award for "${item.givenToName}"?`,
+                              confirmText: 'Remove Award',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               deleteAppreciation(item._id);
                             }
                           }}

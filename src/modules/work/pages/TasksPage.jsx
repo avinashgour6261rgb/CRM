@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
@@ -40,6 +41,7 @@ export const TasksPage = () => {
     purgeAllTasks
   } = useWork();
   const { currentUser: authUser } = useAuth();
+  const { confirm } = useConfirm();
   const currentUser = authUser || workUser;
 
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
@@ -345,7 +347,13 @@ export const TasksPage = () => {
           {isPrivileged && tasks.length > 0 && (
             <button
               onClick={async () => {
-                if (window.confirm('⚠️ Are you sure you want to purge all existing tasks? This will wipe legacy tasks so you can start completely clean with new tasks.')) {
+                const ok = await confirm({
+                  title: 'Purge All Tasks',
+                  message: '⚠️ Are you sure you want to purge all existing tasks? This will wipe legacy tasks so you can start completely clean with new tasks.',
+                  confirmText: 'Purge All Tasks',
+                  variant: 'danger'
+                });
+                if (ok) {
                   await purgeAllTasks();
                 }
               }}

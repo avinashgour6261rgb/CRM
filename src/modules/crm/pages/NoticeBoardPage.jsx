@@ -21,11 +21,13 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice } = useCRM();
   const { addToast } = useToast();
+  const { confirm, alert } = useConfirm();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
@@ -71,7 +73,11 @@ export const NoticeBoardPage = () => {
 
   const handleExport = () => {
     if (filteredNotices.length === 0) {
-      alert('No notices available to export');
+      alert({
+        title: 'Export Notices',
+        message: 'No notices are available to export for the current filter.',
+        variant: 'info'
+      });
       return;
     }
 
@@ -547,9 +553,17 @@ export const NoticeBoardPage = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
               <span>Target: <strong>{selectedNotice.to || 'All Employees'}</strong></span>
               <button
-                onClick={() => {
-                  deleteNotice(selectedNotice._id);
-                  setSelectedNotice(null);
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Delete Company Notice',
+                    message: `Are you sure you want to permanently delete notice "${selectedNotice.title}"? This cannot be undone.`,
+                    confirmText: 'Delete Notice',
+                    variant: 'danger'
+                  });
+                  if (ok) {
+                    deleteNotice(selectedNotice._id);
+                    setSelectedNotice(null);
+                  }
                 }}
                 style={{
                   display: 'inline-flex',

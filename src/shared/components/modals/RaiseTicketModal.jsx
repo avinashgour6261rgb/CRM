@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
+import { useToast } from '../../context/ToastContext';
 
 const TICKET_CATEGORIES = [
   'IT & Infrastructure',
@@ -25,6 +26,7 @@ const TICKET_CATEGORIES = [
 
 export const RaiseTicketModal = ({ isOpen, onClose }) => {
   const { createTicket } = useCRM();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     subject: '',
@@ -45,7 +47,7 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.subject.trim()) {
-      alert('Please enter a ticket subject');
+      addToast('Please enter a ticket subject', 'warning');
       return;
     }
 

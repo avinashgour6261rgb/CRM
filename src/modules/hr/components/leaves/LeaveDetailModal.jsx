@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { Check, X, Trash2, Calendar, Clock, User, ShieldCheck, ShieldAlert, UserCheck } from 'lucide-react';
 import { canApproveLeaves, isHRorAdmin, isAdmin, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../../shared/utils/permissionUtils';
 import { CancelLeaveModal } from '../../../../shared/components/modals/CancelLeaveModal';
 
 export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   const { updateLeaveStatus, deleteLeave, currentUser } = useHR();
+  const { confirm } = useConfirm();
   const [rejectionNote, setRejectionNote] = useState('');
   const [showDenyInput, setShowDenyInput] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -30,7 +32,13 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   };
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this leave record?')) {
+    const ok = await confirm({
+      title: 'Delete Leave Record',
+      message: 'Are you sure you want to delete this leave record? This action cannot be undone.',
+      confirmText: 'Delete Record',
+      variant: 'danger'
+    });
+    if (ok) {
       await deleteLeave(leave._id);
       onClose();
     }

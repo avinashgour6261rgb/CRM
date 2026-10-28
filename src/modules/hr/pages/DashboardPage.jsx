@@ -138,7 +138,7 @@ export const DashboardPage = () => {
     reopenProject,
     deleteTask
   } = useWork();
-  const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs } = useCRM();
+  const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs, dismissNoticeForUser } = useCRM();
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
   const [snoozeTaskTarget, setSnoozeTaskTarget] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
@@ -149,24 +149,64 @@ export const DashboardPage = () => {
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
   const [cancellingLeaveTarget, setCancellingLeaveTarget] = useState(null);
 
-  // Top Alert Banners Dismissal State (Dismissing persists for current browser session)
+  // Role & Scope Detection
+  const userRole = authRole || getUserRole(currentUser);
+  const isUserAdminOrHR = userRole === ROLES.ADMIN || userRole === ROLES.HR || currentUser?.isAdmin;
+  const roleConfig = authRoleConfig || ROLE_CONFIGS[userRole] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
+  const perms = getUserModulePermissions(currentUser);
+
+  // Admin Perspective State: View any employee's live dashboard by name
+  const [selectedAdminEmpId, setSelectedAdminEmpId] = useState('me');
+  const isViewingOtherEmployee = isUserAdminOrHR && selectedAdminEmpId !== 'me';
+  const activeViewUser = React.useMemo(() => {
+    if (!isViewingOtherEmployee) return currentUser;
+    return (employees || []).find(e => String(e._id) === String(selectedAdminEmpId) || String(e.employeeCode) === String(selectedAdminEmpId)) || currentUser;
+  }, [isViewingOtherEmployee, selectedAdminEmpId, employees, currentUser]);
+  const effectiveTargetUser = isViewingOtherEmployee ? activeViewUser : currentUser;
+
+  // Target Active User UID for strictly user-scoped alerts and dismissals (Both for logged in employee and admin switcher perspective)
+  const targetActiveUid = React.useMemo(() => {
+    return String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || 'global');
+  }, [effectiveTargetUser?._id, effectiveTargetUser?.employeeCode, currentUser?._id, currentUser?.employeeCode]);
+
+  const userAlertKey = React.useMemo(() => {
+    return `ems_dismissed_top_alerts_${targetActiveUid}`;
+  }, [targetActiveUid]);
+
   const [dismissedTopAlerts, setDismissedTopAlerts] = useState(() => {
     try {
-      return JSON.parse(sessionStorage.getItem('ems_dismissed_top_alerts') || '[]');
+      const stored = localStorage.getItem(`ems_dismissed_top_alerts_${targetActiveUid}`);
+      return stored ? JSON.parse(stored) : [];
     } catch (_) {
       return [];
     }
   });
 
+  // Re-load alerts whenever the effective target user changes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(userAlertKey);
+      setDismissedTopAlerts(stored ? JSON.parse(stored) : []);
+    } catch (_) {
+      setDismissedTopAlerts([]);
+    }
+  }, [userAlertKey]);
+
+  // Per-User Top Alert Dismissal: Updates local user state, localStorage, and syncs notice dismissals to MongoDB
   const dismissTopAlert = (alertId) => {
     if (!alertId) return;
+    const strId = String(alertId);
     setDismissedTopAlerts(prev => {
-      const next = [...new Set([...prev, String(alertId)])];
+      const next = [...new Set([...prev, strId])];
       try {
-        sessionStorage.setItem('ems_dismissed_top_alerts', JSON.stringify(next));
+        localStorage.setItem(userAlertKey, JSON.stringify(next));
       } catch (_) {}
       return next;
     });
+
+    if (typeof dismissNoticeForUser === 'function') {
+      dismissNoticeForUser(strId, targetActiveUid);
+    }
   };
 
   // Projects pending final sign-off
@@ -191,7 +231,29 @@ export const DashboardPage = () => {
     );
   }, [projects, currentUser]);
   const [activeLeftoverIdx, setActiveLeftoverIdx] = useState(0);
-  const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(false);
+  const leftoverDismissKey = `ems_dismissed_leftover_${targetActiveUid}_${todayStr}`;
+  const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(`ems_dismissed_leftover_${targetActiveUid}_${todayStr}`) === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setIsLeftoverDismissed(localStorage.getItem(leftoverDismissKey) === 'true');
+    } catch (_) {
+      setIsLeftoverDismissed(false);
+    }
+  }, [leftoverDismissKey]);
+
+  const handleDismissLeftover = () => {
+    setIsLeftoverDismissed(true);
+    try {
+      localStorage.setItem(leftoverDismissKey, 'true');
+    } catch (_) {}
+  };
   const {
     loginTime,
     clockOutTime,
@@ -365,12 +427,6 @@ export const DashboardPage = () => {
     return s === 'completed';
   };
 
-  // Role & Scope Detection
-  const userRole = authRole || getUserRole(currentUser);
-  const isUserAdminOrHR = userRole === ROLES.ADMIN || userRole === ROLES.HR || currentUser?.isAdmin;
-  const roleConfig = authRoleConfig || ROLE_CONFIGS[userRole] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
-  const perms = getUserModulePermissions(currentUser);
-
   // Dashboard Task Filter State
   const [taskScopeFilter, setTaskScopeFilter] = useState('all'); // 'all' | 'my' | 'delegated'
   const [taskMemberFilter, setTaskMemberFilter] = useState('all');
@@ -379,14 +435,6 @@ export const DashboardPage = () => {
   // Category-Wise Task Filter (Across all company categories for Admin/HR, and personal for employees)
   const [taskCategoryFilter, setTaskCategoryFilter] = useState('all');
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
-
-  // Admin Perspective State: View any employee's live dashboard by name
-  const [selectedAdminEmpId, setSelectedAdminEmpId] = useState('me');
-  const isViewingOtherEmployee = isUserAdminOrHR && selectedAdminEmpId !== 'me';
-  const activeViewUser = React.useMemo(() => {
-    if (!isViewingOtherEmployee) return currentUser;
-    return (employees || []).find(e => String(e._id) === String(selectedAdminEmpId) || String(e.employeeCode) === String(selectedAdminEmpId)) || currentUser;
-  }, [isViewingOtherEmployee, selectedAdminEmpId, employees, currentUser]);
 
   // Helper to read any employee's live today shift and task status from storage & attendance (with 1-sec real-time counting)
   const getEmployeeTodayState = React.useCallback((emp) => {
@@ -994,7 +1042,6 @@ export const DashboardPage = () => {
       : scopedTickets;
 
   // Effective personal tasks for Timer & KPI counters strictly scoped to active viewed user (or current user)
-  const effectiveTargetUser = isViewingOtherEmployee ? activeViewUser : currentUser;
   const activeWorkMode = !isViewingOtherEmployee
     ? (localStorage.getItem('ems_working_mode') || currentUser?.workMode || currentUser?.workingMode || 'Office')
     : (effectiveTargetUser?.workMode || effectiveTargetUser?.workingMode || 'Office');
@@ -1034,7 +1081,7 @@ export const DashboardPage = () => {
       if (t.isUntimed || t.hasNoDueDate) return false;
       // If snoozed with an active reminder in future, exclude from leftover banner
       if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
-      if (t.reminderDismissed) return false;
+      if (isReminderDismissedForActiveUser(t)) return false;
       const isPastDue = t.dueDate && t.dueDate < todayStr;
       const isPastStart = !t.dueDate && t.startDate && t.startDate < todayStr;
       return isPastDue || isPastStart;
@@ -1101,9 +1148,20 @@ export const DashboardPage = () => {
   const activeProjectsCount = (projects || []).filter(p => p?.status === 'in_progress').length || 0;
   const overdueProjectsCount = (projects || []).filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
 
-  // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder)
+  const isReminderDismissedForActiveUser = (t) => {
+    const uid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
+    const code = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    if (Array.isArray(t?.reminderDismissedBy)) {
+      if (uid && t.reminderDismissedBy.includes(uid)) return true;
+      if (code && t.reminderDismissedBy.includes(code)) return true;
+      return false;
+    }
+    return !!t?.reminderDismissed;
+  };
+
+  // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder — strictly scoped per user)
   const snoozedTasks = (tasks || []).filter(t =>
-    t?.snoozed && t?.remindAt && !t?.reminderDismissed && t?.status !== 'completed' &&
+    t?.snoozed && t?.remindAt && !isReminderDismissedForActiveUser(t) && t?.status !== 'completed' &&
     (isTaskAssignedToUser(t, effectiveTargetUser) || isUserAdminOrHR)
   );
 
@@ -1476,12 +1534,37 @@ export const DashboardPage = () => {
   }, [pendingLeaveRequestsForMe, dismissedTopAlerts]);
 
   const activeTopNotices = React.useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const targetUid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
+    const targetCode = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    const targetDept = String(effectiveTargetUser?.department || currentUser?.department || '').toLowerCase();
+
     return (notices || []).filter(not => {
-      const notId = String(not?._id || not?.id || '');
+      if (!not) return false;
+      const notId = String(not._id || not.id || not.noticeCode || '');
+
+      // Exclude expired notices
+      if (not.expiryDate && not.expiryDate < today) return false;
+
+      // Strictly per-user dismissal check:
+      // If dismissed in this user's local storage list, or in notice.dismissedBy array:
       if (dismissedTopAlerts.includes(notId)) return false;
-      return not?.isImportant || not?.priority === 'urgent' || not?.priority === 'high' || not?.category === 'Company Announcement';
+      if (Array.isArray(not.dismissedBy)) {
+        if (targetUid && not.dismissedBy.includes(targetUid)) return false;
+        if (targetCode && not.dismissedBy.includes(targetCode)) return false;
+      }
+
+      // Audience filter: "All Employees" or matches user's department
+      const aud = String(not.targetAudience || not.to || 'All Employees').toLowerCase();
+      if (aud !== 'all employees' && aud !== 'all' && !aud.includes('all')) {
+        if (targetDept && !aud.includes(targetDept) && !targetDept.includes(aud)) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [notices, dismissedTopAlerts]);
+  }, [notices, dismissedTopAlerts, effectiveTargetUser, currentUser]);
 
   // 4. All personal leaves of current user (for history/status display)
   const myRecentLeaves = (leaves || []).filter(l => {
@@ -1689,7 +1772,7 @@ export const DashboardPage = () => {
             </button>
 
             <button
-              onClick={() => dismissTaskReminder(dueReminders[0]._id)}
+              onClick={() => dismissTaskReminder(dueReminders[0]._id, targetActiveUid)}
               style={{
                 padding: '6px 8px',
                 borderRadius: '6px',
@@ -1966,7 +2049,7 @@ export const DashboardPage = () => {
                 </div>
               )}
               <button
-                onClick={() => setIsLeftoverDismissed(true)}
+                onClick={handleDismissLeftover}
                 title="Dismiss reminder banner"
                 style={{
                   border: 'none',

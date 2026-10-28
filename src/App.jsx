@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Shared Providers & Layout
 import { ToastProvider } from './shared/context/ToastContext';
+import { ConfirmProvider } from './shared/context/ConfirmContext';
 import { AuthProvider } from './shared/context/AuthContext';
 import { TimerProvider } from './shared/context/TimerContext';
 import { Layout } from './shared/components/layout/Layout';
@@ -44,11 +45,12 @@ export function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <AuthProvider>
-          <HRProvider>
-            <TimerProvider>
-              <WorkProvider>
-                <CRMProvider>
+        <ConfirmProvider>
+          <AuthProvider>
+            <HRProvider>
+              <TimerProvider>
+                <WorkProvider>
+                  <CRMProvider>
                   <BrowserRouter>
                     <Routes>
                       {/* ── Public Auth Routes ── */}
@@ -118,7 +120,8 @@ export function App() {
           </TimerProvider>
         </HRProvider>
       </AuthProvider>
-    </ToastProvider>
+    </ConfirmProvider>
+  </ToastProvider>
   </ErrorBoundary>
 );
 }

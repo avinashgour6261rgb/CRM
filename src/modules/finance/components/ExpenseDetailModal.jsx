@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
 
 export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   const { updateExpenseStatus, deleteExpense } = useCRM();
   const { currentUser } = useAuth();
+  const { confirm } = useConfirm();
 
   if (!isOpen || !expense) return null;
 
@@ -37,8 +39,14 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
     onClose();
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete expense "${expense.itemName}"?`)) {
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete Expense',
+      message: `Are you sure you want to delete expense "${expense.itemName}"? This action cannot be undone.`,
+      confirmText: 'Delete Expense',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteExpense(expense._id);
       onClose();
     }

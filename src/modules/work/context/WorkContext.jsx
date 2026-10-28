@@ -2250,19 +2250,25 @@ export const WorkProvider = ({ children }) => {
   };
 
   /**
-   * Dismiss a reminder banner without starting timer yet
+   * Dismiss a reminder banner without starting timer yet (Scoped per user so one user dismissing doesn't hide it for other assignees)
    */
-  const dismissTaskReminder = async (taskId) => {
+  const dismissTaskReminder = async (taskId, userOverrideId) => {
     try {
+      const activeUid = userOverrideId || currentUser?._id || currentUser?.employeeCode || 'global';
       alertedTaskIdsRef.current.add(String(taskId));
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const currentTask = allTasks.find(t => String(t._id || t.id) === String(taskId));
+      const existingDismissedBy = Array.isArray(currentTask?.reminderDismissedBy) ? currentTask.reminderDismissedBy : (currentTask?.reminderDismissed ? ['global'] : []);
+      const updatedDismissedBy = [...new Set([...existingDismissedBy, String(activeUid)])];
+
       const updatePayload = {
         snoozed: false,
         remindAt: null,
         reminderAlerted: true,
-        reminderDismissed: true
+        reminderDismissed: true,
+        reminderDismissedBy: updatedDismissedBy
       };
       await workService.updateTask(taskId, updatePayload);
-      const allTasks = getCollection(KEYS.TASKS) || [];
       const updatedAll = allTasks.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t);
       saveCollection(KEYS.TASKS, updatedAll);
       setTasks(prev => prev.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t));

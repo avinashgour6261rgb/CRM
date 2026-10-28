@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
+import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const COLUMNS = [
   { key: 'incomplete', title: 'Incomplete / Pending', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
@@ -170,9 +171,15 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                       {canDeleteTask(task) && (
                         <button
                           type="button"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+                            const ok = await confirmDialog({
+                              title: 'Delete Task',
+                              message: `Are you sure you want to delete task "${task.title}"?`,
+                              confirmText: 'Delete Task',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               deleteTask(task._id);
                             }
                           }}
