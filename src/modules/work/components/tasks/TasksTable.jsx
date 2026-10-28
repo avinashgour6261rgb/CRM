@@ -83,7 +83,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
 
   if (!tasks || tasks.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 py-15 px-5 text-center">
+      <div className="bg-white rounded-xl border border-slate-200 py-[60px] px-5 text-center">
         <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 text-blue-600">
           <Clock size={28} />
         </div>

@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Key,
   Sun,
-  Moon
+  Moon,
+  LayoutDashboard
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimer } from '../../context/TimerContext';
@@ -43,6 +44,7 @@ import { NewLeaveModal } from '../../../modules/hr/components/leaves/NewLeaveMod
 import { AddLeadModal } from '../../../modules/crm/components/leads/AddLeadModal';
 import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 import { LogoutConfirmModal } from '../modals/LogoutConfirmModal';
+import { DashboardOverviewModal } from '../modals/DashboardOverviewModal';
 
 export const TopNavbar = () => {
   const location = useLocation();
@@ -88,6 +90,7 @@ export const TopNavbar = () => {
   const [isRaiseTicketOpen, setIsRaiseTicketOpen] = useState(false);
   const [isApplyLeaveOpen, setIsApplyLeaveOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [isOverviewOpen, setIsOverviewOpen] = useState(false);
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -298,6 +301,15 @@ export const TopNavbar = () => {
           <Calendar size={18} />
         </button>
 
+        {/* ── 📊 Workspace Quick Overview HUD ── */}
+        <button
+          onClick={() => setIsOverviewOpen(true)}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          title="Quick Overview & Module Switcher"
+        >
+          <LayoutDashboard size={18} />
+        </button>
+
         {/* ── 🔔 Notification Bell Icon with Badge ── */}
         <div className="relative" ref={notifRef}>
           <button
@@ -428,15 +440,40 @@ export const TopNavbar = () => {
           )}
         </div>
 
+        {/* ── ☕ Break Status or Take Break Controls in Header ── */}
+        {isOnBreak ? (
+          <button
+            onClick={() => setIsBreakModalOpen(true)}
+            className="h-8 px-2.5 rounded-md text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs"
+            title={`Currently on ${breakType || 'Break'}. Click to manage or resume work.`}
+          >
+            <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>☕ On {breakType || 'Break'}</span>
+          </button>
+        ) : (
+          isClockedIn && (
+            <button
+              onClick={() => setIsBreakModalOpen(true)}
+              className="h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs"
+              title="Take a break (Tea/Coffee, Lunch, etc.)"
+            >
+              <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
+              <span>Break</span>
+            </button>
+          )
+        )}
+
         {/* ── ⏱️ Clock-in / Clock-out Shift Button ── */}
-        <button
-          onClick={isClockedIn ? handleClockOut : handleClockIn}
-          className={`h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${isOnBreak ? 'bg-amber-50 text-amber-800 border border-amber-200' : (isClockedIn ? 'bg-emerald-50 text-green-600 border-none' : 'bg-blue-50 text-blue-600 border-none')}`}
-          title={isOnBreak ? `Currently on ${breakType}. Click to view options or resume shift.` : (isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift')}
-        >
-          <Clock size={14} className={isOnBreak ? 'text-amber-700' : (isClockedIn ? 'text-green-600' : 'text-blue-600')} />
-          <span>{isOnBreak ? `☕ On ${breakType || 'Break'}` : (isClockedIn ? 'Clocked In' : 'Clock In')}</span>
-        </button>
+        {!isOnBreak && (
+          <button
+            onClick={isClockedIn ? handleClockOut : handleClockIn}
+            className={`h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
+            title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
+          >
+            <Clock size={14} className={isClockedIn ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
+            <span>{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
+          </button>
+        )}
 
         {/* ── ☀️ / 🌙 Dark/Light Theme Toggle ── */}
         <button
@@ -705,6 +742,11 @@ export const TopNavbar = () => {
         onConfirm={handleConfirmLogout}
         user={currentUser}
         isShiftActive={isClockedIn}
+      />
+
+      <DashboardOverviewModal
+        isOpen={isOverviewOpen}
+        onClose={() => setIsOverviewOpen(false)}
       />
     </header>
   );

@@ -45,7 +45,7 @@ export const PayrollPage = () => {
 
   if (!isPrivileged) {
     return (
-      <div className="flex flex-col items-center justify-center py-15 px-5 text-center bg-white rounded-2xl border border-slate-200 my-[30px] mx-auto max-w-[540px] shadow-sm">
+      <div className="flex flex-col items-center justify-center py-[60px] px-5 text-center bg-white rounded-2xl border border-slate-200 my-[30px] mx-auto max-w-[540px] shadow-sm">
         <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-4">
           <DollarSign size={28} />
         </div>

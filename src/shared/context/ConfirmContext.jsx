@@ -130,23 +130,16 @@ export const ConfirmProvider = ({ children }) => {
     globalAlert = alert;
 
     const originalAlert = window.alert;
-    const originalConfirm = window.confirm;
 
-    // Intercept native browser alert & confirm so ugly native browser dialogs NEVER appear
+    // Intercept native browser alert so ugly native browser popups are replaced with rich enterprise modals
     window.alert = (msg) => {
       alert(msg);
-    };
-    window.confirm = (msg) => {
-      // Return custom confirm promise (or invoke dialog)
-      confirm(msg);
-      return false;
     };
 
     return () => {
       globalConfirm = null;
       globalAlert = null;
       window.alert = originalAlert;
-      window.confirm = originalConfirm;
     };
   }, [confirm, alert]);
 

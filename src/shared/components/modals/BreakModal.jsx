@@ -157,7 +157,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
                     ? 'bg-red-50 dark:bg-red-950/30 border-red-400 dark:border-red-900'
                     : 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900/60'
                 }`}>
-                  <div className={`w-15 h-15 rounded-full flex items-center justify-center ${
+                  <div className={`w-[60px] h-[60px] rounded-full flex items-center justify-center ${
                     isBreakOverdue
                       ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
                       : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
