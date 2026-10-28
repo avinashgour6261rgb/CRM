@@ -30,11 +30,11 @@ import {
 import { useTimer } from '../../context/TimerContext';
 
 const PRESET_BREAKS = [
-  { id: 'Tea / Coffee Break', label: 'Tea / Coffee Break', icon: Coffee, defaultMinutes: 15, color: '#0284c7', bg: '#f0f9ff' },
-  { id: 'Lunch Break', label: 'Lunch Break', icon: Utensils, defaultMinutes: 45, color: '#ea580c', bg: '#fff7ed' },
-  { id: 'Quick Rest / Stretch', label: 'Quick Rest / Stretch', icon: Clock, defaultMinutes: 10, color: '#16a34a', bg: '#f0fdf4' },
-  { id: 'Personal Break', label: 'Personal Break', icon: User, defaultMinutes: 15, color: '#9333ea', bg: '#faf5ff' },
-  { id: 'Wellness & Prayer', label: 'Wellness & Prayer', icon: Heart, defaultMinutes: 20, color: '#db2777', bg: '#fdf2f8' }
+  { id: 'Tea / Coffee Break', label: 'Tea / Coffee Break', icon: Coffee, defaultMinutes: 15, activeBorder: 'border-sky-500', activeBg: 'bg-sky-50 dark:bg-sky-950/60', iconColor: 'text-sky-600', iconBg: 'bg-sky-50 dark:bg-sky-900/40' },
+  { id: 'Lunch Break', label: 'Lunch Break', icon: Utensils, defaultMinutes: 45, activeBorder: 'border-orange-500', activeBg: 'bg-orange-50 dark:bg-orange-950/60', iconColor: 'text-orange-600', iconBg: 'bg-orange-50 dark:bg-orange-900/40' },
+  { id: 'Quick Rest / Stretch', label: 'Quick Rest / Stretch', icon: Clock, defaultMinutes: 10, activeBorder: 'border-green-500', activeBg: 'bg-green-50 dark:bg-green-950/60', iconColor: 'text-green-600', iconBg: 'bg-green-50 dark:bg-green-900/40' },
+  { id: 'Personal Break', label: 'Personal Break', icon: User, defaultMinutes: 15, activeBorder: 'border-purple-500', activeBg: 'bg-purple-50 dark:bg-purple-950/60', iconColor: 'text-purple-600', iconBg: 'bg-purple-50 dark:bg-purple-900/40' },
+  { id: 'Wellness & Prayer', label: 'Wellness & Prayer', icon: Heart, defaultMinutes: 20, activeBorder: 'border-pink-500', activeBg: 'bg-pink-50 dark:bg-pink-950/60', iconColor: 'text-pink-600', iconBg: 'bg-pink-50 dark:bg-pink-900/40' }
 ];
 
 const DURATION_PILLS = [5, 10, 15, 20, 30, 45, 60];
@@ -94,95 +94,37 @@ export const BreakModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '580px',
-        maxHeight: '92vh',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
         {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div>
-            <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Coffee size={20} color="#ea580c" />
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0 flex items-center gap-2">
+              <Coffee size={20} className="text-orange-600" />
               <span>Break Time & Duration Manager</span>
             </h2>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-0">
               Choose your break time. Task and shift timers pause automatically during breaks.
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div style={{
-          display: 'flex',
-          borderBottom: '1px solid #e2e8f0',
-          backgroundColor: '#f1f5f9',
-          padding: '4px'
-        }}>
+        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-850 p-1">
           <button
             type="button"
             onClick={() => setActiveTab('choose')}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: activeTab === 'choose' ? '#ffffff' : 'transparent',
-              color: activeTab === 'choose' ? '#2563eb' : '#64748b',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              boxShadow: activeTab === 'choose' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none'
-            }}
+            className={`flex-1 py-2 px-3 rounded-lg border-none text-xs sm:text-[13px] font-bold cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'choose'
+                ? 'bg-white dark:bg-slate-750 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700'
+            }`}
           >
             <Coffee size={15} />
             <span>{isOnBreak ? 'Active Break Status' : 'Take a Break'}</span>
@@ -191,22 +133,11 @@ export const BreakModal = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: activeTab === 'history' ? '#ffffff' : 'transparent',
-              color: activeTab === 'history' ? '#2563eb' : '#64748b',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              boxShadow: activeTab === 'history' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none'
-            }}
+            className={`flex-1 py-2 px-3 rounded-lg border-none text-xs sm:text-[13px] font-bold cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'history'
+                ? 'bg-white dark:bg-slate-750 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700'
+            }`}
           >
             <History size={15} />
             <span>Break History & Logs ({breakHistory.length})</span>
@@ -214,131 +145,86 @@ export const BreakModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="p-5 sm:px-6 overflow-y-auto flex flex-col gap-4">
           
           {/* TAB 1: Take Break / Monitor Active Break */}
           {activeTab === 'choose' && (
             isOnBreak ? (
               /* Active Break Live Status */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'center' }}>
-                <div style={{
-                  padding: '24px 20px',
-                  backgroundColor: isBreakOverdue ? '#fef2f2' : '#fffbeb',
-                  borderRadius: '14px',
-                  border: isBreakOverdue ? '2px solid #f87171' : '1.5px solid #fde68a',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <div style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    backgroundColor: isBreakOverdue ? '#fee2e2' : '#fef3c7',
-                    color: isBreakOverdue ? '#dc2626' : '#d97706',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
+              <div className="flex flex-col gap-4 text-center">
+                <div className={`p-6 sm:px-5 rounded-2xl border flex flex-col items-center gap-2 ${
+                  isBreakOverdue
+                    ? 'bg-red-50 dark:bg-red-950/30 border-red-400 dark:border-red-900'
+                    : 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900/60'
+                }`}>
+                  <div className={`w-15 h-15 rounded-full flex items-center justify-center ${
+                    isBreakOverdue
+                      ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'
+                      : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400'
+                  }`}>
                     <Coffee size={30} />
                   </div>
 
-                  <span style={{ fontSize: '11.5px', fontWeight: '800', color: isBreakOverdue ? '#b91c1c' : '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span className={`text-[11.5px] font-extrabold uppercase tracking-wide ${
+                    isBreakOverdue ? 'text-red-700 dark:text-red-400' : 'text-amber-800 dark:text-amber-300'
+                  }`}>
                     Break in Progress • Started at {breakStartTime || 'Recent'}
                   </span>
 
-                  <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: '0' }}>
+                  <h3 className="text-xl font-extrabold text-slate-900 dark:text-white m-0">
                     {breakType}
                   </h3>
 
                   {/* Chosen Target Info */}
-                  <div style={{ fontSize: '12.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Target Duration: <strong>{customBreakLimitMinutes || 15} minutes</strong></span>
+                  <div className="text-[12.5px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <span>Target Duration: <strong className="text-slate-800 dark:text-slate-200">{customBreakLimitMinutes || 15} minutes</strong></span>
                     <span>•</span>
-                    <span style={{ color: isBreakOverdue ? '#dc2626' : '#16a34a', fontWeight: '700' }}>
+                    <span className={`font-bold ${isBreakOverdue ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                       {isBreakOverdue ? 'Overdue' : `${breakRemainingTimeString} remaining`}
                     </span>
                   </div>
 
                   {/* Live Break Timer */}
-                  <div style={{
-                    fontSize: '36px',
-                    fontWeight: '800',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    color: isBreakOverdue ? '#dc2626' : '#ea580c',
-                    letterSpacing: '0.05em',
-                    margin: '6px 0'
-                  }}>
+                  <div className={`text-4xl font-extrabold font-mono tracking-wider my-1.5 ${
+                    isBreakOverdue ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400'
+                  }`}>
                     {currentBreakTimeString}
                   </div>
 
                   {/* Progress Bar */}
-                  <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${activeBreakProgress}%`,
-                      backgroundColor: isBreakOverdue ? '#ef4444' : '#f59e0b',
-                      borderRadius: '4px',
-                      transition: 'width 0.3s ease'
-                    }} />
+                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${isBreakOverdue ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${activeBreakProgress}%` }}
+                    />
                   </div>
 
                   {/* Overtime Alert */}
                   {isBreakOverdue ? (
-                    <div style={{
-                      marginTop: '6px',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      backgroundColor: '#fee2e2',
-                      color: '#b91c1c',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}>
+                    <div className="mt-1.5 py-2 px-3.5 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-xs font-bold flex items-center gap-1.5">
                       <AlertTriangle size={15} />
                       <span>⚠️ You have passed your {customBreakLimitMinutes}m limit. Click Resume when ready!</span>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
                       ⏸️ Task & shift timers are paused.
                     </div>
                   )}
 
                   {/* Extend Break Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Need more time?</span>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Need more time?</span>
                     <button
                       type="button"
                       onClick={() => extendBreak(5)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        color: '#0f172a',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
+                      className="py-1 px-2.5 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                       +5 mins
                     </button>
                     <button
                       type="button"
                       onClick={() => extendBreak(10)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        color: '#0f172a',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
+                      className="py-1 px-2.5 rounded-md bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                       +10 mins
                     </button>
@@ -351,36 +237,22 @@ export const BreakModal = ({ isOpen, onClose }) => {
                     resumeFromBreak();
                     onClose();
                   }}
-                  style={{
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '13px 24px',
-                    borderRadius: '10px',
-                    fontSize: '14.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 3px 10px rgba(22, 163, 74, 0.35)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white border-none py-3.5 px-6 rounded-xl text-[14.5px] font-bold cursor-pointer shadow-md shadow-green-600/35 flex items-center justify-center gap-2 transition-colors"
                 >
-                  <Play size={16} fill="#fff" />
+                  <Play size={16} className="fill-white" />
                   <span>Resume Work Session & Log Break 🚀</span>
                 </button>
               </div>
             ) : (
               /* Configure & Start Break (Decide own time) */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="flex flex-col gap-4">
                 
                 {/* 1. Category Selection */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>
+                  <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200 mb-2">
                     1. Choose Break Category
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {PRESET_BREAKS.map(opt => {
                       const Icon = opt.icon;
                       const isSelected = !isCustomMode && selectedType === opt.id;
@@ -392,36 +264,20 @@ export const BreakModal = ({ isOpen, onClose }) => {
                             setSelectedType(opt.id);
                             setCustomMinutes(opt.defaultMinutes);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px 12px',
-                            borderRadius: '10px',
-                            border: isSelected ? `2px solid ${opt.color}` : '1px solid #e2e8f0',
-                            backgroundColor: isSelected ? opt.bg : '#ffffff',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
+                          className={`flex items-center gap-2.5 p-2.5 px-3 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? `border-2 ${opt.activeBorder} ${opt.activeBg}`
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:border-slate-300'
+                          }`}
                         >
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '8px',
-                            backgroundColor: opt.bg,
-                            color: opt.color,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${opt.iconBg} ${opt.iconColor}`}>
                             <Icon size={16} />
                           </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-bold text-slate-900 dark:text-white truncate">
                               {opt.label}
                             </div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
                               Default: {opt.defaultMinutes}m
                             </div>
                           </div>
@@ -435,36 +291,20 @@ export const BreakModal = ({ isOpen, onClose }) => {
                         setIsCustomMode(true);
                         setCustomBreakTitle('Personal Break');
                       }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        borderRadius: '10px',
-                        border: isCustomMode ? '2px solid #2563eb' : '1px dashed #cbd5e1',
-                        backgroundColor: isCustomMode ? '#eff6ff' : '#f8fafc',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
+                      className={`flex items-center gap-2.5 p-2.5 px-3 rounded-xl cursor-pointer transition-all ${
+                        isCustomMode
+                          ? 'border-2 border-blue-600 bg-blue-50 dark:bg-blue-950/60'
+                          : 'border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 hover:border-slate-400'
+                      }`}
                     >
-                      <div style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        backgroundColor: '#eff6ff',
-                        color: '#2563eb',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                         <Plus size={16} />
                       </div>
                       <div>
-                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                        <div className="text-[12.5px] font-bold text-slate-900 dark:text-white">
                           Custom Break
                         </div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Set own time & name
                         </div>
                       </div>
@@ -475,7 +315,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
                 {/* If Custom Mode, custom title input */}
                 {isCustomMode && (
                   <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Break Reason / Title
                     </label>
                     <input
@@ -483,55 +323,34 @@ export const BreakModal = ({ isOpen, onClose }) => {
                       placeholder="e.g. Doctor Visit, Quick Snack, Call with Family..."
                       value={customBreakTitle}
                       onChange={e => setCustomBreakTitle(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1.5px solid #3b82f6',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
+                      className="w-full px-3 py-2 rounded-lg border border-blue-500 text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 )}
 
                 {/* 2. Employee Duration Selection (Decide Own Break Time) */}
-                <div style={{
-                  padding: '14px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[13px] font-bold text-slate-900 dark:text-white">
                       2. How much break time do you need?
                     </label>
-                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#0284c7', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '6px' }}>
+                    <span className="text-xs font-extrabold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
                       {customMinutes} Minutes Chosen
                     </span>
                   </div>
 
                   {/* Quick Pills */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  <div className="flex flex-wrap gap-1.5">
                     {DURATION_PILLS.map(mins => (
                       <button
                         key={mins}
                         type="button"
                         onClick={() => setCustomMinutes(mins)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: Number(customMinutes) === mins ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                          backgroundColor: Number(customMinutes) === mins ? '#0284c7' : '#ffffff',
-                          color: Number(customMinutes) === mins ? '#ffffff' : '#334155',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
+                        className={`py-1.5 px-3 rounded-md text-xs font-bold cursor-pointer transition-colors ${
+                          Number(customMinutes) === mins
+                            ? 'border border-sky-600 bg-sky-600 text-white'
+                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                        }`}
                       >
                         {mins} min
                       </button>
@@ -539,34 +358,23 @@ export const BreakModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Or Manual Number Input */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Or enter exact minutes:</span>
+                  <div className="flex items-center gap-2.5 mt-1">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Or enter exact minutes:</span>
                     <input
                       type="number"
                       min="1"
                       max="180"
                       value={customMinutes}
                       onChange={e => setCustomMinutes(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      style={{
-                        width: '80px',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        fontWeight: '700',
-                        color: '#0f172a',
-                        textAlign: 'center',
-                        outline: 'none',
-                        backgroundColor: '#ffffff'
-                      }}
+                      className="w-20 py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white text-center outline-none bg-white dark:bg-slate-800 focus:border-sky-500"
                     />
-                    <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600' }}>Minutes</span>
+                    <span className="text-[12.5px] text-slate-600 dark:text-slate-300 font-semibold">Minutes</span>
                   </div>
                 </div>
 
                 {/* 3. Optional Quick Note */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                     Quick Note (Optional)
                   </label>
                   <input
@@ -574,14 +382,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
                     placeholder="e.g. Taking quick tea break, will return in 15 mins..."
                     value={breakNotes}
                     onChange={e => setBreakNotes(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '12.5px',
-                      outline: 'none'
-                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                   />
                 </div>
 
@@ -589,30 +390,13 @@ export const BreakModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={handleStartBreak}
-                  style={{
-                    backgroundColor: '#ea580c',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '12px 20px',
-                    borderRadius: '10px',
-                    fontSize: '14.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 3px 10px rgba(234, 88, 12, 0.35)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#c2410c'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ea580c'}
+                  className="bg-orange-600 hover:bg-orange-700 text-white border-none py-3 px-5 rounded-xl text-[14.5px] font-bold cursor-pointer shadow-md shadow-orange-600/35 flex items-center justify-center gap-2 transition-colors"
                 >
                   <Coffee size={17} />
                   <span>Start Break ({customMinutes} min) ☕</span>
                 </button>
 
-                <div style={{ fontSize: '11.5px', color: '#94a3b8', textAlign: 'center' }}>
+                <div className="text-[11.5px] text-slate-400 text-center">
                   ℹ️ Active task timer and working shift timer will pause automatically.
                 </div>
               </div>
@@ -621,49 +405,34 @@ export const BreakModal = ({ isOpen, onClose }) => {
 
           {/* TAB 2: Break History & Reminders Log */}
           {activeTab === 'history' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="flex flex-col gap-3.5">
               {/* Summary Metric Strip */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: '10px',
-                padding: '12px 14px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                fontSize: '12px'
-              }}>
+              <div className="grid grid-cols-3 gap-2.5 p-3 px-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                 <div>
-                  <span style={{ color: '#64748b', display: 'block' }}>Total Breaks:</span>
-                  <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px' }}>
+                  <span className="text-slate-500 dark:text-slate-400 block">Total Breaks:</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white text-sm">
                     {breakHistory.length} Sessions
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: '#64748b', display: 'block' }}>Total Break Time:</span>
-                  <span style={{ fontWeight: '800', color: '#ea580c', fontSize: '14px' }}>
+                  <span className="text-slate-500 dark:text-slate-400 block">Total Break Time:</span>
+                  <span className="font-extrabold text-orange-600 dark:text-orange-400 text-sm">
                     {breakDurationText}
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: '#64748b', display: 'block' }}>Productive Work:</span>
-                  <span style={{ fontWeight: '800', color: '#16a34a', fontSize: '14px' }}>
+                  <span className="text-slate-500 dark:text-slate-400 block">Productive Work:</span>
+                  <span className="font-extrabold text-green-600 dark:text-green-400 text-sm">
                     {workDurationText}
                   </span>
                 </div>
               </div>
 
               {/* History Timeline */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                maxHeight: '320px',
-                overflowY: 'auto'
-              }}>
+              <div className="flex flex-col gap-2 max-h-[320px] overflow-y-auto">
                 {breakHistory.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: '13px' }}>
-                    <History size={32} color="#cbd5e1" style={{ margin: '0 auto 8px' }} />
+                  <div className="text-center py-7 px-5 text-slate-400 text-sm">
+                    <History size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                     No breaks recorded yet today. Take a break when you need to recharge!
                   </div>
                 ) : (
@@ -672,61 +441,31 @@ export const BreakModal = ({ isOpen, onClose }) => {
                     return (
                       <div
                         key={item.id || idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          backgroundColor: '#ffffff'
-                        }}
+                        className="flex items-center justify-between p-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-slate-750 bg-white dark:bg-slate-850"
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '6px',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                             <Icon size={16} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                            <div className="text-[13px] font-bold text-slate-900 dark:text-white">
                               {item.type} {item.targetMinutes ? `(${item.targetMinutes}m target)` : ''}
                             </div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
                               {item.startTime} ➔ {item.endTime} ({item.durationText})
                             </div>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            backgroundColor: '#f0fdf4',
-                            color: '#15803d'
-                          }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-green-50 dark:bg-green-950/60 text-green-700 dark:text-green-300">
                             Completed
                           </span>
 
                           <button
                             type="button"
                             onClick={() => deleteBreakHistoryItem(item.id)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              cursor: 'pointer',
-                              padding: '4px'
-                            }}
+                            className="bg-transparent border-none text-slate-400 hover:text-red-500 cursor-pointer p-1 transition-colors"
                             title="Delete log"
                           >
                             <Trash2 size={13} />
@@ -739,18 +478,11 @@ export const BreakModal = ({ isOpen, onClose }) => {
               </div>
 
               {breakHistory.length > 0 && (
-                <div style={{ textAlign: 'right', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                <div className="text-right border-t border-slate-100 dark:border-slate-800 pt-2.5">
                   <button
                     type="button"
                     onClick={clearTodayBreaks}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#dc2626',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="bg-transparent border-none text-red-600 hover:text-red-700 text-xs font-semibold cursor-pointer transition-colors"
                   >
                     Clear All Break Logs
                   </button>

@@ -36,58 +36,19 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: isDark ? '#151e32' : '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '480px',
-        maxHeight: '85vh',
-        overflowY: 'auto',
-        boxShadow: isDark ? '0 25px 50px -12px rgba(0, 0, 0, 0.7)' : '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[480px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '18px 20px',
-          borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: isDark ? '#101726' : '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-              color: '#38bdf8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="p-[18px] px-5 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#101726] rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-400 flex items-center justify-center">
               <MessageSquare size={18} />
             </div>
             <div>
-              <h2 style={{ fontSize: '16px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', margin: 0 }}>
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-50 m-0">
                 New Direct Conversation
               </h2>
-              <p style={{ fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">
                 Select a team member to start chatting
               </p>
             </div>
@@ -95,100 +56,54 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: isDark ? '#1e293b' : '#ffffff',
-              border: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: isDark ? '#cbd5e1' : '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-[30px] h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
           >
             <X size={15} />
           </button>
         </div>
 
         {/* Search */}
-        <div style={{ padding: '16px 20px', borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
-            backgroundColor: isDark ? '#1e293b' : '#f8fafc'
-          }}>
-            <Search size={16} color={isDark ? '#38bdf8' : '#94a3b8'} />
+        <div className="p-4 px-5 border-b border-slate-100 dark:border-[#243049]">
+          <div className="flex items-center gap-2 py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            <Search size={16} className="text-slate-400 dark:text-sky-400" />
             <input
               type="text"
               placeholder="Search by name, role or department..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '13px',
-                width: '100%',
-                color: isDark ? '#f8fafc' : '#0f172a'
-              }}
+              className="border-none bg-transparent outline-none text-[13px] w-full text-slate-900 dark:text-slate-50 placeholder-slate-400"
             />
           </div>
         </div>
 
         {/* Employee List */}
-        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '340px', overflowY: 'auto' }}>
+        <div className="p-3 px-4 flex flex-col gap-1.5 max-h-[340px] overflow-y-auto">
           {availableEmployees.map(emp => (
             <div
               key={emp._id}
               onClick={() => handleSelect(emp._id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'background-color 0.15s',
-                backgroundColor: isDark ? '#151e32' : '#ffffff'
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = isDark ? '#1e293b' : '#f1f5f9'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = isDark ? '#151e32' : '#ffffff'}
+              className="flex items-center justify-between p-2.5 px-3 rounded-lg cursor-pointer transition-colors bg-white dark:bg-[#151e32] hover:bg-slate-100 dark:hover:bg-slate-800"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ position: 'relative' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
                   <img
                     src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                     alt={emp.name}
-                    style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }}
+                    className="w-9 h-9 rounded-full object-cover"
                   />
-                  <span style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    right: 0,
-                    width: '9px',
-                    height: '9px',
-                    borderRadius: '50%',
-                    backgroundColor: '#10b981',
-                    border: `2px solid ${isDark ? '#151e32' : '#ffffff'}`
-                  }} />
+                  <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-[#151e32]" />
                 </div>
                 <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: isDark ? '#f8fafc' : '#0f172a' }}>
+                  <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-50">
                     {emp.name}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
                     {emp.role} • {emp.department}
                   </div>
                 </div>
               </div>
 
-              <span style={{ fontSize: '12px', color: isDark ? '#38bdf8' : '#2563eb', fontWeight: '600' }}>
+              <span className="text-xs text-blue-600 dark:text-sky-400 font-semibold">
                 Chat 💬
               </span>
             </div>

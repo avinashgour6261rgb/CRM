@@ -220,88 +220,55 @@ export const ProfileTab = () => {
   const selectedLangObj = LANGUAGES.find(l => l.name === formData.language) || LANGUAGES[0];
 
   return (
-    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px 0' }}>
+    <form onSubmit={handleSave} className="flex flex-col gap-6 py-6">
       
       {/* ── Profile Picture Upload Area (Matching Screenshot 6 & 9) ── */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
-          Profile Picture <span style={{ color: '#94a3b8', fontSize: '12px' }}>ⓘ</span>
+        <label className="block text-[13px] font-semibold text-slate-600 mb-2">
+          Profile Picture <span className="text-slate-400 text-xs">ⓘ</span>
         </label>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{
-            width: '100px',
-            height: '100px',
-            borderRadius: '12px',
-            border: '2px dashed #cbd5e1',
-            backgroundColor: '#f8fafc',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            position: 'relative'
-          }}>
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center overflow-hidden relative">
             {formData.avatar ? (
               <img
                 src={formData.avatar}
                 alt="Profile"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                className="w-full h-full object-cover"
               />
             ) : (
-              <div style={{ textAlign: 'center', color: '#64748b' }}>
-                <div style={{ fontSize: '24px' }}>📄</div>
-                <div style={{ fontSize: '11px', fontWeight: '700' }}>PNG...</div>
+              <div className="text-center text-slate-500">
+                <div className="text-2xl">📄</div>
+                <div className="text-[11px] font-bold">PNG...</div>
               </div>
             )}
           </div>
 
-          <label style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #cbd5e1',
-            fontSize: '13px',
-            fontWeight: '600',
-            color: '#334155',
-            cursor: 'pointer',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-          }}>
-            <Camera size={16} color="#2563eb" />
+          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-300 text-[13px] font-semibold text-slate-700 cursor-pointer shadow-xs hover:bg-slate-50 transition-colors">
+            <Camera size={16} className="text-blue-600" />
             Upload New Photo
             <input
               type="file"
               accept="image/*"
               onChange={handleAvatarUpload}
-              style={{ display: 'none' }}
+              className="hidden"
             />
           </label>
         </div>
       </div>
 
       {/* ── Row 1: Name, Email, Password (Matching Screenshot 9) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Your Name */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Your Name *
           </label>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div className="flex gap-1.5">
             <select
               value={formData.salutation}
               onChange={e => handleChange('salutation', e.target.value)}
-              style={{
-                width: '75px',
-                padding: '9px 8px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                backgroundColor: '#ffffff',
-                outline: 'none'
-              }}
+              className="w-[75px] px-2 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
             >
               <option value="---">---</option>
               <option value="Mr.">Mr.</option>
@@ -314,21 +281,14 @@ export const ProfileTab = () => {
               required
               value={formData.name}
               onChange={e => handleChange('name', e.target.value)}
-              style={{
-                flex: 1,
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
         </div>
 
         {/* Your Email */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Your Email *
           </label>
           <input
@@ -336,42 +296,28 @@ export const ProfileTab = () => {
             required
             value={formData.email}
             onChange={e => handleChange('email', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* Your Password */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Your Password
           </label>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <div className="relative flex items-center">
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="Must have at least 8 characters"
               value={formData.password}
               onChange={e => handleChange('password', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 70px 9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full py-[9px] pl-3 pr-[70px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
-            <div style={{ position: 'absolute', right: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="absolute right-2 flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '2px' }}
+                className="bg-transparent border-0 cursor-pointer text-slate-500 hover:text-slate-700 p-0.5"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -379,37 +325,32 @@ export const ProfileTab = () => {
               <button
                 type="button"
                 onClick={generateRandomPassword}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: '2px' }}
+                className="bg-transparent border-0 cursor-pointer text-blue-600 hover:text-blue-700 p-0.5"
                 title="Generate Random Password"
               >
                 <RefreshCw size={14} />
               </button>
             </div>
           </div>
-          <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', display: 'block' }}>
+          <span className="text-[11px] text-slate-400 mt-1 block">
             Leave blank to keep the current password.
           </span>
         </div>
 
         {/* Designation / Company Role */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[13px] font-semibold text-slate-600">
               Designation / Role *
             </label>
             {canEditRole ? (
-              <span style={{
-                fontSize: '10.5px',
-                color: isActorAdmin ? '#1e40af' : '#047857',
-                fontWeight: '700',
-                backgroundColor: isActorAdmin ? '#dbeafe' : '#dcfce7',
-                padding: '2px 7px',
-                borderRadius: '5px'
-              }}>
+              <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${
+                isActorAdmin ? 'text-blue-800 bg-blue-100' : 'text-emerald-700 bg-emerald-100'
+              }`}>
                 {isActorAdmin ? '👑 Admin (Full Access)' : '💼 HR Access'}
               </span>
             ) : (
-              <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
+              <span className="text-[10.5px] text-slate-500 font-semibold">
                 🔒 Read-only
               </span>
             )}
@@ -424,16 +365,7 @@ export const ProfileTab = () => {
                 value={formData.role}
                 onChange={e => handleChange('role', e.target.value)}
                 placeholder="e.g. Senior Software Engineer / Team Leader"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #3b82f6',
-                  fontSize: '13px',
-                  outline: 'none',
-                  fontWeight: '600',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-blue-500 text-[13px] outline-none font-semibold bg-white focus:border-blue-600 transition-colors"
               />
               <datalist id="settings-profile-roles">
                 {availableRoles
@@ -454,48 +386,39 @@ export const ProfileTab = () => {
               type="text"
               disabled
               value={formData.role}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                backgroundColor: '#f1f5f9',
-                color: '#64748b',
-                fontWeight: '600'
-              }}
+              className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-slate-100 text-slate-500 font-semibold"
             />
           )}
         </div>
       </div>
 
       {/* ── Row 2: Radio options & Country (Matching Screenshot 6 & 9) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Receive email notifications? */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '10px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-2.5">
             Receive email notifications?
           </label>
-          <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
+          <div className="flex gap-6 items-center">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
               <input
                 type="radio"
                 name="emailNotifications"
                 value="enable"
                 checked={formData.emailNotifications === 'enable'}
                 onChange={() => handleChange('emailNotifications', 'enable')}
-                style={{ accentColor: '#0284c7' }}
+                className="accent-sky-600"
               />
               Enable
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
               <input
                 type="radio"
                 name="emailNotifications"
                 value="disable"
                 checked={formData.emailNotifications === 'disable'}
                 onChange={() => handleChange('emailNotifications', 'disable')}
-                style={{ accentColor: '#0284c7' }}
+                className="accent-sky-600"
               />
               Disable
             </label>
@@ -504,29 +427,29 @@ export const ProfileTab = () => {
 
         {/* Enable Google Calendar */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '10px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-2.5">
             Enable Google Calendar
           </label>
-          <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
+          <div className="flex gap-6 items-center">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
               <input
                 type="radio"
                 name="googleCalendar"
                 value="yes"
                 checked={formData.googleCalendar === 'yes'}
                 onChange={() => handleChange('googleCalendar', 'yes')}
-                style={{ accentColor: '#0284c7' }}
+                className="accent-sky-600"
               />
               Yes
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
               <input
                 type="radio"
                 name="googleCalendar"
                 value="no"
                 checked={formData.googleCalendar === 'no'}
                 onChange={() => handleChange('googleCalendar', 'no')}
-                style={{ accentColor: '#0284c7' }}
+                className="accent-sky-600"
               />
               No
             </label>
@@ -535,7 +458,7 @@ export const ProfileTab = () => {
 
         {/* Country */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Country
           </label>
           <select
@@ -545,15 +468,7 @@ export const ProfileTab = () => {
               handleChange('country', e.target.value);
               if (selected) handleChange('countryCode', selected.dial);
             }}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              backgroundColor: '#ffffff',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
           >
             {COUNTRIES.map(c => (
               <option key={c.code} value={c.name}>
@@ -565,24 +480,14 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 3: Mobile, Language, Gender (Matching Screenshot 6 & 9) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Mobile */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Mobile
           </label>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '0 8px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              fontSize: '13px',
-              fontWeight: '600'
-            }}>
+          <div className="flex gap-1.5">
+            <div className="flex items-center gap-1 px-2 rounded-lg border border-slate-300 bg-slate-50 text-[13px] font-semibold">
               <span>{selectedCountryObj.flag}</span>
               <span>{formData.countryCode}</span>
             </div>
@@ -591,35 +496,20 @@ export const ProfileTab = () => {
               placeholder="e.g. 1234567890"
               value={formData.mobile}
               onChange={e => handleChange('mobile', e.target.value)}
-              style={{
-                flex: 1,
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
         </div>
 
         {/* Change Language */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Change Language
           </label>
           <select
             value={formData.language}
             onChange={e => handleChange('language', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              backgroundColor: '#ffffff',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
           >
             {LANGUAGES.map(l => (
               <option key={l.code} value={l.name}>
@@ -631,21 +521,13 @@ export const ProfileTab = () => {
 
         {/* Gender */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Gender
           </label>
           <select
             value={formData.gender}
             onChange={e => handleChange('gender', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              backgroundColor: '#ffffff',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
           >
             <option value="Male">Male</option>
             <option value="Female">Female</option>
@@ -655,30 +537,23 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 4: DOB, Slack Member ID, Marital Status ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Date of Birth */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             🎂 Date of Birth (Auto-generates Calendar Birthday Event)
           </label>
           <input
             type="date"
             value={formData.dob}
             onChange={e => handleChange('dob', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* City / Base Location */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             City / Base Location
           </label>
           <input
@@ -686,36 +561,19 @@ export const ProfileTab = () => {
             placeholder="e.g. Indore, Madhya Pradesh"
             value={formData.city}
             onChange={e => handleChange('city', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1.5px solid #cbd5e1',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#ffffff',
-              color: '#0f172a'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* Marital Status */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
             Marital Status
           </label>
           <select
             value={formData.maritalStatus}
             onChange={e => handleChange('maritalStatus', e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              backgroundColor: '#ffffff',
-              outline: 'none'
-            }}
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
           >
             <option value="Single">Single</option>
             <option value="Married">Married</option>
@@ -727,7 +585,7 @@ export const ProfileTab = () => {
 
       {/* ── Row 5: Your Address ── */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+        <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
           Your Address
         </label>
         <textarea
@@ -735,38 +593,20 @@ export const ProfileTab = () => {
           placeholder="e.g. 102, Scheme 54, Vijay Nagar, Indore, Madhya Pradesh 452010"
           value={formData.address}
           onChange={e => handleChange('address', e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: '8px',
-            border: '1px solid #cbd5e1',
-            fontSize: '13px',
-            fontFamily: 'inherit',
-            outline: 'none',
-            resize: 'vertical'
-          }}
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-[13px] font-sans outline-none resize-y focus:border-blue-500 transition-colors"
         />
       </div>
 
       {/* ── Row 6: About ── */}
       <div>
-        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+        <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
           About
         </label>
         <textarea
           rows={3}
           value={formData.about}
           onChange={e => handleChange('about', e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: '8px',
-            border: '1px solid #cbd5e1',
-            fontSize: '13px',
-            fontFamily: 'inherit',
-            outline: 'none',
-            resize: 'vertical'
-          }}
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-[13px] font-sans outline-none resize-y focus:border-blue-500 transition-colors"
         />
       </div>
 
@@ -775,20 +615,7 @@ export const ProfileTab = () => {
         <button
           type="submit"
           disabled={saving}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '10px 24px',
-            borderRadius: '8px',
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '13.5px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
-          }}
+          className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-0 text-[13.5px] font-bold cursor-pointer shadow-md shadow-sky-600/35 disabled:opacity-50 transition-colors"
         >
           <Check size={16} />
           {saving ? 'Saving...' : 'Save'}

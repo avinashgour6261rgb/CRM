@@ -171,62 +171,30 @@ export const EmployeePermissionsTab = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '16px 0' }}>
+    <div className="flex flex-col gap-5 py-4">
       
       {/* Header Info */}
-      <div style={{
-        backgroundColor: '#f8fafc',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1.5px solid #bfdbfe'
-          }}>
+      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border-[1.5px] border-blue-200">
             <ShieldCheck size={22} />
           </div>
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+            <h2 className="text-base font-extrabold text-slate-900 m-0">
               Employee Access & Permission Management
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-[12.5px] text-slate-500 mt-0.5 m-0">
               Admin control: Decide which modules each employee can access and toggle their data visibility.
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleResetToRoleDefault}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 12px',
-              borderRadius: '7px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold cursor-pointer transition-colors"
           >
             <RotateCcw size={13} />
             <span>Reset to Default</span>
@@ -235,21 +203,11 @@ export const EmployeePermissionsTab = () => {
           <button
             type="button"
             onClick={handleSave}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 18px',
-              borderRadius: '7px',
-              border: 'none',
-              backgroundColor: isSaved ? '#16a34a' : '#2563eb',
-              color: '#ffffff',
-              fontSize: '12.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(37,99,235,0.25)',
-              transition: 'all 0.15s ease'
-            }}
+            className={`inline-flex items-center gap-1.5 px-[18px] py-[7px] rounded-lg border-0 text-white text-[12.5px] font-bold cursor-pointer shadow-sm transition-all ${
+              isSaved
+                ? 'bg-green-600 hover:bg-green-700 shadow-green-600/25'
+                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25'
+            }`}
           >
             <Check size={14} />
             <span>{isSaved ? 'Saved' : 'Save Permissions'}</span>
@@ -258,37 +216,15 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* Employee Selector Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '14px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155', whiteSpace: 'nowrap' }}>
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3.5">
+        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+          <label className="text-[13px] font-bold text-slate-700 whitespace-nowrap">
             Select Employee:
           </label>
           <select
             value={selectedEmpId}
             onChange={(e) => setSelectedEmpId(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1.5px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '13px',
-              color: '#0f172a',
-              fontWeight: '600',
-              cursor: 'pointer',
-              flex: 1,
-              maxWidth: '360px',
-              outline: 'none'
-            }}
+            className="px-3 py-2 rounded-lg border-[1.5px] border-slate-300 bg-white text-[13px] text-slate-900 font-semibold cursor-pointer flex-1 max-w-[360px] outline-none focus:border-blue-500 transition-colors"
           >
             {(employees || []).map(emp => (
               <option key={emp._id} value={emp._id}>
@@ -300,26 +236,18 @@ export const EmployeePermissionsTab = () => {
 
         {/* Selected Employee Quick Card */}
         {selectedEmp && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            backgroundColor: '#f8fafc',
-            padding: '6px 14px',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0'
-          }}>
+          <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
             <img
               src={selectedEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
               alt={selectedEmp.name}
-              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+              className="w-8 h-8 rounded-full object-cover"
             />
             <div>
-              <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[12.5px] font-bold text-slate-900">
                 {selectedEmp.name}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
-                Role: <span style={{ fontWeight: '700', color: '#2563eb' }}>{selectedEmp.role}</span> • ID: #{selectedEmp.employeeCode || 'EMP-001'}
+              <div className="text-[11px] text-slate-500">
+                Role: <span className="font-bold text-blue-600">{selectedEmp.role}</span> • ID: #{selectedEmp.employeeCode || 'EMP-001'}
               </div>
             </div>
           </div>
@@ -327,127 +255,61 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* ── MASTER ADMIN AUTHORITY DELEGATION CARD ── */}
-      <div style={{
-        background: isDelegatedAdmin 
-          ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' 
-          : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-        borderRadius: '14px',
-        border: isDelegatedAdmin ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: isDelegatedAdmin ? '0 4px 14px rgba(59, 130, 246, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
-        transition: 'all 0.2s ease',
-        flexWrap: 'wrap',
-        gap: '14px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            backgroundColor: isDelegatedAdmin ? '#2563eb' : '#94a3b8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            boxShadow: isDelegatedAdmin ? '0 4px 10px rgba(37,99,235,0.3)' : 'none',
-            flexShrink: 0
-          }}>
+      <div className={`rounded-2xl p-4 sm:px-5 flex items-center justify-between transition-all flex-wrap gap-3.5 ${
+        isDelegatedAdmin
+          ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-[1.5px] border-blue-500 shadow-md shadow-blue-500/10'
+          : 'bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-xs'
+      }`}>
+        <div className="flex items-center gap-3.5">
+          <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white shrink-0 ${
+            isDelegatedAdmin ? 'bg-blue-600 shadow-md shadow-blue-600/30' : 'bg-slate-400'
+          }`}>
             <Crown size={22} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px', fontWeight: '800', color: isDelegatedAdmin ? '#1e3a8a' : '#1e293b' }}>
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-extrabold ${isDelegatedAdmin ? 'text-blue-900' : 'text-slate-800'}`}>
                 Full Admin Authority Delegation
               </span>
               {isDelegatedAdmin && (
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  padding: '2px 8px',
-                  borderRadius: '20px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  letterSpacing: '0.3px'
-                }}>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
                   FULL ACCESS ACTIVE
                 </span>
               )}
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
+            <p className="text-xs text-slate-500 mt-1 m-0">
               Grant this user identical superpowers to Master Admin (all employees, reports, documentation, approvals, and system controls).
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label style={{
-            position: 'relative',
-            display: 'inline-block',
-            width: '46px',
-            height: '24px',
-            cursor: 'pointer'
-          }}>
+        <div className="flex items-center gap-2.5">
+          <label className="relative inline-block w-[46px] h-6 cursor-pointer">
             <input
               type="checkbox"
               checked={isDelegatedAdmin}
               onChange={handleToggleDelegatedAdmin}
-              style={{ opacity: 0, width: 0, height: 0 }}
+              className="sr-only"
             />
-            <span style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: isDelegatedAdmin ? '#2563eb' : '#cbd5e1',
-              borderRadius: '24px',
-              transition: '0.2s',
-              boxShadow: isDelegatedAdmin ? '0 2px 6px rgba(37,99,235,0.3)' : 'none'
-            }}>
-              <span style={{
-                position: 'absolute',
-                content: '""',
-                height: '18px',
-                width: '18px',
-                left: isDelegatedAdmin ? '24px' : '3px',
-                bottom: '3px',
-                backgroundColor: 'white',
-                borderRadius: '50%',
-                transition: '0.2s',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-              }} />
+            <span className={`block w-full h-full rounded-full transition-colors ${
+              isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300'
+            }`}>
+              <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
+                isDelegatedAdmin ? 'left-[24px]' : 'left-[3px]'
+              }`} />
             </span>
           </label>
         </div>
       </div>
 
       {/* ── MODULE TOGGLE PERMISSIONS MATRIX ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{
-          padding: '12px 18px',
-          backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#475569'
-        }}>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="px-[18px] py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-600">
           <span>MODULE & FEATURE</span>
           <span>ACCESS PERMISSION</span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="flex flex-col">
           {MODULE_LIST.map((mod, index) => {
             const Icon = mod.icon;
             const isEnabled = permissions[mod.id] !== false;
@@ -456,91 +318,60 @@ export const EmployeePermissionsTab = () => {
             return (
               <div
                 key={mod.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 18px',
-                  borderBottom: index < MODULE_LIST.length - 1 ? '1px solid #f1f5f9' : 'none',
-                  backgroundColor: adminHasMod ? (isEnabled ? '#ffffff' : '#fafafa') : '#fff8f8',
-                  transition: 'background-color 0.15s ease',
-                  opacity: adminHasMod ? 1 : 0.7
-                }}
+                className={`flex items-center justify-between px-[18px] py-3.5 transition-colors ${
+                  index < MODULE_LIST.length - 1 ? 'border-b border-slate-100' : ''
+                } ${adminHasMod ? (isEnabled ? 'bg-white' : 'bg-neutral-50/50') : 'bg-rose-50/40'} ${
+                  adminHasMod ? 'opacity-100' : 'opacity-70'
+                }`}
               >
                 {/* Left: Icon, Name & Description */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '8px',
-                    backgroundColor: adminHasMod ? (isEnabled ? '#eff6ff' : '#f1f5f9') : '#fee2e2',
-                    color: adminHasMod ? (isEnabled ? '#2563eb' : '#94a3b8') : '#dc2626',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                    adminHasMod
+                      ? (isEnabled ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400')
+                      : 'bg-red-100 text-red-600'
+                  }`}>
                     {adminHasMod ? <Icon size={18} /> : <Lock size={16} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: '13.5px', fontWeight: '700', color: adminHasMod ? (isEnabled ? '#0f172a' : '#64748b') : '#dc2626', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div className={`text-[13.5px] font-bold flex items-center gap-1.5 ${
+                      adminHasMod ? (isEnabled ? 'text-slate-900' : 'text-slate-500') : 'text-red-600'
+                    }`}>
                       {mod.label}
-                      {!adminHasMod && <span style={{ fontSize: '10px', backgroundColor: '#fecaca', color: '#dc2626', borderRadius: '4px', padding: '1px 5px' }}>No Access</span>}
+                      {!adminHasMod && (
+                        <span className="text-[10px] bg-red-200 text-red-600 rounded px-1.5 py-0.5">
+                          No Access
+                        </span>
+                      )}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '1px' }}>
+                    <div className="text-[11.5px] text-slate-400 mt-0.5">
                       {adminHasMod ? mod.desc : 'You lack access to this module — cannot grant it'}
                     </div>
                   </div>
                 </div>
 
                 {/* Right: Toggle Switch */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    color: !adminHasMod ? '#dc2626' : (isEnabled ? '#16a34a' : '#94a3b8'),
-                    minWidth: '45px',
-                    textAlign: 'right'
-                  }}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[11.5px] font-bold min-w-[45px] text-right ${
+                    !adminHasMod ? 'text-red-600' : (isEnabled ? 'text-green-600' : 'text-slate-400')
+                  }`}>
                     {!adminHasMod ? 'LOCKED' : (isEnabled ? 'ON' : 'OFF')}
                   </span>
 
-                  <label style={{
-                    position: 'relative',
-                    display: 'inline-block',
-                    width: '44px',
-                    height: '24px',
-                    cursor: adminHasMod ? 'pointer' : 'not-allowed'
-                  }}>
+                  <label className={`relative inline-block w-11 h-6 ${adminHasMod ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                     <input
                       type="checkbox"
                       checked={isEnabled}
                       disabled={!adminHasMod}
                       onChange={() => handleToggle(mod.id)}
-                      style={{ opacity: 0, width: 0, height: 0 }}
+                      className="sr-only"
                     />
-                    <span style={{
-                      position: 'absolute',
-                      cursor: adminHasMod ? 'pointer' : 'not-allowed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      backgroundColor: !adminHasMod ? '#e2e8f0' : (isEnabled ? '#22c55e' : '#cbd5e1'),
-                      transition: '0.2s',
-                      borderRadius: '24px'
-                    }}>
-                      <span style={{
-                        position: 'absolute',
-                        height: '18px',
-                        width: '18px',
-                        left: isEnabled ? '22px' : '3px',
-                        bottom: '3px',
-                        backgroundColor: '#ffffff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                      }} />
+                    <span className={`block w-full h-full rounded-full transition-colors ${
+                      !adminHasMod ? 'bg-slate-200 cursor-not-allowed' : (isEnabled ? 'bg-green-500 cursor-pointer' : 'bg-slate-300 cursor-pointer')
+                    }`}>
+                      <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
+                        isEnabled ? 'left-[22px]' : 'left-[3px]'
+                      }`} />
                     </span>
                   </label>
                 </div>
@@ -551,27 +382,19 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* ── ADDITIONAL DATA SCOPE CONTROLS ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Eye size={16} color="#0284c7" />
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:px-5 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Eye size={16} className="text-sky-600" />
+          <h3 className="text-sm font-bold text-slate-900 m-0">
             Data Visibility Scope (Item 17)
           </h3>
         </div>
-        <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+        <p className="text-xs text-slate-500 m-0">
           By default, employees only see their own data. Toggle below to grant wider company visibility.
-          {' '}<span style={{ color: '#dc2626', fontWeight: '600' }}>🔒 Locked toggles</span>{' '}mean you do not have that permission yourself and cannot grant it.
+          {' '}<span className="text-red-600 font-semibold">🔒 Locked toggles</span>{' '}mean you do not have that permission yourself and cannot grant it.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '6px' }}>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3 mt-1.5">
           {[
             { key: 'manageProjects',    emoji: '📁', label: 'Create & Manage Projects',   onDesc: 'Can create new projects, add members & edit project details', offDesc: 'Can only view assigned projects' },
             { key: 'viewAllProjects',   emoji: '🗂️', label: 'View All Company Projects',   onDesc: 'Sees all projects across the enterprise',                     offDesc: 'Only sees projects assigned to them' },
@@ -585,50 +408,35 @@ export const EmployeePermissionsTab = () => {
             const isEnabled = !!permissions[key];
             const adminHas = adminPerms[key] !== false;
             return (
-              <div key={key} style={{
-                padding: '12px 14px',
-                backgroundColor: adminHas ? '#f8fafc' : '#fef2f2',
-                borderRadius: '8px',
-                border: `1px solid ${adminHas ? '#e2e8f0' : '#fecaca'}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px',
-                opacity: adminHas ? 1 : 0.75
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div
+                key={key}
+                className={`p-3 px-3.5 rounded-lg flex items-center justify-between gap-2.5 transition-colors ${
+                  adminHas ? 'bg-slate-50 border border-slate-200 opacity-100' : 'bg-red-50 border border-red-200 opacity-75'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-bold text-slate-800 flex items-center gap-1">
                     {emoji} {label}
-                    {!adminHas && <Lock size={11} color="#dc2626" style={{ flexShrink: 0 }} />}
+                    {!adminHas && <Lock size={11} className="text-red-600 shrink-0" />}
                   </div>
-                  <div style={{ fontSize: '11px', color: adminHas ? '#64748b' : '#dc2626', marginTop: '2px' }}>
+                  <div className={`text-[11px] mt-0.5 ${adminHas ? 'text-slate-500' : 'text-red-600'}`}>
                     {!adminHas ? 'You lack this permission — cannot grant' : (isEnabled ? onDesc : offDesc)}
                   </div>
                 </div>
-                <label style={{ position: 'relative', display: 'inline-block', width: '38px', height: '20px', cursor: adminHas ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
+                <label className={`relative inline-block w-[38px] h-5 shrink-0 ${adminHas ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                   <input
                     type="checkbox"
                     checked={isEnabled}
                     disabled={!adminHas}
                     onChange={() => handleToggle(key)}
-                    style={{ opacity: 0, width: 0, height: 0 }}
+                    className="sr-only"
                   />
-                  <span style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: !adminHas ? '#e2e8f0' : isEnabled ? '#0284c7' : '#cbd5e1',
-                    borderRadius: '20px',
-                    transition: '0.2s'
-                  }}>
-                    <span style={{
-                      position: 'absolute',
-                      height: '14px', width: '14px',
-                      left: isEnabled ? '20px' : '3px',
-                      bottom: '3px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: '50%',
-                      transition: '0.2s'
-                    }} />
+                  <span className={`block w-full h-full rounded-full transition-colors ${
+                    !adminHas ? 'bg-slate-200' : isEnabled ? 'bg-sky-600' : 'bg-slate-300'
+                  }`}>
+                    <span className={`absolute top-[3px] h-3.5 w-3.5 bg-white rounded-full transition-all shadow-xs ${
+                      isEnabled ? 'left-[20px]' : 'left-[3px]'
+                    }`} />
                   </span>
                 </label>
               </div>

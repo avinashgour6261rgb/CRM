@@ -1572,67 +1572,30 @@ export const DashboardPage = () => {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
 
       {/* ── 🏢 Top Page Header Bar (Standardized matching Tickets & All Pages) ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white py-3 px-4 rounded-[10px] border border-slate-200 shadow-xs min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <LayoutDashboard size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
               Enterprise Operations Dashboard
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500">
               Live shift tracking, active tasks, team presence & workplace overview.
             </p>
           </div>
         </div>
 
         {/* Quick Header Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {isUserAdminOrHR && (
             <button
               onClick={() => setIsEmpDirectoryOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                borderRadius: '6px',
-                backgroundColor: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
               title="Open full Employee Directory"
             >
               <Users size={13} />
@@ -1642,20 +1605,7 @@ export const DashboardPage = () => {
 
           <button
             onClick={() => setIsRaiseTicketOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
             title="Raise support ticket or IT request"
           >
             <LifeBuoy size={13} color="#0284c7" />
@@ -1664,21 +1614,7 @@ export const DashboardPage = () => {
 
           <button
             onClick={() => setIsAddTaskOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
-            }}
+            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-sky-600 text-white border-none text-xs font-bold cursor-pointer shadow-xs hover:bg-sky-700 transition-colors"
             title="Create a new task"
           >
             <Plus size={13} />
@@ -1689,66 +1625,33 @@ export const DashboardPage = () => {
 
       {/* ── ⏰ LIVE DUE TASK REMINDER ALERT BANNER ── */}
       {dueReminders.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          border: '1.5px solid #fb923c',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          boxShadow: '0 4px 12px rgba(251, 146, 60, 0.15)',
-          animation: 'reminderPulseGlow 2.5s infinite'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#ea580c',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+        <div
+          className="bg-orange-50 border-[1.5px] border-orange-400 rounded-[10px] py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(251,146,60,0.15)] animate-[reminderPulseGlow_2.5s_infinite]"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
               <Bell size={16} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', fontWeight: '800', backgroundColor: '#fed7aa', color: '#9a3412', padding: '1px 6px', borderRadius: '4px' }}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-extrabold bg-orange-200 text-orange-900 px-1.5 py-px rounded">
                   ⏰ REMINDER DUE
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                <span className="text-[13px] font-extrabold text-slate-900">
                   #{dueReminders[0].taskCode || 'TSK'}: {dueReminders[0].title}
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: '#7c2d12', marginTop: '2px' }}>
+              <div className="text-[11px] text-orange-950 mt-0.5">
                 Paused at <strong>{dueReminders[0].hoursLoggedText || formatTimeDurationSafe(dueReminders[0].timerSeconds || 0)}</strong>
                 {dueReminders[0].reminderNote ? ` • Note: "${dueReminders[0].reminderNote}"` : ''}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => resumeSnoozedTask(dueReminders[0]._id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                backgroundColor: '#ea580c',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.3)'
-              }}
+              className="inline-flex items-center gap-1 py-1.5 px-3.5 rounded-md bg-orange-600 text-white border-none text-xs font-bold cursor-pointer shadow-[0_2px_6px_rgba(234,88,12,0.3)] hover:bg-orange-700 transition-colors"
             >
               <Play size={12} fill="#fff" />
               <span>Resume Timer & Work</span>
@@ -1756,16 +1659,7 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => snoozeTask(dueReminders[0]._id, { remindInMinutes: 15, note: 'Snoozed 15m' })}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                backgroundColor: '#ffffff',
-                color: '#9a3412',
-                border: '1px solid #fdba74',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-1.5 px-2.5 rounded-md bg-white text-orange-900 border border-orange-300 text-[11.5px] font-semibold cursor-pointer hover:bg-orange-50 transition-colors"
               title="Snooze for another 15 minutes"
             >
               +15m Snooze
@@ -1773,16 +1667,7 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => dismissTaskReminder(dueReminders[0]._id, targetActiveUid)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '6px',
-                backgroundColor: 'transparent',
-                color: '#9a3412',
-                border: 'none',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-1.5 px-2 rounded-md bg-transparent text-orange-900 border-none text-[11.5px] font-semibold cursor-pointer hover:bg-orange-100 transition-colors"
               title="Dismiss reminder"
             >
               ✕
@@ -1793,33 +1678,15 @@ export const DashboardPage = () => {
 
       {/* ── ⚠️ REOPENED PROJECTS BANNER (FOR ASSIGNEES) ── */}
       {reopenedProjectsForMe.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          border: '1.5px solid #fdba74',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 2px 6px rgba(194, 65, 12, 0.08)'
-        }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
-          <div style={{ flex: 1, fontSize: '12px', color: '#9a3412' }}>
+        <div className="bg-orange-50 border-[1.5px] border-orange-300 rounded-[10px] py-2.5 px-3.5 flex items-center gap-2.5 shadow-[0_2px_6px_rgba(194,65,12,0.08)]">
+          <span className="text-lg">⚠️</span>
+          <div className="flex-1 text-xs text-orange-900">
             <strong>Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened by Admin: </strong>
             {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
           </div>
           <button
             onClick={() => navigate('/projects')}
-            style={{
-              padding: '4px 10px',
-              backgroundColor: '#c2410c',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="py-1 px-2.5 bg-orange-700 text-white border-none rounded-md text-[11px] font-bold cursor-pointer hover:bg-orange-800 transition-colors"
           >
             View Projects
           </button>
@@ -1828,107 +1695,54 @@ export const DashboardPage = () => {
 
       {/* ── 📋 PROJECT COMPLETION APPROVALS QUEUE (ADMIN / HR PERSPECTIVE) ── */}
       {isUserAdminOrHR && pendingApprovalProjects.length > 0 && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1.5px solid #d8b4fe',
-          boxShadow: '0 4px 14px rgba(147, 51, 234, 0.08)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            padding: '10px 16px',
-            backgroundColor: '#faf5ff',
-            borderBottom: '1px solid #f3e8ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>📋</span>
+        <div className="bg-white rounded-xl border-[1.5px] border-purple-300 shadow-[0_4px_14px_rgba(147,51,234,0.08)] overflow-hidden">
+          <div className="py-2.5 px-4 bg-purple-50 border-b border-purple-100 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📋</span>
               <div>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#581c87' }}>
+                <span className="text-[13px] font-extrabold text-purple-950">
                   Project Completion Review Queue ({pendingApprovalProjects.length})
                 </span>
-                <span style={{ fontSize: '11px', color: '#7e22ce', marginLeft: '6px' }}>
+                <span className="text-[11px] text-purple-700 ml-1.5">
                   Submitted for final sign-off
                 </span>
               </div>
             </div>
             <button
               onClick={() => navigate('/projects')}
-              style={{
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: '#7e22ce',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
+              className="bg-transparent border-none text-purple-700 text-[11.5px] font-bold cursor-pointer underline hover:text-purple-900"
             >
               Manage All in Projects →
             </button>
           </div>
 
-          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="p-2.5 px-3.5 flex flex-col gap-2">
             {pendingApprovalProjects.map(proj => (
               <div
                 key={proj._id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: '#fdf4ff',
-                  border: '1px solid #f5d0fe'
-                }}
+                className="flex items-center justify-between flex-wrap gap-2.5 py-2 px-3 rounded-lg bg-fuchsia-50/60 border border-fuchsia-200"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    backgroundColor: '#9333ea',
-                    color: '#ffffff',
-                    fontSize: '10.5px',
-                    fontWeight: '800'
-                  }}>
+                <div className="flex items-center gap-2">
+                  <span className="py-0.5 px-1.5 rounded bg-purple-600 text-white text-[10.5px] font-extrabold">
                     {proj.projectCode || 'PRJ'}
                   </span>
                   <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                    <div className="text-[12.5px] font-bold text-slate-900">
                       {proj.name}
                     </div>
-                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                    <div className="text-[10.5px] text-slate-500">
                       Submitted by: <strong>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
                       {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={async () => {
                       await approveProjectCompletion(proj._id);
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-green-600 text-white border-none text-[11px] font-bold cursor-pointer shadow-xs hover:bg-green-700 transition-colors"
                     title="Official Final Sign-off: Marks Project permanently Complete in database"
                   >
                     <span>✅ Final Approve</span>
@@ -1941,19 +1755,7 @@ export const DashboardPage = () => {
                         await reopenProject(proj._id, reason.trim());
                       }
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#fff7ed',
-                      color: '#c2410c',
-                      border: '1px solid #fed7aa',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200 text-[11px] font-bold cursor-pointer hover:bg-orange-100 transition-colors"
                     title="Send project back to in-progress with revision notes"
                   >
                     <span>🔄 Reopen</span>
@@ -1967,82 +1769,46 @@ export const DashboardPage = () => {
 
       {/* ── ⏮️ LEFTOVER / PREVIOUS DAYS TASK REMINDER BANNER ── */}
       {!isLeftoverDismissed && myLeftoverTasks.length > 0 && (
-        <div style={{
-          backgroundColor: '#fef2f2',
-          border: '1.5px solid #f87171',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          boxShadow: '0 4px 14px rgba(239, 68, 68, 0.12)',
-          position: 'relative'
-        }}>
+        <div className="bg-red-50 border-[1.5px] border-red-400 rounded-[10px] py-3 px-4 flex flex-col gap-2.5 shadow-[0_4px_14px_rgba(239,68,68,0.12)] relative">
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0">
                 <Clock size={16} />
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '10.5px', fontWeight: '800', backgroundColor: '#fee2e2', color: '#991b1b', padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10.5px] font-extrabold bg-red-100 text-red-800 py-0.5 px-2 rounded uppercase tracking-wider">
                     ⏮️ Leftover from Previous Day
                   </span>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#b91c1c' }}>
+                  <span className="text-xs font-bold text-red-700">
                     {myLeftoverTasks.length} task{myLeftoverTasks.length > 1 ? 's were' : ' was'} left incomplete
                   </span>
                 </div>
-                <div style={{ fontSize: '11px', color: '#7f1d1d', marginTop: '2px' }}>
+                <div className="text-[11px] text-red-900 mt-0.5">
                   Please take action: start working now, reschedule for future, snooze reminder, or mark completed.
                 </div>
               </div>
             </div>
 
             {/* Pagination / navigation if multiple leftover tasks */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               {myLeftoverTasks.length > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '6px' }}>
+                <div className="flex items-center gap-1 mr-1.5">
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.max(0, i - 1))}
                     disabled={activeLeftoverIdx === 0}
-                    style={{
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #fca5a5',
-                      backgroundColor: activeLeftoverIdx === 0 ? '#fee2e2' : '#ffffff',
-                      color: activeLeftoverIdx === 0 ? '#9ca3af' : '#b91c1c',
-                      cursor: activeLeftoverIdx === 0 ? 'default' : 'pointer',
-                      fontSize: '11px'
-                    }}
+                    className={`py-1 px-1.5 rounded border border-red-300 text-xs font-semibold ${activeLeftoverIdx === 0 ? 'bg-red-100 text-gray-400 cursor-default' : 'bg-white text-red-700 cursor-pointer'}`}
                   >
                     ◀
                   </button>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b' }}>
+                  <span className="text-xs font-bold text-red-800">
                     {activeLeftoverIdx + 1} of {myLeftoverTasks.length}
                   </span>
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.min(myLeftoverTasks.length - 1, i + 1))}
                     disabled={activeLeftoverIdx === myLeftoverTasks.length - 1}
-                    style={{
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #fca5a5',
-                      backgroundColor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#fee2e2' : '#ffffff',
-                      color: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#9ca3af' : '#b91c1c',
-                      cursor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'default' : 'pointer',
-                      fontSize: '11px'
-                    }}
+                    className={`py-1 px-1.5 rounded border border-red-300 text-xs font-semibold ${activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'bg-red-100 text-gray-400 cursor-default' : 'bg-white text-red-700 cursor-pointer'}`}
                   >
                     ▶
                   </button>
@@ -2051,15 +1817,7 @@ export const DashboardPage = () => {
               <button
                 onClick={handleDismissLeftover}
                 title="Dismiss reminder banner"
-                style={{
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: '#991b1b',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}
+                className="border-none bg-transparent text-red-800 text-sm cursor-pointer py-0.5 px-1.5 rounded hover:bg-red-200/50 transition-colors"
               >
                 ✕
               </button>
@@ -2077,42 +1835,32 @@ export const DashboardPage = () => {
               : 1;
 
             return (
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #fecaca',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
-                <div style={{ flex: 1, minWidth: '240px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626' }}>
+              <div className="bg-white border border-red-200 rounded-lg py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-extrabold text-red-600">
                       #{currentLeftover.taskCode || 'TSK'}:
                     </span>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                    <span className="text-[13px] font-bold text-slate-800">
                       {currentLeftover.title}
                     </span>
                     {currentLeftover.projectName && (
-                      <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 py-px px-1.5 rounded font-semibold">
                         📁 {currentLeftover.projectName}
                       </span>
                     )}
-                    <span style={{ fontSize: '10px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                    <span className="text-[10px] bg-red-100 text-red-600 py-px px-1.5 rounded font-bold">
                       Due {diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`} ({currentLeftover.dueDate || 'Past Due'})
                     </span>
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px' }}>
-                    Priority: <strong style={{ textTransform: 'capitalize', color: currentLeftover.priority === 'urgent' ? '#dc2626' : currentLeftover.priority === 'high' ? '#ea580c' : '#475569' }}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
+                  <div className="text-[11.5px] text-slate-500 mt-1">
+                    Priority: <strong className={`capitalize ${currentLeftover.priority === 'urgent' ? 'text-red-600' : currentLeftover.priority === 'high' ? 'text-orange-600' : 'text-slate-600'}`}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
                     {currentLeftover.assignedBy && ` • Assigned by: ${currentLeftover.assignedBy}`}
                   </div>
                 </div>
 
                 {/* Quick 1-Click Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Work Now / Start Timer */}
                   <button
                     onClick={() => {
@@ -2128,20 +1876,7 @@ export const DashboardPage = () => {
                       setActiveSelectedTaskId(currentLeftover._id);
                       addToast(`▶️ Started leftover task: ${currentLeftover.title}`, 'success');
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(220, 38, 38, 0.3)'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-3 rounded-md bg-red-600 text-white border-none text-[11.5px] font-bold cursor-pointer shadow-xs hover:bg-red-700 transition-colors"
                     title="Start timer and work on this leftover task now"
                   >
                     <Play size={11} fill="#fff" />
@@ -2159,16 +1894,7 @@ export const DashboardPage = () => {
                         addToast(`📅 Task rescheduled to tomorrow (${tomorrowStr})`, 'success');
                       }
                     }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[11.5px] font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
                     title="Move deadline to Tomorrow (+1 Day)"
                   >
                     📅 +1d Tomorrow
@@ -2185,16 +1911,7 @@ export const DashboardPage = () => {
                         addToast(`📅 Task rescheduled to next week (${nextWeekStr})`, 'success');
                       }
                     }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#f8fafc',
-                      color: '#334155',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
                     title="Move deadline to Next Week (+7 Days)"
                   >
                     +7d Next Week
@@ -2206,16 +1923,7 @@ export const DashboardPage = () => {
                       setSnoozeTaskTarget(currentLeftover);
                       setIsSnoozeModalOpen(true);
                     }}
-                    style={{
-                      padding: '5px 9px',
-                      borderRadius: '6px',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      border: '1px solid #fde68a',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 text-[11.5px] font-semibold cursor-pointer hover:bg-amber-200 transition-colors"
                     title="Set reminder or snooze task"
                   >
                     ⏰ Snooze
@@ -2227,35 +1935,17 @@ export const DashboardPage = () => {
                       await completeTask(currentLeftover._id, 'Completed leftover task', false);
                       addToast('✅ Leftover task marked as completed!', 'success');
                     }}
-                    style={{
-                      padding: '5px 9px',
-                      borderRadius: '6px',
-                      backgroundColor: '#dcfce7',
-                      color: '#15803d',
-                      border: '1px solid #bbf7d0',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-green-100 text-green-700 border border-green-200 text-[11.5px] font-semibold cursor-pointer hover:bg-green-200 transition-colors"
                     title="Mark this leftover task as completed"
                   >
-                    <CheckCircle2 size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                    <CheckCircle2 size={12} className="inline mr-1" />
                     Done
                   </button>
 
                   {/* Open Detail Modal (Full history + custom reschedule) */}
                   <button
                     onClick={() => setSelectedTask(currentLeftover)}
-                    style={{
-                      padding: '5px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: '#f1f5f9',
-                      color: '#475569',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2 rounded-md bg-slate-100 text-slate-600 border border-slate-300 text-[11px] font-semibold cursor-pointer hover:bg-slate-200 transition-colors"
                     title="View details & assignment history"
                   >
                     Details
@@ -2269,44 +1959,23 @@ export const DashboardPage = () => {
 
       {/* ── 📬 REAL-TIME LEAVE DECISION ALERT BANNER ── */}
       {myDecidedLeaves.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="flex flex-col gap-2">
           {myDecidedLeaves.map(leave => (
             <div
               key={leave._id}
-              style={{
-                backgroundColor: leave.status === 'approved' ? '#ecfdf5' : '#fff1f2',
-                border: `1.5px solid ${leave.status === 'approved' ? '#6ee7b7' : '#fca5a5'}`,
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                boxShadow: leave.status === 'approved' ? '0 4px 12px rgba(16, 185, 129, 0.12)' : '0 4px 12px rgba(239, 68, 68, 0.12)'
-              }}
+              className={`rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 ${leave.status === 'approved' ? 'bg-emerald-50 border-[1.5px] border-emerald-300 shadow-[0_4px_12px_rgba(16,185,129,0.12)]' : 'bg-rose-50 border-[1.5px] border-rose-300 shadow-[0_4px_12px_rgba(239,68,68,0.12)]'}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '9px',
-                  backgroundColor: leave.status === 'approved' ? '#10b981' : '#ef4444',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-[9px] text-white flex items-center justify-center shrink-0 ${leave.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'}`}>
                   {leave.status === 'approved' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
                 </div>
                 <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: leave.status === 'approved' ? '#065f46' : '#991b1b' }}>
+                  <div className={`text-[13.5px] font-bold ${leave.status === 'approved' ? 'text-emerald-900' : 'text-red-900'}`}>
                     {leave.status === 'approved' ? '🎉 Leave Application Approved!' : '⚠️ Leave Application Declined'}
                   </div>
-                  <div style={{ fontSize: '12px', color: leave.status === 'approved' ? '#047857' : '#b91c1c', marginTop: '2px' }}>
+                  <div className={`text-xs mt-0.5 ${leave.status === 'approved' ? 'text-emerald-700' : 'text-red-700'}`}>
                     <strong>{leave.leaveType} ({leave.durationText || `${leave.durationDays} Days`})</strong> • 📅 {leave.startDate} to {leave.endDate}
-                    <span style={{ margin: '0 6px', opacity: 0.6 }}>•</span>
+                    <span className="mx-1.5 opacity-60">•</span>
                     <span>
                       {leave.status === 'approved'
                         ? `Approved by ${leave.approvedBy || leave.actionBy || 'Admin'}${leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}`
@@ -2315,34 +1984,16 @@ export const DashboardPage = () => {
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => acknowledgeLeave(leave._id)}
-                  style={{
-                    backgroundColor: leave.status === 'approved' ? '#059669' : '#dc2626',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '7px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className={`text-white border-none py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${leave.status === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
                 >
                   ✓ Acknowledge & Dismiss
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    color: '#334155',
-                    border: '1px solid #cbd5e1',
-                    padding: '6px 12px',
-                    borderRadius: '7px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-white text-slate-700 border border-slate-300 py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
                 >
                   View Details
                 </button>
@@ -2354,89 +2005,42 @@ export const DashboardPage = () => {
 
       {/* ── 📋 TOP ALERT BANNER: MY SUBMITTED LEAVE REQUEST (PENDING REVIEW) ── */}
       {myPendingLeaves.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="flex flex-col gap-2">
           {myPendingLeaves.slice(0, 1).map(l => (
             <div
               key={`my_pending_top_${l._id}`}
-              style={{
-                backgroundColor: '#eff6ff',
-                border: '1.5px solid #bfdbfe',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.08)'
-              }}
+              className="bg-blue-50 border-[1.5px] border-blue-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_2px_8px_rgba(37,99,235,0.08)]"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '9px',
-                  backgroundColor: '#3b82f6',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-blue-500 text-white flex items-center justify-center shrink-0">
                   <Clock size={20} />
                 </div>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af' }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-blue-800">
                       📋 Your Leave Application is Pending Review
                     </span>
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      backgroundColor: '#dbeafe',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      padding: '1px 6px',
-                      borderRadius: '4px'
-                    }}>
+                    <span className="text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-px rounded">
                       Awaiting Decision
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#1e3a8a', marginTop: '2px' }}>
+                  <div className="text-xs text-blue-900 mt-0.5">
                     <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong> • Sent to <strong>{l.appliedToName || 'Reviewer'}</strong> ({l.appliedToRole || 'Approver'})
                     {l.reason && <span> • <em>"{l.reason}"</em></span>}
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCancellingLeaveTarget(l)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#ffffff',
-                    color: '#dc2626',
-                    border: '1px solid #fca5a5',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-white text-red-600 border border-red-300 text-[11.5px] font-bold cursor-pointer hover:bg-red-50 transition-colors"
                   title="Withdraw / Cancel this request"
                 >
                   Cancel Request
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#1d4ed8',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-blue-700 text-white border-none text-[11.5px] font-semibold cursor-pointer hover:bg-blue-800 transition-colors"
                 >
                   View Details →
                 </button>
@@ -2448,123 +2052,56 @@ export const DashboardPage = () => {
 
       {/* ── 📩 TOP ALERT BANNER: INCOMING LEAVE REQUESTS FOR YOUR REVIEW (DISMISSIBLE VIA CROSS) ── */}
       {activeTopLeaveRequests.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="flex flex-col gap-2">
           {activeTopLeaveRequests.map(l => (
             <div
               key={`top_leave_${l._id}`}
-              style={{
-                backgroundColor: '#fffbeb',
-                border: '1.5px solid #fde68a',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.12)'
-              }}
+              className="bg-amber-50 border-[1.5px] border-amber-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.12)]"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '9px',
-                  backgroundColor: '#f59e0b',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-amber-500 text-white flex items-center justify-center shrink-0">
                   <Palmtree size={20} />
                 </div>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#92400e' }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-amber-900">
                       📩 New Leave Request Pending Your Approval
                     </span>
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      backgroundColor: '#fef3c7',
-                      color: '#b45309',
-                      border: '1px solid #fde68a',
-                      padding: '1px 6px',
-                      borderRadius: '4px'
-                    }}>
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-px rounded">
                       Needs Review
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#78350f', marginTop: '2px' }}>
+                  <div className="text-xs text-amber-950 mt-0.5">
                     <strong>{l.employeeName}</strong> ({l.employeeRole || 'Member'}) has requested <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong>
                     {l.reason && <span> • <em>"{l.reason}"</em></span>}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => updateLeaveStatus(l._id, 'approved')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-green-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-green-700 transition-colors"
                   title="Approve this leave request"
                 >
                   ✓ Accept
                 </button>
                 <button
                   onClick={() => setRejectingLeaveTarget(l)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#dc2626',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-red-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-red-700 transition-colors"
                   title="Deny this leave request"
                 >
                   ✕ Deny
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-white text-slate-600 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
                 >
                   Manage →
                 </button>
                 <button
                   onClick={() => dismissTopAlert(l._id)}
-                  style={{
-                    padding: '5px',
-                    borderRadius: '6px',
-                    backgroundColor: '#fef3c7',
-                    color: '#92400e',
-                    border: '1px solid #fde68a',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: '4px'
-                  }}
+                  className="p-1.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer flex items-center justify-center ml-1 hover:bg-amber-200 transition-colors"
                   title="Dismiss alert from top (remains available in Leave section below)"
                 >
                   <X size={15} />
@@ -2577,106 +2114,48 @@ export const DashboardPage = () => {
 
       {/* ── 📢 TOP ALERT BANNER: IMPORTANT COMPANY ANNOUNCEMENTS (DISMISSIBLE VIA CROSS) ── */}
       {activeTopNotices.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="flex flex-col gap-2">
           {activeTopNotices.slice(0, 2).map(not => (
             <div
               key={`top_notice_${not._id || not.id}`}
-              style={{
-                backgroundColor: '#eff6ff',
-                border: '1.5px solid #bfdbfe',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.08)'
-              }}
+              className="bg-blue-50 border-[1.5px] border-blue-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.08)]"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '9px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-blue-600 text-white flex items-center justify-center shrink-0">
                   <Bell size={20} />
                 </div>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#1e40af' }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-blue-800">
                       📢 Important Announcement: {not.title}
                     </span>
-                    <span style={{
-                      fontSize: '10px',
-                      fontWeight: '700',
-                      backgroundColor: not.isImportant ? '#fee2e2' : '#dbeafe',
-                      color: not.isImportant ? '#dc2626' : '#1d4ed8',
-                      border: `1px solid ${not.isImportant ? '#fecaca' : '#bfdbfe'}`,
-                      padding: '1px 6px',
-                      borderRadius: '4px'
-                    }}>
+                    <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not.isImportant ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
                       {not.category || 'Company Notice'}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#1e3a8a', marginTop: '2px' }}>
+                  <div className="text-xs text-blue-900 mt-0.5">
                     {not.shortDescription || not.description || not.fullContent}
-                    {not.postedBy && <span style={{ color: '#64748b', marginLeft: '6px' }}>• Posted by <strong>{not.postedBy}</strong></span>}
+                    {not.postedBy && <span className="text-slate-500 ml-1.5">• Posted by <strong>{not.postedBy}</strong></span>}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedNotice(not)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-blue-700 transition-colors"
                 >
                   Read Notice →
                 </button>
                 <button
                   onClick={() => navigate('/notice-board')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="py-1.5 px-3 rounded-md bg-white text-slate-600 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
                 >
                   Notice Board
                 </button>
                 <button
                   onClick={() => dismissTopAlert(not._id || not.id)}
-                  style={{
-                    padding: '5px',
-                    borderRadius: '6px',
-                    backgroundColor: '#dbeafe',
-                    color: '#1e40af',
-                    border: '1px solid #bfdbfe',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: '4px'
-                  }}
+                  className="p-1.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200 cursor-pointer flex items-center justify-center ml-1 hover:bg-blue-200 transition-colors"
                   title="Dismiss announcement from top (remains available in Notices section below)"
                 >
                   <X size={15} />
@@ -2689,65 +2168,28 @@ export const DashboardPage = () => {
 
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
       {(isUserAdminOrHR || perms?.liveOperations || perms?.viewAllAttendance) && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          borderRadius: '10px',
-          border: '1px solid #fed7aa',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              backgroundColor: '#ea580c',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+        <div className="bg-orange-50 rounded-[10px] border border-orange-200 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-[34px] h-[34px] rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
               <Zap size={18} fill="#ffffff" />
             </div>
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#9a3412', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="text-[13.5px] font-extrabold text-orange-900 flex items-center gap-1.5">
                 <span>Team Operations & Shift Controls</span>
-                <span style={{ fontSize: '10px', backgroundColor: '#ffedd5', color: '#c2410c', border: '1px solid #fed7aa', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-px rounded font-bold">
                   {teamStats.clockedIn} Working Live
                 </span>
               </div>
-              <div style={{ fontSize: '11.5px', color: '#c2410c' }}>
+              <div className="text-[11.5px] text-orange-700">
                 Emergency clock-in/out, power outage overrides, task controls, and full team shift tracking are centralized in Live Operations.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/team-operations')}
-              style={{
-                padding: '7px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#ea580c',
-                color: '#ffffff',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
-                transition: 'background-color 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c2410c'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ea580c'}
+              className="py-1.5 px-4 rounded-lg border-none bg-orange-600 text-white text-[12.5px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_2px_6px_rgba(234,88,12,0.25)] hover:bg-orange-700 transition-colors"
             >
               <Zap size={14} fill="#ffffff" />
               <span>Open Live Operations →</span>
@@ -2787,12 +2229,7 @@ export const DashboardPage = () => {
             {/* ─────────────────────────────────────────────────────────────────────────
           TOP SECTION: Welcome Profile Card & Attendance Shift Clock (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         <DashboardWelcomeCard
           effectiveTargetUser={effectiveTargetUser}
           currentUser={currentUser}
@@ -2847,13 +2284,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           MIDDLE ROW: My Active Timer & Week Timelogs (Side-by-Side Responsive Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '14px',
-        marginBottom: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-3.5 mb-3.5 items-stretch">
         {/* Left Column: My Active Timer Card (Compact & Modern) */}
         <ActiveTaskTimerCard
           currentDateFormatted={currentDateFormatted}
@@ -2886,44 +2317,23 @@ export const DashboardPage = () => {
         />
 
         {/* Right Column: Tasks/Projects Overview & Week Timelogs (Exact Layout from Photo) */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
+        <div className="flex flex-col gap-3">
           {/* Mini Tasks & Projects Overview Row */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '12px'
-          }}>
+          <div className="grid grid-cols-2 gap-3">
             {/* Tasks Mini Card */}
             <div
               onClick={() => {
                 setPendingTasksModalFilter('all');
                 setIsPendingTasksModalOpen(true);
               }}
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+              className="bg-white rounded-[10px] border border-slate-200 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all pending tasks list"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tasks</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600">Tasks</span>
                 <ListTodo size={15} color="#0284c7" />
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginTop: '2px' }}>
+              <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2931,10 +2341,10 @@ export const DashboardPage = () => {
                     setIsPendingTasksModalOpen(true);
                   }}
                   title="Click to view pending tasks"
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7' }}>{myPendingTasks.length}</span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Pending</span>
+                  <span className="text-lg font-extrabold text-sky-600">{myPendingTasks.length}</span>
+                  <span className="text-[10.5px] text-slate-500 ml-1">Pending</span>
                 </div>
                 <div
                   onClick={(e) => {
@@ -2943,10 +2353,10 @@ export const DashboardPage = () => {
                     setIsPendingTasksModalOpen(true);
                   }}
                   title="Click to view overdue tasks"
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: overdueTasksCount > 0 ? '#dc2626' : '#64748b' }}>{overdueTasksCount}</span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Overdue</span>
+                  <span className={`text-lg font-extrabold ${overdueTasksCount > 0 ? 'text-red-600' : 'text-slate-500'}`}>{overdueTasksCount}</span>
+                  <span className="text-[10.5px] text-slate-500 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
@@ -2954,38 +2364,25 @@ export const DashboardPage = () => {
             {/* Projects Mini Card */}
             <div
               onClick={() => navigate('/projects')}
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+              className="bg-white rounded-[10px] border border-slate-200 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all projects"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Projects</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600">Projects</span>
                 <Layers size={15} color="#0284c7" />
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginTop: '2px' }}>
+              <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
+                  <span className="text-lg font-extrabold text-green-600">
                     {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
                   </span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>In Progress</span>
+                  <span className="text-[10.5px] text-slate-500 ml-1">In Progress</span>
                 </div>
                 <div>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: (projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? '#ef4444' : '#64748b' }}>
+                  <span className={`text-lg font-extrabold ${(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500' : 'text-slate-500'}`}>
                     {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
                   </span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Overdue</span>
+                  <span className="text-[10.5px] text-slate-500 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
@@ -3047,66 +2444,32 @@ export const DashboardPage = () => {
         navigate={navigate}
       />
 
-            {/* ─────────────────────────────────────────────────────────────────────────
+      {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 1: Support Tickets & Calendar / Schedule (Spacious 2-Column Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-3.5 items-stretch">
         {/* Support Tickets Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 m-0">
                 🎫 Support Tickets
               </h3>
-              <span style={{
-                fontSize: '10.5px',
-                fontWeight: '700',
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '1px 6px',
-                borderRadius: '10px'
-              }}>
+              <span className="text-[10.5px] font-bold text-sky-600 bg-sky-100 px-1.5 py-px rounded-full">
                 {openTicketsList.length} Open
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setIsRaiseTicketOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '4px 9px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="flex items-center gap-1 bg-sky-600 text-white border-none py-1 px-2.5 rounded text-[11px] font-bold cursor-pointer hover:bg-sky-700 transition-colors"
               >
                 <Plus size={12} /> Raise Ticket
               </button>
               <button
                 onClick={() => navigate('/tickets')}
-                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+                className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
               >
                 All →
               </button>
@@ -3114,80 +2477,42 @@ export const DashboardPage = () => {
           </div>
 
           {/* Ticket Filter Pills */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #f1f5f9',
-            paddingBottom: '6px',
-            gap: '6px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 gap-1.5 flex-wrap">
+            <div className="flex gap-1">
               <button
                 onClick={() => setTicketFilterTab('all')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'all' ? '#f1f5f9' : 'transparent',
-                  color: ticketFilterTab === 'all' ? '#0f172a' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'all' ? 'bg-slate-100 text-slate-900' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
               >
                 All ({(tickets || []).length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('open')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'open' ? '#eff6ff' : 'transparent',
-                  color: ticketFilterTab === 'open' ? '#0284c7' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'open' ? 'bg-blue-50 text-sky-600' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
               >
                 Open ({openTicketsList.length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('resolved')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'resolved' ? '#f0fdf4' : 'transparent',
-                  color: ticketFilterTab === 'resolved' ? '#16a34a' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'resolved' ? 'bg-emerald-50 text-green-600' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
               >
                 Resolved ({resolvedTicketsList.length})
               </button>
             </div>
 
-            <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+            <span className="text-[10.5px] text-slate-400">
               Click row to view discussion
             </span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Ticket#</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Subject</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Priority</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Status</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600', textAlign: 'right' }}>Date</th>
+                <tr className="border-b border-slate-100 text-slate-500">
+                  <th className="py-1.5 px-1 font-semibold">Ticket#</th>
+                  <th className="py-1.5 px-1 font-semibold">Subject</th>
+                  <th className="py-1.5 px-1 font-semibold">Priority</th>
+                  <th className="py-1.5 px-1 font-semibold">Status</th>
+                  <th className="py-1.5 px-1 font-semibold text-right">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -3196,62 +2521,41 @@ export const DashboardPage = () => {
                     <tr
                       key={tkt?._id || Math.random()}
                       onClick={() => setSelectedTicket(tkt)}
-                      style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.15s ease' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
                       title="Click to view full discussion & reply"
                     >
-                      <td style={{ padding: '7px 4px', color: '#0284c7', fontWeight: '700', fontFamily: 'monospace', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                      <td className="py-2 px-1 text-sky-600 font-bold font-mono text-[11.5px] whitespace-nowrap">
                         #{tkt?.ticketCode || 'TKT-1'}
                       </td>
-                      <td style={{ padding: '7px 4px', color: '#0f172a', fontWeight: '600' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                      <td className="py-2 px-1 text-slate-900 font-semibold">
+                        <div className="truncate max-w-[170px]">
                           {tkt?.subject}
                         </div>
-                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '400' }}>
+                        <div className="text-[10px] text-slate-500 font-normal">
                           From: {tkt?.requestedBy || tkt?.clientName || 'Employee'}
                         </div>
                       </td>
-                      <td style={{ padding: '7px 4px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          padding: '1px 6px',
-                          borderRadius: '6px',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          backgroundColor: tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#fef2f2' : (tkt?.priority === 'medium' ? '#fffbeb' : '#f0fdf4'),
-                          color: tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#dc2626' : (tkt?.priority === 'medium' ? '#d97706' : '#16a34a'),
-                          border: `1px solid ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#fecaca' : (tkt?.priority === 'medium' ? '#fde68a' : '#bbf7d0')}`
-                        }}>
+                      <td className="py-2 px-1 whitespace-nowrap">
+                        <span className={`px-1.5 py-px rounded-md text-[10px] font-bold border ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? 'bg-red-50 text-red-600 border-red-200' : tkt?.priority === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
                           {tkt?.priority || 'Normal'}
                         </span>
                       </td>
-                      <td style={{ padding: '7px 4px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          padding: '1px 6px',
-                          borderRadius: '8px',
-                          fontSize: '10.5px',
-                          fontWeight: '600',
-                          backgroundColor: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#f0fdf4' : '#eff6ff',
-                          color: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#16a34a' : '#2563eb',
-                          border: `1px solid ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#bbf7d0' : '#bfdbfe'}`
-                        }}>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#16a34a' : '#2563eb' }} />
+                      <td className="py-2 px-1 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded-lg text-[10.5px] font-semibold border ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                          <span className={`w-1 h-1 rounded-full ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-600' : 'bg-blue-600'}`} />
                           {tkt?.status || 'Open'}
                         </span>
                       </td>
-                      <td style={{ padding: '7px 4px', textAlign: 'right', color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                      <td className="py-2 px-1 text-right text-slate-500 text-[11px] whitespace-nowrap">
                         {tkt?.requestedOn || 'Today'}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '18px 0', color: '#94a3b8' }}>
-                      <LifeBuoy size={22} style={{ margin: '0 auto 4px', display: 'block', color: '#cbd5e1' }} />
-                      <div style={{ fontSize: '12px', fontWeight: '600' }}>No {ticketFilterTab} support tickets found.</div>
+                    <td colSpan="5" className="text-center py-[18px] text-slate-400">
+                      <LifeBuoy size={22} className="mx-auto mb-1 block text-slate-300" />
+                      <div className="text-xs font-semibold">No {ticketFilterTab} support tickets found.</div>
                     </td>
                   </tr>
                 )}
@@ -3261,57 +2565,42 @@ export const DashboardPage = () => {
         </div>
 
         {/* Schedule & Events Widget (Paired with Tickets) */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <h3 className="text-sm font-bold text-slate-900 m-0">
               📅 Schedule & Events
             </h3>
             <button
               onClick={() => navigate('/calendar')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               Full Calendar →
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className="flex flex-col gap-1.5">
             {upcomingScheduleEvents.length > 0 ? (
               upcomingScheduleEvents.map(ev => (
                 <div
                   key={ev?._id || Math.random()}
                   onClick={() => navigate('/calendar')}
+                  className="flex items-center gap-2 py-1.5 px-2.5 rounded cursor-pointer"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 10px',
                     backgroundColor: ev?.bgColor || '#eff6ff',
-                    borderRadius: '5px',
-                    borderLeft: `3.5px solid ${ev?.color || '#2563eb'}`,
-                    cursor: 'pointer'
+                    borderLeft: `3.5px solid ${ev?.color || '#2563eb'}`
                   }}
                   title="Click to open calendar"
                 >
-                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: ev?.color || '#2563eb', fontFamily: 'monospace' }}>
+                  <span className="text-[10.5px] font-bold font-mono" style={{ color: ev?.color || '#2563eb' }}>
                     {ev?.time || 'All Day'}
                   </span>
-                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a' }}>
+                  <span className="text-[11.5px] font-semibold text-slate-900">
                     {ev?.title}
                   </span>
                 </div>
               ))
             ) : (
-              <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', padding: '12px 0' }}>
+              <div className="text-xs text-slate-400 text-center py-3">
                 No upcoming events this month
               </div>
             )}
@@ -3322,47 +2611,19 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 2: Birthdays, Appreciations & Calendar (Compact & Clean)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* Birthdays Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
+        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '7px' }}>
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
               <button
                 type="button"
                 onClick={() => setCelebrationTab('birthdays')}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  backgroundColor: celebrationTab === 'birthdays' ? '#ffffff' : 'transparent',
-                  color: celebrationTab === 'birthdays' ? '#b45309' : '#64748b',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: celebrationTab === 'birthdays' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'birthdays' ? 'bg-white text-amber-700 shadow-xs' : 'bg-transparent text-slate-500'}`}
               >
                 <span>🎂 Birthdays</span>
-                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#b45309' }}>
+                <span className="text-[10px] px-1 rounded-full bg-amber-100 text-amber-700">
                   {(computedBirthdays || []).length}
                 </span>
               </button>
@@ -3370,23 +2631,10 @@ export const DashboardPage = () => {
               <button
                 type="button"
                 onClick={() => setCelebrationTab('anniversaries')}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  backgroundColor: celebrationTab === 'anniversaries' ? '#ffffff' : 'transparent',
-                  color: celebrationTab === 'anniversaries' ? '#7c3aed' : '#64748b',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: celebrationTab === 'anniversaries' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'anniversaries' ? 'bg-white text-purple-700 shadow-xs' : 'bg-transparent text-slate-500'}`}
               >
                 <span>🌟 Anniversaries</span>
-                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#f3e8ff', color: '#7c3aed' }}>
+                <span className="text-[10px] px-1 rounded-full bg-purple-100 text-purple-700">
                   {(computedAnniversaries || []).length}
                 </span>
               </button>
@@ -3394,14 +2642,14 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => navigate('/calendar')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
           </div>
 
           {/* List of items with exact Date and Countdown Day Count */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             {celebrationTab === 'birthdays' ? (
               (computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 3).map(bday => {
                 const diffDays = bday?.diffDays ?? 0;
@@ -3409,52 +2657,32 @@ export const DashboardPage = () => {
                   <div
                     key={bday?._id || bday?.employeeId || Math.random()}
                     onClick={() => addToast(`🎉 Birthday greetings sent to ${bday?.name || 'Colleague'}!`, 'success')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      backgroundColor: '#f8fafc',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fffbeb'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer transition-all duration-150 hover:bg-amber-50"
                     title="Click to send birthday greetings"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={bday?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(bday?.name || 'User')}`}
                         alt={bday?.name}
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                        className="w-8 h-8 rounded-full object-cover shrink-0"
                       />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-slate-900 truncate">
                           {bday?.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        <div className="text-[11px] text-slate-500">
                           🎂 {bday?.role || 'Team Member'}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900 flex items-center gap-1">
                         <span>📅 {bday?.birthdayDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#fef3c7'),
-                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#b45309'),
-                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#fde68a')}`
-                      }}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 text-green-700 border-green-300' : (diffDays === 1 ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-300')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -3468,52 +2696,32 @@ export const DashboardPage = () => {
                   <div
                     key={anniv?._id || anniv?.employeeId || Math.random()}
                     onClick={() => addToast(`🌟 Work Anniversary congratulations sent to ${anniv?.name || 'Colleague'}!`, 'success')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      backgroundColor: '#f8fafc',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer transition-all duration-150 hover:bg-purple-50"
                     title="Click to send work anniversary congratulations"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={anniv?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(anniv?.name || 'User')}`}
                         alt={anniv?.name}
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                        className="w-8 h-8 rounded-full object-cover shrink-0"
                       />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-slate-900 truncate">
                           {anniv?.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '600' }}>
+                        <div className="text-[11px] text-purple-600 font-semibold">
                           🌟 {anniv?.serviceYearsText} Work Anniversary
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900 flex items-center gap-1">
                         <span>📅 {anniv?.anniversaryDate || anniv?.annivFormattedDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#f5f3ff'),
-                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#7c3aed'),
-                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#ddd6fe')}`
-                      }}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 text-green-700 border-green-300' : (diffDays === 1 ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-purple-50 text-purple-700 border-purple-200')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -3523,13 +2731,13 @@ export const DashboardPage = () => {
             )}
 
             {celebrationTab === 'birthdays' && (!computedBirthdays || computedBirthdays.length === 0) && (
-              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+              <div className="text-center p-4 text-slate-400 text-xs">
                 🎂 No birthdays scheduled
               </div>
             )}
 
             {celebrationTab === 'anniversaries' && (!computedAnniversaries || computedAnniversaries.length === 0) && (
-              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+              <div className="text-center p-4 text-slate-400 text-xs">
                 🌟 No work anniversaries scheduled
               </div>
             )}
@@ -3537,63 +2745,34 @@ export const DashboardPage = () => {
         </div>
 
         {/* Employee Appreciations Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 m-0">
               🏆 Appreciations
             </h3>
             <button
               onClick={() => navigate('/appreciation')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             {(appreciations || []).slice(0, 2).map(app => (
               <div
                 key={app?._id || Math.random()}
                 onClick={() => navigate('/appreciation')}
-                style={{
-                  padding: '8px 10px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  cursor: 'pointer'
-                }}
+                className="p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 transition-colors"
               >
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  backgroundColor: '#fef3c7',
-                  color: '#d97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+                <div className="w-7 h-7 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
                   <Award size={15} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                    {app?.givenToName} — <span style={{ color: '#d97706' }}>{app?.awardName}</span>
+                  <div className="text-xs font-bold text-slate-900">
+                    {app?.givenToName} — <span className="text-amber-600">{app?.awardName}</span>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     "{app?.appreciationNote}"
                   </div>
                 </div>
@@ -3606,43 +2785,16 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 3: On Leave, Anniversaries & WFH (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* On Leave Today */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 m-0">
               🏖️ On Leave Today
             </h3>
             <button
               onClick={() => setIsApplyLeaveOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                backgroundColor: '#f1f5f9',
-                color: '#0284c7',
-                border: '1px solid #cbd5e1',
-                padding: '3px 8px',
-                borderRadius: '5px',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-1 bg-slate-100 text-sky-600 border border-slate-300 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 transition-colors"
             >
               <Palmtree size={12} /> Apply
             </button>
@@ -3650,39 +2802,31 @@ export const DashboardPage = () => {
 
           {/* Leave Requests: Separated Review Queue (for Reviewers) vs My Pending Applications (for Applicant) */}
           {pendingLeaveRequestsForMe.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#fffbeb',
-              borderRadius: '7px',
-              border: '1px solid #fde68a',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '5px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-amber-50 rounded-lg border border-amber-200 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-amber-800 flex items-center justify-between">
                 <span>⏳ For Your Review ({pendingLeaveRequestsForMe.length})</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   Manage →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {pendingLeaveRequestsForMe.slice(0, 2).map(l => (
-                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 7px', backgroundColor: '#ffffff', borderRadius: '5px', border: '1px solid #fef3c7' }}>
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white rounded-md border border-amber-100">
                     <div>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>{l.employeeName}</div>
-                      <div style={{ fontSize: '10px', color: '#64748b' }}>{l.leaveType} ({l.durationText})</div>
+                      <div className="text-[11.5px] font-bold text-slate-900">{l.employeeName}</div>
+                      <div className="text-[10px] text-slate-500">{l.leaveType} ({l.durationText})</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '3px' }}>
+                    <div className="flex gap-1">
                       <button
                         onClick={() => updateLeaveStatus(l._id, 'approved')}
-                        style={{ padding: '2px 7px', borderRadius: '4px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer' }}
+                        className="py-0.5 px-2 rounded bg-green-100 text-green-700 border border-green-200 text-[10.5px] font-bold cursor-pointer hover:bg-green-200"
                         title="Accept & approve leave"
                       >
                         ✓ Accept
                       </button>
                       <button
                         onClick={() => setRejectingLeaveTarget(l)}
-                        style={{ padding: '2px 7px', borderRadius: '4px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer' }}
+                        className="py-0.5 px-2 rounded bg-red-100 text-red-700 border border-red-200 text-[10.5px] font-bold cursor-pointer hover:bg-red-200"
                         title="Deny leave"
                       >
                         ✕ Deny
@@ -3696,68 +2840,39 @@ export const DashboardPage = () => {
 
           {/* 1. Real-time Decision Status Cards for currently logged-in user */}
           {myDecidedLeaves.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '7px',
-              border: '1px solid #bbf7d0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-green-700 flex items-center justify-between">
                 <span>📬 Leave Decision Update ({myDecidedLeaves.length})</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   All Leaves →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {myDecidedLeaves.map(l => (
-                  <div key={l._id} style={{
-                    padding: '6px 8px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '6px',
-                    border: `1px solid ${l.status === 'approved' ? '#86efac' : '#fca5a5'}`
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>
+                  <div key={l._id} className={`p-1.5 px-2 bg-white rounded-md border ${l.status === 'approved' ? 'border-green-300' : 'border-red-300'}`}>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11.5px] font-bold text-slate-900">
                         {l.leaveType} ({l.durationText || `${l.durationDays}d`})
                       </span>
-                      <span style={{
-                        fontSize: '9.5px',
-                        fontWeight: '700',
-                        backgroundColor: l.status === 'approved' ? '#dcfce7' : '#fee2e2',
-                        color: l.status === 'approved' ? '#15803d' : '#dc2626',
-                        padding: '1px 5px',
-                        borderRadius: '4px'
-                      }}>
+                      <span className={`text-[9.5px] font-bold py-px px-1.5 rounded ${l.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {l.status === 'approved' ? '✓ Approved' : '✕ Declined'}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
                       📅 {l.startDate} to {l.endDate}
                     </div>
 
-                    <div style={{ fontSize: '10px', color: l.status === 'approved' ? '#16a34a' : '#dc2626', marginTop: '2px', fontWeight: '600' }}>
+                    <div className={`text-[10px] mt-0.5 font-semibold ${l.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
                       {l.status === 'approved'
                         ? `Approved by ${l.approvedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}`
                         : `Declined by ${l.rejectedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}${l.rejectionReason ? ` • "${l.rejectionReason}"` : ''}`}
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '5px' }}>
+                    <div className="flex justify-end mt-1">
                       <button
                         onClick={() => acknowledgeLeave(l._id)}
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          background: l.status === 'approved' ? '#16a34a' : '#dc2626',
-                          color: '#ffffff',
-                          border: 'none',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          cursor: 'pointer'
-                        }}
+                        className={`py-0.5 px-2 rounded text-white border-none text-[10px] font-bold cursor-pointer ${l.status === 'approved' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                       >
                         ✓ Acknowledge
                       </button>
@@ -3770,39 +2885,31 @@ export const DashboardPage = () => {
 
           {/* 2. Pending leaves submitted by current user (awaiting review) */}
           {myPendingLeaves.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#eff6ff',
-              borderRadius: '7px',
-              border: '1px solid #bfdbfe',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '5px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-blue-50 rounded-lg border border-blue-200 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-blue-700 flex items-center justify-between">
                 <span>📋 My Leave Application ({myPendingLeaves.length} Pending)</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   History →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {myPendingLeaves.slice(0, 2).map(l => (
-                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 7px', backgroundColor: '#ffffff', borderRadius: '5px', border: '1px solid #dbeafe' }}>
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white rounded-md border border-blue-100">
                     <div>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900">
                         {l.leaveType} ({l.durationText})
                       </div>
-                      <div style={{ fontSize: '10px', color: '#64748b' }}>
+                      <div className="text-[10px] text-slate-500">
                         📅 {l.startDate} • Sent to {l.appliedToName || 'Reviewer'}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '9.5px', fontWeight: '700', backgroundColor: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px' }}>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9.5px] font-bold bg-amber-100 text-amber-700 py-px px-1.5 rounded">
                         ⏳ Pending Approval
                       </span>
                       <button
                         onClick={() => setCancellingLeaveTarget(l)}
-                        style={{ padding: '2px 5px', borderRadius: '3px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                        className="py-0.5 px-1.5 rounded bg-slate-100 text-slate-500 border border-slate-300 text-[10px] font-semibold cursor-pointer hover:bg-slate-200"
                         title="Cancel this leave request"
                       >
                         Cancel
@@ -3816,176 +2923,112 @@ export const DashboardPage = () => {
 
           {/* 3. If neither pending nor unacknowledged decisions exist, show latest leave status history */}
           {myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length > 0 && (
-            <div style={{
-              padding: '6px 9px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ fontSize: '10.5px', color: '#475569' }}>
-                <span style={{ fontWeight: '700' }}>Recent Leave:</span> {myRecentLeaves[0].leaveType} ({myRecentLeaves[0].startDate}) •{' '}
-                <strong style={{ color: myRecentLeaves[0].status === 'approved' ? '#16a34a' : (myRecentLeaves[0].status === 'rejected' ? '#dc2626' : '#d97706') }}>
+            <div className="py-1.5 px-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between">
+              <div className="text-[10.5px] text-slate-600">
+                <span className="font-bold">Recent Leave:</span> {myRecentLeaves[0].leaveType} ({myRecentLeaves[0].startDate}) •{' '}
+                <strong className={myRecentLeaves[0].status === 'approved' ? 'text-green-600' : (myRecentLeaves[0].status === 'rejected' ? 'text-red-600' : 'text-amber-600')}>
                   {myRecentLeaves[0].status === 'approved' ? '✓ Approved' : (myRecentLeaves[0].status === 'rejected' ? '✕ Denied' : 'Pending')}
                 </strong>
-                {myRecentLeaves[0].approvedBy && <span style={{ color: '#64748b' }}> by {myRecentLeaves[0].approvedBy}</span>}
+                {myRecentLeaves[0].approvedBy && <span className="text-slate-500"> by {myRecentLeaves[0].approvedBy}</span>}
               </div>
-              <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', color: '#0284c7', fontSize: '10.5px', fontWeight: '600' }}>
+              <span onClick={() => navigate('/leaves')} className="cursor-pointer text-sky-600 text-[10.5px] font-semibold hover:underline">
                 View →
               </span>
             </div>
           )}
 
           {employeesOnLeave.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="flex flex-col gap-1.5">
               {employeesOnLeave.map(l => (
-                <div key={l._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
-                  <img src={l.employeeAvatar} alt={l.employeeName} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                <div key={l._id} className="flex items-center gap-1.5 p-1.5 bg-slate-50 rounded-md">
+                  <img src={l.employeeAvatar} alt={l.employeeName} className="w-6 h-6 rounded-full" />
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: '600' }}>{l.employeeName}</div>
-                    <div style={{ fontSize: '10px', color: '#0284c7' }}>{l.leaveType} ({l.durationText})</div>
+                    <div className="text-xs font-semibold">{l.employeeName}</div>
+                    <div className="text-[10px] text-sky-600">{l.leaveType} ({l.durationText})</div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
-                <Plane size={22} style={{ margin: '0 auto 3px' }} />
-                <div style={{ fontSize: '11.5px' }}>No leaves today</div>
+              <div className="text-center py-3 text-slate-400">
+                <Plane size={22} className="mx-auto mb-1" />
+                <div className="text-[11.5px]">No leaves today</div>
               </div>
             )
           )}
         </div>
 
         {/* Right Column: 📢 Company Notices & Announcements */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-3 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
             <div>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+              <h3 className="text-sm font-bold text-slate-900 m-0">
                 📢 Company Notices & Announcements
               </h3>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '1px 0 0 0' }}>
+              <p className="text-[11px] text-slate-500 m-0 mt-0.5">
                 Official HR notices, policy updates, and team announcements
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               {isUserAdminOrHR && (
                 <button
                   onClick={() => setIsAddNoticeOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '4px 10px',
-                    borderRadius: '5px',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="flex items-center gap-1 bg-blue-600 text-white border-none py-1 px-2.5 rounded text-[11.5px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"
                 >
                   <Plus size={12} /> Add Notice
                 </button>
               )}
               <button
                 onClick={() => navigate('/notice-board')}
-                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                className="bg-transparent border-none text-sky-600 text-xs font-semibold cursor-pointer hover:underline"
               >
                 All Notices →
               </button>
             </div>
           </div>
 
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            maxHeight: '430px',
-            overflowY: 'auto',
-            paddingRight: '2px'
-          }}>
+          <div className="flex flex-col gap-2.5 max-h-[430px] overflow-y-auto pr-0.5">
             {(notices || []).length > 0 ? (
               (notices || []).map(not => (
                 <div
                   key={not?._id || not?.id || Math.random()}
                   onClick={() => setSelectedNotice(not)}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#f8fafc',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.borderColor = '#93c5fd';
-                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
+                  className="p-2.5 px-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-xs"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        color: not?.isImportant ? '#dc2626' : '#2563eb',
-                        backgroundColor: not?.isImportant ? '#fee2e2' : '#eff6ff',
-                        padding: '1px 6px',
-                        borderRadius: '3px'
-                      }}>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 bg-red-100' : 'text-blue-600 bg-blue-100'}`}>
                         {not?.category || 'Announcement'}
                       </span>
                       {not?.isImportant && (
-                        <span style={{ fontSize: '9.5px', fontWeight: '800', color: '#dc2626' }}>
+                        <span className="text-[9.5px] font-extrabold text-red-600">
                           ⚡ Important
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>{not?.date}</span>
+                    <span className="text-[10.5px] text-slate-400">{not?.date}</span>
                   </div>
 
-                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', lineHeight: '1.3' }}>
+                  <div className="text-[12.5px] font-bold text-slate-900 leading-snug">
                     {not?.title}
                   </div>
 
-                  <div style={{ fontSize: '11.5px', color: '#64748b', lineHeight: '1.4' }}>
+                  <div className="text-[11.5px] text-slate-500 leading-normal">
                     {not?.shortDescription || not?.description}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px', borderTop: '1px solid #f1f5f9', fontSize: '11px', color: '#64748b' }}>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-500">
                     <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
-                    <span style={{ fontSize: '11.5px', color: '#0284c7', fontWeight: '600' }}>View Details →</span>
+                    <span className="text-[11.5px] text-sky-600 font-semibold">View Details →</span>
                   </div>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '28px 0', color: '#94a3b8' }}>
-                <Bell size={24} style={{ margin: '0 auto 6px', color: '#cbd5e1' }} />
-                <div style={{ fontSize: '12px', fontWeight: '600' }}>No active company notices</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Company announcements will appear here</div>
+              <div className="text-center py-7 text-slate-400">
+                <Bell size={24} className="mx-auto mb-1.5 text-slate-300" />
+                <div className="text-xs font-semibold">No active company notices</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Company announcements will appear here</div>
               </div>
             )}
           </div>

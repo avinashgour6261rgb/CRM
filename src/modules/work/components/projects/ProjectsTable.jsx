@@ -22,11 +22,31 @@ import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const STATUS_CONFIG = {
-  in_progress: { label: 'In Progress', color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
-  not_started: { label: 'Not Started', color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' },
-  on_hold: { label: 'On Hold', color: '#d97706', bg: '#fef3c7', dot: '#f59e0b' },
-  completed: { label: 'Completed', color: '#16a34a', bg: '#f0fdf4', dot: '#22c55e' },
-  under_review: { label: 'Under Review', color: '#9333ea', bg: '#faf5ff', dot: '#a855f7' }
+  in_progress: {
+    label: 'In Progress',
+    badgeClass: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/40',
+    dotClass: 'bg-blue-500'
+  },
+  not_started: {
+    label: 'Not Started',
+    badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700',
+    dotClass: 'bg-slate-400'
+  },
+  on_hold: {
+    label: 'On Hold',
+    badgeClass: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/40',
+    dotClass: 'bg-amber-500'
+  },
+  completed: {
+    label: 'Completed',
+    badgeClass: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400 border border-green-200/60 dark:border-green-900/40',
+    dotClass: 'bg-green-500'
+  },
+  under_review: {
+    label: 'Under Review',
+    badgeClass: 'bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200/60 dark:border-purple-900/40',
+    dotClass: 'bg-purple-500'
+  }
 };
 
 export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExtendDeadline }) => {
@@ -70,30 +90,14 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
 
   if (!projects || projects.length === 0) {
     return (
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '60px 20px',
-        textAlign: 'center'
-      }}>
-        <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          backgroundColor: '#eff6ff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-          color: '#3b82f6'
-        }}>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-14 px-5 text-center">
+        <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4 text-blue-500">
           <FolderGit2 size={28} />
         </div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px 0' }}>
+        <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5 mt-0">
           No Projects Found
         </h3>
-        <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 m-0">
           Get started by creating your first client or internal project.
         </p>
       </div>
@@ -101,44 +105,38 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
   }
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '10px',
-      border: '1px solid #e2e8f0',
-      overflow: 'hidden',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-    }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider">
+              <th className="py-2 px-3 whitespace-nowrap">
                 Project Name
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Client
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Department
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Timeline & Deadline
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Status
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Progress
               </th>
-              <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 whitespace-nowrap">
                 Members
               </th>
-              <th style={{ padding: '8px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              <th className="py-2 px-3 text-right whitespace-nowrap">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
             {projects.map((proj) => {
               const status = STATUS_CONFIG[proj.status] || STATUS_CONFIG.in_progress;
               const isMenuOpen = activeMenuId === proj._id;
@@ -149,40 +147,28 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                 <tr
                   key={proj._id}
                   onClick={() => onSelectProject && onSelectProject(proj)}
-                  style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease',
-                    backgroundColor: isOverdue ? 'rgba(254, 242, 242, 0.35)' : 'transparent'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = isOverdue ? '#fef2f2' : '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = isOverdue ? 'rgba(254, 242, 242, 0.35)' : 'transparent'}
+                  className={`cursor-pointer transition-colors ${
+                    isOverdue 
+                      ? 'bg-red-50/40 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30' 
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                  }`}
                 >
                   {/* Project Name & Short Code */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        padding: '2px 6px',
-                        backgroundColor: '#eff6ff',
-                        color: '#2563eb',
-                        borderRadius: '4px',
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        letterSpacing: '0.02em',
-                        border: '1px solid #bfdbfe'
-                      }}>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded text-[10.5px] font-bold tracking-tight border border-blue-200 dark:border-blue-800">
                         {proj.projectCode || 'PRJ'}
                       </span>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <span>{proj.name}</span>
                         </div>
-                        <div style={{ fontSize: '10.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                           <span>{proj.category || 'General'}</span>
                           {proj.creatorName && (
                             <>
                               <span>•</span>
-                              <span style={{ color: '#0369a1' }}>By {proj.creatorName}</span>
+                              <span className="text-sky-600 dark:text-sky-400 font-medium">By {proj.creatorName}</span>
                             </>
                           )}
                         </div>
@@ -191,45 +177,30 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                   </td>
 
                   {/* Client */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: '12px', color: '#334155', fontWeight: '500' }}>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">
                       {proj.client || 'Internal'}
                     </div>
                   </td>
 
                   {/* Department */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      padding: '2px 7px',
-                      backgroundColor: '#f1f5f9',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      color: '#475569',
-                      fontWeight: '500'
-                    }}>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[11px] text-slate-600 dark:text-slate-300 font-medium">
                       {proj.department || 'General'}
                     </span>
                   </td>
 
                   {/* Start Date & Deadline */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       Start: {proj.startDate}
                     </div>
-                    <div style={{ fontSize: '11.5px', fontWeight: isOverdue ? '700' : '500', color: isOverdue ? '#dc2626' : '#334155' }}>
+                    <div className={`text-[11.5px] ${isOverdue ? 'font-bold text-red-600 dark:text-red-400' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
                       {proj.hasNoDeadline ? 'No deadline' : `Due: ${proj.deadline || 'Ongoing'}`}
                     </div>
                     {isOverdue && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                        <span style={{
-                          fontSize: '9.5px',
-                          fontWeight: '800',
-                          color: '#dc2626',
-                          backgroundColor: '#fee2e2',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          border: '1px solid #fca5a5'
-                        }}>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[9.5px] font-extrabold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60 px-1.5 py-[1px] rounded border border-red-300 dark:border-red-900">
                           ⚠️ OVERDUE
                         </span>
                         <button
@@ -238,16 +209,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                             e.stopPropagation();
                             onExtendDeadline && onExtendDeadline(proj);
                           }}
-                          style={{
-                            backgroundColor: '#2563eb',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white border-none px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors"
                           title="Extend project deadline with reason"
                         >
                           + Extend
@@ -255,77 +217,53 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                       </div>
                     )}
                     {isExtended && (
-                      <div style={{ fontSize: '10px', color: '#7c3aed', fontWeight: '600', marginTop: '1px' }}>
+                      <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
                         🔄 Extended ({proj.extensionCount || proj.deadlineExtensions?.length || 1}x)
                       </div>
                     )}
                   </td>
 
                   {/* Status Badge with colored dot */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      backgroundColor: status.bg,
-                      color: status.color
-                    }}>
-                      <span style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        backgroundColor: status.dot
-                      }} />
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${status.badgeClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
                       {status.label}
                     </span>
                     {proj.finalApproved && proj.status === 'completed' && (
-                      <div style={{ fontSize: '10px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
+                      <div className="text-[10px] text-green-600 dark:text-green-400 font-bold mt-0.5">
                         ✅ Final Approved
                       </div>
                     )}
                     {proj.status === 'under_review' && (
-                      <div style={{ fontSize: '10px', color: '#9333ea', fontWeight: '600', marginTop: '2px' }}>
+                      <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
                         ⏳ Awaiting Sign-Off
                       </div>
                     )}
                     {proj.reopened && !proj.finalApproved && (
-                      <div style={{ fontSize: '10px', color: '#ea580c', fontWeight: '700', marginTop: '2px' }} title={proj.reopenReason}>
+                      <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5" title={proj.reopenReason}>
                         ⚠️ Reopened
                       </div>
                     )}
                   </td>
 
                   {/* Progress Bar */}
-                  <td style={{ padding: '7px 12px', minWidth: '100px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{
-                        flex: 1,
-                        height: '5px',
-                        backgroundColor: '#e2e8f0',
-                        borderRadius: '3px',
-                        overflow: 'hidden'
-                      }}>
-                        <div style={{
-                          width: `${proj.progress || 0}%`,
-                          height: '100%',
-                          backgroundColor: proj.progress >= 100 ? '#10b981' : '#2563eb',
-                          borderRadius: '3px',
-                          transition: 'width 0.3s ease'
-                        }} />
+                  <td className="py-2 px-3 min-w-[100px] whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${proj.progress >= 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                          style={{ width: `${Math.min(100, Math.max(0, proj.progress || 0))}%` }}
+                        />
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', minWidth: '28px' }}>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 min-w-[28px]">
                         {proj.progress || 0}%
                       </span>
                     </div>
                   </td>
 
                   {/* Assigned Members (Stacked Avatars) */}
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    <div className="flex items-center">
                       {proj.membersList && proj.membersList.length > 0 ? (
                         proj.membersList.slice(0, 3).map((m, idx) => (
                           <img
@@ -333,35 +271,14 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                             src={m.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                             alt={m.name}
                             title={`${m.name} (${m.role})`}
-                            style={{
-                              width: '22px',
-                              height: '22px',
-                              borderRadius: '50%',
-                              objectFit: 'cover',
-                              border: '1.5px solid #ffffff',
-                              marginLeft: idx > 0 ? '-6px' : '0',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                            }}
+                            className={`w-[22px] h-[22px] rounded-full object-cover border-[1.5px] border-white dark:border-slate-800 shadow-xs ${idx > 0 ? '-ml-1.5' : ''}`}
                           />
                         ))
                       ) : (
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>Unassigned</span>
+                        <span className="text-[11px] text-slate-400">Unassigned</span>
                       )}
                       {proj.membersList && proj.membersList.length > 3 && (
-                        <div style={{
-                          width: '22px',
-                          height: '22px',
-                          borderRadius: '50%',
-                          backgroundColor: '#e2e8f0',
-                          border: '1.5px solid #ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          color: '#475569',
-                          marginLeft: '-6px'
-                        }}>
+                        <div className="w-[22px] h-[22px] rounded-full bg-slate-200 dark:bg-slate-700 border-[1.5px] border-white dark:border-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 -ml-1.5">
                           +{proj.membersList.length - 3}
                         </div>
                       )}
@@ -369,23 +286,13 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                   </td>
 
                   {/* Action Menu */}
-                  <td style={{ padding: '16px 20px', textAlign: 'right', position: 'relative' }}>
+                  <td className="py-2 px-3 text-right relative">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveMenuId(isMenuOpen ? null : proj._id);
                       }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#64748b',
-                        padding: '6px',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
+                      className="bg-transparent border-none text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 rounded-md cursor-pointer inline-flex items-center justify-center transition-colors"
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -393,39 +300,16 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                     {isMenuOpen && (
                       <div
                         onClick={e => e.stopPropagation()}
-                        style={{
-                          position: 'absolute',
-                          right: '20px',
-                          top: '40px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                          border: '1px solid #e2e8f0',
-                          padding: '6px',
-                          zIndex: 50,
-                          minWidth: '170px',
-                          textAlign: 'left'
-                        }}
+                        className="absolute right-5 top-10 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[170px] text-left"
                       >
                         <div
                           onClick={() => {
                             onSelectProject && onSelectProject(proj);
                             setActiveMenuId(null);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 12px',
-                            fontSize: '12.5px',
-                            color: '#334155',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors"
                         >
-                          <Eye size={14} color="#3b82f6" /> View Details
+                          <Eye size={14} className="text-blue-500" /> View Details
                         </div>
 
                         <div
@@ -433,20 +317,9 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                             onExtendDeadline && onExtendDeadline(proj);
                             setActiveMenuId(null);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 12px',
-                            fontSize: '12.5px',
-                            color: '#2563eb',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded cursor-pointer transition-colors"
                         >
-                          <Calendar size={14} color="#2563eb" /> Extend Deadline
+                          <Calendar size={14} className="text-blue-600 dark:text-blue-400" /> Extend Deadline
                         </div>
 
                         {/* Submit for Completion */}
@@ -456,20 +329,9 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                               await submitProjectForCompletion(proj._id);
                               setActiveMenuId(null);
                             }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '8px 12px',
-                              fontSize: '12.5px',
-                              color: '#9333ea',
-                              cursor: 'pointer',
-                              borderRadius: '4px'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded cursor-pointer transition-colors"
                           >
-                            <CheckCircle2 size={14} color="#9333ea" /> Submit for Sign-Off
+                            <CheckCircle2 size={14} className="text-purple-600 dark:text-purple-400" /> Submit for Sign-Off
                           </div>
                         )}
 
@@ -480,20 +342,9 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                               await approveProjectCompletion(proj._id);
                               setActiveMenuId(null);
                             }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '8px 12px',
-                              fontSize: '12.5px',
-                              color: '#16a34a',
-                              cursor: 'pointer',
-                              borderRadius: '4px'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf4'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40 rounded cursor-pointer transition-colors"
                           >
-                            <CheckCircle2 size={14} color="#16a34a" /> Final Approve & Complete
+                            <CheckCircle2 size={14} className="text-green-600 dark:text-green-400" /> Final Approve & Complete
                           </div>
                         )}
 
@@ -507,18 +358,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                               }
                               setActiveMenuId(null);
                             }}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '8px 12px',
-                              fontSize: '12.5px',
-                              color: '#c2410c',
-                              cursor: 'pointer',
-                              borderRadius: '4px'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fff7ed'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 rounded cursor-pointer transition-colors"
                           >
                             <span>🔄 Reopen Project</span>
                           </div>
@@ -526,18 +366,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
 
                         <div
                           onClick={(e) => handleDelete(proj._id, e)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 12px',
-                            fontSize: '12.5px',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded cursor-pointer transition-colors"
                         >
                           <Trash2 size={14} /> Delete Project
                         </div>

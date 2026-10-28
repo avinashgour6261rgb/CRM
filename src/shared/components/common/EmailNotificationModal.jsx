@@ -35,159 +35,85 @@ export const EmailNotificationModal = ({ isOpen, onClose, emailData }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '620px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[9999] p-5 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Modal Top Bar */}
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#0f172a',
-          color: '#ffffff'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Mail size={18} color="#60a5fa" />
-            <span style={{ fontSize: '14px', fontWeight: '700' }}>
+        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-900 text-white">
+          <div className="flex items-center gap-2">
+            <Mail size={18} className="text-blue-400" />
+            <span className="text-sm font-bold">
               Automated Email Dispatch System
             </span>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+            className="bg-transparent border-0 text-slate-400 hover:text-slate-200 cursor-pointer p-1"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Email Headers */}
-        <div style={{
-          padding: '16px 20px',
-          backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
-          fontSize: '12.5px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px'
-        }}>
-          <div><strong style={{ color: '#475569' }}>From:</strong> <span style={{ color: '#0f172a' }}>{sender}</span></div>
-          <div><strong style={{ color: '#475569' }}>To:</strong> <span style={{ color: '#0f172a' }}>{to}</span></div>
-          <div><strong style={{ color: '#475569' }}>Subject:</strong> <span style={{ color: '#2563eb', fontWeight: '700' }}>{subject}</span></div>
+        <div className="px-5 py-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[12.5px] flex flex-col gap-1.5">
+          <div><strong className="text-slate-600 dark:text-slate-400">From:</strong> <span className="text-slate-900 dark:text-slate-100">{sender}</span></div>
+          <div><strong className="text-slate-600 dark:text-slate-400">To:</strong> <span className="text-slate-900 dark:text-slate-100">{to}</span></div>
+          <div><strong className="text-slate-600 dark:text-slate-400">Subject:</strong> <span className="text-blue-600 dark:text-blue-400 font-bold">{subject}</span></div>
         </div>
 
         {/* Formatted HTML Email Body Preview */}
-        <div style={{ padding: '24px 28px', backgroundColor: '#ffffff' }}>
-          <div style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '24px',
-            backgroundColor: type === 'birthday' ? '#fdf4ff' : '#f8fafc',
-            borderTop: `4px solid ${type === 'birthday' ? '#c026d3' : '#2563eb'}`
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+        <div className="p-6 sm:p-7 bg-white dark:bg-slate-900">
+          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl p-6 ${
+            type === 'birthday'
+              ? 'bg-fuchsia-50/50 dark:bg-fuchsia-950/20 border-t-4 border-t-fuchsia-600'
+              : 'bg-slate-50 dark:bg-slate-800/60 border-t-4 border-t-blue-600'
+          }`}>
+            <div className="flex items-center gap-2.5 mb-3.5">
               {type === 'birthday' ? (
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#fae8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c026d3' }}>
+                <div className="w-9 h-9 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/60 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400">
                   <Gift size={20} />
                 </div>
               ) : (
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+                <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <Bell size={20} />
                 </div>
               )}
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 m-0">
                 {title}
               </h2>
             </div>
 
-            <div style={{ fontSize: '13.5px', color: '#334155', lineHeight: '1.6', marginBottom: '20px' }}>
+            <div className="text-[13.5px] text-slate-700 dark:text-slate-300 leading-relaxed mb-5">
               {body || 'All registered employees will receive this official company notification directly in their inbox with deep links to the EMS portal.'}
             </div>
 
-            <div style={{
-              display: 'inline-block',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              backgroundColor: type === 'birthday' ? '#c026d3' : '#2563eb',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: '700',
-              textDecoration: 'none'
-            }}>
+            <div className={`inline-block px-5 py-2.5 rounded-lg text-white text-[13px] font-bold ${
+              type === 'birthday' ? 'bg-fuchsia-600 hover:bg-fuchsia-700' : 'bg-blue-600 hover:bg-blue-700'
+            }`}>
               {actionText}
             </div>
 
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: '11px', color: '#64748b' }}>
+            <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400">
               {companyInfo.companyName || 'Corporate HR System'} • Automated HR Notification Service
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div style={{
-          padding: '14px 20px',
-          borderTop: '1px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: '#f8fafc'
-        }}>
-          <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+        <div className="px-5 py-3.5 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/60">
+          <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
             ✅ SMTP & Cloud Webhook Configured
           </span>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="flex gap-2.5">
             <button
               onClick={onClose}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Close
             </button>
             <button
               onClick={handleSendLive}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 4px rgba(37,99,235,0.25)'
-              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-bold cursor-pointer shadow-sm hover:shadow transition-all"
             >
               <Send size={14} /> Send Email Blast
             </button>

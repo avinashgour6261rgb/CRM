@@ -18,10 +18,10 @@ import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const STATUS_CONFIG = {
-  active: { label: 'Active (Running)', color: '#0284c7', bg: '#e0f2fe', dot: '#0284c7' },
-  stopped: { label: 'Logged', color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8' },
-  approved: { label: 'Approved', color: '#16a34a', bg: '#f0fdf4', dot: '#22c55e' },
-  rejected: { label: 'Rejected', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' }
+  active: { label: 'Active (Running)', className: 'text-sky-600 bg-sky-50 dark:bg-sky-950/60 dark:text-sky-400', dot: 'bg-sky-500' },
+  stopped: { label: 'Logged', className: 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-400', dot: 'bg-slate-400' },
+  approved: { label: 'Approved', className: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400', dot: 'bg-emerald-500' },
+  rejected: { label: 'Rejected', className: 'text-red-600 bg-red-50 dark:bg-red-950/60 dark:text-red-400', dot: 'bg-red-500' }
 };
 
 export const TimesheetTable = ({ timesheets: propTimesheets }) => {
@@ -62,30 +62,14 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
 
   if (!timesheets || timesheets.length === 0) {
     return (
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '60px 20px',
-        textAlign: 'center'
-      }}>
-        <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          backgroundColor: '#eff6ff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-          color: '#3b82f6'
-        }}>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-14 text-center">
+        <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center mx-auto mb-4 text-blue-500 dark:text-blue-400">
           <Clock size={28} />
         </div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px 0' }}>
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0 mb-1.5">
           No Timesheet Records Found
         </h3>
-        <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 m-0">
           Run an active task timer or click "Log Time" to add hours worked.
         </p>
       </div>
@@ -93,42 +77,36 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
   }
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '12px',
-      border: '1px solid #e2e8f0',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
           <thead>
-            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Task Name
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Project
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Assigned Employee
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Start Time
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 End Time
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Total Duration
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Date
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                 Status
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              <th className="px-2.5 py-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right whitespace-nowrap">
                 Actions
               </th>
             </tr>
@@ -141,33 +119,20 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
               return (
                 <tr
                   key={entry._id}
-                  style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    transition: 'background-color 0.15s ease'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                 >
                   {/* Task Name & Code */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        padding: '1px 5px',
-                        backgroundColor: '#eff6ff',
-                        color: '#2563eb',
-                        borderRadius: '3px',
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        whiteSpace: 'nowrap'
-                      }}>
+                  <td className="px-2.5 py-[7px] whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-[5px] py-[1px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded text-[10.5px] font-bold whitespace-nowrap">
                         {entry.taskCode || 'TSK'}
                       </span>
-                      <div style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="max-w-[180px] overflow-hidden text-ellipsis">
+                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap overflow-hidden text-ellipsis">
                           {entry.taskTitle || 'Session'}
                         </div>
                         {entry.memo && (
-                          <div style={{ fontSize: '10.5px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div className="text-[10.5px] text-slate-500 dark:text-slate-400 whitespace-nowrap overflow-hidden text-ellipsis">
                             {entry.memo}
                           </div>
                         )}
@@ -176,25 +141,25 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                   </td>
 
                   {/* Project */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: '12px', color: '#334155', fontWeight: '500' }}>
+                  <td className="px-2.5 py-[7px] whitespace-nowrap">
+                    <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">
                       {entry.projectName || 'General Work'}
                     </div>
                   </td>
 
                   {/* Employee */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <td className="px-2.5 py-[7px] whitespace-nowrap">
+                    <div className="flex items-center gap-1.5">
                       <img
                         src={entry.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                         alt={entry.employeeName}
-                        style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                        className="w-[22px] h-[22px] rounded-full object-cover"
                       />
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>
+                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-tight">
                           {entry.employeeName || 'Team Member'}
                         </div>
-                        <div style={{ fontSize: '10px', color: '#64748b' }}>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
                           {entry.employeeRole || 'Strategic'}
                         </div>
                       </div>
@@ -202,76 +167,47 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                   </td>
 
                   {/* Start Time */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#334155', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                  <td className="px-2.5 py-[7px] text-[11.5px] text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                     {entry.startTime || '09:30:00'}
                   </td>
 
                   {/* End Time */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#334155', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                  <td className="px-2.5 py-[7px] text-[11.5px] text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
                     {entry.endTime || (entry.status === 'active' ? '— (Running)' : '18:00:00')}
                   </td>
 
                   {/* Total Duration */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      backgroundColor: entry.status === 'active' ? '#e0f2fe' : '#f1f5f9',
-                      color: entry.status === 'active' ? '#0284c7' : '#0f172a',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      fontFamily: 'monospace'
-                    }}>
+                  <td className="px-2.5 py-[7px] whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold font-mono ${
+                      entry.status === 'active'
+                        ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                    }`}>
                       ⏱️ {entry.totalDurationText || '00:00:00'}
                     </span>
                   </td>
 
                   {/* Date */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#475569', whiteSpace: 'nowrap' }}>
+                  <td className="px-2.5 py-[7px] text-[11.5px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {entry.date}
                   </td>
 
                   {/* Status */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '2px 6px',
-                      borderRadius: '12px',
-                      fontSize: '10.5px',
-                      fontWeight: '600',
-                      backgroundColor: status.bg,
-                      color: status.color
-                    }}>
-                      <span style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        backgroundColor: status.dot
-                      }} />
+                  <td className="px-2.5 py-[7px] whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-semibold ${status.className}`}>
+                      <span className={`w-[5px] h-[5px] rounded-full ${status.dot}`} />
                       {status.label}
                     </span>
                   </td>
 
                   {/* Actions */}
-                  <td style={{ padding: '7px 10px', textAlign: 'right', position: 'relative', whiteSpace: 'nowrap' }}>
+                  <td className="px-2.5 py-[7px] text-right relative whitespace-nowrap">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveMenuId(isMenuOpen ? null : entry._id);
                       }}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#64748b',
-                        padding: '6px',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                      }}
+                      className="bg-transparent border-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1.5 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -279,34 +215,11 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                     {isMenuOpen && (
                       <div
                         onClick={e => e.stopPropagation()}
-                        style={{
-                          position: 'absolute',
-                          right: '18px',
-                          top: '40px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                          border: '1px solid #e2e8f0',
-                          padding: '6px',
-                          zIndex: 50,
-                          minWidth: '140px',
-                          textAlign: 'left'
-                        }}
+                        className="absolute right-[18px] top-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[140px] text-left"
                       >
                         <div
                           onClick={(e) => handleDelete(entry._id, e)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 12px',
-                            fontSize: '12.5px',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                         >
                           <Trash2 size={14} /> Delete Entry
                         </div>

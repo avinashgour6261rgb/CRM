@@ -76,93 +76,43 @@ export const HolidayPage = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="animate-fade-in flex flex-col gap-3">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
             <CalendarCheck size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Company Holidays & Offs</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-base font-extrabold text-slate-900 leading-tight">Company Holidays & Offs</h1>
               {canManageHolidays ? (
-                <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#16a34a', fontWeight: '700' }}>
+                <span className="text-[10.5px] py-px px-1.5 rounded bg-green-100 text-green-600 font-bold">
                   Admin & HR Access
                 </span>
               ) : (
-                <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: '600' }}>
+                <span className="text-[10.5px] py-px px-1.5 rounded bg-slate-100 text-slate-500 font-semibold">
                   Employee View
                 </span>
               )}
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 mt-px text-[11.5px] text-slate-500">
               Annual gazetted, national festivals & company declared leaves
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={handleExportCSV}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#2563eb',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white text-blue-600 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
           >
             <Download size={13} />
             <span>Export Calendar</span>
           </button>
           <button
             onClick={handleOpenAddHoliday}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
           >
             {canManageHolidays ? <Plus size={14} /> : <Lock size={13} />}
             <span>Declare Holiday</span>
@@ -176,26 +126,26 @@ export const HolidayPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Total Holidays</span>
-            <div className="kpi-icon-wrap" style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className="kpi-icon-wrap bg-blue-50 text-blue-600">
               <CalendarCheck size={16} />
             </div>
           </div>
-          <div className="kpi-value">{totalHolidaysCount} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Days</span></div>
-          <div className="kpi-subtext" style={{ color: '#64748b' }}>
+          <div className="kpi-value">{totalHolidaysCount} <span className="text-xs font-semibold text-slate-500">Days</span></div>
+          <div className="kpi-subtext text-slate-500">
             <span>Annual gazetted, national & company offs</span>
           </div>
         </div>
 
         {/* 2. Upcoming Holidays */}
-        <div className="kpi-card" style={{ borderLeft: '3px solid #854d0e' }}>
+        <div className="kpi-card border-l-[3px] border-yellow-800">
           <div className="kpi-header">
             <span className="kpi-title">Upcoming Holidays</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fef9c3', color: '#854d0e' }}>
+            <div className="kpi-icon-wrap bg-yellow-100 text-yellow-800">
               <Clock size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#854d0e' }}>{upcomingHolidays.length} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Remaining</span></div>
-          <div className="kpi-subtext" style={{ color: '#854d0e' }}>
+          <div className="kpi-value text-yellow-800">{upcomingHolidays.length} <span className="text-xs font-semibold text-slate-500">Remaining</span></div>
+          <div className="kpi-subtext text-yellow-800">
             <span>Next: {nextHol ? `${nextHol.name} in ${daysToNextHoliday}d` : 'None upcoming'}</span>
           </div>
         </div>
@@ -204,12 +154,12 @@ export const HolidayPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Completed Holidays</span>
-            <div className="kpi-icon-wrap" style={{ background: '#dcfce7', color: '#16a34a' }}>
+            <div className="kpi-icon-wrap bg-green-100 text-green-600">
               <CheckCircle2 size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#16a34a' }}>{completedHolidays.length} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Passed</span></div>
-          <div className="kpi-subtext" style={{ color: '#16a34a' }}>
+          <div className="kpi-value text-green-600">{completedHolidays.length} <span className="text-xs font-semibold text-slate-500">Passed</span></div>
+          <div className="kpi-subtext text-green-600">
             <span>Celebrated earlier this year</span>
           </div>
         </div>
@@ -218,55 +168,27 @@ export const HolidayPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Festive Season (Oct - Dec)</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
               <Sparkles size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#d97706' }}>{q4Holidays.length} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Festival Offs</span></div>
-          <div className="kpi-subtext" style={{ color: '#d97706' }}>
+          <div className="kpi-value text-amber-600">{q4Holidays.length} <span className="text-xs font-semibold text-slate-500">Festival Offs</span></div>
+          <div className="kpi-subtext text-amber-600">
             <span>{q4Holidays.length > 0 ? q4Holidays.map(h => h.name).slice(0, 2).join(', ') : 'No offs'}</span>
           </div>
         </div>
       </div>
 
       {/* Action Bar (Search Filter) */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '0 10px',
-          height: '30px',
-          borderRadius: '6px',
-          border: '1px solid #cbd5e1',
-          backgroundColor: '#f8fafc',
-          minWidth: '280px'
-        }}>
+      <div className="bg-white rounded-[10px] border border-slate-200 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 bg-slate-50 min-w-[280px]">
           <Search size={13} color="#94a3b8" />
           <input
             type="text"
             placeholder="Search holiday name, festival, category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              fontSize: '12px',
-              width: '100%',
-              color: '#0f172a'
-            }}
+            className="border-none bg-transparent outline-none text-xs w-full text-slate-900"
           />
         </div>
       </div>

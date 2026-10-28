@@ -170,122 +170,69 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
   };
 
   const isHike = revisionType === 'hike';
-  const themeColor = isHike ? '#16a34a' : '#dc2626';
-  const themeBgLight = isHike ? '#f0fdf4' : '#fef2f2';
-  const themeBorder = isHike ? '#bbf7d0' : '#fecaca';
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '720px',
-        maxHeight: '94vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-5">
+      <div className="bg-white rounded-2xl w-full max-w-[720px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
         {/* Top Header Bar */}
-        <div style={{
-          padding: '16px 24px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              backgroundColor: isHike ? '#dcfce7' : '#fee2e2',
-              color: themeColor,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="p-4 sm:px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-[38px] h-[38px] rounded-xl flex items-center justify-center ${
+              isHike ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+            }`}>
               {isHike ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
             </div>
             <div>
-              <h3 style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h3 className="text-[15.5px] font-extrabold text-slate-900 m-0">
                 Salary Revision & Compensation Engine
               </h3>
-              <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
+              <p className="m-0 text-[11.5px] text-slate-500">
                 Bi-directional adjustments (Hike 📈 / Deduction 📉) with real-time statutory recalculation.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+            className="bg-transparent border-0 text-slate-500 hover:text-slate-700 cursor-pointer p-1"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Employee Info Header */}
-        <div style={{
-          padding: '14px 24px',
-          backgroundColor: '#eff6ff',
-          borderBottom: '1px solid #dbeafe',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="p-3.5 sm:px-6 bg-blue-50 border-b border-blue-100 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
             <img
               src={employee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
               alt={employee.name}
-              style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #3b82f6' }}
+              className="w-11 h-11 rounded-full object-cover border-2 border-blue-500"
             />
             <div>
-              <div style={{ fontSize: '14.5px', fontWeight: '800', color: '#1e3a8a' }}>{employee.name}</div>
-              <div style={{ fontSize: '12px', color: '#3b82f6' }}>
+              <div className="text-[14.5px] font-extrabold text-blue-900">{employee.name}</div>
+              <div className="text-xs text-blue-600">
                 {employee.role} • <strong>{employee.employeeCode}</strong> • {employee.department}
               </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Current Monthly CTC</span>
-            <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-              ₹{oldGrossMonthly.toLocaleString()} <span style={{ fontSize: '11px', color: '#64748b' }}>/ mo</span>
+          <div className="text-right">
+            <span className="text-[11px] text-slate-500 font-semibold">Current Monthly CTC</span>
+            <div className="text-[17px] font-extrabold text-slate-900">
+              ₹{oldGrossMonthly.toLocaleString()} <span className="text-[11px] text-slate-500 font-normal">/ mo</span>
             </div>
-            <span style={{ fontSize: '10.5px', color: '#475569' }}>Annual: ₹{oldAnnualCTC.toLocaleString()}</span>
+            <span className="text-[10.5px] text-slate-600">Annual: ₹{oldAnnualCTC.toLocaleString()}</span>
           </div>
         </div>
 
         {!showLetterPreview ? (
           /* Main Revision Form */
-          <form onSubmit={handleSubmitRevision} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handleSubmitRevision} className="p-5 sm:px-6 flex flex-col gap-[18px]">
             
             {/* Step 1: Choose Revision Type (Hike vs Decrease) */}
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+              <label className="block text-[12.5px] font-bold text-slate-700 mb-2">
                 1. Select Salary Action Type
               </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '12px'
-              }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Hike Button */}
                 <button
                   type="button"
@@ -293,35 +240,20 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     setRevisionType('hike');
                     setTargetFixedSalary(oldGrossMonthly + 5000);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: revisionType === 'hike' ? '2px solid #16a34a' : '1.5px solid #e2e8f0',
-                    backgroundColor: revisionType === 'hike' ? '#f0fdf4' : '#ffffff',
-                    color: revisionType === 'hike' ? '#15803d' : '#475569',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'left'
-                  }}
+                  className={`flex items-center gap-2.5 p-3 sm:px-4 rounded-xl cursor-pointer transition-all text-left ${
+                    revisionType === 'hike'
+                      ? 'border-2 border-green-600 bg-green-50/70 text-green-700'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
                 >
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    backgroundColor: revisionType === 'hike' ? '#dcfce7' : '#f1f5f9',
-                    color: '#16a34a',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    revisionType === 'hike' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'
+                  }`}>
                     <TrendingUp size={18} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '13.5px', fontWeight: '800' }}>📈 Salary Hike / Increment</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>Appraisal, Promotion, Merit Increase</div>
+                    <div className="text-[13.5px] font-extrabold">📈 Salary Hike / Increment</div>
+                    <div className="text-[11px] text-slate-500">Appraisal, Promotion, Merit Increase</div>
                   </div>
                 </button>
 
@@ -332,35 +264,20 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     setRevisionType('decrease');
                     setTargetFixedSalary(Math.max(10000, oldGrossMonthly - 5000));
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: revisionType === 'decrease' ? '2px solid #dc2626' : '1.5px solid #e2e8f0',
-                    backgroundColor: revisionType === 'decrease' ? '#fef2f2' : '#ffffff',
-                    color: revisionType === 'decrease' ? '#b91c1c' : '#475569',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'left'
-                  }}
+                  className={`flex items-center gap-2.5 p-3 sm:px-4 rounded-xl cursor-pointer transition-all text-left ${
+                    revisionType === 'decrease'
+                      ? 'border-2 border-red-600 bg-red-50/70 text-red-700'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
                 >
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    backgroundColor: revisionType === 'decrease' ? '#fee2e2' : '#f1f5f9',
-                    color: '#dc2626',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    revisionType === 'decrease' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'
+                  }`}>
                     <TrendingDown size={18} />
                   </div>
                   <div>
-                    <div style={{ fontSize: '13.5px', fontWeight: '800' }}>📉 Salary Reduction / Deduction</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>Role Restructuring, Demotion, PIP Adjust</div>
+                    <div className="text-[13.5px] font-extrabold">📉 Salary Reduction / Deduction</div>
+                    <div className="text-[11px] text-slate-500">Role Restructuring, Demotion, PIP Adjust</div>
                   </div>
                 </button>
               </div>
@@ -368,35 +285,16 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
 
             {/* Step 2: Choose Method (Fixed Amount vs Percentage) */}
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+              <label className="block text-[12.5px] font-bold text-slate-700 mb-2">
                 2. Revision Calculation Mode
               </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '8px',
-                backgroundColor: '#f1f5f9',
-                padding: '4px',
-                borderRadius: '10px'
-              }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
                 <button
                   type="button"
                   onClick={() => setMode('fixed')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '9px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: mode === 'fixed' ? '#2563eb' : 'transparent',
-                    color: mode === 'fixed' ? '#ffffff' : '#64748b',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border-0 text-[13px] font-bold cursor-pointer transition-all ${
+                    mode === 'fixed' ? 'bg-blue-600 text-white shadow-xs' : 'bg-transparent text-slate-500 hover:text-slate-800'
+                  }`}
                 >
                   <DollarSign size={16} /> Direct Amount (e.g. ₹20k ➔ ₹15k or ₹25k)
                 </button>
@@ -404,21 +302,9 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 <button
                   type="button"
                   onClick={() => setMode('percentage')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '9px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: mode === 'percentage' ? '#2563eb' : 'transparent',
-                    color: mode === 'percentage' ? '#ffffff' : '#64748b',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border-0 text-[13px] font-bold cursor-pointer transition-all ${
+                    mode === 'percentage' ? 'bg-blue-600 text-white shadow-xs' : 'bg-transparent text-slate-500 hover:text-slate-800'
+                  }`}
                 >
                   <Percent size={15} /> Percentage Adjust ({isHike ? '+%' : '-%'})
                 </button>
@@ -427,17 +313,12 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
 
             {/* Step 3: Input Controls */}
             {mode === 'fixed' ? (
-              <div style={{
-                padding: '16px',
-                borderRadius: '10px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0'
-              }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Target Monthly Gross CTC (₹)
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '14px', top: '10px', fontWeight: '700', color: '#64748b', fontSize: '15px' }}>₹</span>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 font-bold text-slate-500 text-[15px]">₹</span>
                   <input
                     type="number"
                     value={targetFixedSalary}
@@ -445,39 +326,26 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     min="1000"
                     step="500"
                     placeholder="Enter revised monthly gross..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px 10px 32px',
-                      borderRadius: '8px',
-                      border: isHike ? '1.5px solid #16a34a' : '1.5px solid #dc2626',
-                      fontSize: '16px',
-                      fontWeight: '800',
-                      color: '#0f172a',
-                      outline: 'none',
-                      backgroundColor: '#ffffff'
-                    }}
+                    className={`w-full py-2.5 pr-3.5 pl-8 rounded-lg text-base font-extrabold text-slate-900 outline-none bg-white transition-colors ${
+                      isHike ? 'border-[1.5px] border-green-600 focus:border-green-700' : 'border-[1.5px] border-red-600 focus:border-red-700'
+                    }`}
                   />
                 </div>
 
                 {/* Quick Fixed Increment/Decrement Chips */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Quick Shortcuts:</span>
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                  <span className="text-[11.5px] text-slate-500 font-semibold">Quick Shortcuts:</span>
                   {isHike ? (
                     [2000, 5000, 10000, 15000, 20000].map(addAmt => (
                       <button
                         key={addAmt}
                         type="button"
                         onClick={() => setTargetFixedSalary(oldGrossMonthly + addAmt)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          border: targetFixedSalary === oldGrossMonthly + addAmt ? '1.5px solid #16a34a' : '1px solid #cbd5e1',
-                          backgroundColor: targetFixedSalary === oldGrossMonthly + addAmt ? '#dcfce7' : '#ffffff',
-                          fontSize: '11.5px',
-                          fontWeight: '700',
-                          color: '#15803d',
-                          cursor: 'pointer'
-                        }}
+                        className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
+                          targetFixedSalary === oldGrossMonthly + addAmt
+                            ? 'border-[1.5px] border-green-600 bg-green-100 text-green-700'
+                            : 'border border-slate-300 bg-white text-green-700 hover:bg-green-50'
+                        }`}
                       >
                         +₹{addAmt.toLocaleString()}
                       </button>
@@ -488,16 +356,11 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                         key={subAmt}
                         type="button"
                         onClick={() => setTargetFixedSalary(Math.max(1000, oldGrossMonthly - subAmt))}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          border: targetFixedSalary === Math.max(1000, oldGrossMonthly - subAmt) ? '1.5px solid #dc2626' : '1px solid #cbd5e1',
-                          backgroundColor: targetFixedSalary === Math.max(1000, oldGrossMonthly - subAmt) ? '#fee2e2' : '#ffffff',
-                          fontSize: '11.5px',
-                          fontWeight: '700',
-                          color: '#b91c1c',
-                          cursor: 'pointer'
-                        }}
+                        className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
+                          targetFixedSalary === Math.max(1000, oldGrossMonthly - subAmt)
+                            ? 'border-[1.5px] border-red-600 bg-red-100 text-red-700'
+                            : 'border border-slate-300 bg-white text-red-700 hover:bg-red-50'
+                        }`}
                       >
                         -₹{subAmt.toLocaleString()}
                       </button>
@@ -506,16 +369,11 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 </div>
               </div>
             ) : (
-              <div style={{
-                padding: '16px',
-                borderRadius: '10px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0'
-              }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   {isHike ? 'Hike Percentage (+%)' : 'Reduction Percentage (-%)'}
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div className="flex items-center gap-3.5">
                   <input
                     type="range"
                     min="5"
@@ -523,40 +381,28 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     step="5"
                     value={percentageValue}
                     onChange={e => setPercentageValue(Number(e.target.value))}
-                    style={{ flex: 1, accentColor: isHike ? '#16a34a' : '#dc2626' }}
+                    className={`flex-1 ${isHike ? 'accent-green-600' : 'accent-red-600'}`}
                   />
-                  <div style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    backgroundColor: isHike ? '#dcfce7' : '#fee2e2',
-                    color: themeColor,
-                    fontWeight: '800',
-                    fontSize: '17px',
-                    minWidth: '75px',
-                    textAlign: 'center'
-                  }}>
+                  <div className={`px-4 py-2 rounded-lg font-extrabold text-[17px] min-w-[75px] text-center ${
+                    isHike ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
                     {isHike ? `+${percentageValue}%` : `-${percentageValue}%`}
                   </div>
                 </div>
 
                 {/* Quick Percentage Chips */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Presets:</span>
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                  <span className="text-[11.5px] text-slate-500 font-semibold">Presets:</span>
                   {(isHike ? [10, 15, 20, 25, 30, 40, 50] : [5, 10, 15, 20, 25, 30]).map(p => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setPercentageValue(p)}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: percentageValue === p ? `1.5px solid ${themeColor}` : '1px solid #cbd5e1',
-                        backgroundColor: percentageValue === p ? (isHike ? '#eff6ff' : '#fff1f2') : '#ffffff',
-                        fontSize: '11.5px',
-                        fontWeight: '700',
-                        color: percentageValue === p ? themeColor : '#334155',
-                        cursor: 'pointer'
-                      }}
+                      className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
+                        percentageValue === p
+                          ? isHike ? 'border-[1.5px] border-green-600 bg-blue-50 text-green-700' : 'border-[1.5px] border-red-600 bg-red-50 text-red-700'
+                          : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
                     >
                       {isHike ? `+${p}%` : `-${p}%`}
                     </button>
@@ -566,107 +412,76 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
             )}
 
             {/* Step 4: Live Comparison Box */}
-            <div style={{
-              padding: '16px 20px',
-              backgroundColor: themeBgLight,
-              borderRadius: '12px',
-              border: `1.5px solid ${themeBorder}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
+            <div className={`p-4 sm:px-5 rounded-xl border-[1.5px] flex items-center justify-between flex-wrap gap-3 ${
+              isHike ? 'bg-green-50/70 border-green-200' : 'bg-red-50/70 border-red-200'
+            }`}>
               <div>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>
+                <span className="text-[11px] font-bold text-slate-600 uppercase">
                   Previous Salary
                 </span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#334155' }}>
+                <div className="text-lg font-extrabold text-slate-800">
                   ₹{oldGrossMonthly.toLocaleString()}
                 </div>
-                <span style={{ fontSize: '10.5px', color: '#64748b' }}>₹{oldAnnualCTC.toLocaleString()} / yr</span>
+                <span className="text-[10.5px] text-slate-500">₹{oldAnnualCTC.toLocaleString()} / yr</span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: themeColor }}>
+              <div className={`flex items-center gap-2 ${isHike ? 'text-green-600' : 'text-red-600'}`}>
                 <ArrowRight size={18} />
-                <span style={{
-                  padding: '5px 10px',
-                  borderRadius: '14px',
-                  backgroundColor: isHike ? '#dcfce7' : '#fee2e2',
-                  fontSize: '12.5px',
-                  fontWeight: '800',
-                  color: themeColor,
-                  border: `1px solid ${themeBorder}`
-                }}>
+                <span className={`px-2.5 py-1 rounded-full text-[12.5px] font-extrabold border ${
+                  isHike ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'
+                }`}>
                   {isHike ? `+₹${diffAmount.toLocaleString()} (+${diffPercentage}%)` : `-₹${diffAmount.toLocaleString()} (-${diffPercentage}%)`}
                 </span>
                 <ArrowRight size={18} />
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: isHike ? '#15803d' : '#b91c1c', textTransform: 'uppercase' }}>
+              <div className="text-right">
+                <span className={`text-[11px] font-bold uppercase ${isHike ? 'text-green-700' : 'text-red-700'}`}>
                   {isHike ? 'Revised New CTC' : 'Adjusted New CTC'}
                 </span>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: isHike ? '#15803d' : '#b91c1c' }}>
+                <div className={`text-[22px] font-extrabold ${isHike ? 'text-green-700' : 'text-red-700'}`}>
                   ₹{newGrossMonthly.toLocaleString()}
                 </div>
-                <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#475569' }}>
+                <span className="text-[10.5px] font-semibold text-slate-600">
                   ₹{newAnnualCTC.toLocaleString()} / yr
                 </span>
               </div>
             </div>
 
             {/* Step 5: Recalculated Breakdown Details */}
-            <div style={{
-              padding: '14px 18px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-              fontSize: '12px',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: '12px'
-            }}>
+            <div className="p-3.5 px-[18px] bg-slate-50 rounded-xl border border-slate-200 text-xs grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
               <div>
-                <span style={{ color: '#64748b', display: 'block' }}>Basic Pay (50%):</span>
-                <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>₹{newBasic.toLocaleString()}</span>
+                <span className="text-slate-500 block">Basic Pay (50%):</span>
+                <span className="font-extrabold text-slate-900 text-[13px]">₹{newBasic.toLocaleString()}</span>
               </div>
               <div>
-                <span style={{ color: '#64748b', display: 'block' }}>HRA (40% Basic):</span>
-                <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>₹{newHra.toLocaleString()}</span>
+                <span className="text-slate-500 block">HRA (40% Basic):</span>
+                <span className="font-extrabold text-slate-900 text-[13px]">₹{newHra.toLocaleString()}</span>
               </div>
               <div>
-                <span style={{ color: '#64748b', display: 'block' }}>Allowances:</span>
-                <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>₹{newAllowances.toLocaleString()}</span>
+                <span className="text-slate-500 block">Allowances:</span>
+                <span className="font-extrabold text-slate-900 text-[13px]">₹{newAllowances.toLocaleString()}</span>
               </div>
               <div>
-                <span style={{ color: '#64748b', display: 'block' }}>PF & Tax Ded.:</span>
-                <span style={{ fontWeight: '800', color: '#b91c1c', fontSize: '13px' }}>-₹{totalDeductions.toLocaleString()}</span>
+                <span className="text-slate-500 block">PF & Tax Ded.:</span>
+                <span className="font-extrabold text-red-700 text-[13px]">-₹{totalDeductions.toLocaleString()}</span>
               </div>
               <div>
-                <span style={{ color: '#64748b', display: 'block' }}>Net In-Hand / Mo:</span>
-                <span style={{ fontWeight: '800', color: '#2563eb', fontSize: '13px' }}>₹{netInHand.toLocaleString()}</span>
+                <span className="text-slate-500 block">Net In-Hand / Mo:</span>
+                <span className="font-extrabold text-blue-600 text-[13px]">₹{netInHand.toLocaleString()}</span>
               </div>
             </div>
 
             {/* Step 6: Reason & Effective Date */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr] gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   {isHike ? 'Appraisal Reason' : 'Adjustment Rationale'}
                 </label>
                 <select
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
                 >
                   {isHike ? (
                     <>
@@ -690,29 +505,21 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Effective Date
                 </label>
                 <input
                   type="date"
                   value={effectiveDate}
                   onChange={e => setEffectiveDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
 
             {/* Step 7: HR / Leadership Notes */}
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                 HR & Executive Remarks (Will appear on official letter)
               </label>
               <textarea
@@ -722,82 +529,36 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 rows={2}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  resize: 'none'
-                }}
+                className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none resize-none font-sans focus:border-blue-500 transition-colors"
               />
             </div>
 
             {/* Bottom Form Actions */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid #e2e8f0',
-              paddingTop: '16px',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}>
+            <div className="flex justify-between items-center border-t border-slate-200 pt-4 flex-wrap gap-2.5">
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '9px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: '#f1f5f9',
-                  color: '#2563eb',
-                  border: '1px solid #bfdbfe',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-[9px] rounded-lg bg-slate-100 hover:bg-slate-200 text-blue-600 border border-blue-200 text-[12.5px] font-bold cursor-pointer transition-colors"
               >
                 <FileCheck size={16} />
                 Preview Official Letter
               </button>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{
-                    padding: '9px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-4 py-[9px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[13px] font-semibold cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '9px 22px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: themeColor,
-                    color: '#ffffff',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: isHike ? '0 2px 6px rgba(22, 163, 74, 0.3)' : '0 2px 6px rgba(220, 38, 38, 0.3)'
-                  }}
+                  className={`inline-flex items-center gap-1.5 px-[22px] py-[9px] rounded-lg border-0 text-white text-[13px] font-bold cursor-pointer transition-colors ${
+                    isHike
+                      ? 'bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/30'
+                      : 'bg-red-600 hover:bg-red-700 shadow-md shadow-red-600/30'
+                  }`}
                 >
                   <CheckCircle2 size={16} />
                   {isHike ? 'Apply Salary Hike' : 'Apply Salary Revision'}
@@ -807,198 +568,125 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
           </form>
         ) : (
           /* Official Document Letter Preview (Adaptive: Appraisal vs Revision Notice) */
-          <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{
-              border: isHike ? '2px solid #2563eb' : '2px solid #d97706',
-              borderRadius: '12px',
-              padding: '24px 30px',
-              backgroundColor: '#ffffff',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.05)'
-            }}>
+          <div className="p-6 sm:px-8 flex flex-col gap-4">
+            <div className={`border-2 rounded-xl p-6 sm:px-[30px] bg-white shadow-md ${
+              isHike ? 'border-blue-600' : 'border-amber-500'
+            }`}>
               {/* Header Letterhead */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderBottom: isHike ? '2px solid #2563eb' : '2px solid #d97706',
-                paddingBottom: '14px',
-                marginBottom: '18px'
-              }}>
+              <div className={`flex justify-between border-b-2 pb-3.5 mb-[18px] ${
+                isHike ? 'border-blue-600' : 'border-amber-500'
+              }`}>
                 <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', margin: 0, textTransform: 'uppercase' }}>
+                  <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
                     {companyInfo.companyName || 'ORGANIZATION'}
                   </h2>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                  <p className="text-[11px] text-slate-500 mt-0.5 m-0">
                     {companyInfo.address} • {companyInfo.hrEmail || companyInfo.email}
                   </p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Date: {new Date().toLocaleDateString()}</span>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: isHike ? '#2563eb' : '#d97706' }}>
+                <div className="text-right">
+                  <span className="text-[11px] text-slate-500">Date: {new Date().toLocaleDateString()}</span>
+                  <div className={`text-xs font-bold ${isHike ? 'text-blue-600' : 'text-amber-600'}`}>
                     Ref: {companyInfo.shortName?.slice(0, 3).toUpperCase() || 'EMS'}/{isHike ? 'HR-APPRAISAL' : 'HR-REVISION'}/{employee.employeeCode}
                   </div>
                 </div>
               </div>
 
               {/* Title of Document */}
-              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                <h3 style={{
-                  display: 'inline-block',
-                  margin: 0,
-                  fontSize: '15px',
-                  fontWeight: '800',
-                  color: isHike ? '#1e3a8a' : '#991b1b',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  borderBottom: `2px solid ${isHike ? '#bfdbfe' : '#fecaca'}`,
-                  paddingBottom: '4px'
-                }}>
+              <div className="text-center mb-4">
+                <h3 className={`inline-block m-0 text-[15px] font-extrabold uppercase tracking-wide border-b-2 pb-1 ${
+                  isHike ? 'text-blue-900 border-blue-200' : 'text-red-900 border-red-200'
+                }`}>
                   {isHike ? 'Official Appraisal & Salary Increment Letter' : 'Compensation Restructuring & Salary Revision Notice'}
                 </h3>
               </div>
 
               {/* Salutation */}
-              <p style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '0 0 10px 0' }}>
+              <p className="text-[13px] font-bold text-slate-900 mb-2.5 m-0">
                 Dear {employee.name},
               </p>
 
               {/* Body Text */}
               {isHike ? (
-                <p style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+                <p className="text-[12.5px] text-slate-700 leading-relaxed mb-3 m-0">
                   We take immense pleasure in informing you that in recognition of your dedicated contributions, professionalism, and performance, the Management has approved a salary increment effective from <strong>{effectiveDate}</strong>.
                 </p>
               ) : (
-                <p style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+                <p className="text-[12.5px] text-slate-700 leading-relaxed mb-3 m-0">
                   This notice serves as official confirmation that following management review and role alignment, your monthly compensation structure will be adjusted effective from <strong>{effectiveDate}</strong> due to <em>{reason}</em>.
                 </p>
               )}
 
               {/* Revised Salary Table */}
-              <div style={{
-                backgroundColor: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '14px',
-                marginBottom: '16px',
-                fontSize: '12.5px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <div className="bg-slate-50 border border-slate-300 rounded-lg p-3.5 mb-4 text-[12.5px]">
+                <div className="flex justify-between mb-1.5">
                   <span>Previous Monthly CTC:</span>
-                  <span style={{ fontWeight: '600' }}>₹{oldGrossMonthly.toLocaleString()}</span>
+                  <span className="font-semibold">₹{oldGrossMonthly.toLocaleString()}</span>
                 </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '6px',
-                  color: isHike ? '#16a34a' : '#dc2626',
-                  fontWeight: '700'
-                }}>
+                <div className={`flex justify-between mb-1.5 font-bold ${isHike ? 'text-green-600' : 'text-red-600'}`}>
                   <span>{isHike ? 'Increment' : 'Adjustment'}:</span>
                   <span>
                     {isHike ? `+${diffPercentage}% (+₹${diffAmount.toLocaleString()})` : `-${diffPercentage}% (-₹${diffAmount.toLocaleString()})`}
                   </span>
                 </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  borderTop: '1px dashed #cbd5e1',
-                  paddingTop: '6px',
-                  fontWeight: '800',
-                  color: isHike ? '#1e3a8a' : '#991b1b',
-                  fontSize: '14px'
-                }}>
+                <div className={`flex justify-between border-t border-dashed border-slate-300 pt-1.5 font-extrabold text-sm ${
+                  isHike ? 'text-blue-900' : 'text-red-900'
+                }`}>
                   <span>Revised Monthly CTC:</span>
                   <span>₹{newGrossMonthly.toLocaleString()} / month</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
+                <div className="flex justify-between text-[11.5px] text-slate-500 mt-1">
                   <span>Annualized CTC:</span>
                   <span>₹{newAnnualCTC.toLocaleString()} / annum</span>
                 </div>
               </div>
 
-              <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.5', margin: '0 0 18px 0' }}>
+              <p className="text-xs text-slate-500 leading-normal mb-[18px] m-0">
                 {remarks || (isHike
                   ? 'We look forward to your continued dedication, leadership, and success as we scale new milestones together.'
                   : 'Should you have any queries regarding your revised compensation schedule, please connect with the HR Directorate.')}
               </p>
 
               {/* Signature Block */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '10px' }}>
+              <div className="flex justify-between items-end pt-2.5">
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+                  <div className="text-xs font-bold text-slate-900">
                     {companyInfo.signatoryTitle || 'Authorized HR Directorate'}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <div className="text-[11px] text-slate-500">
                     {companyInfo.companyName || 'Organization Directorate'}
                   </div>
                 </div>
-                <div style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  backgroundColor: '#dcfce7',
-                  color: '#15803d',
-                  fontSize: '11px',
-                  fontWeight: '700'
-                }}>
+                <div className="px-2.5 py-1 rounded bg-green-100 text-green-700 text-[11px] font-bold">
                   ✅ Digitally Verified & Sealed
                 </div>
               </div>
             </div>
 
             {/* Bottom Preview Actions */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="flex justify-between items-center">
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(false)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[12.5px] font-semibold cursor-pointer transition-colors"
               >
                 ← Back to Config
               </button>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handlePrintLetter}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #bfdbfe',
-                    backgroundColor: '#eff6ff',
-                    color: '#2563eb',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 text-[12.5px] font-semibold cursor-pointer transition-colors"
                 >
                   <Printer size={15} /> Print Official Letter
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmitRevision}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: themeColor,
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className={`inline-flex items-center gap-1.5 px-[18px] py-2 rounded-lg border-0 text-white text-[12.5px] font-bold cursor-pointer transition-colors ${
+                    isHike ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                  }`}
                 >
                   <CheckCircle2 size={15} /> Confirm & Apply
                 </button>

@@ -77,27 +77,25 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
         subtitle={`Total ${employees?.length || 0} active employees registered in company database.`}
         maxWidth="920px"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="flex flex-col gap-4">
           {/* Action & Filter Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-              <div className="filter-input-wrap" style={{ flex: 1, minWidth: '200px' }}>
+          <div className="flex justify-between items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5 flex-1">
+              <div className="filter-input-wrap flex-1 min-w-[200px]">
                 <Search size={15} className="filter-input-icon" />
                 <input
                   type="text"
                   placeholder="Search by name, role, email..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="filter-input"
-                  style={{ width: '100%' }}
+                  className="filter-input w-full"
                 />
               </div>
 
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="filter-select"
-                style={{ height: '36px' }}
+                className="filter-select h-9"
               >
                 <option value="all">All Departments</option>
                 {departments.map(d => (
@@ -108,8 +106,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
 
             <button
               onClick={() => setIsAddOpen(true)}
-              className="btn btn-primary"
-              style={{ height: '36px' }}
+              className="btn btn-primary h-9"
             >
               <Plus size={15} />
               <span>Add Employee</span>
@@ -117,7 +114,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Employee Table */}
-          <div className="table-responsive" style={{ maxHeight: '450px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+          <div className="table-responsive max-h-[450px] border border-slate-200 rounded-lg">
             <table className="crm-table">
               <thead>
                 <tr>
@@ -126,7 +123,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                   <th>Department</th>
                   <th>Joining Date</th>
                   <th>Leave Balance</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,19 +131,18 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                   <tr key={emp._id}>
                     <td>
                       <div
-                        className="employee-cell"
+                        className="employee-cell cursor-pointer"
                         onClick={() => setSelectedProfileEmp(emp)}
-                        style={{ cursor: 'pointer' }}
                         title="Click to view & edit employee profile and role"
                       >
                         <div className="employee-avatar">
                           {emp.avatar ? <img src={emp.avatar} alt={emp.name} /> : (emp.name?.charAt(0) || 'E')}
                         </div>
                         <div className="employee-name-group">
-                          <span className="employee-name" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          <span className="employee-name text-blue-600 underline">
                             {emp.name}
                             {isEmployeeSelf(emp) && (
-                              <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '6px' }}>It's You</span>
+                              <span className="its-you-pill text-[9px] py-[1px] px-[5px] ml-1.5">It's You</span>
                             )}
                           </span>
                           <span className="employee-role">{emp.role} • {emp.email}</span>
@@ -154,48 +150,28 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                       </div>
                     </td>
 
-                    <td style={{ fontWeight: '600', color: '#1e293b' }}>
+                    <td className="font-semibold text-slate-800">
                       {emp.employeeCode || '—'}
                     </td>
 
                     <td>
-                      <span style={{
-                        background: '#f1f5f9',
-                        color: '#334155',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11.5px',
-                        fontWeight: '600'
-                      }}>
+                      <span className="bg-slate-100 text-slate-700 py-[3px] px-2 rounded-md text-[11.5px] font-semibold">
                         {emp.department}
                       </span>
                     </td>
 
-                    <td style={{ fontSize: '12.5px', color: '#64748b' }}>
+                    <td className="text-[12.5px] text-slate-500">
                       {emp.joiningDate || '2023-01-15'}
                     </td>
 
-                    <td style={{ fontSize: '12px', color: '#0284c7', fontWeight: '600' }}>
+                    <td className="text-xs text-sky-600 font-semibold">
                       CL: {emp.leaveBalance?.casual || 0} | SL: {emp.leaveBalance?.sick || 0} | EL: {emp.leaveBalance?.earned || 0}
                     </td>
 
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td className="text-right whitespace-nowrap">
                       <button
                         onClick={() => setSelectedSalaryEmp(emp)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#f0fdf4',
-                          color: '#15803d',
-                          border: '1px solid #bbf7d0',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          marginRight: '6px'
-                        }}
+                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-green-50 text-green-700 border border-green-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-green-100"
                         title="Revise Compensation (Hike 📈 or Decrease 📉)"
                       >
                         <ArrowUpDown size={11} color="#16a34a" />
@@ -204,20 +180,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
 
                       <button
                         onClick={() => setSelectedProfileEmp(emp)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#f8fafc',
-                          color: '#475569',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          marginRight: '6px'
-                        }}
+                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-slate-50 text-slate-600 border border-slate-300 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-slate-100"
                         title="View & Edit Full Profile / Role"
                       >
                         <User size={12} color="#0284c7" />
@@ -226,20 +189,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
 
                       <button
                         onClick={() => setSelectedPermsEmp(emp)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#f5f3ff',
-                          color: '#7c3aed',
-                          border: '1px solid #ddd6fe',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          marginRight: '6px'
-                        }}
+                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-purple-100"
                         title="Configure Granular Module Permissions & Access Rights"
                       >
                         <ShieldCheck size={12} color="#7c3aed" />
@@ -248,20 +198,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
 
                       <button
                         onClick={() => setSelectedPromoteEmp(emp)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          backgroundColor: '#eff6ff',
-                          color: '#2563eb',
-                          border: '1px solid #bfdbfe',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          marginRight: '6px'
-                        }}
+                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-blue-50 text-blue-600 border border-blue-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-blue-100"
                         title="Promote / Upgrade Post (Admin & HR)"
                       >
                         <Award size={12} />
@@ -281,8 +218,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                               deleteEmployee(emp._id);
                             }
                           }}
-                          className="btn-icon-only"
-                          style={{ width: '28px', height: '28px', color: '#ef4444' }}
+                          className="btn-icon-only w-7 h-7 text-red-500"
                           title="Remove Employee"
                         >
                           <Trash2 size={13} />

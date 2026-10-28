@@ -58,45 +58,22 @@ export const MessagesPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: 'calc(100vh - 110px)' }}>
+    <div className="flex flex-col gap-3 h-[calc(100vh-110px)]">
       
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: isDark ? '#151e32' : '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
-        boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-            color: '#38bdf8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#151e32] p-3 px-4 rounded-[10px] border border-slate-200 dark:border-[#243049] shadow-xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] min-h-[68px] shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-400 flex items-center justify-center">
             <MessageSquare size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a', lineHeight: '1.2' }}>Team Chat & Direct Messages</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: isDark ? '#064e3b' : '#dcfce7', color: isDark ? '#4ade80' : '#16a34a', fontWeight: '700' }}>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-50 leading-tight">Team Chat & Direct Messages</h1>
+              <span className="text-[10.5px] py-px px-1.5 rounded bg-green-100 dark:bg-emerald-950 text-green-600 dark:text-emerald-400 font-bold">
                 Online
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Real-time collaboration, direct messages, project group threads & attachments
             </p>
           </div>
@@ -104,21 +81,7 @@ export const MessagesPage = () => {
 
         <button
           onClick={() => setIsNewConvOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 12px',
-            height: '30px',
-            borderRadius: '6px',
-            backgroundColor: '#2563eb',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-          }}
+          className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-none text-xs font-bold cursor-pointer shadow-sm transition-colors"
         >
           <Plus size={14} />
           New Chat
@@ -126,70 +89,31 @@ export const MessagesPage = () => {
       </div>
 
       {/* Main Chat Layout Container */}
-      <div style={{
-        flex: 1,
-        display: 'grid',
-        gridTemplateColumns: '290px 1fr',
-        backgroundColor: isDark ? '#151e32' : '#ffffff',
-        borderRadius: '10px',
-        border: isDark ? '1px solid #243049' : '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
+      <div className="flex-1 grid grid-cols-[290px_1fr] bg-white dark:bg-[#151e32] rounded-[10px] border border-slate-200 dark:border-[#243049] overflow-hidden shadow-xs dark:shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
         
         {/* Left Sidebar: Contact Search & Conversation List */}
-        <div style={{
-          borderRight: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: isDark ? '#0f172a' : '#f8fafc'
-        }}>
+        <div className="border-r border-slate-100 dark:border-[#243049] flex flex-col bg-slate-50 dark:bg-slate-900">
           
           {/* Search Bar */}
-          <div style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9', backgroundColor: isDark ? '#151e32' : '#ffffff' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
-              backgroundColor: isDark ? '#1e293b' : '#f8fafc'
-            }}>
-              <Search size={13} color={isDark ? '#38bdf8' : '#94a3b8'} />
+          <div className="p-2 px-2.5 border-b border-slate-100 dark:border-[#243049] bg-white dark:bg-[#151e32]">
+            <div className="flex items-center gap-1.5 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+              <Search size={13} className="text-slate-400 dark:text-sky-400" />
               <input
                 type="text"
                 placeholder="Type to search contact"
                 value={searchContact}
                 onChange={e => setSearchContact(e.target.value)}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: '12.5px',
-                  width: '100%',
-                  color: isDark ? '#f8fafc' : '#0f172a'
-                }}
+                className="border-none bg-transparent outline-none text-[12.5px] w-full text-slate-900 dark:text-slate-50 placeholder-slate-400"
               />
             </div>
           </div>
 
           {/* Conversations List */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
             {filteredConversations.length === 0 ? (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100%',
-                padding: '30px 16px',
-                color: '#64748b',
-                textAlign: 'center'
-              }}>
-                <MessageSquare size={28} color="#94a3b8" style={{ marginBottom: '8px' }} />
-                <span style={{ fontSize: '13px', fontWeight: '600' }}>- No conversation found. -</span>
+              <div className="flex flex-col items-center justify-center h-full p-8 text-slate-500 text-center">
+                <MessageSquare size={28} className="text-slate-400 mb-2" />
+                <span className="text-[13px] font-semibold">- No conversation found. -</span>
               </div>
             ) : (
               filteredConversations.map(conv => {
@@ -198,75 +122,47 @@ export const MessagesPage = () => {
                   <div
                     key={conv.id}
                     onClick={() => setActiveConversationId(conv.id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? (isDark ? '#1e2d4a' : '#ffffff') : 'transparent',
-                      boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
-                      border: isSelected ? (isDark ? '1px solid #2e436c' : '1px solid #e2e8f0') : '1px solid transparent',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => !isSelected && (e.currentTarget.style.backgroundColor = isDark ? '#162238' : '#f1f5f9')}
-                    onMouseLeave={e => !isSelected && (e.currentTarget.style.backgroundColor = 'transparent')}
+                    className={`flex items-center gap-3 p-3 rounded-[10px] cursor-pointer transition-all border ${
+                      isSelected
+                        ? 'bg-white dark:bg-[#1e2d4a] shadow-sm border-slate-200 dark:border-[#2e436c]'
+                        : 'bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                    }`}
                   >
                     {/* Avatar & Online Dot */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div className="relative shrink-0">
                       <img
                         src={conv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                         alt={conv.participantName}
-                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                        className="w-10 h-10 rounded-full object-cover"
                       />
                       {conv.isOnline && (
-                        <span style={{
-                          position: 'absolute',
-                          bottom: 0,
-                          right: 0,
-                          width: '10px',
-                          height: '10px',
-                          borderRadius: '50%',
-                          backgroundColor: '#10b981',
-                          border: `2px solid ${isDark ? '#0f172a' : '#ffffff'}`
-                        }} />
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                       )}
                     </div>
 
                     {/* Contact Details */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13.5px', fontWeight: isSelected ? '700' : '600', color: isDark ? '#f8fafc' : '#0f172a' }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[13.5px] ${isSelected ? 'font-bold' : 'font-semibold'} text-slate-900 dark:text-slate-50`}>
                           {conv.participantName}
                         </span>
-                        <span style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#94a3b8' }}>
+                        <span className="text-[11px] text-slate-400">
                           {conv.lastMessageTime}
                         </span>
                       </div>
 
-                      <div style={{
-                        fontSize: '12px',
-                        color: isSelected ? (isDark ? '#93c5fd' : '#334155') : (isDark ? '#94a3b8' : '#64748b'),
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        marginTop: '2px'
-                      }}>
+                      <div className={`text-xs truncate mt-0.5 ${
+                        isSelected
+                          ? 'text-slate-700 dark:text-blue-300'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}>
                         {conv.lastMessage}
                       </div>
                     </div>
 
                     {/* Unread Badge */}
                     {conv.unreadCount > 0 && (
-                      <span style={{
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: '#2563eb',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: '700'
-                      }}>
+                      <span className="py-0.5 px-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold">
                         {conv.unreadCount}
                       </span>
                     )}
@@ -278,55 +174,20 @@ export const MessagesPage = () => {
         </div>
 
         {/* Right Side: Chat Window Matching Screenshot 4 */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: isDark ? '#151e32' : '#ffffff'
-        }}>
+        <div className="flex flex-col bg-white dark:bg-[#151e32]">
           
           {/* If No Conversation Selected: Empty State Matching Screenshot 4 */}
           {!activeConv ? (
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '16px',
-              padding: '40px',
-              color: isDark ? '#94a3b8' : '#64748b'
-            }}>
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-                color: '#38bdf8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-10 text-slate-500 dark:text-slate-400">
+              <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-slate-800 text-sky-400 flex items-center justify-center">
                 <MessageSquare size={32} />
               </div>
-              <div style={{ fontSize: '16px', fontWeight: '600', color: isDark ? '#cbd5e1' : '#64748b' }}>
+              <div className="text-base font-semibold text-slate-600 dark:text-slate-300">
                 - Select a conversation to send a message -
               </div>
               <button
                 onClick={() => setIsNewConvOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '9px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(2,132,199,0.3)'
-                }}
+                className="inline-flex items-center gap-1.5 py-[9px] px-[18px] rounded-lg border-none bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-bold cursor-pointer shadow-md transition-colors"
               >
                 <Plus size={16} />
                 New Conversation
@@ -335,62 +196,33 @@ export const MessagesPage = () => {
           ) : (
             <>
               {/* Chat Header Matching Screenshot */}
-              <div style={{
-                padding: '14px 20px',
-                borderBottom: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: isDark ? '#151e32' : '#ffffff'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ position: 'relative' }}>
+              <div className="p-3.5 px-5 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-white dark:bg-[#151e32]">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
                     <img
                       src={activeConv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                       alt={activeConv.participantName}
-                      style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
+                      className="w-[38px] h-[38px] rounded-full object-cover"
                     />
                     {activeConv.isOnline && (
-                      <span style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        right: 0,
-                        width: '9px',
-                        height: '9px',
-                        borderRadius: '50%',
-                        backgroundColor: '#10b981',
-                        border: `2px solid ${isDark ? '#151e32' : '#ffffff'}`
-                      }} />
+                      <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-[#151e32]" />
                     )}
                   </div>
                   <div>
-                    <div style={{ fontSize: '14.5px', fontWeight: '800', color: isDark ? '#f8fafc' : '#0f172a' }}>
+                    <div className="text-[14.5px] font-extrabold text-slate-900 dark:text-slate-50">
                       {activeConv.participantName}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: isDark ? '#94a3b8' : '#64748b' }}>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
                       {activeConv.participantRole} • {activeConv.isOnline ? '🟢 Active Now' : 'Offline'}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="flex items-center gap-2">
                   {/* Action Button: + New Conversation Matching Screenshot 4 Top Right */}
                   <button
                     onClick={() => setIsNewConvOpen(true)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 14px',
-                      borderRadius: '6px',
-                      backgroundColor: '#0284c7',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 4px rgba(2,132,199,0.25)'
-                    }}
+                    className="inline-flex items-center gap-1.5 py-[7px] px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white border-none text-[12.5px] font-bold cursor-pointer shadow-sm transition-colors"
                   >
                     <Plus size={15} />
                     New Conversation
@@ -399,55 +231,31 @@ export const MessagesPage = () => {
               </div>
 
               {/* Message Stream */}
-              <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                backgroundColor: isDark ? '#0b1120' : '#f8fafc'
-              }}>
+              <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3.5 bg-slate-50 dark:bg-[#0b1120]">
                 {activeConv.messages.map(msg => (
                   <div
                     key={msg.id}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignSelf: msg.isOutgoing ? 'flex-end' : 'flex-start',
-                      maxWidth: '70%'
-                    }}
+                    className={`flex flex-col max-w-[70%] ${msg.isOutgoing ? 'self-end' : 'self-start'}`}
                   >
                     {!msg.isOutgoing && (
-                      <span style={{ fontSize: '11px', fontWeight: '700', color: isDark ? '#38bdf8' : '#64748b', marginBottom: '3px', marginLeft: '4px' }}>
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-sky-400 mb-0.5 ml-1">
                         {activeConv.participantName}
                       </span>
                     )}
 
-                    <div style={{
-                      padding: '10px 16px',
-                      borderRadius: msg.isOutgoing ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                      backgroundColor: msg.isOutgoing ? '#2563eb' : (isDark ? '#1e293b' : '#ffffff'),
-                      color: msg.isOutgoing ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a'),
-                      border: msg.isOutgoing ? 'none' : (isDark ? '1px solid #2e436c' : '1px solid #e2e8f0'),
-                      fontSize: '13.5px',
-                      lineHeight: '1.5',
-                      boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)'
-                    }}>
+                    <div className={`p-2.5 px-4 text-[13.5px] leading-relaxed shadow-xs ${
+                      msg.isOutgoing
+                        ? 'rounded-[14px_14px_2px_14px] bg-blue-600 text-white'
+                        : 'rounded-[14px_14px_14px_2px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-[#2e436c]'
+                    }`}>
                       {msg.text}
                     </div>
 
-                    <div style={{
-                      fontSize: '10.5px',
-                      color: isDark ? '#64748b' : '#94a3b8',
-                      marginTop: '3px',
-                      alignSelf: msg.isOutgoing ? 'flex-end' : 'flex-start',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
+                    <div className={`text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1 ${
+                      msg.isOutgoing ? 'self-end' : 'self-start'
+                    }`}>
                       <span>{msg.timestamp}</span>
-                      {msg.isOutgoing && <CheckCheck size={13} color="#60a5fa" />}
+                      {msg.isOutgoing && <CheckCheck size={13} className="text-blue-400" />}
                     </div>
                   </div>
                 ))}
@@ -457,24 +265,11 @@ export const MessagesPage = () => {
               {/* Chat Input Bar */}
               <form
                 onSubmit={handleSend}
-                style={{
-                  padding: '14px 18px',
-                  borderTop: isDark ? '1px solid #243049' : '1px solid #f1f5f9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  backgroundColor: isDark ? '#151e32' : '#ffffff'
-                }}
+                className="p-3.5 px-[18px] border-t border-slate-100 dark:border-[#243049] flex items-center gap-2.5 bg-white dark:bg-[#151e32]"
               >
                 <button
                   type="button"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: isDark ? '#94a3b8' : '#64748b',
-                    cursor: 'pointer',
-                    padding: '4px'
-                  }}
+                  className="bg-transparent border-none text-slate-500 dark:text-slate-400 hover:text-slate-700 cursor-pointer p-1"
                   title="Attach file"
                 >
                   <Paperclip size={18} />
@@ -485,34 +280,17 @@ export const MessagesPage = () => {
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={e => setInputText(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    borderRadius: '24px',
-                    border: isDark ? '1px solid #2e436c' : '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: isDark ? '#18233c' : '#f8fafc',
-                    color: isDark ? '#f8fafc' : '#0f172a'
-                  }}
+                  className="flex-1 py-2.5 px-4 rounded-full border border-slate-300 dark:border-[#2e436c] text-[13px] outline-none bg-slate-50 dark:bg-[#18233c] text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-blue-500 transition-colors"
                 />
 
                 <button
                   type="submit"
                   disabled={!inputText.trim()}
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    border: 'none',
-                    backgroundColor: inputText.trim() ? '#2563eb' : (isDark ? '#243049' : '#e2e8f0'),
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: inputText.trim() ? 'pointer' : 'not-allowed',
-                    transition: 'background-color 0.15s ease'
-                  }}
+                  className={`w-[38px] h-[38px] rounded-full border-none flex items-center justify-center transition-colors text-white ${
+                    inputText.trim()
+                      ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                      : 'bg-slate-200 dark:bg-[#243049] cursor-not-allowed'
+                  }`}
                 >
                   <Send size={16} />
                 </button>

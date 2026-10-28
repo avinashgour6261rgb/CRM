@@ -70,61 +70,29 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
   });
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '12px',
-      border: '1px solid #e2e8f0',
-      padding: '20px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
+    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
       {/* Header and Filter */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        marginBottom: '16px',
-        paddingBottom: '14px',
-        borderBottom: '1px solid #f1f5f9'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#fef3c7',
-            color: '#b45309',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3.5 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
             <Clock size={16} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+            <h3 className="m-0 text-[15px] font-extrabold text-slate-900">
               Overtime Requests & Approvals
             </h3>
-            <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 text-[11.5px] text-slate-500">
               Side-by-side shift extra hours & task duration verification
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Filter:</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-600">Filter:</span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: '#0f172a',
-              outline: 'none'
-            }}
+            className="py-1.5 px-2.5 rounded-md border border-slate-300 text-xs font-semibold text-slate-900 outline-none bg-white"
           >
             <option value="all">All ({requests.length})</option>
             <option value="pending">Pending</option>
@@ -136,27 +104,21 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
       {/* List */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '13px' }}>
+        <div className="text-center py-[30px] text-slate-500 text-[13px]">
           Loading overtime records...
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{
-          textAlign: 'center',
-          padding: '40px 20px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '10px',
-          border: '1px dashed #cbd5e1'
-        }}>
-          <Clock size={28} color="#94a3b8" style={{ marginBottom: '8px' }} />
-          <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+        <div className="text-center py-10 px-5 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+          <Clock size={28} className="mb-2 text-slate-400" />
+          <div className="text-[13px] font-bold text-slate-700">
             No Overtime Requests Found
           </div>
-          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+          <div className="text-xs text-slate-500 mt-0.5">
             When employees work beyond standard shift hours, their overtime claims and task work will appear here.
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="flex flex-col gap-2.5">
           {filtered.map((item) => {
             const status = item.overtimeStatus || item.status || 'pending';
             const hours = item.overtimeHours || (item.overtimeSeconds ? +(item.overtimeSeconds / 3600).toFixed(2) : 0);
@@ -168,58 +130,29 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
             return (
               <div
                 key={item._id || item.id}
-                style={{
-                  padding: '14px 18px',
-                  borderRadius: '10px',
-                  border: `1px solid ${isPending ? '#fed7aa' : (isApproved ? '#bbf7d0' : '#fecaca')}`,
-                  backgroundColor: isPending ? '#fffaf5' : (isApproved ? '#f0fdf4' : '#fef2f2'),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '12px'
-                }}
+                className={`py-3.5 px-[18px] rounded-xl border flex items-center justify-between flex-wrap gap-3 ${isPending ? 'border-orange-200 bg-orange-50/50' : (isApproved ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50')}`}
               >
                 {/* Left Info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '260px' }}>
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    backgroundColor: '#e2e8f0',
-                    color: '#0f172a',
-                    fontWeight: '800',
-                    fontSize: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
+                <div className="flex items-center gap-3 min-w-[260px]">
+                  <div className="w-[38px] h-[38px] rounded-full bg-slate-200 text-slate-900 font-extrabold text-sm flex items-center justify-center shrink-0">
                     {(item.employeeName || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <strong style={{ fontSize: '13.5px', color: '#0f172a' }}>
+                    <div className="flex items-center gap-2">
+                      <strong className="text-[13.5px] text-slate-900">
                         {item.employeeName || 'Employee'}
                       </strong>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>
+                      <span className="text-[11px] text-slate-500">
                         ({item.employeeCode || 'EMP'})
                       </span>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        padding: '2px 8px',
-                        borderRadius: '5px',
-                        backgroundColor: isPending ? '#ffedd5' : (isApproved ? '#dcfce7' : '#fee2e2'),
-                        color: isPending ? '#c2410c' : (isApproved ? '#15803d' : '#b91c1c')
-                      }}>
+                      <span className={`text-[11px] font-bold py-0.5 px-2 rounded ${isPending ? 'bg-orange-100 text-orange-700' : (isApproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}`}>
                         {status.toUpperCase()}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <div className="text-[11.5px] text-slate-500 mt-1 flex items-center gap-2.5 flex-wrap">
                       <span>📅 Date: <strong>{item.date}</strong></span>
-                      <span>⏰ Extra Time: <strong style={{ color: '#ea580c' }}>+{hours}h</strong></span>
+                      <span>⏰ Extra Time: <strong className="text-orange-600">+{hours}h</strong></span>
                       {item.overtimeRequestedTo && (
                         <span>Approver: <strong>{item.overtimeRequestedTo}</strong></span>
                       )}
@@ -227,27 +160,19 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
                     {/* Reason Note */}
                     {item.overtimeReason && (
-                      <div style={{ fontSize: '11.5px', color: '#334155', marginTop: '4px', fontStyle: 'italic' }}>
+                      <div className="text-[11.5px] text-slate-700 mt-1 italic">
                         "{item.overtimeReason}"
                       </div>
                     )}
 
                     {/* Tasks Worked Pills */}
                     {tasks.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748b' }}>Tasks:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <span className="text-[10.5px] font-bold text-slate-500">Tasks:</span>
                         {tasks.map((t, tidx) => (
                           <span
                             key={tidx}
-                            style={{
-                              backgroundColor: '#ffffff',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '4px',
-                              padding: '1px 6px',
-                              fontSize: '10.5px',
-                              color: '#1e293b',
-                              fontWeight: '600'
-                            }}
+                            className="bg-white border border-slate-300 rounded py-[1px] px-1.5 text-[10.5px] text-slate-800 font-semibold"
                           >
                             {t.taskCode || 'TSK'}: {t.title || 'Task'} ({t.durationText || ''})
                           </span>
@@ -259,42 +184,17 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
                 {/* Right Actions */}
                 {isPrivileged && isPending && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleDecision(item._id || item.id, 'approved')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        boxShadow: '0 1px 3px rgba(22, 163, 74, 0.2)'
-                      }}
+                      className="py-1.5 px-3.5 rounded-md border-0 bg-green-600 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1 shadow-xs hover:bg-green-700"
                     >
                       <CheckCircle2 size={13} />
                       <span>Approve</span>
                     </button>
                     <button
                       onClick={() => handleDecision(item._id || item.id, 'rejected')}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #fca5a5',
-                        backgroundColor: '#ffffff',
-                        color: '#dc2626',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      className="py-1.5 px-3 rounded-md border border-red-300 bg-white text-red-600 text-xs font-semibold cursor-pointer inline-flex items-center gap-1 hover:bg-red-50"
                     >
                       <XCircle size={13} />
                       <span>Reject</span>

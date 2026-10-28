@@ -116,54 +116,37 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       subtitle={`Configure granular module access for ${employee.role} (#${employee.employeeCode || employee._id})`}
       maxWidth="680px"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="flex flex-col gap-4">
         {/* User Summary Pill */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderRadius: '10px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #e2e8f0'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
+          <div className="flex items-center gap-2.5">
             {employee.avatar ? (
               <img
                 src={employee.avatar}
                 alt={employee.name}
-                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
+                className="w-[38px] h-[38px] rounded-full object-cover"
               />
             ) : (
-              <div style={{ width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
+              <div className="w-[38px] h-[38px] rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
                 {employee.name?.charAt(0) || 'U'}
               </div>
             )}
             <div>
-              <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-sm font-bold text-slate-900">
                 {employee.name}
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>
+              <div className="text-xs text-slate-500">
                 {employee.role} • {employee.department} • ID: {employee.employeeCode}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={() => handleSelectAll(true)}
               disabled={!canEdit}
-              style={{
-                padding: '5px 10px',
-                borderRadius: '6px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                border: '1px solid #bfdbfe',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: canEdit ? 'pointer' : 'not-allowed'
-              }}
+              className={`py-1 px-2.5 rounded-md bg-blue-50 text-blue-600 border border-blue-200 text-[11.5px] font-bold ${canEdit ? 'cursor-pointer hover:bg-blue-100' : 'cursor-not-allowed opacity-60'}`}
             >
               ✓ Grant All
             </button>
@@ -171,16 +154,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
               type="button"
               onClick={() => handleSelectAll(false)}
               disabled={!canEdit}
-              style={{
-                padding: '5px 10px',
-                borderRadius: '6px',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
-                border: '1px solid #fecaca',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: canEdit ? 'pointer' : 'not-allowed'
-              }}
+              className={`py-1 px-2.5 rounded-md bg-red-50 text-red-600 border border-red-200 text-[11.5px] font-bold ${canEdit ? 'cursor-pointer hover:bg-red-100' : 'cursor-not-allowed opacity-60'}`}
             >
               ✕ Revoke All
             </button>
@@ -188,57 +162,27 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         </div>
 
         {/* 🔐 Admin Password Management & Instant Generator */}
-        <div style={{
-          backgroundColor: '#f0fdf4',
-          borderRadius: '10px',
-          border: '1.5px solid #86efac',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '6px',
-                backgroundColor: '#dcfce7',
-                color: '#16a34a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+        <div className="bg-green-50/70 rounded-xl border border-green-300 p-3 px-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-md bg-green-100 text-green-600 flex items-center justify-center">
                 <Key size={15} />
               </div>
               <div>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#166534' }}>
+                <span className="text-[13px] font-extrabold text-green-800">
                   Login Credentials & Password Control
                 </span>
-                <span style={{ fontSize: '11px', color: '#15803d', marginLeft: '8px' }}>
+                <span className="text-[11px] text-green-700 ml-2">
                   (Admin can generate or reset employee password anytime)
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleGeneratePassword}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: '#16a34a',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
-                }}
+                className="inline-flex items-center gap-1 py-1 px-2.5 rounded-md bg-green-600 text-white border-0 text-[11.5px] font-bold cursor-pointer shadow-[0_1px_2px_rgba(22,163,74,0.2)] hover:bg-green-700"
               >
                 <RefreshCw size={12} />
                 <span>🔄 Generate New Password</span>
@@ -247,19 +191,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
               <button
                 type="button"
                 onClick={() => setIsChangePassModalOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: '#ffffff',
-                  color: '#166534',
-                  border: '1px solid #86efac',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1 py-1 px-2.5 rounded-md bg-white text-green-800 border border-green-300 text-[11.5px] font-bold cursor-pointer hover:bg-green-50"
               >
                 <Lock size={12} />
                 <span>Custom Reset</span>
@@ -268,31 +200,12 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           </div>
 
           {generatedPass && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              backgroundColor: '#ffffff',
-              borderRadius: '7px',
-              border: '1px solid #86efac',
-              fontSize: '12px',
-              marginTop: '4px'
-            }}>
+            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-green-300 text-xs mt-1">
               <div>
-                <span style={{ color: '#166534', fontWeight: '600' }}>
+                <span className="text-green-800 font-semibold">
                   🎉 Active Temporary Password for {employee.name}:
                 </span>
-                <code style={{
-                  marginLeft: '8px',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  color: '#047857',
-                  backgroundColor: '#dcfce7',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontFamily: 'monospace'
-                }}>
+                <code className="ml-2 text-[13px] font-extrabold text-emerald-700 bg-green-100 py-0.5 px-2 rounded font-mono">
                   {generatedPass}
                 </code>
               </div>
@@ -300,19 +213,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
               <button
                 type="button"
                 onClick={handleCopyPass}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 10px',
-                  borderRadius: '5px',
-                  backgroundColor: '#dcfce7',
-                  border: '1px solid #86efac',
-                  color: '#166534',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1 py-1 px-2.5 rounded bg-green-100 border border-green-300 text-green-800 text-[11px] font-bold cursor-pointer hover:bg-green-200"
               >
                 {passCopied ? <Check size={12} /> : <Copy size={12} />}
                 <span>{passCopied ? 'Copied!' : 'Copy Pass'}</span>
@@ -323,82 +224,37 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
 
         {/* Security Notice */}
         {!canEdit && (
-          <div style={{
-            padding: '10px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#fffbeb',
-            border: '1px solid #fde68a',
-            color: '#b45309',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
+          <div className="py-2.5 px-3.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs flex items-center gap-2">
             <AlertCircle size={16} />
             <span>You do not have delegation rights to modify permissions. Contact Admin.</span>
           </div>
         )}
 
         {/* Granular Toggles List */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          maxHeight: '420px',
-          overflowY: 'auto',
-          paddingRight: '4px'
-        }}>
+        <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
           {GRANULAR_PERMISSIONS_LIST.map((item) => {
             const isChecked = !!permissions[item.key];
             return (
               <div
                 key={item.key}
                 onClick={() => handleToggle(item.key)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                  backgroundColor: isChecked ? '#eff6ff' : '#ffffff',
-                  cursor: canEdit ? 'pointer' : 'default',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`flex items-center justify-between p-3 px-3.5 rounded-xl transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50/70' : 'border-slate-200 bg-white'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <span style={{ fontSize: '18px', lineHeight: 1 }}>{item.icon}</span>
+                <div className="flex items-start gap-2.5">
+                  <span className="text-lg leading-none">{item.icon}</span>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: isChecked ? '#1d4ed8' : '#1e293b' }}>
+                    <div className={`text-[13px] font-bold ${isChecked ? 'text-blue-700' : 'text-slate-800'}`}>
                       {item.label}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="text-[11.5px] text-slate-500 mt-0.5">
                       {item.desc}
                     </div>
                   </div>
                 </div>
 
                 {/* Custom Toggle Switch */}
-                <div style={{
-                  width: '42px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  backgroundColor: isChecked ? '#2563eb' : '#cbd5e1',
-                  position: 'relative',
-                  transition: 'background-color 0.2s',
-                  flexShrink: 0
-                }}>
-                  <div style={{
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    backgroundColor: '#ffffff',
-                    position: 'absolute',
-                    top: '3px',
-                    left: isChecked ? '21px' : '3px',
-                    transition: 'left 0.2s',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                  }} />
+                <div className={`w-[42px] h-6 rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                  <div className={`w-[18px] h-[18px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${isChecked ? 'left-[21px]' : 'left-[3px]'}`} />
                 </div>
               </div>
             );
@@ -406,20 +262,11 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         </div>
 
         {/* Modal Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+        <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="py-2 px-4 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold cursor-pointer hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -427,18 +274,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
             type="button"
             onClick={handleSave}
             disabled={isSaving || !canEdit}
-            style={{
-              padding: '9px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: (isSaving || !canEdit) ? 'not-allowed' : 'pointer',
-              opacity: (isSaving || !canEdit) ? 0.6 : 1,
-              boxShadow: '0 2px 6px rgba(37,99,235,0.3)'
-            }}
+            className={`py-2 px-5 rounded-lg border-0 bg-blue-600 text-white text-[13px] font-bold shadow-[0_2px_6px_rgba(37,99,235,0.3)] hover:bg-blue-700 ${isSaving || !canEdit ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
           >
             {isSaving ? 'Saving...' : 'Save Permissions'}
           </button>

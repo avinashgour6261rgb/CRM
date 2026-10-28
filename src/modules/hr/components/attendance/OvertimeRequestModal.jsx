@@ -121,119 +121,58 @@ export const OvertimeRequestModal = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 9999,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(6px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '560px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        animation: 'modalSlideUp 0.2s ease-out'
-      }}>
+    <div className="fixed inset-0 z-[9999] bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[560px] shadow-2xl border border-slate-200 overflow-hidden animate-[modalSlideUp_0.2s_ease-out]">
         {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              backgroundColor: '#fef3c7',
-              color: '#d97706',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="py-[18px] px-6 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-[38px] h-[38px] rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
               <Clock size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+              <h3 className="m-0 text-[17px] font-extrabold text-slate-900">
                 Overtime Detected & Clock Out
               </h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+              <p className="m-0 mt-0.5 text-xs text-slate-500">
                 Shift exceeded standard {standardWorkHours}h ({shiftStartTime} - {shiftEndTime})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#94a3b8',
-              padding: '6px',
-              borderRadius: '6px'
-            }}
+            className="bg-transparent border-0 cursor-pointer text-slate-400 p-1.5 rounded-md hover:text-slate-600"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="py-5 px-6 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
           {/* Dual Metrics Strip */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div style={{
-              padding: '14px',
-              borderRadius: '12px',
-              backgroundColor: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px'
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-xl bg-green-50 border border-green-200 flex flex-col gap-1">
+              <span className="text-[11px] font-bold text-green-800 uppercase tracking-wider">
                 Total Shift Duration
               </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '20px', fontWeight: '800', color: '#15803d' }}>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-extrabold text-green-700">
                   {workHoursInt}h {workMinsInt}m
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
+                <span className="text-[11px] font-bold text-green-700 bg-green-100 py-0.5 px-1.5 rounded">
                   +{overtimeHoursInt}h {overtimeMinsInt}m extra
                 </span>
               </div>
             </div>
 
-            <div style={{
-              padding: '14px',
-              borderRadius: '12px',
-              backgroundColor: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px'
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex flex-col gap-1">
+              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">
                 Productive Task Time
               </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '20px', fontWeight: '800', color: '#2563eb' }}>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-extrabold text-blue-600">
                   {totalTaskHoursInt}h {totalTaskMinsInt}m
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>
+                <span className="text-[11px] font-semibold text-slate-500">
                   ({tasksWorkedList.length} task{tasksWorkedList.length === 1 ? '' : 's'})
                 </span>
               </div>
@@ -242,34 +181,25 @@ export const OvertimeRequestModal = ({
 
           {/* Tasks Worked Breakdown */}
           <div>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
               <Briefcase size={14} color="#64748b" />
               <span>Tasks Worked Today:</span>
             </div>
             {tasksWorkedList.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '130px', overflowY: 'auto' }}>
+              <div className="flex flex-col gap-1.5 max-h-[130px] overflow-y-auto">
                 {tasksWorkedList.map((t, idx) => {
                   const secs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
                   return (
-                    <div key={t._id || idx} style={{
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '12px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                        <span style={{ backgroundColor: '#e2e8f0', color: '#334155', fontWeight: '700', padding: '1px 6px', borderRadius: '4px', fontSize: '11px' }}>
+                    <div key={t._id || idx} className="py-2 px-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="bg-slate-200 text-slate-700 font-bold py-px px-1.5 rounded text-[11px]">
                           {t.taskCode || 'TSK'}
                         </span>
-                        <span style={{ color: '#0f172a', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span className="text-slate-900 font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
                           {t.title}
                         </span>
                       </div>
-                      <span style={{ color: '#0284c7', fontWeight: '700', flexShrink: 0, marginLeft: '8px' }}>
+                      <span className="text-sky-600 font-bold shrink-0 ml-2">
                         {formatSecs(secs)}
                       </span>
                     </div>
@@ -277,7 +207,7 @@ export const OvertimeRequestModal = ({
                 })}
               </div>
             ) : (
-              <div style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', fontSize: '11.5px', color: '#64748b' }}>
+              <div className="py-2.5 px-3 rounded-lg bg-slate-50 border border-dashed border-slate-300 text-[11.5px] text-slate-500">
                 No active tasks logged today. Working hours will be submitted for overtime review.
               </div>
             )}
@@ -285,44 +215,27 @@ export const OvertimeRequestModal = ({
 
           {/* Admin Authority Banner or Approver Picker */}
           {isAdminUser ? (
-            <div style={{
-              padding: '12px 14px',
-              borderRadius: '10px',
-              backgroundColor: '#fefce8',
-              border: '1px solid #fef08a',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px'
-            }}>
-              <ShieldCheck size={18} color="#ca8a04" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div className="py-3 px-3.5 rounded-xl bg-yellow-50 border border-yellow-200 flex items-start gap-2.5">
+              <ShieldCheck size={18} color="#ca8a04" className="shrink-0 mt-0.5" />
               <div>
-                <strong style={{ fontSize: '12.5px', color: '#854d0e', display: 'block' }}>
+                <strong className="text-[12.5px] text-yellow-800 block">
                   Admin Direct Authority
                 </strong>
-                <span style={{ fontSize: '11.5px', color: '#a16207' }}>
+                <span className="text-[11.5px] text-yellow-700">
                   As an Administrator, you can self-confirm your extra working hours directly, or choose to skip claiming overtime.
                 </span>
               </div>
             </div>
           ) : (
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Submit Request To Approver:
               </label>
               {eligibleApprovers.length > 0 ? (
                 <select
                   value={selectedApproverId}
                   onChange={(e) => setSelectedApproverId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    color: '#0f172a',
-                    backgroundColor: '#ffffff',
-                    outline: 'none'
-                  }}
+                  className="w-full py-2 px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 bg-white outline-none"
                 >
                   {eligibleApprovers.map(a => (
                     <option key={a._id} value={a._id}>
@@ -331,7 +244,7 @@ export const OvertimeRequestModal = ({
                   ))}
                 </select>
               ) : (
-                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                <div className="text-xs text-slate-500 italic">
                   Request will be routed to HR Administrator by default.
                 </div>
               )}
@@ -340,7 +253,7 @@ export const OvertimeRequestModal = ({
 
           {/* Reason / Deliverables Textarea */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
               Work Accomplished & Overtime Reason:
             </label>
             <textarea
@@ -348,73 +261,30 @@ export const OvertimeRequestModal = ({
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Worked on completing client bug fixes and database indexing past shift end..."
               rows={3}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12.5px',
-                color: '#0f172a',
-                fontFamily: 'inherit',
-                resize: 'none',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className="w-full py-2.5 px-3 rounded-lg border border-slate-300 text-[12.5px] text-slate-900 font-inherit resize-none outline-none box-border"
             />
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #e2e8f0',
-          backgroundColor: '#f8fafc',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
+        <div className="py-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2.5">
           <button
             type="button"
             onClick={handleSkipOvertime}
             disabled={isSubmitting}
-            style={{
-              padding: '9px 16px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              color: '#64748b',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="py-2 px-4 rounded-lg border border-slate-300 bg-white text-slate-500 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 disabled:opacity-50"
             title="Clock out immediately without claiming extra overtime"
           >
             Clock Out Without Claim
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             {isAdminUser ? (
               <button
                 type="button"
                 onClick={() => handleSubmit(true)}
                 disabled={isSubmitting}
-                style={{
-                  padding: '9px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#16a34a',
-                  backgroundImage: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)'
-                }}
+                className="py-2 px-5 rounded-lg border-0 bg-gradient-to-br from-green-500 to-green-600 text-white text-[13px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_4px_12px_rgba(22,163,74,0.25)] hover:from-green-600 hover:to-green-700 disabled:opacity-50"
               >
                 <CheckCircle2 size={15} />
                 <span>Self-Confirm & Clock Out</span>
@@ -424,21 +294,7 @@ export const OvertimeRequestModal = ({
                 type="button"
                 onClick={() => handleSubmit(false)}
                 disabled={isSubmitting}
-                style={{
-                  padding: '9px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#ea580c',
-                  backgroundImage: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 4px 12px rgba(234, 88, 12, 0.25)'
-                }}
+                className="py-2 px-5 rounded-lg border-0 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-[13px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_4px_12px_rgba(234,88,12,0.25)] hover:from-orange-600 hover:to-orange-700 disabled:opacity-50"
               >
                 <Send size={14} />
                 <span>Submit & Clock Out</span>

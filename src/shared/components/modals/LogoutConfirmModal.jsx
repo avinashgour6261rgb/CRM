@@ -6,127 +6,58 @@ export const LogoutConfirmModal = ({ isOpen, onClose, onConfirm, user = null, is
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        backgroundColor: 'rgba(15, 23, 42, 0.7)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        animation: 'fadeIn 0.15s ease-out'
-      }}
+      className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-5 animate-fade-in"
       onClick={onClose}
     >
       <div
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(226, 232, 240, 0.8)',
-          overflow: 'hidden',
-          animation: 'slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
+        className="w-full max-w-[440px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ring-1 ring-slate-200/80 dark:ring-slate-800 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Decorative Banner */}
-        <div
-          style={{
-            height: '6px',
-            background: 'linear-gradient(90deg, #ef4444 0%, #f97316 50%, #dc2626 100%)'
-          }}
-        />
+        <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-red-600" />
 
-        <div style={{ padding: '24px' }}>
+        <div className="p-6">
           {/* Close Button & Icon Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#dc2626'
-              }}
-            >
+          <div className="flex items-start justify-between mb-4">
+            <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 flex items-center justify-center text-red-600 dark:text-red-400">
               <LogOut size={24} />
             </div>
 
             <button
               onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+              className="bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer p-1 rounded-lg flex items-center justify-center transition-colors"
             >
               <X size={18} />
             </button>
           </div>
 
           {/* Modal Title & Message */}
-          <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>
+          <h3 className="text-lg font-extrabold text-slate-900 dark:text-white m-0 mb-2">
             Ready to Sign Out?
           </h3>
-          <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+          <p className="text-[13.5px] text-slate-500 dark:text-slate-400 leading-relaxed m-0 mb-4">
             Are you sure you want to end your current session? You can sign back in anytime with your credentials.
           </p>
 
           {/* User Profile Card */}
           {user && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                marginBottom: '16px'
-              }}
-            >
+            <div className="flex items-center gap-3 p-3 px-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-[10px] border border-slate-200 dark:border-slate-700/80 mb-4">
               {user.avatar ? (
                 <img
                   src={user.avatar}
                   alt={user.name || 'User'}
-                  style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }}
+                  className="w-10 h-10 rounded-[10px] object-cover"
                 />
               ) : (
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '10px',
-                    backgroundColor: '#e2e8f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '700',
-                    color: '#475569'
-                  }}
-                >
+                <div className="w-10 h-10 rounded-[10px] bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
                   {(user.name || 'U').charAt(0)}
                 </div>
               )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100 truncate">
                   {user.name}
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   {user.role || 'Member'} • {user.employeeCode || 'EMP'}
                 </div>
               </div>
@@ -135,41 +66,18 @@ export const LogoutConfirmModal = ({ isOpen, onClose, onConfirm, user = null, is
 
           {/* Shift State Note */}
           {isShiftActive && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 12px',
-                backgroundColor: '#fffbeb',
-                borderRadius: '8px',
-                border: '1px solid #fef3c7',
-                fontSize: '12px',
-                color: '#b45309',
-                marginBottom: '20px'
-              }}
-            >
-              <AlertTriangle size={15} color="#d97706" style={{ flexShrink: 0 }} />
+            <div className="flex items-center gap-2 p-2.5 px-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-700 dark:text-amber-400 mb-5">
+              <AlertTriangle size={15} className="shrink-0 text-amber-600 dark:text-amber-400" />
               <span>Your shift timer will safely pause and your progress is preserved.</span>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '10px' }}>
+          <div className="grid grid-cols-[1fr_1.2fr] gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '11px 16px',
-                borderRadius: '9px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#334155',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
+              className="py-2.5 px-4 rounded-[9px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[13.5px] font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-all"
             >
               Stay Logged In
             </button>
@@ -177,22 +85,7 @@ export const LogoutConfirmModal = ({ isOpen, onClose, onConfirm, user = null, is
             <button
               type="button"
               onClick={onConfirm}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '11px 18px',
-                borderRadius: '9px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-                color: '#ffffff',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)',
-                transition: 'all 0.15s ease'
-              }}
+              className="inline-flex items-center justify-center gap-2 py-2.5 px-[18px] rounded-[9px] border-0 bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-[13.5px] font-bold cursor-pointer shadow-md shadow-red-600/25 transition-all"
             >
               <LogOut size={16} />
               <span>Yes, Sign Out</span>

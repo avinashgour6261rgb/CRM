@@ -108,60 +108,19 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '20px',
-        width: '100%',
-        maxWidth: '700px',
-        maxHeight: '92vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4">
+      <div className="bg-white dark:bg-[#151e32] rounded-[20px] w-full max-w-[700px] max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-[#243049] overflow-hidden">
         {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid #bfdbfe'
-            }}>
+        <div className="p-[18px] px-6 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#18233c]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-[10px] bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
               <Users2 size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-[17px] font-extrabold text-slate-900 dark:text-slate-50 m-0">
                 Add New CRM Lead
               </h2>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Capture new client prospect and deal opportunity
               </span>
             </div>
@@ -169,26 +128,19 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#94a3b8',
-              padding: '6px',
-              borderRadius: '8px'
-            }}
+            className="bg-transparent border-none cursor-pointer text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex flex-col gap-[18px]">
           {/* Contact Name & Company */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>
-                Contact Person / Lead Name <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                Contact Person / Lead Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -197,23 +149,12 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. Vikram Singhania"
                 autoFocus
                 required
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '14px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-                onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                className="w-full py-2.5 px-3.5 rounded-[10px] border border-slate-300 dark:border-slate-600 text-sm text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Company Name
               </label>
               <input
@@ -221,24 +162,15 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 value={formData.companyName}
                 onChange={(e) => handleChange('companyName', e.target.value)}
                 placeholder="e.g. Indore Infotech Solutions"
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '14px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-2.5 px-3.5 rounded-[10px] border border-slate-300 dark:border-slate-600 text-sm text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
           </div>
 
           {/* Email & Phone */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Email Address
               </label>
               <input
@@ -246,21 +178,12 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="e.g. vikram@indoreinfotech.in"
-                style={{
-                  width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Phone Number
               </label>
               <input
@@ -268,24 +191,15 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="e.g. +91 98765 43210"
-                style={{
-                  width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
           </div>
 
           {/* Deal Value, Stage & Lead Source */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Deal Value (INR ₹)
               </label>
               <input
@@ -293,40 +207,21 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
                 value={formData.dealValue}
                 onChange={(e) => handleChange('dealValue', e.target.value)}
                 placeholder="100000"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  color: '#0f172a',
-                  outline: 'none'
-                }}
+                className="w-full py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Pipeline Stage
               </label>
               <select
                 value={formData.status}
                 onChange={(e) => handleChange('status', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#0f172a',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
+                className="w-full py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-600"
               >
                 {LEAD_STAGES.map(s => (
-                  <option key={s.id} value={s.id} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                  <option key={s.id} value={s.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium">
                     {s.label}
                   </option>
                 ))}
@@ -334,27 +229,16 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
                 Lead Source
               </label>
               <select
                 value={formData.leadSource}
                 onChange={(e) => handleChange('leadSource', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#0f172a',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
+                className="w-full py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-600"
               >
                 {LEAD_SOURCES.map(src => (
-                  <option key={src} value={src} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                  <option key={src} value={src} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium">
                     {src}
                   </option>
                 ))}
@@ -364,27 +248,16 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
 
           {/* Assigned Owner */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Assign Lead Owner
             </label>
             <select
               value={formData.assignedToId}
               onChange={(e) => handleChange('assignedToId', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '11px 12px',
-                borderRadius: '10px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '13.5px',
-                fontWeight: '600',
-                color: '#0f172a',
-                outline: 'none',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer'
-              }}
+              className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 cursor-pointer focus:border-blue-600"
             >
               {employees.map(emp => (
-                <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a', fontWeight: '500' }}>
+                <option key={emp._id} value={emp._id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium">
                   {emp.name} — {emp.role} ({emp.department || 'General'})
                 </option>
               ))}
@@ -392,53 +265,35 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Start Date & End Date */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start Date
               </label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => handleChange('startDate', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 End Date / Target Close
               </label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => handleChange('endDate', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 12px',
-                  borderRadius: '10px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Lead Requirements & Notes
             </label>
             <textarea
@@ -446,45 +301,16 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
               placeholder="Enter client background, initial discussion notes, key decision makers..."
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '13.5px',
-                lineHeight: '1.5',
-                color: '#0f172a',
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
-              onFocus={e => e.currentTarget.style.borderColor = '#2563eb'}
-              onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+              className="w-full py-3 px-3.5 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] leading-relaxed text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 resize-y focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all font-sans"
             />
           </div>
 
           {/* Footer Actions */}
-          <div style={{
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px'
-          }}>
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-2.5 px-[18px] rounded-[10px] border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
@@ -492,20 +318,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                padding: '10px 22px',
-                borderRadius: '10px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: '#ffffff',
-                fontSize: '13.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
+              className="py-2.5 px-[22px] rounded-[10px] border-none bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-[13.5px] font-bold cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
             >
               <CheckCircle2 size={16} />
               {submitting ? 'Adding Lead...' : 'Add Lead'}

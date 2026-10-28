@@ -45,9 +45,9 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
       title="Declare Company Holiday"
       subtitle="Publish a new national, gazetted, or corporate holiday to the company-wide calendar."
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
             Holiday Name / Occasion
           </label>
           <input
@@ -55,36 +55,33 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
             placeholder="e.g. Gandhi Jayanti, Diwali, New Year Day"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="filter-input"
-            style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+            className="filter-input w-full h-10 pl-3"
             required
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
               Holiday Date
             </label>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+              className="filter-input w-full h-10 pl-3"
               required
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
               Holiday Category
             </label>
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="filter-select"
-              style={{ width: '100%', height: '40px' }}
+              className="filter-select w-full h-10"
             >
               <option value="National Holiday">National Holiday</option>
               <option value="Gazetted Holiday">Gazetted Holiday</option>
@@ -95,7 +92,7 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
             Description (Optional)
           </label>
           <textarea
@@ -103,30 +100,23 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
             placeholder="Additional notes or celebration details..."
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              fontSize: '13px',
-              outline: 'none'
-            }}
+            className="w-full py-2.5 px-3 border border-slate-300 rounded-lg text-[13px] outline-none"
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="recurringHoliday"
             checked={formData.isRecurringYearly}
             onChange={(e) => setFormData({ ...formData, isRecurringYearly: e.target.checked })}
           />
-          <label htmlFor="recurringHoliday" style={{ fontSize: '13px', color: '#334155', cursor: 'pointer' }}>
+          <label htmlFor="recurringHoliday" className="text-[13px] text-slate-700 cursor-pointer">
             Recurring every year on this date
           </label>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+        <div className="flex justify-end gap-2.5 mt-3">
           <button type="button" onClick={onClose} className="btn btn-outline">
             Cancel
           </button>

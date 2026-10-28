@@ -90,64 +90,27 @@ export const TimesheetPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Clock size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-white m-0 leading-tight">
               Timesheet & Time Tracking
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Live timers, work duration logs, and task time tracking.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExportCSV}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
             title="Export timesheets to CSV"
           >
             <Download size={13} />
@@ -156,21 +119,7 @@ export const TimesheetPage = () => {
 
           <button
             onClick={() => setIsLogModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-none text-xs font-bold cursor-pointer shadow-xs shadow-sky-600/30 transition-colors"
             title="Manually log time"
           >
             <Plus size={13} />
@@ -180,130 +129,50 @@ export const TimesheetPage = () => {
       </div>
 
       {/* KPI Stats Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '10px'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Clock size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Total Hours Logged</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Total Hours Logged</div>
+            <div className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
               {totalHoursLogged} hrs
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#f0fdf4',
-            color: '#16a34a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 flex items-center justify-center shrink-0">
             <Zap size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Active Live Timers</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Active Live Timers</div>
+            <div className="text-lg font-extrabold text-green-600 dark:text-green-400 leading-tight">
               {activeSessionsCount}
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#f8fafc',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
             <Layers size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Tracked Sessions</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Tracked Sessions</div>
+            <div className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
               {timesheets.length}
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#faf5ff',
-            color: '#9333ea',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
             <User size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Active Team Members</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#9333ea', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Active Team Members</div>
+            <div className="text-lg font-extrabold text-purple-600 dark:text-purple-400 leading-tight">
               {uniqueEmployees}
             </div>
           </div>
@@ -314,60 +183,25 @@ export const TimesheetPage = () => {
       <ActiveTimerCard onSelectTask={(task) => setSelectedTask(task)} />
 
       {/* Filters Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        padding: '16px 20px',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          borderRadius: '8px',
-          padding: '7px 12px',
-          minWidth: '240px',
-          flex: 1
-        }}>
-          <Search size={15} color="#64748b" />
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 px-5 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg py-1.5 px-3 min-w-[240px] flex-1">
+          <Search size={15} className="text-slate-400" />
           <input
             type="text"
             placeholder="Search timesheet logs by task, project, employee..."
             value={timesheetFilter.search}
             onChange={e => setTimesheetFilter(prev => ({ ...prev, search: e.target.value }))}
-            style={{
-              border: 'none',
-              backgroundColor: 'transparent',
-              outline: 'none',
-              fontSize: '13px',
-              width: '100%',
-              color: '#0f172a'
-            }}
+            className="border-none bg-transparent outline-none text-[13px] w-full text-slate-900 dark:text-white"
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Employee Filter (Admin/HR Only for Privacy) */}
           {isPrivileged && (
             <select
               value={timesheetFilter.employeeId}
               onChange={e => setTimesheetFilter(prev => ({ ...prev, employeeId: e.target.value }))}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                color: '#334155',
-                outline: 'none',
-                backgroundColor: '#ffffff'
-              }}
+              className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-700 dark:text-slate-300 outline-none bg-white dark:bg-slate-800 cursor-pointer"
             >
               <option value="all">All Employees</option>
               {employees.map(e => (
@@ -380,15 +214,7 @@ export const TimesheetPage = () => {
           <select
             value={timesheetFilter.projectId}
             onChange={e => setTimesheetFilter(prev => ({ ...prev, projectId: e.target.value }))}
-            style={{
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              color: '#334155',
-              outline: 'none',
-              backgroundColor: '#ffffff'
-            }}
+            className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-700 dark:text-slate-300 outline-none bg-white dark:bg-slate-800 cursor-pointer"
           >
             <option value="all">All Projects</option>
             {projects.map(p => (
@@ -400,15 +226,7 @@ export const TimesheetPage = () => {
           <select
             value={timesheetFilter.status}
             onChange={e => setTimesheetFilter(prev => ({ ...prev, status: e.target.value }))}
-            style={{
-              padding: '7px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              color: '#334155',
-              outline: 'none',
-              backgroundColor: '#ffffff'
-            }}
+            className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-700 dark:text-slate-300 outline-none bg-white dark:bg-slate-800 cursor-pointer"
           >
             <option value="all">All Status</option>
             <option value="active">Active (Running)</option>

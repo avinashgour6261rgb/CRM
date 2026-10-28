@@ -13,15 +13,14 @@ export const Layout = () => {
   }
 
   return (
-    <div className="app-container flex min-h-screen" style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-main, #f4f6fa)' }}>
+    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950">
       <Sidebar />
-      <div className="main-content-wrapper flex-1 flex flex-col min-w-0 h-screen overflow-y-auto" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflowY: 'auto', overflowX: 'hidden', backgroundColor: 'var(--bg-main, #f4f6fa)' }}>
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden bg-slate-100 dark:bg-slate-950">
         <TopNavbar />
-        <main className="content-body flex-1 p-4 md:p-6 max-w-[1680px] w-full mx-auto" style={{ flex: 1, padding: '20px 24px', maxWidth: '1680px', width: '100%', margin: '0 auto', boxSizing: 'border-box', minWidth: 0 }}>
+        <main className="flex-1 p-5 md:px-6 md:py-5 max-w-[1680px] w-full mx-auto box-border min-w-0">
           <Outlet />
         </main>
       </div>
     </div>
   );
 };
-

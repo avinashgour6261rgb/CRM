@@ -138,42 +138,18 @@ export const ProjectsPage = () => {
   const reviewCount = displayProjects.filter(p => p.status === 'under_review' || p.status === 'on_hold').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="flex flex-col gap-3">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#151e32] p-3 px-4 rounded-[10px] border border-slate-200 dark:border-[#243049] shadow-xs min-h-[68px] shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Briefcase size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-50 m-0 leading-tight">
               Projects Management
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
               Track enterprise client projects, milestones, deliverables, and progress.
             </p>
           </div>
@@ -183,21 +159,7 @@ export const ProjectsPage = () => {
           <button
             id="btn-add-project"
             onClick={() => setIsAddModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              padding: '0 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.2)',
-              height: '30px'
-            }}
+            className="inline-flex items-center gap-[5px] bg-sky-600 hover:bg-sky-700 text-white border-none px-3 rounded-md text-xs font-bold cursor-pointer shadow-sm h-[30px] transition-colors"
           >
             <Plus size={14} />
             <span>Add Project</span>
@@ -206,130 +168,50 @@ export const ProjectsPage = () => {
       </div>
 
       {/* KPI Stats Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '10px'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5">
+        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <FolderGit2 size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Total Projects</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Total Projects</div>
+            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-50 leading-tight">
               {totalProjects}
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#f0fdf4',
-            color: '#16a34a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-md bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 flex items-center justify-center shrink-0">
             <CheckCircle2 size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>In Progress</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">In Progress</div>
+            <div className="text-lg font-extrabold text-green-600 dark:text-green-400 leading-tight">
               {inProgressCount}
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#eff6ff',
-            color: '#3b82f6',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-500 flex items-center justify-center shrink-0">
             <Clock size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Completed</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Completed</div>
+            <div className="text-lg font-extrabold text-blue-600 dark:text-blue-400 leading-tight">
               {completedCount}
             </div>
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: '#fef3c7',
-            color: '#d97706',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+          <div className="w-8 h-8 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <AlertCircle size={16} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>Under Review / Hold</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706', lineHeight: '1.1' }}>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Under Review / Hold</div>
+            <div className="text-lg font-extrabold text-amber-600 dark:text-amber-400 leading-tight">
               {reviewCount}
             </div>
           </div>
@@ -337,62 +219,24 @@ export const ProjectsPage = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        padding: '8px 14px',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          borderRadius: '6px',
-          padding: '4px 10px',
-          minWidth: '220px',
-          flex: '1',
-          height: '30px'
-        }}>
-          <Search size={14} color="#64748b" />
+      <div className="bg-white dark:bg-[#151e32] rounded-lg p-2 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md py-1 px-2.5 min-w-[220px] flex-1 h-[30px]">
+          <Search size={14} className="text-slate-500 dark:text-slate-400" />
           <input
             type="text"
             placeholder="Search projects by name, code, client..."
             value={projectFilter.search}
             onChange={e => setProjectFilter(prev => ({ ...prev, search: e.target.value }))}
-            style={{
-              border: 'none',
-              backgroundColor: 'transparent',
-              outline: 'none',
-              fontSize: '12px',
-              width: '100%',
-              color: '#0f172a'
-            }}
+            className="border-none bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100 placeholder-slate-400"
           />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Status Filter */}
           <select
             value={projectFilter.status}
             onChange={e => setProjectFilter(prev => ({ ...prev, status: e.target.value }))}
-            style={{
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '12px',
-              color: '#334155',
-              outline: 'none',
-              height: '30px'
-            }}
+            className="py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 outline-none h-[30px] cursor-pointer"
           >
             <option value="all">All Status</option>
             <option value="in_progress">In Progress</option>
@@ -406,16 +250,7 @@ export const ProjectsPage = () => {
           <select
             value={projectFilter.department}
             onChange={e => setProjectFilter(prev => ({ ...prev, department: e.target.value }))}
-            style={{
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '12px',
-              color: '#334155',
-              outline: 'none',
-              height: '30px'
-            }}
+            className="py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 outline-none h-[30px] cursor-pointer"
           >
             <option value="all">All Departments</option>
             <option value="Marketing & Growth">Marketing & Growth</option>
@@ -429,18 +264,9 @@ export const ProjectsPage = () => {
 
       {/* Reopened Projects Alert Banner for Assignees */}
       {reopenedProjectsForMe.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          border: '1.5px solid #fdba74',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(194, 65, 12, 0.08)'
-        }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
-          <div style={{ flex: 1, fontSize: '12px', color: '#9a3412' }}>
+        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-800 rounded-[10px] p-2.5 px-3.5 flex items-center gap-2.5 shadow-xs">
+          <span className="text-lg">⚠️</span>
+          <div className="flex-1 text-xs text-orange-900 dark:text-orange-200">
             <strong>{reopenedProjectsForMe.length} Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened for Revisions: </strong>
             {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
           </div>
@@ -449,101 +275,52 @@ export const ProjectsPage = () => {
 
       {/* ── PROJECT COMPLETION REVIEW & APPROVALS QUEUE (ADMIN / MANAGER ACCESS) ── */}
       {canManageApprovals && pendingApprovalProjects.length > 0 && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1.5px solid #d8b4fe',
-          boxShadow: '0 4px 14px rgba(147, 51, 234, 0.08)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            padding: '12px 18px',
-            backgroundColor: '#faf5ff',
-            borderBottom: '1px solid #f3e8ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>📋</span>
+        <div className="bg-white dark:bg-[#151e32] rounded-xl border border-purple-300 dark:border-purple-800 shadow-md overflow-hidden">
+          <div className="p-3 px-[18px] bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📋</span>
               <div>
-                <h3 style={{ fontSize: '13.5px', fontWeight: '800', color: '#581c87', margin: 0 }}>
+                <h3 className="text-[13.5px] font-extrabold text-purple-900 dark:text-purple-200 m-0">
                   Project Completion Review Queue ({pendingApprovalProjects.length})
                 </h3>
-                <p style={{ fontSize: '11px', color: '#7e22ce', margin: '1px 0 0 0' }}>
+                <p className="text-[11px] text-purple-700 dark:text-purple-400 m-0 mt-px">
                   Submitted by team members for final sign-off. Approve to finalize or reopen if work remains.
                 </p>
               </div>
             </div>
-            <span style={{
-              padding: '3px 8px',
-              borderRadius: '12px',
-              backgroundColor: '#9333ea',
-              color: '#ffffff',
-              fontSize: '11px',
-              fontWeight: '700'
-            }}>
+            <span className="py-[3px] px-2 rounded-full bg-purple-600 text-white text-[11px] font-bold">
               {pendingApprovalProjects.length} Pending Sign-Off
             </span>
           </div>
 
-          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="p-3 px-4 flex flex-col gap-2.5">
             {pendingApprovalProjects.map(proj => (
-              <div key={proj._id} style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                backgroundColor: '#fdf4ff',
-                border: '1px solid #f5d0fe'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: '#9333ea',
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    fontWeight: '800'
-                  }}>
+              <div
+                key={proj._id}
+                className="flex items-center justify-between flex-wrap gap-3 p-2.5 px-3.5 rounded-lg bg-fuchsia-50/40 dark:bg-fuchsia-950/20 border border-fuchsia-200 dark:border-fuchsia-900/50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="py-[3px] px-2 rounded-md bg-purple-600 text-white text-[11px] font-extrabold">
                     {proj.projectCode || 'PRJ'}
                   </span>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                    <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                       {proj.name}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
-                      Submitted by: <strong style={{ color: '#475569' }}>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Submitted by: <strong className="text-slate-600 dark:text-slate-300">{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
                       {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
                       {proj.department && ` • ${proj.department}`}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={async () => {
                       await approveProjectCompletion(proj._id);
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(22, 163, 74, 0.25)'
-                    }}
+                    className="inline-flex items-center gap-[5px] py-1.5 px-3 rounded-md bg-green-600 hover:bg-green-700 text-white border-none text-[11.5px] font-bold cursor-pointer shadow-sm transition-colors"
                     title="Official Final Sign-off: Marks Project permanently Complete in database"
                   >
                     <CheckCircle2 size={13} />
@@ -557,19 +334,7 @@ export const ProjectsPage = () => {
                         await reopenProject(proj._id, reason.trim());
                       }
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: '#fff7ed',
-                      color: '#c2410c',
-                      border: '1px solid #fed7aa',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="inline-flex items-center gap-[5px] py-1.5 px-3 rounded-md bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-[11.5px] font-bold cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
                     title="Send project back to in-progress with revision notes"
                   >
                     <span>🔄 Reopen / Send Back</span>

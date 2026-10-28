@@ -256,88 +256,37 @@ export const TasksPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#f0fdf4',
-            color: '#16a34a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <CheckCircle2 size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Tasks & Work Delegation
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Manage team assignments, live task tracking, and work execution.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Assignment & Project History Modal Button */}
           <button
             onClick={() => setIsHistoryModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
             title="View complete project assignment & activity history audit log"
           >
-            <History size={13} color="#2563eb" />
+            <History size={13} className="text-blue-600" />
             <span>Assignment History</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
             title="Export tasks to CSV"
           >
             <Download size={13} />
@@ -357,20 +306,7 @@ export const TasksPage = () => {
                   await purgeAllTasks();
                 }
               }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                borderRadius: '6px',
-                backgroundColor: '#fef2f2',
-                color: '#dc2626',
-                border: '1px solid #fecaca',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               title="Purge all old tasks to start clean"
             >
               <Trash2 size={13} />
@@ -380,21 +316,7 @@ export const TasksPage = () => {
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-sky-600 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_2px_rgba(2,132,199,0.2)] hover:bg-sky-700 transition-colors"
             title="Create a new task"
           >
             <Plus size={13} />
@@ -404,22 +326,11 @@ export const TasksPage = () => {
       </div>
 
       {/* Top Filter Controls Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        padding: '8px 14px',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
+      <div className="bg-white dark:bg-slate-900 rounded-lg px-3.5 py-2 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2.5 flex-wrap flex-1">
           {/* Member Filter Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Member</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Member</span>
             <select
               value={canViewAllTasks ? (taskFilter.assignedTo || 'all') : (currentUser?._id || 'me')}
               onChange={(e) => {
@@ -429,17 +340,9 @@ export const TasksPage = () => {
                 }
               }}
               disabled={!canViewAllTasks}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                color: '#334155',
-                outline: 'none',
-                backgroundColor: !canViewAllTasks ? '#f1f5f9' : '#ffffff',
-                cursor: !canViewAllTasks ? 'not-allowed' : 'pointer',
-                height: '30px'
-              }}
+              className={`px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none h-[30px] ${
+                !canViewAllTasks ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed' : 'bg-white dark:bg-slate-900 cursor-pointer'
+              }`}
             >
               {canViewAllTasks ? (
                 <>
@@ -459,8 +362,8 @@ export const TasksPage = () => {
           </div>
 
           {/* Status Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Status</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status</span>
             <select
               value={taskFilter.hideCompleted ? 'hide_completed' : taskFilter.status}
               onChange={(e) => {
@@ -471,16 +374,7 @@ export const TasksPage = () => {
                   setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: val }));
                 }
               }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                color: '#334155',
-                outline: 'none',
-                backgroundColor: '#ffffff',
-                height: '30px'
-              }}
+              className="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[30px] cursor-pointer"
             >
               <option value="hide_completed">Hide Completed Task</option>
               <option value="all">All Tasks</option>
@@ -492,276 +386,139 @@ export const TasksPage = () => {
           </div>
 
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #cbd5e1',
-            borderRadius: '6px',
-            padding: '4px 10px',
-            minWidth: '200px',
-            flex: 1,
-            height: '30px'
-          }}>
-            <Search size={14} color="#64748b" />
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1 min-w-[200px] flex-1 h-[30px]">
+            <Search size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search by task title, project, assignee or assigner..."
               value={taskFilter.search}
               onChange={e => setTaskFilter(prev => ({ ...prev, search: e.target.value }))}
-              style={{
-                border: 'none',
-                backgroundColor: 'transparent',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                color: '#0f172a'
-              }}
+              className="border-0 bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
         </div>
       </div>
 
       {/* Action Sub-Bar: + Add Task, All / Assigned to Me / Assigned by Me, Export, View Mode */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Add Task Button (Anyone can assign to anyone) */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Add Task Button */}
           <button
             id="btn-add-task"
             onClick={() => setIsAddModalOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
-              transition: 'all 0.15s ease',
-              height: '30px'
-            }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0369a1'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0284c7'}
+            className="flex items-center gap-[5px] bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[30px]"
           >
             <Plus size={14} />
             Assign New Task
           </button>
 
           {/* Scope Filter Pills (All / Assigned To Me / Assigned By Me) */}
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#f1f5f9',
-            padding: '2px',
-            borderRadius: '6px',
-            border: '1px solid #e2e8f0',
-            gap: '2px',
-            height: '30px',
-            alignItems: 'center'
-          }}>
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[30px] items-center">
             {canViewAllTasks && (
               <button
                 onClick={() => handleScopeChange('all')}
-                style={{
-                  padding: '4px 10px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '11.5px',
-                  fontWeight: scopeMode === 'all' ? '700' : '500',
-                  backgroundColor: scopeMode === 'all' ? '#ffffff' : 'transparent',
-                  color: scopeMode === 'all' ? '#0f172a' : '#64748b',
-                  boxShadow: scopeMode === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  height: '24px'
-                }}
+                className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${
+                  scopeMode === 'all'
+                    ? 'font-bold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                    : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                }`}
               >
                 All Team Tasks
               </button>
             )}
             <button
               onClick={() => handleScopeChange('assigned_to_me')}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: scopeMode === 'assigned_to_me' ? '700' : '500',
-                backgroundColor: scopeMode === 'assigned_to_me' ? '#ffffff' : 'transparent',
-                color: scopeMode === 'assigned_to_me' ? '#2563eb' : '#64748b',
-                boxShadow: scopeMode === 'assigned_to_me' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${
+                scopeMode === 'assigned_to_me'
+                  ? 'font-bold bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               Assigned to Me
             </button>
             <button
               onClick={() => handleScopeChange('assigned_by_me')}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: scopeMode === 'assigned_by_me' ? '700' : '500',
-                backgroundColor: scopeMode === 'assigned_by_me' ? '#ffffff' : 'transparent',
-                color: scopeMode === 'assigned_by_me' ? '#0284c7' : '#64748b',
-                boxShadow: scopeMode === 'assigned_by_me' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${
+                scopeMode === 'assigned_by_me'
+                  ? 'font-bold bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               Assigned by Me
             </button>
             <button
               onClick={() => handleScopeChange('personal')}
-              style={{
-                padding: '4px 10px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11.5px',
-                fontWeight: scopeMode === 'personal' ? '700' : '500',
-                backgroundColor: scopeMode === 'personal' ? '#ffffff' : 'transparent',
-                color: scopeMode === 'personal' ? '#7c3aed' : '#64748b',
-                boxShadow: scopeMode === 'personal' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${
+                scopeMode === 'personal'
+                  ? 'font-bold bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               🔒 My Personal Tasks
             </button>
           </div>
 
-          {/* Status Filter Pills (All / Active & New / Recently Completed) */}
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#f1f5f9',
-            padding: '2px',
-            borderRadius: '6px',
-            border: '1px solid #e2e8f0',
-            gap: '2px',
-            height: '30px',
-            alignItems: 'center'
-          }}>
+          {/* Status Filter Pills */}
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[30px] items-center">
             <button
               onClick={() => handleStatusModeChange('all')}
-              style={{
-                padding: '4px 9px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: statusMode === 'all' ? '700' : '500',
-                backgroundColor: statusMode === 'all' ? '#ffffff' : 'transparent',
-                color: statusMode === 'all' ? '#0f172a' : '#64748b',
-                boxShadow: statusMode === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-[9px] py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${
+                statusMode === 'all'
+                  ? 'font-bold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               All Status
             </button>
             <button
               onClick={() => handleStatusModeChange('active')}
-              style={{
-                padding: '4px 9px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: statusMode === 'active' ? '700' : '500',
-                backgroundColor: statusMode === 'active' ? '#e0f2fe' : 'transparent',
-                color: statusMode === 'active' ? '#0284c7' : '#64748b',
-                boxShadow: statusMode === 'active' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-[9px] py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${
+                statusMode === 'active'
+                  ? 'font-bold bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               ⚡ Active & New
             </button>
             <button
               onClick={() => handleStatusModeChange('leftover')}
-              style={{
-                padding: '4px 9px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: statusMode === 'leftover' ? '700' : '500',
-                backgroundColor: statusMode === 'leftover' ? '#fee2e2' : 'transparent',
-                color: statusMode === 'leftover' ? '#dc2626' : '#64748b',
-                boxShadow: statusMode === 'leftover' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className={`px-[9px] py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 inline-flex items-center gap-1 ${
+                statusMode === 'leftover'
+                  ? 'font-bold bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
               title="Tasks from previous days that were left incomplete"
             >
               <span>⏮️ Leftover / Past Days</span>
               {leftoverCount > 0 && (
-                <span style={{ fontSize: '9.5px', fontWeight: '800', backgroundColor: '#dc2626', color: '#fff', borderRadius: '10px', padding: '0 5px' }}>
+                <span className="text-[9.5px] font-extrabold bg-red-600 text-white rounded-[10px] px-[5px]">
                   {leftoverCount}
                 </span>
               )}
             </button>
             <button
               onClick={() => handleStatusModeChange('future')}
-              style={{
-                padding: '4px 9px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: statusMode === 'future' ? '700' : '500',
-                backgroundColor: statusMode === 'future' ? '#fff7ed' : 'transparent',
-                color: statusMode === 'future' ? '#ea580c' : '#64748b',
-                boxShadow: statusMode === 'future' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className={`px-[9px] py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 inline-flex items-center gap-1 ${
+                statusMode === 'future'
+                  ? 'font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
               title="Tasks assigned or scheduled for future dates"
             >
               <span>📅 Scheduled / Future</span>
               {futureCount > 0 && (
-                <span style={{ fontSize: '9.5px', fontWeight: '800', backgroundColor: '#ea580c', color: '#fff', borderRadius: '10px', padding: '0 5px' }}>
+                <span className="text-[9.5px] font-extrabold bg-orange-600 text-white rounded-[10px] px-[5px]">
                   {futureCount}
                 </span>
               )}
             </button>
             <button
               onClick={() => handleStatusModeChange('completed')}
-              style={{
-                padding: '4px 9px',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: statusMode === 'completed' ? '700' : '500',
-                backgroundColor: statusMode === 'completed' ? '#dcfce7' : 'transparent',
-                color: statusMode === 'completed' ? '#16a34a' : '#64748b',
-                boxShadow: statusMode === 'completed' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                height: '24px'
-              }}
+              className={`px-[9px] py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${
+                statusMode === 'completed'
+                  ? 'font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                  : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
             >
               ✅ Recently Completed
             </button>
@@ -771,43 +528,16 @@ export const TasksPage = () => {
           <button
             onClick={() => setIsHistoryModalOpen(true)}
             title="View complete project task assignment & activity audit history"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              backgroundColor: '#ffffff',
-              color: '#0f766e',
-              border: '1px solid #99f6e4',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              height: '30px',
-              boxShadow: '0 1px 2px rgba(15, 118, 110, 0.08)'
-            }}
+            className="flex items-center gap-[5px] bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer h-[30px] shadow-[0_1px_2px_rgba(15,118,110,0.08)] hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
           >
-            <History size={13} color="#0f766e" />
+            <History size={13} className="text-teal-700 dark:text-teal-400" />
             Assignment History
           </button>
 
           {/* Export Button */}
           <button
             onClick={handleExportCSV}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              height: '30px'
-            }}
+            className="flex items-center gap-[5px] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer h-[30px] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             Export
@@ -815,30 +545,13 @@ export const TasksPage = () => {
         </div>
 
         {/* View Switchers: Table, Kanban */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: '#ffffff',
-          border: '1px solid #cbd5e1',
-          borderRadius: '6px',
-          overflow: 'hidden',
-          height: '30px'
-        }}>
+        <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md overflow-hidden h-[30px]">
           <button
             title="Table View"
             onClick={() => setViewMode('table')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 10px',
-              height: '100%',
-              border: 'none',
-              backgroundColor: viewMode === 'table' ? '#0284c7' : 'transparent',
-              color: viewMode === 'table' ? '#ffffff' : '#64748b',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
+            className={`flex items-center justify-center px-2.5 h-full border-0 cursor-pointer transition-all ${
+              viewMode === 'table' ? 'bg-sky-600 text-white' : 'bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+            }`}
           >
             <LayoutList size={14} />
           </button>
@@ -846,18 +559,9 @@ export const TasksPage = () => {
           <button
             title="Kanban Board"
             onClick={() => setViewMode('kanban')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0 10px',
-              height: '100%',
-              border: 'none',
-              backgroundColor: viewMode === 'kanban' ? '#0284c7' : 'transparent',
-              color: viewMode === 'kanban' ? '#ffffff' : '#64748b',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
+            className={`flex items-center justify-center px-2.5 h-full border-0 cursor-pointer transition-all ${
+              viewMode === 'kanban' ? 'bg-sky-600 text-white' : 'bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+            }`}
           >
             <Kanban size={14} />
           </button>

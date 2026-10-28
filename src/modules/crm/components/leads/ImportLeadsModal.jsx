@@ -158,163 +158,67 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
   const invalidCount = parsedRows.filter(r => !r.isValid).length;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '780px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[780px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#18233c] rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <FileSpreadsheet size={18} />
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-50 m-0">
                 Import Leads from CSV / Excel
               </h2>
             </div>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '4px 0 0 40px' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0 mt-1 ml-10">
               Upload your spreadsheet file to batch import prospect records with preview & validation
             </p>
           </div>
 
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div className="p-6 flex flex-col gap-[18px]">
           
           {/* Upload Area & Sample Downloader */}
-          <div style={{
-            border: '2px dashed #cbd5e1',
-            borderRadius: '12px',
-            padding: '24px',
-            textAlign: 'center',
-            backgroundColor: '#f8fafc',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Upload size={24} />
             </div>
 
             <div>
-              <label style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 20px',
-                borderRadius: '8px',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.3)'
-              }}>
+              <label className="inline-flex items-center gap-2 py-[9px] px-5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md transition-colors">
                 <Upload size={15} />
                 Select CSV or Excel File
                 <input
                   type="file"
                   accept=".csv, text/csv, .txt"
                   onChange={handleFileUpload}
-                  style={{ display: 'none' }}
+                  className="hidden"
                 />
               </label>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
                 Supports standard comma-separated `.csv` and text files
               </div>
             </div>
 
-            <div style={{ height: '1px', width: '100%', backgroundColor: '#e2e8f0', margin: '4px 0' }} />
+            <div className="h-px w-full bg-slate-200 dark:bg-slate-700 my-1" />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontSize: '12px', color: '#475569' }}>
+            <div className="flex items-center justify-between w-full flex-wrap gap-2">
+              <span className="text-xs text-slate-600 dark:text-slate-300">
                 Don't have a file ready? Download our official format:
               </span>
               <button
                 type="button"
                 onClick={handleDownloadSample}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#2563eb',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md py-1.5 px-3 text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <Download size={13} />
                 Download Sample CSV Template
@@ -324,54 +228,24 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
 
           {/* Uploaded File Stats & Validation Summary */}
           {parsedRows.length > 0 && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              backgroundColor: '#f1f5f9',
-              borderRadius: '10px',
-              border: '1px solid #e2e8f0',
-              flexWrap: 'wrap',
-              gap: '10px'
-            }}>
+            <div className="flex items-center justify-between p-3 px-4 bg-slate-100 dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex-wrap gap-2.5">
               <div>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                   📄 File: {fileName}
                 </span>
-                <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>
+                <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
                   ({parsedRows.length} total rows parsed)
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  color: '#16a34a',
-                  backgroundColor: '#dcfce7',
-                  padding: '3px 8px',
-                  borderRadius: '6px'
-                }}>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-950 dark:text-green-300 py-[3px] px-2 rounded-md">
                   <CheckCircle2 size={13} />
                   {validCount} Ready to Import
                 </span>
 
                 {invalidCount > 0 && (
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    color: '#dc2626',
-                    backgroundColor: '#fee2e2',
-                    padding: '3px 8px',
-                    borderRadius: '6px'
-                  }}>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 dark:bg-red-950 dark:text-red-300 py-[3px] px-2 rounded-md">
                     <AlertTriangle size={13} />
                     {invalidCount} Needs Fix
                   </span>
@@ -383,63 +257,57 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
           {/* Table Preview */}
           {parsedRows.length > 0 && (
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100 mb-2">
                 Live Data Preview & Row Validation:
               </div>
-              <div style={{
-                maxHeight: '260px',
-                overflowY: 'auto',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                  <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0 }}>
+              <div className="max-h-[260px] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="w-full border-collapse text-xs text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0">
                     <tr>
-                      <th style={{ padding: '8px 10px', width: '30px' }}>Status</th>
-                      <th style={{ padding: '8px 10px' }}>Contact Name</th>
-                      <th style={{ padding: '8px 10px' }}>Company</th>
-                      <th style={{ padding: '8px 10px' }}>Work Email</th>
-                      <th style={{ padding: '8px 10px' }}>Phone</th>
-                      <th style={{ padding: '8px 10px' }}>Category</th>
-                      <th style={{ padding: '8px 10px' }}>Deal Value</th>
+                      <th className="py-2 px-2.5 w-[30px]">Status</th>
+                      <th className="py-2 px-2.5">Contact Name</th>
+                      <th className="py-2 px-2.5">Company</th>
+                      <th className="py-2 px-2.5">Work Email</th>
+                      <th className="py-2 px-2.5">Phone</th>
+                      <th className="py-2 px-2.5">Category</th>
+                      <th className="py-2 px-2.5">Deal Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     {parsedRows.map((row, idx) => (
                       <tr
                         key={idx}
-                        style={{
-                          borderBottom: '1px solid #f1f5f9',
-                          backgroundColor: row.isValid ? '#ffffff' : '#fff5f5'
-                        }}
+                        className={`border-b border-slate-100 dark:border-slate-800 ${
+                          row.isValid ? 'bg-white dark:bg-[#151e32]' : 'bg-red-50/70 dark:bg-red-950/30'
+                        }`}
                       >
-                        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                        <td className="py-2 px-2.5 text-center">
                           {row.isValid ? (
-                            <CheckCircle2 size={14} color="#16a34a" />
+                            <CheckCircle2 size={14} className="text-green-600 mx-auto" />
                           ) : (
-                            <span title={row.errors.join(', ')} style={{ cursor: 'help' }}>
-                              <AlertTriangle size={14} color="#dc2626" />
+                            <span title={row.errors.join(', ')} className="cursor-help">
+                              <AlertTriangle size={14} className="text-red-600 mx-auto" />
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '8px 10px', fontWeight: '600', color: row.name ? '#0f172a' : '#dc2626' }}>
+                        <td className={`py-2 px-2.5 font-semibold ${row.name ? 'text-slate-900 dark:text-slate-100' : 'text-red-600'}`}>
                           {row.name || '⚠️ Missing'}
                         </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                        <td className="py-2 px-2.5 text-slate-600 dark:text-slate-300">
                           {row.companyName || '—'}
                         </td>
-                        <td style={{ padding: '8px 10px', color: row.email ? '#2563eb' : '#dc2626' }}>
+                        <td className={`py-2 px-2.5 ${row.email ? 'text-blue-600 dark:text-blue-400' : 'text-red-600'}`}>
                           {row.email || '⚠️ Missing'}
                         </td>
-                        <td style={{ padding: '8px 10px', color: '#475569' }}>
+                        <td className="py-2 px-2.5 text-slate-600 dark:text-slate-300">
                           {row.phone || '—'}
                         </td>
-                        <td style={{ padding: '8px 10px' }}>
-                          <span style={{ padding: '1px 6px', background: '#f1f5f9', borderRadius: '4px', fontSize: '10.5px' }}>
+                        <td className="py-2 px-2.5">
+                          <span className="py-[1px] px-1.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded text-[10.5px]">
                             {row.leadType}
                           </span>
                         </td>
-                        <td style={{ padding: '8px 10px', fontWeight: '600', color: '#16a34a' }}>
+                        <td className="py-2 px-2.5 font-semibold text-green-600 dark:text-green-400">
                           ₹{row.dealValue.toLocaleString('en-IN')}
                         </td>
                       </tr>
@@ -451,28 +319,12 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
           )}
 
           {/* Footer Actions */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
               disabled={importing}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-[9px] px-[18px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
             >
               Cancel
             </button>
@@ -481,20 +333,11 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
               type="button"
               onClick={handleConfirmImport}
               disabled={importing || validCount === 0}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: validCount > 0 ? '#16a34a' : '#94a3b8',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: validCount > 0 ? 'pointer' : 'not-allowed',
-                boxShadow: validCount > 0 ? '0 2px 6px rgba(22,163,74,0.3)' : 'none'
-              }}
+              className={`inline-flex items-center gap-2 py-[9px] px-[22px] rounded-lg border-none text-white text-[13px] font-bold transition-colors ${
+                validCount > 0
+                  ? 'bg-green-600 hover:bg-green-700 cursor-pointer shadow-md'
+                  : 'bg-slate-400 cursor-not-allowed'
+              }`}
             >
               <CheckCircle2 size={16} />
               {importing ? 'Importing Leads...' : `Confirm Import (${validCount} Leads)`}

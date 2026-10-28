@@ -83,30 +83,14 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
 
   if (!tasks || tasks.length === 0) {
     return (
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '60px 20px',
-        textAlign: 'center'
-      }}>
-        <div style={{
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          backgroundColor: '#eff6ff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px',
-          color: '#3b82f6'
-        }}>
+      <div className="bg-white rounded-xl border border-slate-200 py-15 px-5 text-center">
+        <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 text-blue-600">
           <Clock size={28} />
         </div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: '0 0 6px 0' }}>
+        <h3 className="text-base font-bold text-slate-900 m-0 mb-1.5">
           No Tasks Found
         </h3>
-        <p style={{ fontSize: '13.5px', color: '#64748b', margin: 0 }}>
+        <p className="text-[13.5px] text-slate-500 m-0">
           Create a new task to assign it to team members and start tracking work.
         </p>
       </div>
@@ -114,47 +98,41 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
   }
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '12px',
-      border: '1px solid #e2e8f0',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
           <thead>
-            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ padding: '8px 10px', width: '32px' }}>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="py-2 px-2.5 w-8">
                 <input
                   type="checkbox"
                   onChange={toggleSelectAll}
                   checked={selectedTaskIds.length === tasks.length && tasks.length > 0}
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 />
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '65px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[65px]">
                 Code
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '95px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[95px]">
                 Timer
               </th>
-              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <th className="py-2 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Task & Project
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '135px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[135px]">
                 Schedule & Due
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '125px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[125px]">
                 Logged / Est
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '145px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[145px]">
                 Assigned To
               </th>
-              <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', width: '115px' }}>
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[115px]">
                 Status
               </th>
-              <th style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', width: '90px' }}>
+              <th className="py-2 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right w-[90px]">
                 Action
               </th>
             </tr>
@@ -170,66 +148,33 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                 <tr
                   key={task._id}
                   onClick={() => onSelectTask && onSelectTask(task)}
-                  style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    backgroundColor: isSelected ? '#f8fafc' : 'transparent',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
+                  className={`border-b border-slate-100 cursor-pointer transition-colors ${isSelected ? 'bg-slate-50' : 'hover:bg-slate-50/80'}`}
                 >
                   {/* Checkbox */}
-                  <td style={{ padding: '7px 10px' }}>
+                  <td className="py-1.5 px-2.5">
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={(e) => toggleSelectTask(task._id, e)}
                       onClick={e => e.stopPropagation()}
-                      style={{ cursor: 'pointer' }}
+                      className="cursor-pointer"
                     />
                   </td>
 
                   {/* Code (e.g. TSK-1) */}
-                  <td style={{ padding: '7px 10px', fontSize: '11.5px', fontWeight: '700', color: '#475569', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-2.5 text-[11.5px] font-bold text-slate-600 whitespace-nowrap">
                     {task.taskCode || 'TSK-1'}
                   </td>
 
                   {/* Timer Pill with Controls */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-2.5 whitespace-nowrap">
                     {task.status === 'completed' || task.completedAt ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        backgroundColor: '#dcfce7',
-                        color: '#15803d',
-                        border: '1px solid #bbf7d0',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '700'
-                      }}>
-                        <CheckCircle2 size={12} color="#16a34a" />
+                      <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 border border-green-200 py-0.5 px-2 rounded-full text-[11px] font-bold">
+                        <CheckCircle2 size={12} className="text-green-600" />
                         <span>Done ({task.hoursLoggedText || formatSeconds(task.timerSeconds || 0)})</span>
                       </span>
                     ) : task.timerRunning ? (
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        backgroundColor: '#0284c7',
-                        color: '#ffffff',
-                        padding: '2px 8px',
-                        borderRadius: '14px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        boxShadow: '0 2px 4px rgba(2, 132, 199, 0.3)'
-                      }}>
+                      <div className="inline-flex items-center gap-1 bg-sky-600 text-white py-0.5 px-2 rounded-full text-[11px] font-bold shadow-[0_2px_4px_rgba(2,132,199,0.3)]">
                         {/* Pause button */}
                         <button
                           title="Pause Timer"
@@ -237,18 +182,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             e.stopPropagation();
                             pauseTaskTimer(task._id);
                           }}
-                          style={{
-                            background: 'rgba(255,255,255,0.25)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '16px',
-                            height: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#ffffff',
-                            cursor: 'pointer'
-                          }}
+                          className="bg-white/25 border-none rounded-full w-4 h-4 flex items-center justify-center text-white cursor-pointer hover:bg-white/40 transition-colors"
                         >
                           <Pause size={8} fill="#ffffff" />
                         </button>
@@ -260,40 +194,21 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             e.stopPropagation();
                             stopTaskTimer(task._id);
                           }}
-                          style={{
-                            background: 'rgba(255,255,255,0.25)',
-                            border: 'none',
-                            borderRadius: '50%',
-                            width: '16px',
-                            height: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#ffffff',
-                            cursor: 'pointer'
-                          }}
+                          className="bg-white/25 border-none rounded-full w-4 h-4 flex items-center justify-center text-white cursor-pointer hover:bg-white/40 transition-colors"
                         >
                           <Square size={7} fill="#ffffff" />
                         </button>
 
-                        <span style={{ fontFamily: 'monospace', letterSpacing: '0.02em', fontSize: '11px' }}>
+                        <span className="font-mono tracking-wide text-[11px]">
                           ⏱️ {task.liveDurationText || formatSeconds(task.timerSeconds || 0)}
                         </span>
                       </div>
                     ) : task.snoozed ? (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          backgroundColor: '#faf5ff',
-                          color: '#7e22ce',
-                          border: '1px solid #e9d5ff',
-                          padding: '2px 7px',
-                          borderRadius: '12px',
-                          fontSize: '10.5px',
-                          fontWeight: '700'
-                        }} title={task.reminderNote ? `Note: ${task.reminderNote}` : 'CRM Reminder Active'}>
+                      <div className="inline-flex items-center gap-1">
+                        <span
+                          className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200 py-0.5 px-2 rounded-full text-[10.5px] font-bold"
+                          title={task.reminderNote ? `Note: ${task.reminderNote}` : 'CRM Reminder Active'}
+                        >
                           <Bell size={10} />
                           <span>Remind: {new Date(task.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </span>
@@ -303,19 +218,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             e.stopPropagation();
                             resumeSnoozedTask(task._id);
                           }}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                            backgroundColor: '#7e22ce',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '2px 6px',
-                            borderRadius: '8px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
+                          className="inline-flex items-center gap-0.5 bg-purple-700 text-white border-none py-0.5 px-1.5 rounded-lg text-[10px] font-bold cursor-pointer hover:bg-purple-800 transition-colors"
                         >
                           <Play size={8} fill="#fff" />
                           Resume
@@ -328,30 +231,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           e.stopPropagation();
                           startTaskTimer(task._id);
                         }}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          backgroundColor: '#f1f5f9',
-                          color: '#475569',
-                          border: '1px solid #cbd5e1',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.backgroundColor = '#eff6ff';
-                          e.currentTarget.style.color = '#2563eb';
-                          e.currentTarget.style.borderColor = '#93c5fd';
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.backgroundColor = '#f1f5f9';
-                          e.currentTarget.style.color = '#475569';
-                          e.currentTarget.style.borderColor = '#cbd5e1';
-                        }}
+                        className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-300 py-0.5 px-2 rounded-full text-[11px] font-semibold cursor-pointer transition-colors hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
                       >
                         <Play size={9} fill="#475569" />
                         <span>Start</span>
@@ -360,69 +240,58 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
 
                   {/* Task Name & Project Name subtitle */}
-                  <td style={{ padding: '7px 12px', minWidth: '180px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.25' }}>
+                  <td className="py-1.5 px-3 min-w-[180px]">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[12.5px] font-semibold text-slate-900 leading-snug">
                         {task.title}
                       </span>
                       {task.isPersonal && (
-                        <span style={{ fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#faf5ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>
+                        <span className="text-[9.5px] font-bold py-px px-1.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
                           🔒 Personal
                         </span>
                       )}
                       {task.isUntimed && (
-                        <span style={{ fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                        <span className="text-[9.5px] font-bold py-px px-1.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                           ⚡ Normal Task
                         </span>
                       )}
                       {!task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr && task.status !== 'completed' && (
-                        <span style={{ fontSize: '9.5px', fontWeight: '800', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                        <span className="text-[9.5px] font-extrabold py-px px-1.5 rounded bg-red-100 text-red-600 border border-red-200">
                           ⚠️ OVERDUE
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginTop: '1px', letterSpacing: '0.02em' }}>
+                    <div className="text-[10.5px] font-bold text-slate-500 uppercase mt-px tracking-wider">
                       {task.projectName || 'General Work'}
                     </div>
                   </td>
 
                   {/* Schedule & Due Date */}
-                  <td style={{ padding: '7px 10px' }}>
+                  <td className="py-1.5 px-2.5">
                     {task.completedOn ? (
                       <div>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                        <span className="text-[11px] font-bold text-green-700 bg-green-50 py-px px-1.5 rounded border border-green-200">
                           ✅ {task.completedOn === todayStr ? 'Today' : task.completedOn}
                         </span>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
                           Start: {task.startDate || '—'}
                         </div>
                       </div>
                     ) : (!task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr && task.status !== 'completed') ? (
                       <div>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fecaca',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          fontWeight: '800',
-                          fontSize: '10.5px'
-                        }}>
+                        <span className="inline-flex items-center gap-1 bg-red-100 text-red-600 border border-red-200 py-px px-1.5 rounded font-extrabold text-[10.5px]">
                           ⚠️ {task.dueDate}
                         </span>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
                           Start: {task.startDate || '—'}
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <div style={{ fontSize: '11px', fontWeight: '700', color: task.dueDate === todayStr ? '#ea580c' : '#334155' }}>
+                        <div className={`text-[11px] font-bold ${task.dueDate === todayStr ? 'text-orange-600' : 'text-slate-700'}`}>
                           {task.isUntimed ? '⚡ Flexible / Open' : (task.hasNoDueDate ? 'No Due Date' : (task.dueDate === todayStr ? '🔥 Due Today' : `Due: ${task.dueDate}`))}
                         </div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>
+                        <div className="text-[10px] text-slate-400 mt-px">
                           Start: {task.startDate === todayStr ? 'Today' : (task.startDate || '—')}
                         </div>
                       </div>
@@ -430,121 +299,89 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
 
                   {/* Hours Logged & Progress with Live / Tracked time */}
-                  <td style={{ padding: '7px 10px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
+                  <td className="py-1.5 px-2.5">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-slate-900">
                         {task.timerRunning ? (
-                          <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '800' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }} />
+                          <span className="text-green-600 inline-flex items-center gap-1 font-extrabold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" />
                             ⏱️ {task.liveDurationText || formatSeconds(task.timerSeconds || 0)} (Live)
                           </span>
                         ) : Number(task.timerSeconds) > 0 ? (
-                          <span style={{ color: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span className="text-sky-600 inline-flex items-center gap-1">
                             ⏸️ {formatSeconds(task.timerSeconds)} worked
                           </span>
                         ) : (
                           <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'} / {task.isUntimed || !task.estimatedHours ? 'Open' : `${task.estimatedHours}h`}</span>
                         )}
                         {task.isUntimed || !task.estimatedHours ? (
-                          <span style={{
-                            fontSize: '9.5px',
-                            fontWeight: '700',
-                            color: '#059669',
-                            backgroundColor: '#ecfdf5',
-                            padding: '1px 6px',
-                            borderRadius: '4px'
-                          }}>
+                          <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 py-px px-1.5 rounded">
                             ⚡ Open
                           </span>
                         ) : (
-                          <span style={{
-                            fontSize: '9.5px',
-                            fontWeight: '800',
-                            color: ((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? '#d97706' : '#16a34a'
-                          }}>
+                          <span className={`text-[9.5px] font-extrabold ${((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? 'text-amber-600' : 'text-green-600'}`}>
                             {Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100)}%
                           </span>
                         )}
                       </div>
                       {!task.isUntimed && task.estimatedHours > 0 && (
-                        <div style={{
-                          width: '100%',
-                          height: '4px',
-                          backgroundColor: '#e2e8f0',
-                          borderRadius: '2px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{
-                            height: '100%',
-                            width: `${Math.min(100, Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100))}%`,
-                            backgroundColor: ((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
-                            borderRadius: '2px',
-                            transition: 'width 0.3s ease'
-                          }} />
+                        <div className="w-full h-1 bg-slate-200 rounded-sm overflow-hidden">
+                          <div
+                            className={`h-full rounded-sm transition-all duration-300 ${((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'}`}
+                            style={{
+                              width: `${Math.min(100, Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100))}%`
+                            }}
+                          />
                         </div>
                       )}
                     </div>
                   </td>
 
                   {/* Assigned To (Avatar + Name + Multi-assignee Stack + Smart Leave Badge) */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-2.5 whitespace-nowrap">
                     {Array.isArray(task.assignees) && task.assignees.length > 1 ? (
                       <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        className="flex items-center gap-1.5"
                         title={task.assignees.map(a => a.name).join(', ')}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className="flex items-center">
                           {task.assignees.slice(0, 3).map((a, idx) => (
                             <img
                               key={a._id || a.id || idx}
                               src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                               alt={a.name}
                               title={a.name}
-                              style={{
-                                width: '22px',
-                                height: '22px',
-                                borderRadius: '50%',
-                                objectFit: 'cover',
-                                border: '2px solid #ffffff',
-                                marginLeft: idx > 0 ? '-7px' : '0'
-                              }}
+                              className={`w-[22px] h-[22px] rounded-full object-cover border-2 border-white ${idx > 0 ? '-ml-1.5' : ''}`}
                             />
                           ))}
                         </div>
                         <div>
-                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', lineHeight: '1.2' }}>
+                          <div className="text-[11px] font-bold text-slate-900 leading-tight">
                             {task.assignees[0].name} +{task.assignees.length - 1} more
                           </div>
-                          <div style={{ fontSize: '9.5px', color: '#0284c7', fontWeight: '600' }}>
+                          <div className="text-[9.5px] text-sky-600 font-semibold">
                             👥 {task.assignees.length} Members
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div className="flex items-center gap-1.5">
                         <img
                           src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                           alt={task.assignedToName}
-                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                          className="w-6 h-6 rounded-full object-cover"
                         />
                         <div>
-                          <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a', lineHeight: '1.2' }}>
+                          <div className="text-[11.5px] font-semibold text-slate-900 leading-tight">
                             {task.assignedToName || 'Unassigned'}
                           </div>
                           {task.assignedBy && task.assignedBy !== task.assignedToName && (
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                            <div className="text-[10px] text-slate-500">
                               By {task.assignedBy}
                             </div>
                           )}
                           {isOnLeave && (
-                            <span style={{
-                              fontSize: '9px',
-                              color: '#d97706',
-                              backgroundColor: '#fef3c7',
-                              padding: '1px 4px',
-                              borderRadius: '3px',
-                              fontWeight: '600'
-                            }}>
+                            <span className="text-[9px] text-amber-700 bg-amber-100 py-px px-1 rounded font-semibold">
                               🌴 On Leave
                             </span>
                           )}
@@ -554,23 +391,22 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
 
                   {/* Status Dropdown */}
-                  <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-2.5 whitespace-nowrap">
                     <select
                       value={task.status}
                       onClick={e => e.stopPropagation()}
                       onChange={(e) => changeTaskStatus(task._id, e.target.value)}
-                      style={{
-                        padding: '2px 6px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        backgroundColor: status.bg,
-                        color: status.color,
-                        border: `1px solid ${status.dot}33`,
-                        outline: 'none',
-                        cursor: 'pointer',
-                        height: '24px'
-                      }}
+                      className={`py-0.5 px-1.5 rounded-full text-[11px] font-semibold outline-none cursor-pointer h-6 border ${
+                        task.status === 'completed'
+                          ? 'bg-green-50 text-green-700 dark:bg-green-950/60 dark:text-green-300 border-green-200 dark:border-green-800'
+                          : task.status === 'in_progress'
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                            : task.status === 'on_hold'
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              : task.status === 'under_review'
+                                ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border-red-200 dark:border-red-800'
+                      }`}
                     >
                       <option value="incomplete">🔴 Incomplete</option>
                       <option value="in_progress">🔵 In Progress</option>
@@ -581,8 +417,8 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
 
                   {/* Action Column with Quick Complete Button */}
-                  <td style={{ padding: '7px 10px', textAlign: 'right', position: 'relative', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <td className="py-1.5 px-2.5 text-right relative whitespace-nowrap">
+                    <div className="inline-flex items-center gap-1">
                       {task.status !== 'completed' ? (
                         <button
                           title="Mark as Completed (1-Click)"
@@ -590,36 +426,12 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             e.stopPropagation();
                             completeTask(task._id);
                           }}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            backgroundColor: '#16a34a',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '3px 8px',
-                            borderRadius: '5px',
-                            fontSize: '10.5px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
-                          }}
+                          className="inline-flex items-center gap-1 bg-green-600 text-white border-none py-1 px-2 rounded text-[10.5px] font-bold cursor-pointer shadow-xs hover:bg-green-700 transition-colors"
                         >
                           <CheckCircle2 size={10} /> Done
                         </button>
                       ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '2px',
-                          fontSize: '10px',
-                          color: '#16a34a',
-                          fontWeight: '700',
-                          backgroundColor: '#f0fdf4',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          border: '1px solid #bbf7d0'
-                        }}>
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-green-600 font-bold bg-green-50 py-0.5 px-1.5 rounded border border-green-200">
                           ✓ Done
                         </span>
                       )}
@@ -629,17 +441,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           e.stopPropagation();
                           setActiveMenuId(isMenuOpen ? null : task._id);
                         }}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#64748b',
-                          padding: '4px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="bg-transparent border-none text-slate-500 p-1 rounded cursor-pointer inline-flex items-center justify-center hover:bg-slate-100 transition-colors"
                       >
                         <MoreVertical size={14} />
                       </button>
@@ -648,59 +450,25 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                     {isMenuOpen && (
                       <div
                         onClick={e => e.stopPropagation()}
-                        style={{
-                          position: 'absolute',
-                          right: '10px',
-                          top: '32px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: '6px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                          border: '1px solid #e2e8f0',
-                          padding: '4px',
-                          zIndex: 50,
-                          minWidth: '140px',
-                          textAlign: 'left'
-                        }}
+                        className="absolute right-2.5 top-8 bg-white rounded-md shadow-lg border border-slate-200 p-1 z-50 min-w-[140px] text-left"
                       >
                         <div
                           onClick={() => {
                             onSelectTask && onSelectTask(task);
                             setActiveMenuId(null);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 10px',
-                            fontSize: '11.5px',
-                            color: '#334155',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-slate-700 cursor-pointer rounded hover:bg-slate-100 transition-colors"
                         >
-                          <Eye size={13} color="#3b82f6" /> View Details & History 📋
+                          <Eye size={13} className="text-blue-500" /> View Details & History 📋
                         </div>
                         <div
                           onClick={() => {
                             onSelectTask && onSelectTask(task);
                             setActiveMenuId(null);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 10px',
-                            fontSize: '11.5px',
-                            color: '#0284c7',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-sky-600 cursor-pointer rounded hover:bg-sky-50 transition-colors"
                         >
-                          <Calendar size={13} color="#0284c7" /> Reschedule for Future 📅
+                          <Calendar size={13} className="text-sky-600" /> Reschedule for Future 📅
                         </div>
                         <div
                           onClick={() => {
@@ -708,35 +476,13 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             setIsSnoozeModalOpen(true);
                             setActiveMenuId(null);
                           }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 10px',
-                            fontSize: '11.5px',
-                            color: '#7e22ce',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-purple-700 cursor-pointer rounded hover:bg-purple-50 transition-colors"
                         >
-                          <Bell size={13} color="#9333ea" /> Do Later & Remind ⏰
+                          <Bell size={13} className="text-purple-600" /> Do Later & Remind ⏰
                         </div>
                         <div
                           onClick={(e) => handleDelete(task._id, e)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 10px',
-                            fontSize: '11.5px',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-red-500 cursor-pointer rounded hover:bg-red-50 transition-colors"
                         >
                           <Trash2 size={13} /> Delete Task
                         </div>
@@ -751,28 +497,12 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
       </div>
 
       {/* Table Footer & Pagination */}
-      <div style={{
-        padding: '14px 20px',
-        backgroundColor: '#ffffff',
-        borderTop: '1px solid #f1f5f9',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '13px',
-        color: '#64748b'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="py-3.5 px-5 bg-white border-t border-slate-100 flex items-center justify-between text-[13px] text-slate-500 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
           <span>Show</span>
           <select
             defaultValue="25"
-            style={{
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12.5px',
-              color: '#334155',
-              outline: 'none'
-            }}
+            className="py-1 px-2 rounded-md border border-slate-300 text-[12.5px] text-slate-700 outline-none"
           >
             <option value="10">10</option>
             <option value="25">25</option>
@@ -781,48 +511,23 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
           <span>entries</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="flex items-center gap-4">
           <span>Showing 1 to {tasks.length} of {tasks.length} entries</span>
-          <div style={{ display: 'flex', gap: '4px' }}>
+          <div className="flex gap-1">
             <button
               disabled
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '12px',
-                cursor: 'not-allowed'
-              }}
+              className="py-1 px-3 rounded-md border border-slate-200 bg-slate-50 text-slate-400 text-xs cursor-not-allowed"
             >
               Previous
             </button>
             <button
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #0284c7',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-1 px-3 rounded-md border border-sky-600 bg-sky-600 text-white text-xs font-semibold cursor-pointer"
             >
               1
             </button>
             <button
               disabled
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '12px',
-                cursor: 'not-allowed'
-              }}
+              className="py-1 px-3 rounded-md border border-slate-200 bg-slate-50 text-slate-400 text-xs cursor-not-allowed"
             >
               Next
             </button>

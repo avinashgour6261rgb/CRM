@@ -432,12 +432,12 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
       subtitle="Register team member, generate login ID/password, and configure granular access permissions."
       maxWidth="720px"
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '76vh', overflowY: 'auto', paddingRight: '4px' }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 max-h-[76vh] overflow-y-auto pr-1">
         
         {/* Row 1: Full Name & Employee ID */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Full Name *
             </label>
             <input
@@ -445,29 +445,20 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="e.g. Aditi Rao"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+              className="filter-input w-full h-10 pl-3"
               required
             />
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: isCodeDuplicate ? '#dc2626' : '#334155' }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={`text-[12.5px] font-semibold ${isCodeDuplicate ? 'text-red-600' : 'text-slate-700'}`}>
                 Employee ID *
               </label>
               <button
                 type="button"
                 onClick={handleAutoGenerate}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  padding: 0
-                }}
+                className="bg-transparent border-0 text-blue-600 text-[11px] font-semibold cursor-pointer p-0"
                 title="Generate next available employee ID"
               >
                 ⚡ Generate ID
@@ -477,20 +468,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               type="text"
               value={formData.employeeCode}
               onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
-              className="filter-input"
-              style={{
-                width: '100%',
-                height: '40px',
-                paddingLeft: '12px',
-                background: isCodeDuplicate ? '#fef2f2' : '#f8fafc',
-                border: isCodeDuplicate ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
-                fontWeight: '600',
-                color: isCodeDuplicate ? '#dc2626' : '#0f172a'
-              }}
+              className={`filter-input w-full h-10 pl-3 font-semibold ${isCodeDuplicate ? 'bg-red-50 border-red-500 text-red-600' : 'bg-slate-50 border-slate-300 text-slate-900'}`}
               required
             />
             {isCodeDuplicate ? (
-              <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: '500' }}>
+              <div className="text-[11px] text-red-600 mt-1 font-medium">
                 ⚠️ Already assigned to <strong>{duplicateEmployee.name}</strong>
               </div>
             ) : null}
@@ -498,9 +480,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Row 2: Work Email & Login Password */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: isEmailDuplicate ? '#dc2626' : '#334155', marginBottom: '6px' }}>
+            <label className={`block text-[12.5px] font-semibold mb-1.5 ${isEmailDuplicate ? 'text-red-600' : 'text-slate-700'}`}>
               Work Email (Login ID) *
             </label>
             <input
@@ -508,66 +490,42 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="name@company.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="filter-input"
-              style={{
-                width: '100%',
-                height: '40px',
-                paddingLeft: '12px',
-                border: isEmailDuplicate ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
-                background: isEmailDuplicate ? '#fef2f2' : '#ffffff'
-              }}
+              className={`filter-input w-full h-10 pl-3 ${isEmailDuplicate ? 'border-red-500 bg-red-50' : 'border-slate-300 bg-white'}`}
               required
             />
             {isEmailDuplicate && (
-              <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '4px', fontWeight: '500' }}>
+              <div className="text-[11px] text-red-600 mt-1 font-medium">
                 ⚠️ Email already registered with <strong>{duplicateEmail.name}</strong>
               </div>
             )}
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155' }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700">
                 Login Password *
               </label>
               <button
                 type="button"
                 onClick={handleAutoPassword}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  padding: 0
-                }}
+                className="bg-transparent border-0 text-blue-600 text-[11px] font-semibold cursor-pointer p-0"
               >
                 🔄 Generate Pass
               </button>
             </div>
-            <div style={{ position: 'relative' }}>
+            <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Assign login password"
-                className="filter-input"
-                style={{ width: '100%', height: '40px', paddingLeft: '12px', paddingRight: '36px', fontWeight: '600' }}
+                className="filter-input w-full h-10 pl-3 pr-9 font-semibold"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '11px',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#94a3b8'
-                }}
+                className="absolute right-2.5 top-[11px] bg-transparent border-0 cursor-pointer text-slate-400"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -576,9 +534,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Row 3: Phone Number & Gender */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Phone Number
             </label>
             <input
@@ -586,20 +544,18 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="+91 98765 43210"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+              className="filter-input w-full h-10 pl-3"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Gender
             </label>
             <select
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              className="filter-select"
-              style={{ width: '100%', height: '40px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
             >
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -610,46 +566,44 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Row 4: Date of Birth (DOB) & Company Joining Date */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', margin: 0 }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700 m-0">
                 🎂 Date of Birth (DOB) *
               </label>
-              <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: '600' }}>30d Birthday Alert</span>
+              <span className="text-[10px] text-blue-600 font-semibold">30d Birthday Alert</span>
             </div>
             <input
               type="date"
               value={formData.dob}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
               required
             />
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', margin: 0 }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700 m-0">
                 💼 Company Joining Date *
               </label>
-              <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: '600' }}>Work Milestone</span>
+              <span className="text-[10px] text-green-600 font-semibold">Work Milestone</span>
             </div>
             <input
               type="date"
               value={formData.joiningDate}
               onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
               required
             />
           </div>
         </div>
 
         {/* Row 5: Emergency Contact Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Emergency Contact Person
             </label>
             <input
@@ -657,13 +611,12 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="e.g. Ramesh Meena (Father/Spouse)"
               value={formData.emergencyContactName}
               onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+              className="filter-input w-full h-10 pl-3"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Emergency Contact Phone
             </label>
             <input
@@ -671,34 +624,21 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="+91 98765 00000"
               value={formData.emergencyContactPhone}
               onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px' }}
+              className="filter-input w-full h-10 pl-3"
             />
           </div>
         </div>
-
         {/* Row 6: Role / Designation & System Access Role */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr', gap: '12px' }}>
+        <div className="grid grid-cols-[1.4fr_1.6fr] gap-3">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', margin: 0 }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700 m-0">
                 Role / Designation *
               </label>
               <button
                 type="button"
                 onClick={() => setShowNewRoleInput(!showNewRoleInput)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px'
-                }}
+                className="bg-transparent border-0 text-blue-600 text-[11px] font-bold cursor-pointer p-0 flex items-center gap-1"
                 title="Add a custom role or designation"
               >
                 <Plus size={12} /> {showNewRoleInput ? 'Cancel' : '+ New Role'}
@@ -706,22 +646,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             </div>
 
             {showNewRoleInput ? (
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div className="flex gap-1">
                 <input
                   type="text"
                   placeholder="e.g. Civil Engineer, Telecaller, Branch Manager"
                   value={newRoleInput}
                   onChange={(e) => setNewRoleInput(e.target.value)}
-                  style={{
-                    flex: 1,
-                    height: '40px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #2563eb',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 bg-white outline-none"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -733,30 +664,20 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={handleAddRole}
-                  style={{
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3 rounded-lg bg-blue-600 text-white border-0 text-[11.5px] font-bold cursor-pointer hover:bg-blue-700"
                 >
                   Add
                 </button>
               </div>
             ) : (
-              <div style={{ position: 'relative' }}>
+              <div className="relative">
                 <input
                   type="text"
                   list="role-options-list"
                   placeholder="Select or type designation (e.g. Full Stack Developer)"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="filter-input"
-                  style={{ width: '100%', height: '40px', paddingLeft: '12px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+                  className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
                   required
                 />
                 <datalist id="role-options-list">
@@ -772,45 +693,33 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               System Authority Level *
             </label>
             <select
               value={formData.systemRole}
               onChange={(e) => handleSystemRoleChange(e.target.value)}
-              className="filter-select"
-              style={{ width: '100%', height: '40px', fontWeight: '700', color: '#2563eb', colorScheme: 'light', backgroundColor: '#ffffff' }}
+              className="filter-select w-full h-10 font-bold text-blue-600 [color-scheme:light] bg-white"
             >
-              <option value="team_member" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>👤 Team Member (Personal Workspace & Own Data)</option>
-              <option value="team_leader" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>🚀 Team Leader (Team Management & Sprint Delegation)</option>
-              <option value="hr" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>💼 HR Manager (Workforce, Leaves & Attendance)</option>
-              <option value="admin" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>👑 Administrator (Full Master Control)</option>
+              <option value="team_member" className="bg-white text-slate-900">👤 Team Member (Personal Workspace & Own Data)</option>
+              <option value="team_leader" className="bg-white text-slate-900">🚀 Team Leader (Team Management & Sprint Delegation)</option>
+              <option value="hr" className="bg-white text-slate-900">💼 HR Manager (Workforce, Leaves & Attendance)</option>
+              <option value="admin" className="bg-white text-slate-900">👑 Administrator (Full Master Control)</option>
             </select>
           </div>
         </div>
 
         {/* Row 4: Dynamic Department, Work Mode & Status */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '12px' }}>
+        <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-3">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', margin: 0 }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-700 m-0">
                 Department *
               </label>
               <button
                 type="button"
                 onClick={() => setShowNewDeptInput(!showNewDeptInput)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px'
-                }}
+                className="bg-transparent border-0 text-blue-600 text-[11px] font-bold cursor-pointer p-0 flex items-center gap-1"
                 title="Add a custom department for your company"
               >
                 <Plus size={12} /> {showNewDeptInput ? 'Cancel' : 'New Dept'}
@@ -818,22 +727,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             </div>
 
             {showNewDeptInput ? (
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div className="flex gap-1">
                 <input
                   type="text"
                   placeholder="e.g. Logistics, Hospital, Retail"
                   value={newDeptInput}
                   onChange={(e) => setNewDeptInput(e.target.value)}
-                  style={{
-                    flex: 1,
-                    height: '40px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #2563eb',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 bg-white outline-none"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -845,16 +745,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={handleAddDepartment}
-                  style={{
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-2.5 rounded-lg bg-blue-600 text-white border-0 text-[11.5px] font-bold cursor-pointer hover:bg-blue-700"
                 >
                   Add
                 </button>
@@ -863,117 +754,79 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               <select
                 value={formData.department}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                className="filter-select"
-                style={{ width: '100%', height: '40px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+                className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
               >
                 {customDepartments.map(d => (
-                  <option key={d} value={d} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{d}</option>
+                  <option key={d} value={d} className="bg-white text-slate-900">{d}</option>
                 ))}
               </select>
             )}
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Work Mode
             </label>
             <select
               value={formData.workMode || 'Office'}
               onChange={(e) => setFormData({ ...formData, workMode: e.target.value })}
-              className="filter-select"
-              style={{ width: '100%', height: '40px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
             >
-              <option value="Office" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>🏢 Office</option>
-              <option value="Remote" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>🏡 Remote</option>
-              <option value="Hybrid" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>🔄 Hybrid</option>
+              <option value="Office" className="bg-white text-slate-900">🏢 Office</option>
+              <option value="Remote" className="bg-white text-slate-900">🏡 Remote</option>
+              <option value="Hybrid" className="bg-white text-slate-900">🔄 Hybrid</option>
             </select>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Status
             </label>
             <select
               value={formData.status || 'active'}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="filter-select"
-              style={{ width: '100%', height: '40px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
             >
-              <option value="active" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Active</option>
-              <option value="probation" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Probation</option>
-              <option value="contract" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Contract</option>
+              <option value="active" className="bg-white text-slate-900">Active</option>
+              <option value="probation" className="bg-white text-slate-900">Probation</option>
+              <option value="contract" className="bg-white text-slate-900">Contract</option>
             </select>
           </div>
         </div>
 
         {/* ── 🛡️ GRANULAR ACCESS CONTROL TOGGLES (User Requirement) ── */}
-        <div style={{
-          backgroundColor: '#f8fafc',
-          border: '1.5px solid #bfdbfe',
-          borderRadius: '12px',
-          padding: '14px',
-          marginTop: '4px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="bg-slate-50 border border-blue-200 rounded-xl p-3.5 mt-1">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
               <ShieldCheck size={18} color="#2563eb" />
-              <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
+              <span className="text-[13px] font-extrabold text-slate-800">
                 Granular Module Permissions & Access Rights
               </span>
             </div>
-            <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: '700' }}>
+            <span className="text-[11px] text-blue-600 font-bold">
               {Object.values(formData.permissions || {}).filter(Boolean).length} / {GRANULAR_PERMISSIONS_LIST.length} Granted
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
             {GRANULAR_PERMISSIONS_LIST.map((perm) => {
               const isChecked = !!formData.permissions?.[perm.key];
               return (
                 <div
                   key={perm.key}
                   onClick={() => handlePermissionToggle(perm.key)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: '8px',
-                    border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                    backgroundColor: isChecked ? '#eff6ff' : '#ffffff',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`flex items-center justify-between py-2 px-2.5 rounded-lg cursor-pointer select-none transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'}`}
                   title={perm.desc}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '14px' }}>{perm.icon}</span>
-                    <span style={{ fontSize: '11.5px', fontWeight: '700', color: isChecked ? '#1d4ed8' : '#334155' }}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">{perm.icon}</span>
+                    <span className={`text-[11.5px] font-bold ${isChecked ? 'text-blue-700' : 'text-slate-700'}`}>
                       {perm.label}
                     </span>
                   </div>
 
-                  <div style={{
-                    width: '32px',
-                    height: '18px',
-                    borderRadius: '10px',
-                    backgroundColor: isChecked ? '#2563eb' : '#cbd5e1',
-                    position: 'relative',
-                    transition: 'background-color 0.2s',
-                    flexShrink: 0
-                  }}>
-                    <div style={{
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      backgroundColor: '#ffffff',
-                      position: 'absolute',
-                      top: '2px',
-                      left: isChecked ? '16px' : '2px',
-                      transition: 'left 0.2s',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                    }} />
+                  <div className={`w-8 h-[18px] rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                    <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-[left] duration-200 shadow-sm ${isChecked ? 'left-4' : 'left-0.5'}`} />
                   </div>
                 </div>
               );
@@ -999,68 +852,34 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             : `₹${annualAmount.toLocaleString()} / yr Package`;
 
           return (
-            <div style={{
-              background: '#f8fafc',
-              border: '1.5px solid #cbd5e1',
-              borderRadius: '12px',
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px'
-            }}>
+            <div className="bg-slate-50 border border-slate-300 rounded-xl p-4 flex flex-col gap-3.5">
               {/* Top Bar: Title & Monthly / Annual Mode Switcher */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>💰</span>
+              <div className="flex items-center justify-between flex-wrap gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">💰</span>
                   <div>
-                    <span style={{ fontSize: '13.5px', fontWeight: '800', color: '#0f172a' }}>
+                    <span className="text-[13.5px] font-extrabold text-slate-900">
                       Salary & Compensation Package
                     </span>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    <div className="text-[11px] text-slate-500">
                       Enter actual agreed salary in Monthly or Annual Package format
                     </div>
                   </div>
                 </div>
 
                 {/* Salary Basis Selector */}
-                <div style={{
-                  display: 'flex',
-                  backgroundColor: '#e2e8f0',
-                  borderRadius: '8px',
-                  padding: '3px',
-                  gap: '2px'
-                }}>
+                <div className="flex bg-slate-200 rounded-lg p-[3px] gap-0.5">
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, salaryBasis: 'monthly' }))}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      backgroundColor: formData.salaryBasis !== 'annual' ? '#2563eb' : 'transparent',
-                      color: formData.salaryBasis !== 'annual' ? '#ffffff' : '#475569',
-                      transition: 'all 0.15s ease'
-                    }}
+                    className={`py-1 px-3 rounded-md border-0 text-[11.5px] font-bold cursor-pointer transition-all duration-150 ${formData.salaryBasis !== 'annual' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-600'}`}
                   >
                     Monthly (₹/month)
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, salaryBasis: 'annual' }))}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      backgroundColor: formData.salaryBasis === 'annual' ? '#2563eb' : 'transparent',
-                      color: formData.salaryBasis === 'annual' ? '#ffffff' : '#475569',
-                      transition: 'all 0.15s ease'
-                    }}
+                    className={`py-1 px-3 rounded-md border-0 text-[11.5px] font-bold cursor-pointer transition-all duration-150 ${formData.salaryBasis === 'annual' ? 'bg-blue-600 text-white' : 'bg-transparent text-slate-600'}`}
                   >
                     Annual Package (₹/year)
                   </button>
@@ -1068,10 +887,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Salary Inputs (Manual Input, No forced 35000) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.4fr', gap: '12px', alignItems: 'flex-start' }}>
+              <div className="grid grid-cols-[1.4fr_1.4fr] gap-3 items-start">
                 {formData.salaryBasis === 'annual' ? (
                   <div>
-                    <label style={{ fontSize: '12px', color: '#1e293b', display: 'block', marginBottom: '5px', fontWeight: '700' }}>
+                    <label className="text-xs text-slate-800 block mb-1 font-bold">
                       Annual Package / CTC (₹) *
                     </label>
                     <input
@@ -1089,17 +908,16 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                           startingSalary: num !== '' ? Math.round(num / 12) : ''
                         }));
                       }}
-                      className="filter-input"
-                      style={{ width: '100%', height: '42px', paddingLeft: '12px', fontWeight: '700', fontSize: '14px', color: '#0f172a', backgroundColor: '#ffffff' }}
+                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 bg-white"
                       required
                     />
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                    <div className="text-[11px] text-slate-500 mt-1">
                       Type manual annual package amount
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <label style={{ fontSize: '12px', color: '#1e293b', display: 'block', marginBottom: '5px', fontWeight: '700' }}>
+                    <label className="text-xs text-slate-800 block mb-1 font-bold">
                       Monthly Salary (₹) *
                     </label>
                     <input
@@ -1117,11 +935,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                           annualCTC: num !== '' ? num * 12 : ''
                         }));
                       }}
-                      className="filter-input"
-                      style={{ width: '100%', height: '42px', paddingLeft: '12px', fontWeight: '700', fontSize: '14px', color: '#0f172a', backgroundColor: '#ffffff' }}
+                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 bg-white"
                       required
                     />
-                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                    <div className="text-[11px] text-slate-500 mt-1">
                       Type manual monthly salary amount
                     </div>
                   </div>
@@ -1129,92 +946,50 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
 
                 {/* Counterpart Auto Display */}
                 <div>
-                  <label style={{ fontSize: '12px', color: '#1e293b', display: 'block', marginBottom: '5px', fontWeight: '700' }}>
+                  <label className="text-xs text-slate-800 block mb-1 font-bold">
                     {formData.salaryBasis === 'annual' ? 'Monthly Equivalent (Auto)' : 'Annual Package / CTC (Auto)'}
                   </label>
-                  <div style={{
-                    height: '42px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 12px',
-                    borderRadius: '8px',
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    fontWeight: '700',
-                    fontSize: '14px',
-                    color: '#0f172a'
-                  }}>
+                  <div className="h-[42px] flex items-center px-3 rounded-lg bg-slate-100 border border-slate-300 font-bold text-sm text-slate-900">
                     {formData.salaryBasis === 'annual'
                       ? (currentGross > 0 ? `₹${currentGross.toLocaleString()} / month` : '₹0 / month')
                       : (annualAmount > 0 ? `₹${annualAmount.toLocaleString()} / year` : '₹0 / year')}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '4px', fontWeight: '600' }}>
+                  <div className="text-[11px] text-blue-600 mt-1 font-semibold">
                     Calculated automatically from {formData.salaryBasis === 'annual' ? 'Annual Package' : 'Monthly Salary'}
                   </div>
                 </div>
               </div>
 
               {/* 🌟 Agreed Package Overview Card */}
-              <div style={{
-                backgroundColor: '#f0fdf4',
-                border: '1.5px solid #86efac',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    backgroundColor: '#dcfce7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '18px'
-                  }}>
+              <div className="bg-green-50 border border-green-300 rounded-xl p-3 px-4 flex items-center justify-between flex-wrap gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[38px] h-[38px] rounded-full bg-green-100 flex items-center justify-center text-lg">
                     💵
                   </div>
                   <div>
-                    <div style={{ fontSize: '11px', color: '#166534', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <div className="text-[11px] text-green-800 font-bold uppercase tracking-wider">
                       Total Agreed Compensation
                     </div>
-                    <div style={{ fontSize: '16px', fontWeight: '800', color: '#14532d' }}>
+                    <div className="text-base font-extrabold text-green-950">
                       {currentGross > 0 ? `₹${currentGross.toLocaleString()} / month` : '₹0 / month'}
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#15803d', marginLeft: '8px' }}>
+                      <span className="text-[13px] font-semibold text-green-700 ml-2">
                         ({lpaText})
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: '#dcfce7',
-                  border: '1px solid #bbf7d0',
-                  textAlign: 'right'
-                }}>
-                  <div style={{ fontSize: '10.5px', color: '#166534', fontWeight: '600' }}>In-Hand (Net Pay)</div>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#15803d' }}>
+                <div className="py-1.5 px-3 rounded-lg bg-green-100 border border-green-200 text-right">
+                  <div className="text-[10.5px] text-green-800 font-semibold">In-Hand (Net Pay)</div>
+                  <div className="text-[15px] font-extrabold text-green-700">
                     ₹{breakdown.netSalary.toLocaleString()}
                   </div>
                 </div>
               </div>
 
               {/* ⚙️ Optional Admin Deductions Feature (Direct calculation by default) */}
-              <div style={{
-                borderTop: '1px dashed #cbd5e1',
-                paddingTop: '10px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
+              <div className="border-t border-dashed border-slate-300 pt-2.5 flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={formData.enableDeductions === true}
@@ -1222,25 +997,17 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                       ...prev,
                       enableDeductions: e.target.checked
                     }))}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    className="w-4 h-4 cursor-pointer"
                   />
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                  <span className="text-xs font-bold text-slate-700">
                     ⚙️ Enable Statutory Deductions Breakdown (PF, PT, TDS) — Optional for Admin
                   </span>
                 </label>
 
                 {formData.enableDeductions ? (
-                  <div style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '8px',
-                    border: '1px solid #e2e8f0',
-                    padding: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: '600', color: '#334155', cursor: 'pointer' }}>
+                  <div className="bg-white rounded-lg border border-slate-200 p-3 flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <label className="flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-700 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formData.includePF === true}
@@ -1250,84 +1017,73 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                       </label>
                     </div>
 
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-                      gap: '8px',
-                      fontSize: '11.5px'
-                    }}>
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2 text-[11.5px]">
                       <div>
-                        <span style={{ color: '#64748b' }}>Basic (50%):</span>
-                        <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{breakdown.basic.toLocaleString()}</div>
+                        <span className="text-slate-500">Basic (50%):</span>
+                        <div className="font-bold text-slate-900">₹{breakdown.basic.toLocaleString()}</div>
                       </div>
                       <div>
-                        <span style={{ color: '#64748b' }}>HRA (20%):</span>
-                        <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{breakdown.hra.toLocaleString()}</div>
+                        <span className="text-slate-500">HRA (20%):</span>
+                        <div className="font-bold text-slate-900">₹{breakdown.hra.toLocaleString()}</div>
                       </div>
                       <div>
-                        <span style={{ color: '#64748b' }}>Allowances:</span>
-                        <div style={{ fontWeight: '700', color: '#0f172a' }}>₹{breakdown.allowances.toLocaleString()}</div>
+                        <span className="text-slate-500">Allowances:</span>
+                        <div className="font-bold text-slate-900">₹{breakdown.allowances.toLocaleString()}</div>
                       </div>
                       <div>
-                        <span style={{ color: '#64748b' }}>PF Deduction:</span>
-                        <div style={{ fontWeight: '700', color: '#b91c1c' }}>-₹{breakdown.pf.toLocaleString()}</div>
+                        <span className="text-slate-500">PF Deduction:</span>
+                        <div className="font-bold text-red-700">-₹{breakdown.pf.toLocaleString()}</div>
                       </div>
                       <div>
-                        <span style={{ color: '#64748b' }}>PT:</span>
-                        <div style={{ fontWeight: '700', color: '#b91c1c' }}>-₹{breakdown.pt}</div>
+                        <span className="text-slate-500">PT:</span>
+                        <div className="font-bold text-red-700">-₹{breakdown.pt}</div>
                       </div>
-                      <div style={{ borderLeft: '1.5px dashed #cbd5e1', paddingLeft: '8px' }}>
-                        <span style={{ color: '#166534', fontWeight: '700' }}>In-Hand (Net):</span>
-                        <div style={{ fontWeight: '800', color: '#15803d', fontSize: '13px' }}>₹{breakdown.netSalary.toLocaleString()}</div>
+                      <div className="border-l border-dashed border-slate-300 pl-2">
+                        <span className="text-green-800 font-bold">In-Hand (Net):</span>
+                        <div className="font-extrabold text-green-700 text-[13px]">₹{breakdown.netSalary.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+                  <div className="text-[11px] text-slate-500 italic">
                     💡 Direct Payment Mode: 100% of the entered amount is paid directly without deductions.
                   </div>
                 )}
               </div>
 
               {/* Banking & Identity Details (For Realistic Payslip Generation) */}
-              <div style={{
-                borderTop: '1px dashed #cbd5e1',
-                paddingTop: '10px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155' }}>
+              <div className="border-t border-dashed border-slate-300 pt-2.5 flex flex-col gap-2">
+                <span className="text-[11.5px] font-bold text-slate-700">
                   🏦 Bank Account & Payment Details (Optional for Payslips):
                 </span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr', gap: '8px' }}>
+                <div className="grid grid-cols-[1.2fr_1.2fr_1fr_1fr] gap-2">
                   <input
                     type="text"
                     placeholder="Bank Name (e.g. HDFC Bank)"
                     value={formData.bankName}
                     onChange={(e) => setFormData(prev => ({ ...prev, bankName: e.target.value }))}
-                    style={{ height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11.5px', backgroundColor: '#ffffff', color: '#0f172a' }}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="A/C Number"
                     value={formData.accountNumber}
                     onChange={(e) => setFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                    style={{ height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11.5px', backgroundColor: '#ffffff', color: '#0f172a' }}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="IFSC Code"
                     value={formData.ifsc}
                     onChange={(e) => setFormData(prev => ({ ...prev, ifsc: e.target.value }))}
-                    style={{ height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11.5px', backgroundColor: '#ffffff', color: '#0f172a' }}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="PAN Number"
                     value={formData.pan}
                     onChange={(e) => setFormData(prev => ({ ...prev, pan: e.target.value }))}
-                    style={{ height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11.5px', backgroundColor: '#ffffff', color: '#0f172a' }}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
                   />
                 </div>
               </div>
@@ -1336,18 +1092,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         })()}
 
         {/* Row 6: Initial Leave Quota */}
-        <div style={{
-          background: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          borderRadius: '10px',
-          padding: '12px 14px'
-        }}>
-          <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', display: 'block', marginBottom: '6px' }}>
+        <div className="bg-slate-50 border border-slate-300 rounded-xl p-3 px-3.5">
+          <span className="text-xs font-bold text-slate-900 block mb-1.5">
             📅 Annual Leave Balance Allotment (Days):
           </span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label style={{ fontSize: '11px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Casual Leave (CL)</label>
+              <label className="text-[11px] text-slate-600 block mb-1 font-semibold">Casual Leave (CL)</label>
               <input
                 type="number"
                 min="0"
@@ -1356,12 +1107,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   ...formData,
                   leaveBalance: { ...formData.leaveBalance, casual: Number(e.target.value) }
                 })}
-                className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px', fontWeight: '700' }}
+                className="filter-input w-full h-9 pl-2.5 font-bold"
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Sick Leave (SL)</label>
+              <label className="text-[11px] text-slate-600 block mb-1 font-semibold">Sick Leave (SL)</label>
               <input
                 type="number"
                 min="0"
@@ -1370,12 +1120,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   ...formData,
                   leaveBalance: { ...formData.leaveBalance, sick: Number(e.target.value) }
                 })}
-                className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px', fontWeight: '700' }}
+                className="filter-input w-full h-9 pl-2.5 font-bold"
               />
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Earned Leave (EL)</label>
+              <label className="text-[11px] text-slate-600 block mb-1 font-semibold">Earned Leave (EL)</label>
               <input
                 type="number"
                 min="0"
@@ -1384,26 +1133,21 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   ...formData,
                   leaveBalance: { ...formData.leaveBalance, earned: Number(e.target.value) }
                 })}
-                className="filter-input"
-                style={{ width: '100%', height: '36px', paddingLeft: '10px', fontWeight: '700' }}
+                className="filter-input w-full h-9 pl-2.5 font-bold"
               />
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+        <div className="flex justify-end gap-2.5 mt-1.5">
           <button type="button" onClick={onClose} className="btn btn-outline" disabled={isSubmitting}>
             Cancel
           </button>
           <button
             type="submit"
-            className="btn btn-primary"
+            className={`btn btn-primary ${isCodeDuplicate || isEmailDuplicate ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
             disabled={isSubmitting || isCodeDuplicate || isEmailDuplicate}
-            style={{
-              opacity: isCodeDuplicate || isEmailDuplicate ? 0.6 : 1,
-              cursor: isCodeDuplicate || isEmailDuplicate ? 'not-allowed' : 'pointer'
-            }}
           >
             {isSubmitting ? 'Registering...' : 'Register Employee & Generate Credentials'}
           </button>

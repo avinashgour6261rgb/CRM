@@ -173,32 +173,24 @@ export const ConfirmProvider = ({ children }) => {
     switch (dialogState.variant) {
       case 'danger':
         return {
-          bg: '#fee2e2',
-          border: '#fecaca',
-          color: '#dc2626',
-          icon: <AlertTriangle size={24} color="#dc2626" />
+          wrapper: 'bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/60 dark:text-red-400 dark:border-red-900',
+          icon: <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
         };
       case 'warning':
         return {
-          bg: '#fef3c7',
-          border: '#fde68a',
-          color: '#d97706',
-          icon: <AlertCircle size={24} color="#d97706" />
+          wrapper: 'bg-amber-100 text-amber-600 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900',
+          icon: <AlertCircle size={24} className="text-amber-600 dark:text-amber-400" />
         };
       case 'success':
         return {
-          bg: '#d1fae5',
-          border: '#a7f3d0',
-          color: '#059669',
-          icon: <CheckCircle2 size={24} color="#059669" />
+          wrapper: 'bg-emerald-100 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-900',
+          icon: <CheckCircle2 size={24} className="text-emerald-600 dark:text-emerald-400" />
         };
       case 'primary':
       default:
         return {
-          bg: '#eff6ff',
-          border: '#bfdbfe',
-          color: '#2563eb',
-          icon: <HelpCircle size={24} color="#2563eb" />
+          wrapper: 'bg-blue-100 text-blue-600 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900',
+          icon: <HelpCircle size={24} className="text-blue-600 dark:text-blue-400" />
         };
     }
   };
@@ -210,140 +202,45 @@ export const ConfirmProvider = ({ children }) => {
       {children}
 
       {dialogState.isOpen && (
-        <>
-          <style>{`
-            @keyframes fadeInDialog {
-              from { opacity: 0; transform: scale(0.96); }
-              to { opacity: 1; transform: scale(1); }
-            }
-          `}</style>
-          <div
-            onClick={() => handleClose(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 99999,
-              backgroundColor: 'rgba(15, 23, 42, 0.65)',
-              backdropFilter: 'blur(6px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-              animation: 'fadeInDialog 0.15s ease-out'
-            }}
-          >
+        <div
+          onClick={() => handleClose(false)}
+          className="fixed inset-0 z-[99999] bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+        >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
-              width: '100%',
-              maxWidth: '430px',
-              padding: '24px',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px'
-            }}
+            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-[430px] p-6 relative flex flex-col gap-4"
           >
             {/* Close Cross Button */}
             <button
               onClick={() => handleClose(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = '#334155'}
-              onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+              className="absolute top-4 right-4 bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1 rounded-md flex items-center justify-center transition-colors"
             >
               <X size={18} />
             </button>
 
             {/* Icon & Title Row */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-              <div
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '12px',
-                  backgroundColor: badge.bg,
-                  border: `1.5px solid ${badge.border}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
-              >
+            <div className="flex items-start gap-3.5">
+              <div className={`w-[46px] h-[46px] rounded-xl flex items-center justify-center shrink-0 ${badge.wrapper}`}>
                 {badge.icon}
               </div>
 
-              <div style={{ flex: 1, paddingRight: '18px' }}>
-                <h3
-                  style={{
-                    margin: '0 0 5px 0',
-                    fontSize: '16.5px',
-                    fontWeight: '700',
-                    color: '#0f172a',
-                    lineHeight: '1.3'
-                  }}
-                >
+              <div className="flex-1 pr-4">
+                <h3 className="m-0 mb-1 text-[16.5px] font-bold text-slate-900 dark:text-slate-100 leading-snug">
                   {dialogState.title}
                 </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: '13.5px',
-                    color: '#475569',
-                    lineHeight: '1.5',
-                    whiteSpace: 'pre-line'
-                  }}
-                >
+                <p className="m-0 text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                   {dialogState.message}
                 </p>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                marginTop: '8px',
-                paddingTop: '16px',
-                borderTop: '1px solid #f1f5f9'
-              }}
-            >
+            <div className="flex items-center justify-end gap-2.5 mt-2 pt-4 border-t border-slate-100 dark:border-slate-800">
               {dialogState.type === 'confirm' && (
                 <button
                   type="button"
                   onClick={() => handleClose(false)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   {dialogState.cancelText}
                 </button>
@@ -353,29 +250,21 @@ export const ConfirmProvider = ({ children }) => {
                 type="button"
                 autoFocus
                 onClick={() => handleClose(true)}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: dialogState.variant === 'danger' ? '#dc2626' : (dialogState.variant === 'warning' ? '#d97706' : '#2563eb'),
-                  color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: dialogState.variant === 'danger' ? '0 4px 12px rgba(220,38,38,0.22)' : '0 4px 12px rgba(37,99,235,0.22)',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.08)'}
-                onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+                className={`px-[18px] py-2 rounded-lg border-0 text-white text-xs font-bold cursor-pointer transition-all shadow-md ${
+                  dialogState.variant === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700 shadow-red-600/25'
+                    : dialogState.variant === 'warning'
+                    ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25'
+                }`}
               >
                 {dialogState.confirmText}
               </button>
             </div>
           </div>
         </div>
-      </>
-    )}
-  </ConfirmContext.Provider>
+      )}
+    </ConfirmContext.Provider>
   );
 };
 

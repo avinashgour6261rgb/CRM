@@ -80,20 +80,13 @@ export const MonthlyMatrixTable = ({
   };
 
   return (
-    <div className="table-card" style={{ marginBottom: '24px' }}>
-      <div className="table-responsive" style={{ maxHeight: '680px' }}>
-        <table className="crm-table" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+    <div className="table-card mb-6">
+      <div className="table-responsive max-h-[680px]">
+        <table className="crm-table border-separate border-spacing-0">
           <thead>
             <tr>
               {/* Sticky Employee Column */}
-              <th style={{
-                position: 'sticky',
-                left: 0,
-                zIndex: 20,
-                background: '#f8fafc',
-                minWidth: '220px',
-                borderRight: '2px solid #e2e8f0'
-              }}>
+              <th className="sticky left-0 z-20 bg-slate-50 min-w-[220px] border-r-2 border-slate-200">
                 Employee
               </th>
 
@@ -104,33 +97,16 @@ export const MonthlyMatrixTable = ({
                 return (
                   <th
                     key={day}
-                    style={{
-                      textAlign: 'center',
-                      padding: '8px 3px',
-                      minWidth: '34px',
-                      fontSize: '11px',
-                      backgroundColor: isWeekend ? '#f1f5f9' : '#f8fafc',
-                      color: isWeekend ? '#64748b' : '#334155',
-                      borderRight: '1px solid #f1f5f9'
-                    }}
+                    className={`text-center py-2 px-[3px] min-w-[34px] text-[11px] border-r border-slate-100 ${isWeekend ? 'bg-slate-100 text-slate-500' : 'bg-slate-50 text-slate-700'}`}
                   >
-                    <div style={{ fontWeight: '700', fontSize: '12px' }}>{day}</div>
-                    <div style={{ fontSize: '9.5px', color: '#94a3b8', textTransform: 'uppercase' }}>{dayName}</div>
+                    <div className="font-bold text-xs">{day}</div>
+                    <div className="text-[9.5px] text-slate-400 uppercase">{dayName}</div>
                   </th>
                 );
               })}
 
               {/* Total Column */}
-              <th style={{
-                textAlign: 'center',
-                minWidth: '80px',
-                fontWeight: '700',
-                background: '#f8fafc',
-                position: 'sticky',
-                right: 0,
-                zIndex: 20,
-                borderLeft: '2px solid #e2e8f0'
-              }}>
+              <th className="text-center min-w-[80px] font-bold bg-slate-50 sticky right-0 z-20 border-l-2 border-slate-200">
                 Total
               </th>
             </tr>
@@ -158,26 +134,19 @@ export const MonthlyMatrixTable = ({
               return (
                 <tr key={emp._id}>
                   {/* Sticky Employee Details Cell */}
-                  <td style={{
-                    position: 'sticky',
-                    left: 0,
-                    zIndex: 10,
-                    backgroundColor: '#ffffff',
-                    borderRight: '2px solid #e2e8f0',
-                    padding: '12px 14px'
-                  }}>
+                  <td className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 py-3 px-3.5">
                     <div className="employee-cell">
                       <div className="employee-avatar">
                         {emp.avatar ? <img src={emp.avatar} alt={emp.name} /> : emp.name.charAt(0)}
                       </div>
                       <div className="employee-name-group">
-                        <span className="employee-name" style={{ fontSize: '13px' }}>
+                        <span className="employee-name text-[13px]">
                           {emp.name}
                           {isEmployeeSelf(emp) && (
-                            <span className="its-you-pill" style={{ fontSize: '9px', padding: '1px 5px' }}>It's You</span>
+                            <span className="its-you-pill text-[9px] py-[1px] px-[5px]">It's You</span>
                           )}
                         </span>
-                        <span className="employee-role" style={{ fontSize: '11px' }}>{emp.role}</span>
+                        <span className="employee-role text-[11px]">{emp.role}</span>
                       </div>
                     </div>
                   </td>
@@ -216,23 +185,13 @@ export const MonthlyMatrixTable = ({
                             notes: safeRecord?.notes
                           });
                         }}
-                        style={{
-                          textAlign: 'center',
-                          padding: '6px 2px',
-                          borderRight: '1px solid #f1f5f9',
-                          cursor: isFuture ? 'default' : 'pointer',
-                          backgroundColor: isMuted ? '#f8fafc' : (isFuture ? '#fafafa' : (safeRecord?.status === 'late' ? '#fef3c7' : (safeRecord?.status === 'absent' ? '#fee2e2' : (isWeekend ? '#fafafa' : 'transparent')))),
-                          opacity: isMuted ? 0.3 : 1,
-                          transition: 'all 0.15s'
-                        }}
+                        className={`text-center py-1.5 px-0.5 border-r border-slate-100 transition-all duration-150 ${isFuture ? 'cursor-default' : 'cursor-pointer'} ${isMuted ? 'opacity-30 bg-slate-50' : (isFuture ? 'bg-[#fafafa]' : (safeRecord?.status === 'late' ? 'bg-amber-100' : (safeRecord?.status === 'absent' ? 'bg-red-100' : (isWeekend ? 'bg-[#fafafa]' : 'bg-transparent'))))}`}
                         title={isFuture ? `${emp.name} - ${dateStr}: ${display.label}` : `${emp.name} - ${dateStr}: ${display.label}${timeDetail}`}
                       >
-                        <span style={{
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          color: display.color,
-                          display: 'inline-block'
-                        }}>
+                        <span
+                          className="text-xs font-semibold inline-block"
+                          style={{ color: display.color }}
+                        >
                           {display.icon}
                         </span>
                       </td>
@@ -240,17 +199,7 @@ export const MonthlyMatrixTable = ({
                   })}
 
                   {/* Sticky Total Count Cell (Matches 6/30 in screenshot) */}
-                  <td style={{
-                    textAlign: 'center',
-                    fontWeight: '700',
-                    fontSize: '13px',
-                    color: '#0f172a',
-                    position: 'sticky',
-                    right: 0,
-                    zIndex: 10,
-                    backgroundColor: '#ffffff',
-                    borderLeft: '2px solid #e2e8f0'
-                  }}>
+                  <td className="text-center font-bold text-[13px] text-slate-900 sticky right-0 z-10 bg-white border-l-2 border-slate-200">
                     <span title={`${effectivePresentDays} present days (${totalHoursWorked.toFixed(1)} hrs total)`}>
                       {effectivePresentDays} / {daysInMonth}
                     </span>

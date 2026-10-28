@@ -220,124 +220,58 @@ export const RolesManagementTab = () => {
   const renderMatrixBadge = (perm) => {
     if (perm.allowed === true) {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '18px',
-            height: '18px',
-            borderRadius: '50%',
-            backgroundColor: '#dcfce7',
-            color: '#16a34a',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            flexShrink: 0
-          }}>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-green-100 text-green-600 text-[11px] font-bold shrink-0">
             ✓
           </span>
-          <span style={{ fontSize: '12px', color: '#15803d', fontWeight: '600' }}>{perm.text}</span>
+          <span className="text-xs text-green-700 font-semibold">{perm.text}</span>
         </div>
       );
     }
     if (perm.allowed === 'partial') {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '18px',
-            height: '18px',
-            borderRadius: '50%',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            flexShrink: 0
-          }}>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-blue-50 text-blue-600 text-[11px] font-bold shrink-0">
             👁️
           </span>
-          <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>{perm.text}</span>
+          <span className="text-xs text-blue-600 font-medium">{perm.text}</span>
         </div>
       );
     }
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '18px',
-          height: '18px',
-          borderRadius: '50%',
-          backgroundColor: '#f1f5f9',
-          color: '#94a3b8',
-          fontSize: '11px',
-          fontWeight: 'bold',
-          flexShrink: 0
-        }}>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-slate-100 text-slate-400 text-[11px] font-bold shrink-0">
           ✕
         </span>
-        <span style={{ fontSize: '12px', color: '#94a3b8' }}>{perm.text}</span>
+        <span className="text-xs text-slate-400">{perm.text}</span>
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '12px 0 32px 0' }}>
+    <div className="flex flex-col gap-5 py-3 pb-8">
       
       {/* ── Top Header & Active User Role Live Simulator ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        padding: '20px 24px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:px-6 shadow-xs flex flex-col gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-[42px] h-[42px] rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
               <ShieldCheck size={24} />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 m-0">
                 Role-Based Access Control (RBAC) Matrix
               </h2>
-              <p style={{ fontSize: '13px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-[13px] text-slate-500 mt-0.5 m-0">
                 Standard 4-tier hierarchy: <strong>Admin</strong> ➔ <strong>HR</strong> ➔ <strong>Team Leader (TL)</strong> ➔ <strong>Team Member (Employee under TL)</strong>.
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsCreateRoleOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '9px 15px',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff',
-                color: '#2563eb',
-                border: '1.5px solid #bfdbfe',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1.5 px-[15px] py-[9px] rounded-lg bg-white hover:bg-blue-50/50 text-blue-600 border-[1.5px] border-blue-200 text-[13px] font-bold cursor-pointer transition-colors"
             >
               <Plus size={15} />
               <span>Add Custom Role</span>
@@ -346,36 +280,25 @@ export const RolesManagementTab = () => {
         </div>
 
         {/* Live Role Switcher / Simulator Bar */}
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '12px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#334155' }}>
+        <div className="p-3 px-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[12.5px] font-bold text-slate-700">
               🎭 Live Role Simulator:
             </span>
-            <span style={{
-              padding: '3px 10px',
-              borderRadius: '20px',
-              backgroundColor: ROLE_CONFIGS[activeUserRole]?.bg || '#eff6ff',
-              color: ROLE_CONFIGS[activeUserRole]?.color || '#2563eb',
-              border: `1px solid ${ROLE_CONFIGS[activeUserRole]?.border || '#bfdbfe'}`,
-              fontSize: '12px',
-              fontWeight: '700'
-            }}>
+            <span
+              style={{
+                backgroundColor: ROLE_CONFIGS[activeUserRole]?.bg || '#eff6ff',
+                color: ROLE_CONFIGS[activeUserRole]?.color || '#2563eb',
+                borderColor: ROLE_CONFIGS[activeUserRole]?.border || '#bfdbfe'
+              }}
+              className="px-2.5 py-[3px] rounded-full border text-xs font-bold"
+            >
               Active: {ROLE_CONFIGS[activeUserRole]?.badge || '👑 Admin'} ({currentUser?.name || 'User'})
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11.5px', color: '#64748b' }}>Test permissions as:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11.5px] text-slate-500">Test permissions as:</span>
             {Object.values(ROLES).map(rId => {
               const cfg = ROLE_CONFIGS[rId];
               const isActive = activeUserRole === rId;
@@ -384,19 +307,13 @@ export const RolesManagementTab = () => {
                   key={rId}
                   onClick={() => handleSimulateRole(rId)}
                   style={{
-                    padding: '5px 12px',
-                    borderRadius: '8px',
-                    border: isActive ? `1.5px solid ${cfg.color}` : '1px solid #cbd5e1',
-                    backgroundColor: isActive ? cfg.bg : '#ffffff',
-                    color: isActive ? cfg.color : '#475569',
-                    fontSize: '12px',
-                    fontWeight: isActive ? '700' : '500',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease'
+                    borderColor: isActive ? cfg.color : undefined,
+                    backgroundColor: isActive ? cfg.bg : undefined,
+                    color: isActive ? cfg.color : undefined
                   }}
+                  className={`px-3 py-[5px] rounded-lg border text-xs cursor-pointer inline-flex items-center gap-1 transition-all ${
+                    isActive ? 'font-bold' : 'border-slate-300 bg-white text-slate-600 font-medium hover:bg-slate-50'
+                  }`}
                   title={`Switch active session to ${cfg.name}`}
                 >
                   <span>{cfg.badge}</span>
@@ -409,11 +326,7 @@ export const RolesManagementTab = () => {
       </div>
 
       {/* ── 4 Standard Roles Cards Overview ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '14px'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3.5">
         {Object.values(ROLES).map(rId => {
           const cfg = ROLE_CONFIGS[rId];
           const isCurrentActive = activeUserRole === rId;
@@ -423,76 +336,56 @@ export const RolesManagementTab = () => {
             <div
               key={rId}
               style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '14px',
-                border: isCurrentActive ? `2px solid ${cfg.color}` : '1px solid #e2e8f0',
-                padding: '18px',
-                boxShadow: isCurrentActive ? `0 4px 12px ${cfg.color}25` : '0 1px 3px rgba(0,0,0,0.02)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                position: 'relative'
+                borderColor: isCurrentActive ? cfg.color : undefined,
+                boxShadow: isCurrentActive ? `0 4px 12px ${cfg.color}25` : undefined
               }}
+              className={`bg-white rounded-2xl p-[18px] flex flex-col justify-between relative transition-shadow ${
+                isCurrentActive ? 'border-2' : 'border border-slate-200 shadow-xs'
+              }`}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: '800',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: cfg.bg,
-                    color: cfg.color,
-                    border: `1px solid ${cfg.border}`
-                  }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    style={{
+                      backgroundColor: cfg.bg,
+                      color: cfg.color,
+                      borderColor: cfg.border
+                    }}
+                    className="text-[11px] font-extrabold px-2 py-0.5 rounded-md border"
+                  >
                     Level {cfg.level} • {cfg.badge}
                   </span>
                   {isCurrentActive && (
-                    <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span className="text-[10.5px] font-bold text-green-600 flex items-center gap-[3px]">
                       <CheckCircle2 size={12} /> Active
                     </span>
                   )}
                 </div>
 
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: '4px 0 6px 0' }}>
+                <h3 className="text-base font-extrabold text-slate-900 mt-1 mb-1.5">
                   {cfg.name}
                 </h3>
-                <p style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.45', margin: '0 0 12px 0' }}>
+                <p className="text-xs text-slate-500 leading-relaxed mb-3">
                   {cfg.description}
                 </p>
 
                 {/* Key Privilege Tags */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                <div className="flex flex-col gap-1 mb-3">
                   {cfg.permissions.slice(0, 3).map((p, idx) => (
-                    <div key={idx} style={{ fontSize: '11.5px', color: '#334155', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                      <span style={{ color: cfg.color, fontWeight: 'bold' }}>•</span>
+                    <div key={idx} className="text-[11.5px] text-slate-700 flex items-start gap-1.5">
+                      <span style={{ color: cfg.color }} className="font-bold">•</span>
                       <span>{p}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{
-                paddingTop: '12px',
-                borderTop: '1px solid #f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '11.5px',
-                color: '#64748b'
-              }}>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11.5px] text-slate-500">
                 <span>Assigned: <strong>{assignedCount} members</strong></span>
                 <button
                   onClick={() => handleSimulateRole(rId)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: cfg.color,
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    padding: 0,
-                    fontSize: '11.5px'
-                  }}
+                  style={{ color: cfg.color }}
+                  className="bg-transparent border-0 font-bold cursor-pointer p-0 text-[11.5px]"
                 >
                   {isCurrentActive ? 'Current Role' : 'Switch ➔'}
                 </button>
@@ -503,41 +396,21 @@ export const RolesManagementTab = () => {
       </div>
 
       {/* ── Tab Switcher: Matrix Comparison vs Promotion History ── */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+      <div className="flex gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab('matrix')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: activeTab === 'matrix' ? '#2563eb' : '#f1f5f9',
-            color: activeTab === 'matrix' ? '#ffffff' : '#475569',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
+          className={`px-4 py-2 rounded-lg border-0 text-[13px] font-bold cursor-pointer inline-flex items-center gap-1.5 transition-colors ${
+            activeTab === 'matrix' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+          }`}
         >
           <Layers size={15} />
           <span>Full RBAC Permissions Matrix</span>
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: activeTab === 'history' ? '#2563eb' : '#f1f5f9',
-            color: activeTab === 'history' ? '#ffffff' : '#475569',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
+          className={`px-4 py-2 rounded-lg border-0 text-[13px] font-bold cursor-pointer inline-flex items-center gap-1.5 transition-colors ${
+            activeTab === 'history' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+          }`}
         >
           <Award size={15} />
           <span>Promotion & Role Upgrade Log ({promotions.length})</span>
@@ -546,41 +419,35 @@ export const RolesManagementTab = () => {
 
       {/* ── Tab 1: Detailed RBAC Matrix Table ── */}
       {activeTab === 'matrix' && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          overflow: 'hidden'
-        }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-4 sm:px-5 border-b border-slate-200 bg-slate-50">
+            <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
               Module-by-Module Permission Comparison (All 4 Roles)
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-xs text-slate-500 mt-0.5 m-0">
               Clear breakdown of exact rights granted to Admin, HR, Team Leader, and Team Member across the 11 system modules.
             </p>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-[12.5px]">
               <thead>
-                <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                  <th style={{ padding: '12px 16px', fontWeight: '800', color: '#1e293b', width: '240px' }}>
+                <tr className="bg-slate-100 border-b border-slate-200">
+                  <th className="p-3 px-4 font-extrabold text-slate-800 w-[240px]">
                     CRM Module / Feature
                   </th>
-                  <th style={{ padding: '12px 16px', fontWeight: '800', color: '#1d4ed8', width: '220px' }}>
+                  <th className="p-3 px-4 font-extrabold text-blue-700 w-[220px]">
                     👑 Admin (Level 1)
                   </th>
-                  <th style={{ padding: '12px 16px', fontWeight: '800', color: '#0369a1', width: '220px' }}>
+                  <th className="p-3 px-4 font-extrabold text-sky-700 w-[220px]">
                     💼 HR (Level 2)
                   </th>
-                  <th style={{ padding: '12px 16px', fontWeight: '800', color: '#6d28d9', width: '220px' }}>
+                  <th className="p-3 px-4 font-extrabold text-purple-700 w-[220px]">
                     🚀 Team Leader (Level 3)
                   </th>
-                  <th style={{ padding: '12px 16px', fontWeight: '800', color: '#15803d', width: '220px' }}>
+                  <th className="p-3 px-4 font-extrabold text-green-700 w-[220px]">
                     <div>👤 Team Member (Level 4)</div>
-                    <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', marginTop: '2px' }}>
+                    <div className="text-[10.5px] font-semibold text-green-600 mt-0.5">
                       (Employee under TL)
                     </div>
                   </th>
@@ -590,30 +457,28 @@ export const RolesManagementTab = () => {
                 {rbacMatrix.map((row, idx) => (
                   <tr
                     key={idx}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
-                      transition: 'background-color 0.15s ease'
-                    }}
+                    className={`border-b border-slate-100 transition-colors ${
+                      idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                    }`}
                   >
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
+                    <td className="p-3.5 px-4">
+                      <div className="font-bold text-slate-900 text-[13px]">
                         {row.module}
                       </div>
-                      <span style={{ fontSize: '10.5px', color: '#64748b', textTransform: 'uppercase', fontWeight: '600' }}>
+                      <span className="text-[10.5px] text-slate-500 uppercase font-semibold">
                         {row.category}
                       </span>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="p-3.5 px-4">
                       {renderMatrixBadge(row.admin)}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="p-3.5 px-4">
                       {renderMatrixBadge(row.hr)}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="p-3.5 px-4">
                       {renderMatrixBadge(row.teamLeader)}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td className="p-3.5 px-4">
                       {renderMatrixBadge(row.teamMember)}
                     </td>
                   </tr>
@@ -626,78 +491,53 @@ export const RolesManagementTab = () => {
 
       {/* ── Tab 2: Promotion & Role Upgrade Log ── */}
       {activeTab === 'history' && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          padding: '20px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
                 Official Promotion & Post Upgrade History
               </h3>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-xs text-slate-500 mt-0.5 m-0">
                 Complete audit trail of designation changes and role elevations across departments.
               </p>
             </div>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '4px 10px', borderRadius: '12px' }}>
+            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-xl">
               {promotions.length} Total Records
             </span>
           </div>
 
           {promotions.length === 0 ? (
-            <div style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+            <div className="p-8 text-center text-slate-500 text-[13px]">
               ✨ No promotion records found yet. Use the "Promote / Change Role" action on employee profiles to elevate team members.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="flex flex-col gap-2.5">
               {promotions.map(item => (
                 <div
                   key={item.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '13px',
-                    flexWrap: 'wrap',
-                    gap: '12px'
-                  }}
+                  className="flex items-center justify-between p-3 px-4 rounded-xl bg-slate-50 border border-slate-200 text-[13px] flex-wrap gap-3"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="flex items-center gap-3">
                     <img
                       src={item.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                       alt={item.employeeName}
-                      style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }}
+                      className="w-9 h-9 rounded-full object-cover"
                     />
                     <div>
-                      <div style={{ fontWeight: '700', color: '#0f172a' }}>{item.employeeName}</div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                        <span style={{ textDecoration: 'line-through' }}>{item.previousRole}</span>
+                      <div className="font-bold text-slate-900">{item.employeeName}</div>
+                      <div className="text-[11.5px] text-slate-500">
+                        <span className="line-through">{item.previousRole}</span>
                         {' ➔ '}
-                        <strong style={{ color: '#16a34a' }}>{item.newRole}</strong>
+                        <strong className="text-green-600">{item.newRole}</strong>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: '#dcfce7',
-                      color: '#15803d',
-                      fontSize: '11px',
-                      fontWeight: '700'
-                    }}>
+                  <div className="text-right">
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-[11px] font-bold">
                       Promoted on {item.effectiveDate}
                     </span>
-                    <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="text-[10.5px] text-slate-500 mt-0.5">
                       By {item.promotedBy} • {item.reason}
                     </div>
                   </div>
@@ -710,50 +550,23 @@ export const RolesManagementTab = () => {
 
       {/* ── Create Custom Role Modal ── */}
       {isCreateRoleOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '540px',
-            overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}>
-            <div style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: '#f8fafc'
-            }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+        <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-5">
+          <div className="bg-white rounded-2xl w-full max-w-[540px] overflow-hidden shadow-2xl">
+            <div className="p-4 sm:px-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
                 Create New Custom Role / Designation
               </h3>
               <button
                 onClick={() => setIsCreateRoleOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                className="bg-transparent border-0 text-slate-500 hover:text-slate-700 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleCreateRole} className="p-6 flex flex-col gap-4">
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Role Title / Designation Name *
                 </label>
                 <input
@@ -762,27 +575,19 @@ export const RolesManagementTab = () => {
                   value={newRoleName}
                   onChange={e => setNewRoleName(e.target.value)}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #3b82f6',
-                    fontSize: '13px',
-                    outline: 'none',
-                    fontWeight: '600'
-                  }}
+                  className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-blue-500 text-[13px] outline-none font-semibold focus:border-blue-600 transition-colors"
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Category
                   </label>
                   <select
                     value={newRoleCategory}
                     onChange={e => setNewRoleCategory(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                    className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
                   >
                     <option value="Engineering">Engineering</option>
                     <option value="Product Design">Product Design</option>
@@ -793,13 +598,13 @@ export const RolesManagementTab = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Hierarchy Seniority Level
                   </label>
                   <select
                     value={newRoleLevel}
                     onChange={e => setNewRoleLevel(Number(e.target.value))}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+                    className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
                   >
                     <option value={2}>Level 2 — Senior Leadership / Partner</option>
                     <option value={3}>Level 3 — Team Leader / Squad Lead</option>
@@ -810,7 +615,7 @@ export const RolesManagementTab = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Description / Responsibilities
                 </label>
                 <textarea
@@ -818,25 +623,16 @@ export const RolesManagementTab = () => {
                   value={newRoleDescription}
                   onChange={e => setNewRoleDescription(e.target.value)}
                   rows={2}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12.5px', outline: 'none' }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-[12.5px] outline-none focus:border-blue-500 transition-colors font-sans resize-y"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-2">
                   Assigned Security Privileges:
                 </label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  backgroundColor: '#f8fafc',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12px'
-                }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={newRolePermissions.approveLeaves}
@@ -844,7 +640,7 @@ export const RolesManagementTab = () => {
                     />
                     Approve Team Leaves
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={newRolePermissions.manageProjects}
@@ -852,7 +648,7 @@ export const RolesManagementTab = () => {
                     />
                     Manage Tasks & Projects
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={newRolePermissions.manageEmployees}
@@ -860,7 +656,7 @@ export const RolesManagementTab = () => {
                     />
                     Onboard Employees
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={newRolePermissions.manageSalaries}
@@ -871,17 +667,17 @@ export const RolesManagementTab = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              <div className="flex justify-end gap-2.5 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateRoleOpen(false)}
-                  style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#475569', fontSize: '12.5px', fontWeight: '600', cursor: 'pointer' }}
+                  className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[12.5px] font-semibold cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', backgroundColor: '#2563eb', color: '#ffffff', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 2px 4px rgba(37,99,235,0.25)' }}
+                  className="px-[18px] py-2 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-bold cursor-pointer shadow-sm shadow-blue-600/25 transition-colors"
                 >
                   Create Role
                 </button>

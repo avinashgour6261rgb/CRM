@@ -61,18 +61,18 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
   const totalLeads = (leads || []).length;
 
   const modules = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, color: '#2563eb', bg: '#eff6ff', desc: 'Main employee & attendance hub' },
-    { name: 'Leads & CRM', path: '/leads', icon: Users2, color: '#0284c7', bg: '#e0f2fe', desc: `${totalLeads} active deals & prospects` },
-    { name: 'Projects', path: '/projects', icon: FolderGit2, color: '#0891b2', bg: '#ecfeff', desc: `${activeProjects} in-progress projects` },
-    { name: 'Tasks & Sprints', path: '/tasks', icon: ListTodo, color: '#7c3aed', bg: '#f5f3ff', desc: `${pendingTasks} pending assigned tasks` },
-    { name: 'Leave Management', path: '/leaves', icon: Palmtree, color: '#16a34a', bg: '#f0fdf4', desc: `${pendingLeaves} leaves pending review` },
-    { name: 'Attendance Clock', path: '/attendance', icon: CalendarCheck, color: '#059669', bg: '#ecfdf5', desc: 'Shift logs & gross hours' },
-    { name: 'Finance & Expenses', path: '/finance', icon: DollarSign, color: '#d97706', bg: '#fef3c7', desc: 'Company bills & reimbursements' },
-    { name: 'Tickets Helpdesk', path: '/tickets', icon: Ticket, color: '#ea580c', bg: '#ffedd5', desc: `${openTickets} open support tickets` },
-    { name: 'Calendar & Events', path: '/calendar', icon: Calendar, color: '#4f46e5', bg: '#eef2ff', desc: `${(events || []).length} scheduled events & festivals` },
-    { name: 'Messages & Chat', path: '/messages', icon: MessageSquare, color: '#0284c7', bg: '#f0f9ff', desc: 'Team communication & channels' },
-    { name: 'Notice Board', path: '/notice-board', icon: BellRing, color: '#e11d48', bg: '#ffe4e6', desc: `${(notices || []).length} company announcements` },
-    { name: 'System Settings', path: '/settings', icon: Settings, color: '#475569', bg: '#f1f5f9', desc: 'Profile, 2FA, & Preferences' }
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, colorCls: 'text-blue-600 dark:text-blue-400', bgCls: 'bg-blue-50 dark:bg-blue-900/30', borderHover: 'hover:border-blue-500', desc: 'Main employee & attendance hub' },
+    { name: 'Leads & CRM', path: '/leads', icon: Users2, colorCls: 'text-sky-600 dark:text-sky-400', bgCls: 'bg-sky-50 dark:bg-sky-900/30', borderHover: 'hover:border-sky-500', desc: `${totalLeads} active deals & prospects` },
+    { name: 'Projects', path: '/projects', icon: FolderGit2, colorCls: 'text-cyan-600 dark:text-cyan-400', bgCls: 'bg-cyan-50 dark:bg-cyan-900/30', borderHover: 'hover:border-cyan-500', desc: `${activeProjects} in-progress projects` },
+    { name: 'Tasks & Sprints', path: '/tasks', icon: ListTodo, colorCls: 'text-purple-600 dark:text-purple-400', bgCls: 'bg-purple-50 dark:bg-purple-900/30', borderHover: 'hover:border-purple-500', desc: `${pendingTasks} pending assigned tasks` },
+    { name: 'Leave Management', path: '/leaves', icon: Palmtree, colorCls: 'text-green-600 dark:text-green-400', bgCls: 'bg-green-50 dark:bg-green-900/30', borderHover: 'hover:border-green-500', desc: `${pendingLeaves} leaves pending review` },
+    { name: 'Attendance Clock', path: '/attendance', icon: CalendarCheck, colorCls: 'text-emerald-600 dark:text-emerald-400', bgCls: 'bg-emerald-50 dark:bg-emerald-900/30', borderHover: 'hover:border-emerald-500', desc: 'Shift logs & gross hours' },
+    { name: 'Finance & Expenses', path: '/finance', icon: DollarSign, colorCls: 'text-amber-600 dark:text-amber-400', bgCls: 'bg-amber-50 dark:bg-amber-900/30', borderHover: 'hover:border-amber-500', desc: 'Company bills & reimbursements' },
+    { name: 'Tickets Helpdesk', path: '/tickets', icon: Ticket, colorCls: 'text-orange-600 dark:text-orange-400', bgCls: 'bg-orange-50 dark:bg-orange-900/30', borderHover: 'hover:border-orange-500', desc: `${openTickets} open support tickets` },
+    { name: 'Calendar & Events', path: '/calendar', icon: Calendar, colorCls: 'text-indigo-600 dark:text-indigo-400', bgCls: 'bg-indigo-50 dark:bg-indigo-900/30', borderHover: 'hover:border-indigo-500', desc: `${(events || []).length} scheduled events & festivals` },
+    { name: 'Messages & Chat', path: '/messages', icon: MessageSquare, colorCls: 'text-sky-600 dark:text-sky-400', bgCls: 'bg-sky-50 dark:bg-sky-900/30', borderHover: 'hover:border-sky-500', desc: 'Team communication & channels' },
+    { name: 'Notice Board', path: '/notice-board', icon: BellRing, colorCls: 'text-rose-600 dark:text-rose-400', bgCls: 'bg-rose-50 dark:bg-rose-900/30', borderHover: 'hover:border-rose-500', desc: `${(notices || []).length} company announcements` },
+    { name: 'System Settings', path: '/settings', icon: Settings, colorCls: 'text-slate-600 dark:text-slate-400', bgCls: 'bg-slate-100 dark:bg-slate-800', borderHover: 'hover:border-slate-500', desc: 'Profile, 2FA, & Preferences' }
   ];
 
   const handleNavigate = (path) => {
@@ -81,77 +81,25 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(6px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '18px',
-        width: '100%',
-        maxWidth: '840px',
-        maxHeight: '90vh',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
-        overflowY: 'auto',
-        border: '1px solid #e2e8f0',
-        animation: 'scaleUp 0.18s ease-out',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-[18px] w-full max-w-[840px] max-h-[90vh] shadow-2xl overflow-y-auto border border-slate-200 dark:border-slate-800 flex flex-col">
 
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, #0f172a, #1e293b)',
-          color: '#ffffff',
-          borderRadius: '18px 18px 0 0'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '10px',
-              backgroundColor: 'rgba(59, 130, 246, 0.2)',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              color: '#60a5fa',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-t-[18px]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-[10px] bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center">
               <LayoutDashboard size={22} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#ffffff' }}>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-extrabold m-0 text-white">
                   Dashboard Overview
                 </h3>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  padding: '2px 8px',
-                  borderRadius: '10px',
-                  backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                  color: '#4ade80',
-                  border: '1px solid rgba(34, 197, 94, 0.3)'
-                }}>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-[10px] bg-green-500/20 text-green-400 border border-green-500/30">
                   Live Sync
                 </span>
               </div>
-              <p style={{ fontSize: '12.5px', color: '#94a3b8', margin: '2px 0 0 0' }}>
+              <p className="text-[12.5px] text-slate-400 m-0 mt-0.5">
                 Quick snapshot, active timer status, and system module launcher
               </p>
             </div>
@@ -159,106 +107,53 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex'
-            }}
+            className="bg-white/10 hover:bg-white/20 border-none text-white cursor-pointer p-1.5 rounded-lg flex transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Live Attendance Banner */}
-        <div style={{
-          padding: '16px 24px',
-          backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '12px'
-        }}>
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
           {/* Status */}
-          <div style={{
-            padding: '10px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <span style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              backgroundColor: !isClockedIn ? '#ef4444' : isOnBreak ? '#f59e0b' : '#22c55e',
-              boxShadow: isClockedIn ? '0 0 8px #22c55e' : 'none'
-            }} />
+          <div className="p-2.5 px-3.5 bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${!isClockedIn ? 'bg-red-500' : isOnBreak ? 'bg-amber-500' : 'bg-emerald-500 shadow-[0_0_8px_#22c55e]'}`} />
             <div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Attendance Status</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">Attendance Status</div>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                 {!isClockedIn ? 'Clocked Out' : isOnBreak ? breakType : 'Active & Clocked In'}
               </div>
             </div>
           </div>
 
           {/* Time Logged */}
-          <div style={{
-            padding: '10px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <Clock size={16} color="#2563eb" />
+          <div className="p-2.5 px-3.5 bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
+            <Clock size={16} className="text-blue-600 dark:text-blue-400" />
             <div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Work Duration</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#2563eb', fontFamily: 'monospace' }}>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">Work Duration</div>
+              <div className="text-[13px] font-bold text-blue-600 dark:text-blue-400 font-mono">
                 {timeString || '00:00:00'}
               </div>
             </div>
           </div>
 
           {/* Clock In Time */}
-          <div style={{
-            padding: '10px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <CheckCircle2 size={16} color="#16a34a" />
+          <div className="p-2.5 px-3.5 bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
+            <CheckCircle2 size={16} className="text-green-600 dark:text-green-400" />
             <div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Clock In Today</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">Clock In Today</div>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                 {loginTime || '09:12 AM'}
               </div>
             </div>
           </div>
 
           {/* Pending Leaves */}
-          <div style={{
-            padding: '10px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px'
-          }}>
-            <Palmtree size={16} color="#d97706" />
+          <div className="p-2.5 px-3.5 bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
+            <Palmtree size={16} className="text-amber-600 dark:text-amber-400" />
             <div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Pending Reviews</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#d97706' }}>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">Pending Reviews</div>
+              <div className="text-[13px] font-bold text-amber-600 dark:text-amber-400">
                 {pendingLeaves} Leave Req.
               </div>
             </div>
@@ -266,70 +161,29 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* 12-Module Quick Launch Grid */}
-        <div style={{ padding: '24px' }}>
-          <div style={{
-            fontSize: '12px',
-            fontWeight: '700',
-            color: '#64748b',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: '14px'
-          }}>
+        <div className="p-6">
+          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3.5">
             Quick Module Launcher
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-            gap: '14px'
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-3.5">
             {modules.map((m) => {
               const IconComp = m.icon;
               return (
                 <div
                   key={m.name}
                   onClick={() => handleNavigate(m.path)}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '12px',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.06)';
-                    e.currentTarget.style.borderColor = m.color;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                  }}
+                  className={`p-3.5 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer flex items-start gap-3 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md ${m.borderHover}`}
                 >
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    backgroundColor: m.bg,
-                    color: m.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
+                  <div className={`w-[38px] h-[38px] rounded-[10px] ${m.bgCls} ${m.colorCls} flex items-center justify-center shrink-0`}>
                     <IconComp size={18} />
                   </div>
 
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100">
                       {m.name}
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', lineHeight: 1.3 }}>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                       {m.desc}
                     </div>
                   </div>
@@ -340,35 +194,14 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid #f1f5f9',
-          backgroundColor: '#f8fafc',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: '0 0 18px 18px'
-        }}>
-          <span style={{ fontSize: '12.5px', color: '#64748b' }}>
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-between rounded-b-[18px]">
+          <span className="text-[12.5px] text-slate-500 dark:text-slate-400">
             Enterprise Management System v1.0.0
           </span>
 
           <button
             onClick={() => handleNavigate('/dashboard')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 18px',
-              borderRadius: '8px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)'
-            }}
+            className="inline-flex items-center gap-1.5 px-[18px] py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white border-0 text-[13px] font-bold cursor-pointer shadow-sm hover:shadow transition-all"
           >
             Go to Full Dashboard Page
             <ArrowRight size={14} />

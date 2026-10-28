@@ -97,115 +97,47 @@ export const TaskDetailModal = ({ task, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '760px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[760px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '22px 28px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="px-7 py-[22px] border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{
-                padding: '3px 8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '700',
-                border: '1px solid #bfdbfe'
-              }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2 py-[3px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold border border-blue-200 dark:border-blue-900">
                 {task.taskCode}
               </span>
-              <span style={{
-                padding: '3px 8px',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: '#475569',
-                fontWeight: '500'
-              }}>
+              <span className="px-2 py-[3px] bg-slate-100 dark:bg-slate-800 rounded-md text-xs text-slate-600 dark:text-slate-300 font-medium">
                 {task.projectName}
               </span>
             </div>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 m-0">
               {task.title}
             </h2>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="p-7 flex flex-col gap-5">
           {/* Overdue Task Banner */}
           {(() => {
             const todayStr = new Date().toISOString().split('T')[0];
             const isOverdue = !!(task.dueDate && !task.hasNoDueDate && task.dueDate < todayStr && task.status !== 'completed');
             if (!isOverdue) return null;
             return (
-              <div style={{
-                backgroundColor: '#fff7ed',
-                border: '1px solid #fed7aa',
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '18px' }}>⚠️</span>
+              <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/60 rounded-[10px] px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">⚠️</span>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#c2410c' }}>
+                    <div className="text-[13px] font-extrabold text-orange-700 dark:text-orange-400">
                       Task Deadline Expired (Due: {task.dueDate})
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#9a3412' }}>
+                    <div className="text-[11.5px] text-orange-800 dark:text-orange-300">
                       Time tracking on overdue tasks requires updating the deadline or completing the task.
                     </div>
                   </div>
@@ -218,60 +150,35 @@ export const TaskDetailModal = ({ task, onClose }) => {
                     const newDate = baseDate.toISOString().split('T')[0];
                     await updateTask(task._id, { dueDate: newDate, hasNoDueDate: false });
                   }}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
+                  className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-[11.5px] font-bold cursor-pointer whitespace-nowrap transition-colors"
                 >
                   Extend +3 Days
                 </button>
               </div>
             );
           })()}
+
           {/* Active Timer Banner */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 20px',
-            backgroundColor: task.timerRunning ? '#eff6ff' : '#f8fafc',
-            borderRadius: '10px',
-            border: `1px solid ${task.timerRunning ? '#bfdbfe' : '#e2e8f0'}`
-          }}>
+          <div className={`flex items-center justify-between px-5 py-4 rounded-[10px] border transition-colors ${
+            task.timerRunning
+              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900'
+              : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
+          }`}>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 {task.timerRunning ? 'Work Session In Progress' : 'Work Session Timer'}
               </div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: task.timerRunning ? '#0284c7' : '#0f172a', fontFamily: 'monospace' }}>
+              <div className={`text-xl font-extrabold font-mono ${task.timerRunning ? 'text-sky-600 dark:text-sky-400' : 'text-slate-900 dark:text-slate-100'}`}>
                 {task.liveDurationText || task.hoursLoggedText || '00:00:00'}
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="flex items-center gap-2 flex-wrap">
               {task.timerRunning ? (
                 <>
                   <button
                     onClick={() => pauseTaskTimer(task._id)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: '#f59e0b',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white border-0 px-3.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors"
                   >
                     <Pause size={14} /> Pause
                   </button>
@@ -279,19 +186,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                     onClick={() => {
                       stopTaskTimer(task._id);
                     }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      backgroundColor: '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white border-0 px-3.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors"
                   >
                     <Square size={14} /> Stop & Log
                   </button>
@@ -299,19 +194,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
               ) : (
                 <button
                   onClick={() => startTaskTimer(task._id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#0284c7',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white border-0 px-[18px] py-2 rounded-lg text-[13px] font-semibold cursor-pointer shadow-sm transition-colors"
                 >
                   <Play size={14} /> Start Tracking
                 </button>
@@ -323,20 +206,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                     await completeTask(task._id);
                     onClose();
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(22, 163, 74, 0.25)'
-                  }}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-0 px-4 py-2 rounded-lg text-[13px] font-bold cursor-pointer shadow-sm transition-colors"
                 >
                   <CheckCircle2 size={15} /> Complete Task
                 </button>
@@ -345,19 +215,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   onClick={async () => {
                     await changeTaskStatus(task._id, 'in_progress');
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#f1f5f9',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-3.5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 >
                   Reopen Task
                 </button>
@@ -366,60 +224,45 @@ export const TaskDetailModal = ({ task, onClose }) => {
           </div>
 
           {/* Time Budget vs Logged Hours Progress Card */}
-          <div style={{
-            padding: '16px 20px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Clock size={16} color="#2563eb" />
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+          <div className="px-5 py-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col gap-2.5">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <Clock size={16} className="text-blue-600 dark:text-blue-400" />
+                <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                   Task Time Allocation & Progress
                 </span>
               </div>
-              <span style={{
-                fontSize: '11.5px',
-                fontWeight: '700',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#fee2e2' : '#eff6ff',
-                color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#dc2626' : '#2563eb'
-              }}>
+              <span className={`text-[11.5px] font-bold px-2 py-0.5 rounded-md ${
+                (Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
+                  ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400'
+                  : 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+              }`}>
                 {task.estimatedHours > 0 
                   ? `${Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100)}% of Budget`
                   : 'Open Budget'}
               </span>
             </div>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
-              gap: '10px',
-              fontSize: '12.5px'
-            }}>
+            <div className="grid grid-cols-3 gap-2.5 text-[12.5px]">
               <div>
-                <span style={{ color: '#64748b', fontSize: '11.5px', display: 'block' }}>Estimated Budget:</span>
-                <strong style={{ color: '#0f172a', fontSize: '13.5px' }}>
+                <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Estimated Budget:</span>
+                <strong className="text-slate-900 dark:text-slate-100 text-[13.5px]">
                   {task.estimatedHours ? `${task.estimatedHours}h 00m` : 'Not set'}
                 </strong>
               </div>
               <div>
-                <span style={{ color: '#64748b', fontSize: '11.5px', display: 'block' }}>Actual Logged:</span>
-                <strong style={{ color: '#2563eb', fontSize: '13.5px' }}>
+                <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Actual Logged:</span>
+                <strong className="text-blue-600 dark:text-blue-400 text-[13.5px]">
                   {task.hoursLogged ? `${task.hoursLogged}h` : (task.hoursLoggedText || '0s')}
                 </strong>
               </div>
               <div>
-                <span style={{ color: '#64748b', fontSize: '11.5px', display: 'block' }}>Variance / Balance:</span>
-                <strong style={{
-                  color: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#d97706' : '#16a34a',
-                  fontSize: '13.5px'
-                }}>
+                <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Variance / Balance:</span>
+                <strong className={`text-[13.5px] ${
+                  (Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                }`}>
                   {task.estimatedHours > 0
                     ? ((Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
                       ? `+${((Number(task.hoursLogged) || 0) - Number(task.estimatedHours)).toFixed(1)}h Overtime`
@@ -431,52 +274,38 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
             {/* Progress Bar */}
             {task.estimatedHours > 0 && (
-              <div style={{
-                width: '100%',
-                height: '7px',
-                backgroundColor: '#e2e8f0',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                marginTop: '4px'
-              }}>
-                <div style={{
-                  height: '100%',
-                  width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`,
-                  backgroundColor: (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? '#f59e0b' : '#2563eb',
-                  borderRadius: '4px',
-                  transition: 'width 0.3s ease'
-                }} />
+              <div className="w-full h-[7px] bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1">
+                <div
+                  style={{
+                    width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`
+                  }}
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'
+                  }`}
+                />
               </div>
             )}
           </div>
 
           {/* Description */}
           <div>
-            <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 8px 0' }}>
+            <h4 className="text-[13px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mt-0 mb-2">
               Task Description
             </h4>
-            <div style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/40 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
               {task.description || 'No specific description provided for this task.'}
             </div>
           </div>
 
           {/* Meta Grid (Assignee, Assigner, Timeline, Priority, Status) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
             {/* Assigned Member (Assignee) with quick Reassign button */}
-            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Assigned To</div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Assigned To</div>
                 <button
                   onClick={() => setIsReassigning(!isReassigning)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    padding: '0'
-                  }}
+                  className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
                 >
                   {isReassigning ? 'Cancel' : 'Reassign ↻'}
                 </button>
@@ -485,30 +314,20 @@ export const TaskDetailModal = ({ task, onClose }) => {
               {!isReassigning ? (
                 <div>
                   {Array.isArray(task.assignees) && task.assignees.length > 1 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0284c7' }}>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="text-[11.5px] font-bold text-sky-600 dark:text-sky-400">
                         👥 {task.assignees.length} Assigned Members:
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                      <div className="flex flex-wrap gap-[5px]">
                         {task.assignees.map(a => (
                           <div
                             key={a._id || a.id}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              backgroundColor: '#ffffff',
-                              border: '1px solid #cbd5e1',
-                              padding: '2px 7px',
-                              borderRadius: '16px',
-                              fontSize: '11px',
-                              fontWeight: '600'
-                            }}
+                            className="inline-flex items-center gap-[5px] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-[7px] py-0.5 rounded-full text-[11px] font-semibold text-slate-800 dark:text-slate-200"
                           >
                             <img
                               src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                               alt={a.name}
-                              style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }}
+                              className="w-[18px] h-[18px] rounded-full object-cover"
                             />
                             <span>{a.name}</span>
                           </div>
@@ -516,15 +335,15 @@ export const TaskDetailModal = ({ task, onClose }) => {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="flex items-center gap-2">
                       <img
                         src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                         alt={task.assignedToName}
-                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                        className="w-7 h-7 rounded-full object-cover"
                       />
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{task.assignedToName}</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>{task.assignedToRole || 'Team Member'}</div>
+                        <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{task.assignedToName}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{task.assignedToRole || 'Team Member'}</div>
                       </div>
                     </div>
                   )}
@@ -533,17 +352,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 <select
                   value={task.assignedToId || ''}
                   onChange={(e) => handleReassign(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid #3b82f6',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    backgroundColor: '#ffffff',
-                    color: '#0f172a',
-                    outline: 'none'
-                  }}
+                  className="w-full px-2 py-1.5 rounded-md border border-blue-500 text-[12.5px] font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                 >
                   <option value="" disabled>Select colleague...</option>
                   {employees.map(emp => (
@@ -556,36 +365,28 @@ export const TaskDetailModal = ({ task, onClose }) => {
             </div>
 
             {/* Assigned By (Creator) */}
-            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600', marginBottom: '6px' }}>Assigned By</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
+              <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Assigned By</div>
+              <div className="flex items-center gap-2">
                 <img
                   src={task.assignedByAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                   alt={task.assignedBy || 'Creator'}
-                  style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                  className="w-7 h-7 rounded-full object-cover"
                 />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{task.assignedBy || 'Admin / Project Manager'}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{task.assignedByRole || 'Assigner'}</div>
+                  <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{task.assignedBy || 'Admin / Project Manager'}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{task.assignedByRole || 'Assigner'}</div>
                 </div>
               </div>
             </div>
 
             {/* Timeline & Quick Reschedule */}
-            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Timeline & Schedule</div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Timeline & Schedule</div>
                 <button
                   onClick={() => setIsRescheduling(!isRescheduling)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    padding: '0'
-                  }}
+                  className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
                 >
                   {isRescheduling ? 'Cancel' : 'Reschedule for Future 📅'}
                 </button>
@@ -593,46 +394,46 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
               {!isRescheduling ? (
                 <>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                  <div className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
                     {task.startDate || '—'} → {task.hasNoDueDate ? 'No Due Date' : (task.dueDate || 'Open')}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                    Priority: <strong style={{ color: '#0f172a', textTransform: 'capitalize' }}>{task.priority || 'Medium'}</strong>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Priority: <strong className="text-slate-900 dark:text-slate-100 capitalize">{task.priority || 'Medium'}</strong>
                   </div>
                 </>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => handleQuickReschedule(1)}
-                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', color: '#1d4ed8', cursor: 'pointer' }}
+                      className="flex-1 p-1 text-[10.5px] font-semibold rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 cursor-pointer"
                     >
                       +1d (Tomorrow)
                     </button>
                     <button
                       onClick={() => handleQuickReschedule(3)}
-                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                      className="flex-1 p-1 text-[10.5px] font-semibold rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50"
                     >
                       +3 Days
                     </button>
                     <button
                       onClick={() => handleQuickReschedule(7)}
-                      style={{ flex: 1, padding: '4px', fontSize: '10.5px', fontWeight: '600', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: '#ffffff', color: '#334155', cursor: 'pointer' }}
+                      className="flex-1 p-1 text-[10.5px] font-semibold rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50"
                     >
                       +7 Days
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                  <div className="flex gap-1">
                     <input
                       type="date"
                       value={customFutureDate}
                       onChange={e => setCustomFutureDate(e.target.value)}
-                      style={{ flex: 1, padding: '4px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid #cbd5e1', outline: 'none' }}
+                      className="flex-1 px-1.5 py-1 text-[11px] rounded border border-slate-300 dark:border-slate-700 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     />
                     <button
                       onClick={handleCustomReschedule}
                       disabled={!customFutureDate}
-                      style={{ padding: '4px 8px', fontSize: '11px', fontWeight: '700', borderRadius: '4px', border: 'none', backgroundColor: '#2563eb', color: '#fff', cursor: customFutureDate ? 'pointer' : 'not-allowed', opacity: customFutureDate ? 1 : 0.6 }}
+                      className="px-2 py-1 text-[11px] font-bold rounded border-0 bg-blue-600 text-white cursor-pointer disabled:opacity-60"
                     >
                       Save
                     </button>
@@ -642,21 +443,12 @@ export const TaskDetailModal = ({ task, onClose }) => {
             </div>
 
             {/* Status Selector */}
-            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600', marginBottom: '6px' }}>Current Status</div>
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
+              <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Current Status</div>
               <select
                 value={task.status}
                 onChange={e => changeTaskStatus(task._id, e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="incomplete">🔴 Incomplete / Pending</option>
                 <option value="in_progress">🔵 In Progress</option>
@@ -668,30 +460,21 @@ export const TaskDetailModal = ({ task, onClose }) => {
           </div>
 
           {/* 📋 Task Assignment & Activity History (Audit Trail) */}
-          <div style={{
-            marginTop: '8px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={16} color="#2563eb" />
-                <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div className="mt-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 px-5 py-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-blue-600 dark:text-blue-400" />
+                <h4 className="text-[13px] font-bold text-slate-900 dark:text-slate-100 m-0 uppercase tracking-wider">
                   Assignment & Activity History (Audit Trail)
                 </h4>
               </div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
                 {(task.history && task.history.length > 0) ? `${task.history.length} Event${task.history.length > 1 ? 's' : ''}` : 'Activity Log'}
               </span>
             </div>
 
             {/* Timeline List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="flex flex-col gap-2">
               {(() => {
                 let historyList = Array.isArray(task.history) && task.history.length > 0 ? [...task.history] : [];
                 if (historyList.length === 0) {
@@ -731,46 +514,38 @@ export const TaskDetailModal = ({ task, onClose }) => {
                       })
                     : 'Recorded';
 
+                  const badgeStyle = item.action === 'created'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                    : (item.action === 'completed'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : (item.action === 'rescheduled'
+                        ? 'bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'));
+
                   return (
                     <div
                       key={item.id || idx}
-                      style={{
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        padding: '10px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px'
-                      }}
+                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-lg px-3.5 py-2.5 flex flex-col gap-1"
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            fontSize: '10.5px',
-                            fontWeight: '700',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: item.action === 'created' ? '#eff6ff' : (item.action === 'completed' ? '#f0fdf4' : (item.action === 'rescheduled' ? '#fff7ed' : '#f1f5f9')),
-                            color: item.action === 'created' ? '#1d4ed8' : (item.action === 'completed' ? '#15803d' : (item.action === 'rescheduled' ? '#c2410c' : '#334155')),
-                            border: `1px solid ${item.action === 'created' ? '#bfdbfe' : (item.action === 'completed' ? '#bbf7d0' : (item.action === 'rescheduled' ? '#fed7aa' : '#cbd5e1'))}`
-                          }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10.5px] font-bold px-1.5 py-[1px] rounded border ${badgeStyle}`}>
                             {item.title || item.action}
                           </span>
                         </div>
-                        <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                        <span className="text-[10.5px] text-slate-400">
                           {dateStr}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.4' }}>
+                      <div className="text-xs text-slate-700 dark:text-slate-300 leading-normal">
                         {item.details || item.title}
                       </div>
 
-                      <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>By: <strong style={{ color: '#0f172a' }}>{item.performedBy || 'User'}</strong></span>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <span>By: <strong className="text-slate-900 dark:text-slate-100">{item.performedBy || 'User'}</strong></span>
                         {item.to && (
-                          <span>To: <strong style={{ color: '#0f172a' }}>{item.to}</strong></span>
+                          <span>To: <strong className="text-slate-900 dark:text-slate-100">{item.to}</strong></span>
                         )}
                       </div>
                     </div>
@@ -782,16 +557,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '16px 28px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderBottomLeftRadius: '16px',
-          borderBottomRightRadius: '16px'
-        }}>
+        <div className="px-7 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           <div>
             {canDeleteTask && (
               <button
@@ -808,19 +574,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                     onClose();
                   }
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  backgroundColor: '#fef2f2',
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
                 title="Permanently delete task"
               >
                 <Trash2 size={14} />
@@ -830,16 +584,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              padding: '8px 18px',
-              borderRadius: '8px',
-              fontSize: '13.5px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-[18px] py-2 rounded-lg text-[13.5px] font-medium cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             Close
           </button>

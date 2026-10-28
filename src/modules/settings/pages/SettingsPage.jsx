@@ -72,126 +72,55 @@ export const SettingsPage = () => {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+    <div className="flex flex-col gap-[18px]">
 
       {/* ── Standard Compact Header ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        background: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #475569, #334155)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            boxShadow: '0 2px 6px rgba(71,85,105,0.25)',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white shadow-xs shrink-0">
             <SettingsIcon size={16} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2', letterSpacing: '-0.01em' }}>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight tracking-tight">
                 {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip Settings'}
               </h1>
-              <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 7px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
+              <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                 Settings
               </span>
             </div>
-            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
               Manage account profile, security credentials, RBAC permissions & company details.
             </p>
           </div>
         </div>
 
         {/* Live Work Clock */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '5px 12px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '20px',
-          border: '1px solid #e2e8f0',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#0f172a'
-        }}>
-          <span style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            backgroundColor: !isClockedIn ? '#94a3b8' : isOnBreak ? '#f59e0b' : '#22c55e'
-          }}></span>
-          <span style={{ fontFamily: 'monospace' }}>{timeString || '00:00:00'}</span>
+        <div className="flex items-center gap-2 py-1 px-3 bg-slate-50 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100">
+          <span className={`w-1.5 h-1.5 rounded-full ${!isClockedIn ? 'bg-slate-400' : isOnBreak ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+          <span className="font-mono">{timeString || '00:00:00'}</span>
         </div>
       </div>
 
       {/* ── Two-Column Settings Layout ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '240px 1fr',
-        gap: '18px',
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '16px',
-        minHeight: '600px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
+      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-[18px] bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-4 min-h-[600px] shadow-xs">
 
         {/* ── Left Sidebar Menu ── */}
-        <div style={{
-          borderRight: '1px solid #f1f5f9',
-          paddingRight: '18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
+        <div className="border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-4 md:pb-0 md:pr-[18px] flex flex-col gap-4">
           {/* Search Menu */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '7px 12px',
-            borderRadius: '8px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff'
-          }}>
-            <Search size={14} color="#94a3b8" />
+          <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <Search size={14} className="text-slate-400" />
             <input
               type="text"
               placeholder="Search"
               value={searchMenu}
               onChange={e => setSearchMenu(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '12.5px',
-                width: '100%',
-                backgroundColor: 'transparent'
-              }}
+              className="border-0 outline-none text-[12.5px] w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
             />
           </div>
 
           {/* Navigation Items */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="flex flex-col gap-1">
             {filteredMenuItems.map(item => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
@@ -199,24 +128,13 @@ export const SettingsPage = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: isActive ? '#f1f5f9' : 'transparent',
-                    color: isActive ? '#0f172a' : '#64748b',
-                    fontSize: '13.5px',
-                    fontWeight: isActive ? '700' : '500',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent'
-                  }}
+                  className={`flex items-center gap-2.5 py-2.5 px-3.5 rounded-lg border-0 text-[13.5px] text-left cursor-pointer transition-all duration-150 border-l-[3px] ${
+                    isActive
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold border-l-blue-600'
+                      : 'bg-transparent text-slate-500 dark:text-slate-400 font-medium border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                  }`}
                 >
-                  <Icon size={16} color={isActive ? '#2563eb' : '#64748b'} />
+                  <Icon size={16} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -225,48 +143,31 @@ export const SettingsPage = () => {
         </div>
 
         {/* ── Right Content Area ── */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="flex flex-col">
 
           {/* Section: Profile Settings */}
           {activeSection === 'profile' && (
             <div>
               {/* Profile Sub-tabs (Profile | Emergency Contacts) Matching Screenshot 8 & 9 */}
-              <div style={{
-                display: 'flex',
-                gap: '28px',
-                borderBottom: '1px solid #e2e8f0',
-                paddingBottom: '2px'
-              }}>
+              <div className="flex gap-7 border-b border-slate-200 dark:border-slate-800 pb-0.5">
                 <button
                   onClick={() => setProfileSubTab('profile')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    paddingBottom: '10px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    color: profileSubTab === 'profile' ? '#0f172a' : '#64748b',
-                    cursor: 'pointer',
-                    borderBottom: profileSubTab === 'profile' ? '2.5px solid #2563eb' : '2.5px solid transparent',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`bg-transparent border-0 pb-2.5 text-sm font-bold cursor-pointer transition-all border-b-[2.5px] ${
+                    profileSubTab === 'profile'
+                      ? 'text-slate-900 dark:text-slate-100 border-b-blue-600'
+                      : 'text-slate-500 dark:text-slate-400 border-b-transparent hover:text-slate-700'
+                  }`}
                 >
                   Profile
                 </button>
 
                 <button
                   onClick={() => setProfileSubTab('emergency_contacts')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    paddingBottom: '10px',
-                    fontSize: '14px',
-                    fontWeight: '700',
-                    color: profileSubTab === 'emergency_contacts' ? '#0f172a' : '#64748b',
-                    cursor: 'pointer',
-                    borderBottom: profileSubTab === 'emergency_contacts' ? '2.5px solid #2563eb' : '2.5px solid transparent',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`bg-transparent border-0 pb-2.5 text-sm font-bold cursor-pointer transition-all border-b-[2.5px] ${
+                    profileSubTab === 'emergency_contacts'
+                      ? 'text-slate-900 dark:text-slate-100 border-b-blue-600'
+                      : 'text-slate-500 dark:text-slate-400 border-b-transparent hover:text-slate-700'
+                  }`}
                 >
                   Emergency Contacts
                 </button>
@@ -290,13 +191,13 @@ export const SettingsPage = () => {
 
           {/* Section: Personal Work Preferences (For All Employees) */}
           {activeSection === 'preferences' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="bg-white dark:bg-slate-900 rounded-[10px] p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-5">
               <div>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>My Work & Notification Preferences</h3>
-                <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Configure personal desktop notifications, task reminders, and shift alerts.</p>
+                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0 mb-1">My Work & Notification Preferences</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 m-0">Configure personal desktop notifications, task reminders, and shift alerts.</p>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="flex flex-col gap-3.5">
                 {[
                   {
                     id: 'email',
@@ -343,44 +244,26 @@ export const SettingsPage = () => {
                     }
                   }
                 ].map(pref => (
-                  <div key={pref.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div key={pref.id} className="flex items-center justify-between p-3 px-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{pref.title}</div>
-                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{pref.desc}</div>
+                      <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{pref.title}</div>
+                      <div className="text-[11.5px] text-slate-500 dark:text-slate-400">{pref.desc}</div>
                     </div>
                     <button
                       onClick={pref.toggle}
-                      style={{
-                        width: '44px',
-                        height: '24px',
-                        borderRadius: '12px',
-                        border: 'none',
-                        backgroundColor: pref.value ? '#2563eb' : '#cbd5e1',
-                        cursor: 'pointer',
-                        position: 'relative',
-                        transition: 'background-color 0.2s',
-                        padding: 0
-                      }}
+                      className={`w-11 h-6 rounded-full border-0 cursor-pointer relative transition-colors p-0 ${
+                        pref.value ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
                     >
-                      <span style={{
-                        position: 'absolute',
-                        top: '2px',
-                        left: pref.value ? '22px' : '2px',
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '50%',
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        transition: 'left 0.2s'
-                      }} />
+                      <span className={`absolute top-0.5 rounded-full bg-white shadow-xs transition-[left] duration-200 w-5 h-5 ${
+                        pref.value ? 'left-[22px]' : 'left-0.5'
+                      }`} />
                     </button>
-
                   </div>
                 ))}
               </div>
             </div>
           )}
-
 
           {/* Section: Employee Permissions Management (Admin Only) */}
           {activeSection === 'permissions' && isUserAdmin && (

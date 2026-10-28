@@ -86,91 +86,38 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '620px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                 <DollarSign size={18} />
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 m-0">
                 Add New Company Expense
               </h2>
             </div>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '4px 0 0 40px' }}>
+            <p className="text-[12.5px] text-slate-500 mt-1 ml-10 m-0">
               Record company purchase, assign paying employee, and upload receipt proof
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white border border-slate-200 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           
           {/* Row 1: Item Name & Price */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Item Name / Expense Title *
               </label>
               <input
@@ -179,12 +126,12 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. AWS Cloud Hosting, Office Fiber Broadband"
                 value={formData.itemName}
                 onChange={e => handleChange('itemName', e.target.value)}
-                style={inputStyle}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Price (₹) *
               </label>
               <input
@@ -193,21 +140,21 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. 25000"
                 value={formData.price}
                 onChange={e => handleChange('price', e.target.value)}
-                style={inputStyle}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Row 2: Category & Purchased From */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Expense Category
               </label>
               <select
                 value={formData.category}
                 onChange={e => handleChange('category', e.target.value)}
-                style={selectStyle}
+                className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 cursor-pointer focus:border-blue-500 transition-colors"
               >
                 <option value="Cloud Infrastructure">Cloud Infrastructure</option>
                 <option value="Software & Tools">Software & Tools</option>
@@ -221,7 +168,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Purchased From / Vendor
               </label>
               <input
@@ -229,21 +176,21 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. Amazon Web Services, Apple, Airtel"
                 value={formData.purchasedFrom}
                 onChange={e => handleChange('purchasedFrom', e.target.value)}
-                style={inputStyle}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Row 3: Employee / Paid By & Purchase Date */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Employee / Paid By
               </label>
               <select
                 value={formData.employeeId}
                 onChange={e => handleChange('employeeId', e.target.value)}
-                style={selectStyle}
+                className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 cursor-pointer focus:border-blue-500 transition-colors"
               >
                 {employees.map(emp => (
                   <option key={emp._id} value={emp._id}>
@@ -254,49 +201,41 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
                 Purchase Date
               </label>
               <input
                 type="date"
                 value={formData.purchaseDate}
                 onChange={e => handleChange('purchaseDate', e.target.value)}
-                style={inputStyle}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Row 4: Status (Admin Controlled) */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Approval Status
             </label>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className="flex gap-3">
               {['approved', 'pending', 'rejected'].map(st => (
                 <label
                   key={st}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: formData.status === st ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                    backgroundColor: formData.status === st ? '#eff6ff' : '#ffffff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    textTransform: 'capitalize',
-                    color: st === 'approved' ? '#16a34a' : st === 'pending' ? '#d97706' : '#dc2626'
-                  }}
+                  className={`flex-1 p-2.5 px-3.5 rounded-lg cursor-pointer flex items-center gap-2 text-[13px] font-semibold capitalize transition-all ${
+                    formData.status === st
+                      ? 'border-2 border-blue-600 bg-blue-50'
+                      : 'border border-slate-200 bg-white hover:bg-slate-50'
+                  } ${
+                    st === 'approved' ? 'text-green-600' : st === 'pending' ? 'text-amber-600' : 'text-red-600'
+                  }`}
                 >
                   <input
                     type="radio"
                     name="status"
                     checked={formData.status === st}
                     onChange={() => handleChange('status', st)}
-                    style={{ accentColor: '#2563eb' }}
+                    className="accent-blue-600"
                   />
                   {st}
                 </label>
@@ -306,7 +245,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
 
           {/* Row 5: Description */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Description & Business Justification
             </label>
             <textarea
@@ -314,38 +253,17 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
               placeholder="Provide reason for purchase, project attribution or invoice details..."
               value={formData.description}
               onChange={e => handleChange('description', e.target.value)}
-              style={{
-                ...inputStyle,
-                height: 'auto',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-2.5 px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white text-slate-900 resize-y font-sans focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Footer Buttons */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-[18px] py-[9px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[13px] font-semibold cursor-pointer transition-colors"
             >
               Cancel
             </button>
@@ -353,20 +271,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.35)'
-              }}
+              className="inline-flex items-center gap-2 px-[22px] py-[9px] rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/35 disabled:opacity-50 transition-colors"
             >
               <Check size={16} />
               {submitting ? 'Recording...' : 'Add Expense'}
@@ -376,29 +281,4 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-};
-
-const inputStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 12px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a'
-};
-
-const selectStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 10px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a',
-  cursor: 'pointer'
 };

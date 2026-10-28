@@ -26,100 +26,47 @@ export const DashboardWelcomeCard = ({
   setIsEditProfileOpen
 }) => {
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '10px',
-      border: '1px solid #e2e8f0',
-      padding: '14px 18px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: '10px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div className="bg-white rounded-[10px] border border-slate-200 p-[14px_18px] flex flex-col justify-between gap-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center gap-3">
+        <div className="relative shrink-0">
           <img
             src={effectiveTargetUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
             alt={effectiveTargetUser?.name}
-            style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              objectFit: 'cover',
-              border: '1.5px solid #e2e8f0',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-            }}
+            className="w-[42px] h-[42px] rounded-[10px] object-cover border-[1.5px] border-slate-200 shadow-sm"
           />
-          <span style={{
-            position: 'absolute',
-            bottom: '-2px',
-            right: '-2px',
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            backgroundColor: displayedIsClockedIn ? '#10b981' : '#94a3b8',
-            border: '2px solid #ffffff'
-          }} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${displayedIsClockedIn ? 'bg-emerald-500' : 'bg-slate-400'}`} />
         </div>
 
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h2 className="text-[15.5px] font-extrabold text-slate-900 m-0 overflow-hidden text-ellipsis whitespace-nowrap">
               {isViewingOtherEmployee ? `Employee: ${effectiveTargetUser?.name || 'User'}` : `Welcome ${currentUser?.name || 'User'}`}
             </h2>
-            <span style={{
-              fontSize: '10px',
-              fontWeight: '700',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              backgroundColor: roleConfig?.badgeBg || '#eff6ff',
-              color: roleConfig?.badgeColor || '#2563eb',
-              border: `1px solid ${roleConfig?.badgeColor || '#93c5fd'}40`
-            }}>
+            <span
+              className="text-[10px] font-bold px-1.5 py-px rounded border"
+              style={{
+                backgroundColor: roleConfig?.badgeBg || '#eff6ff',
+                color: roleConfig?.badgeColor || '#2563eb',
+                borderColor: `${roleConfig?.badgeColor || '#93c5fd'}40`
+              }}
+            >
               {effectiveTargetUser?.role || roleConfig?.label || 'Team Member'}
             </span>
             {/* Interactive Working Mode Selector */}
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <div className="relative inline-flex items-center">
               <button
                 id="btn-toggle-workmode-welcome"
                 type="button"
                 onClick={() => setShowWorkModeMenu(prev => !prev)}
                 title="Click to change your live working mode (Office / Hybrid / Remote)"
-                style={{
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  padding: '1.5px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: activeWorkMode === 'Remote' ? '#ecfdf5' : activeWorkMode === 'Hybrid' ? '#faf5ff' : '#f1f5f9',
-                  color: activeWorkMode === 'Remote' ? '#059669' : activeWorkMode === 'Hybrid' ? '#7c3aed' : '#334155',
-                  border: `1px solid ${activeWorkMode === 'Remote' ? '#a7f3d0' : activeWorkMode === 'Hybrid' ? '#e9d5ff' : '#cbd5e1'}`,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px'
-                }}
+                className={`text-[10px] font-bold py-[1.5px] px-1.5 rounded cursor-pointer inline-flex items-center gap-[3px] border ${activeWorkMode === 'Remote' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : activeWorkMode === 'Hybrid' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
               >
                 <span>{activeWorkMode === 'Remote' ? '🏡 Remote' : activeWorkMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
                 <ChevronDown size={10} />
               </button>
 
               {showWorkModeMenu && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  marginTop: '4px',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-                  padding: '4px',
-                  zIndex: 100,
-                  minWidth: '110px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2px'
-                }}>
+                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-slate-200 p-1 z-[100] min-w-[110px] flex flex-col gap-0.5">
                   {[
                     { id: 'Office', label: '🏢 Office' },
                     { id: 'Hybrid', label: '🔄 Hybrid' },
@@ -129,17 +76,7 @@ export const DashboardWelcomeCard = ({
                       key={m.id}
                       type="button"
                       onClick={() => handleUpdateLiveWorkMode(m.id)}
-                      style={{
-                        padding: '5px 8px',
-                        fontSize: '11px',
-                        fontWeight: activeWorkMode === m.id ? '700' : '500',
-                        backgroundColor: activeWorkMode === m.id ? '#eff6ff' : 'transparent',
-                        color: activeWorkMode === m.id ? '#2563eb' : '#334155',
-                        border: 'none',
-                        borderRadius: '4px',
-                        textAlign: 'left',
-                        cursor: 'pointer'
-                      }}
+                      className={`p-[5px_8px] text-[11px] border-none rounded text-left cursor-pointer ${activeWorkMode === m.id ? 'font-bold bg-blue-50 text-blue-600' : 'font-medium bg-transparent text-slate-700 hover:bg-slate-50'}`}
                     >
                       {m.label}
                     </button>
@@ -148,10 +85,10 @@ export const DashboardWelcomeCard = ({
               )}
             </div>
           </div>
-          <div style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '500', marginTop: '2px' }}>
-            {effectiveTargetUser?.role || roleConfig?.label || 'Team Member'} • <span style={{ color: '#94a3b8' }}>ID: #{effectiveTargetUser?.employeeCode || effectiveTargetUser?._id || 'EMP-01'}</span>
+          <div className="text-[11.5px] text-slate-500 font-medium mt-0.5">
+            {effectiveTargetUser?.role || roleConfig?.label || 'Team Member'} • <span className="text-slate-400">ID: #{effectiveTargetUser?.employeeCode || effectiveTargetUser?._id || 'EMP-01'}</span>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
             <span>📅 {currentDateFormatted}</span>
             <span>•</span>
             <span>🕒 {currentTime}</span>
@@ -160,16 +97,10 @@ export const DashboardWelcomeCard = ({
       </div>
 
       {/* Quick Informational Snapshot (Shift Status & Available Leaves) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '8px',
-        paddingTop: '8px',
-        borderTop: '1px solid #f1f5f9'
-      }}>
-        <div style={{ padding: '6px 8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
-          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>Shift Status</div>
-          <div style={{ fontSize: '11.5px', fontWeight: '700', marginTop: '1px', color: displayedIsClockedIn ? (displayedIsOnBreak ? '#b45309' : '#16a34a') : '#64748b' }}>
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+        <div className="p-[6px_8px] bg-slate-50 rounded-md">
+          <div className="text-[10px] text-slate-500 font-semibold">Shift Status</div>
+          <div className={`text-[11.5px] font-bold mt-px ${displayedIsClockedIn ? (displayedIsOnBreak ? 'text-amber-700' : 'text-green-600') : 'text-slate-500'}`}>
             {displayedIsClockedIn
               ? (displayedIsOnBreak ? `☕ On ${displayedBreakType}` : '🟢 Shift Active')
               : (displayedHadClockedOut ? '🔴 Shift Ended' : '⚪ Not Clocked In')}
@@ -178,35 +109,21 @@ export const DashboardWelcomeCard = ({
 
         <div
           onClick={() => setIsApplyLeaveOpen(true)}
-          style={{ cursor: 'pointer', padding: '6px 8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}
+          className="cursor-pointer p-[6px_8px] bg-slate-50 rounded-md hover:bg-slate-100 transition-colors"
           title="Click to apply for leave"
         >
-          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>Leave Balance</div>
-          <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', marginTop: '1px' }}>
+          <div className="text-[10px] text-slate-500 font-semibold">Leave Balance</div>
+          <div className="text-[11.5px] font-bold text-slate-900 mt-px">
             Casual: 10d • Sick: 8d
           </div>
         </div>
       </div>
 
       {/* Quick Direct Buttons for Employees & Profile */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+      <div className="flex gap-2 mt-0.5">
         <button
           onClick={() => navigate('/employees')}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px',
-            padding: '8px 12px',
-            borderRadius: '7px',
-            backgroundColor: '#eff6ff',
-            color: '#1d4ed8',
-            border: '1px solid #bfdbfe',
-            fontSize: '11.5px',
-            fontWeight: '700',
-            cursor: 'pointer'
-          }}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-blue-50 text-blue-700 border border-blue-200 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 transition-colors"
         >
           <Users size={13} />
           <span>Directory</span>
@@ -214,21 +131,7 @@ export const DashboardWelcomeCard = ({
 
         <button
           onClick={() => navigate('/attendance')}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px',
-            padding: '8px 12px',
-            borderRadius: '7px',
-            backgroundColor: '#f0fdf4',
-            color: '#15803d',
-            border: '1px solid #bbf7d0',
-            fontSize: '11.5px',
-            fontWeight: '700',
-            cursor: 'pointer'
-          }}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-green-50 text-green-700 border border-green-200 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 transition-colors"
           title="View full attendance matrix & clock in/out logs"
         >
           <CalendarCheck size={13} color="#16a34a" />
@@ -238,21 +141,7 @@ export const DashboardWelcomeCard = ({
         <button
           id="btn-edit-profile-welcome"
           onClick={() => setIsEditProfileOpen(true)}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '7px',
-            backgroundColor: '#ffffff',
-            color: '#1e293b',
-            border: '1.5px solid #cbd5e1',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            transition: 'all 0.15s ease'
-          }}
+          className="py-2 px-4 rounded-[7px] bg-white text-slate-800 border-[1.5px] border-slate-300 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:bg-slate-50 transition-all"
           title="Edit My Profile"
         >
           <User size={13} color="#2563eb" /> Edit Profile

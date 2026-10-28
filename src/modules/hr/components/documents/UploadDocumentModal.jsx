@@ -58,67 +58,31 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '520px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-5">
+      <div className="bg-white rounded-2xl w-full max-w-[520px] shadow-[0_20px_40px_rgba(0,0,0,0.2)] overflow-hidden">
         {/* Modal Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+        <div className="py-[18px] px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <h3 className="text-base font-extrabold text-slate-900 m-0">
             Upload Employee Onboarding Document
           </h3>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+            className="bg-transparent border-0 text-slate-500 cursor-pointer p-1 hover:text-slate-700"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
               Select Employee
             </label>
             <select
               value={selectedEmployee}
               onChange={e => setSelectedEmployee(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                color: '#0f172a',
-                outline: 'none',
-                backgroundColor: '#ffffff'
-              }}
+              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 outline-none bg-white"
             >
               {employees.map(emp => (
                 <option key={emp.employeeCode} value={emp.employeeCode}>
@@ -129,22 +93,13 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
               Document Category
             </label>
             <select
               value={docType}
               onChange={e => setDocType(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                color: '#0f172a',
-                outline: 'none',
-                backgroundColor: '#ffffff'
-              }}
+              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 outline-none bg-white"
             >
               <option value="Aadhaar Card">Aadhaar Card (National ID)</option>
               <option value="PAN Card">PAN Card (Tax Identification)</option>
@@ -157,7 +112,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
               Document Title / Memo
             </label>
             <input
@@ -165,85 +120,48 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
               placeholder="e.g. Employee_Aadhaar_Card_Front_Back.pdf"
               value={docTitle}
               onChange={e => setDocTitle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none"
             />
           </div>
 
           {/* File Drop Area */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
               Attach File (PDF, PNG, JPG up to 10MB)
             </label>
-            <label style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '24px 16px',
-              border: '2px dashed #93c5fd',
-              borderRadius: '10px',
-              backgroundColor: '#eff6ff',
-              cursor: 'pointer',
-              textAlign: 'center'
-            }}>
-              <UploadCloud size={32} color="#2563eb" style={{ marginBottom: '8px' }} />
+            <label className="flex flex-col items-center justify-center py-6 px-4 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 cursor-pointer text-center">
+              <UploadCloud size={32} color="#2563eb" className="mb-2" />
               {fileName ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontWeight: '700', fontSize: '13px' }}>
+                <div className="flex items-center gap-1.5 text-green-600 font-bold text-[13px]">
                   <CheckCircle2 size={16} />
                   <span>{fileName} ({fileSize})</span>
                 </div>
               ) : (
                 <>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e40af' }}>
+                  <span className="text-[13px] font-semibold text-blue-800">
                     Click to browse or drop file here
                   </span>
-                  <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                  <span className="text-[11px] text-slate-500 mt-0.5">
                     Secure 256-bit encrypted storage
                   </span>
                 </>
               )}
-              <input type="file" onChange={handleFileChange} style={{ display: 'none' }} accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
+              <input type="file" onChange={handleFileChange} className="hidden" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
             </label>
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+          <div className="flex justify-end gap-2.5 mt-2">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '9px 16px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-[9px] px-4 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold cursor-pointer hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              style={{
-                padding: '9px 20px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.3)'
-              }}
+              className="py-[9px] px-5 rounded-lg border-0 bg-blue-600 text-white text-[13px] font-bold cursor-pointer shadow-[0_2px_6px_rgba(37,99,235,0.3)] hover:bg-blue-700"
             >
               Upload & Verify
             </button>

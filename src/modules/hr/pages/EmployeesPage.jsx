@@ -87,13 +87,13 @@ export const EmployeesPage = () => {
 
   if (!isActorHR && !isActorAdmin) {
     return (
-      <div style={{ padding: '40px 20px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '40px auto', maxWidth: '600px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-        <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔒</div>
-        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '6px' }}>Access Restricted</h2>
-        <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>The Employees & Roles directory and management features are strictly reserved for Administrators and HR personnel.</p>
+      <div className="p-10 px-5 text-center bg-white rounded-xl border border-slate-200 my-10 mx-auto max-w-[600px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <div className="text-4xl mb-3">🔒</div>
+        <h2 className="text-lg font-extrabold text-slate-900 mb-1.5">Access Restricted</h2>
+        <p className="text-[13px] text-slate-500 mb-4">The Employees & Roles directory and management features are strictly reserved for Administrators and HR personnel.</p>
         <button
           onClick={() => navigate('/dashboard')}
-          style={{ padding: '8px 18px', borderRadius: '8px', backgroundColor: '#2563eb', color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer' }}
+          className="py-2 px-[18px] rounded-lg bg-blue-600 text-white border-none font-bold text-[12.5px] cursor-pointer hover:bg-blue-700 transition-colors"
         >
           Return to My Workspace
         </button>
@@ -136,66 +136,29 @@ export const EmployeesPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 pb-6">
       
       {/* ── Page Header & Quick RBAC Bar ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <Users size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
               Employees & Role Management
             </h1>
-            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
-              Total <strong style={{ color: '#2563eb' }}>{employees?.length || 0}</strong> active employees • Manage roles, promotions & profiles.
+            <p className="text-[11.5px] text-slate-500 m-0 mt-0.5">
+              Total <strong className="text-blue-600">{employees?.length || 0}</strong> active employees • Manage roles, promotions & profiles.
             </p>
           </div>
         </div>
 
         {/* Header Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => navigate('/settings')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 11px',
-              borderRadius: '6px',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              height: '30px'
-            }}
+            className="inline-flex items-center gap-1.5 py-1.5 px-[11px] rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer h-[30px] hover:bg-slate-100 transition-colors"
             title="Configure RBAC Roles & Custom Designations"
           >
             <ShieldCheck size={14} color="#2563eb" />
@@ -204,21 +167,7 @@ export const EmployeesPage = () => {
 
           <button
             onClick={() => setIsAddOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              height: '30px',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer h-[30px] shadow-sm hover:bg-blue-700 transition-colors"
           >
             <Plus size={14} />
             <span>Add New Employee</span>
@@ -227,46 +176,26 @@ export const EmployeesPage = () => {
       </div>
 
       {/* ── Security Rule Explanation Card (Compact) ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '10px'
-      }}>
-        <div style={{
-          padding: '8px 12px',
-          borderRadius: '8px',
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ fontSize: '15px' }}>👑</span>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-2.5">
+        <div className="py-2 px-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
+          <span className="text-[15px]">👑</span>
           <div>
-            <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#1e3a8a' }}>
+            <div className="text-[11.5px] font-extrabold text-blue-900">
               Super Admin Authority
             </div>
-            <div style={{ fontSize: '11px', color: '#2563eb', lineHeight: '1.2' }}>
+            <div className="text-[11px] text-blue-600 leading-tight">
               Can assign any role, create <strong>New Admins</strong>, HRs, Team Leads, or Custom Roles.
             </div>
           </div>
         </div>
 
-        <div style={{
-          padding: '8px 12px',
-          borderRadius: '8px',
-          backgroundColor: '#fef3c7',
-          border: '1px solid #fde68a',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ fontSize: '15px' }}>💼</span>
+        <div className="py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2">
+          <span className="text-[15px]">💼</span>
           <div>
-            <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#92400e' }}>
+            <div className="text-[11.5px] font-extrabold text-amber-800">
               HR Manager Role Assignment
             </div>
-            <div style={{ fontSize: '11px', color: '#b45309', lineHeight: '1.2' }}>
+            <div className="text-[11px] text-amber-700 leading-tight">
               Can promote Team Leads, Seniors, Juniors & Custom Roles (cannot create Admins).
             </div>
           </div>
@@ -274,118 +203,67 @@ export const EmployeesPage = () => {
       </div>
 
       {/* ── Filters & Search Bar (Compact) ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        padding: '10px 14px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
-          <div style={{
-            position: 'relative',
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', color: '#94a3b8' }} />
+      <div className="bg-white p-2.5 px-3.5 rounded-[10px] border border-slate-200 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+          <div className="relative flex-1 flex items-center">
+            <Search size={14} className="absolute left-2.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search by name, role, email, employee ID..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                width: '100%',
-                height: '30px',
-                paddingLeft: '30px',
-                paddingRight: '10px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                outline: 'none',
-                backgroundColor: '#f8fafc'
-              }}
+              className="w-full h-[30px] pl-[30px] pr-2.5 rounded-md border border-slate-300 text-xs outline-none bg-slate-50 text-slate-900"
             />
           </div>
 
           <select
             value={selectedDept}
             onChange={e => setSelectedDept(e.target.value)}
-            style={{
-              height: '30px',
-              padding: '0 8px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              backgroundColor: '#ffffff',
-              color: '#0f172a',
-              colorScheme: 'light',
-              outline: 'none'
-            }}
+            className="h-[30px] px-2 rounded-md border border-slate-300 text-xs bg-white text-slate-900 outline-none"
           >
-            <option value="all" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>All Departments ({departments.length})</option>
+            <option value="all" className="bg-white text-slate-900">All Departments ({departments.length})</option>
             {departments.map(d => (
-              <option key={d} value={d} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{d}</option>
+              <option key={d} value={d} className="bg-white text-slate-900">{d}</option>
             ))}
           </select>
 
           <select
             value={selectedRoleFilter}
             onChange={e => setSelectedRoleFilter(e.target.value)}
-            style={{
-              height: '30px',
-              padding: '0 8px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              backgroundColor: '#ffffff',
-              color: '#0f172a',
-              colorScheme: 'light',
-              outline: 'none'
-            }}
+            className="h-[30px] px-2 rounded-md border border-slate-300 text-xs bg-white text-slate-900 outline-none"
           >
-            <option value="all" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>All Roles & Posts</option>
+            <option value="all" className="bg-white text-slate-900">All Roles & Posts</option>
             {systemRoles.map(r => (
-              <option key={r.id} value={r.name} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{r.name}</option>
+              <option key={r.id} value={r.name} className="bg-white text-slate-900">{r.name}</option>
             ))}
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-slate-500 font-semibold">
             Showing {filteredEmployees.length} of {employees.length} employees
           </span>
         </div>
       </div>
 
       {/* ── Employee Directory Table (Compact Rows & Zero Wrapping) ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div className="bg-white rounded-[10px] border border-slate-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Employee Details</th>
-                <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Employee ID</th>
-                <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Designation / Current Role</th>
-                <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Department</th>
-                <th style={{ padding: '8px 10px', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Joining Date</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Actions & Role Change</th>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="p-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Employee Details</th>
+                <th className="p-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Employee ID</th>
+                <th className="p-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Designation / Current Role</th>
+                <th className="p-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Department</th>
+                <th className="p-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Joining Date</th>
+                <th className="p-2 px-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Actions & Role Change</th>
               </tr>
             </thead>
             <tbody>
               {filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '12px' }}>
+                  <td colSpan={6} className="text-center p-7 text-slate-500 text-xs">
                     No employees matching search criteria.
                   </td>
                 </tr>
@@ -395,96 +273,67 @@ export const EmployeesPage = () => {
                   return (
                     <tr
                       key={emp._id}
-                      style={{
-                        borderBottom: '1px solid #f1f5f9',
-                        transition: 'background-color 0.15s ease'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                     >
-                      <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <td className="p-2 px-2.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
                           <img
                             src={emp.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(emp.name)}`}
                             alt={emp.name}
-                            style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #e2e8f0' }}
+                            className="w-[26px] h-[26px] rounded-full object-cover border border-slate-200"
                           />
                           <div>
-                            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', lineHeight: '1.2' }}>
+                            <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 leading-tight">
                               <span>{emp.name}</span>
                               {isEmployeeSelf(emp) && (
-                                <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: '700' }}>
+                                <span className="text-[9px] py-px px-1 rounded bg-blue-50 text-blue-600 font-bold">
                                   You
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                            <div className="text-[10.5px] text-slate-500">
                               {emp.email}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td style={{ padding: '7px 10px', fontWeight: '700', color: '#1e293b', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                      <td className="p-2 px-2.5 font-bold text-slate-800 text-[11.5px] whitespace-nowrap">
                         {emp.employeeCode || '—'}
                       </td>
 
                       {/* Current Role with distinct badge */}
-                      <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '2px 7px',
-                          borderRadius: '5px',
-                          backgroundColor: badge.bg,
-                          border: `1px solid ${badge.border}`,
-                          color: badge.color,
-                          fontSize: '11px',
-                          fontWeight: '700'
-                        }}>
+                      <td className="p-2 px-2.5 whitespace-nowrap">
+                        <span
+                          className="inline-flex items-center gap-1 py-0.5 px-2 rounded-[5px] border text-[11px] font-bold"
+                          style={{
+                            backgroundColor: badge.bg,
+                            borderColor: badge.border,
+                            color: badge.color
+                          }}
+                        >
                           <span>{badge.icon}</span>
                           <span>{emp.role || 'Junior Associate'}</span>
                         </span>
                       </td>
 
-                      <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          backgroundColor: '#f1f5f9',
-                          color: '#334155',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: '600'
-                        }}>
+                      <td className="p-2 px-2.5 whitespace-nowrap">
+                        <span className="bg-slate-100 text-slate-700 py-0.5 px-1.5 rounded text-[11px] font-semibold">
                           {emp.department || 'Engineering'}
                         </span>
                       </td>
 
-                      <td style={{ padding: '7px 10px', fontSize: '11.5px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                      <td className="p-2 px-2.5 text-[11.5px] text-slate-500 whitespace-nowrap">
                         {emp.joiningDate || '2023-01-15'}
                       </td>
 
                       {/* Actions: Direct Role Change & Profile Edit */}
-                      <td style={{ padding: '7px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <td className="p-2 px-2.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
                           {/* Button 1: Revise Compensation (Hike / Reduction) */}
                           <button
                             onClick={() => setSelectedSalaryEmp(emp)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: '3px 7px',
-                              borderRadius: '5px',
-                              backgroundColor: '#f0fdf4',
-                              color: '#15803d',
-                              border: '1px solid #bbf7d0',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              height: '24px'
-                            }}
+                            className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-green-50 text-green-700 border border-green-200 text-[11px] font-bold cursor-pointer h-6 hover:bg-green-100 transition-colors"
                             title="Revise Compensation (Hike 📈 or Deduction 📉)"
                           >
                             <ArrowUpDown size={11} color="#16a34a" />
@@ -494,20 +343,7 @@ export const EmployeesPage = () => {
                           {/* Button 2: Direct Role & Post Change (Promote Modal) */}
                           <button
                             onClick={() => setSelectedPromoteEmp(emp)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: '3px 8px',
-                              borderRadius: '5px',
-                              backgroundColor: '#eff6ff',
-                              color: '#1d4ed8',
-                              border: '1px solid #bfdbfe',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              height: '24px'
-                            }}
+                            className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold cursor-pointer h-6 hover:bg-blue-100 transition-colors"
                             title="Promote or Change Post (Admin & HR)"
                           >
                             <Award size={11} />
@@ -517,20 +353,7 @@ export const EmployeesPage = () => {
                           {/* Button 2.5: Granular Permissions & Access Rights Modal */}
                           <button
                             onClick={() => setSelectedPermsEmp(emp)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: '3px 8px',
-                              borderRadius: '5px',
-                              backgroundColor: '#f5f3ff',
-                              color: '#7c3aed',
-                              border: '1px solid #ddd6fe',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              cursor: 'pointer',
-                              height: '24px'
-                            }}
+                            className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold cursor-pointer h-6 hover:bg-purple-100 transition-colors"
                             title="Manage Granular Module Permissions & Access Rights"
                           >
                             <ShieldCheck size={11} color="#7c3aed" />
@@ -540,20 +363,7 @@ export const EmployeesPage = () => {
                           {/* Button 3: Full Profile & Role Edit */}
                           <button
                             onClick={() => setSelectedProfileEmp(emp)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: '3px 7px',
-                              borderRadius: '5px',
-                              backgroundColor: '#f8fafc',
-                              color: '#334155',
-                              border: '1px solid #cbd5e1',
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              height: '24px'
-                            }}
+                            className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-slate-50 text-slate-700 border border-slate-300 text-[11px] font-semibold cursor-pointer h-6 hover:bg-slate-100 transition-colors"
                             title="Edit Full Profile & Designation"
                           >
                             <User size={11} color="#0284c7" />
@@ -573,18 +383,7 @@ export const EmployeesPage = () => {
                                   deleteEmployee(emp._id);
                                 }
                               }}
-                              style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '5px',
-                                border: '1px solid #fee2e2',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer'
-                              }}
+                              className="w-6 h-6 rounded-[5px] border border-red-200 bg-red-50 text-red-600 inline-flex items-center justify-center cursor-pointer hover:bg-red-100 transition-colors"
                               title="Delete Employee"
                             >
                               <Trash2 size={12} />

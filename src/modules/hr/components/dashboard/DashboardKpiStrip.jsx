@@ -36,144 +36,75 @@ export const DashboardKpiStrip = ({
   currentUser = null
 }) => {
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-      gap: '10px'
-    }}>
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2.5">
       {isUserAdminOrHR && !isViewingOtherEmployee ? (
         <>
           <div
             onClick={() => navigate('/team-operations')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-600"
             title="Click to open Live Operations"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Total Team</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Total Team</span>
               <Users size={13} color="#0284c7" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+            <div className="text-lg font-extrabold text-slate-900">
               {(employees || []).length}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/attendance')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-green-600"
             title="Click to view Attendance"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Present Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Present Today</span>
               <UserCheck size={13} color="#16a34a" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
+            <div className="text-lg font-extrabold text-green-600">
               {teamStats.present || 0}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/leaves')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-amber-600"
             title="Click to open Leave Requests"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>On Leave</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">On Leave</span>
               <Palmtree size={13} color="#d97706" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
+            <div className="text-lg font-extrabold text-amber-600">
               {employeesOnLeave.length}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/team-operations')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-600"
             title="Click to view Live Operations"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Working Now</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Working Now</span>
               <Clock size={13} color="#2563eb" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb' }}>
+            <div className="text-lg font-extrabold text-blue-600">
               {teamStats.clockedIn}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/tasks')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-600"
             title="Click to open Tasks Board"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>In Progress</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">In Progress</span>
               <Play size={13} color="#2563eb" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb' }}>
+            <div className="text-lg font-extrabold text-blue-600">
               {allInProgressTasksCount}
             </div>
           </div>
@@ -183,27 +114,14 @@ export const DashboardKpiStrip = ({
               setPendingTasksModalFilter('all');
               setIsPendingTasksModalOpen(true);
             }}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-amber-600"
             title="Click to view all pending tasks list"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Pending</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Pending</span>
               <Clock size={13} color="#d97706" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
+            <div className="text-lg font-extrabold text-amber-600">
               {allPendingTasksCount}
             </div>
           </div>
@@ -213,54 +131,28 @@ export const DashboardKpiStrip = ({
               setPendingTasksModalFilter('overdue');
               setIsPendingTasksModalOpen(true);
             }}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-600"
             title="Click to view overdue tasks"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '700' }}>Overdue 🔥</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-red-600 font-bold">Overdue 🔥</span>
               <AlertCircle size={13} color="#dc2626" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#dc2626' }}>
+            <div className="text-lg font-extrabold text-red-600">
               {allOverdueTasksCount}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/tasks')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-green-600"
             title="Click to open Tasks Board"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Done Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Done Today</span>
               <CheckCircle2 size={13} color="#16a34a" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
+            <div className="text-lg font-extrabold text-green-600">
               {allCompletedTodayCount}
             </div>
           </div>
@@ -268,22 +160,13 @@ export const DashboardKpiStrip = ({
       ) : (
         <>
           <div
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] flex flex-col gap-1 shadow-sm"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Today's Time</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Today's Time</span>
               <Clock size={13} color="#0284c7" />
             </div>
-            <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
+            <div className="text-[17px] font-extrabold text-slate-900">
               {totalTaskTodaySecs > 0
                 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`)
                 : (displayedWorkDuration || '0h 0m')}
@@ -292,24 +175,14 @@ export const DashboardKpiStrip = ({
 
           <div
             onClick={() => document.getElementById('active-timer-card')?.scrollIntoView({ behavior: 'smooth' })}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm hover:border-purple-400 transition-all"
             title="Active Task"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Active Task</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Active Task</span>
               <Play size={13} color="#7c3aed" />
             </div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#7c3aed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="text-[15px] font-extrabold text-purple-700 overflow-hidden text-ellipsis whitespace-nowrap">
               {displayActiveTask ? `#${displayActiveTask.taskCode || 'TSK'}` : 'None'}
             </div>
           </div>
@@ -319,24 +192,14 @@ export const DashboardKpiStrip = ({
               if (setTaskStatusTab) setTaskStatusTab('pending');
               document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            style={{
-              backgroundColor: taskStatusTab === 'pending' ? '#fffbeb' : '#ffffff',
-              border: taskStatusTab === 'pending' ? '1px solid #d97706' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className={`rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm border transition-all ${taskStatusTab === 'pending' ? 'bg-amber-50 border-amber-500' : 'bg-white border-slate-200 hover:border-amber-400'}`}
             title="Click to view Pending tasks"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>My Pending</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">My Pending</span>
               <ListTodo size={13} color="#d97706" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
+            <div className="text-lg font-extrabold text-amber-600">
               {myPendingTasks.length}
             </div>
           </div>
@@ -346,24 +209,14 @@ export const DashboardKpiStrip = ({
               if (setTaskStatusTab) setTaskStatusTab('due_today');
               document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            style={{
-              backgroundColor: taskStatusTab === 'due_today' ? '#fae8ff' : '#ffffff',
-              border: taskStatusTab === 'due_today' ? '1px solid #c026d3' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className={`rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm border transition-all ${taskStatusTab === 'due_today' ? 'bg-fuchsia-50 border-fuchsia-600' : 'bg-white border-slate-200 hover:border-fuchsia-400'}`}
             title="Click to view tasks Due Today"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Due Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Due Today</span>
               <CalendarIcon size={13} color="#c026d3" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#c026d3' }}>
+            <div className="text-lg font-extrabold text-fuchsia-600">
               {myDueTodayTasksCount}
             </div>
           </div>
@@ -373,24 +226,14 @@ export const DashboardKpiStrip = ({
               if (setTaskStatusTab) setTaskStatusTab('overdue');
               document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            style={{
-              backgroundColor: taskStatusTab === 'overdue' ? '#fef2f2' : '#ffffff',
-              border: taskStatusTab === 'overdue' ? '1px solid #dc2626' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className={`rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm border transition-all ${taskStatusTab === 'overdue' ? 'bg-red-50 border-red-600' : 'bg-white border-slate-200 hover:border-red-400'}`}
             title="Click to view Overdue tasks 🔥"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '700' }}>Overdue 🔥</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-red-600 font-bold">Overdue 🔥</span>
               <AlertCircle size={13} color="#dc2626" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#dc2626' }}>
+            <div className="text-lg font-extrabold text-red-600">
               {overdueTasksCount}
             </div>
           </div>
@@ -400,55 +243,35 @@ export const DashboardKpiStrip = ({
               if (setTaskStatusTab) setTaskStatusTab('completed');
               document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            style={{
-              backgroundColor: taskStatusTab === 'completed' ? '#f0fdf4' : '#ffffff',
-              border: taskStatusTab === 'completed' ? '1px solid #16a34a' : '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className={`rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm border transition-all ${taskStatusTab === 'completed' ? 'bg-green-50 border-green-600' : 'bg-white border-slate-200 hover:border-green-400'}`}
             title="Click to view Completed tasks"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Done Today</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Done Today</span>
               <CheckCircle2 size={13} color="#16a34a" />
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
+            <div className="text-lg font-extrabold text-green-600">
               {myCompletedTodayCount}
             </div>
           </div>
 
           <div
             onClick={() => navigate('/leaves')}
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-            }}
+            className="bg-white border border-slate-200 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm hover:border-emerald-400 transition-all"
             title="Click to view Leaves"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Leave Balance</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-semibold">Leave Balance</span>
               <Palmtree size={13} color="#059669" />
             </div>
-            <div style={{ fontSize: '16px', fontWeight: '800', color: '#059669' }}>
+            <div className="text-base font-extrabold text-emerald-600">
               {currentUser?.leaveBalance ? (
                 (Number(currentUser.leaveBalance.casual) || 0) +
                 (Number(currentUser.leaveBalance.sick) || 0) +
                 (Number(currentUser.leaveBalance.earned) || 0)
               ) : 35} Days
             </div>
-            <div style={{ fontSize: '10px', color: '#64748b' }}>
+            <div className="text-[10px] text-slate-500">
               CL: {currentUser?.leaveBalance?.casual ?? 10} • SL: {currentUser?.leaveBalance?.sick ?? 8} • EL: {currentUser?.leaveBalance?.earned ?? 15}
             </div>
           </div>

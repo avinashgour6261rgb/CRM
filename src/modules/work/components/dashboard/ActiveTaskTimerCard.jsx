@@ -31,72 +31,33 @@ export const ActiveTaskTimerCard = ({
   navigate
 }) => {
   return (
-    <div id="active-timer-card" style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '10px',
-      border: '1px solid #e2e8f0',
-      padding: '14px 18px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: '10px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
+    <div id="active-timer-card" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 sm:px-[18px] flex flex-col justify-between gap-2.5 shadow-xs">
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+        <div className="flex items-center justify-between flex-wrap gap-1.5">
           <h3
             onClick={() => navigate('/timesheet')}
-            style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0, cursor: 'pointer' }}
+            className="text-sm font-bold text-slate-900 dark:text-white m-0 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             title="Click to open Timesheet"
           >
             My Active Timer ⏱️
           </h3>
         </div>
-        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
           {currentDateFormatted}
         </div>
       </div>
 
       {displayActiveTask && displayActiveTask.status !== 'completed' ? (
         <>
-          <div style={{
-            padding: '8px 10px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '7px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px'
-          }}>
+          <div className="p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700/80 flex flex-col gap-1.5">
             {!isClockedIn && (
-              <div style={{
-                padding: '5px 8px',
-                backgroundColor: '#fef2f2',
-                borderRadius: '5px',
-                border: '1px solid #fecaca',
-                color: '#991b1b',
-                fontSize: '11px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '4px'
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div className="p-1.5 px-2 bg-red-50 dark:bg-red-950/40 rounded-md border border-red-200 dark:border-red-900/60 text-red-800 dark:text-red-300 text-[11px] font-bold flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1">
                   <span>⚠️ Shift Not Clocked In — Clock in to track task time</span>
                 </span>
                 <button
                   onClick={handleClockIn}
-                  style={{
-                    padding: '2px 7px',
-                    borderRadius: '4px',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-2 py-0.5 rounded bg-green-600 hover:bg-green-700 text-white border-none text-[10px] font-bold cursor-pointer transition-colors"
                 >
                   Clock In
                 </button>
@@ -104,36 +65,15 @@ export const ActiveTaskTimerCard = ({
             )}
 
             {displayedIsOnBreak && (
-              <div style={{
-                padding: '6px 10px',
-                backgroundColor: '#fffbeb',
-                borderRadius: '6px',
-                border: '1.5px solid #fde68a',
-                color: '#b45309',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '6px'
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Coffee size={14} color="#d97706" />
+              <div className="p-1.5 px-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[11.5px] font-bold flex items-center justify-between gap-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
                   <span>On {displayedBreakType} — Task timer is paused</span>
                 </span>
                 {!isViewingOtherEmployee && (
                   <button
                     onClick={resumeFromBreak}
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '10.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="px-2 py-0.5 rounded bg-green-600 hover:bg-green-700 text-white border-none text-[10.5px] font-bold cursor-pointer transition-colors"
                   >
                     Resume Shift
                   </button>
@@ -142,68 +82,54 @@ export const ActiveTaskTimerCard = ({
             )}
 
             {/* Line 1: Task Title + Project + Overdue Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-              <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={displayActiveTask?.title}>
-                <span style={{ color: '#0284c7', fontFamily: 'monospace' }}>#{displayActiveTask?.taskCode || 'TSK'}:</span> {displayActiveTask?.title}
+            <div className="flex items-center justify-between gap-1.5">
+              <div className="font-bold text-slate-900 dark:text-white text-[12.5px] overflow-hidden text-ellipsis whitespace-nowrap" title={displayActiveTask?.title}>
+                <span className="text-sky-600 dark:text-sky-400 font-mono">#{displayActiveTask?.taskCode || 'TSK'}:</span> {displayActiveTask?.title}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <div className="flex items-center gap-1 shrink-0">
                 {displayActiveTask?.dueDate && displayActiveTask.dueDate < todayStr && displayActiveTask.status !== 'completed' && (
-                  <span style={{ fontSize: '9.5px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                  <span className="text-[9.5px] font-extrabold px-1.5 py-[1px] rounded bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-900">
                     ⚠️ Overdue
                   </span>
                 )}
-                <span style={{ fontSize: '10px', fontWeight: '600', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                <span className="text-[10px] font-semibold px-1.5 py-[1px] rounded bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
                   {displayActiveTask?.projectName || 'General'}
                 </span>
               </div>
             </div>
 
             {/* Line 2: Meta info (Start Time • Assignee • Assigner) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
-              <span>Start: <strong style={{ color: '#334155' }}>{displayActiveTask?.timerStartTime || (displayActiveTask?.timerRunning ? 'Running ⏱️' : (isOnBreak ? 'On Break ☕' : (displayActiveTask?.timerSeconds > 0 ? 'Paused ⏸️' : 'Not Started')))}</strong></span>
-              <span>Assignee: <strong style={{ color: '#0f172a' }}>{displayActiveTask?.assignedToName || 'Me'}</strong></span>
-              <span>By: <strong style={{ color: '#64748b' }}>{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+              <span>Start: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{displayActiveTask?.timerStartTime || (displayActiveTask?.timerRunning ? 'Running ⏱️' : (isOnBreak ? 'On Break ☕' : (displayActiveTask?.timerSeconds > 0 ? 'Paused ⏸️' : 'Not Started')))}</strong></span>
+              <span>Assignee: <strong className="text-slate-900 dark:text-white font-semibold">{displayActiveTask?.assignedToName || 'Me'}</strong></span>
+              <span>By: <strong className="text-slate-500 dark:text-slate-400">{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
             </div>
 
             {/* Line 3: Progress Bar & Budget Comparison */}
             {displayActiveTask && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', fontWeight: '600', color: '#64748b', marginBottom: '3px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  <div className="flex items-center gap-1.5">
                     <span>Est. Budget: {displayActiveTask.estimatedHours || 4}h</span>
                     {displayActiveTask.timerRunning && (
-                      <span style={{
-                        fontSize: '9.5px',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        backgroundColor: '#dcfce7',
-                        color: '#15803d',
-                        fontWeight: '700',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+                      <span className="text-[9.5px] px-1.5 py-[1px] rounded bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300 font-bold inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                         Live Ticking
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div className="flex items-center gap-1.5">
                     {(Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) && (
-                      <span style={{ fontSize: '9.5px', padding: '0 4px', borderRadius: '3px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: '700' }} title="Exceeded estimated time - normal work continues">
+                      <span className="text-[9.5px] px-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-bold" title="Exceeded estimated time - normal work continues">
                         +{(Number(displayActiveTask.hoursLogged) - Number(displayActiveTask.estimatedHours)).toFixed(1)}h over
                       </span>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{
-                        color: displayActiveTask.timerRunning ? '#0284c7' : '#475569',
-                        fontWeight: '700',
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        fontSize: '11px',
-                        backgroundColor: displayActiveTask.timerRunning ? '#eff6ff' : '#f1f5f9',
-                        padding: '2px 6px',
-                        borderRadius: '4px'
-                      }}>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-bold font-mono text-[11px] px-1.5 py-0.5 rounded ${
+                        displayActiveTask.timerRunning 
+                          ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60' 
+                          : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'
+                      }`}>
                         ⏱️ Task: {displayActiveTask.timerRunning
                           ? (displayActiveTask.liveDurationText || formatTimeDurationSafe(displayActiveTask.timerSeconds || 0))
                           : (displayActiveTask.timerSeconds > 0
@@ -213,14 +139,17 @@ export const ActiveTaskTimerCard = ({
                     </div>
                   </div>
                 </div>
-                <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${Math.min(100, Math.round(((((Number(displayActiveTask.hoursLogged) || 0) * 3600) + (Number(displayActiveTask.timerSeconds) || 0)) / ((Number(displayActiveTask.estimatedHours) || 4) * 3600)) * 100)) || 5}%`,
-                    backgroundColor: (Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) ? '#f59e0b' : '#0284c7',
-                    borderRadius: '3px',
-                    transition: 'width 0.3s ease'
-                  }} />
+                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      (Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours)
+                        ? 'bg-amber-500'
+                        : 'bg-sky-600'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, Math.round(((((Number(displayActiveTask.hoursLogged) || 0) * 3600) + (Number(displayActiveTask.timerSeconds) || 0)) / ((Number(displayActiveTask.estimatedHours) || 4) * 3600)) * 100)) || 5}%`
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -228,25 +157,13 @@ export const ActiveTaskTimerCard = ({
 
           {/* Action Buttons */}
           {isViewingOtherEmployee && (
-            <div style={{
-              padding: '5px 10px',
-              backgroundColor: '#fef3c7',
-              borderRadius: '6px',
-              border: '1px solid #fde68a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '11px',
-              color: '#92400e',
-              fontWeight: '700',
-              marginBottom: '6px'
-            }}>
+            <div className="p-1.5 px-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-300 dark:border-amber-800 flex items-center justify-between text-[11px] text-amber-900 dark:text-amber-200 font-bold mb-1.5">
               <span>👑 Admin Live Control: {effectiveTargetUser?.name}</span>
-              <span style={{ fontSize: '10px', color: '#b45309', fontWeight: '500' }}>⚡ Real-time connected</span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">⚡ Real-time connected</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+          <div className="flex gap-1.5 flex-wrap">
             <button
               onClick={async () => {
                 if (!isViewingOtherEmployee && !isClockedIn) {
@@ -264,22 +181,7 @@ export const ActiveTaskTimerCard = ({
                   setActiveSelectedTaskId(null);
                 }
               }}
-              style={{
-                flex: 1.2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                backgroundColor: '#16a34a',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 1px 4px rgba(22, 163, 74, 0.25)'
-              }}
+              className="flex-[1.2] flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white border-none py-1.5 px-2.5 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-green-600/30 transition-colors"
               title="Mark current task complete & automatically start next task in queue"
             >
               <CheckCircle2 size={13} />
@@ -302,21 +204,11 @@ export const ActiveTaskTimerCard = ({
                   startTaskTimer(displayActiveTask._id);
                 }
               }}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                backgroundColor: displayActiveTask?.timerRunning ? '#eff6ff' : '#ffffff',
-                color: displayActiveTask?.timerRunning ? '#2563eb' : '#334155',
-                border: displayActiveTask?.timerRunning ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
-                padding: '6px 8px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer border transition-colors ${
+                displayActiveTask?.timerRunning
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
             >
               {displayActiveTask?.timerRunning ? <Pause size={12} /> : <Play size={12} />}
               <span>
@@ -335,22 +227,7 @@ export const ActiveTaskTimerCard = ({
                   setActiveSelectedTaskId(null);
                 }
               }}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '3px',
-                backgroundColor: '#059669',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 8px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(5, 150, 105, 0.25)'
-              }}
+              className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-none py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-emerald-600/30 transition-colors"
               title="Mark this task as complete (without auto-starting next task)"
             >
               <CheckCircle2 size={12} />
@@ -362,21 +239,7 @@ export const ActiveTaskTimerCard = ({
                 setSnoozeTaskTarget(displayActiveTask);
                 setIsSnoozeModalOpen(true);
               }}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '3px',
-                backgroundColor: '#faf5ff',
-                color: '#7e22ce',
-                border: '1px solid #e9d5ff',
-                padding: '6px 8px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className="flex-1 flex items-center justify-center gap-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/60 py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer transition-colors"
               title="Pause task right here and schedule CRM reminder"
             >
               <Bell size={12} />
@@ -385,82 +248,50 @@ export const ActiveTaskTimerCard = ({
 
             <button
               onClick={() => stopTaskTimer(displayActiveTask._id)}
-              style={{
-                flex: 0.7,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '3px',
-                backgroundColor: '#f1f5f9',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                padding: '6px 8px',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex-[0.7] flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer transition-colors"
               title="Stop timer and log hours"
             >
-              <Square size={10} fill="#64748b" />
+              <Square size={10} className="fill-slate-500" />
               <span>Stop</span>
             </button>
           </div>
 
           {/* ── ⏭️ NEXT UP IN QUEUE (Upcoming Tasks) ── */}
           {upcomingQueueTasks.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '7px',
-              border: '1px dashed #cbd5e1',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="p-2 sm:p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-sky-700 dark:text-sky-300 flex items-center gap-1">
                   <span>⏭️</span> Next Up In Queue ({upcomingQueueTasks.length})
                 </span>
-                <span style={{ fontSize: '10px', color: '#64748b' }}>Click to start next task</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Click to start next task</span>
               </div>
 
               {upcomingQueueTasks.slice(0, 2).map(nextT => (
                 <div
                   key={nextT._id}
-                  style={{
-                    padding: '6px 8px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '6px',
-                    border: '1px solid #e2e8f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '6px'
-                  }}
+                  className="p-1.5 px-2 bg-white dark:bg-slate-850 rounded-md border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-1.5"
                 >
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ color: '#0284c7' }}>#{nextT.taskCode || 'TSK'}:</span> {nextT.title}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11.5px] font-bold text-slate-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
+                      <span className="text-sky-600 dark:text-sky-400">#{nextT.taskCode || 'TSK'}:</span> {nextT.title}
                     </div>
-                    <div style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                       <span>{nextT.projectName || 'General'}</span>
                       <span>•</span>
                       <span>{nextT.estimatedHours ? `${nextT.estimatedHours}h` : 'No est.'}</span>
-                      <span style={{
-                        padding: '1px 4px',
-                        borderRadius: '3px',
-                        fontSize: '9px',
-                        fontWeight: '700',
-                        backgroundColor: nextT.priority === 'urgent' ? '#fee2e2' : nextT.priority === 'high' ? '#ffedd5' : '#eff6ff',
-                        color: nextT.priority === 'urgent' ? '#dc2626' : nextT.priority === 'high' ? '#ea580c' : '#2563eb'
-                      }}>
+                      <span className={`px-1 py-[1px] rounded text-[9px] font-bold ${
+                        nextT.priority === 'urgent'
+                          ? 'bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400'
+                          : nextT.priority === 'high'
+                            ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400'
+                            : 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
+                      }`}>
                         {nextT.priority?.toUpperCase()}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => {
                         if (!isClockedIn) {
@@ -474,22 +305,10 @@ export const ActiveTaskTimerCard = ({
                         startTaskTimer(nextT._id);
                         setActiveSelectedTaskId(nextT._id);
                       }}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '5px',
-                        backgroundColor: '#0284c7',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
+                      className="px-2 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white border-none text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 transition-colors"
                       title="Start working on this task immediately"
                     >
-                      <Play size={10} fill="#fff" />
+                      <Play size={10} className="fill-white" />
                       <span>Start 🚀</span>
                     </button>
 
@@ -498,16 +317,7 @@ export const ActiveTaskTimerCard = ({
                         setSnoozeTaskTarget(nextT);
                         setIsSnoozeModalOpen(true);
                       }}
-                      style={{
-                        padding: '4px 6px',
-                        borderRadius: '5px',
-                        backgroundColor: '#f1f5f9',
-                        color: '#7e22ce',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
+                      className="p-1 px-1.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-purple-700 dark:text-purple-300 border border-slate-300 dark:border-slate-700 text-[10.5px] font-bold cursor-pointer transition-colors"
                       title="Snooze / Do Later"
                     >
                       ⏰
@@ -520,20 +330,12 @@ export const ActiveTaskTimerCard = ({
 
           {/* ── ⏰ SNOOZED / ON-HOLD REMINDER TASKS ── */}
           {snoozedTasks.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#faf5ff',
-              borderRadius: '7px',
-              border: '1px solid #e9d5ff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', fontWeight: '800', color: '#7e22ce', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="p-2 sm:p-2.5 bg-purple-50/60 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-900/60 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-purple-700 dark:text-purple-300 flex items-center gap-1">
                   <span>⏰</span> Tasks On Hold / Reminded ({snoozedTasks.length})
                 </span>
-                <span style={{ fontSize: '10px', color: '#9333ea' }}>Timer paused & saved</span>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400">Timer paused & saved</span>
               </div>
 
               {snoozedTasks.slice(0, 2).map(snz => {
@@ -542,25 +344,18 @@ export const ActiveTaskTimerCard = ({
                 return (
                   <div
                     key={snz._id}
-                    style={{
-                      padding: '6px 8px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: '6px',
-                      border: isDue ? '1px solid #f97316' : '1px solid #e9d5ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '6px'
-                    }}
+                    className={`p-1.5 px-2 bg-white dark:bg-slate-850 rounded-md border flex items-center justify-between gap-1.5 ${
+                      isDue ? 'border-orange-500' : 'border-purple-200 dark:border-purple-900/50'
+                    }`}
                   >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#7e22ce' }}>#{snz.taskCode || 'TSK'}:</span> {snz.title}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
+                        <span className="text-purple-600 dark:text-purple-400">#{snz.taskCode || 'TSK'}:</span> {snz.title}
                       </div>
-                      <div style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span>Paused at: <strong>{snz.hoursLoggedText || formatTimeDurationSafe(snz.timerSeconds || 0)}</strong></span>
                         <span>•</span>
-                        <span style={{ color: isDue ? '#ea580c' : '#7e22ce', fontWeight: '700' }}>
+                        <span className={`font-bold ${isDue ? 'text-orange-600 dark:text-orange-400' : 'text-purple-600 dark:text-purple-400'}`}>
                           {isDue ? '🚨 Due Now!' : `Reminding at ${remindTimeStr}`}
                         </span>
                       </div>
@@ -568,22 +363,9 @@ export const ActiveTaskTimerCard = ({
 
                     <button
                       onClick={() => resumeSnoozedTask(snz._id)}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '5px',
-                        backgroundColor: '#7e22ce',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        flexShrink: 0
-                      }}
+                      className="px-2 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white border-none text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 shrink-0 transition-colors"
                     >
-                      <Play size={10} fill="#fff" />
+                      <Play size={10} className="fill-white" />
                       <span>Resume 🚀</span>
                     </button>
                   </div>
@@ -594,60 +376,29 @@ export const ActiveTaskTimerCard = ({
         </>
       ) : (
         /* Clean Minimal All Tasks Completed View */
-        <div style={{
-          padding: '10px 12px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '7px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '6px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle2 size={15} color="#16a34a" />
+        <div className="p-2.5 sm:px-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 size={15} className="text-green-600 dark:text-green-400" />
             <div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
                 All tasks completed ({myCompletedTasks.length} finished)
               </div>
-              <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+              <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
                 No pending tasks in queue.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setIsAddTaskOpen(true)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '5px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px'
-              }}
+              className="px-2 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white border-none text-[11px] font-semibold cursor-pointer flex items-center gap-1 transition-colors"
             >
               <Plus size={11} /> Add Task
             </button>
             <button
               onClick={() => navigate('/timesheet')}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '5px',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-2 py-1 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer transition-colors"
             >
               Timesheet →
             </button>

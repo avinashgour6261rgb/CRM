@@ -179,186 +179,103 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="flex flex-col gap-4">
       
       {/* KPI Summary Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '12px'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+        <div className="bg-white rounded-xl py-3 px-4 border border-slate-200 shadow-xs">
+          <div className="text-[11px] text-slate-500 font-semibold uppercase">
             Total Audit Records
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>
+          <div className="text-xl font-extrabold text-slate-900 mt-1">
             {metrics.total}
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+          <div className="text-[11px] text-slate-500 mt-0.5">
             Full timestamped punch history
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600', textTransform: 'uppercase' }}>
+        <div className="bg-white rounded-xl py-3 px-4 border border-slate-200 shadow-xs">
+          <div className="text-[11px] text-green-600 font-semibold uppercase">
             Clock In & Out Punches
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>
+          <div className="text-xl font-extrabold text-green-600 mt-1">
             {metrics.clockPunches}
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+          <div className="text-[11px] text-slate-500 mt-0.5">
             Standard daily attendance
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '600', textTransform: 'uppercase' }}>
+        <div className="bg-white rounded-xl py-3 px-4 border border-slate-200 shadow-xs">
+          <div className="text-[11px] text-amber-600 font-semibold uppercase">
             Tea & Lunch Breaks
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>
+          <div className="text-xl font-extrabold text-amber-600 mt-1">
             {metrics.breaks}
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+          <div className="text-[11px] text-slate-500 mt-0.5">
             Break triggers & durations
           </div>
         </div>
 
-        <div style={{
-          borderRadius: '10px',
-          padding: '12px 16px',
-          border: '1px solid #fed7aa',
-          backgroundColor: '#fffaf5',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ fontSize: '11px', color: '#c2410c', fontWeight: '700', textTransform: 'uppercase' }}>
+        <div className="rounded-xl py-3 px-4 border border-orange-200 bg-orange-50/50 shadow-xs">
+          <div className="text-[11px] text-orange-700 font-bold uppercase">
             ⚠️ Admin Overrides
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#ea580c', marginTop: '4px' }}>
+          <div className="text-xl font-extrabold text-orange-600 mt-1">
             {metrics.overrides}
           </div>
-          <div style={{ fontSize: '11px', color: '#9a3412', marginTop: '2px' }}>
+          <div className="text-[11px] text-orange-800 mt-0.5">
             Manual adjustments & forced stops
           </div>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
+      <div className="bg-white rounded-xl border border-slate-200 py-3 px-4 flex items-center justify-between flex-wrap gap-3">
         {/* Left: Filter Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Filter Type:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-slate-600">Filter Type:</span>
           
           <button
             onClick={() => setFilterType('all')}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '11.5px',
-              fontWeight: '600',
-              border: filterType === 'all' ? '1px solid #2563eb' : '1px solid #cbd5e1',
-              backgroundColor: filterType === 'all' ? '#eff6ff' : '#ffffff',
-              color: filterType === 'all' ? '#1d4ed8' : '#475569',
-              cursor: 'pointer'
-            }}
+            className={`py-1 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer border ${filterType === 'all' ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
           >
             All Logs ({metrics.total})
           </button>
 
           <button
             onClick={() => setFilterType('clock')}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '11.5px',
-              fontWeight: '600',
-              border: filterType === 'clock' ? '1px solid #16a34a' : '1px solid #cbd5e1',
-              backgroundColor: filterType === 'clock' ? '#f0fdf4' : '#ffffff',
-              color: filterType === 'clock' ? '#15803d' : '#475569',
-              cursor: 'pointer'
-            }}
+            className={`py-1 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer border ${filterType === 'clock' ? 'border-green-600 bg-green-50 text-green-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
           >
             Clock In / Out
           </button>
 
           <button
             onClick={() => setFilterType('breaks')}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '11.5px',
-              fontWeight: '600',
-              border: filterType === 'breaks' ? '1px solid #d97706' : '1px solid #cbd5e1',
-              backgroundColor: filterType === 'breaks' ? '#fefce8' : '#ffffff',
-              color: filterType === 'breaks' ? '#b45309' : '#475569',
-              cursor: 'pointer'
-            }}
+            className={`py-1 px-3 rounded-md text-[11.5px] font-semibold cursor-pointer border ${filterType === 'breaks' ? 'border-amber-600 bg-amber-50 text-amber-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
           >
             Tea & Lunch Breaks
           </button>
 
           <button
             onClick={() => setFilterType('overrides')}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              border: filterType === 'overrides' ? '1px solid #ea580c' : '1px solid #fed7aa',
-              backgroundColor: filterType === 'overrides' ? '#fff7ed' : '#ffffff',
-              color: filterType === 'overrides' ? '#c2410c' : '#ea580c',
-              cursor: 'pointer'
-            }}
+            className={`py-1 px-3 rounded-md text-[11.5px] font-bold cursor-pointer border ${filterType === 'overrides' ? 'border-orange-600 bg-orange-50 text-orange-700' : 'border-orange-200 bg-white text-orange-600 hover:bg-orange-50'}`}
           >
             ⚠️ Admin Overrides Only ({metrics.overrides})
           </button>
         </div>
 
         {/* Right: Employee Dropdown & Date Picker */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2.5 flex-wrap">
           {isPrivileged && allowEmployeeSwitch && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-              <span style={{ fontWeight: '600', color: '#64748b' }}>Employee:</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="font-semibold text-slate-500">Employee:</span>
               <select
                 value={selectedEmp}
                 onChange={e => setSelectedEmp(e.target.value)}
-                style={{
-                  height: '32px',
-                  padding: '0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#0f172a'
-                }}
+                className="h-8 px-2 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-900 outline-none"
               >
                 <option value="all">All Employees</option>
                 {employees.map(e => (
@@ -370,32 +287,18 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-            <span style={{ fontWeight: '600', color: '#64748b' }}>Date:</span>
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="font-semibold text-slate-500">Date:</span>
             <input
               type="date"
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
-              style={{
-                height: '32px',
-                padding: '0 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                fontSize: '12px'
-              }}
+              className="h-8 px-2 rounded-md border border-slate-300 bg-white text-xs outline-none"
             />
             {dateFilter && (
               <button
                 onClick={() => setDateFilter('')}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#dc2626',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
+                className="border-0 bg-transparent text-red-600 text-[11px] cursor-pointer font-semibold hover:underline"
               >
                 Clear
               </button>
@@ -410,11 +313,11 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
           <table className="crm-table">
             <thead>
               <tr>
-                <th style={{ width: '130px' }}>Date & Time</th>
-                <th style={{ width: '180px' }}>Employee</th>
-                <th style={{ width: '180px' }}>Event Trigger</th>
-                <th style={{ width: '100px' }}>Duration</th>
-                <th style={{ width: '170px' }}>Initiated By</th>
+                <th className="w-[130px]">Date & Time</th>
+                <th className="w-[180px]">Employee</th>
+                <th className="w-[180px]">Event Trigger</th>
+                <th className="w-[100px]">Duration</th>
+                <th className="w-[170px]">Initiated By</th>
                 <th>Details & Admin Audit Notes</th>
               </tr>
             </thead>
@@ -427,43 +330,29 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
                   return (
                     <tr
                       key={log._id || `${log.timestamp}_${Math.random()}`}
-                      style={{
-                        backgroundColor: isOverride ? '#fffbf7' : 'transparent',
-                        transition: 'background-color 0.15s ease'
-                      }}
+                      className={`transition-colors duration-150 ${isOverride ? 'bg-orange-50/30' : 'bg-transparent'}`}
                     >
                       {/* Date & Time */}
                       <td>
-                        <div style={{ fontWeight: '700', fontSize: '12px', color: '#0f172a' }}>
+                        <div className="font-bold text-xs text-slate-900">
                           {log.timeFormatted || new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                        <div className="text-[10.5px] text-slate-500">
                           {log.date}
                         </div>
                       </td>
 
                       {/* Employee */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            width: '26px',
-                            height: '26px',
-                            borderRadius: '50%',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '11px',
-                            fontWeight: '700'
-                          }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-[26px] h-[26px] rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[11px] font-bold">
                             {log.employeeName ? log.employeeName.charAt(0) : 'E'}
                           </div>
                           <div>
-                            <div style={{ fontWeight: '600', fontSize: '12px', color: '#0f172a' }}>
+                            <div className="font-semibold text-xs text-slate-900">
                               {log.employeeName}
                             </div>
-                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                            <div className="text-[10.5px] text-slate-500">
                               #{log.employeeCode || log.employeeId}
                             </div>
                           </div>
@@ -472,18 +361,14 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
 
                       {/* Event Trigger Badge */}
                       <td>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          backgroundColor: badge.bg,
-                          color: badge.color,
-                          border: `1px solid ${badge.border}`
-                        }}>
+                        <span
+                          className="inline-flex items-center gap-1.5 py-[3px] px-2 rounded-full text-[11px] font-bold"
+                          style={{
+                            backgroundColor: badge.bg,
+                            color: badge.color,
+                            border: `1px solid ${badge.border}`
+                          }}
+                        >
                           {badge.icon}
                           <span>{badge.label}</span>
                         </span>
@@ -492,42 +377,23 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
                       {/* Duration */}
                       <td>
                         {log.durationText ? (
-                          <span style={{
-                            fontSize: '11.5px',
-                            fontWeight: '700',
-                            fontFamily: 'monospace',
-                            color: '#0f172a',
-                            backgroundColor: '#f1f5f9',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }}>
+                          <span className="text-[11.5px] font-bold font-mono text-slate-900 bg-slate-100 py-0.5 px-1.5 rounded">
                             ⏱️ {log.durationText}
                           </span>
                         ) : (
-                          <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>
+                          <span className="text-slate-400 text-xs">—</span>
                         )}
                       </td>
 
                       {/* Initiated By / Actor */}
                       <td>
                         {isOverride ? (
-                          <div style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            backgroundColor: '#fff7ed',
-                            color: '#c2410c',
-                            border: '1px solid #fed7aa',
-                            padding: '2px 7px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: '700'
-                          }}>
+                          <div className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 py-0.5 px-1.5 rounded-md text-[11px] font-bold">
                             <ShieldAlert size={11} color="#ea580c" />
                             <span>Admin #{log.adminId || 'ADM'} ({log.adminName || 'Admin'})</span>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', color: '#475569' }}>
+                          <div className="flex items-center gap-1 text-[11.5px] text-slate-600">
                             <User size={12} color="#64748b" />
                             <span>{log.actorName || log.employeeName} (Self)</span>
                           </div>
@@ -536,20 +402,11 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
 
                       {/* Details & Admin Note */}
                       <td>
-                        <div style={{ fontSize: '11.5px', color: '#334155', lineHeight: '1.4' }}>
+                        <div className="text-[11.5px] text-slate-700 leading-snug">
                           {log.details || log.action}
                         </div>
                         {log.auditNote && (
-                          <div style={{
-                            marginTop: '4px',
-                            padding: '4px 8px',
-                            backgroundColor: '#fef2f2',
-                            borderLeft: '3px solid #dc2626',
-                            borderRadius: '2px 4px 4px 2px',
-                            fontSize: '11px',
-                            color: '#991b1b',
-                            fontWeight: '600'
-                          }}>
+                          <div className="mt-1 py-1 px-2 bg-red-50 border-l-[3px] border-red-600 rounded-r text-[11px] text-red-800 font-semibold">
                             <strong>Reason for Override:</strong> "{log.auditNote}"
                           </div>
                         )}
@@ -559,13 +416,13 @@ export const AttendanceAuditTimeline = ({ initialEmployeeId = 'all', allowEmploy
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <td colSpan={6} className="text-center p-8 text-slate-500">
+                    <div className="flex flex-col items-center gap-2">
                       <Clock size={28} color="#94a3b8" />
-                      <div style={{ fontWeight: '700', fontSize: '14px', color: '#334155' }}>
+                      <div className="font-bold text-sm text-slate-700">
                         No Audit Log Records Found
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>
+                      <div className="text-xs text-slate-500">
                         {dateFilter || filterType !== 'all'
                           ? 'Try clearing the search or filter settings.'
                           : 'Attendance and shift events will be automatically logged in real-time as users clock in, take breaks, and clock out.'}

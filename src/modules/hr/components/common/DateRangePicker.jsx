@@ -18,41 +18,23 @@ export const DateRangePicker = () => {
     : 'Start Date To End Date';
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <div
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          height: '36px',
-          padding: '0 12px',
-          background: hasValue ? '#eff6ff' : '#f8fafc',
-          border: hasValue ? '1px solid #93c5fd' : '1px solid #e2e8f0',
-          borderRadius: '8px',
-          fontSize: '13px',
-          color: hasValue ? '#1e40af' : '#64748b',
-          cursor: 'pointer',
-          userSelect: 'none',
-          minWidth: '220px',
-          justifyContent: 'space-between'
-        }}
+        className={`flex items-center gap-2 h-9 px-3 rounded-lg text-[13px] cursor-pointer select-none min-w-[220px] justify-between border ${
+          hasValue
+            ? 'bg-blue-50 border-blue-300 text-blue-800'
+            : 'bg-slate-50 border-slate-200 text-slate-500'
+        }`}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <Calendar size={15} color={hasValue ? '#2563eb' : '#94a3b8'} />
-          <span style={{ fontWeight: hasValue ? '600' : '400' }}>{displayLabel}</span>
+          <span className={hasValue ? 'font-semibold' : 'font-normal'}>{displayLabel}</span>
         </div>
         {hasValue && (
           <button
             onClick={handleClear}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#3b82f6',
-              cursor: 'pointer',
-              display: 'flex',
-              padding: '2px'
-            }}
+            className="bg-transparent border-0 text-blue-500 cursor-pointer flex p-0.5"
           >
             <X size={14} />
           </button>
@@ -60,75 +42,44 @@ export const DateRangePicker = () => {
       </div>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '42px',
-          left: '0',
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '16px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-          zIndex: 50,
-          width: '280px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          animation: 'fadeIn 0.15s ease'
-        }}>
+        <div className="absolute top-[42px] left-0 bg-white border border-slate-200 rounded-xl p-4 shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-50 w-[280px] flex flex-col gap-3 animate-[fadeIn_0.15s_ease]">
           <div>
-            <label style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <label className="text-[11px] font-semibold text-slate-500 block mb-1">
               Start Date
             </label>
             <input
               type="date"
               value={dateRange.startDate}
               onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 8px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                fontSize: '13px'
-              }}
+              className="w-full h-[34px] px-2 border border-slate-300 rounded-md text-[13px] outline-none"
             />
           </div>
 
           <div>
-            <label style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <label className="text-[11px] font-semibold text-slate-500 block mb-1">
               End Date
             </label>
             <input
               type="date"
               value={dateRange.endDate}
               onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-              style={{
-                width: '100%',
-                height: '34px',
-                padding: '0 8px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                fontSize: '13px'
-              }}
+              className="w-full h-[34px] px-2 border border-slate-300 rounded-md text-[13px] outline-none"
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+          <div className="flex justify-end gap-2 mt-1.5">
             <button
               onClick={() => {
                 setDateRange({ startDate: '', endDate: '' });
                 setIsOpen(false);
               }}
-              className="btn btn-outline"
-              style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+              className="btn btn-outline h-[30px] px-2.5 text-xs"
             >
               Reset
             </button>
             <button
               onClick={() => setIsOpen(false)}
-              className="btn btn-primary"
-              style={{ height: '30px', padding: '0 12px', fontSize: '12px' }}
+              className="btn btn-primary h-[30px] px-3 text-xs"
             >
               Apply
             </button>

@@ -190,100 +190,47 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
   const getActionBadge = (action) => {
     switch (action) {
       case 'created':
-        return { label: 'Created & Assigned', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+        return { label: 'Created & Assigned', badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800' };
       case 'reassigned':
-        return { label: 'Reassigned 👥', bg: '#faf5ff', color: '#7e22ce', border: '#e9d5ff' };
+        return { label: 'Reassigned 👥', badgeClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800' };
       case 'rescheduled':
-        return { label: 'Rescheduled / Future 📅', bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' };
+        return { label: 'Rescheduled / Future 📅', badgeClass: 'bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border-orange-200 dark:border-orange-800' };
       case 'status_changed':
-        return { label: 'Status Changed 🔄', bg: '#f1f5f9', color: '#334155', border: '#cbd5e1' };
+        return { label: 'Status Changed 🔄', badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700' };
       case 'snoozed':
-        return { label: 'Snoozed ⏰', bg: '#fdf4ff', color: '#a21caf', border: '#f5d0fe' };
+        return { label: 'Snoozed ⏰', badgeClass: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/60 dark:text-fuchsia-300 border-fuchsia-200 dark:border-fuchsia-800' };
       case 'resumed':
-        return { label: 'Resumed ▶️', bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' };
+        return { label: 'Resumed ▶️', badgeClass: 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200 dark:border-sky-800' };
       case 'completed':
-        return { label: 'Completed ✅', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' };
+        return { label: 'Completed ✅', badgeClass: 'bg-green-50 text-green-700 dark:bg-green-950/60 dark:text-green-300 border-green-200 dark:border-green-800' };
       default:
-        return { label: 'Activity', bg: '#f8fafc', color: '#475569', border: '#e2e8f0' };
+        return { label: 'Activity', badgeClass: 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
     }
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.7)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1100,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '920px',
-        maxHeight: '90vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-[5px] flex items-center justify-center z-[1100] p-4 sm:p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[920px] max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Modal Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.1)'
-            }}>
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs">
               <History size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0">
                 Project Task Assignment & Activity History
               </h2>
-              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+              <p className="mt-0.5 mb-0 text-xs text-slate-500 dark:text-slate-400">
                 Full chronological audit trail of task assignments, future reschedules & completions.
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             <button
               onClick={handleExportCSV}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '7px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#334155',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
               title="Download audit records as CSV"
             >
               <Download size={13} /> Export CSV
@@ -291,18 +238,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
 
             <button
               onClick={onClose}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
+              className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
             >
               <X size={16} />
             </button>
@@ -310,43 +246,19 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Filter Controls Bar */}
-        <div style={{
-          padding: '12px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          backgroundColor: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          flexWrap: 'wrap'
-        }}>
+        <div className="p-3 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2.5 flex-wrap">
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            flex: '1 1 200px'
-          }}>
-            <Search size={14} color="#64748b" />
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 flex-1 min-w-[200px]">
+            <Search size={14} className="text-slate-400" />
             <input
               type="text"
               placeholder="Search by task code, title, employee..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                border: 'none',
-                backgroundColor: 'transparent',
-                outline: 'none',
-                fontSize: '12.5px',
-                width: '100%',
-                color: '#0f172a'
-              }}
+              className="border-none bg-transparent outline-none text-[12.5px] w-full text-slate-900 dark:text-white"
             />
             {searchQuery && (
-              <X size={13} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={() => setSearchQuery('')} />
+              <X size={13} className="text-slate-400 hover:text-slate-600 cursor-pointer" onClick={() => setSearchQuery('')} />
             )}
           </div>
 
@@ -354,16 +266,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
           <select
             value={actionFilter}
             onChange={e => setActionFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12.5px',
-              color: '#334155',
-              backgroundColor: '#ffffff',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
+            className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 outline-none cursor-pointer"
           >
             <option value="all">All Actions ({allHistoryRecords.length})</option>
             <option value="assignments">Assignments & Delegations</option>
@@ -376,16 +279,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
           <select
             value={projectFilter}
             onChange={e => setProjectFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '12.5px',
-              color: '#334155',
-              backgroundColor: '#ffffff',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
+            className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 outline-none cursor-pointer"
           >
             <option value="all">All Projects</option>
             {(projects || []).map(p => (
@@ -398,16 +292,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
             <select
               value={employeeFilter}
               onChange={e => setEmployeeFilter(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12.5px',
-                color: '#334155',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              className="py-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 outline-none cursor-pointer"
             >
               <option value="all">All Employees</option>
               {(employees || []).map(e => (
@@ -418,37 +303,16 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* History Timeline Content */}
-        <div style={{
-          padding: '20px 24px',
-          overflowY: 'auto',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-3">
           {filteredRecords.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              color: '#64748b'
-            }}>
-              <div style={{
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                backgroundColor: '#f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 12px',
-                color: '#94a3b8'
-              }}>
+            <div className="text-center py-16 px-5 text-slate-500 dark:text-slate-400">
+              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-400">
                 <History size={24} />
               </div>
-              <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1 mt-0">
                 No History Records Found
               </h4>
-              <p style={{ fontSize: '13px', margin: 0 }}>
+              <p className="text-xs m-0">
                 Try adjusting your search query or filter options.
               </p>
             </div>
@@ -469,99 +333,57 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
               return (
                 <div
                   key={item.id || idx}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '14px 18px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = '#cbd5e1';
-                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
-                  }}
+                  className="bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl p-3.5 px-4 shadow-xs hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm flex flex-col gap-2 transition-all"
                 >
                   {/* Top Bar: Action Badge + Timestamp + Task Code */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        padding: '2px 8px',
-                        backgroundColor: badge.bg,
-                        color: badge.color,
-                        border: `1px solid ${badge.border}`,
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '700'
-                      }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${badge.badgeClass}`}>
                         {badge.label}
                       </span>
 
-                      <span style={{
-                        fontSize: '11.5px',
-                        fontWeight: '700',
-                        color: '#2563eb',
-                        backgroundColor: '#eff6ff',
-                        padding: '1px 7px',
-                        borderRadius: '4px',
-                        border: '1px solid #bfdbfe'
-                      }}>
+                      <span className="text-[11.5px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-[1px] rounded border border-blue-200 dark:border-blue-800">
                         #{item.taskCode}
                       </span>
 
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
                         📁 {item.projectName}
                       </span>
 
                       {item.isPersonal && (
-                        <span style={{ fontSize: '10px', color: '#7e22ce', backgroundColor: '#faf5ff', padding: '1px 5px', borderRadius: '4px', border: '1px solid #e9d5ff', fontWeight: '700' }}>
+                        <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-[1px] rounded border border-purple-200 dark:border-purple-800 font-bold">
                           🔒 Personal
                         </span>
                       )}
                     </div>
 
-                    <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                       <Clock size={12} />
                       <span>{formattedDate}</span>
                     </div>
                   </div>
 
                   {/* Task Title */}
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                  <div className="text-[13.5px] font-bold text-slate-900 dark:text-white">
                     {item.taskTitle}
                   </div>
 
                   {/* Details / Action Description */}
-                  <div style={{
-                    fontSize: '12.5px',
-                    color: '#334155',
-                    backgroundColor: '#f8fafc',
-                    padding: '8px 12px',
-                    borderRadius: '7px',
-                    border: '1px solid #f1f5f9',
-                    lineHeight: '1.4'
-                  }}>
+                  <div className="text-[12.5px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2 px-3 rounded-lg border border-slate-100 dark:border-slate-700/60 leading-relaxed">
                     {item.details || item.title}
                   </div>
 
                   {/* Footer Meta: Actor & Target */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                  <div className="flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5">
                     <div>
-                      Action Performed by: <strong style={{ color: '#0f172a' }}>{item.performedBy || 'System / Admin'}</strong>
+                      Action Performed by: <strong className="text-slate-900 dark:text-white font-semibold">{item.performedBy || 'System / Admin'}</strong>
                     </div>
 
                     {item.to && item.from && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="flex items-center gap-1">
                         <span>{item.from}</span>
                         <ArrowRight size={11} />
-                        <strong style={{ color: '#0f172a' }}>{item.to}</strong>
+                        <strong className="text-slate-900 dark:text-white font-semibold">{item.to}</strong>
                       </div>
                     )}
                   </div>
@@ -572,29 +394,13 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Modal Footer */}
-        <div style={{
-          padding: '12px 24px',
-          borderTop: '1px solid #f1f5f9',
-          backgroundColor: '#f8fafc',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{ fontSize: '12px', color: '#64748b' }}>
-            Showing <strong>{filteredRecords.length}</strong> of <strong>{allHistoryRecords.length}</strong> recorded audit events
+        <div className="p-3 sm:px-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            Showing <strong className="text-slate-900 dark:text-white">{filteredRecords.length}</strong> of <strong className="text-slate-900 dark:text-white">{allHistoryRecords.length}</strong> recorded audit events
           </div>
           <button
             onClick={onClose}
-            style={{
-              backgroundColor: '#0f172a',
-              color: '#ffffff',
-              border: 'none',
-              padding: '7px 18px',
-              borderRadius: '7px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white border-none py-1.5 px-[18px] rounded-lg text-[12.5px] font-semibold cursor-pointer transition-colors"
           >
             Close
           </button>

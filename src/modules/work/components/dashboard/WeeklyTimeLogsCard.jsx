@@ -283,54 +283,24 @@ export const WeeklyTimeLogsCard = ({
   const isSelectedDayToday = selectedDayLogData?.isCurrentDay || selectedDayLogData?.date === todayStr;
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderRadius: '10px',
-      border: '1px solid #e2e8f0',
-      padding: '14px 18px',
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      gap: '12px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 sm:px-[18px] flex-1 flex flex-col justify-between gap-3 shadow-xs">
       {/* Header: Title + Pill Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Clock size={15} color="#0284c7" />
-          <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
+          <Clock size={15} className="text-sky-600 dark:text-sky-400" />
+          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white m-0">
             Week Timelogs
           </h3>
         </div>
 
         {/* Pill Badge: XXh YYm This Week */}
-        <div style={{
-          backgroundColor: '#0284c7',
-          backgroundImage: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-          color: '#ffffff',
-          padding: '4px 12px',
-          borderRadius: '14px',
-          fontSize: '11px',
-          fontWeight: '800',
-          letterSpacing: '0.01em',
-          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
+        <div className="bg-gradient-to-r from-sky-600 to-blue-600 text-white px-3 py-1 rounded-full text-[11px] font-extrabold tracking-tight shadow-sm shadow-sky-600/30 inline-flex items-center gap-1">
           <span>{totalWeeklyFormatted} This Week</span>
         </div>
       </div>
 
       {/* Weekdays Row: Mo, Tu, We, Th, Fr, Sa, Su */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '4px',
-        padding: '4px 0'
-      }}>
+      <div className="flex items-center justify-between gap-1 py-1">
         {weeklyTimeLogs.map(dayLog => {
           const isSelected = dayLog.shortDay === activeWeekDayShort;
           const isCurrent = dayLog.isCurrentDay;
@@ -349,50 +319,36 @@ export const WeeklyTimeLogsCard = ({
             <button
               key={dayLog.shortDay}
               onClick={() => setActiveWeekDayShort(dayLog.shortDay)}
-              style={{
-                border: 'none',
-                background: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                flex: 1
-              }}
+              className="border-none bg-transparent p-0 cursor-pointer flex flex-col items-center gap-1 flex-1 group"
               title={isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
             >
               {/* Circle badge for selected day, holiday, or plain letter */}
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                backgroundColor: isSelected
-                  ? (isHoliday ? '#dc2626' : '#0284c7')
-                  : (isHoliday ? '#fee2e2' : (isCurrent ? '#eff6ff' : 'transparent')),
-                color: isSelected
-                  ? '#ffffff'
-                  : (isHoliday ? '#dc2626' : (isCurrent ? '#0284c7' : '#475569')),
-                border: isSelected
-                  ? 'none'
-                  : (isHoliday ? '1.5px solid #f87171' : (isCurrent ? '1.5px solid #bfdbfe' : 'none')),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '12px',
-                fontWeight: isSelected || isCurrent || isHoliday ? '800' : '600',
-                boxShadow: isSelected ? (isHoliday ? '0 2px 8px rgba(220, 38, 38, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.35)') : 'none',
-                transition: 'all 0.15s ease'
-              }}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all ${
+                isSelected
+                  ? (isHoliday ? 'bg-red-600 text-white shadow-md shadow-red-600/35 font-extrabold' : 'bg-sky-600 text-white shadow-md shadow-sky-600/35 font-extrabold')
+                  : isHoliday
+                    ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-[1.5px] border-red-400 font-extrabold'
+                    : isCurrent
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-sky-600 dark:text-sky-400 border-[1.5px] border-blue-200 dark:border-blue-800 font-extrabold'
+                      : 'text-slate-600 dark:text-slate-400 font-semibold group-hover:bg-slate-100 dark:group-hover:bg-slate-800'
+              }`}>
                 {dayLog.shortDay}
               </div>
 
               {/* Hour tag below each day */}
-              <span style={{
-                fontSize: '9.5px',
-                fontWeight: isSelected || isHoliday ? '800' : '600',
-                color: isHoliday ? '#dc2626' : (isSelected ? '#0284c7' : (dayHrs !== '0h' ? '#0f172a' : '#94a3b8'))
-              }}>
+              <span className={`text-[9.5px] ${
+                isSelected || isHoliday
+                  ? 'font-extrabold'
+                  : 'font-semibold'
+              } ${
+                isHoliday
+                  ? 'text-red-600 dark:text-red-400'
+                  : isSelected
+                    ? 'text-sky-600 dark:text-sky-400'
+                    : dayHrs !== '0h'
+                      ? 'text-slate-900 dark:text-white'
+                      : 'text-slate-400'
+              }`}>
                 {dayHrs}
               </span>
             </button>
@@ -401,73 +357,41 @@ export const WeeklyTimeLogsCard = ({
       </div>
 
       {/* Blue Progress Bar */}
-      <div style={{
-        width: '100%',
-        height: '7px',
-        backgroundColor: '#e2e8f0',
-        borderRadius: '4px',
-        overflow: 'hidden',
-        marginTop: '2px'
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${Math.min(100, Math.max(12, ((totalWeeklyHours || 0) / 40) * 100))}%`,
-          backgroundColor: '#0284c7',
-          backgroundImage: 'linear-gradient(90deg, #0284c7 0%, #2563eb 100%)',
-          borderRadius: '4px',
-          transition: 'width 0.4s ease'
-        }} />
+      <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-0.5">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-sky-600 to-blue-600 transition-all duration-500"
+          style={{ width: `${Math.min(100, Math.max(12, ((totalWeeklyHours || 0) / 40) * 100))}%` }}
+        />
       </div>
 
       {/* Subtitle Footer Row: Duration: Xh Ym | Break: 0s | Day Log 👁️ */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        fontSize: '11.5px',
-        color: '#64748b',
-        marginTop: '2px',
-        flexWrap: 'wrap',
-        gap: '6px'
-      }}>
+      <div className="flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap gap-1.5">
         <div>
           <span>Duration: </span>
-          <strong style={{ color: '#0f172a', fontWeight: '800' }}>
+          <strong className="text-slate-900 dark:text-white font-extrabold">
             {selectedDayLogData?.durationText || '0h 00m'}
           </strong>
           {isSelectedDayToday && selectedDayLogData?.durationSeconds > 0 && (
-            <span style={{ marginLeft: '4px', fontSize: '10px', color: '#16a34a', fontWeight: '700' }}>
+            <span className="ml-1 text-[10px] text-green-600 dark:text-green-400 font-bold">
               ● Live
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <div>
             <span>Break: </span>
-            <strong style={{ color: '#475569' }}>
+            <strong className="text-slate-600 dark:text-slate-300 font-semibold">
               {selectedDayLogData?.breakDuration || '0s'}
             </strong>
           </div>
 
           <button
             onClick={() => openDayLogModalForUser(effectiveTargetUser, selectedDayLogData?.date || todayStr)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              backgroundColor: '#eff6ff',
-              color: '#0284c7',
-              border: '1px solid #bfdbfe',
-              borderRadius: '5px',
-              padding: '2px 8px',
-              fontSize: '10.5px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer transition-colors"
             title={`View all tasks worked on ${selectedDayLogData?.day || 'selected day'}`}
           >
-            <Eye size={11} color="#0284c7" />
+            <Eye size={11} className="text-sky-600 dark:text-sky-400" />
             <span>Day Log 👁️</span>
           </button>
         </div>

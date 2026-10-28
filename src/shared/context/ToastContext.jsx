@@ -42,51 +42,25 @@ export const ToastProvider = ({ children }) => {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        pointerEvents: 'none'
-      }}>
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2.5 pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
-            style={{
-              pointerEvents: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 18px',
-              borderRadius: '8px',
-              background: '#101b33',
-              color: '#ffffff',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-              fontSize: '13px',
-              fontWeight: '500',
-              borderLeft: toast.type === 'success' ? '4px solid #10b981' : (toast.type === 'error' ? '4px solid #ef4444' : '4px solid #3b82f6'),
-              animation: 'fadeIn 0.25s ease forwards',
-              minWidth: '280px',
-              maxWidth: '420px'
-            }}
+            className={`pointer-events-auto flex items-center gap-3 px-[18px] py-3 rounded-lg bg-slate-900 text-white shadow-xl text-[13px] font-medium min-w-[280px] max-w-[420px] animate-fade-in ${
+              toast.type === 'success'
+                ? 'border-l-4 border-emerald-500'
+                : toast.type === 'error'
+                ? 'border-l-4 border-red-500'
+                : 'border-l-4 border-blue-500'
+            }`}
           >
-            {toast.type === 'success' && <CheckCircle2 size={18} color="#10b981" />}
-            {toast.type === 'error' && <AlertCircle size={18} color="#ef4444" />}
-            {toast.type === 'info' && <Info size={18} color="#3b82f6" />}
-            <span style={{ flex: 1 }}>{typeof toast.message === 'string' ? toast.message : String(toast.message || '')}</span>
+            {toast.type === 'success' && <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />}
+            {toast.type === 'error' && <AlertCircle size={18} className="text-red-400 shrink-0" />}
+            {toast.type === 'info' && <Info size={18} className="text-blue-400 shrink-0" />}
+            <span className="flex-1">{typeof toast.message === 'string' ? toast.message : String(toast.message || '')}</span>
             <button
               onClick={() => removeToast(toast.id)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                display: 'flex',
-                padding: '2px'
-              }}
+              className="bg-transparent border-0 text-slate-400 hover:text-white cursor-pointer flex p-0.5 transition-colors"
             >
               <X size={14} />
             </button>

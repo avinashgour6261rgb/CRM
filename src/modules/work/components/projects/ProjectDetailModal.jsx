@@ -53,162 +53,63 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
   const extensions = Array.isArray(project.deadlineExtensions) ? project.deadlineExtensions : [];
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '820px',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          backgroundColor: isOverdue ? '#fff1f2' : '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className={`p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between rounded-t-2xl ${
+          isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
+        }`}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-              <span style={{
-                padding: '4px 8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '700',
-                border: '1px solid #bfdbfe'
-              }}>
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold border border-blue-200 dark:border-blue-800">
                 {project.projectCode}
               </span>
-              <span style={{
-                padding: '3px 8px',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: '#475569',
-                fontWeight: '500'
-              }}>
+              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md text-xs text-slate-600 dark:text-slate-300 font-medium">
                 {project.category}
               </span>
-                <span style={{
-                  padding: '3px 8px',
-                  backgroundColor: '#f0fdf4',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  color: '#16a34a',
-                  fontWeight: '700',
-                  border: '1px solid #bbf7d0'
-                }}>
-                  👥 Team Project
+              <span className="px-2 py-0.5 bg-green-50 dark:bg-green-950/40 rounded-md text-[11px] text-green-600 dark:text-green-400 font-bold border border-green-200 dark:border-green-800">
+                👥 Team Project
+              </span>
+              {project.finalApproved && project.status === 'completed' && (
+                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-md text-[11px] text-emerald-700 dark:text-emerald-300 font-extrabold border border-emerald-300 dark:border-emerald-800">
+                  ✅ Final Approved by {project.finalApprovedBy || 'Admin'}
                 </span>
-                {project.finalApproved && project.status === 'completed' && (
-                  <span style={{
-                    padding: '3px 8px',
-                    backgroundColor: '#dcfce7',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    color: '#15803d',
-                    fontWeight: '800',
-                    border: '1px solid #86efac'
-                  }}>
-                    ✅ Final Approved by {project.finalApprovedBy || 'Admin'}
-                  </span>
-                )}
-                {project.status === 'under_review' && (
-                  <span style={{
-                    padding: '3px 8px',
-                    backgroundColor: '#faf5ff',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    color: '#7e22ce',
-                    fontWeight: '800',
-                    border: '1px solid #d8b4fe'
-                  }}>
-                    ⏳ Awaiting Final Sign-Off
-                  </span>
-                )}
-                {project.reopened && !project.finalApproved && (
-                  <span style={{
-                    padding: '3px 8px',
-                    backgroundColor: '#fff7ed',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    color: '#c2410c',
-                    fontWeight: '800',
-                    border: '1px solid #fdba74'
-                  }} title={project.reopenReason}>
-                    ⚠️ Reopened ({project.reopenedBy || 'Admin'})
-                  </span>
-                )}
+              )}
+              {project.status === 'under_review' && (
+                <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950/40 rounded-md text-[11px] text-purple-700 dark:text-purple-300 font-extrabold border border-purple-200 dark:border-purple-800">
+                  ⏳ Awaiting Final Sign-Off
+                </span>
+              )}
+              {project.reopened && !project.finalApproved && (
+                <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-950/40 rounded-md text-[11px] text-orange-700 dark:text-orange-300 font-extrabold border border-orange-200 dark:border-orange-800" title={project.reopenReason}>
+                  ⚠️ Reopened ({project.reopenedBy || 'Admin'})
+                </span>
+              )}
             </div>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white m-0">
               {project.name}
             </h2>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="p-5 sm:p-6 flex flex-col gap-5">
           {/* Overdue Warning Alert Banner */}
           {isOverdue && (
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1.5px solid #f87171',
-              borderRadius: '12px',
-              padding: '14px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              flexWrap: 'wrap'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <AlertTriangle size={20} color="#dc2626" />
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900 rounded-xl p-3.5 px-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle size={20} className="text-red-600 dark:text-red-400 shrink-0" />
                 <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#991b1b' }}>
+                  <div className="text-[13.5px] font-extrabold text-red-900 dark:text-red-200">
                     ⚠️ Project Deadline Passed ({overdueDays} day{overdueDays > 1 ? 's' : ''} overdue)!
                   </div>
-                  <div style={{ fontSize: '12px', color: '#b91c1c' }}>
+                  <div className="text-xs text-red-700 dark:text-red-300">
                     Scheduled deadline was <strong>{project.deadline}</strong>. Has client approved an extension?
                   </div>
                 </div>
@@ -217,20 +118,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
               <button
                 type="button"
                 onClick={() => onExtendDeadline && onExtendDeadline(project)}
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.35)'
-                }}
+                className="bg-red-600 hover:bg-red-700 text-white border-none px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-md shadow-red-600/30 transition-colors"
               >
                 <Calendar size={14} />
                 <span>Extend Deadline Now</span>
@@ -240,87 +128,73 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
 
           {/* Summary / Description */}
           <div>
-            <h4 style={{ fontSize: '12.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 8px 0' }}>
+            <h4 className="text-[12.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2 mt-0">
               Project Summary
             </h4>
-            <p style={{ fontSize: '13.5px', color: '#475569', lineHeight: '1.6', margin: 0, backgroundColor: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <p className="text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed m-0 bg-slate-50 dark:bg-slate-800/40 p-3.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800">
               {project.summary || 'No detailed summary provided for this project.'}
             </p>
           </div>
 
           {/* Key Metrics Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-            <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', marginBottom: '4px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11.5px] mb-1">
                 <Building size={14} /> Client
               </div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>{project.client}</div>
+              <div className="text-[13.5px] font-bold text-slate-900 dark:text-white">{project.client}</div>
             </div>
 
-            <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: isOverdue ? '1.5px solid #fca5a5' : '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px' }}>
+            <div className={`p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border ${isOverdue ? 'border-red-300 dark:border-red-900' : 'border-slate-200 dark:border-slate-800'}`}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11.5px]">
                   <Calendar size={14} /> Timeline
                 </div>
                 <button
                   type="button"
                   onClick={() => onExtendDeadline && onExtendDeadline(project)}
-                  style={{
-                    backgroundColor: '#eff6ff',
-                    color: '#2563eb',
-                    border: '1px solid #bfdbfe',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:bg-blue-100 transition-colors"
                   title="Extend project deadline"
                 >
                   + Extend
                 </button>
               </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: isOverdue ? '#dc2626' : '#0f172a' }}>
+              <div className={`text-[13px] font-bold ${isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
                 {project.startDate} → {project.hasNoDeadline ? 'Ongoing' : project.deadline}
               </div>
               {project.hasDeadlineExtended && (
-                <div style={{ fontSize: '10.5px', color: '#7c3aed', fontWeight: '600', marginTop: '2px' }}>
+                <div className="text-[10.5px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
                   🔄 Extended ({project.extensionCount || extensions.length || 1}x)
                 </div>
               )}
             </div>
 
-            <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', marginBottom: '4px' }}>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11.5px] mb-1">
                 <UserCheck size={14} /> Creator & Owner
               </div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[13.5px] font-bold text-slate-900 dark:text-white">
                 {project.creatorName || 'Administrator'}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b' }}>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">
                 {project.creatorRole || 'Executive'}
               </div>
             </div>
 
-            <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11.5px', marginBottom: '4px' }}>
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11.5px] mb-1">
                 <TrendingUp size={14} /> Progress
               </div>
-              <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#2563eb' }}>{project.progress || 0}% Completed</div>
+              <div className="text-[13.5px] font-bold text-blue-600 dark:text-blue-400">{project.progress || 0}% Completed</div>
             </div>
           </div>
 
           {/* Deadline Extension & Client Audit History */}
-          <div style={{
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '16px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={16} color="#7c3aed" />
-                <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+          <div className="bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-purple-600 dark:text-purple-400" />
+                <h4 className="text-[13px] font-extrabold text-slate-900 dark:text-white m-0">
                   Deadline Extension & Client Audit History ({extensions.length})
                 </h4>
               </div>
@@ -328,22 +202,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
               <button
                 type="button"
                 onClick={() => onExtendDeadline && onExtendDeadline(project)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  backgroundColor: '#f5f3ff',
-                  color: '#7c3aed',
-                  border: '1px solid #ddd6fe',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#ede9fe'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f5f3ff'}
+                className="flex items-center gap-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors"
               >
                 <Calendar size={13} />
                 <span>+ Request / Record Extension</span>
@@ -351,53 +210,34 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
             </div>
 
             {extensions.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="flex flex-col gap-2.5">
                 {extensions.map((ext, idx) => (
                   <div
                     key={ext._id || idx}
-                    style={{
-                      padding: '12px 14px',
-                      backgroundColor: '#faf5ff',
-                      border: '1px solid #e9d5ff',
-                      borderRadius: '10px'
-                    }}
+                    className="p-3 px-3.5 bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 rounded-xl"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: '800',
-                          color: '#7c3aed',
-                          backgroundColor: '#ede9fe',
-                          padding: '2px 8px',
-                          borderRadius: '6px'
-                        }}>
+                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded-md">
                           Extension #{extensions.length - idx}
                         </span>
-                        <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
-                          <span style={{ color: '#64748b', textDecoration: 'line-through' }}>{ext.previousDeadline}</span>
+                        <span className="text-[12.5px] font-bold text-slate-900 dark:text-white">
+                          <span className="text-slate-400 line-through">{ext.previousDeadline}</span>
                           {' → '}
-                          <span style={{ color: '#16a34a' }}>{ext.newDeadline}</span>
+                          <span className="text-green-600 dark:text-green-400">{ext.newDeadline}</span>
                         </span>
                       </div>
 
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        color: '#475569',
-                        backgroundColor: '#f1f5f9',
-                        padding: '2px 7px',
-                        borderRadius: '4px'
-                      }}>
+                      <span className="text-[10.5px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                         {ext.reasonCategory || 'Client Extension'}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5', marginBottom: '6px' }}>
+                    <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed mb-1.5">
                       💬 <strong>Reason:</strong> "{ext.reason}"
                     </div>
 
-                    <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between flex-wrap gap-1">
                       <span>👤 Extended by <strong>{ext.extendedByName}</strong> ({ext.extendedByRole})</span>
                       <span>🕒 {ext.extendedAt ? new Date(ext.extendedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                     </div>
@@ -405,19 +245,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                 ))}
               </div>
             ) : (
-              <div style={{
-                padding: '12px 14px',
-                backgroundColor: '#f8fafc',
-                border: '1px dashed #cbd5e1',
-                borderRadius: '8px',
-                fontSize: '12px',
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '8px'
-              }}>
+              <div className="p-3 px-3.5 bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between flex-wrap gap-2">
                 <span>No timeline extensions recorded yet. All client-requested deadline extensions will be logged here with mandatory reasons.</span>
               </div>
             )}
@@ -425,92 +253,72 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
 
           {/* Assigned Members */}
           <div>
-            <h4 style={{ fontSize: '12.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 10px 0' }}>
+            <h4 className="text-[12.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2.5 mt-0">
               Assigned Team Members ({project.membersList?.length || 0})
             </h4>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div className="flex gap-2.5 flex-wrap">
               {project.membersList && project.membersList.length > 0 ? (
                 project.membersList.map((m, idx) => (
                   <div
                     key={m._id || idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '6px 12px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs"
                   >
                     <img
                       src={m.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                       alt={m.name}
-                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                      className="w-7 h-7 rounded-full object-cover"
                     />
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{m.name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{m.role}</div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">{m.name}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">{m.role}</div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>No members assigned to this project yet.</div>
+                <div className="text-xs text-slate-400">No members assigned to this project yet.</div>
               )}
             </div>
           </div>
 
           {/* Attached Tasks */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <h4 style={{ fontSize: '12.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+            <div className="flex items-center justify-between mb-2.5">
+              <h4 className="text-[12.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider m-0">
                 Tasks Linked to this Project ({projectTasks.length})
               </h4>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="flex flex-col gap-1.5">
               {projectTasks.length > 0 ? (
                 projectTasks.map(t => (
                   <div
                     key={t._id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: '#f8fafc',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0'
-                    }}
+                    className="flex items-center justify-between p-2.5 px-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#2563eb', padding: '2px 6px', backgroundColor: '#eff6ff', borderRadius: '4px' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11.5px] font-bold text-blue-600 dark:text-blue-400 px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/40 rounded">
                         {t.taskCode}
                       </span>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                      <span className="text-[13px] font-semibold text-slate-900 dark:text-white">
                         {t.title}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
                         👤 {t.assignedToName || 'Team'}
                       </span>
-                      <span style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        backgroundColor: t.status === 'completed' ? '#f0fdf4' : '#eff6ff',
-                        color: t.status === 'completed' ? '#16a34a' : '#2563eb',
-                        fontWeight: '700'
-                      }}>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                        t.status === 'completed'
+                          ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                          : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                      }`}>
                         {t.status}
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                <div className="text-xs text-slate-400 italic">
                   No tasks created yet for this project.
                 </div>
               )}
@@ -519,38 +327,17 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '14px 24px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          backgroundColor: '#f8fafc',
-          borderBottomLeftRadius: '16px',
-          borderBottomRightRadius: '16px'
-        }}>
+        <div className="p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-wrap gap-2">
           <button
             type="button"
             onClick={() => onExtendDeadline && onExtendDeadline(project)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              border: '1px solid #bfdbfe',
-              padding: '7px 14px',
-              borderRadius: '8px',
-              fontSize: '12.5px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-3.5 py-2 rounded-lg text-[12.5px] font-bold cursor-pointer transition-colors"
           >
             <Calendar size={14} />
             <span>Extend Project Deadline</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Submit for Completion */}
             {project.status !== 'completed' && project.status !== 'under_review' && (
               <button
@@ -559,20 +346,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                   await submitProjectForCompletion(project._id);
                   onClose();
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  backgroundColor: '#9333ea',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(147, 51, 234, 0.3)'
-                }}
+                className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white border-none px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer shadow-md shadow-purple-600/30 transition-colors"
               >
                 <CheckCircle2 size={13} />
                 <span>Submit for Final Sign-Off</span>
@@ -587,20 +361,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                   await approveProjectCompletion(project._id);
                   onClose();
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  backgroundColor: '#16a34a',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(22, 163, 74, 0.3)'
-                }}
+                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white border-none px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer shadow-md shadow-green-600/30 transition-colors"
               >
                 <CheckCircle2 size={13} />
                 <span>Final Approve & Complete</span>
@@ -618,19 +379,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                     onClose();
                   }
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  backgroundColor: '#fff7ed',
-                  color: '#c2410c',
-                  border: '1px solid #fed7aa',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors"
               >
                 <span>🔄 Reopen Project</span>
               </button>
@@ -651,19 +400,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                     onClose();
                   }
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  backgroundColor: '#fef2f2',
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  padding: '7px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                 title="Permanently delete project"
               >
                 <Trash2 size={13} />
@@ -673,16 +410,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
 
             <button
               onClick={onClose}
-              style={{
-                backgroundColor: '#ffffff',
-                color: '#334155',
-                border: '1px solid #cbd5e1',
-                padding: '7px 16px',
-                borderRadius: '8px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-4 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               Close
             </button>
