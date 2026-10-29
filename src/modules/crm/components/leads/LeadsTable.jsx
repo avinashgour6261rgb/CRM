@@ -103,7 +103,7 @@ export const LeadsTable = ({
   };
 
   return (
-    <div className="bg-white dark:bg-[#151e32] rounded-[10px] border border-slate-200 dark:border-[#243049] overflow-hidden shadow-xs">
+    <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
       <div className="overflow-x-auto max-h-[680px]">
         <table className="w-full border-collapse text-left">
           <thead>
@@ -158,7 +158,7 @@ export const LeadsTable = ({
                     className={`border-b border-slate-100 dark:border-slate-800 transition-colors ${
                       isSelected
                         ? 'bg-blue-50/70 dark:bg-blue-900/30'
-                        : 'bg-white dark:bg-[#151e32] hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
+                        : 'bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
                     }`}
                   >
                     {/* Checkbox */}

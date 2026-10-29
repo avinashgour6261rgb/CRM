@@ -87,11 +87,11 @@
   --primary-glow: rgba(59, 130, 246, 0.35);
 
   --bg-main: #0b1120;
-  --bg-card: #151e32;
+  --bg-card: #0f172a;
   --bg-subtle: #1e293b;
-  --bg-hover: #243049;
+  --bg-hover: #1e293b;
 
-  --border-light: #243049;
+  --border-light: #1e293b;
   --border-medium: #334155;
 
   --text-main: #f8fafc;
@@ -104,391 +104,96 @@
 }
 
 /* ==========================================================================
-   🌙 DARK MODE COMPREHENSIVE OVERRIDES & VISUAL POLISH
+   🌙 MODERN ENTERPRISE DARK MODE SYSTEM (Clean Tailwind-Integrated)
    ========================================================================== */
 :is([data-theme="dark"], .dark, .dark-mode) body {
-  background-color: #0b1120 !important;
-  color: #f8fafc !important;
+  background-color: #0b1120;
+  color: #f8fafc;
 }
 
 :is([data-theme="dark"], .dark, .dark-mode) .app-container,
 :is([data-theme="dark"], .dark, .dark-mode) .main-content-wrapper,
 :is([data-theme="dark"], .dark, .dark-mode) .content-body {
-  background-color: #0b1120 !important;
-  color: #f8fafc !important;
+  background-color: #0b1120;
+  color: #f8fafc;
 }
 
-:is([data-theme="dark"], .dark, .dark-mode) header.top-navbar-container,
-:is([data-theme="dark"], .dark, .dark-mode) .top-navbar,
-:is([data-theme="dark"], .dark, .dark-mode) header {
-  background-color: #151e32 !important;
-  border-bottom: 1px solid #243049 !important;
-  color: #f8fafc !important;
-}
-
-/* ── Headings, Bold Text & Key Value Labels: Pure Crisp White ── */
-:is([data-theme="dark"], .dark, .dark-mode) h1,
-:is([data-theme="dark"], .dark, .dark-mode) h2,
-:is([data-theme="dark"], .dark, .dark-mode) h3,
-:is([data-theme="dark"], .dark, .dark-mode) h4,
-:is([data-theme="dark"], .dark, .dark-mode) h5,
-:is([data-theme="dark"], .dark, .dark-mode) h6,
-:is([data-theme="dark"], .dark, .dark-mode) strong,
-:is([data-theme="dark"], .dark, .dark-mode) b,
-:is([data-theme="dark"], .dark, .dark-mode) .page-title,
-:is([data-theme="dark"], .dark, .dark-mode) .kpi-value {
-  color: #ffffff !important;
-}
-
-/* ── Near-Black & Dark Slate Text -> Pure Crisp White (#f8fafc) ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #0f172a" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#0f172a" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(15, 23, 42)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(15,23,42)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #1e293b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#1e293b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(30, 41, 59)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(30,41,59)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #111827" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#111827" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(17, 24, 39)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(17,24,39)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #1f2937" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#1f2937" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(31, 41, 55)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(31,41,55)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #000000" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#000000" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(0, 0, 0)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(0,0,0)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #000" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#000" i] {
-  color: #f8fafc !important;
-}
-
-/* ── Medium Slate Text -> Soft Crisp Silver (#cbd5e1) ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #334155" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#334155" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(51, 65, 85)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(51,65,85)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #374151" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#374151" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(55, 65, 81)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(55,65,81)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #475569" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#475569" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(71, 85, 105)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(71,85,105)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #4b5563" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#4b5563" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(75, 85, 99)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(75,85,99)" i] {
-  color: #cbd5e1 !important;
-}
-
-/* ── Muted Secondary Text -> Readable Silver (#94a3b8) ── */
-:is([data-theme="dark"], .dark, .dark-mode) .page-breadcrumb,
-:is([data-theme="dark"], .dark, .dark-mode) .section-subtitle,
-:is([data-theme="dark"], .dark, .dark-mode) .kpi-title,
-:is([data-theme="dark"], .dark, .dark-mode) .kpi-subtext,
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #64748b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#64748b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(100, 116, 139)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(100,116,139)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #6b7280" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#6b7280" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(107, 114, 128)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #94a3b8" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#94a3b8" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(148, 163, 184)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:rgb(148,163,184)" i] {
-  color: #94a3b8 !important;
-}
-
-/* ── Dark Saturated Text Colors (Invert for Dark Mode Readability) ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #0369a1" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#0369a1" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(3, 105, 161)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #1e40af" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#1e40af" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #1d4ed8" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#1d4ed8" i] {
-  color: #38bdf8 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #9a3412" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#9a3412" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: rgb(154, 52, 18)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #92400e" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#92400e" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #713f12" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #c2410c" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #b45309" i] {
-  color: #fbbf24 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #991b1b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color:#991b1b" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #7f1d1d" i] {
-  color: #f87171 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #14532d" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #166534" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #15803d" i] {
-  color: #4ade80 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #581c87" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #6b21a8" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="color: #7e22ce" i] {
-  color: #c084fc !important;
-}
-
-/* ── Tables: Headers & Cells ── */
-:is([data-theme="dark"], .dark, .dark-mode) table {
-  color: #f1f5f9 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) table thead tr {
-  background-color: #151e32 !important;
-  border-bottom: 1px solid #243049 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) table thead th,
-:is([data-theme="dark"], .dark, .dark-mode) th {
-  color: #cbd5e1 !important;
-  border-color: #243049 !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) table tbody tr {
-  border-color: #1e293b !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) table tbody tr:hover {
-  background-color: #1e293b !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) table tbody td,
-:is([data-theme="dark"], .dark, .dark-mode) td {
-  color: #f1f5f9 !important;
-  border-color: #1e293b !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) tr[style*="borderBottom"],
-:is([data-theme="dark"], .dark, .dark-mode) tr[style*="border-bottom"] {
-  border-color: #1e293b !important;
-}
-
-/* ── Card Containers (White -> Sleek Dark Navy #151e32) ── */
+/* ── Enterprise Cards & Containers (Semantic Fallbacks) ── */
 :is([data-theme="dark"], .dark, .dark-mode) .card,
 :is([data-theme="dark"], .dark, .dark-mode) .crm-card,
 :is([data-theme="dark"], .dark, .dark-mode) .dashboard-card,
 :is([data-theme="dark"], .dark, .dark-mode) .kpi-card,
 :is([data-theme="dark"], .dark, .dark-mode) .data-table-container,
-:is([data-theme="dark"], .dark, .dark-mode) .action-bar-card,
-:is([data-theme="dark"], .dark, .dark-mode) .quick-filter-bar,
-:is([data-theme="dark"], .dark, .dark-mode) .modal-content,
-:is([data-theme="dark"], .dark, .dark-mode) .modal-card,
-:is([data-theme="dark"], .dark, .dark-mode) .modal-dialog,
-:is([data-theme="dark"], .dark, .dark-mode) .bg-white,
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: rgb(255, 255, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color:#ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background: #ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background:#ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background: rgb(255, 255, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #fff" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background: #fff" i] {
-  background-color: #151e32 !important;
-  border-color: #243049 !important;
-  color: #f8fafc !important;
+:is([data-theme="dark"], .dark, .dark-mode) .table-card {
+  background-color: #0f172a;
+  border-color: #1e293b;
+  color: #f8fafc;
 }
 
-/* ── Inner Sub-widgets & Boxes (Light Grey/Blue -> #1e293b for depth) ── */
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: rgb(241, 245, 249)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color:#f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background: #f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background:#f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: rgb(248, 250, 252)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #f8fafc" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color:#f8fafc" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background: #f8fafc" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background:#f8fafc" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: rgb(243, 244, 246)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #f3f4f6" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: rgb(249, 250, 251)" i],
-:is([data-theme="dark"], .dark, .dark-mode) *[style*="background-color: #f9fafb" i] {
-  background-color: #1e293b !important;
-  border-color: #243049 !important;
-  color: #f8fafc !important;
+/* ── Standard Dark Mode Tables ── */
+:is([data-theme="dark"], .dark, .dark-mode) table {
+  color: #f1f5f9;
 }
 
-/* ── Running Task Rows Highlight ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(240, 249, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #f0f9ff" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color:#f0f9ff" i] {
-  background-color: rgba(30, 58, 138, 0.35) !important;
-  color: #38bdf8 !important;
+:is([data-theme="dark"], .dark, .dark-mode) table thead tr {
+  background-color: rgba(30, 41, 59, 0.6);
+  border-bottom: 1px solid #1e293b;
 }
 
-/* ── Active / Selected Filter Tabs ── */
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #eff6ff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: rgb(239, 246, 255)" i] {
-  background-color: #1e293b !important;
-  color: #38bdf8 !important;
-  border-color: #334155 !important;
+:is([data-theme="dark"], .dark, .dark-mode) table thead th,
+:is([data-theme="dark"], .dark, .dark-mode) th {
+  color: #94a3b8;
+  border-color: #1e293b;
 }
 
-/* ── Secondary Action Buttons in Cards (e.g. Edit Profile, Stop, Timesheet) ── */
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: rgb(255, 255, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background: #ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background:#ffffff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #fff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background: #fff" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: rgb(241, 245, 249)" i] {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-  border-color: #334155 !important;
+:is([data-theme="dark"], .dark, .dark-mode) table tbody tr {
+  border-color: #1e293b;
 }
 
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #ffffff" i]:hover,
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: rgb(255, 255, 255)" i]:hover,
-:is([data-theme="dark"], .dark, .dark-mode) button[style*="background-color: #f1f5f9" i]:hover {
-  background-color: #243049 !important;
-  color: #ffffff !important;
+:is([data-theme="dark"], .dark, .dark-mode) table tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.45);
 }
 
-/* ── Dropdowns, Popups, and Modals ── */
-:is([data-theme="dark"], .dark, .dark-mode) [role="dialog"],
-:is([data-theme="dark"], .dark, .dark-mode) .modal-content,
-:is([data-theme="dark"], .dark, .dark-mode) .dropdown-menu,
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="zIndex: 100"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="zIndex: 200"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="zIndex: 250"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="z-index: 100"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="z-index: 200"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="z-index: 250"],
-:is([data-theme="dark"], .dark, .dark-mode) div[style*="boxShadow: 0 10px 25px"] {
-  background-color: #151e32 !important;
-  color: #f8fafc !important;
-  border-color: #243049 !important;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6) !important;
+:is([data-theme="dark"], .dark, .dark-mode) table tbody td,
+:is([data-theme="dark"], .dark, .dark-mode) td {
+  color: #f1f5f9;
+  border-color: #1e293b;
 }
 
-/* ── Soft Colored Badges & Event Cards in Dark Mode ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #eff6ff" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(239, 246, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #e0f2fe" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(224, 242, 254)" i] {
-  background-color: rgba(37, 99, 235, 0.2) !important;
-  color: #93c5fd !important;
-  border-color: rgba(37, 99, 235, 0.35) !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #f0fdf4" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(240, 253, 244)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #dcfce7" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(220, 252, 231)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #ecfdf5" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(236, 253, 245)" i] {
-  background-color: rgba(22, 163, 74, 0.2) !important;
-  color: #86efac !important;
-  border-color: rgba(22, 163, 74, 0.35) !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #fff7ed" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(255, 247, 237)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #fef3c7" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(254, 243, 199)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #fffbeb" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(255, 251, 235)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #ffedd5" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(255, 237, 213)" i] {
-  background-color: rgba(217, 119, 6, 0.2) !important;
-  color: #fcd34d !important;
-  border-color: rgba(217, 119, 6, 0.4) !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #fee2e2" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(254, 226, 226)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #fef2f2" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(254, 242, 242)" i] {
-  background-color: rgba(220, 38, 38, 0.2) !important;
-  color: #fca5a5 !important;
-  border-color: rgba(220, 38, 38, 0.4) !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #faf5ff" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(250, 245, 255)" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #f3e8ff" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(243, 232, 255)" i] {
-  background-color: rgba(147, 51, 234, 0.2) !important;
-  color: #d8b4fe !important;
-  border-color: rgba(147, 51, 234, 0.4) !important;
-}
-
-/* ── Progress Bar Tracks ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="background-color: rgb(226, 232, 240)" i] {
-  background-color: #243049 !important;
-}
-
-/* ── Borders (Replaced with Subtle Dark Slate #243049) ── */
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-color: #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1.5px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 2px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1px dashed #cbd5e1" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1px dashed #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1px solid #cbd5e1" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border: 1.5px solid #cbd5e1" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-bottom: 1px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-top: 1px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-left: 1px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-right: 1px solid #e2e8f0" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-bottom: 1px solid #f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-top: 1px solid #f1f5f9" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-bottom: 1px solid #f8fafc" i],
-:is([data-theme="dark"], .dark, .dark-mode) [style*="border-top: 1px solid #f8fafc" i] {
-  border-color: #243049 !important;
-}
-
-/* ── Form Inputs and Dropdowns ── */
-:is([data-theme="dark"], .dark, .dark-mode) input,
+/* ── Native Form Elements Base Dark Polish ── */
+:is([data-theme="dark"], .dark, .dark-mode) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
 :is([data-theme="dark"], .dark, .dark-mode) select,
 :is([data-theme="dark"], .dark, .dark-mode) textarea {
-  background-color: #18233c !important;
-  color: #ffffff !important;
-  border: 1px solid #2e436c !important;
+  color-scheme: dark;
 }
 
 :is([data-theme="dark"], .dark, .dark-mode) select option {
-  background-color: #111a2e !important;
-  color: #ffffff !important;
-}
-
-:is([data-theme="dark"], .dark, .dark-mode) input:focus,
-:is([data-theme="dark"], .dark, .dark-mode) select:focus,
-:is([data-theme="dark"], .dark, .dark-mode) textarea:focus {
-  border-color: #38bdf8 !important;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+  background-color: #0f172a;
+  color: #f8fafc;
 }
 
 :is([data-theme="dark"], .dark, .dark-mode) input::placeholder,
 :is([data-theme="dark"], .dark, .dark-mode) textarea::placeholder {
-  color: #64748b !important;
+  color: #64748b;
 }
 
-/* ── Muted SVG Icons ── */
-:is([data-theme="dark"], .dark, .dark-mode) svg[color="#64748b"],
-:is([data-theme="dark"], .dark, .dark-mode) svg[color="#475569"],
-:is([data-theme="dark"], .dark, .dark-mode) svg[color="#334155"],
-:is([data-theme="dark"], .dark, .dark-mode) svg[color="#1e293b"] {
-  color: #94a3b8 !important;
+/* ── Custom Dark Mode Scrollbars ── */
+:is([data-theme="dark"], .dark, .dark-mode) ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) ::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }
 
 

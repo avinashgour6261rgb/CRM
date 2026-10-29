@@ -98,7 +98,7 @@ export const ProjectsPage = () => {
   return (
     <div className="flex flex-col gap-3">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#151e32] p-3 px-4 rounded-[10px] border border-slate-200 dark:border-[#243049] shadow-xs min-h-[68px] shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Briefcase size={17} />
@@ -127,7 +127,7 @@ export const ProjectsPage = () => {
 
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5">
-        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
           <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <FolderGit2 size={16} />
           </div>
@@ -139,7 +139,7 @@ export const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
           <div className="w-8 h-8 rounded-md bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 flex items-center justify-center shrink-0">
             <CheckCircle2 size={16} />
           </div>
@@ -151,7 +151,7 @@ export const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
           <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-500 flex items-center justify-center shrink-0">
             <Clock size={16} />
           </div>
@@ -163,7 +163,7 @@ export const ProjectsPage = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#151e32] rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-lg p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
           <div className="w-8 h-8 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <AlertCircle size={16} />
           </div>
@@ -177,7 +177,7 @@ export const ProjectsPage = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white dark:bg-[#151e32] rounded-lg p-2 px-3.5 border border-slate-200 dark:border-[#243049] flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-lg p-2 px-3.5 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md py-1 px-2.5 min-w-[220px] flex-1 h-[30px]">
           <Search size={14} className="text-slate-500 dark:text-slate-400" />
           <input
@@ -233,7 +233,7 @@ export const ProjectsPage = () => {
 
       {/* ── PROJECT COMPLETION REVIEW & APPROVALS QUEUE (ADMIN / MANAGER ACCESS) ── */}
       {canManageApprovals && pendingApprovalProjects.length > 0 && (
-        <div className="bg-white dark:bg-[#151e32] rounded-xl border border-purple-300 dark:border-purple-800 shadow-md overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-purple-300 dark:border-purple-800 shadow-md overflow-hidden">
           <div className="p-3 px-[18px] bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">📋</span>

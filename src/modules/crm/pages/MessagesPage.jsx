@@ -59,9 +59,9 @@ export const MessagesPage = () => {
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-110px)]">
-      
+
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#151e32] p-3 px-4 rounded-[10px] border border-slate-200 dark:border-[#243049] shadow-xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] min-h-[68px] shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md min-h-[68px] shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-400 flex items-center justify-center">
             <MessageSquare size={17} />
@@ -89,13 +89,13 @@ export const MessagesPage = () => {
       </div>
 
       {/* Main Chat Layout Container */}
-      <div className="flex-1 grid grid-cols-[290px_1fr] bg-white dark:bg-[#151e32] rounded-[10px] border border-slate-200 dark:border-[#243049] overflow-hidden shadow-xs dark:shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
-        
+      <div className="flex-1 grid grid-cols-[290px_1fr] bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs dark:shadow-md">
+
         {/* Left Sidebar: Contact Search & Conversation List */}
-        <div className="border-r border-slate-100 dark:border-[#243049] flex flex-col bg-slate-50 dark:bg-slate-900">
-          
+        <div className="border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900">
+
           {/* Search Bar */}
-          <div className="p-2 px-2.5 border-b border-slate-100 dark:border-[#243049] bg-white dark:bg-[#151e32]">
+          <div className="p-2 px-2.5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
             <div className="flex items-center gap-1.5 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
               <Search size={13} className="text-slate-400 dark:text-sky-400" />
               <input
@@ -124,7 +124,7 @@ export const MessagesPage = () => {
                     onClick={() => setActiveConversationId(conv.id)}
                     className={`flex items-center gap-3 p-3 rounded-[10px] cursor-pointer transition-all border ${
                       isSelected
-                        ? 'bg-white dark:bg-[#1e2d4a] shadow-sm border-slate-200 dark:border-[#2e436c]'
+                        ? 'bg-white dark:bg-slate-800 shadow-sm border-slate-200 dark:border-slate-700'
                         : 'bg-transparent border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/60'
                     }`}
                   >
@@ -151,11 +151,10 @@ export const MessagesPage = () => {
                         </span>
                       </div>
 
-                      <div className={`text-xs truncate mt-0.5 ${
-                        isSelected
-                          ? 'text-slate-700 dark:text-blue-300'
-                          : 'text-slate-500 dark:text-slate-400'
-                      }`}>
+                      <div className={`text-xs truncate mt-0.5 ${isSelected
+                        ? 'text-slate-700 dark:text-blue-300'
+                        : 'text-slate-500 dark:text-slate-400'
+                        }`}>
                         {conv.lastMessage}
                       </div>
                     </div>
@@ -174,8 +173,8 @@ export const MessagesPage = () => {
         </div>
 
         {/* Right Side: Chat Window Matching Screenshot 4 */}
-        <div className="flex flex-col bg-white dark:bg-[#151e32]">
-          
+        <div className="flex flex-col bg-white dark:bg-slate-900">
+
           {/* If No Conversation Selected: Empty State Matching Screenshot 4 */}
           {!activeConv ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 p-10 text-slate-500 dark:text-slate-400">
@@ -187,7 +186,7 @@ export const MessagesPage = () => {
               </div>
               <button
                 onClick={() => setIsNewConvOpen(true)}
-                className="inline-flex items-center gap-1.5 py-[9px] px-[18px] rounded-lg border-none bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-bold cursor-pointer shadow-md transition-colors"
+                className="inline-flex items-center gap-1.5 py-2.25 px-4.5 rounded-lg border-none bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-bold cursor-pointer shadow-md transition-colors"
               >
                 <Plus size={16} />
                 New Conversation
@@ -196,7 +195,7 @@ export const MessagesPage = () => {
           ) : (
             <>
               {/* Chat Header Matching Screenshot */}
-              <div className="p-3.5 px-5 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-white dark:bg-[#151e32]">
+              <div className="p-3.5 px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
@@ -205,7 +204,7 @@ export const MessagesPage = () => {
                       className="w-[38px] h-[38px] rounded-full object-cover"
                     />
                     {activeConv.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-[#151e32]" />
+                      <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                     )}
                   </div>
                   <div>
@@ -222,7 +221,7 @@ export const MessagesPage = () => {
                   {/* Action Button: + New Conversation Matching Screenshot 4 Top Right */}
                   <button
                     onClick={() => setIsNewConvOpen(true)}
-                    className="inline-flex items-center gap-1.5 py-[7px] px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white border-none text-[12.5px] font-bold cursor-pointer shadow-sm transition-colors"
+                    className="inline-flex items-center gap-1.5 py-1.75 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white border-none text-[12.5px] font-bold cursor-pointer shadow-sm transition-colors"
                   >
                     <Plus size={15} />
                     New Conversation
@@ -231,7 +230,7 @@ export const MessagesPage = () => {
               </div>
 
               {/* Message Stream */}
-              <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3.5 bg-slate-50 dark:bg-[#0b1120]">
+              <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3.5 bg-slate-50 dark:bg-slate-950">
                 {activeConv.messages.map(msg => (
                   <div
                     key={msg.id}
@@ -246,14 +245,13 @@ export const MessagesPage = () => {
                     <div className={`p-2.5 px-4 text-[13.5px] leading-relaxed shadow-xs ${
                       msg.isOutgoing
                         ? 'rounded-[14px_14px_2px_14px] bg-blue-600 text-white'
-                        : 'rounded-[14px_14px_14px_2px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-[#2e436c]'
+                        : 'rounded-[14px_14px_14px_2px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700'
                     }`}>
                       {msg.text}
                     </div>
 
-                    <div className={`text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1 ${
-                      msg.isOutgoing ? 'self-end' : 'self-start'
-                    }`}>
+                    <div className={`text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1 ${msg.isOutgoing ? 'self-end' : 'self-start'
+                      }`}>
                       <span>{msg.timestamp}</span>
                       {msg.isOutgoing && <CheckCheck size={13} className="text-blue-400" />}
                     </div>
@@ -265,7 +263,7 @@ export const MessagesPage = () => {
               {/* Chat Input Bar */}
               <form
                 onSubmit={handleSend}
-                className="p-3.5 px-[18px] border-t border-slate-100 dark:border-[#243049] flex items-center gap-2.5 bg-white dark:bg-[#151e32]"
+                className="p-3.5 px-[18px] border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5 bg-white dark:bg-slate-900"
               >
                 <button
                   type="button"
@@ -280,7 +278,7 @@ export const MessagesPage = () => {
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={e => setInputText(e.target.value)}
-                  className="flex-1 py-2.5 px-4 rounded-full border border-slate-300 dark:border-[#2e436c] text-[13px] outline-none bg-slate-50 dark:bg-[#18233c] text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-blue-500 transition-colors"
+                  className="flex-1 py-2.5 px-4 rounded-full border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-50 placeholder-slate-400 focus:border-blue-500 transition-colors"
                 />
 
                 <button
@@ -289,7 +287,7 @@ export const MessagesPage = () => {
                   className={`w-[38px] h-[38px] rounded-full border-none flex items-center justify-center transition-colors text-white ${
                     inputText.trim()
                       ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                      : 'bg-slate-200 dark:bg-[#243049] cursor-not-allowed'
+                      : 'bg-slate-200 dark:bg-slate-800 cursor-not-allowed'
                   }`}
                 >
                   <Send size={16} />

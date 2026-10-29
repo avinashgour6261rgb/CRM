@@ -92,9 +92,9 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#18233c] rounded-t-2xl">
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold py-[3px] px-2 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">
@@ -209,7 +209,7 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
           {/* Description Card */}
           <div>
             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Ticket Problem Description</span>
-            <div className="mt-1.5 p-3.5 px-4 rounded-[10px] bg-white dark:bg-[#18233c] border border-slate-200 dark:border-slate-700 text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed">
+            <div className="mt-1.5 p-3.5 px-4 rounded-[10px] bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed">
               {ticket.description || 'No detailed description provided.'}
             </div>
           </div>

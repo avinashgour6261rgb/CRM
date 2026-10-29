@@ -54,9 +54,9 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[680px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#18233c] rounded-t-2xl">
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-900/40 dark:text-blue-300 py-0.5 px-2 rounded-md">

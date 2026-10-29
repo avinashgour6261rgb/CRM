@@ -791,7 +791,7 @@ export const CalendarPage = () => {
       )}
 
       {/* Category Filter Pills Bar */}
-      <div className="bg-white dark:bg-[#151e32] rounded-[10px] border border-slate-200 dark:border-[#243049] p-2 px-3 flex items-center justify-between flex-wrap gap-2 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'all', label: 'All Items' },
@@ -821,7 +821,7 @@ export const CalendarPage = () => {
                   <span className={`text-[10px] font-bold py-0.5 px-1.5 rounded-full ${
                     isActive
                       ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 dark:bg-[#243049] text-slate-500 dark:text-slate-300'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
                   }`}>
                     {tab.count}
                   </span>
@@ -871,7 +871,7 @@ export const CalendarPage = () => {
       </div>
 
       {/* Calendar Viewport */}
-      <div className="bg-white dark:bg-[#151e32] rounded-xl border border-slate-200 dark:border-[#243049] p-[18px] shadow-sm dark:shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-[18px] shadow-sm dark:shadow-md">
         
         {/* Calendar Nav Bar (< > today, Month Year, month/week/day/list switcher) */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -880,13 +880,13 @@ export const CalendarPage = () => {
             <div className="flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden">
               <button
                 onClick={handlePrevMonth}
-                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={handleNextMonth}
-                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -894,14 +894,14 @@ export const CalendarPage = () => {
 
             <button
               onClick={handleToday}
-              className="py-1.5 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
+              className="py-1.5 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               today
             </button>
           </div>
 
           {/* Current Month & Year Display */}
-          <div className="text-lg font-extrabold text-slate-900 dark:text-slate-50">
+          <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
             {monthNames[month]} {year}
           </div>
 
@@ -924,7 +924,7 @@ export const CalendarPage = () => {
         </div>
 
         {/* Days of Week Header */}
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-[#243049] pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
           {DAYS_OF_WEEK.map(day => (
             <div key={day}>{day}</div>
           ))}
@@ -932,7 +932,7 @@ export const CalendarPage = () => {
 
         {/* Month Calendar Grid */}
         {currentView === 'month' && (
-          <div className="grid grid-cols-7 border-l border-t border-slate-100 dark:border-[#243049]">
+          <div className="grid grid-cols-7 border-l border-t border-slate-100 dark:border-slate-800">
             {calendarDays.map((day, idx) => {
               const isHolidayDay = day.events?.some(ev => 
                 ev.isHoliday ||
@@ -949,11 +949,11 @@ export const CalendarPage = () => {
                   onClick={() => handleOpenDateMemory(day.dateStr)}
                   className={`min-h-[105px] p-1.5 px-2 relative transition-all cursor-pointer group hover:bg-blue-50/25 dark:hover:bg-blue-900/10 ${
                     isHolidayDay
-                      ? 'border-r-[1.5px] border-b-[1.5px] border-red-300 dark:border-red-900 bg-red-50/50 dark:bg-[#2a1215]'
-                      : `border-r border-b border-slate-100 dark:border-[#243049] ${
+                      ? 'border-r-[1.5px] border-b-[1.5px] border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20'
+                      : `border-r border-b border-slate-100 dark:border-slate-800 ${
                           day.isCurrentMonth
-                            ? 'bg-white dark:bg-[#151e32]'
-                            : 'bg-slate-50/60 dark:bg-[#0d1322]'
+                            ? 'bg-white dark:bg-slate-900'
+                            : 'bg-slate-50/60 dark:bg-slate-950/60'
                         }`
                   }`}
                   title="Click on any date to write private memory / view daily schedule"
@@ -1041,7 +1041,7 @@ export const CalendarPage = () => {
                           setCurrentDate(new Date(day.dateStr));
                           setCurrentView('day');
                         }}
-                        className="text-[10px] text-blue-600 font-bold cursor-pointer py-0.5 px-1 rounded bg-blue-50 text-center hover:bg-blue-100"
+                        className="text-[10px] text-blue-600 dark:text-blue-400 font-bold cursor-pointer py-0.5 px-1 rounded bg-blue-50 dark:bg-blue-950/60 text-center hover:bg-blue-100 dark:hover:bg-blue-900/40"
                         title="Click to view all events for this day"
                       >
                         +{day.events.length - 3} more...
@@ -1061,13 +1061,13 @@ export const CalendarPage = () => {
               <div
                 key={idx}
                 onClick={() => handleOpenDateMemory(day.dateStr)}
-                className="min-h-[260px] border-r border-b border-slate-100 dark:border-slate-800 p-2.5 bg-white dark:bg-[#151e32] cursor-pointer hover:bg-slate-50/50"
+                className="min-h-[260px] border-r border-b border-slate-100 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100">
                     {DAYS_OF_WEEK[idx]} ({day.dateStr})
                   </div>
-                  <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1 rounded">
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-slate-800 px-1 rounded">
                     +Note
                   </span>
                 </div>
@@ -1083,8 +1083,10 @@ export const CalendarPage = () => {
                           setSelectedEvent(ev);
                         }
                       }}
-                      className="p-1.5 px-2 rounded-md text-[11.5px] font-bold cursor-pointer shadow-xs"
-                      style={{
+                      className="p-1.5 px-2 rounded-md text-[11.5px] font-bold cursor-pointer shadow-xs dark:bg-slate-800 dark:text-slate-100"
+                      style={isDark ? {
+                        borderLeft: `3px solid ${ev.color || '#3b82f6'}`
+                      } : {
                         backgroundColor: ev.bgColor,
                         color: ev.color,
                         borderLeft: `3px solid ${ev.color}`
@@ -1126,15 +1128,15 @@ export const CalendarPage = () => {
                       setSelectedEvent(ev);
                     }
                   }}
-                  className="p-4 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#151e32] flex items-center justify-between cursor-pointer hover:border-blue-400"
+                  className="p-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
                 >
                   <div className="flex items-center gap-3.5">
                     <div
-                      className="py-2 px-3 rounded-lg font-extrabold text-[13px]"
-                      style={{
+                      className="py-2 px-3 rounded-lg font-extrabold text-[13px] dark:bg-slate-800 dark:text-slate-100"
+                      style={!isDark ? {
                         backgroundColor: ev.bgColor,
                         color: ev.color
-                      }}
+                      } : undefined}
                     >
                       {ev.time}
                     </div>
@@ -1146,11 +1148,11 @@ export const CalendarPage = () => {
                     </div>
                   </div>
                   <span
-                    className="py-1 px-2.5 rounded-md text-xs font-bold"
-                    style={{
+                    className="py-1 px-2.5 rounded-md text-xs font-bold dark:bg-slate-800 dark:text-slate-200"
+                    style={!isDark ? {
                       backgroundColor: ev.bgColor,
                       color: ev.color
-                    }}
+                    } : undefined}
                   >
                     {ev.type}
                   </span>
@@ -1184,15 +1186,15 @@ export const CalendarPage = () => {
                     setSelectedEvent(ev);
                   }
                 }}
-                className="py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#151e32] flex items-center justify-between cursor-pointer hover:border-blue-400"
+                className="py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className="py-2 px-3 rounded-lg font-extrabold text-xs text-center min-w-[90px]"
-                    style={{
+                    className="py-2 px-3 rounded-lg font-extrabold text-xs text-center min-w-[90px] dark:bg-slate-800 dark:text-slate-100"
+                    style={!isDark ? {
                       backgroundColor: ev.bgColor,
                       color: ev.color
-                    }}
+                    } : undefined}
                   >
                     {ev.date}
                   </div>
@@ -1207,11 +1209,11 @@ export const CalendarPage = () => {
                 </div>
 
                 <span
-                  className="py-1 px-2.5 rounded-md text-[11.5px] font-bold"
-                  style={{
+                  className="py-1 px-2.5 rounded-md text-[11.5px] font-bold dark:bg-slate-800 dark:text-slate-200"
+                  style={!isDark ? {
                     backgroundColor: ev.bgColor,
                     color: ev.color
-                  }}
+                  } : undefined}
                 >
                   {ev.type}
                 </span>
@@ -1239,7 +1241,7 @@ export const CalendarPage = () => {
       {/* Event Detail Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-          <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[480px] p-6 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-[#243049]">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] p-6 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-4">
               <span
                 className="py-1 px-2.5 rounded-md text-xs font-bold"
@@ -1286,7 +1288,7 @@ export const CalendarPage = () => {
                   </div>
                 </div>
                 <span
-                  className="text-[11.5px] font-bold bg-white dark:bg-[#151e32] py-1 px-2 rounded-md shadow-xs"
+                  className="text-[11.5px] font-bold bg-white dark:bg-slate-900 py-1 px-2 rounded-md shadow-xs"
                   style={{ color: isDark ? '#38bdf8' : selectedEvent.color }}
                 >
                   {selectedEvent.type === 'Work Anniversary' ? `${selectedEvent.serviceYearsText || '1st'} Year Milestone` : 'Birthday'}

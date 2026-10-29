@@ -52,7 +52,7 @@ export const LeadsKanban = ({
         return (
           <div
             key={stage.id}
-            className="bg-slate-50 dark:bg-[#151e32] rounded-xl border border-slate-200 dark:border-[#243049] p-3.5 flex flex-col gap-3 min-w-[280px] shadow-xs"
+            className="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 flex flex-col gap-3 min-w-[280px] shadow-xs"
           >
             {/* Stage Header */}
             <div className="flex items-center justify-between">
@@ -65,7 +65,7 @@ export const LeadsKanban = ({
                   {stage.title}
                 </h3>
                 <span
-                  className="text-[11px] font-bold py-px px-1.5 rounded-full border"
+                  className="text-[11px] font-bold py-px px-1.5 rounded-full border dark:bg-slate-800 dark:border-slate-700"
                   style={{
                     backgroundColor: stage.bg,
                     color: stage.color,

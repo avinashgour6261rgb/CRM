@@ -103,14 +103,14 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
         return (
           <div
             key={idx}
-            className="bg-white dark:bg-[#151e32] rounded-[10px] p-2.5 px-3.5 border border-slate-200 dark:border-[#243049] shadow-xs flex flex-col justify-between gap-1.5 relative overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-[10px] p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-1.5 relative overflow-hidden"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 {kpi.title}
               </span>
               <div
-                className="w-[26px] h-[26px] rounded-md flex items-center justify-center shrink-0"
+                className="w-[26px] h-[26px] rounded-md flex items-center justify-center shrink-0 dark:bg-slate-800"
                 style={{
                   backgroundColor: kpi.bgColor,
                   color: kpi.color

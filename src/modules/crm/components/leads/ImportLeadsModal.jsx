@@ -159,9 +159,9 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[780px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[780px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#18233c] rounded-t-2xl">
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -278,7 +278,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
                       <tr
                         key={idx}
                         className={`border-b border-slate-100 dark:border-slate-800 ${
-                          row.isValid ? 'bg-white dark:bg-[#151e32]' : 'bg-red-50/70 dark:bg-red-950/30'
+                          row.isValid ? 'bg-white dark:bg-slate-900' : 'bg-red-50/70 dark:bg-red-950/30'
                         }`}
                       >
                         <td className="py-2 px-2.5 text-center">

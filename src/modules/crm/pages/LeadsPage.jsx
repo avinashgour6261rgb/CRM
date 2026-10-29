@@ -303,7 +303,7 @@ export const LeadsPage = () => {
     <div className="flex flex-col gap-3 pb-8">
       
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#151e32] p-3 px-4 rounded-[10px] border border-slate-200 dark:border-[#243049] shadow-xs min-h-[68px] shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
             <Building size={17} />
@@ -352,7 +352,7 @@ export const LeadsPage = () => {
       <LeadsKPIOverview leads={scopedLeads} />
 
       {/* Main Filter & Action Bar */}
-      <div className="bg-white dark:bg-[#151e32] rounded-[10px] border border-slate-200 dark:border-[#243049] p-2 px-3 shadow-xs flex flex-col gap-2.5">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2 px-3 shadow-xs flex flex-col gap-2.5">
         {/* Top Control Bar */}
         <div className="flex items-center justify-between flex-wrap gap-2.5">
           

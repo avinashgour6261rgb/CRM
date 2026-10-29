@@ -231,7 +231,7 @@ export const TopNavbar = () => {
   };
 
   return (
-    <header className="top-navbar-container h-16 min-h-16 max-h-16 shrink-0 box-border bg-white dark:bg-[#151e32] border-b border-slate-200 dark:border-[#243049] flex items-center justify-between px-6 sticky top-0 z-[90] shadow-xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-colors duration-200">
+    <header className="top-navbar-container h-16 min-h-16 max-h-16 shrink-0 box-border bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-[90] shadow-xs dark:shadow-md transition-colors duration-200">
       {/* ── LEFT: Clean Page Title ── */}
       <div className="flex items-center gap-2 shrink-0">
         <h1 className="text-base font-bold text-slate-800 dark:text-slate-100 m-0 leading-none tracking-tight transition-colors duration-200">
@@ -330,8 +330,8 @@ export const TopNavbar = () => {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute top-[42px] right-0 w-80 bg-white dark:bg-[#151e32] rounded-xl shadow-xl border border-slate-200 dark:border-[#243049] overflow-hidden z-[300]">
-              <div className="py-3 px-4 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#101726]">
+            <div className="absolute top-[42px] right-0 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300]">
+              <div className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                   Notifications
                 </span>
@@ -525,9 +525,9 @@ export const TopNavbar = () => {
 
           {/* Profile Dropdown */}
           {showProfileMenu && (
-            <div className="absolute top-[42px] right-0 w-[260px] bg-white dark:bg-[#151e32] rounded-xl shadow-xl border border-slate-200 dark:border-[#243049] overflow-hidden z-[300] p-3">
+            <div className="absolute top-[42px] right-0 w-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300] p-3">
               {/* Profile Card Header */}
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-[#243049]">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="w-10 h-10 rounded-lg bg-amber-600 text-white text-base font-bold flex items-center justify-center shrink-0">
                   {currentUser?.name?.charAt(0) || 'A'}
                 </div>
@@ -545,7 +545,7 @@ export const TopNavbar = () => {
               </div>
 
               {/* Working Mode Selector */}
-              <div className="py-2.5 border-b border-slate-100 dark:border-[#243049]">
+              <div className="py-2.5 border-b border-slate-100 dark:border-slate-800">
                 <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
                   WORKING MODE
                 </div>
@@ -619,7 +619,7 @@ export const TopNavbar = () => {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-[#151e32] rounded-xl w-full max-w-[540px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+            className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-[540px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
           >
             <div className="flex items-center px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 gap-2.5">
               <Search size={18} className="text-slate-400 dark:text-sky-400 shrink-0" />

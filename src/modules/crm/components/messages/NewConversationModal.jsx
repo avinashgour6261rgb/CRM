@@ -26,8 +26,8 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
   const availableEmployees = employees.filter(emp =>
     emp._id !== currentUser?._id &&
     (emp.name.toLowerCase().includes(search.toLowerCase()) ||
-     emp.role.toLowerCase().includes(search.toLowerCase()) ||
-     emp.department.toLowerCase().includes(search.toLowerCase()))
+      emp.role.toLowerCase().includes(search.toLowerCase()) ||
+      emp.department.toLowerCase().includes(search.toLowerCase()))
   );
 
   const handleSelect = (empId) => {
@@ -37,15 +37,15 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[480px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] max-h-[85vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="p-[18px] px-5 border-b border-slate-100 dark:border-[#243049] flex items-center justify-between bg-slate-50 dark:bg-[#101726] rounded-t-2xl">
+        <div className="p-[18px] px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-400 flex items-center justify-center">
               <MessageSquare size={18} />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-50 m-0">
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0">
                 New Direct Conversation
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">
@@ -56,14 +56,14 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-[30px] h-[30px] flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-7.5 h-7.5 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
           >
             <X size={15} />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-4 px-5 border-b border-slate-100 dark:border-[#243049]">
+        <div className="p-4 px-5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
             <Search size={16} className="text-slate-400 dark:text-sky-400" />
             <input
@@ -71,7 +71,7 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
               placeholder="Search by name, role or department..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="border-none bg-transparent outline-none text-[13px] w-full text-slate-900 dark:text-slate-50 placeholder-slate-400"
+              className="border-none bg-transparent outline-none text-[13px] w-full text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
         </div>
@@ -82,7 +82,7 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
             <div
               key={emp._id}
               onClick={() => handleSelect(emp._id)}
-              className="flex items-center justify-between p-2.5 px-3 rounded-lg cursor-pointer transition-colors bg-white dark:bg-[#151e32] hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="flex items-center justify-between p-2.5 px-3 rounded-lg cursor-pointer transition-colors bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <div className="flex items-center gap-2.5">
                 <div className="relative">
@@ -91,10 +91,10 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
                     alt={emp.name}
                     className="w-9 h-9 rounded-full object-cover"
                   />
-                  <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-[#151e32]" />
+                  <span className="absolute bottom-0 right-0 w-[9px] h-[9px] rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
                 </div>
                 <div>
-                  <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-50">
+                  <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100">
                     {emp.name}
                   </div>
                   <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
