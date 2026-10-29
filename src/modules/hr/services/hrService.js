@@ -11,6 +11,7 @@
 
 import { getCollection, saveCollection, KEYS, initStorage } from '../../../shared/services/storageService';
 import { API_BASE } from '../../../shared/config/apiConfig';
+import { holidaySyncService } from './holidaySyncService';
 
 // Ensure storage is initialized
 initStorage();
@@ -352,44 +353,6 @@ export const hrService = {
       saveCollection(KEYS.EMPLOYEES, employees);
       return { success: true };
     });
-  },
-
-  async toggleHolidayConfirmation(holidayId, isConfirmed, adminUser) {
-    const holidays = getCollection(KEYS.HOLIDAYS) || [];
-    const hol = holidays.find(h => h._id === holidayId);
-    if (hol) {
-      hol.isConfirmed = !!isConfirmed;
-      hol.confirmedBy = adminUser?.name || 'Admin';
-      hol.confirmedAt = new Date().toISOString();
-      saveCollection(KEYS.HOLIDAYS, holidays);
-    }
-    return { success: true };
-  },
-
-  async bulkConfirmGazetted(year, allHolidays, adminUser) {
-    const holidays = getCollection(KEYS.HOLIDAYS) || [];
-    holidays.forEach(h => {
-      if (h.date && h.date.startsWith(String(year))) {
-        h.isConfirmed = true;
-        h.confirmedBy = adminUser?.name || 'Admin';
-        h.confirmedAt = new Date().toISOString();
-      }
-    });
-    saveCollection(KEYS.HOLIDAYS, holidays);
-    return { success: true };
-  },
-
-  async resetHolidayConfirmations(year) {
-    const holidays = getCollection(KEYS.HOLIDAYS) || [];
-    holidays.forEach(h => {
-      if (h.date && h.date.startsWith(String(year))) {
-        delete h.isConfirmed;
-        delete h.confirmedBy;
-        delete h.confirmedAt;
-      }
-    });
-    saveCollection(KEYS.HOLIDAYS, holidays);
-    return { success: true };
   },
 
   // =========================================================================
@@ -1269,53 +1232,107 @@ export const hrService = {
   // =========================================================================
 
   async getHolidays(year = 2026, search = '') {
+    // 1. First ensure full 12-month national festival and gazetted dataset is synced
+    try {
+      holidaySyncService.autoUpgradeStaleHolidays(year);
+    } catch (_) {}
+
     const query = new URLSearchParams();
     if (year) query.append('year', String(year));
     if (search) query.append('search', search);
 
-    return fetchWithFallback(`${API_BASE}/holidays?${query.toString()}`, { method: 'GET' }, async () => {
-      let holidays = getCollection(KEYS.HOLIDAYS);
+    const res = await fetchWithFallback(`${API_BASE}/holidays?${query.toString()}`, { method: 'GET' }, async () => {
+      let holidays = getCollection(KEYS.HOLIDAYS) || [];
       if (year) {
-        holidays = holidays.filter(h => h.date.startsWith(String(year)));
+        holidays = holidays.filter(h => h.date && h.date.startsWith(String(year)));
       }
       if (search) {
         const q = search.toLowerCase();
         holidays = holidays.filter(h => 
-          h.name.toLowerCase().includes(q) ||
-          h.type.toLowerCase().includes(q) ||
+          h.name?.toLowerCase().includes(q) ||
+          h.type?.toLowerCase().includes(q) ||
           h.description?.toLowerCase().includes(q)
         );
       }
-      return holidays.sort((a, b) => a.date.localeCompare(b.date));
+      return holidays.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     });
+
+    if (Array.isArray(res) && res.length > 0) {
+      try {
+        const local = getCollection(KEYS.HOLIDAYS) || [];
+        const map = new Map();
+        local.forEach(item => map.set(item.date + '_' + item.name, item));
+        res.forEach(item => map.set(item.date + '_' + item.name, { ...(map.get(item.date + '_' + item.name) || {}), ...item }));
+        const merged = Array.from(map.values()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        saveCollection(KEYS.HOLIDAYS, merged);
+      } catch (_) {}
+    }
+
+    return Array.isArray(res) && res.length > 0 ? res : (getCollection(KEYS.HOLIDAYS) || []);
   },
 
   async createHoliday(holidayData) {
-    return fetchWithFallback(`${API_BASE}/holidays`, {
-      method: 'POST',
-      body: JSON.stringify(holidayData)
-    }, async () => {
-      const holidays = getCollection(KEYS.HOLIDAYS);
-      const newHoliday = {
-        _id: `hol_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        ...holidayData
-      };
-      holidays.push(newHoliday);
-      saveCollection(KEYS.HOLIDAYS, holidays);
-      return newHoliday;
-    });
+    let result = null;
+    try {
+      const res = await fetch(`${API_BASE}/holidays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(holidayData)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        result = json.data || json;
+      }
+    } catch (_) {}
+
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    const newHoliday = result || {
+      _id: `hol_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      createdAt: new Date().toISOString(),
+      ...holidayData
+    };
+
+    const filtered = holidays.filter(h => h._id !== newHoliday._id && !(h.date === newHoliday.date && h.name === newHoliday.name));
+    filtered.push(newHoliday);
+    filtered.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    saveCollection(KEYS.HOLIDAYS, filtered);
+
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.HOLIDAYS } }));
+    window.dispatchEvent(new CustomEvent('ems_holidays_updated', { detail: { holiday: newHoliday } }));
+    return newHoliday;
   },
 
   async deleteHoliday(holidayId) {
-    return fetchWithFallback(`${API_BASE}/holidays/${holidayId}`, {
-      method: 'DELETE'
-    }, async () => {
-      let holidays = getCollection(KEYS.HOLIDAYS);
-      holidays = holidays.filter(h => h._id !== holidayId);
-      saveCollection(KEYS.HOLIDAYS, holidays);
-      return { success: true };
-    });
+    return holidaySyncService.cancelOrDeleteHoliday(holidayId);
+  },
+
+  async cancelHoliday(holidayId, adminUser) {
+    return holidaySyncService.cancelOrDeleteHoliday(holidayId, adminUser);
+  },
+
+  async toggleHolidayConfirmation(holidayId, isConfirmed, adminUser) {
+    if (!isConfirmed) {
+      return holidaySyncService.cancelOrDeleteHoliday(holidayId, adminUser);
+    }
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    const hol = holidays.find(h => h._id === holidayId || h.code === holidayId || h.date === holidayId);
+    if (hol) {
+      return holidaySyncService.confirmHolidayAsCompanyOff(hol, adminUser);
+    }
+    return { success: true };
+  },
+
+  async bulkConfirmGazetted(year, allHolidays, adminUser) {
+    return holidaySyncService.confirmAllSuggestedHolidays(year, adminUser);
+  },
+
+  async resetHolidayConfirmations(year) {
+    const holidays = getCollection(KEYS.HOLIDAYS) || [];
+    const filtered = holidays.filter(h => !h.date || !h.date.startsWith(String(year)));
+    saveCollection(KEYS.HOLIDAYS, filtered);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.HOLIDAYS } }));
+    window.dispatchEvent(new CustomEvent('ems_holidays_updated'));
+    return { success: true };
   },
 
   // =========================================================================

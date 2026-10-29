@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ChevronRight,
   Search,
   Plus,
-  Calendar as CalendarIcon,
   CalendarCheck,
   Clock,
   CheckCircle2,
   Sparkles,
   Download,
-  ShieldCheck,
   Lock,
   ChevronDown,
   ChevronUp,
@@ -28,6 +25,7 @@ export const HolidayPage = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [suggestedHolidays, setSuggestedHolidays] = useState([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Access Control: Admin & HR permission check
   const canManageHolidays = isHRorAdmin(currentUser);
@@ -61,12 +59,6 @@ export const HolidayPage = () => {
   const totalHolidaysCount = cleanHolidays.length;
   const upcomingHolidays = cleanHolidays.filter(h => h.date >= todayStr);
   const completedHolidays = cleanHolidays.filter(h => h.date < todayStr);
-  
-  // Q4 Festive Season (Oct - Dec) dynamic calculation
-  const q4Holidays = holidays.filter(h => {
-    const m = parseInt((h.date || '').split('-')[1], 10);
-    return m >= 10 && m <= 12;
-  });
 
   const sortedUpcoming = [...upcomingHolidays].sort((a, b) => a.date.localeCompare(b.date));
   const nextHol = sortedUpcoming[0];
@@ -94,6 +86,41 @@ export const HolidayPage = () => {
       loadSuggested();
     } catch {
       addToast('Failed to confirm holiday.', 'error');
+    }
+  };
+
+  const handleCancelOne = async (item) => {
+    if (!canManageHolidays) return;
+    const confirmMsg = `Are you sure you want to cancel "${item.name}" (${item.date}) as an official company holiday? This day will immediately revert back to a normal working day for all employees.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const targetId = item.confirmedRecordId || item.code || item.date;
+      const res = await holidaySyncService.cancelOrDeleteHoliday(targetId, currentUser);
+      if (res.success) {
+        addToast(`🗑️ Cancelled "${item.name}". Reverted to normal working day.`, 'info');
+      } else {
+        addToast(res.message || 'Could not cancel holiday.', 'warning');
+      }
+      loadSuggested();
+    } catch (err) {
+      console.error('Cancel holiday failed:', err);
+      addToast('Failed to cancel holiday.', 'error');
+    }
+  };
+
+  const handleSyncAll12Months = async () => {
+    if (!canManageHolidays) return;
+    try {
+      setIsSyncing(true);
+      const upgraded = await holidaySyncService.autoUpgradeStaleHolidays(currentYear, true);
+      await loadSuggested();
+      addToast(`✨ Successfully synchronized all ${upgraded.length} Pan-India national holidays & festivals for ${currentYear}!`, 'success');
+    } catch (err) {
+      console.error('Failed to sync holidays:', err);
+      addToast('Failed to sync holidays.', 'error');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -156,6 +183,17 @@ export const HolidayPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {canManageHolidays && (
+            <button
+              onClick={handleSyncAll12Months}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold cursor-pointer hover:bg-indigo-100 transition-colors"
+              title="Synchronize all 12 months (Jan-Dec) of official Indian gazetted holidays and festivals for this year"
+            >
+              <Sparkles size={13} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync All 12 Months'}</span>
+            </button>
+          )}
           <button
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white text-blue-600 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
@@ -237,9 +275,20 @@ export const HolidayPage = () => {
                       </div>
                     </div>
                     {item.isConfirmed ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded shrink-0">
-                        <Check size={11} /> Off
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                          <Check size={11} /> Off
+                        </span>
+                        {canManageHolidays && (
+                          <button
+                            onClick={() => handleCancelOne(item)}
+                            title="Cancel / Revert this company holiday"
+                            className="text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <button
                         onClick={() => handleConfirmOne(item)}
@@ -300,17 +349,17 @@ export const HolidayPage = () => {
           </div>
         </div>
 
-        {/* 4. This Month / Upcoming Focus */}
+        {/* 4. Pan-India Festivals (Jan - Dec) */}
         <div className="kpi-card">
           <div className="kpi-header">
-            <span className="kpi-title">Festive Season (Oct - Dec)</span>
+            <span className="kpi-title">Pan-India Festivals ({currentYear})</span>
             <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
               <Sparkles size={16} />
             </div>
           </div>
-          <div className="kpi-value text-amber-600">{q4Holidays.length} <span className="text-xs font-semibold text-slate-500">Festival Offs</span></div>
+          <div className="kpi-value text-amber-600">{suggestedHolidays.length || 32} <span className="text-xs font-semibold text-slate-500">Jan - Dec</span></div>
           <div className="kpi-subtext text-amber-600">
-            <span>{q4Holidays.length > 0 ? q4Holidays.map(h => h.name).slice(0, 2).join(', ') : 'No offs'}</span>
+            <span>{suggestedHolidays.filter(s => s.isConfirmed).length} confirmed offs • {unconfirmedSuggestions.length} available to review</span>
           </div>
         </div>
       </div>

@@ -21,7 +21,30 @@ const HolidaySchema = new mongoose.Schema(
     type: {
       type: String,
       required: [true, 'Holiday type is required'],
-      enum: ['National Holiday', 'Gazetted Holiday', 'Restricted / Optional Holiday', 'Company Holiday']
+      enum: [
+        'National Holiday',
+        'Gazetted Holiday',
+        'Restricted / Optional Holiday',
+        'Company Holiday',
+        'Company Declared Holiday',
+        'Major Festival',
+        'Festival'
+      ]
+    },
+    icon: {
+      type: String,
+      default: '🏖️'
+    },
+    isConfirmed: {
+      type: Boolean,
+      default: true
+    },
+    confirmedBy: {
+      type: String,
+      default: 'Admin'
+    },
+    code: {
+      type: String
     },
     description: {
       type: String,
