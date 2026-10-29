@@ -64,7 +64,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
@@ -222,14 +222,8 @@ export const DashboardPage = () => {
   // Projects reopened for current user
   const reopenedProjectsForMe = React.useMemo(() => {
     if (!currentUser) return [];
-    const uId = String(currentUser._id || currentUser.id || '');
-    const uCode = String(currentUser.employeeCode || '');
     return (projects || []).filter(p =>
-      p.reopened && !p.finalApproved && (
-        p.createdBy === uId || p.createdById === uId || p.createdBy === uCode ||
-        (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) ||
-        (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode))
-      )
+      p.reopened && !p.finalApproved && isProjectVisibleToUser(p, currentUser)
     );
   }, [projects, currentUser]);
   const [activeLeftoverIdx, setActiveLeftoverIdx] = useState(0);
@@ -1161,9 +1155,12 @@ export const DashboardPage = () => {
   // Current active pool of tasks displayed in the Dashboard tasks section
   const currentScopePool = React.useMemo(() => {
     if (dashboardTaskScope === 'delegated') return delegatedByMeTasks;
-    if (dashboardTaskScope === 'all') return allTeamTasks;
+    if (dashboardTaskScope === 'all') {
+      if (isUserAdminOrHR || perms?.viewAllTasks) return allTeamTasks;
+      return myTasks;
+    }
     return myTasks;
-  }, [dashboardTaskScope, delegatedByMeTasks, allTeamTasks, myTasks]);
+  }, [dashboardTaskScope, delegatedByMeTasks, allTeamTasks, myTasks, isUserAdminOrHR, perms?.viewAllTasks]);
 
   const poolPendingTasks = React.useMemo(() => currentScopePool.filter(t => !isTaskActuallyCompleted(t)), [currentScopePool]);
   const poolCompletedTasks = React.useMemo(() => currentScopePool.filter(t => isTaskActuallyCompleted(t)), [currentScopePool]);
@@ -1206,8 +1203,12 @@ export const DashboardPage = () => {
   const displayedHadClockedOut = isViewingOtherEmployee ? activeEmpState?.isClockedOut : hadClockedOutToday;
   const displayedBreakDuration = isViewingOtherEmployee ? formatTimeDurationSafe(activeEmpState?.breakSecs || 0) : (breakDurationText || '0s');
 
-  const activeProjectsCount = (projects || []).filter(p => p?.status === 'in_progress').length || 0;
-  const overdueProjectsCount = (projects || []).filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
+  const userScopedProjects = React.useMemo(() => {
+    return (projects || []).filter(p => isProjectVisibleToUser(p, effectiveTargetUser || currentUser));
+  }, [projects, effectiveTargetUser, currentUser]);
+
+  const activeProjectsCount = userScopedProjects.filter(p => p?.status === 'in_progress').length || 0;
+  const overdueProjectsCount = userScopedProjects.filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
 
 
   // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder — strictly scoped per user)
@@ -2425,13 +2426,13 @@ export const DashboardPage = () => {
               <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div>
                   <span className="text-lg font-extrabold text-green-600">
-                    {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
+                    {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
                   </span>
                   <span className="text-[10.5px] text-slate-500 ml-1">In Progress</span>
                 </div>
                 <div>
-                  <span className={`text-lg font-extrabold ${(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                    {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
+                  <span className={`text-lg font-extrabold ${userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                    {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
                   </span>
                   <span className="text-[10.5px] text-slate-500 ml-1">Overdue</span>
                 </div>

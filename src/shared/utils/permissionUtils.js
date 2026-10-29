@@ -308,6 +308,174 @@ export const canPostNotices = (user) => isLeaderOrAbove(user);
 export const canDeleteEmployee = (user) => isAdmin(user);
 export const canEditSettings = (user) => isAdmin(user);
 
+/**
+ * Check if a project is visible to a user.
+ * High Authority (Admin, HR, or with viewAllProjects permission): Always true.
+ * Regular User (Team Member):
+ * - Project Creator: Always true.
+ * - Project Member / Assignee (members, membersList, teamIds, visibleToIds, leadId): True.
+ * - Truly Company-Wide (isCompanyWide === true && visibility === 'all'): True.
+ * - Otherwise: False.
+ */
+export const isProjectVisibleToUser = (project, user) => {
+  if (!project) return false;
+  if (!user) return false;
+
+  // 1. High Authority access
+  if (isHRorAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.viewAllProjects) return true;
+
+  const uId = String(user._id || user.id || '').toLowerCase().trim();
+  const uCode = String(user.employeeCode || '').toLowerCase().trim();
+  const uName = String(user.name || '').toLowerCase().trim();
+  const uEmail = String(user.email || '').toLowerCase().trim();
+
+  // 2. Creator access
+  const creatorIds = [
+    project.createdBy,
+    project.createdById,
+    project.creatorCode
+  ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+
+  if (uId && creatorIds.includes(uId)) return true;
+  if (uCode && creatorIds.includes(uCode)) return true;
+  if (project.creatorEmail && project.creatorEmail.toLowerCase().trim() === uEmail) return true;
+  if (project.creatorName && project.creatorName.toLowerCase().trim() === uName) return true;
+
+  // 3. Project Lead
+  if (project.leadId && (String(project.leadId).toLowerCase() === uId || String(project.leadId).toLowerCase() === uCode)) return true;
+  if (project.lead && project.lead.toLowerCase().trim() === uName) return true;
+
+  // 4. Assigned Team / Member list
+  if (Array.isArray(project.teamIds) && (project.teamIds.some(id => String(id).toLowerCase() === uId || String(id).toLowerCase() === uCode))) {
+    return true;
+  }
+  if (Array.isArray(project.visibleToIds) && (project.visibleToIds.some(id => String(id).toLowerCase() === uId || String(id).toLowerCase() === uCode))) {
+    return true;
+  }
+  if (Array.isArray(project.members) && project.members.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mCode = String(m.employeeCode || '').toLowerCase();
+    const mEmail = String(m.email || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uCode && mCode === uCode) || (uEmail && mEmail === uEmail) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+  if (Array.isArray(project.membersList) && project.membersList.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mCode = String(m.employeeCode || '').toLowerCase();
+    const mEmail = String(m.email || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uCode && mCode === uCode) || (uEmail && mEmail === uEmail) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+  if (Array.isArray(project.team) && project.team.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+
+  // 5. Explicitly marked as company-wide AND visibility === 'all' (only when not restricted)
+  if (project.isCompanyWide === true && project.visibility === 'all' && (!Array.isArray(project.visibleToIds) || project.visibleToIds.length === 0)) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Check if a task is visible to a user.
+ * High Authority: Sees all non-personal tasks (and their own personal tasks).
+ * Regular User: Sees ONLY tasks assigned to them (single or multi-assignee), or delegated/created by them.
+ */
+export const isTaskVisibleToUser = (task, user) => {
+  if (!task || !user) return false;
+
+  const uId = String(user._id || user.id || '').toLowerCase().trim();
+  const uCode = String(user.employeeCode || '').toLowerCase().trim();
+  const uName = String(user.name || '').toLowerCase().trim();
+  const uEmail = String(user.email || '').toLowerCase().trim();
+  const uTokens = uName.split(/\s+/).filter(tok => tok.length >= 3);
+
+  // Match assignment (single or multi-assignee)
+  const isAssigned = (() => {
+    const directAssignedTo = (task.assignedTo && typeof task.assignedTo === 'object')
+      ? String(task.assignedTo._id || task.assignedTo.id || '')
+      : String(task.assignedTo || '');
+
+    const directIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToCode, task.assignedToEmail]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+
+    if (uId && directIds.includes(uId)) return true;
+    if (uCode && directIds.includes(uCode)) return true;
+    if (uEmail && directIds.includes(uEmail)) return true;
+
+    if (task.assignedToName) {
+      const aName = task.assignedToName.toLowerCase().trim();
+      if (uName && (uName === aName || uName.includes(aName) || aName.includes(uName))) return true;
+      const aTokens = aName.split(/\s+/).filter(tok => tok.length >= 3);
+      if (uTokens.some(ut => aTokens.includes(ut))) return true;
+    }
+
+    if (Array.isArray(task.assignedToIds) && task.assignedToIds.some(id => {
+      const s = String(id).toLowerCase().trim();
+      return s === uId || s === uCode;
+    })) {
+      return true;
+    }
+
+    if (Array.isArray(task.assignees) && task.assignees.some(a => {
+      if (!a) return false;
+      const aId = String(a._id || a.id || '').toLowerCase().trim();
+      const aCode = String(a.employeeCode || '').toLowerCase().trim();
+      const aEmail = String(a.email || '').toLowerCase().trim();
+      const aName = String(a.name || '').toLowerCase().trim();
+      if (uId && aId === uId) return true;
+      if (uCode && aCode === uCode) return true;
+      if (uEmail && aEmail === uEmail) return true;
+      if (uName && (uName === aName || uName.includes(aName) || aName.includes(uName))) return true;
+      return false;
+    })) {
+      return true;
+    }
+
+    return false;
+  })();
+
+  // Match delegation/creation
+  const isCreatorOrAssigner = (() => {
+    const creatorIds = [task.assignedById, task.assignedByCode, task.createdById, task.createdBy]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+    if (uId && creatorIds.includes(uId)) return true;
+    if (uCode && creatorIds.includes(uCode)) return true;
+    if (task.assignedBy && uName && task.assignedBy.trim().toLowerCase() === uName) return true;
+    return false;
+  })();
+
+  // 1. Personal Task Isolation
+  if (task.isPersonal) {
+    return isAssigned || isCreatorOrAssigner;
+  }
+
+  // 2. High Authority access
+  if (isHRorAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.viewAllTasks) return true;
+
+  // 3. Regular User: strictly assigned or created by them
+  return isAssigned || isCreatorOrAssigner;
+};
+
 export const getRoleConfig = (roleIdOrUser) => {
   const roleId = typeof roleIdOrUser === 'object' ? getUserRole(roleIdOrUser) : roleIdOrUser;
   return ROLE_CONFIGS[roleId] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
@@ -400,8 +568,8 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     expenses: true,
     leads: false,
     projects: true,
-    manageProjects: true,
-    createProjects: true,
+    manageProjects: false,
+    createProjects: false,
     employees: false,
     reports: false,
     documentation: false,

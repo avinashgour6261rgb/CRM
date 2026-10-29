@@ -24,7 +24,9 @@ import {
   Check
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
 import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
 import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
@@ -32,7 +34,12 @@ import { ImportExpensesModal } from '../components/ImportExpensesModal';
 
 export const ExpensesPage = () => {
   const { expenses, updateExpenseStatus, deleteExpense } = useCRM();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
+
+  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllExpenses = isPrivileged || perms?.accessFinance || perms?.viewAllExpenses;
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -50,9 +57,24 @@ export const ExpensesPage = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
+  // Scoped expenses based on role (Regular employees only see their own expense claims)
+  const scopedExpenses = useMemo(() => {
+    if (canViewAllExpenses) return expenses || [];
+    if (!currentUser) return expenses || [];
+    const uId = String(currentUser._id || currentUser.id || '').toLowerCase();
+    const uCode = String(currentUser.employeeCode || '').toLowerCase();
+    const uName = (currentUser.name || '').toLowerCase().trim();
+    return (expenses || []).filter(exp => {
+      const eId = String(exp.employeeId || exp.employee || '').toLowerCase();
+      const eCode = String(exp.employeeCode || '').toLowerCase();
+      const eName = (exp.employeeName || '').toLowerCase().trim();
+      return (uId && eId === uId) || (uCode && (eId === uCode || eCode === uCode)) || (uName && eName === uName);
+    });
+  }, [expenses, canViewAllExpenses, currentUser]);
+
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(exp => {
+    return scopedExpenses.filter(exp => {
       const q = search.toLowerCase();
       const matchesSearch = !search ||
         (exp.itemName || '').toLowerCase().includes(q) ||
@@ -158,7 +180,7 @@ export const ExpensesPage = () => {
       </div>
 
       {/* KPI Overview Cards */}
-      <ExpenseKPIOverview expenses={expenses} />
+      <ExpenseKPIOverview expenses={scopedExpenses} />
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-xl border border-slate-200 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">

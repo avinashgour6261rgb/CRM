@@ -36,6 +36,7 @@ import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
 import { dateMemoryService } from '../services/dateMemoryService';
 import { holidaySyncService } from '../../hr/services/holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -269,18 +270,7 @@ export const CalendarPage = () => {
     // 6. Dynamic Tasks Due Dates (Scoped by user role & personal task isolation)
     const todayStr = new Date().toISOString().split('T')[0];
     const taskEvents = (tasks || [])
-      .filter(t => t?.dueDate)
-      .filter(t => {
-        if (t.isPersonal) {
-          return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
-                  t.assignedById === currentUser?._id ||
-                  (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
-        }
-        if (isPrivilegedUser) return true;
-        return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
-                t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
-                (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
-      })
+      .filter(t => t?.dueDate && isTaskVisibleToUser(t, currentUser))
       .map(t => {
         const isOverdue = t.isOverdue || (t.dueDate < todayStr && t.status !== 'completed');
         return {
@@ -298,9 +288,9 @@ export const CalendarPage = () => {
         };
       });
 
-    // 7. Dynamic Project Delivery Deadlines
+    // 7. Dynamic Project Delivery Deadlines (Scoped to assigned members / public projects)
     const projectDeadlineEvents = (projects || [])
-      .filter(p => p?.deadline)
+      .filter(p => p?.deadline && isProjectVisibleToUser(p, currentUser))
       .map(p => {
         const isOverdue = p.deadline < todayStr;
         return {
@@ -312,7 +302,7 @@ export const CalendarPage = () => {
           type: 'Project Deadline',
           isProject: true,
           location: p.client ? `Client: ${p.client}` : (p.department ? `Dept: ${p.department}` : 'All Teams'),
-          description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}. Open to all team members to view and contribute.`,
+          description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}.`,
           color: isOverdue ? '#dc2626' : '#7c3aed',
           bgColor: isOverdue ? '#fee2e2' : '#f5f3ff'
         };

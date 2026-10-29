@@ -6,7 +6,7 @@
 
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
-import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
 
 let backendOnlineCache = null;
 let lastCheckTime = 0;
@@ -85,6 +85,13 @@ export const workService = {
           if (Array.isArray(json.data)) {
             // Silently persist to local mirror without triggering recursive storage events
             localStorage.setItem(KEYS.PROJECTS, JSON.stringify(json.data));
+            const authUser = getAuthUser();
+            const isPrivileged = authUser && isHRorAdmin(authUser);
+            const perms = getUserModulePermissions(authUser);
+            const canViewAll = isPrivileged || perms?.viewAllProjects;
+            if (!canViewAll && authUser) {
+              return json.data.filter(p => isProjectVisibleToUser(p, authUser));
+            }
             return json.data;
           }
         }
@@ -95,6 +102,15 @@ export const workService = {
 
     // LocalStorage Fallback
     let list = getCollection(KEYS.PROJECTS) || [];
+    const authUser = getAuthUser();
+    const isPrivileged = authUser && isHRorAdmin(authUser);
+    const perms = getUserModulePermissions(authUser);
+    const canViewAll = isPrivileged || perms?.viewAllProjects;
+
+    // Strict tenant isolation: regular employees can ONLY view projects assigned to them, created by them, or public company-wide
+    if (!canViewAll && authUser) {
+      list = list.filter(p => isProjectVisibleToUser(p, authUser));
+    }
     if (filters.status && filters.status !== 'all') {
       list = list.filter(p => p.status === filters.status);
     }

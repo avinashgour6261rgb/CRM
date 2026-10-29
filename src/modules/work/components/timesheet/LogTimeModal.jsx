@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { isHRorAdmin, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../../shared/utils/permissionUtils';
 
 export const LogTimeModal = ({ isOpen, onClose }) => {
   const {
@@ -32,11 +33,23 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
   } = useWork();
   const { addToast } = useToast();
 
-  const [mode, setMode] = useState(projects.length > 0 && tasks.length > 0 ? 'existing' : 'custom');
+  const isPrivileged = isHRorAdmin(currentUser);
+
+  const scopedProjects = React.useMemo(() => {
+    if (isPrivileged) return projects || [];
+    return (projects || []).filter(p => isProjectVisibleToUser(p, currentUser));
+  }, [projects, isPrivileged, currentUser]);
+
+  const scopedTasks = React.useMemo(() => {
+    if (isPrivileged) return tasks || [];
+    return (tasks || []).filter(t => isTaskVisibleToUser(t, currentUser));
+  }, [tasks, isPrivileged, currentUser]);
+
+  const [mode, setMode] = useState(scopedProjects.length > 0 && scopedTasks.length > 0 ? 'existing' : 'custom');
 
   const [formData, setFormData] = useState({
-    projectId: projects[0]?._id || '',
-    taskId: tasks[0]?._id || '',
+    projectId: scopedProjects[0]?._id || '',
+    taskId: scopedTasks[0]?._id || '',
     customTaskName: '',
     customProjectName: 'General Work',
     employeeId: currentUser?._id || employees[0]?._id || '',
@@ -239,7 +252,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                   onChange={e => handleChange('projectId', e.target.value)}
                   className={selectClass}
                 >
-                  {projects.map(p => (
+                  {scopedProjects.map(p => (
                     <option key={p._id} value={p._id}>[{p.projectCode}] {p.name}</option>
                   ))}
                 </select>
@@ -254,7 +267,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                   onChange={e => handleChange('taskId', e.target.value)}
                   className={selectClass}
                 >
-                  {tasks.map(t => (
+                  {scopedTasks.map(t => (
                     <option key={t._id} value={t._id}>[{t.taskCode}] {t.title}</option>
                   ))}
                 </select>
@@ -266,18 +279,25 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Employee (CRM Team) *
+                Employee *
               </label>
               <select
                 value={formData.employeeId}
                 onChange={e => handleChange('employeeId', e.target.value)}
-                className={selectClass}
+                disabled={!isPrivileged}
+                className={`${selectClass} ${!isPrivileged ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-90' : ''}`}
               >
-                {employees.map(e => (
-                  <option key={e._id} value={e._id}>
-                    {e.name} ({e.role || 'Member'}) {e._id === currentUser?._id ? '— You' : ''}
+                {isPrivileged ? (
+                  employees.map(e => (
+                    <option key={e._id} value={e._id}>
+                      {e.name} ({e.role || 'Member'}) {e._id === currentUser?._id ? '— You' : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value={currentUser?._id || ''}>
+                    {currentUser?.name || 'You'} ({currentUser?.role || 'Team Member'}) — You
                   </option>
-                ))}
+                )}
               </select>
             </div>
 

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isHRorAdmin, getUserModulePermissions, canManageProjects } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, getUserModulePermissions, canManageProjects, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
 import { ProjectsTable } from '../components/projects/ProjectsTable';
 import { AddProjectModal } from '../components/projects/AddProjectModal';
 import { ProjectDetailModal } from '../components/projects/ProjectDetailModal';
@@ -60,14 +60,8 @@ export const ProjectsPage = () => {
 
   const reopenedProjectsForMe = React.useMemo(() => {
     if (!currentUser) return [];
-    const uId = String(currentUser._id || currentUser.id || '');
-    const uCode = String(currentUser.employeeCode || '');
     return (projects || []).filter(p =>
-      p.reopened && !p.finalApproved && (
-        p.createdBy === uId || p.createdById === uId || p.createdBy === uCode ||
-        (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) ||
-        (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode))
-      )
+      p.reopened && !p.finalApproved && isProjectVisibleToUser(p, currentUser)
     );
   }, [projects, currentUser]);
 
@@ -75,43 +69,7 @@ export const ProjectsPage = () => {
   const displayProjects = React.useMemo(() => {
     let list = projects || [];
     if (!canViewAllProjects && currentUser) {
-      list = list.filter(p => {
-        const uId = String(currentUser._id || currentUser.id || '');
-        const uCode = String(currentUser.employeeCode || '');
-        const uName = (currentUser.name || '').toLowerCase().trim();
-        const uEmail = (currentUser.email || '').toLowerCase().trim();
-
-        // 1. Company-wide projects are visible to all employees
-        if (p.isCompanyWide === true || p.visibility === 'all') return true;
-
-        // 2. Project Creator ALWAYS sees their own project!
-        const isCreator = (
-          (p.createdBy && String(p.createdBy) === uId) ||
-          (p.createdById && String(p.createdById) === uId) ||
-          (p.createdBy && String(p.createdBy) === uCode) ||
-          (p.creatorName && p.creatorName.toLowerCase().trim() === uName) ||
-          (p.creatorEmail && p.creatorEmail.toLowerCase().trim() === uEmail)
-        );
-        if (isCreator) return true;
-
-        // 3. User is in visibleToIds list
-        if (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) {
-          return true;
-        }
-
-        // 4. User is an assigned member
-        const isMember = (
-          (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode || (m.email && m.email.toLowerCase() === uEmail))) ||
-          (Array.isArray(p.membersList) && p.membersList.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode || (m.email && m.email.toLowerCase() === uEmail))) ||
-          (Array.isArray(p.teamIds) && (p.teamIds.includes(uId) || p.teamIds.includes(uCode))) ||
-          (Array.isArray(p.team) && p.team.some(m => String(m._id || m.id) === uId || (m.name && m.name.toLowerCase().trim() === uName)))
-        );
-        if (isMember) return true;
-
-        // 5. Project lead
-        const isLead = (p.leadId && (String(p.leadId) === uId || String(p.leadId) === uCode)) || (p.lead && p.lead.toLowerCase().trim() === uName);
-        return isLead;
-      });
+      list = list.filter(p => isProjectVisibleToUser(p, currentUser));
     }
 
     if (projectFilter.status && projectFilter.status !== 'all') {

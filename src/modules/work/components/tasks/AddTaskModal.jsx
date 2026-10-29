@@ -25,7 +25,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useHR } from '../../../hr/context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
-import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { isHRorAdmin, isProjectVisibleToUser } from '../../../../shared/utils/permissionUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
 
 const CATEGORIES = [
@@ -74,13 +74,19 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
 
   const isPrivileged = isHRorAdmin(currentUser);
 
+  // Filter projects visible to this employee (unless admin/privileged)
+  const userProjects = React.useMemo(() => {
+    if (isPrivileged) return projects || [];
+    return (projects || []).filter(p => isProjectVisibleToUser(p, currentUser));
+  }, [projects, isPrivileged, currentUser]);
+
   const getInitialFormData = () => {
     // Default assignee to currentUser so user can easily self-assign or pick any team member
     const defaultEmpId = currentUser?._id || (employees && employees[0]?._id) || '';
     return {
       title: '',
       category: 'General',
-      projectId: initialProjectId || (projects && projects[0]?._id) || '',
+      projectId: initialProjectId || (userProjects && userProjects[0]?._id) || '',
       customProjectName: '',
       startDate: getTodayStr(),
       dueDate: getTodayStr(),
@@ -97,7 +103,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
 
   // 'none' (Standalone Task) | 'existing' (Company Project) | 'new' (Create Project on the fly)
   const [projectMode, setProjectMode] = useState(
-    initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none')
+    initialProjectId ? 'existing' : (userProjects && userProjects.length > 0 ? 'existing' : 'none')
   );
 
   // 'team' (Company/Team Task, default for all tasks) | 'personal' (Private to this employee)
@@ -110,7 +116,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
 
   const resetForm = () => {
     setFormData(getInitialFormData());
-    setProjectMode(initialProjectId ? 'existing' : (projects && projects.length > 0 ? 'existing' : 'none'));
+    setProjectMode(initialProjectId ? 'existing' : (userProjects && userProjects.length > 0 ? 'existing' : 'none'));
     setTaskScope('team');
     setMemberSearchQuery('');
     setSubmitting(false);
@@ -173,7 +179,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
       let finalProjectCode = 'GEN';
 
       if (projectMode === 'existing') {
-        const selectedProject = projects.find(p => p._id === formData.projectId) || projects[0];
+        const selectedProject = userProjects.find(p => p._id === formData.projectId) || userProjects[0];
         if (selectedProject) {
           finalProjectId = selectedProject._id;
           finalProjectName = selectedProject.name;
@@ -195,7 +201,11 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
             budget: 0,
             summary: `Created with task: ${formData.title.trim()}`,
             status: 'in_progress',
-            members: employees.map(e => ({ _id: e._id, name: e.name, avatar: e.avatar, role: e.role }))
+            isCompanyWide: false,
+            visibility: 'members',
+            visibleToIds: [currentUser?._id].filter(Boolean),
+            teamIds: [currentUser?._id].filter(Boolean),
+            members: [{ _id: currentUser?._id, name: currentUser?.name, avatar: currentUser?.avatar, role: currentUser?.role }]
           });
           if (newProj && newProj._id) {
             finalProjectId = newProj._id;
@@ -479,14 +489,14 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
                   onChange={(e) => handleChange('projectId', e.target.value)}
                   className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800"
                 >
-                  {projects && projects.length > 0 ? (
-                    projects.map(p => (
+                  {userProjects && userProjects.length > 0 ? (
+                    userProjects.map(p => (
                       <option key={p._id} value={p._id}>
                         [{p.projectCode || 'PRJ'}] {p.name} {p.client ? `(${p.client})` : ''}
                       </option>
                     ))
                   ) : (
-                    <option value="">No projects found — creating as standalone</option>
+                    <option value="">No visible projects found — creating as standalone</option>
                   )}
                 </select>
               </div>

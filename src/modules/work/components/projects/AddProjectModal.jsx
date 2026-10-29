@@ -74,8 +74,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     budget: '50000',
     currency: 'INR',
     summary: '',
-    isCompanyWide: true,
-    selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)]
+    isCompanyWide: false,
+    visibility: 'members',
+    selectedMembers: [currentUserId]
   });
 
   const [memberSearch, setMemberSearch] = useState('');
@@ -108,8 +109,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   const selectAllMembers = () => {
     setFormData(prev => ({
       ...prev,
-      selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)],
-      isCompanyWide: true
+      selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)]
     }));
   };
 
@@ -117,8 +117,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     // Keep creator in selected members
     setFormData(prev => ({
       ...prev,
-      selectedMembers: [currentUserId],
-      isCompanyWide: true
+      selectedMembers: [currentUserId]
     }));
   };
 
@@ -135,6 +134,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
       const creatorName = currentUser?.name || 'Authorized Member';
       const creatorRole = currentUser?.role || 'Team Member';
       const creatorEmail = currentUser?.email || '';
+
+      const isCompanyWide = formData.isCompanyWide === true;
+      const visibility = isCompanyWide ? 'all' : 'members';
 
       // Ensure creator is ALWAYS included in selected members list
       const rawSelectedIds = Array.from(new Set([
@@ -167,6 +169,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         });
       }
 
+      const teamIds = memberList.map(m => m._id);
+      const visibleToIds = isCompanyWide ? [] : teamIds;
+
       await createProject({
         name: formData.name.trim(),
         projectCode: (formData.projectCode || defaultCode).toUpperCase(),
@@ -181,9 +186,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         summary: formData.summary.trim(),
         status: 'in_progress',
         progress: 0,
-        isCompanyWide: true,
-        visibility: 'all',
-        visibleToIds: [],
+        isCompanyWide,
+        visibility,
+        visibleToIds,
         createdBy: creatorId,
         createdById: creatorId,
         creatorName: creatorName,
@@ -192,11 +197,11 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         creatorAvatar: currentUser?.avatar,
         members: memberList,
         membersList: memberList,
-        teamIds: memberList.map(m => m._id),
+        teamIds,
         team: memberList
       });
 
-      addToast(`Project "${formData.name}" created successfully! Deadlines shared with the team.`, 'success');
+      addToast(`Project "${formData.name}" created successfully!`, 'success');
       onClose();
     } catch (err) {
       console.error(err);
@@ -345,14 +350,14 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Project Visibility & Team Access (Key Requirement) */}
+          {/* Project Visibility & Team Access */}
           <div className="p-3 sm:px-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col gap-2.5">
             {/* Header & Creator Attribution */}
             <div className="flex items-center justify-between flex-wrap gap-1.5">
               <div className="flex items-center gap-1.5">
                 <Users size={16} className="text-sky-600 dark:text-sky-400" />
                 <span className="text-[12.5px] font-extrabold text-slate-900 dark:text-white">
-                  Project Team Members & Collaboration
+                  Visibility & Assigned Members
                 </span>
               </div>
               <div className="text-[11px] text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
@@ -361,9 +366,44 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 leading-relaxed">
-              Select team members to assign to this project. Project milestones and deadlines remain open to all employees on the Calendar so anyone can contribute and help meet targets.
-            </p>
+            {/* Visibility Scope Choice */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isCompanyWide: false, visibility: 'members' }))}
+                className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                  !formData.isCompanyWide
+                    ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <Lock size={15} className={`mt-0.5 shrink-0 ${!formData.isCompanyWide ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-xs font-bold">Assigned Members Only</div>
+                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Only selected team members & creator can view this project.
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isCompanyWide: true, visibility: 'all' }))}
+                className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                  formData.isCompanyWide
+                    ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <Globe size={15} className={`mt-0.5 shrink-0 ${formData.isCompanyWide ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-xs font-bold">Entire Company (Public)</div>
+                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Visible to all company employees across all departments.
+                  </div>
+                </div>
+              </button>
+            </div>
 
             {/* Member Selection Area */}
             <div className="flex flex-col gap-1.5">
