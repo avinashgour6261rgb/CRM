@@ -17,14 +17,17 @@ import {
   MessageSquare,
   FileText,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 
 export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
   const { replyToTicket, updateTicketStatus, addTicketInternalNote, assignTicket, deleteTicket } = useCRM();
   const { currentUser, employees } = useHR();
+  const { confirm } = useConfirm();
 
   const [replyText, setReplyText] = useState('');
   const [internalNoteText, setInternalNoteText] = useState('');
@@ -54,6 +57,39 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
     assignTicket(ticket._id, empId);
   };
 
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+  const uId = String(currentUser?._id || '');
+  const uCode = String(currentUser?.employeeCode || '');
+  const uName = (currentUser?.name || '').toLowerCase().trim();
+
+  const isRequester =
+    (uId && String(ticket.requestedById) === uId) ||
+    (uCode && String(ticket.requestedById) === uCode) ||
+    (uId && String(ticket.createdBy) === uId) ||
+    (uCode && String(ticket.createdBy) === uCode) ||
+    (uName && ticket.requestedByName && ticket.requestedByName.toLowerCase().trim() === uName) ||
+    (uName && ticket.createdByName && ticket.createdByName.toLowerCase().trim() === uName);
+
+  const canDelete = isPrivileged || isRequester;
+
+  const handleDeleteClick = async () => {
+    const ok = await confirm({
+      title: 'Delete Support Ticket?',
+      message: `Are you sure you want to permanently delete "${ticket.ticketCode}: ${ticket.subject}"? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Ticket',
+      cancelText: 'Keep Ticket',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteTicket(ticket._id || ticket.ticketCode);
+      onClose();
+    } catch {
+      // Handled
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
       <div className="bg-white dark:bg-[#151e32] rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-[#243049] flex flex-col">
@@ -79,12 +115,24 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
             </h2>
           </div>
 
-          <button
-            onClick={onClose}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {canDelete && (
+              <button
+                onClick={handleDeleteClick}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
+                title="Delete this ticket permanently"
+              >
+                <Trash2 size={13} />
+                <span>Delete Ticket</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}

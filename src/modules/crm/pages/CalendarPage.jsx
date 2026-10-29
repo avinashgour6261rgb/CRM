@@ -385,16 +385,16 @@ export const CalendarPage = () => {
       }));
 
     return [
-      ...baseEvents,
+      ...holidayEvents,
+      ...festivalEvents,
+      ...privateMemoryEvents,
       ...dynamicBirthdayEvents,
       ...dynamicAnniversaryEvents,
-      ...holidayEvents,
+      ...baseEvents,
       ...approvedLeaveEvents,
       ...taskEvents,
       ...projectDeadlineEvents,
-      ...shiftEvents,
-      ...privateMemoryEvents,
-      ...festivalEvents
+      ...shiftEvents
     ];
   }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate, userMemories, suggestedHolidays]);
 
@@ -557,25 +557,29 @@ export const CalendarPage = () => {
     // Prev month overflow
     for (let i = adjustedFirstDay - 1; i >= 0; i--) {
       const dayNum = daysInPrevMonth - i;
-      const prevDate = new Date(year, month - 1, dayNum);
-      const dateStr = prevDate.toISOString().split('T')[0];
+      const prevM = month === 0 ? 12 : month;
+      const prevY = month === 0 ? year - 1 : year;
+      const dateStr = `${prevY}-${String(prevM).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum,
         dateStr,
         isCurrentMonth: false,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
     }
 
     // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
-      const curDate = new Date(year, month, i);
       const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum: i,
         dateStr,
         isCurrentMonth: true,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
     }
 
@@ -583,13 +587,16 @@ export const CalendarPage = () => {
     const totalSlots = Math.ceil(days.length / 7) * 7;
     let nextDay = 1;
     while (days.length < totalSlots) {
-      const nextDate = new Date(year, month + 1, nextDay);
-      const dateStr = nextDate.toISOString().split('T')[0];
+      const nextM = month === 11 ? 1 : month + 2;
+      const nextY = month === 11 ? year + 1 : year;
+      const dateStr = `${nextY}-${String(nextM).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum: nextDay,
         dateStr,
         isCurrentMonth: false,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
       nextDay++;
     }

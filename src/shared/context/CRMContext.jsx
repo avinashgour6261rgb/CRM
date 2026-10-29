@@ -156,6 +156,52 @@ export const CRMProvider = ({ children }) => {
     setStorageTick(prev => prev + 1);
   };
 
+  // Synchronize tickets with MongoDB backend
+  const loadTickets = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tickets`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteTickets = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteTickets)) {
+          const local = getCollection(KEYS.TICKETS) || [];
+          const ticketMap = new Map();
+
+          remoteTickets.forEach(t => {
+            const key = String(t._id || t.ticketCode);
+            ticketMap.set(key, t);
+          });
+
+          local.forEach(t => {
+            const key = String(t._id || t.ticketCode);
+            if (!ticketMap.has(key)) {
+              ticketMap.set(key, t);
+            } else {
+              const remote = ticketMap.get(key);
+              if ((t.replies?.length || 0) > (remote.replies?.length || 0)) {
+                ticketMap.set(key, { ...remote, replies: t.replies });
+              }
+            }
+          });
+
+          const merged = Array.from(ticketMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          saveCollection(KEYS.TICKETS, merged);
+          setTickets(merged);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for tickets:', err);
+    }
+    setTickets(getCollection(KEYS.TICKETS) || []);
+  };
+
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
   useEffect(() => {
     const handleStorageUpdate = (e) => {
       // FIX: Use 'hrms_attendance' (not 'ems_attendance') to match TimerContext dispatch key
@@ -844,24 +890,37 @@ export const CRMProvider = ({ children }) => {
   // 🎫 TICKETS MODULE (Immediate Admin & Employee Synchronization)
   // =========================================================================
   const createTicket = async (ticketData) => {
-    const currentList = getCollection(KEYS.TICKETS);
+    const currentList = getCollection(KEYS.TICKETS) || [];
     const nextNum = currentList.length > 0 ? Math.max(...currentList.map(t => parseInt(t.ticketCode?.replace('TKT-', '') || '1040', 10))) + 1 : 1041;
     const now = new Date();
+
+    const u = currentUser;
+    const reqId = String(u?._id || u?.employeeCode || 'emp_001');
+    const reqName = u?.name || 'Employee';
+    const reqAvatar = u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+    const reqRole = u?.role || 'Team Member';
 
     const newTicket = {
       _id: `tkt_${Date.now()}`,
       ticketCode: `TKT-${nextNum}`,
       subject: ticketData.subject || 'Helpdesk Support Request',
-      category: ticketData.category || 'General Issue',
+      category: ticketData.category || 'General Support',
       priority: ticketData.priority || 'medium',
-      description: ticketData.description || '',
+      description: ticketData.description || 'Support request raised.',
       attachment: ticketData.attachment || '',
       status: 'open',
-      requestedById: currentUser?._id || 'emp_001',
-      requestedByName: currentUser?.name || 'Employee',
-      requestedByAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      department: ticketData.category || 'IT Support',
+      requestedById: reqId,
+      requestedByName: reqName,
+      requestedByAvatar: reqAvatar,
+      requestedByRole: reqRole,
+      createdBy: reqId,
+      createdByName: reqName,
+      createdByAvatar: reqAvatar,
+      createdByRole: reqRole,
       assignedToId: ticketData.assignedToId || 'emp_005',
       assignedToName: ticketData.assignedToName || 'Amit Kumar (Admin / Support)',
+      assignedTo: ticketData.assignedToId || 'emp_005',
       requestedOn: now.toISOString().split('T')[0],
       createdAt: now.toISOString(),
       replies: [],
@@ -882,7 +941,9 @@ export const CRMProvider = ({ children }) => {
         if (json.data?._id) newTicket._id = String(json.data._id);
         if (json.data?.ticketCode) newTicket.ticketCode = json.data.ticketCode;
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('[CRMContext] Ticket offline save:', e);
+    }
 
     currentList.unshift(newTicket);
     saveCollection(KEYS.TICKETS, currentList);
@@ -901,8 +962,8 @@ export const CRMProvider = ({ children }) => {
       });
     } catch (_) {}
 
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId || t.id === ticketId || t.ticketCode === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       currentList[idx].status = status;
       currentList[idx].updatedAt = new Date().toISOString();
@@ -915,8 +976,8 @@ export const CRMProvider = ({ children }) => {
 
   const replyToTicket = async (ticketId, messageText) => {
     if (!messageText.trim()) return;
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       const isUserAdmin = currentUser?.role?.toLowerCase().includes('lead') || currentUser?.role?.toLowerCase().includes('director') || currentUser?.role?.toLowerCase().includes('manager') || currentUser?.role?.toLowerCase().includes('admin');
       const newReply = {
@@ -932,18 +993,19 @@ export const CRMProvider = ({ children }) => {
       try {
         await fetch(`${API_BASE}/tickets/${ticketId}/comments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             authorName: newReply.senderName,
             authorAvatar: newReply.senderAvatar,
             authorRole: isUserAdmin ? 'Administrator' : 'Team Member',
-            text: messageText
+            text: messageText,
+            message: messageText,
+            isAdminReply: isUserAdmin
           })
         });
       } catch (_) {}
 
       currentList[idx].replies = [...(currentList[idx].replies || []), newReply];
-      // Automatically advance status to in_progress if currently open
       if (currentList[idx].status === 'open' && isUserAdmin) {
         currentList[idx].status = 'in_progress';
       }
@@ -957,8 +1019,8 @@ export const CRMProvider = ({ children }) => {
 
   const addTicketInternalNote = async (ticketId, noteText) => {
     if (!noteText.trim()) return;
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       const newNote = {
         id: `note_${Date.now()}`,
@@ -967,6 +1029,13 @@ export const CRMProvider = ({ children }) => {
         date: new Date().toISOString()
       };
       currentList[idx].internalNotes = [...(currentList[idx].internalNotes || []), newNote];
+      try {
+        await fetch(`${API_BASE}/tickets/${ticketId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ internalNotes: currentList[idx].internalNotes })
+        });
+      } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -975,17 +1044,17 @@ export const CRMProvider = ({ children }) => {
   };
 
   const assignTicket = async (ticketId, employeeId) => {
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
-    const emp = employees.find(e => e._id === employeeId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
+    const emp = employees.find(e => String(e._id) === String(employeeId));
     if (idx !== -1 && emp) {
       currentList[idx].assignedToId = emp._id;
       currentList[idx].assignedToName = emp.name;
       try {
         await fetch(`${API_BASE}/tickets/${ticketId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assignedTo: emp._id, assignedToName: emp.name })
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ assignedTo: emp._id, assignedToId: emp._id, assignedToName: emp.name })
         });
       } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
@@ -997,14 +1066,20 @@ export const CRMProvider = ({ children }) => {
 
   const deleteTicket = async (ticketId) => {
     try {
-      await fetch(`${API_BASE}/tickets/${ticketId}`, { method: 'DELETE' });
-    } catch (_) {}
-    const currentList = getCollection(KEYS.TICKETS);
-    const filtered = currentList.filter(t => t._id !== ticketId);
+      await fetch(`${API_BASE}/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+    } catch (e) {
+      console.warn('[CRMContext] Ticket deleted offline:', e);
+    }
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const filtered = currentList.filter(t => String(t._id) !== String(ticketId) && String(t.ticketCode) !== String(ticketId));
     saveCollection(KEYS.TICKETS, filtered);
     setTickets(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
-    addToast('Ticket removed', 'info');
+    addToast('Ticket removed successfully', 'info');
+    return true;
   };
 
   // =========================================================================

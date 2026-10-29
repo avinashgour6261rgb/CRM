@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,13 +10,15 @@ import {
   Filter,
   Search,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Plus
 } from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 import { AddHolidayModal } from './AddHolidayModal';
+import { holidaySyncService } from '../../services/holidaySyncService';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -26,7 +28,7 @@ const MONTH_NAMES = [
 export const HolidayCalendar = () => {
   const { addToast } = useToast();
   const { confirm } = useConfirm();
-  const { holidays, deleteHoliday, currentUser } = useHR();
+  const { holidays, deleteHoliday, currentUser, searchQuery } = useHR();
 
   const canManageHolidays = isHRorAdmin(currentUser);
 
@@ -36,10 +38,33 @@ export const HolidayCalendar = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState('');
   const [listMonthFilter, setListMonthFilter] = useState('all'); // 'all' or 1-12
+  const [listTypeFilter, setListTypeFilter] = useState('all'); // 'all' | 'official' | 'festival'
+  const [suggestedHolidays, setSuggestedHolidays] = useState([]);
 
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-indexed
+
+  // Load Pan-India suggested festivals and national holidays (e.g. Dhanteras, Diwali, Govardhan, Chhath, etc.)
+  const loadSuggested = async () => {
+    try {
+      const list = await holidaySyncService.getSuggestedHolidays(currentYear);
+      setSuggestedHolidays(list || []);
+    } catch (err) {
+      console.warn('[HolidayCalendar] Failed to fetch suggested festivals:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSuggested();
+    const handleSync = () => loadSuggested();
+    window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('ems_holidays_updated', handleSync);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('ems_holidays_updated', handleSync);
+    };
+  }, [currentYear, holidays]);
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -131,18 +156,87 @@ export const HolidayCalendar = () => {
 
     try {
       await deleteHoliday(hol._id || hol.code || hol.date);
+      addToast(`Holiday "${hol.name}" cancelled successfully.`, 'success');
+      loadSuggested();
     } catch {
       addToast('Failed to cancel holiday.', 'error');
     }
   };
 
-  // Filtered list for List View (supports viewing all 12 months or specific month)
-  const filteredListHolidays = (holidays || []).filter(hol => {
-    if (!hol || !hol.date) return false;
-    if (listMonthFilter === 'all') return true;
-    const m = parseInt(hol.date.split('-')[1], 10);
-    return m === parseInt(listMonthFilter, 10);
-  });
+  // 1-Click: Confirm Indian cultural festival as paid company holiday
+  const handleConfirmFestivalClick = async (fest) => {
+    if (!canManageHolidays) return;
+    const ok = await confirm({
+      title: 'Declare Official Paid Holiday?',
+      message: `Do you want to declare "${fest.name}" (${fest.date}) as an official paid holiday for all employees across the company?`,
+      confirmText: 'Yes, Declare Holiday',
+      cancelText: 'Keep as Normal Day',
+      variant: 'primary'
+    });
+    if (!ok) return;
+
+    try {
+      await holidaySyncService.confirmHolidayAsCompanyOff(fest, currentUser);
+      addToast(`Declared "${fest.name}" as official paid company holiday!`, 'success');
+      loadSuggested();
+    } catch {
+      addToast('Failed to declare holiday.', 'error');
+    }
+  };
+
+  // Combined master items for List View (combining declared company holidays and cultural festivals)
+  const allListItems = useMemo(() => {
+    const confirmedMap = new Map();
+    (holidays || []).forEach(h => {
+      confirmedMap.set(h.date, h);
+    });
+
+    const unconfirmed = (suggestedHolidays || []).filter(s => !confirmedMap.has(s.date));
+
+    const combined = [
+      ...(holidays || []).map(h => ({
+        ...h,
+        isConfirmed: true,
+        displayType: h.type || 'Company Holiday'
+      })),
+      ...unconfirmed.map(f => ({
+        ...f,
+        isConfirmed: false,
+        displayType: f.type || 'Major Indian Festival'
+      }))
+    ];
+
+    return combined.sort((a, b) => a.date.localeCompare(b.date));
+  }, [holidays, suggestedHolidays]);
+
+  // Filtered list for List View (supports viewing all 12 months or specific month and type)
+  const filteredListHolidays = useMemo(() => {
+    return allListItems.filter(item => {
+      if (!item || !item.date) return false;
+
+      // Month filter
+      if (listMonthFilter !== 'all') {
+        const m = parseInt(item.date.split('-')[1], 10);
+        if (m !== parseInt(listMonthFilter, 10)) return false;
+      }
+
+      // Type filter
+      if (listTypeFilter === 'official' && !item.isConfirmed) return false;
+      if (listTypeFilter === 'festival' && item.isConfirmed) return false;
+
+      // Search Query filter
+      if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matches = (item.name || '').toLowerCase().includes(q) ||
+                        (item.description || '').toLowerCase().includes(q) ||
+                        (item.displayType || '').toLowerCase().includes(q) ||
+                        (item.date || '').includes(q);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [allListItems, listMonthFilter, listTypeFilter, searchQuery]);
 
   return (
     <div className="table-card p-0 overflow-hidden shadow-xs">
@@ -256,9 +350,14 @@ export const HolidayCalendar = () => {
           {/* Calendar Day Grid */}
           <div className="grid grid-cols-7 bg-slate-200 gap-px">
             {calendarCells.map((cell, index) => {
-              const dayHolidays = holidays.filter(h => h.date === cell.dateStr);
+              const dayHolidays = (holidays || []).filter(h => h.date === cell.dateStr);
+              const dayFestivals = (suggestedHolidays || []).filter(s =>
+                s.date === cell.dateStr &&
+                !dayHolidays.some(h => h.date === s.date || (h.name && s.name && h.name.toLowerCase().trim() === s.name.toLowerCase().trim()))
+              );
               const isTodayCell = cell.dateStr === todayStr;
               const hasOff = dayHolidays.length > 0;
+              const hasFestival = dayFestivals.length > 0;
 
               return (
                 <div
@@ -267,6 +366,8 @@ export const HolidayCalendar = () => {
                   className={`min-h-[115px] p-2 flex flex-col justify-between cursor-pointer transition-all ${
                     hasOff
                       ? 'bg-red-50/40 hover:bg-red-50/70 border-t-2 border-t-red-500'
+                      : hasFestival
+                      ? 'bg-amber-50/40 hover:bg-amber-50/70 border-t-2 border-t-amber-500'
                       : (cell.isCurrentMonth ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/70')
                   }`}
                   title={canManageHolidays ? "Click date to declare company holiday" : ""}
@@ -275,6 +376,10 @@ export const HolidayCalendar = () => {
                     {hasOff ? (
                       <span className="text-[9.5px] font-extrabold text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded shadow-2xs">
                         🏖️ PAID OFF
+                      </span>
+                    ) : hasFestival ? (
+                      <span className="text-[9.5px] font-extrabold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shadow-2xs">
+                        🪔 FESTIVAL
                       </span>
                     ) : (
                       <span />
@@ -290,8 +395,9 @@ export const HolidayCalendar = () => {
                     </span>
                   </div>
 
-                  {/* Holiday Badges */}
+                  {/* Holiday & Festival Badges */}
                   <div className="flex flex-col gap-1 mt-0.5 flex-1 overflow-hidden">
+                    {/* Confirmed Paid Off Holidays */}
                     {dayHolidays.map(hol => (
                       <div
                         key={hol._id || hol.code || hol.date}
@@ -314,6 +420,31 @@ export const HolidayCalendar = () => {
                         )}
                       </div>
                     ))}
+
+                    {/* Cultural Festivals (Dhanteras, Govardhan, Bhai Dooj, Chhath, etc.) */}
+                    {dayFestivals.map(fest => (
+                      <div
+                        key={fest.code || fest.date}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (canManageHolidays) {
+                            handleConfirmFestivalClick(fest);
+                          }
+                        }}
+                        className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-amber-100/90 border-amber-500 text-amber-900 cursor-pointer hover:bg-amber-200/90 transition-colors"
+                        title={canManageHolidays ? `${fest.name} - Click to declare official paid company holiday` : `${fest.name} (Indian Festival)`}
+                      >
+                        <span className="truncate flex items-center gap-1">
+                          <span>{fest.icon || '🪔'}</span>
+                          <span className="truncate">{fest.name}</span>
+                        </span>
+                        {canManageHolidays && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-200 text-amber-800 shrink-0 hover:bg-amber-300">
+                            + Off
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -331,16 +462,35 @@ export const HolidayCalendar = () => {
               const dayOffset = (startOfWeek.getDay() + 6) % 7;
               startOfWeek.setDate(startOfWeek.getDate() - dayOffset + idx);
               const dayDateStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
-              const dayHols = holidays.filter(h => h.date === dayDateStr);
+              const dayHols = (holidays || []).filter(h => h.date === dayDateStr);
+              const dayFests = (suggestedHolidays || []).filter(s =>
+                s.date === dayDateStr &&
+                !dayHols.some(h => h.date === s.date || (h.name && s.name && h.name.toLowerCase().trim() === s.name.toLowerCase().trim()))
+              );
 
               return (
-                <div key={idx} className="bg-slate-50 rounded-lg p-3 border border-slate-200 min-h-[160px] flex flex-col justify-between">
+                <div key={idx} className={`rounded-lg p-3 border min-h-[160px] flex flex-col justify-between ${
+                  dayHols.length > 0
+                    ? 'bg-red-50/50 border-red-200'
+                    : dayFests.length > 0
+                    ? 'bg-amber-50/50 border-amber-200'
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
                   <div>
-                    <div className="font-extrabold text-xs text-slate-900">{dayName}</div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="font-extrabold text-xs text-slate-900">{dayName}</div>
+                      {dayHols.length > 0 ? (
+                        <span className="text-[9px] font-bold text-red-700 bg-red-100 px-1 rounded">Paid Off</span>
+                      ) : dayFests.length > 0 ? (
+                        <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">Festival</span>
+                      ) : null}
+                    </div>
                     <div className="text-[11px] text-slate-500 mb-2">{dayDateStr}</div>
+
                     <div className="flex flex-col gap-1">
+                      {/* Declared Holidays */}
                       {dayHols.map(h => (
-                        <div key={h._id} className="bg-red-50 text-red-800 p-1.5 rounded text-[11px] font-bold border border-red-200 flex items-center justify-between gap-1">
+                        <div key={h._id || h.code} className="bg-red-100/90 text-red-800 p-1.5 rounded text-[11px] font-bold border border-red-200 flex items-center justify-between gap-1 shadow-2xs">
                           <span className="truncate">{h.icon || '🏖️'} {h.name}</span>
                           {canManageHolidays && (
                             <button
@@ -353,9 +503,26 @@ export const HolidayCalendar = () => {
                           )}
                         </div>
                       ))}
+
+                      {/* Cultural Festivals */}
+                      {dayFests.map(f => (
+                        <div
+                          key={f.code || f.date}
+                          onClick={() => canManageHolidays && handleConfirmFestivalClick(f)}
+                          className="bg-amber-100/90 text-amber-900 p-1.5 rounded text-[11px] font-bold border border-amber-300 flex items-center justify-between gap-1 cursor-pointer hover:bg-amber-200 shadow-2xs"
+                          title={canManageHolidays ? "Click to declare as paid holiday" : f.name}
+                        >
+                          <span className="truncate">{f.icon || '🪔'} {f.name}</span>
+                          {canManageHolidays && (
+                            <span className="text-[9px] font-bold text-amber-800 underline">
+                              + Off
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  {canManageHolidays && dayHols.length === 0 && (
+                  {canManageHolidays && dayHols.length === 0 && dayFests.length === 0 && (
                     <button
                       onClick={() => handleCellClick(dayDateStr)}
                       className="text-[10.5px] font-bold text-blue-600 hover:text-blue-700 text-left cursor-pointer"
@@ -392,25 +559,67 @@ export const HolidayCalendar = () => {
       {/* List View Across All 12 Months */}
       {calendarView === 'list' && (
         <div className="p-4 flex flex-col gap-3">
-          {/* Month Quick Filter Pills */}
-          <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-200">
+          {/* Month & Type Quick Filter Pills */}
+          <div className="flex flex-col gap-2.5 pb-2 border-b border-slate-200">
+            {/* Top row: Type switcher */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-500">Show:</span>
+                <button
+                  onClick={() => setListTypeFilter('all')}
+                  className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${
+                    listTypeFilter === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All Days ({allListItems.length})
+                </button>
+                <button
+                  onClick={() => setListTypeFilter('official')}
+                  className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${
+                    listTypeFilter === 'official'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-red-50 text-red-700 hover:bg-red-100'
+                  }`}
+                >
+                  🏖️ Official Paid Offs ({(holidays || []).length})
+                </button>
+                <button
+                  onClick={() => setListTypeFilter('festival')}
+                  className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${
+                    listTypeFilter === 'festival'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  }`}
+                >
+                  🪔 Cultural Festivals ({(suggestedHolidays || []).filter(s => !(holidays || []).some(h => h.date === s.date)).length})
+                </button>
+              </div>
+
+              <span className="text-[11.5px] text-slate-500 font-medium">
+                Showing {filteredListHolidays.length} days
+              </span>
+            </div>
+
+            {/* Bottom row: Month Filter Pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                <Filter size={12} /> Filter Month:
+                <Filter size={12} /> Month:
               </span>
               <button
                 onClick={() => setListMonthFilter('all')}
                 className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${
                   listMonthFilter === 'all'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-slate-800 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                All 12 Months ({holidays.length})
+                All 12 Months
               </button>
               {MONTH_NAMES.map((mName, idx) => {
                 const mNum = idx + 1;
-                const count = (holidays || []).filter(h => h.date && parseInt(h.date.split('-')[1], 10) === mNum).length;
+                const count = allListItems.filter(h => h.date && parseInt(h.date.split('-')[1], 10) === mNum).length;
                 if (count === 0 && listMonthFilter !== String(mNum)) return null;
 
                 return (
@@ -419,7 +628,7 @@ export const HolidayCalendar = () => {
                     onClick={() => setListMonthFilter(String(mNum))}
                     className={`text-xs px-2 py-1 rounded-md font-bold cursor-pointer transition-colors ${
                       listMonthFilter === String(mNum)
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-slate-800 text-white'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -428,19 +637,15 @@ export const HolidayCalendar = () => {
                 );
               })}
             </div>
-
-            <span className="text-[11.5px] text-slate-500 font-medium">
-              Showing {filteredListHolidays.length} official company holidays
-            </span>
           </div>
 
           <table className="crm-table">
             <thead>
               <tr>
-                <th>Holiday Name</th>
+                <th>Holiday / Festival Name</th>
                 <th>Date</th>
                 <th>Day of Week</th>
-                <th>Category</th>
+                <th>Type</th>
                 <th>Status</th>
                 <th>Description</th>
                 <th className="text-right">Action</th>
@@ -450,52 +655,65 @@ export const HolidayCalendar = () => {
               {filteredListHolidays.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-xs text-slate-400">
-                    No holidays found for this month filter.
+                    No holidays or festivals found for this filter.
                   </td>
                 </tr>
               ) : (
                 filteredListHolidays.map(hol => {
                   const isUpcoming = hol.date >= todayStr;
+                  const isOff = hol.isConfirmed;
+
                   return (
-                    <tr key={hol._id || hol.code || hol.date}>
+                    <tr key={hol._id || hol.code || hol.date} className={isOff ? 'bg-red-50/20' : 'bg-amber-50/20'}>
                       <td className="font-extrabold text-slate-900">
-                        {hol.icon || '🏖️'} {hol.name}
+                        {hol.icon || (isOff ? '🏖️' : '🪔')} {hol.name}
                       </td>
                       <td className="font-bold text-xs">{hol.date}</td>
                       <td className="text-slate-600 font-medium text-xs">
                         {hol.dayOfWeek || new Date(hol.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}
                       </td>
                       <td>
-                        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                          {hol.type || 'Company Holiday'}
+                        <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${
+                          isOff
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
+                        }`}>
+                          {hol.displayType || hol.type || (isOff ? 'Company Holiday' : 'Major Festival')}
                         </span>
                       </td>
                       <td>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isUpcoming
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          isOff
+                            ? 'bg-red-100 text-red-800 border border-red-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
                         }`}>
-                          {isUpcoming ? 'Upcoming' : 'Passed'}
+                          {isOff ? '🏖️ Paid Off' : '🪔 Cultural Festival'}
                         </span>
                       </td>
                       <td className="text-slate-500 text-xs max-w-[260px] truncate">
-                        {hol.description || 'Declared company holiday.'}
+                        {hol.description || (isOff ? 'Declared company holiday.' : 'Indian festival.')}
                       </td>
                       <td className="text-right">
-                        {canManageHolidays ? (
-                          <button
-                            onClick={() => handleCancelHolidayClick(hol)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-200 cursor-pointer transition-colors shadow-2xs"
-                            title="Cancel / Delete this holiday (Restore normal working day)"
-                          >
-                            <Trash2 size={12} />
-                            <span>Cancel Off</span>
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">
-                            Official Off
-                          </span>
+                        {canManageHolidays && (
+                          isOff ? (
+                            <button
+                              onClick={() => handleCancelHolidayClick(hol)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-200 cursor-pointer transition-colors shadow-2xs"
+                              title="Cancel / Delete this holiday (Restore normal working day)"
+                            >
+                              <Trash2 size={12} />
+                              <span>Cancel Off</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleConfirmFestivalClick(hol)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold border border-amber-300 cursor-pointer transition-colors shadow-2xs"
+                              title="Declare this festival as official company holiday"
+                            >
+                              <Plus size={12} />
+                              <span>Declare Off</span>
+                            </button>
+                          )
                         )}
                       </td>
                     </tr>

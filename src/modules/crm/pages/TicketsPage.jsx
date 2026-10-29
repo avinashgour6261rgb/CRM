@@ -24,6 +24,7 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
@@ -32,6 +33,7 @@ export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
@@ -133,6 +135,73 @@ export const TicketsPage = () => {
     link.click();
     document.body.removeChild(link);
     addToast('Tickets exported successfully to CSV!', 'success');
+  };
+
+  const canDeleteTicket = (ticket) => {
+    if (!currentUser || !ticket) return false;
+    if (isPrivileged) return true;
+    const uId = String(currentUser._id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    const uName = (currentUser.name || '').toLowerCase().trim();
+
+    const isRequester =
+      (uId && String(ticket.requestedById) === uId) ||
+      (uCode && String(ticket.requestedById) === uCode) ||
+      (uId && String(ticket.createdBy) === uId) ||
+      (uCode && String(ticket.createdBy) === uCode) ||
+      (uName && ticket.requestedByName && ticket.requestedByName.toLowerCase().trim() === uName) ||
+      (uName && ticket.createdByName && ticket.createdByName.toLowerCase().trim() === uName);
+
+    return isRequester;
+  };
+
+  const handleDeleteTicket = async (ticket, e) => {
+    if (e) e.stopPropagation();
+    if (!canDeleteTicket(ticket)) {
+      addToast('You do not have permission to delete this ticket.', 'warning');
+      return;
+    }
+
+    const ok = await confirm({
+      title: 'Delete Support Ticket?',
+      message: `Are you sure you want to permanently delete "${ticket.ticketCode}: ${ticket.subject}"? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Ticket',
+      cancelText: 'Keep Ticket',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteTicket(ticket._id || ticket.ticketCode);
+      setSelectedIds(prev => prev.filter(id => id !== ticket._id));
+      if (selectedTicket && (selectedTicket._id === ticket._id || selectedTicket.ticketCode === ticket.ticketCode)) {
+        setSelectedTicket(null);
+      }
+    } catch {
+      addToast('Failed to delete ticket.', 'error');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const deletableTickets = filteredTickets.filter(t => selectedIds.includes(t._id) && canDeleteTicket(t));
+    if (deletableTickets.length === 0) {
+      addToast('You do not have permission to delete the selected tickets.', 'warning');
+      return;
+    }
+
+    const ok = await confirm({
+      title: `Delete ${deletableTickets.length} Selected Tickets?`,
+      message: `Are you sure you want to permanently delete ${deletableTickets.length} selected support ticket(s)? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Tickets',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    for (const t of deletableTickets) {
+      await deleteTicket(t._id || t.ticketCode);
+    }
+    setSelectedIds([]);
   };
 
   return (
@@ -281,8 +350,19 @@ export const TicketsPage = () => {
           </div>
         </div>
 
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-          Showing {filteredTickets.length} of {tickets.length} tickets
+        <div className="flex items-center gap-2.5">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1 px-2.5 h-[26px] rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              <Trash2 size={12} />
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+            Showing {filteredTickets.length} of {tickets.length} tickets
+          </div>
         </div>
       </div>
 
@@ -414,12 +494,25 @@ export const TicketsPage = () => {
 
                     {/* Action */}
                     <td className="px-2.5 py-[7px] text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedTicket(ticket)}
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 h-[22px] cursor-pointer text-sky-600 dark:text-sky-400 text-[11px] font-bold hover:bg-sky-50 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        View
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => setSelectedTicket(ticket)}
+                          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 h-[24px] cursor-pointer text-sky-600 dark:text-sky-400 text-[11px] font-bold hover:bg-sky-50 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1"
+                          title="View details & discussion"
+                        >
+                          <Eye size={12} />
+                          View
+                        </button>
+                        {canDeleteTicket(ticket) && (
+                          <button
+                            onClick={(e) => handleDeleteTicket(ticket, e)}
+                            className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded px-1.5 h-[24px] cursor-pointer text-red-600 dark:text-red-400 text-[11px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors inline-flex items-center"
+                            title="Delete this ticket"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

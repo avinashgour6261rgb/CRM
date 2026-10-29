@@ -113,8 +113,8 @@ export const ticketService = {
       return null;
     };
 
-    return fetchWithFallback(`${API_BASE}/tickets/${ticketId}/status`, {
-      method: 'PATCH',
+    return fetchWithFallback(`${API_BASE}/tickets/${ticketId}`, {
+      method: 'PUT',
       body: JSON.stringify({ status })
     }, fallbackFn);
   },
