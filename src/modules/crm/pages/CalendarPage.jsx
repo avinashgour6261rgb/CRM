@@ -30,6 +30,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddEventModal } from '../../../shared/components/modals/AddEventModal';
 import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
 import { dateMemoryService } from '../services/dateMemoryService';
@@ -40,6 +41,7 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const CalendarPage = () => {
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const { events, deleteEvent, computedBirthdays, computedAnniversaries, darkMode } = useCRM();
   const isDark = !!darkMode;
   const { holidays, currentUser, employees, leaves } = useHR();
@@ -116,6 +118,30 @@ export const CalendarPage = () => {
       window.removeEventListener('hrms_storage_change', handleSync);
     };
   }, [currentUser?._id, year]);
+
+  // ── Safe Holiday Cancellation from Calendar Modal ──
+  const handleCancelSelectedHoliday = async () => {
+    if (!selectedEvent) return;
+    const holTitle = selectedEvent.title.replace(/^[🏖️🪔📌🕒🚀🌟🎂🏢]+\s*/u, '').trim();
+    const ok = await confirm({
+      title: 'Cancel Company Holiday?',
+      message: `Are you sure you want to cancel "${holTitle}" on ${selectedEvent.date}? This will immediately restore regular working day status for all employees across the company.`,
+      confirmText: 'Yes, Cancel Holiday',
+      cancelText: 'Keep Holiday',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      const delId = selectedEvent._id?.replace('hol_cal_', '') || selectedEvent.date;
+      await holidaySyncService.cancelOrDeleteHoliday(delId, currentUser);
+      addToast(`Cancelled "${holTitle}". Restored regular working day.`, 'info');
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error('Failed to cancel holiday:', err);
+      addToast('Failed to cancel holiday.', 'error');
+    }
+  };
 
   // =========================================================================
   // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + MEMORIES + FESTIVALS
@@ -822,6 +848,31 @@ export const CalendarPage = () => {
         </label>
       </div>
 
+      {/* Quick Visual Legend Strip */}
+      <div className="flex items-center gap-4 px-3.5 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-800 text-[11.5px] flex-wrap shadow-2xs">
+        <span className="font-extrabold text-slate-400 dark:text-slate-500 uppercase text-[9.5px] tracking-wider">Legend:</span>
+        <div className="flex items-center gap-1.5 font-bold text-red-700 dark:text-red-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+          <span>🏖️ Official Holiday (Off)</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+          <span>🪔 Cultural Festival</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+          <span>🏢 Company Event</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-purple-700 dark:text-purple-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
+          <span>🔒 Private Note</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-orange-700 dark:text-orange-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
+          <span>🎂 Milestone Celebration</span>
+        </div>
+      </div>
+
       {/* Calendar Viewport */}
       <div className="bg-white dark:bg-[#151e32] rounded-xl border border-slate-200 dark:border-[#243049] p-[18px] shadow-sm dark:shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
         
@@ -966,14 +1017,16 @@ export const CalendarPage = () => {
                               setSelectedEvent(ev);
                             }
                           }}
-                          className={`py-0.5 px-1.5 rounded text-[11px] font-bold cursor-pointer truncate shadow-xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] ${
+                          className={`py-0.5 px-1.5 rounded text-[11px] font-bold cursor-pointer truncate shadow-2xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all ${
                             isEvHoliday
-                              ? 'bg-red-100 dark:bg-[#451a1a] text-red-500 dark:text-red-300 border-l-[3px] border-red-500'
+                              ? 'bg-red-100/90 dark:bg-[#451a1a] text-red-700 dark:text-red-300 border-l-[3px] border-red-600 font-extrabold'
+                              : ev.isFestival
+                              ? 'bg-amber-100/90 dark:bg-[#45301a] text-amber-800 dark:text-amber-200 border-l-[3px] border-amber-600 font-extrabold'
                               : isEvPrivate
                               ? 'bg-purple-100/80 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-l-[3px] border-purple-500'
                               : 'dark:bg-slate-800 dark:text-slate-100'
                           }`}
-                          style={(!isEvHoliday && !isEvPrivate) ? {
+                          style={(!isEvHoliday && !ev.isFestival && !isEvPrivate) ? {
                             backgroundColor: isDark ? undefined : (ev.bgColor || '#eff6ff'),
                             color: isDark ? undefined : (ev.color || '#2563eb'),
                             borderLeft: `3px solid ${ev.color || '#2563eb'}`
@@ -1271,7 +1324,15 @@ export const CalendarPage = () => {
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 flex-wrap">
+              {isPrivileged && (selectedEvent.isHoliday || selectedEvent.type?.toLowerCase().includes('holiday')) && (
+                <button
+                  onClick={handleCancelSelectedHoliday}
+                  className="py-2 px-3.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-300 text-[12.5px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 size={14} /> Cancel Holiday (Revert Off)
+                </button>
+              )}
               {selectedEvent.type === 'Work Anniversary' && (
                 <button
                   onClick={() => {

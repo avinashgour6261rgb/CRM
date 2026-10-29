@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { dateMemoryService } from '../../services/dateMemoryService';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 
 const TAG_CONFIGS = [
   { id: 'personal', label: 'Personal Note', icon: '📝', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
@@ -33,6 +34,7 @@ export const DateMemoryModal = ({
   dayEvents = []
 }) => {
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const [memories, setMemories] = useState([]);
   const [newTitle, setNewTitle] = useState('');
   const [newTime, setNewTime] = useState('');
@@ -114,12 +116,19 @@ export const DateMemoryModal = ({
     loadMemories();
   };
 
-  const handleDelete = (memId) => {
-    if (window.confirm('Delete this private memory note?')) {
-      dateMemoryService.deleteMemory(memId, currentUser);
-      addToast('Memory deleted.', 'info');
-      loadMemories();
-    }
+  const handleDelete = async (memId) => {
+    const ok = await confirm({
+      title: 'Delete Private Note?',
+      message: 'Are you sure you want to permanently delete this private memory note?',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    dateMemoryService.deleteMemory(memId, currentUser);
+    addToast('Memory deleted.', 'info');
+    loadMemories();
   };
 
   const handleSaveEdit = (memId) => {

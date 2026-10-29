@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 import { AddHolidayModal } from './AddHolidayModal';
 
@@ -24,6 +25,7 @@ const MONTH_NAMES = [
 
 export const HolidayCalendar = () => {
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const { holidays, deleteHoliday, currentUser } = useHR();
 
   const canManageHolidays = isHRorAdmin(currentUser);
@@ -115,13 +117,17 @@ export const HolidayCalendar = () => {
     setIsAddModalOpen(true);
   };
 
-  // Safe holiday cancellation with confirmation
+  // Safe holiday cancellation with modern confirmation modal
   const handleCancelHolidayClick = async (hol) => {
     if (!canManageHolidays) return;
-    const confirmed = window.confirm(
-      `⚠️ Cancel Company Holiday?\n\nAre you sure you want to cancel "${hol.name}" on ${hol.date}?\n\nThis will restore regular working day status for all employees across the company.`
-    );
-    if (!confirmed) return;
+    const ok = await confirm({
+      title: 'Cancel Company Holiday?',
+      message: `Are you sure you want to cancel "${hol.name}" on ${hol.date}? This will immediately restore regular working day status for all employees across the company.`,
+      confirmText: 'Yes, Cancel Holiday',
+      cancelText: 'Keep Holiday',
+      variant: 'danger'
+    });
+    if (!ok) return;
 
     try {
       await deleteHoliday(hol._id || hol.code || hol.date);
@@ -212,6 +218,27 @@ export const HolidayCalendar = () => {
         </div>
       </div>
 
+      {/* Quick Visual Legend Bar */}
+      <div className="flex items-center gap-4 px-5 py-2 bg-slate-50 border-b border-slate-200 text-xs flex-wrap">
+        <span className="font-extrabold text-slate-400 uppercase text-[10px] tracking-wider">Legend:</span>
+        <div className="flex items-center gap-1.5 font-bold text-red-700">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+          <span>🏖️ Official Paid Off</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-bold text-amber-700">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+          <span>🪔 Indian Cultural Festival</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-blue-700">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+          <span>🏛️ Gazetted / Public Holiday</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-medium text-slate-600">
+          <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
+          <span>💼 Working Day</span>
+        </div>
+      </div>
+
       {/* Main Month Grid View */}
       {calendarView === 'month' && (
         <div>
@@ -231,25 +258,30 @@ export const HolidayCalendar = () => {
             {calendarCells.map((cell, index) => {
               const dayHolidays = holidays.filter(h => h.date === cell.dateStr);
               const isTodayCell = cell.dateStr === todayStr;
+              const hasOff = dayHolidays.length > 0;
 
               return (
                 <div
                   key={index}
                   onClick={() => handleCellClick(cell.dateStr)}
                   className={`min-h-[115px] p-2 flex flex-col justify-between cursor-pointer transition-all ${
-                    cell.isCurrentMonth ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/70'
+                    hasOff
+                      ? 'bg-red-50/40 hover:bg-red-50/70 border-t-2 border-t-red-500'
+                      : (cell.isCurrentMonth ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/70')
                   }`}
                   title={canManageHolidays ? "Click date to declare company holiday" : ""}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    {dayHolidays.length > 0 && (
-                      <span className="text-[9.5px] font-extrabold text-red-600 bg-red-100 px-1 rounded">
-                        🏖️ OFF
+                    {hasOff ? (
+                      <span className="text-[9.5px] font-extrabold text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded shadow-2xs">
+                        🏖️ PAID OFF
                       </span>
+                    ) : (
+                      <span />
                     )}
                     <span className={`text-xs ml-auto font-bold flex items-center justify-center rounded-full ${
                       isTodayCell
-                        ? 'w-5 h-5 bg-blue-600 text-white'
+                        ? 'w-5 h-5 bg-blue-600 text-white shadow-xs'
                         : cell.isCurrentMonth
                         ? 'text-slate-900'
                         : 'text-slate-300'
@@ -264,17 +296,18 @@ export const HolidayCalendar = () => {
                       <div
                         key={hol._id || hol.code || hol.date}
                         onClick={(e) => e.stopPropagation()}
-                        className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-red-50 border-red-500 text-red-800"
-                        title={`${hol.name} (${hol.type})`}
+                        className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-red-100/80 border-red-500 text-red-900"
+                        title={`${hol.name} (${hol.type}) - Click trash to cancel`}
                       >
-                        <span className="truncate">
-                          {hol.icon || '🏖️'} {hol.name}
+                        <span className="truncate flex items-center gap-1">
+                          <span>{hol.icon || '🏖️'}</span>
+                          <span className="truncate">{hol.name}</span>
                         </span>
                         {canManageHolidays && (
                           <button
                             onClick={() => handleCancelHolidayClick(hol)}
-                            className="text-slate-400 hover:text-red-600 p-0.5 rounded cursor-pointer transition-colors shrink-0"
-                            title="Cancel / Delete this holiday (Restore normal working day)"
+                            className="w-4 h-4 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-600 rounded cursor-pointer transition-colors shrink-0"
+                            title="Cancel / Delete this holiday"
                           >
                             <Trash2 size={11} />
                           </button>

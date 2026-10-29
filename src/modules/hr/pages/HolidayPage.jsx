@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { HolidayCalendar } from '../components/holidays/HolidayCalendar';
 import { AddHolidayModal } from '../components/holidays/AddHolidayModal';
 import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
@@ -21,6 +22,7 @@ import { holidaySyncService } from '../services/holidaySyncService';
 
 export const HolidayPage = () => {
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const { holidays, searchQuery, setSearchQuery, currentUser } = useHR();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [suggestedHolidays, setSuggestedHolidays] = useState([]);
@@ -91,8 +93,14 @@ export const HolidayPage = () => {
 
   const handleCancelOne = async (item) => {
     if (!canManageHolidays) return;
-    const confirmMsg = `Are you sure you want to cancel "${item.name}" (${item.date}) as an official company holiday? This day will immediately revert back to a normal working day for all employees.`;
-    if (!window.confirm(confirmMsg)) return;
+    const ok = await confirm({
+      title: 'Cancel Company Holiday?',
+      message: `Are you sure you want to cancel "${item.name}" (${item.date}) as an official company holiday? This day will immediately revert back to a normal working day for all employees across the company.`,
+      confirmText: 'Yes, Cancel Holiday',
+      cancelText: 'Keep Holiday',
+      variant: 'danger'
+    });
+    if (!ok) return;
 
     try {
       const targetId = item.confirmedRecordId || item.code || item.date;
