@@ -1300,58 +1300,12 @@ export const WorkProvider = ({ children }) => {
     // Target user who owns this task
     const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
-    // 1. Shift Sync: Ensure shift is actively marked clocked in for target user
-    if (isForOtherEmployee) {
-      const isEmpClockedIn = localStorage.getItem(`ems_timer_${targetUserKey}_is_clocked_in`) === 'true';
-      if (!isEmpClockedIn) {
-        const today = getTodayStr();
-        const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem(`ems_timer_${targetUserKey}_is_clocked_in`, 'true');
-        localStorage.setItem(`ems_timer_${targetUserKey}_is_running`, 'true');
-        localStorage.setItem(`ems_timer_${targetUserKey}_login_time`, nowStr);
-        localStorage.setItem(`ems_timer_${targetUserKey}_clock_in_timestamp`, Date.now().toString());
-
-        // Also persist attendance record to MongoDB so it exists on DB!
-        hrService.markAttendance({
-          employeeId: targetUserKey,
-          employeeName: assignedEmpName,
-          date: today,
-          status: 'present',
-          clockInTime: nowStr,
-          clockInTimestamp: Date.now(),
-          isClockedIn: true,
-          workSeconds: 0,
-          breakSeconds: 0,
-          isOnBreak: false,
-          notes: `Shift auto-started on task assignment by ${currentUser?.name || 'Admin'}`
-        }).catch(e => console.warn('Sync auto clock-in to DB:', e));
-
-        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey: targetUserKey, employeeId: targetUserKey, loginTime: nowStr, date: today } }));
-      }
-    } else {
-      const isClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
-      if (!isClockedIn) {
-        const today = getTodayStr();
-        const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'true');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'true');
-        localStorage.setItem(`ems_timer_${userKey}_login_time`, nowStr);
-        localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, Date.now().toString());
-        if (currentUser?.employeeCode) {
-          localStorage.setItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`, 'true');
-        }
-        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey, employeeId: currentUser?._id, employeeCode: currentUser?.employeeCode, loginTime: nowStr, date: today } }));
-        window.dispatchEvent(new CustomEvent('ems_request_clock_in', { detail: { userKey, employeeId: currentUser?._id, employeeCode: currentUser?.employeeCode, loginTime: nowStr, date: today } }));
-      }
-
-      // 2. Break Guard for self
-      const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
-        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
-      if (isOnBreak) {
-        addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
-        return;
-      }
+    // 1. Break Guard: You cannot track task time while actively on break
+    const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
+      (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
+    if (isOnBreak) {
+      addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
+      return;
     }
 
     // 3. Overdue Task Guard

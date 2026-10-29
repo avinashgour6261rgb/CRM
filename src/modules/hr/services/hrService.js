@@ -1075,11 +1075,13 @@ export const hrService = {
           employeeName: targetEmp?.name || 'Employee',
           date: today,
           status: 'present',
-          clockInTime: '09:30 AM',
-          clockIn: '09:30 AM',
+          clockInTime: nowStr,
+          clockIn: nowStr,
+          workSeconds: 0,
+          totalWorkingHours: 0,
           clockOutTime: nowStr,
           clockOut: nowStr,
-          totalWorkingHours: 8,
+          
           notes: `Forced clock-out by Admin ${adminName} (${adminId}): "${auditNote}"`,
           markedBy: adminName,
           updatedAt: new Date().toISOString()

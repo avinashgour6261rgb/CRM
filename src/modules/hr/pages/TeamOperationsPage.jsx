@@ -202,7 +202,7 @@ export const TeamOperationsPage = () => {
 
     const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
     const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? '09:30 AM' : null);
+    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : '--');
     const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
 
     let workSecs = storedWorkSecs;

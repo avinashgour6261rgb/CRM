@@ -360,8 +360,8 @@ export const CRMProvider = ({ children }) => {
         const rawLogin = localStorage.getItem(`ems_timer_${userKey}_login_time`);
         const rawLogout = localStorage.getItem(`ems_timer_${userKey}_clockout_time`);
         const todayAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
-        dayLoginTime = rawLogin || todayAttRec?.clockInTime || todayAttRec?.clockIn || (isClockedInToday ? `${shiftStart} (Active)` : `${shiftStart} (Scheduled)`);
-        dayLogoutTime = rawLogout || todayAttRec?.clockOutTime || todayAttRec?.clockOut || (isClockedInToday ? 'Active / In Progress' : (hadClockedOutToday ? shiftEnd : `${shiftEnd} (Scheduled)`));
+        dayLoginTime = rawLogin || todayAttRec?.clockInTime || todayAttRec?.clockIn || (isClockedInToday ? 'Active' : '--');
+        dayLogoutTime = rawLogout || todayAttRec?.clockOutTime || todayAttRec?.clockOut || (isClockedInToday ? 'Active / In Progress' : (hadClockedOutToday ? (rawLogout || '--') : '--'));
         dayClockIns = isClockedInToday || hadClockedOutToday ? 1 : 0;
         dayClockOuts = hadClockedOutToday ? 1 : 0;
 
