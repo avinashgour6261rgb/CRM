@@ -65,13 +65,13 @@ export const CalendarPage = () => {
   const [showShifts, setShowShifts] = useState(false);
 
   // Filters
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(currentUser?._id || 'emp_001');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => currentUser?._id || '');
 
   useEffect(() => {
-    if (!isPrivileged && currentUser?._id) {
+    if (currentUser?._id && (!selectedEmployeeId || !isPrivileged)) {
       setSelectedEmployeeId(currentUser._id);
     }
-  }, [isPrivileged, currentUser?._id]);
+  }, [isPrivileged, currentUser?._id, selectedEmployeeId]);
 
   const [clientFilter, setClientFilter] = useState('all');
   const [search, setSearch] = useState('');

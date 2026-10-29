@@ -57,7 +57,7 @@ export const HolidayPage = () => {
     };
   }, [holidays]);
 
-  const cleanHolidays = (holidays || []).filter(h => !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))));
+  const cleanHolidays = holidays || [];
   const totalHolidaysCount = cleanHolidays.length;
   const upcomingHolidays = cleanHolidays.filter(h => h.date >= todayStr);
   const completedHolidays = cleanHolidays.filter(h => h.date < todayStr);
