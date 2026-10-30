@@ -140,3 +140,4 @@ export const downloadChatAttachment = (attachment) => {
   link.click();
   document.body.removeChild(link);
 };
+

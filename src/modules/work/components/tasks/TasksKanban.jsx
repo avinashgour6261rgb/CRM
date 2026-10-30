@@ -107,7 +107,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                 <div
                   key={task._id}
                   onClick={() => onSelectTask && onSelectTask(task)}
-                  className="bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700/80 p-3.5 shadow-xs hover:shadow-md cursor-pointer flex flex-col gap-2.5 transition-all"
+                  className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/80 p-3.5 shadow-xs hover:shadow-md cursor-pointer flex flex-col gap-2.5 transition-all"
                 >
                   {/* Top Bar: Code & Project */}
                   <div className="flex items-center justify-between gap-1.5">

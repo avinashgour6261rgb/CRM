@@ -175,6 +175,24 @@ exports.createTask = async (req, res, next) => {
       taskData.project = null;
     }
 
+    if (!taskData.history || !Array.isArray(taskData.history) || taskData.history.length === 0) {
+      taskData.history = [{
+        id: `hist_${Date.now()}_create`,
+        action: 'created',
+        title: 'Task Created & Assigned',
+        timestamp: new Date().toISOString(),
+        performedBy: taskData.assignedBy || 'Administrator',
+        performedById: taskData.assignedById || 'admin',
+        assignedTo: taskData.assignedToName || 'Team Members',
+        details: `Task #${taskData.taskCode} created and assigned to ${taskData.assignedToName || 'team'} by ${taskData.assignedBy || 'Administrator'}. (Due: ${taskData.hasNoDueDate ? 'No Due Date' : (taskData.dueDate || 'Open')})`,
+        metadata: {
+          priority: taskData.priority || 'medium',
+          category: taskData.category || 'General',
+          projectName: taskData.projectName || 'General Work'
+        }
+      }];
+    }
+
     const task = await Task.create(taskData);
     res.status(201).json({
       success: true,

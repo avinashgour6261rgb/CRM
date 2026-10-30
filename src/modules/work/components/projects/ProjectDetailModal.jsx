@@ -190,7 +190,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
           </div>
 
           {/* Deadline Extension & Client Audit History */}
-          <div className="bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <History size={16} className="text-purple-600 dark:text-purple-400" />

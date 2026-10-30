@@ -99,7 +99,7 @@ export const Sidebar = () => {
   return (
     <aside className={`bg-[#101b33] text-slate-400 flex flex-col h-screen shrink-0 border-r border-slate-800 sticky top-0 z-[100] overflow-hidden transition-[width] duration-250 ease-out ${collapsed ? 'w-[72px]' : 'w-[250px]'}`}>
       {/* Brand & User Top Header */}
-      <div className={`border-b border-white/[0.06] flex items-center justify-between min-h-[70px] ${collapsed ? 'p-4 px-2' : 'py-[18px] px-5'}`}>
+      <div className={`border-b border-white/6 flex items-center justify-between min-h-[70px] ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}>
         {!collapsed ? (
           <div
             onClick={() => navigate('/settings')}
@@ -146,8 +146,7 @@ export const Sidebar = () => {
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-                isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
               }`
             }
           >
@@ -157,12 +156,11 @@ export const Sidebar = () => {
         )}
 
         {/* Employees & Role Management (Master Direct Access) */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'employees')) && (
+        {isHRorAdmin && (
           <NavLink
             to="/employees"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-                isActive ? 'text-white bg-blue-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
               }`
             }
           >
@@ -178,13 +176,12 @@ export const Sidebar = () => {
           </NavLink>
         )}
 
-        {/* Live Operations & Emergency Controls (Admin/HR/Delegated) */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'liveOperations') || canAccessModule(currentUser, 'teamoperations')) && (
+        {/* Live Operations & Emergency Controls (Admin/HR) */}
+        {isHRorAdmin && (
           <NavLink
             to="/team-operations"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-                isActive ? 'text-white bg-orange-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-orange-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
               }`
             }
           >
@@ -193,7 +190,7 @@ export const Sidebar = () => {
               <div className="flex items-center justify-between w-full">
                 <span>Live Operations</span>
                 <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                  LIVE
+                  ADMIN
                 </span>
               </div>
             )}
@@ -205,9 +202,8 @@ export const Sidebar = () => {
           <div>
             <div
               onClick={() => toggleSection('leads')}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${
-                isLeadsActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isLeadsActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Users2 size={18} className={isLeadsActive ? 'text-blue-500' : 'text-slate-400'} />
@@ -224,8 +220,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/lead-contact"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -242,9 +237,8 @@ export const Sidebar = () => {
           <div>
             <div
               onClick={() => toggleSection('hr')}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${
-                isHrActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isHrActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Briefcase size={18} className={isHrActive ? 'text-blue-500' : 'text-slate-400'} />
@@ -262,8 +256,7 @@ export const Sidebar = () => {
                   <NavLink
                     to="/leaves"
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                        isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                       }`
                     }
                   >
@@ -276,8 +269,7 @@ export const Sidebar = () => {
                   <NavLink
                     to="/attendance"
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                        isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                       }`
                     }
                   >
@@ -289,8 +281,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/holiday"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -301,8 +292,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/appreciation"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -314,8 +304,7 @@ export const Sidebar = () => {
                   <NavLink
                     to="/documents"
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                        isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                       }`
                     }
                   >
@@ -333,9 +322,8 @@ export const Sidebar = () => {
           <div>
             <div
               onClick={() => toggleSection('work')}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${
-                isWorkActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isWorkActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Layers size={18} className={isWorkActive ? 'text-blue-500' : 'text-slate-400'} />
@@ -353,8 +341,7 @@ export const Sidebar = () => {
                   <NavLink
                     to="/projects"
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                        isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                       }`
                     }
                   >
@@ -366,8 +353,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/tasks"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -378,8 +364,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/timesheet"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -396,9 +381,8 @@ export const Sidebar = () => {
           <div>
             <div
               onClick={() => toggleSection('finance')}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${
-                isFinanceActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
-              }`}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isFinanceActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <DollarSign size={18} className={isFinanceActive ? 'text-blue-500' : 'text-slate-400'} />
@@ -415,8 +399,7 @@ export const Sidebar = () => {
                 <NavLink
                   to="/expenses"
                   className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                      isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                     }`
                   }
                 >
@@ -424,12 +407,11 @@ export const Sidebar = () => {
                   {!collapsed && <span>Expenses</span>}
                 </NavLink>
 
-                {(isHRorAdmin || canAccessModule(currentUser, 'payroll') || canAccessModule(currentUser, 'finance')) && (
+                {isHRorAdmin && (
                   <NavLink
                     to="/payroll"
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${
-                        isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
                       }`
                     }
                   >
@@ -446,8 +428,7 @@ export const Sidebar = () => {
           <NavLink
             to="/tickets"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-                isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
               }`
             }
           >
@@ -460,8 +441,7 @@ export const Sidebar = () => {
           <NavLink
             to="/events"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-                isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
               }`
             }
           >
@@ -492,8 +472,7 @@ export const Sidebar = () => {
         <NavLink
           to="/notice-board"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-              isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
             }`
           }
         >
@@ -504,8 +483,7 @@ export const Sidebar = () => {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
-              isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
             }`
           }
         >
@@ -515,7 +493,7 @@ export const Sidebar = () => {
       </div>
 
       {/* Sidebar Footer & Collapse Toggle */}
-      <div className={`border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-500 ${collapsed ? 'py-3 px-2' : 'py-3.5 px-[18px]'}`}>
+      <div className={`border-t border-white/6 flex items-center justify-between text-xs text-slate-500 ${collapsed ? 'py-3 px-2' : 'py-3.5 px-4.5'}`}>
         {!collapsed && <span>v1.0.0</span>}
         <button
           onClick={() => setCollapsed(!collapsed)}

@@ -277,7 +277,7 @@ export const EmployeePermissionsTab = () => {
       <div className={`rounded-2xl p-4 sm:px-5 flex items-center justify-between transition-all flex-wrap gap-3.5 ${
         isDelegatedAdmin
           ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 border-[1.5px] border-blue-500 dark:border-blue-600 shadow-md shadow-blue-500/10'
-          : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-850 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
+          : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
       }`}>
         <div className="flex items-center gap-3.5">
           <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white shrink-0 ${

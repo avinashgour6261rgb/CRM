@@ -181,3 +181,4 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
     </div>
   );
 };
+

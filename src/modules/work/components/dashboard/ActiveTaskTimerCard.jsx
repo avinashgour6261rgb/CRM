@@ -269,7 +269,7 @@ export const ActiveTaskTimerCard = ({
               {upcomingQueueTasks.slice(0, 2).map(nextT => (
                 <div
                   key={nextT._id}
-                  className="p-1.5 px-2 bg-white dark:bg-slate-850 rounded-md border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-1.5"
+                  className="p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-1.5"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-[11.5px] font-bold text-slate-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
@@ -344,7 +344,7 @@ export const ActiveTaskTimerCard = ({
                 return (
                   <div
                     key={snz._id}
-                    className={`p-1.5 px-2 bg-white dark:bg-slate-850 rounded-md border flex items-center justify-between gap-1.5 ${
+                    className={`p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border flex items-center justify-between gap-1.5 ${
                       isDue ? 'border-orange-500' : 'border-purple-200 dark:border-purple-900/50'
                     }`}
                   >

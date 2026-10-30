@@ -241,7 +241,8 @@ const TaskSchema = new mongoose.Schema(
     reminderAlerted: {
       type: Boolean,
       default: false
-    }
+    },
+    history: [mongoose.Schema.Types.Mixed]
   },
   {
     timestamps: true
