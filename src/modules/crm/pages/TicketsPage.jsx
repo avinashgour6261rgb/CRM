@@ -26,6 +26,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 
@@ -71,33 +72,33 @@ export const TicketsPage = () => {
     });
   }, [tickets, canViewAllTickets, currentUser]);
 
-  // KPIs
+  // KPIs with case-insensitive status matching
   const totalCount = scopedTickets.length;
-  const closedCount = scopedTickets.filter(t => t.status === 'closed').length;
-  const openCount = scopedTickets.filter(t => t.status === 'open').length;
-  const pendingCount = scopedTickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
-  const resolvedCount = scopedTickets.filter(t => t.status === 'resolved').length;
+  const closedCount = scopedTickets.filter(t => matchesFilter(t.status, 'closed')).length;
+  const openCount = scopedTickets.filter(t => matchesFilter(t.status, 'open')).length;
+  const pendingCount = scopedTickets.filter(t => matchesFilter(t.status, 'pending') || matchesFilter(t.status, 'in_progress')).length;
+  const resolvedCount = scopedTickets.filter(t => matchesFilter(t.status, 'resolved')).length;
 
   const filteredTickets = useMemo(() => {
     return scopedTickets.filter(t => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (t.subject || '').toLowerCase().includes(q) ||
-        (t.ticketCode || '').toLowerCase().includes(q) ||
-        (t.category || '').toLowerCase().includes(q) ||
-        (t.requestedByName || '').toLowerCase().includes(q);
+      const matchSearch = matchesSearch(t, search, [
+        'subject', 'ticketCode', 'category', 'requestedByName', 'assignedToName', 'priority'
+      ]);
 
       let matchesStatus = true;
-      if (statusFilter === 'open') matchesStatus = t.status === 'open';
-      else if (statusFilter === 'closed') matchesStatus = t.status === 'closed';
-      else if (statusFilter === 'pending') matchesStatus = t.status === 'pending' || t.status === 'in_progress';
-      else if (statusFilter === 'resolved') matchesStatus = t.status === 'resolved';
+      if (statusFilter === 'open') {
+        matchesStatus = matchesFilter(t.status, 'open');
+      } else if (statusFilter === 'closed') {
+        matchesStatus = matchesFilter(t.status, 'closed');
+      } else if (statusFilter === 'pending') {
+        matchesStatus = matchesFilter(t.status, 'pending') || matchesFilter(t.status, 'in_progress');
+      } else if (statusFilter === 'resolved') {
+        matchesStatus = matchesFilter(t.status, 'resolved');
+      }
 
-      let matchesDate = true;
-      if (startDateFilter && t.requestedOn && t.requestedOn < startDateFilter) matchesDate = false;
-      if (endDateFilter && t.requestedOn && t.requestedOn > endDateFilter) matchesDate = false;
+      const matchDate = matchesDateRange(t.requestedOn || t.createdAt, startDateFilter, endDateFilter);
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchSearch && matchesStatus && matchDate;
     });
   }, [scopedTickets, search, statusFilter, startDateFilter, endDateFilter]);
 

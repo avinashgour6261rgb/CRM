@@ -23,6 +23,7 @@ import {
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter } from '../../../shared/utils/filterUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
 import { MarkAttendanceModal } from '../components/attendance/MarkAttendanceModal';
@@ -105,6 +106,11 @@ export const AttendancePage = () => {
              (a.employeeName && a.employeeName.trim().toLowerCase() === selectedEmpObj.name.trim().toLowerCase())
            ));
   });
+
+  const displayLogRecords = React.useMemo(() => {
+    if (statusFilter === 'all') return currentMonthRecords;
+    return currentMonthRecords.filter(r => matchesFilter(r.status, statusFilter));
+  }, [currentMonthRecords, statusFilter]);
 
   const daysInSelectedMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   let workingDaysCount = 0;
@@ -485,8 +491,8 @@ export const AttendancePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentMonthRecords.length > 0 ? (
-                  currentMonthRecords.map(record => {
+                {displayLogRecords.length > 0 ? (
+                  displayLogRecords.map(record => {
                     const emp = employees.find(e =>
                       e._id === record.employeeId ||
                       e.employeeCode === record.employeeId ||

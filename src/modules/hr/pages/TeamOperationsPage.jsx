@@ -151,6 +151,21 @@ export const TeamOperationsPage = () => {
     return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
   };
 
+  // Helper: Parse time string "09:30 AM" or "14:15" to seconds from midnight
+  const parseTimeToSeconds = (tStr) => {
+    if (!tStr || typeof tStr !== 'string') return 0;
+    const clean = tStr.trim();
+    const isPM = /pm/i.test(clean);
+    const isAM = /am/i.test(clean);
+    const parts = clean.replace(/[^\d:]/g, '').split(':').map(Number);
+    let hrs = parts[0] || 0;
+    const mins = parts[1] || 0;
+    const secs = parts[2] || 0;
+    if (isPM && hrs < 12) hrs += 12;
+    if (isAM && hrs === 12) hrs = 0;
+    return hrs * 3600 + mins * 60 + secs;
+  };
+
   // Helper: Check if task is assigned to user
   const isTaskAssignedToUser = useCallback((t, user) => {
     if (!t || !user) return false;
@@ -202,19 +217,26 @@ export const TeamOperationsPage = () => {
     const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) || 0;
     const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) || 0;
 
-    const isClockedIn = !isOnLeave && (storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime));
-    const isClockedOut = !isOnLeave && !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = !isOnLeave ? (attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : '--')) : null;
-    const clockOutTime = !isOnLeave ? (attRec?.clockOutTime || storedClockOut || null) : null;
+    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime && attRec?.isClockedIn !== false);
+    const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
+    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : (isOnLeave ? 'On Leave' : '--'));
+    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
 
-    let workSecs = !isOnLeave ? storedWorkSecs : 0;
-    if (isClockedIn && !storedOnBreak && !isOnLeave) {
-      const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`));
+    let workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+    if (isClockedIn && !storedOnBreak) {
+      let clockInTs = Number(attRec?.clockInTimestamp) ||
+                      Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
+                      Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`));
+      if (!clockInTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        clockInTs = todayMidnight.getTime() + parseTimeToSeconds(loginTime) * 1000;
+      }
       if (clockInTs > 0) {
         const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        workSecs = Math.max(0, gross - storedBreakSecs);
+        workSecs = Math.max(workSecs, gross - storedBreakSecs);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours && !isOnLeave) {
+    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
       workSecs = Math.round(attRec.totalWorkingHours * 3600);
     }
 
@@ -873,20 +895,26 @@ export const TeamOperationsPage = () => {
                       {/* Shift Status */}
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
-                          item.isOnLeave
+                          item.isClockedIn && item.isOnLeave
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : item.isOnLeave
                             ? 'bg-teal-100 text-teal-800 border-teal-200'
                             : item.isClockedIn
                             ? (item.isOnBreak ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-green-100 text-green-700 border-green-200')
                             : (item.isClockedOut ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-50 text-slate-400 border-slate-200')
                         }`}>
                           <span className={`w-[7px] h-[7px] rounded-full ${
-                            item.isOnLeave
+                            item.isClockedIn
+                              ? 'bg-green-500'
+                              : item.isOnLeave
                               ? 'bg-teal-500'
-                              : item.isClockedIn
-                              ? (item.isOnBreak ? 'bg-amber-500' : 'bg-green-500')
-                              : (item.isClockedOut ? 'bg-slate-400' : 'bg-slate-300')
+                              : item.isClockedOut
+                              ? 'bg-slate-400'
+                              : 'bg-slate-300'
                           }`} />
-                          {item.isOnLeave
+                          {item.isClockedIn && item.isOnLeave
+                            ? 'Working (On Leave) 🟢🌴'
+                            : item.isOnLeave
                             ? 'On Leave 🌴'
                             : item.isClockedIn
                             ? (item.isOnBreak ? `On ${item.breakType}` : 'Shift Active 🟢')

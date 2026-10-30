@@ -33,6 +33,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { confirmDialog } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 
 // Components
 import { LeadsKPIOverview } from '../components/leads/LeadsKPIOverview';
@@ -123,51 +124,49 @@ export const LeadsPage = () => {
   const filteredLeads = useMemo(() => {
     return scopedLeads.filter(lead => {
       // Search across name, company, email, phone, code, contact person
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchSearch =
-          (lead.name && lead.name.toLowerCase().includes(q)) ||
-          (lead.contactPerson && lead.contactPerson.toLowerCase().includes(q)) ||
-          (lead.companyName && lead.companyName.toLowerCase().includes(q)) ||
-          (lead.client && lead.client.toLowerCase().includes(q)) ||
-          (lead.email && lead.email.toLowerCase().includes(q)) ||
-          (lead.phone && lead.phone.toLowerCase().includes(q)) ||
-          (lead.leadCode && lead.leadCode.toLowerCase().includes(q)) ||
-          (lead.leadOwnerName && lead.leadOwnerName.toLowerCase().includes(q));
-
+      if (searchQuery && searchQuery.trim()) {
+        const matchSearch = matchesSearch(lead, searchQuery, [
+          'name', 'contactPerson', 'companyName', 'client', 'email', 'phone', 'leadCode', 'leadOwnerName', 'leadType'
+        ]);
         if (!matchSearch) return false;
       }
 
       // Lead Type
-      if (typeFilter !== 'all' && lead.leadType !== typeFilter) {
+      if (typeFilter !== 'all' && !matchesFilter(lead.leadType, typeFilter)) {
         return false;
       }
 
       // Status
-      if (statusFilter !== 'all' && lead.status !== statusFilter) {
+      if (statusFilter !== 'all' && !matchesFilter(lead.status, statusFilter)) {
         return false;
       }
 
-      // Owner
-      if (ownerFilter !== 'all' && lead.leadOwnerId !== ownerFilter) {
-        return false;
+      // Owner (matches by ID, code, name, or assigned ID)
+      if (ownerFilter !== 'all') {
+        const matchOwner =
+          matchesFilter(lead.leadOwnerId, ownerFilter) ||
+          matchesFilter(lead.ownerId, ownerFilter) ||
+          matchesFilter(lead.assignedToId, ownerFilter) ||
+          matchesFilter(lead.leadOwnerName, ownerFilter) ||
+          matchesFilter(lead.owner, ownerFilter);
+        if (!matchOwner) return false;
       }
 
       // Priority
-      if (priorityFilter !== 'all' && lead.priority !== priorityFilter) {
+      if (priorityFilter !== 'all' && !matchesFilter(lead.priority, priorityFilter)) {
         return false;
       }
 
-      // Client
-      if (clientFilter !== 'all' && lead.companyName !== clientFilter && lead.client !== clientFilter) {
-        return false;
+      // Client / Company
+      if (clientFilter !== 'all') {
+        const matchClient =
+          matchesFilter(lead.companyName, clientFilter) ||
+          matchesFilter(lead.client, clientFilter);
+        if (!matchClient) return false;
       }
 
       // Date Range
-      if (startDateFilter && lead.startDate && lead.startDate < startDateFilter) {
-        return false;
-      }
-      if (endDateFilter && lead.endDate && lead.endDate > endDateFilter) {
+      if (!matchesDateRange(lead.startDate || lead.createdAt, startDateFilter, endDateFilter)) {
         return false;
       }
 

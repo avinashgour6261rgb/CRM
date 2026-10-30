@@ -74,7 +74,9 @@ export const ShiftClockCard = ({
             </div>
             <span
               className={`text-[10.5px] font-bold py-[3px] px-2 rounded-[5px] inline-flex items-center gap-1.5 border ${
-                displayedIsOnLeave
+                displayedIsClockedIn && displayedIsOnLeave
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                  : displayedIsOnLeave
                   ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
                   : displayedIsOnBreak
                   ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
@@ -87,10 +89,10 @@ export const ShiftClockCard = ({
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full inline-block ${
-                  displayedIsOnLeave ? 'bg-teal-500' : displayedIsOnBreak ? 'bg-amber-500' : displayedIsClockedIn ? 'bg-green-500' : displayedHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
+                  displayedIsClockedIn ? 'bg-green-500' : displayedIsOnLeave ? 'bg-teal-500' : displayedIsOnBreak ? 'bg-amber-500' : displayedHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
                 }`}
               />
-              {displayedIsOnLeave ? 'On Approved Leave 🌴' : displayedIsOnBreak ? `On ${displayedBreakType}` : displayedIsClockedIn ? 'Shift Active 🟢' : displayedHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
+              {displayedIsClockedIn && displayedIsOnLeave ? 'Working (On Leave) 🟢🌴' : displayedIsOnLeave ? 'On Approved Leave 🌴' : displayedIsOnBreak ? `On ${displayedBreakType}` : displayedIsClockedIn ? 'Shift Active 🟢' : displayedHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
             </span>
           </div>
 
@@ -225,10 +227,19 @@ export const ShiftClockCard = ({
                 </button>
               </div>
             ) : displayedIsOnLeave ? (
-              <div className="flex items-center gap-2">
-                <span className="py-2.5 px-4 rounded-lg text-[13px] font-bold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 inline-flex items-center gap-1.5 shadow-xs">
-                  <span>🌴 Shift Paused: Approved Leave Active</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="py-2.5 px-3 rounded-lg text-xs font-bold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 inline-flex items-center gap-1.5 shadow-xs">
+                  <span>🌴 Approved Leave Active</span>
                 </span>
+                <button
+                  id="btn-clock-in-urgent"
+                  onClick={handleClockIn}
+                  title="Clock In for urgent work during approved leave"
+                  className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-none py-2 px-3.5 rounded-lg text-xs font-bold cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.3)] hover:brightness-105 transition-all"
+                >
+                  <Play size={12} fill="#fff" />
+                  <span>Work During Leave ⚡</span>
+                </button>
               </div>
             ) : (
               <button

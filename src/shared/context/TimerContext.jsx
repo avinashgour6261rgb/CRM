@@ -520,14 +520,15 @@ export const TimerProvider = ({ children }) => {
       if (isRecordOnLeave) {
         setIsOnLeaveToday(true);
         setTodayLeaveRecord(rec);
-        setIsClockedIn(false);
-        setIsRunning(false);
-        setIsOnBreak(false);
-        setHadClockedOutToday(false);
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
-        return;
+        // If employee is on leave and NOT actively working, keep shift inactive
+        // But if they explicitly clocked in for urgent work, preserve the active session!
+        if (!remoteIsClockedIn && !localIsClockedIn) {
+          setIsClockedIn(false);
+          setIsRunning(false);
+          setIsOnBreak(false);
+          setHadClockedOutToday(false);
+          return;
+        }
       } else {
         setIsOnLeaveToday(false);
         setTodayLeaveRecord(null);

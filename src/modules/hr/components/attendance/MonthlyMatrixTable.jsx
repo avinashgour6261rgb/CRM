@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useHR } from '../../context/HRContext';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
+import { matchesFilter } from '../../../../shared/utils/filterUtils';
 
 export const MonthlyMatrixTable = ({
   month = 9,
@@ -163,9 +164,9 @@ export const MonthlyMatrixTable = ({
                     const safeRecord = (isFuture && record && record.status !== 'on_leave' && record.status !== 'holiday') ? null : record;
                     const display = getStatusDisplay(safeRecord, isWeekend, isFuture);
 
-                    // Check if matching status filter
+                    // Check if matching status filter (case-insensitive and format resilient)
                     const effectiveStatus = safeRecord ? safeRecord.status : (isFuture ? 'upcoming' : (isWeekend ? 'day_off' : 'not_marked'));
-                    const isMuted = statusFilter !== 'all' && effectiveStatus !== statusFilter;
+                    const isMuted = statusFilter !== 'all' && !matchesFilter(effectiveStatus, statusFilter);
 
                     const inStr = safeRecord?.clockInTime || safeRecord?.clockIn;
                     const outStr = safeRecord?.clockOutTime || safeRecord?.clockOut;

@@ -27,6 +27,7 @@ import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -132,16 +133,24 @@ export const LeavesPage = () => {
   // Filtered leaves
   const filteredLeaves = useMemo(() => {
     return scopedLeaves.filter(leave => {
-      if (isPrivileged && filterEmployee !== 'all' && leave.employeeId !== filterEmployee) return false;
-      if (filterType !== 'all' && leave.leaveType !== filterType) return false;
-      if (filterStatus !== 'all' && leave.status !== filterStatus) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchName = leave.employeeName?.toLowerCase().includes(q);
-        const matchRole = leave.employeeRole?.toLowerCase().includes(q);
-        const matchType = leave.leaveType?.toLowerCase().includes(q);
-        const matchReason = leave.reason?.toLowerCase().includes(q);
-        if (!matchName && !matchRole && !matchType && !matchReason) return false;
+      if (isPrivileged && filterEmployee !== 'all') {
+        const matchEmp =
+          matchesFilter(leave.employeeId, filterEmployee) ||
+          matchesFilter(leave.employee, filterEmployee) ||
+          matchesFilter(leave.employeeCode, filterEmployee) ||
+          matchesFilter(leave.employeeName, filterEmployee);
+        if (!matchEmp) return false;
+      }
+      if (filterType !== 'all') {
+        if (!matchesFilter(leave.leaveType, filterType)) return false;
+      }
+      if (filterStatus !== 'all') {
+        if (!matchesFilter(leave.status, filterStatus)) return false;
+      }
+      if (searchQuery && searchQuery.trim()) {
+        if (!matchesSearch(leave, searchQuery, ['employeeName', 'employeeRole', 'leaveType', 'reason', 'employeeCode'])) {
+          return false;
+        }
       }
       return true;
     });
@@ -470,15 +479,15 @@ export const LeavesPage = () => {
 
       {/* Filter Drawer */}
       {showFilterDrawer && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 px-5 mb-5 flex gap-4 items-center flex-wrap shadow-sm">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 px-5 mb-5 flex gap-4 items-center flex-wrap shadow-sm">
           <div>
-            <label className="text-xs font-semibold text-slate-500 block mb-1">
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Employee
             </label>
             <select
               value={filterEmployee}
               onChange={(e) => setFilterEmployee(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -488,13 +497,13 @@ export const LeavesPage = () => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500 block mb-1">
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Leave Type
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Types</option>
               <option value="Casual Leave">Casual Leave</option>
@@ -506,13 +515,13 @@ export const LeavesPage = () => {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500 block mb-1">
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Status
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Status</option>
               <option value="approved">Approved</option>

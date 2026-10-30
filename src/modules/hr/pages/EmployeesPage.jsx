@@ -30,6 +30,7 @@ import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementMo
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
 import { isAdmin, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
 export const EmployeesPage = () => {
   const navigate = useNavigate();
@@ -105,17 +106,20 @@ export const EmployeesPage = () => {
         const systemRoles = getRoles();
 
   const filteredEmployees = (employees || []).filter(e => {
-    if (selectedDept !== 'all' && e.department !== selectedDept) return false;
-        if (selectedRoleFilter !== 'all' && e.role !== selectedRoleFilter) return false;
-        if (search) {
-      const q = search.toLowerCase();
-        const matchName = e.name?.toLowerCase().includes(q);
-        const matchRole = e.role?.toLowerCase().includes(q);
-        const matchEmail = e.email?.toLowerCase().includes(q);
-        const matchCode = e.employeeCode?.toLowerCase().includes(q);
-        if (!matchName && !matchRole && !matchEmail && !matchCode) return false;
+    if (selectedDept !== 'all' && !matchesFilter(e.department, selectedDept)) return false;
+    if (selectedRoleFilter !== 'all') {
+      const matchRole =
+        matchesFilter(e.role, selectedRoleFilter) ||
+        matchesFilter(e.systemRole, selectedRoleFilter) ||
+        matchesFilter(e.designation, selectedRoleFilter);
+      if (!matchRole) return false;
     }
-        return true;
+    if (search && search.trim()) {
+      if (!matchesSearch(e, search, ['name', 'role', 'email', 'employeeCode', 'department', 'designation'])) {
+        return false;
+      }
+    }
+    return true;
   });
 
   const getRoleBadgeStyle = (roleName = '') => {

@@ -7,6 +7,7 @@
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
 import { getUserModulePermissions, isHRorAdmin, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesAssignee, matchesProject, matchesSearch, matchesDateRange } from '../../../shared/utils/filterUtils';
 
 let backendOnlineCache = null;
 let lastCheckTime = 0;
@@ -386,38 +387,27 @@ export const workService = {
         return isDirectAssignee || isMultiAssignee || isCreator;
       });
     } else if (filters.assignedTo && filters.assignedTo !== 'all') {
-      const targetFilter = String(filters.assignedTo).toLowerCase();
-      list = list.filter(t =>
-        String(t.assignedToId).toLowerCase() === targetFilter ||
-        String(t.assignedTo).toLowerCase() === targetFilter ||
-        String(t.assignedToCode).toLowerCase() === targetFilter ||
-        (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => String(id).toLowerCase() === targetFilter)) ||
-        (Array.isArray(t.assignees) && t.assignees.some(a => String(a._id).toLowerCase() === targetFilter || String(a.employeeCode).toLowerCase() === targetFilter))
-      );
+      list = list.filter(t => matchesAssignee(t, filters.assignedTo));
     }
 
     if (filters.projectId && filters.projectId !== 'all') {
-      list = list.filter(t => t.projectId === filters.projectId || t.projectCode === filters.projectId);
+      list = list.filter(t => matchesProject(t, filters.projectId));
     }
     if (filters.status && filters.status !== 'all') {
-      list = list.filter(t => t.status === filters.status);
+      list = list.filter(t => matchesFilter(t.status, filters.status));
     } else if (filters.hideCompleted) {
       list = list.filter(t => t.status !== 'completed');
     }
     if (filters.priority && filters.priority !== 'all') {
-      list = list.filter(t => t.priority === filters.priority);
+      list = list.filter(t => matchesFilter(t.priority, filters.priority));
     }
     if (filters.assignedBy && filters.assignedBy !== 'all') {
-      list = list.filter(t => t.assignedById === filters.assignedBy || t.assignedBy === filters.assignedBy);
+      list = list.filter(t => matchesFilter(t.assignedById, filters.assignedBy) || matchesFilter(t.assignedBy, filters.assignedBy));
     }
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(t =>
-        t.title?.toLowerCase().includes(q) ||
-        t.taskCode?.toLowerCase().includes(q) ||
-        t.projectName?.toLowerCase().includes(q) ||
-        t.assignedToName?.toLowerCase().includes(q)
-      );
+      list = list.filter(t => matchesSearch(t, filters.search, [
+        'title', 'taskCode', 'projectName', 'assignedToName', 'assignedBy', 'category', 'description'
+      ]));
     }
 
     const today = getLocalDateString();
@@ -713,22 +703,45 @@ export const workService = {
             const localTimesheets = getCollection(KEYS.TIMESHEETS) || [];
             const remoteTimesheets = json.data;
             const tsMap = new Map();
+            localTimesheets.forEach(lts => {
+              const id = String(lts._id || lts.id);
+              if (id) tsMap.set(id, lts);
+            });
             remoteTimesheets.forEach(ts => {
               const id = String(ts._id || ts.id);
               if (id) tsMap.set(id, ts);
-            });
-            localTimesheets.forEach(lts => {
-              const id = String(lts._id || lts.id);
-              if (id && !tsMap.has(id)) {
-                tsMap.set(id, lts);
-              }
             });
             const merged = Array.from(tsMap.values());
             if (merged.length > 0) {
               localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
               window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
             }
-            return merged;
+
+            // Return remote list (already filtered by backend) or apply fallback filters
+            let filteredRemote = remoteTimesheets;
+            if (filters.employeeId && filters.employeeId !== 'all') {
+              filteredRemote = filteredRemote.filter(ts =>
+                matchesFilter(ts.employeeId, filters.employeeId) ||
+                matchesFilter(ts.employee, filters.employeeId) ||
+                matchesFilter(ts.employeeCode, filters.employeeId) ||
+                matchesFilter(ts.employeeName, filters.employeeId)
+              );
+            }
+            if (filters.projectId && filters.projectId !== 'all') {
+              filteredRemote = filteredRemote.filter(ts => matchesProject(ts, filters.projectId));
+            }
+            if (filters.status && filters.status !== 'all') {
+              filteredRemote = filteredRemote.filter(ts => matchesFilter(ts.status, filters.status));
+            }
+            if (filters.date) {
+              filteredRemote = filteredRemote.filter(ts => matchesDateRange(ts.date, filters.date, filters.date));
+            }
+            if (filters.search) {
+              filteredRemote = filteredRemote.filter(ts => matchesSearch(ts, filters.search, [
+                'taskCode', 'taskTitle', 'projectName', 'employeeName', 'memo', 'projectCode'
+              ]));
+            }
+            return filteredRemote;
           }
         }
       } catch (err) {
@@ -737,7 +750,7 @@ export const workService = {
     }
 
     // LocalStorage Fallback
-    let list = getCollection(KEYS.TIMESHEETS);
+    let list = getCollection(KEYS.TIMESHEETS) || [];
     const authUser = getAuthUser();
     const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
 
@@ -751,29 +764,30 @@ export const workService = {
         (ts.employeeName && authUser.name && ts.employeeName.toLowerCase() === authUser.name.toLowerCase())
       );
     } else if (filters.employeeId && filters.employeeId !== 'all') {
-      list = list.filter(ts => ts.employeeId === filters.employeeId || ts.employee === filters.employeeId || ts.employeeCode === filters.employeeId);
+      list = list.filter(ts =>
+        matchesFilter(ts.employeeId, filters.employeeId) ||
+        matchesFilter(ts.employee, filters.employeeId) ||
+        matchesFilter(ts.employeeCode, filters.employeeId) ||
+        matchesFilter(ts.employeeName, filters.employeeId)
+      );
     }
 
     if (filters.projectId && filters.projectId !== 'all') {
-      list = list.filter(ts => ts.projectId === filters.projectId || ts.project === filters.projectId);
+      list = list.filter(ts => matchesProject(ts, filters.projectId));
     }
     if (filters.taskId && filters.taskId !== 'all') {
-      list = list.filter(ts => ts.taskId === filters.taskId || ts.task === filters.taskId);
+      list = list.filter(ts => matchesFilter(ts.taskId, filters.taskId) || matchesFilter(ts.task, filters.taskId) || matchesFilter(ts.taskCode, filters.taskId));
     }
     if (filters.date) {
-      list = list.filter(ts => ts.date === filters.date);
+      list = list.filter(ts => matchesDateRange(ts.date, filters.date, filters.date));
     }
     if (filters.status && filters.status !== 'all') {
-      list = list.filter(ts => ts.status === filters.status);
+      list = list.filter(ts => matchesFilter(ts.status, filters.status));
     }
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(ts =>
-        ts.taskTitle?.toLowerCase().includes(q) ||
-        ts.projectName?.toLowerCase().includes(q) ||
-        ts.employeeName?.toLowerCase().includes(q) ||
-        ts.memo?.toLowerCase().includes(q)
-      );
+      list = list.filter(ts => matchesSearch(ts, filters.search, [
+        'taskTitle', 'projectName', 'employeeName', 'memo', 'taskCode', 'projectCode'
+      ]));
     }
     return list;
   },

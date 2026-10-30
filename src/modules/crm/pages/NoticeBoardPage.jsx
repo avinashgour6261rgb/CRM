@@ -22,6 +22,7 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
+import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 
 export const NoticeBoardPage = () => {
@@ -42,18 +43,13 @@ export const NoticeBoardPage = () => {
 
   const filteredNotices = useMemo(() => {
     return notices.filter(n => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (n.title || '').toLowerCase().includes(q) ||
-        (n.description || '').toLowerCase().includes(q) ||
-        (n.shortDescription || '').toLowerCase().includes(q) ||
-        (n.to || '').toLowerCase().includes(q);
+      const matchSearch = matchesSearch(n, search, [
+        'title', 'description', 'shortDescription', 'to', 'targetAudience', 'priority', 'postedBy', 'createdBy'
+      ]);
 
-      let matchesDate = true;
-      if (startDateFilter && n.date && n.date < startDateFilter) matchesDate = false;
-      if (endDateFilter && n.date && n.date > endDateFilter) matchesDate = false;
+      const matchDate = matchesDateRange(n.date || n.createdAt, startDateFilter, endDateFilter);
 
-      return matchesSearch && matchesDate;
+      return matchSearch && matchDate;
     });
   }, [notices, search, startDateFilter, endDateFilter]);
 

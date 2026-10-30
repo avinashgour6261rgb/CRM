@@ -18,6 +18,7 @@ import {
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { isHRorAdmin, getUserModulePermissions, canManageProjects, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ProjectsTable } from '../components/projects/ProjectsTable';
 import { AddProjectModal } from '../components/projects/AddProjectModal';
 import { ProjectDetailModal } from '../components/projects/ProjectDetailModal';
@@ -73,21 +74,27 @@ export const ProjectsPage = () => {
     }
 
     if (projectFilter.status && projectFilter.status !== 'all') {
-      list = list.filter(p => p.status === projectFilter.status);
+      list = list.filter(p => matchesFilter(p.status, projectFilter.status));
     }
     if (projectFilter.department && projectFilter.department !== 'all') {
-      list = list.filter(p => p.department?.toLowerCase() === projectFilter.department.toLowerCase());
+      list = list.filter(p => matchesFilter(p.department, projectFilter.department));
     }
     if (projectFilter.search && projectFilter.search.trim()) {
-      const q = projectFilter.search.toLowerCase().trim();
-      list = list.filter(p =>
-        (p.name && p.name.toLowerCase().includes(q)) ||
-        (p.projectCode && p.projectCode.toLowerCase().includes(q)) ||
-        (p.client && p.client.toLowerCase().includes(q))
-      );
+      list = list.filter(p => matchesSearch(p, projectFilter.search, [
+        'name', 'projectCode', 'client', 'department', 'description'
+      ]));
     }
     return list;
   }, [projects, canViewAllProjects, currentUser, projectFilter]);
+
+  // Unique departments for filter dropdown
+  const availableDepartments = React.useMemo(() => {
+    const set = new Set(['Marketing & Growth', 'Product Design', 'Engineering', 'Human Resources', 'Infrastructure']);
+    (projects || []).forEach(p => {
+      if (p.department) set.add(p.department);
+    });
+    return Array.from(set);
+  }, [projects]);
 
   // Statistics
   const totalProjects = displayProjects.length;
@@ -211,11 +218,9 @@ export const ProjectsPage = () => {
             className="py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 outline-none h-[30px] cursor-pointer"
           >
             <option value="all">All Departments</option>
-            <option value="Marketing & Growth">Marketing & Growth</option>
-            <option value="Product Design">Product Design</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Human Resources">Human Resources</option>
-            <option value="Infrastructure">Infrastructure</option>
+            {availableDepartments.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
           </select>
         </div>
       </div>

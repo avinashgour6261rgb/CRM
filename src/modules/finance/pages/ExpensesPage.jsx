@@ -27,6 +27,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
 import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
@@ -75,24 +76,16 @@ export const ExpensesPage = () => {
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
     return scopedExpenses.filter(exp => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (exp.itemName || '').toLowerCase().includes(q) ||
-        (exp.purchasedFrom || '').toLowerCase().includes(q) ||
-        (exp.employeeName || '').toLowerCase().includes(q) ||
-        (exp.category || '').toLowerCase().includes(q) ||
-        (exp.expenseCode || '').toLowerCase().includes(q);
+      const matchSearch = matchesSearch(exp, search, [
+        'itemName', 'purchasedFrom', 'employeeName', 'category', 'expenseCode', 'description'
+      ]);
 
-      const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
+      const matchStatus = statusFilter === 'all' || matchesFilter(exp.status, statusFilter);
+      const matchDate = matchesDateRange(exp.purchaseDate || exp.date || exp.createdAt, startDateFilter, endDateFilter);
 
-      let matchesDate = true;
-      const expDate = exp.purchaseDate || exp.date;
-      if (startDateFilter && expDate && expDate < startDateFilter) matchesDate = false;
-      if (endDateFilter && expDate && expDate > endDateFilter) matchesDate = false;
-
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchSearch && matchStatus && matchDate;
     });
-  }, [expenses, search, statusFilter, startDateFilter, endDateFilter]);
+  }, [scopedExpenses, search, statusFilter, startDateFilter, endDateFilter]);
 
   // Select all checkbox
   const handleSelectAll = (e) => {

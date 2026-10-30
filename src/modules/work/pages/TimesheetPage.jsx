@@ -20,6 +20,7 @@ import {
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesProject, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ActiveTimerCard } from '../components/timesheet/ActiveTimerCard';
 import { TimesheetTable } from '../components/timesheet/TimesheetTable';
 import { LogTimeModal } from '../components/timesheet/LogTimeModal';
@@ -41,9 +42,11 @@ export const TimesheetPage = () => {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // Strictly scoped timesheets for privacy (regular employees only see their own timesheets)
+  // Strictly scoped timesheets for privacy (regular employees only see their own timesheets) + Active Filters
   const displayTimesheets = React.useMemo(() => {
     let list = timesheets || [];
+
+    // 1. Regular employee privacy scoping
     if (!isPrivileged && currentUser) {
       list = list.filter(ts =>
         ts.employeeId === currentUser._id ||
@@ -52,9 +55,40 @@ export const TimesheetPage = () => {
         ts.employee === currentUser.employeeCode ||
         (ts.employeeName && currentUser.name && ts.employeeName.toLowerCase() === currentUser.name.toLowerCase())
       );
+    } else if (timesheetFilter.employeeId && timesheetFilter.employeeId !== 'all') {
+      // Admin/HR employee filter
+      list = list.filter(ts =>
+        matchesFilter(ts.employeeId, timesheetFilter.employeeId) ||
+        matchesFilter(ts.employee, timesheetFilter.employeeId) ||
+        matchesFilter(ts.employeeCode, timesheetFilter.employeeId) ||
+        matchesFilter(ts.employeeName, timesheetFilter.employeeId)
+      );
     }
+
+    // 2. Project Filter
+    if (timesheetFilter.projectId && timesheetFilter.projectId !== 'all') {
+      list = list.filter(ts => matchesProject(ts, timesheetFilter.projectId));
+    }
+
+    // 3. Status Filter (active vs stopped/logged)
+    if (timesheetFilter.status && timesheetFilter.status !== 'all') {
+      list = list.filter(ts => matchesFilter(ts.status, timesheetFilter.status));
+    }
+
+    // 4. Date Filter
+    if (timesheetFilter.date) {
+      list = list.filter(ts => matchesDateRange(ts.date, timesheetFilter.date, timesheetFilter.date));
+    }
+
+    // 5. Search Filter
+    if (timesheetFilter.search && timesheetFilter.search.trim()) {
+      list = list.filter(ts => matchesSearch(ts, timesheetFilter.search, [
+        'taskCode', 'taskTitle', 'projectName', 'employeeName', 'memo', 'projectCode'
+      ]));
+    }
+
     return list;
-  }, [timesheets, isPrivileged, currentUser]);
+  }, [timesheets, isPrivileged, currentUser, timesheetFilter]);
 
   // Statistics calculation strictly scoped to user view
   const totalSeconds = displayTimesheets.reduce((acc, curr) => acc + (curr.totalDurationSeconds || 0), 0);

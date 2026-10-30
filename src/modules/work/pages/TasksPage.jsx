@@ -24,6 +24,7 @@ import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesAssignee, matchesProject, matchesSearch } from '../../../shared/utils/filterUtils';
 import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
 import { AddTaskModal } from '../components/tasks/AddTaskModal';
@@ -159,13 +160,19 @@ export const TasksPage = () => {
       }
     }
 
-    // 2. Member filter dropdown (e.g. filter by specific employee)
+    // 2. Member filter dropdown (supports single and multi-assignees, employeeCode, ObjectId)
     if (taskFilter.assignedTo && taskFilter.assignedTo !== 'all') {
-      list = list.filter(t => {
-        const targetEmp = employees?.find(e => e._id === taskFilter.assignedTo || e.employeeCode === taskFilter.assignedTo);
-        if (targetEmp) return isTaskAssignedToUser(t, targetEmp);
-        return t.assignedToId === taskFilter.assignedTo || t.assignedTo === taskFilter.assignedTo || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(taskFilter.assignedTo));
-      });
+      list = list.filter(t => matchesAssignee(t, taskFilter.assignedTo));
+    }
+
+    // 2b. Project filter dropdown
+    if (taskFilter.projectId && taskFilter.projectId !== 'all') {
+      list = list.filter(t => matchesProject(t, taskFilter.projectId));
+    }
+
+    // 2c. Priority filter
+    if (taskFilter.priority && taskFilter.priority !== 'all') {
+      list = list.filter(t => matchesFilter(t.priority, taskFilter.priority));
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -180,21 +187,16 @@ export const TasksPage = () => {
     } else if (statusMode === 'future') {
       list = list.filter(t => t.status !== 'completed' && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr && !t.timerRunning && t.status !== 'in_progress') || (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now())));
     } else if (taskFilter.status && taskFilter.status !== 'all') {
-      list = list.filter(t => t.status === taskFilter.status);
+      list = list.filter(t => matchesFilter(t.status, taskFilter.status));
     } else if (taskFilter.hideCompleted) {
       list = list.filter(t => t.status !== 'completed');
     }
 
     // 4. Search query
     if (taskFilter.search && taskFilter.search.trim()) {
-      const q = taskFilter.search.toLowerCase().trim();
-      list = list.filter(t =>
-        (t.title && t.title.toLowerCase().includes(q)) ||
-        (t.taskCode && t.taskCode.toLowerCase().includes(q)) ||
-        (t.projectName && t.projectName.toLowerCase().includes(q)) ||
-        (t.assignedToName && t.assignedToName.toLowerCase().includes(q)) ||
-        (Array.isArray(t.assignees) && t.assignees.some(a => a.name && a.name.toLowerCase().includes(q)))
-      );
+      list = list.filter(t => matchesSearch(t, taskFilter.search, [
+        'title', 'taskCode', 'projectName', 'assignedToName', 'assignedBy', 'category', 'description'
+      ]));
     }
 
     return [...list].sort((a, b) => {
@@ -382,6 +384,23 @@ export const TasksPage = () => {
               <option value="in_progress">In Progress</option>
               <option value="under_review">Under Review</option>
               <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          {/* Project Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Project</span>
+            <select
+              value={taskFilter.projectId || 'all'}
+              onChange={(e) => setTaskFilter(prev => ({ ...prev, projectId: e.target.value }))}
+              className="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[30px] cursor-pointer max-w-[160px]"
+            >
+              <option value="all">All Projects</option>
+              {projects?.map(prj => (
+                <option key={prj._id} value={prj._id}>
+                  {prj.name}
+                </option>
+              ))}
             </select>
           </div>
 
