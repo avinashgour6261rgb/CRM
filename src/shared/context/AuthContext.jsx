@@ -63,7 +63,7 @@ export const PRESET_USERS = {
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
     role: 'Team Member',
     systemRole: ROLES.TEAM_MEMBER,
-    department: 'Engineering',
+    department: 'IT & Software Development',
     status: 'active',
     joiningDate: '2024-01-01',
     isCurrentUser: true,
@@ -79,7 +79,7 @@ export const PRESET_USERS = {
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
     role: 'Team Member',
     systemRole: ROLES.TEAM_MEMBER,
-    department: 'Engineering',
+    department: 'IT & Software Development',
     status: 'active',
     joiningDate: '2024-01-01',
     isCurrentUser: true,
@@ -210,7 +210,7 @@ export const AuthProvider = ({ children }) => {
     } else if (roleId === 'hr') {
       targetUser = employees.find(e => e.employeeCode === 'EMP-003' || e.employeeCode === 'HR-001' || e.email === 'janvi@inforag.com' || e.department === 'Human Resources') || PRESET_USERS.janvi || PRESET_USERS.hr;
     } else if (roleId === 'employee' || roleId === 'team_member') {
-      targetUser = employees.find(e => e.employeeCode === 'EMP-002' || e.email === 'sandeep@inforag.com' || e.employeeCode === 'ENG-001' || e.department === 'Engineering') || PRESET_USERS.sandeep || PRESET_USERS.employee;
+      targetUser = employees.find(e => e.employeeCode === 'EMP-002' || e.email === 'sandeep@inforag.com' || e.employeeCode === 'ENG-001' || e.department === 'IT & Software Development' || e.department === 'Engineering') || PRESET_USERS.sandeep || PRESET_USERS.employee;
     }
 
     setCurrentUser(targetUser);

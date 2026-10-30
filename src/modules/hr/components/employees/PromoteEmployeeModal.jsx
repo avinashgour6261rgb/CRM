@@ -45,7 +45,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   useEffect(() => {
     if (employee) {
       setSelectedRole(employee.role || '');
-      setSelectedDepartment(employee.department || 'Engineering');
+      setSelectedDepartment(employee.department || 'IT & Software Development');
       setCustomRoleTitle('');
     }
     setAvailableRoles(getRoles());
@@ -258,12 +258,15 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                   onChange={e => setSelectedDepartment(e.target.value)}
                   className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
-                  <option value="Engineering">Engineering</option>
-                  <option value="Product Design">Product Design</option>
-                  <option value="Marketing & Growth">Marketing & Growth</option>
+                  <option value="IT & Software Development">IT & Software Development</option>
+                  <option value="Digital Marketing">Digital Marketing & Growth</option>
+                  <option value="UI/UX & Creative Design">UI/UX & Creative Design</option>
+                  <option value="Content & SEO">Content & SEO</option>
+                  <option value="Sales & Client Servicing">Sales & Client Servicing</option>
                   <option value="Human Resources">Human Resources</option>
-                  <option value="Infrastructure">Infrastructure & Cloud</option>
-                  <option value="Finance & Operations">Finance & Operations</option>
+                  <option value="Finance & Accounts">Finance & Accounts</option>
+                  <option value="Operations & Support">Operations & Support</option>
+                  <option value="Management & Administration">Management & Administration</option>
                 </select>
               </div>
 

@@ -22,7 +22,7 @@ import {
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
-import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
 
@@ -32,7 +32,7 @@ export const PayrollPage = () => {
   const { addToast } = useToast();
 
   const effectiveUser = currentUser || authUser;
-  const isPrivileged = isAuthHRorAdmin || isHRorAdmin(effectiveUser) || effectiveUser?.isDelegatedAdmin;
+  const isPrivileged = isAuthHRorAdmin || isHRorAdmin(effectiveUser) || effectiveUser?.isDelegatedAdmin || canAccessModule(effectiveUser, 'payroll') || canAccessModule(effectiveUser, 'finance');
 
   const [selectedMonth, setSelectedMonth] = useState('September 2026');
   const [searchTerm, setSearchTerm] = useState('');

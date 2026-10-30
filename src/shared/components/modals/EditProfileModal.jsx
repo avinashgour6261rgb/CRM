@@ -121,7 +121,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
       setFormData({
         name: targetEmp.name || 'Employee',
         role: targetEmp.role || 'Senior Specialist',
-        department: targetEmp.department || 'Engineering',
+        department: targetEmp.department || 'IT & Software Development',
         email: targetEmp.email || 'employee@company.com',
         phone: targetEmp.phone || '+91 98765 43210',
         dob: targetEmp.dob || '1998-10-15',

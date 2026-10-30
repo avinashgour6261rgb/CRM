@@ -29,14 +29,20 @@ import { isHRorAdmin, isProjectVisibleToUser } from '../../../../shared/utils/pe
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
 
 const CATEGORIES = [
-  'General',
-  'Web Development',
-  'UI/UX Design',
-  'Digital Marketing',
-  'SEO & Growth',
-  'DevOps & Cloud',
-  'Client Servicing',
-  'QA & Testing'
+  'Web & App Development',
+  'Frontend Development',
+  'Backend & APIs',
+  'UI/UX & Product Design',
+  'QA & Software Testing',
+  'DevOps & Cloud Infrastructure',
+  'SEO & Keyword Optimization',
+  'Social Media Marketing (SMM)',
+  'Paid Ads (Meta / Google PPC)',
+  'Creative Graphics & Reels',
+  'Content Writing & Copywriting',
+  'Lead Generation & Outreach',
+  'Client Servicing & Reporting',
+  'General & Admin'
 ];
 
 const PRIORITIES = [
@@ -195,7 +201,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
             projectCode: `PRJ-${finalProjectCode}`,
             client: 'Internal / Company Project',
             category: formData.category,
-            department: 'Engineering',
+            department: 'IT & Software Development',
             startDate: formData.startDate,
             deadline: formData.dueDate,
             budget: 0,

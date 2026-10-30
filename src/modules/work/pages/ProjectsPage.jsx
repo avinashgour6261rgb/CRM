@@ -89,7 +89,7 @@ export const ProjectsPage = () => {
 
   // Unique departments for filter dropdown
   const availableDepartments = React.useMemo(() => {
-    const set = new Set(['Marketing & Growth', 'Product Design', 'Engineering', 'Human Resources', 'Infrastructure']);
+    const set = new Set(['IT & Software Development', 'Digital Marketing', 'UI/UX & Creative Design', 'Content & SEO', 'Sales & Client Servicing', 'Human Resources', 'Finance & Accounts']);
     (projects || []).forEach(p => {
       if (p.department) set.add(p.department);
     });

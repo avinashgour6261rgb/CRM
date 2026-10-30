@@ -24,7 +24,10 @@ import {
   Sparkles,
   FolderLock,
   Crown,
-  FolderGit2
+  FolderGit2,
+  Zap,
+  CreditCard,
+  Landmark
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -38,6 +41,7 @@ import {
 
 const MODULE_LIST = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Overview KPIs, active timer, welcome banner and summary widgets' },
+  { id: 'liveOperations', label: 'Live Operations & Shift Controls', icon: Zap, desc: 'Live team monitoring, real-time punch overrides and operational hub' },
   { id: 'projects', label: 'Projects & Workspaces', icon: FolderGit2, desc: 'View projects, assign project members, sprint tracking and deliverables' },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare, desc: 'Sprint tasks, Kanban board, task timers and delegation' },
   { id: 'leads', label: 'Leads', icon: Users2, desc: 'Sales pipeline, CRM prospects, client conversion deals' },
@@ -46,6 +50,8 @@ const MODULE_LIST = [
   { id: 'tickets', label: 'Support Tickets', icon: LifeBuoy, desc: 'Raise problem requests, IT helpdesk, issue tickets' },
   { id: 'events', label: 'Events & Calendar', icon: Calendar, desc: 'Company schedules, festivals, and official holiday list' },
   { id: 'employees', label: 'Employee Information', icon: Building2, desc: 'Employee directory, team profiles, and organization structure' },
+  { id: 'payroll', label: 'Payroll & Compensation Hub', icon: CreditCard, desc: 'Manage salary hikes, deductions, automated monthly payslips' },
+  { id: 'finance', label: 'Finance & Reimbursements', icon: Landmark, desc: 'Expense reimbursements, project claims, financial audit' },
   { id: 'reports', label: 'Reports & Analytics', icon: BarChart3, desc: 'Weekly work reports, timesheet exports and executive KPIs' },
   { id: 'documentation', label: 'Documents & KYC', icon: FolderLock, desc: 'Company documents, KYC verifications, compliance letters and certificates' }
 ];
@@ -100,6 +106,19 @@ export const EmployeePermissionsTab = () => {
     if (nextVal) {
       const allTrue = {};
       MODULE_LIST.forEach(m => { allTrue[m.id] = true; });
+      allTrue.manageProjects = true;
+      allTrue.viewAllProjects = true;
+      allTrue.approveLeaves = true;
+      allTrue.viewAllLeads = true;
+      allTrue.viewAllTasks = true;
+      allTrue.viewAllTickets = true;
+      allTrue.viewAllAttendance = true;
+      allTrue.viewAllLeaves = true;
+      allTrue.manageEmployees = true;
+      allTrue.accessFinance = true;
+      allTrue.liveOperations = true;
+      allTrue.payroll = true;
+      allTrue.finance = true;
       setPermissions(prev => ({ ...prev, ...allTrue }));
       addToast(`👑 Full Admin access granted for ${selectedEmp?.name}! Click Save to apply.`, 'info');
     } else {
@@ -404,6 +423,9 @@ export const EmployeePermissionsTab = () => {
             { key: 'viewAllTickets',    emoji: '🎫', label: 'View All Support Tickets',    onDesc: 'Sees all company helpdesk tickets',                           offDesc: 'Only sees own submitted / assigned tickets' },
             { key: 'viewAllAttendance', emoji: '🕐', label: 'View All Attendance Records', onDesc: 'Sees full team attendance matrix',                             offDesc: 'Only sees own attendance & clock logs' },
             { key: 'viewAllLeaves',     emoji: '🌴', label: 'View All Leave Requests',     onDesc: 'Sees all employee leave applications',                        offDesc: 'Only sees own submitted leave requests' },
+            { key: 'manageEmployees',   emoji: '🏢', label: 'Manage Employees & Directory', onDesc: 'Can view full employee details, edit profiles and onboard members', offDesc: 'Cannot edit or manage employee directory' },
+            { key: 'accessFinance',     emoji: '💰', label: 'Approve Expenses & Finance',  onDesc: 'Can review expense claims, payroll summaries, and company finances', offDesc: 'Can only submit personal expense claims' },
+            { key: 'liveOperations',    emoji: '⚡', label: 'Live Team Shift Overrides',    onDesc: 'Can view live team clock status and force clock-out / override punches', offDesc: 'Cannot manage live team shifts' },
           ].map(({ key, emoji, label, onDesc, offDesc }) => {
             const isEnabled = !!permissions[key];
             const adminHas = adminPerms[key] !== false;

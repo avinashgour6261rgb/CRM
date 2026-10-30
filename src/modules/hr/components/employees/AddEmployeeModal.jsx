@@ -69,33 +69,46 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   };
 
   const DEFAULT_DEPARTMENTS = [
-    'Management & Administration',
+    'IT & Software Development',
+    'Digital Marketing',
+    'UI/UX & Creative Design',
+    'Content & SEO',
+    'Sales & Client Servicing',
     'Human Resources',
     'Finance & Accounts',
-    'Sales & Marketing',
-    'Customer Support & Operations',
-    'IT & Technology',
-    'Product & Design',
-    'Operations & Logistics',
-    'Legal & Compliance'
+    'Operations & Customer Support',
+    'Management & Administration'
   ];
 
   const DEFAULT_ROLES = [
+    // IT & Software Development
     'Full Stack Developer',
-    'Senior Software Engineer',
     'Frontend Developer (React)',
     'Backend Developer (Node/Python)',
-    'DevOps & Cloud Engineer',
-    'QA Automation Engineer',
+    'Mobile App Developer (Flutter/React Native)',
     'UI/UX Product Designer',
-    'Technical Project Manager',
-    'System Architect',
-    'HR Specialist & Recruiter',
-    'Operations & IT Support',
-    'Accountant / Finance Executive',
-    'Sales & Business Development Lead',
+    'QA Automation & Testing Engineer',
+    'DevOps & Cloud Engineer',
+    'Technical Lead / Project Manager',
+    'System Architect & Tech Consultant',
+
+    // Digital Marketing & Growth
     'Digital Marketing Specialist',
-    'Customer Support Specialist',
+    'Digital Marketing Lead / Manager',
+    'SEO Specialist (On-Page/Off-Page)',
+    'Social Media Strategist (SMM)',
+    'PPC & Performance Marketer (Google/Meta Ads)',
+    'Content Writer & Copywriter',
+    'Graphic Designer & Brand Creator',
+    'Video Editor & Motion Designer',
+    'Lead Generation Specialist',
+    'Client Servicing & Account Manager',
+
+    // Human Resources & Management
+    'HR Specialist & Talent Recruiter',
+    'HR Operations Manager',
+    'Accountant / Finance Executive',
+    'Operations & IT Support Executive',
     'General Manager'
   ];
 
@@ -134,7 +147,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     password: 'emp123',
     role: '',
     systemRole: 'team_member',
-    department: 'Engineering',
+    department: 'IT & Software Development',
     workMode: 'Office',
     status: 'active',
     joiningDate: '2024-01-01',
@@ -393,7 +406,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         password: 'emp123',
         role: '',
         systemRole: 'team_member',
-        department: 'Engineering',
+        department: 'IT & Software Development',
         joiningDate: '2024-01-01',
         dob: '1998-05-15',
         phone: '',

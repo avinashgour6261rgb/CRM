@@ -142,10 +142,12 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
                 className={selectClass}
               >
                 <option value="All Employees">All Employees (Global)</option>
-                <option value="Engineering Team">Engineering & Tech</option>
-                <option value="Product & Design">Product & Design</option>
-                <option value="Marketing & Sales">Marketing & Sales</option>
+                <option value="IT & Software Development">IT & Software Development</option>
+                <option value="Digital Marketing">Digital Marketing & Growth</option>
+                <option value="UI/UX & Creative Design">UI/UX & Creative Design</option>
+                <option value="Sales & Client Servicing">Sales & Client Servicing</option>
                 <option value="Human Resources">Human Resources</option>
+                <option value="Finance & Accounts">Finance & Accounts</option>
               </select>
             </div>
 

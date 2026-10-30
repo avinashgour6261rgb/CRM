@@ -29,7 +29,7 @@ import { EditProfileModal } from '../../../shared/components/modals/EditProfileM
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
-import { isAdmin, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { isAdmin, isHRorAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
 export const EmployeesPage = () => {
@@ -85,8 +85,9 @@ export const EmployeesPage = () => {
 
   const isActorAdmin = isAdmin(currentUser);
   const isActorHR = isHRorAdmin(currentUser);
+  const canAccessEmployees = isActorHR || isActorAdmin || canAccessModule(currentUser, 'employees') || currentUser?.isDelegatedAdmin;
 
-  if (!isActorHR && !isActorAdmin) {
+  if (!canAccessEmployees) {
     return (
         <div className="p-10 px-5 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 my-10 mx-auto max-w-[600px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           <div className="text-4xl mb-3">🔒</div>
@@ -323,7 +324,7 @@ export const EmployeesPage = () => {
 
                                                         <td className="p-2 px-2.5 whitespace-nowrap">
                                                             <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-0.5 px-1.5 rounded text-[11px] font-semibold">
-                                                              {emp.department || 'Engineering'}
+                                                              {emp.department || 'IT & Software Development'}
                                                             </span>
                                                         </td>
 

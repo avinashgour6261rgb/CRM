@@ -157,7 +157,7 @@ export const Sidebar = () => {
         )}
 
         {/* Employees & Role Management (Master Direct Access) */}
-        {isHRorAdmin && (
+        {(isHRorAdmin || canAccessModule(currentUser, 'employees')) && (
           <NavLink
             to="/employees"
             className={({ isActive }) =>
@@ -178,8 +178,8 @@ export const Sidebar = () => {
           </NavLink>
         )}
 
-        {/* Live Operations & Emergency Controls (Admin/HR) */}
-        {isHRorAdmin && (
+        {/* Live Operations & Emergency Controls (Admin/HR/Delegated) */}
+        {(isHRorAdmin || canAccessModule(currentUser, 'liveOperations') || canAccessModule(currentUser, 'teamoperations')) && (
           <NavLink
             to="/team-operations"
             className={({ isActive }) =>
@@ -193,7 +193,7 @@ export const Sidebar = () => {
               <div className="flex items-center justify-between w-full">
                 <span>Live Operations</span>
                 <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                  ADMIN
+                  LIVE
                 </span>
               </div>
             )}
@@ -424,7 +424,7 @@ export const Sidebar = () => {
                   {!collapsed && <span>Expenses</span>}
                 </NavLink>
 
-                {isHRorAdmin && (
+                {(isHRorAdmin || canAccessModule(currentUser, 'payroll') || canAccessModule(currentUser, 'finance')) && (
                   <NavLink
                     to="/payroll"
                     className={({ isActive }) =>

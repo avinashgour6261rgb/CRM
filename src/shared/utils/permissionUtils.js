@@ -202,7 +202,12 @@ export const isLeaderOrAbove = (user) => {
 };
 
 // ── Feature-Specific Permission Gates ──
-export const canManageEmployees = (user) => isHRorAdmin(user);
+export const canManageEmployees = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.manageEmployees || perms?.employees);
+};
 export const canApproveLeaves = (user) => {
   if (!user) return false;
   if (isAdmin(user)) return true;
@@ -295,18 +300,33 @@ export const canReviewLeave = (leave, user) => {
   if (isLeaveDesignatedApprover(leave, user)) return true;
   return false;
 };
-export const canManageCompanyHolidays = (user) => isHRorAdmin(user);
-export const canManagePayroll = (user) => isHRorAdmin(user);
+export const canManageCompanyHolidays = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.events || perms?.holidays);
+};
+export const canManagePayroll = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.payroll || perms?.finance || perms?.accessFinance);
+};
 export const canManageProjects = (user) => {
   if (!user) return false;
-  if (isLeaderOrAbove(user)) return true;
+  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
   const perms = getUserModulePermissions(user);
   return !!(perms?.manageProjects || perms?.createProjects || perms?.projects);
 };
-export const canAssignRoles = (user) => isAdmin(user);
-export const canPostNotices = (user) => isLeaderOrAbove(user);
+export const canAssignRoles = (user) => isAdmin(user) || user?.isDelegatedAdmin;
+export const canPostNotices = (user) => {
+  if (!user) return false;
+  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.notices || perms?.dashboard);
+};
 export const canDeleteEmployee = (user) => isAdmin(user);
-export const canEditSettings = (user) => isAdmin(user);
+export const canEditSettings = (user) => isAdmin(user) || user?.isDelegatedAdmin;
 
 /**
  * Check if a project is visible to a user.
@@ -505,7 +525,11 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: true,
     accessFinance: true,
     manageEmployees: true,
-    grantPermissions: true
+    grantPermissions: true,
+    liveOperations: true,
+    payroll: true,
+    finance: true,
+    employees: true
   },
   hr: {
     dashboard: true,
@@ -530,7 +554,10 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: false,
     accessFinance: true,
     manageEmployees: true,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: true,
+    payroll: true,
+    finance: true
   },
   team_leader: {
     dashboard: true,
@@ -555,7 +582,10 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: true,
     accessFinance: false,
     manageEmployees: false,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: false,
+    payroll: false,
+    finance: false
   },
   team_member: {
     dashboard: true,
@@ -586,7 +616,8 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: false,
     accessFinance: false,
     manageEmployees: false,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: false
   }
 };
 
@@ -673,7 +704,7 @@ export const canUserGrantPermissions = (user) => {
  */
 export const canAccessModule = (user, moduleId) => {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isAdmin(user) || user.isDelegatedAdmin) return true;
   const role = getUserRole(user);
   const perms = getUserModulePermissions(user);
   const normalizedKey = String(moduleId).toLowerCase().replace(/[-_]/g, '');
@@ -708,24 +739,39 @@ export const canAccessModule = (user, moduleId) => {
     expense: 'expenses',
     settings: 'settings',
     projects: 'projects',
-    project: 'projects'
+    project: 'projects',
+    teamoperations: 'liveOperations',
+    liveoperations: 'liveOperations',
+    operations: 'liveOperations'
   };
 
   const permKey = keyMap[normalizedKey] || moduleId;
 
-  // 1. Explicit boolean in user's permissions overrides defaults
+  // 1. Explicit boolean in user's permissions overrides defaults (Admin power)
   if (perms && typeof perms[permKey] === 'boolean') {
     return perms[permKey];
   }
 
-  // Project management grant override (Admin delegation)
-  if (permKey === 'projects' && perms && (perms.manageProjects || perms.createProjects || perms.projects || perms.viewAllProjects)) {
+  // Capability & alias fallbacks
+  if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations || perms?.viewAllAttendance)) {
+    return true;
+  }
+  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance)) {
+    return true;
+  }
+  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees)) {
+    return true;
+  }
+  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads)) {
+    return true;
+  }
+  if (permKey === 'projects' && (perms?.projects || perms?.manageProjects || perms?.createProjects || perms?.viewAllProjects)) {
     return true;
   }
 
-  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules by default
+  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted
   if (role === ROLES.TEAM_MEMBER) {
-    const privilegedModules = ['employees', 'teamoperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
+    const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
     if (privilegedModules.includes(permKey)) return false;
     return true; // allowed modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
   }

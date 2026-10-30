@@ -25,21 +25,27 @@ import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 
 const CATEGORIES = [
-  'Web Development',
-  'Digital Marketing',
-  'UI/UX Design',
+  'Web & Web App Development',
   'Mobile App Development',
-  'Cloud Infrastructure',
-  'SEO & Growth',
-  'Internal / Ops'
+  'SEO & Organic Growth',
+  'Social Media Marketing (SMM)',
+  'Paid Advertising (Google & Meta PPC)',
+  'UI/UX & Product Design',
+  'Branding & Creative Design',
+  'Cloud Infrastructure & DevOps',
+  'Content Marketing & Copywriting',
+  'Lead Generation & Sales Funnels',
+  'Maintenance & Support'
 ];
 
 const DEPARTMENTS = [
-  'Engineering',
-  'Marketing & Growth',
-  'Product Design',
-  'Sales & CRM',
+  'IT & Software Development',
+  'Digital Marketing',
+  'UI/UX & Creative Design',
+  'Content & SEO',
+  'Sales & Client Servicing',
   'Human Resources',
+  'Finance & Accounts',
   'Executive Management'
 ];
 
@@ -67,8 +73,8 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     name: '',
     projectCode: defaultCode,
     client: '',
-    category: 'Web Development',
-    department: 'Engineering',
+    category: 'Web & Web App Development',
+    department: 'IT & Software Development',
     startDate: getTodayStr(),
     deadline: getOffsetMonthStr(2),
     budget: '50000',
