@@ -473,13 +473,20 @@ export const Sidebar = () => {
         <NavLink
           to="/messages"
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
+            `flex items-center justify-between px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
               isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
             }`
           }
         >
-          <MessageSquare size={18} className={location.pathname === '/messages' ? 'text-blue-400' : 'text-slate-400'} />
-          {!collapsed && <span>Messages</span>}
+          <div className="flex items-center gap-3">
+            <MessageSquare size={18} className={location.pathname === '/messages' ? 'text-blue-400' : 'text-slate-400'} />
+            {!collapsed && <span>Messages</span>}
+          </div>
+          {!collapsed && (
+            <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+              Chat
+            </span>
+          )}
         </NavLink>
 
         <NavLink

@@ -213,7 +213,8 @@ export const syncDatabaseToStorage = async () => {
       { key: KEYS.NOTICES, url: `${API_BASE}/notices` },
       { key: KEYS.TICKETS, url: `${API_BASE}/tickets` },
       { key: KEYS.EVENTS, url: `${API_BASE}/events` },
-      { key: KEYS.EXPENSES, url: `${API_BASE}/expenses` }
+      { key: KEYS.EXPENSES, url: `${API_BASE}/expenses` },
+      { key: KEYS.CONVERSATIONS, url: `${API_BASE}/conversations` }
     ];
 
     const authHeaders = (() => {

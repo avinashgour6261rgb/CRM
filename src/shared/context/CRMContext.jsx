@@ -49,13 +49,145 @@ export const CRMProvider = ({ children }) => {
     ...e
   });
 
+  // Default company and department channels for chat
+  const DEFAULT_ENTERPRISE_CHANNELS = [
+    {
+      id: 'channel_general',
+      type: 'channel',
+      name: 'General',
+      channelName: '#general',
+      description: 'Company-wide open discussion, daily greetings, and team collaboration',
+      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120',
+      members: ['all'],
+      isOnline: true,
+      lastMessage: 'Welcome to Inforag Technology official workspace chat!',
+      lastMessageTime: '09:00 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_gen_init',
+          conversationId: 'channel_general',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '👋 Welcome everyone to the Inforag Technology company chat! Feel free to collaborate, share project updates, photos, videos, documents, and connect with teammates.',
+          attachments: [],
+          timestamp: '09:00 AM',
+          createdAt: 1730000000000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_it_dev',
+      type: 'channel',
+      name: 'IT & Software Development',
+      channelName: '#it-software-development',
+      description: 'Code architecture, sprint deliverables, bug fixes & tech stack updates',
+      avatar: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=120',
+      members: ['all_it'],
+      isOnline: true,
+      lastMessage: 'All sprint environments are live and operational.',
+      lastMessageTime: '09:15 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_it_init',
+          conversationId: 'channel_it_dev',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '💻 IT & Software Development channel is active. Share code files, pull request reviews, architecture diagrams, and testing logs here.',
+          attachments: [],
+          timestamp: '09:15 AM',
+          createdAt: 1730000100000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_marketing',
+      type: 'channel',
+      name: 'Digital Marketing & Growth',
+      channelName: '#digital-marketing',
+      description: 'Campaigns, SEO, PPC Ads, SMM, copywriting and creative design discussions',
+      avatar: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=120',
+      members: ['all_marketing'],
+      isOnline: true,
+      lastMessage: 'Weekly campaign creatives and review assets.',
+      lastMessageTime: '09:30 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_mkt_init',
+          conversationId: 'channel_marketing',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '🚀 Digital Marketing hub is ready! Share campaign creatives, Google & Meta Ads performance reports, SEO audit sheets, and copy decks.',
+          attachments: [],
+          timestamp: '09:30 AM',
+          createdAt: 1730000200000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_announcements',
+      type: 'channel',
+      name: 'Company Announcements',
+      channelName: '#announcements',
+      description: 'Official corporate notices, policy updates, and executive announcements',
+      avatar: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120',
+      members: ['all'],
+      isOnline: true,
+      lastMessage: 'Official guidelines and company updates.',
+      lastMessageTime: 'Yesterday',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_ann_init',
+          conversationId: 'channel_announcements',
+          senderId: 'ADM-001',
+          senderName: 'HR & Executive Team',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Executive',
+          text: '📢 This channel is reserved for official Inforag Technology company-wide announcements, policy rollouts, and holiday reminders.',
+          attachments: [],
+          timestamp: 'Yesterday',
+          createdAt: 1729900000000,
+          readBy: ['ADM-001']
+        }
+      ]
+    }
+  ];
+
+  const ensureDefaultChannels = (storedConvs = []) => {
+    let convs = Array.isArray(storedConvs) ? [...storedConvs] : [];
+    let changed = false;
+    DEFAULT_ENTERPRISE_CHANNELS.forEach(defaultCh => {
+      const exists = convs.some(c => c.id === defaultCh.id || c.channelName === defaultCh.channelName);
+      if (!exists) {
+        convs.unshift(defaultCh);
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveCollection(KEYS.CONVERSATIONS, convs);
+    }
+    return convs;
+  };
+
   // Core Storage States
   const [expenses, setExpenses] = useState(() => getCollection(KEYS.EXPENSES));
   const [tickets, setTickets] = useState(() => getCollection(KEYS.TICKETS));
   const [notices, setNotices] = useState(() => getCollection(KEYS.NOTICES));
   const [events, setEvents] = useState(() => (getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
-  const [conversations, setConversations] = useState(() => getCollection(KEYS.CONVERSATIONS));
-  const [activeConversationId, setActiveConversationId] = useState('conv_1');
+  const [conversations, setConversations] = useState(() => ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+  const [activeConversationId, setActiveConversationId] = useState('channel_general');
   const [wfhEmployees, setWfhEmployees] = useState(() => getCollection(KEYS.WFH));
   const [storedWeeklyTimeLogs, setStoredWeeklyTimeLogs] = useState(() => getCollection(KEYS.WEEKLY_TIMELOGS));
   const [leads, setLeads] = useState(() => getCollection(KEYS.LEADS));
@@ -1184,63 +1316,66 @@ export const CRMProvider = ({ children }) => {
   };
 
   // =========================================================================
-  // 💬 MESSAGES & TEAM CHAT
+  // 💬 MESSAGES & TEAM CHAT (ENTERPRISE MULTI-USER ENGINE)
   // =========================================================================
-  const sendMessage = (conversationId, text) => {
-    if (!text.trim()) return;
+  const sendMessage = (conversationId, text = '', attachments = []) => {
+    const trimmedText = (text || '').trim();
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    if (!trimmedText && !hasAttachments) return;
+
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
     const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const senderId = currentUser?._id || currentUser?.employeeCode || 'EMP-001';
 
     const newMsg = {
-      id: `msg_${Date.now()}`,
-      senderId: currentUser?._id || 'emp_001',
-      senderName: currentUser?.name || 'Employee',
-      text: text.trim(),
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      conversationId,
+      senderId,
+      senderCode: currentUser?.employeeCode || 'EMP-001',
+      senderName: currentUser?.name || 'Team Member',
+      senderAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      senderRole: currentUser?.role || 'Associate',
+      senderEmail: currentUser?.email || '',
+      text: trimmedText,
+      attachments: hasAttachments ? attachments : [],
       timestamp: timeStr,
-      isOutgoing: true
+      createdAt: Date.now(),
+      readBy: [senderId]
     };
 
-    if (idx !== -1) {
-      currentConvs[idx].messages.push(newMsg);
-      currentConvs[idx].lastMessage = text.trim();
-      currentConvs[idx].lastMessageTime = timeStr;
-      saveCollection(KEYS.CONVERSATIONS, currentConvs);
-      setConversations([...currentConvs]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
-
-      // Simulate a smart automatic friendly response after 2 seconds!
-      setTimeout(() => {
-        const contactName = currentConvs[idx].participantName || 'Colleague';
-        const simulatedReply = {
-          id: `msg_reply_${Date.now()}`,
-          senderId: currentConvs[idx].participantId,
-          senderName: contactName,
-          text: `Got it, thanks for sharing! I am on it right away.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isOutgoing: false
-        };
-        const latestConvs = getCollection(KEYS.CONVERSATIONS);
-        const lIdx = latestConvs.findIndex(c => c.id === conversationId);
-        if (lIdx !== -1) {
-          latestConvs[lIdx].messages.push(simulatedReply);
-          latestConvs[lIdx].lastMessage = simulatedReply.text;
-          latestConvs[lIdx].lastMessageTime = simulatedReply.timestamp;
-          saveCollection(KEYS.CONVERSATIONS, latestConvs);
-          setConversations([...latestConvs]);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
-        }
-      }, 1500);
+    if (!Array.isArray(currentConvs[idx].messages)) {
+      currentConvs[idx].messages = [];
     }
+
+    currentConvs[idx].messages.push(newMsg);
+    currentConvs[idx].lastMessage = trimmedText || (hasAttachments ? `📎 Shared ${attachments.length} file(s)` : 'Attachment');
+    currentConvs[idx].lastMessageTime = timeStr;
+    currentConvs[idx].updatedAt = Date.now();
+
+    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    setConversations([...currentConvs]);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    window.dispatchEvent(new CustomEvent('ems_chat_message_sent', { detail: { message: newMsg, conversationId } }));
   };
 
   const startConversation = (employeeId) => {
-    const emp = employees.find(e => e._id === employeeId);
-    if (!emp) return;
+    const emp = (employees || []).find(e => e._id === employeeId || e.employeeCode === employeeId);
+    if (!emp) return null;
 
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
-    const existing = currentConvs.find(c => c.participantId === employeeId);
+    const currentId = currentUser?._id || currentUser?.employeeCode || 'EMP-001';
+    const targetId = emp._id || emp.employeeCode;
+
+    // Check if DM exists between current user and this target
+    const existing = currentConvs.find(c =>
+      c.type === 'dm' &&
+      ((c.participantId === emp._id || c.participantCode === emp.employeeCode) ||
+       (Array.isArray(c.participants) && c.participants.includes(currentId) && c.participants.includes(targetId)))
+    );
 
     if (existing) {
       setActiveConversationId(existing.id);
@@ -1248,26 +1383,24 @@ export const CRMProvider = ({ children }) => {
       return existing.id;
     }
 
+    const dmId = 'dm_' + [String(currentId), String(targetId)].sort().join('_');
     const newConv = {
-      id: `conv_${Date.now()}`,
+      id: dmId,
+      type: 'dm',
+      participants: [currentId, targetId],
       participantId: emp._id,
+      participantCode: emp.employeeCode,
       participantName: emp.name,
-      participantRole: emp.role,
-      participantAvatar: emp.avatar,
+      participantRole: emp.role || 'Team Member',
+      participantDepartment: emp.department || 'IT & Software Development',
+      participantAvatar: emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      participantEmail: emp.email,
       isOnline: true,
-      lastMessage: 'Started new direct conversation.',
+      lastMessage: 'Conversation started',
       lastMessageTime: 'Just now',
       unreadCount: 0,
-      messages: [
-        {
-          id: `msg_init_${Date.now()}`,
-          senderId: currentUser?._id || 'emp_001',
-          senderName: currentUser?.name || 'Employee',
-          text: `Hi ${emp.name.split(' ')[0]}! Starting a new conversation.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isOutgoing: true
-        }
-      ]
+      createdAt: Date.now(),
+      messages: []
     };
 
     currentConvs.unshift(newConv);
@@ -1277,6 +1410,54 @@ export const CRMProvider = ({ children }) => {
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     addToast(`New conversation started with ${emp.name}!`, 'success');
     return newConv.id;
+  };
+
+  const createChannel = ({ name, description = '', category = 'general' }) => {
+    if (!name || !name.trim()) return null;
+    const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/^#/, '');
+    const channelId = `channel_${cleanName}_${Date.now()}`;
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+
+    const newChannel = {
+      id: channelId,
+      type: 'channel',
+      name: name.trim(),
+      channelName: `#${cleanName}`,
+      description: description.trim() || 'Team collaboration channel',
+      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120',
+      category,
+      members: ['all'],
+      createdBy: currentUser?._id || currentUser?.employeeCode,
+      createdByName: currentUser?.name || 'Administrator',
+      isOnline: true,
+      lastMessage: 'Channel created',
+      lastMessageTime: 'Just now',
+      unreadCount: 0,
+      createdAt: Date.now(),
+      messages: [
+        {
+          id: `msg_init_${Date.now()}`,
+          conversationId: channelId,
+          senderId: currentUser?._id || currentUser?.employeeCode,
+          senderName: currentUser?.name || 'Administrator',
+          senderAvatar: currentUser?.avatar || '',
+          senderRole: currentUser?.role || 'Admin',
+          text: `🎉 Channel #${cleanName} created! ${description.trim()}`,
+          attachments: [],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          createdAt: Date.now(),
+          readBy: [currentUser?._id || currentUser?.employeeCode]
+        }
+      ]
+    };
+
+    currentConvs.unshift(newChannel);
+    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    setConversations([...currentConvs]);
+    setActiveConversationId(newChannel.id);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    addToast(`Channel #${cleanName} created successfully!`, 'success');
+    return newChannel.id;
   };
 
   // =========================================================================
@@ -1693,6 +1874,7 @@ export const CRMProvider = ({ children }) => {
     setActiveConversationId,
     sendMessage,
     startConversation,
+    createChannel,
 
     notices,
     createNotice,

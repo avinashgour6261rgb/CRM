@@ -20,6 +20,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { getRoles } from '../../../../shared/services/roleManagementService';
+import { KEYS } from '../../../../shared/services/storageService';
 import {
   ROLES,
   GRANULAR_PERMISSIONS_LIST,
@@ -391,6 +392,37 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         permissions: formData.permissions,
         avatar: formData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(formData.name)}`
       });
+
+      // Auto-post welcome greeting to #general channel
+      try {
+        const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
+        if (rawConvs) {
+          const convs = JSON.parse(rawConvs);
+          const genIdx = convs.findIndex(c => c.id === 'channel_general' || c.channelName === '#general');
+          if (genIdx !== -1) {
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            convs[genIdx].messages.push({
+              id: `msg_welcome_${Date.now()}`,
+              conversationId: convs[genIdx].id,
+              senderId: 'ADM-001',
+              senderName: 'Inforag Onboarding Bot',
+              senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+              senderRole: 'System Bot',
+              text: `🎉 Welcome our new team member ${formData.name}! Joining as ${formData.role || 'Associate'} in ${formData.department || 'IT & Software Development'}. Say hello and welcome them to the team! 👋`,
+              attachments: [],
+              timestamp: timeStr,
+              createdAt: Date.now(),
+              readBy: ['ADM-001']
+            });
+            convs[genIdx].lastMessage = `Welcome ${formData.name} to the team!`;
+            convs[genIdx].lastMessageTime = timeStr;
+            localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convs));
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+          }
+        }
+      } catch (e) {
+        console.warn('Welcome message dispatch notice:', e);
+      }
 
       addToast({
         title: '🎉 Employee Registered Successfully!',
