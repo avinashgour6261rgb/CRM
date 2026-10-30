@@ -329,7 +329,7 @@ export const CRMProvider = ({ children }) => {
       }
 
       // Find matching timesheet logs for this date strictly scoped to authenticated user
-      const matchingTimesheets = timesheets.filter(t => {
+      const rawMatchingTimesheets = timesheets.filter(t => {
         if (t.date !== dateStr && !t.createdAt?.startsWith(dateStr)) return false;
         if (!currentUser) return true;
         const cId = currentUser._id ? String(currentUser._id).toLowerCase() : null;
@@ -345,6 +345,17 @@ export const CRMProvider = ({ children }) => {
         if (cName && tEmpName && (tEmpName === cName || tEmpName.includes(cName) || cName.includes(tEmpName))) return true;
         return false;
       });
+
+      // Deduplicate by task to prevent double-counting multiple auto-saves on the same day
+      const crmTaskMap = new Map();
+      rawMatchingTimesheets.forEach(ts => {
+        const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+        const dur = Number(ts.totalDurationSeconds) || 0;
+        if (!crmTaskMap.has(key) || dur > (Number(crmTaskMap.get(key).totalDurationSeconds) || 0)) {
+          crmTaskMap.set(key, ts);
+        }
+      });
+      const matchingTimesheets = Array.from(crmTaskMap.values());
       let timesheetTaskSeconds = matchingTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
       const allTasks = getCollection(KEYS.TASKS) || [];

@@ -185,11 +185,13 @@ export const TeamOperationsPage = () => {
     const attRec = (attendance || []).find(a =>
       a.date === todayStr && (
         String(a.employeeId) === String(empId) ||
+        String(a.employee) === String(empId) ||
         String(a.employeeCode) === String(emp.employeeCode) ||
         (empName && a.employeeName?.toLowerCase() === empName.toLowerCase())
       )
     );
 
+    const isOnLeave = Boolean(attRec?.status === 'on_leave');
     const storedClockedIn = localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
                             localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'true';
     const storedOnBreak = localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true' ||
@@ -200,19 +202,19 @@ export const TeamOperationsPage = () => {
     const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) || 0;
     const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) || 0;
 
-    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
-    const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : '--');
-    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
+    const isClockedIn = !isOnLeave && (storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime));
+    const isClockedOut = !isOnLeave && !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
+    const loginTime = !isOnLeave ? (attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : '--')) : null;
+    const clockOutTime = !isOnLeave ? (attRec?.clockOutTime || storedClockOut || null) : null;
 
-    let workSecs = storedWorkSecs;
-    if (isClockedIn && !storedOnBreak) {
+    let workSecs = !isOnLeave ? storedWorkSecs : 0;
+    if (isClockedIn && !storedOnBreak && !isOnLeave) {
       const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`));
       if (clockInTs > 0) {
         const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
         workSecs = Math.max(0, gross - storedBreakSecs);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
+    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours && !isOnLeave) {
       workSecs = Math.round(attRec.totalWorkingHours * 3600);
     }
 
@@ -248,6 +250,7 @@ export const TeamOperationsPage = () => {
       empId,
       empName,
       department: emp.department || 'General',
+      isOnLeave,
       isClockedIn,
       isOnBreak: storedOnBreak,
       breakType: storedBreakType,
@@ -269,13 +272,14 @@ export const TeamOperationsPage = () => {
   // Overall KPI counts
   const kpiStats = useMemo(() => {
     const total = teamTodayStates.length;
-    const working = teamTodayStates.filter(s => s.isClockedIn && !s.isOnBreak).length;
-    const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
-    const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
-    const offline = total - working - onBreak - clockedOut;
-    const runningTasksCount = teamTodayStates.filter(s => s.runningTask).length;
+    const onLeave = teamTodayStates.filter(s => s.isOnLeave).length;
+    const working = teamTodayStates.filter(s => s.isClockedIn && !s.isOnBreak && !s.isOnLeave).length;
+    const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak && !s.isOnLeave).length;
+    const clockedOut = teamTodayStates.filter(s => s.isClockedOut && !s.isOnLeave).length;
+    const offline = Math.max(0, total - working - onBreak - clockedOut - onLeave);
+    const runningTasksCount = teamTodayStates.filter(s => s.runningTask && !s.isOnLeave).length;
 
-    return { total, working, onBreak, clockedOut, offline, runningTasksCount };
+    return { total, onLeave, working, onBreak, clockedOut, offline, runningTasksCount };
   }, [teamTodayStates]);
 
   // Distinct departments
@@ -869,16 +873,22 @@ export const TeamOperationsPage = () => {
                       {/* Shift Status */}
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
-                          item.isClockedIn
+                          item.isOnLeave
+                            ? 'bg-teal-100 text-teal-800 border-teal-200'
+                            : item.isClockedIn
                             ? (item.isOnBreak ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-green-100 text-green-700 border-green-200')
                             : (item.isClockedOut ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-50 text-slate-400 border-slate-200')
                         }`}>
                           <span className={`w-[7px] h-[7px] rounded-full ${
-                            item.isClockedIn
+                            item.isOnLeave
+                              ? 'bg-teal-500'
+                              : item.isClockedIn
                               ? (item.isOnBreak ? 'bg-amber-500' : 'bg-green-500')
                               : (item.isClockedOut ? 'bg-slate-400' : 'bg-slate-300')
                           }`} />
-                          {item.isClockedIn
+                          {item.isOnLeave
+                            ? 'On Leave 🌴'
+                            : item.isClockedIn
                             ? (item.isOnBreak ? `On ${item.breakType}` : 'Shift Active 🟢')
                             : (item.isClockedOut ? 'Clocked Out 🔴' : 'Not Clocked In ⚪')}
                         </span>

@@ -76,34 +76,55 @@ export const TimerProvider = ({ children }) => {
   const targetEmpCode = resolvedEmp?.employeeCode || currentUser?.employeeCode || userKey;
   const targetEmpName = currentUser?.name || resolvedEmp?.name || 'Employee';
 
-  // Helper: robustly check if an attendance record belongs to the current user
+  // Helper: robustly check if an attendance record belongs to the current user (MongoDB & local storage universal)
   const isRecordForUser = useCallback((rec, dateStr) => {
-    if (!rec || rec.date !== dateStr) return false;
-    const recEmpId = String(rec.employeeId || '');
-    const recEmpCode = String(rec.employeeCode || '');
+    if (!rec || (dateStr && rec.date !== dateStr)) return false;
+    const recEmp = rec.employee && typeof rec.employee === 'object' ? String(rec.employee._id || '') : String(rec.employee || '');
+    const recEmpId = String(rec.employeeId || recEmp || rec._id || '');
+    const recEmpCode = String(rec.employeeCode || '').trim().toUpperCase();
     const recEmpName = String(rec.employeeName || '').trim().toLowerCase();
-    const currName = String(targetEmpName).trim().toLowerCase();
 
+    const currId = currentUser?._id ? String(currentUser._id) : '';
+    const currIdStr = currentUser?.id ? String(currentUser.id) : '';
+    const currCode = currentUser?.employeeCode ? String(currentUser.employeeCode).trim().toUpperCase() : '';
+    const currName = String(currentUser?.name || targetEmpName || '').trim().toLowerCase();
+    const tId = String(targetEmpId || '');
+    const tCode = String(targetEmpCode || '').trim().toUpperCase();
+    const uKey = String(userKey || '').trim().toUpperCase();
+
+    // Check Employee ID / ObjectId match
     if (recEmpId && (
-      recEmpId === String(targetEmpId) ||
-      recEmpId === String(targetEmpCode) ||
-      recEmpId === String(userKey) ||
-      (currentUser?._id && recEmpId === String(currentUser._id)) ||
-      (currentUser?.employeeCode && recEmpId === String(currentUser.employeeCode))
+      recEmpId === tId ||
+      recEmpId === currId ||
+      recEmpId === currIdStr ||
+      recEmpId === tCode ||
+      recEmpId === uKey
     )) {
       return true;
     }
 
+    if (recEmp && (
+      recEmp === tId ||
+      recEmp === currId ||
+      recEmp === currIdStr ||
+      recEmp === tCode ||
+      recEmp === uKey
+    )) {
+      return true;
+    }
+
+    // Check Employee Code match
     if (recEmpCode && (
-      recEmpCode === String(targetEmpCode) ||
-      recEmpCode === String(targetEmpId) ||
-      recEmpCode === String(userKey) ||
-      (currentUser?.employeeCode && recEmpCode === String(currentUser.employeeCode))
+      recEmpCode === tCode ||
+      recEmpCode === currCode ||
+      recEmpCode === uKey ||
+      recEmpCode === tId
     )) {
       return true;
     }
 
-    if (recEmpName && currName && recEmpName === currName) {
+    // Check Name match
+    if (recEmpName && currName && (recEmpName === currName || recEmpName.includes(currName) || currName.includes(recEmpName))) {
       return true;
     }
 
@@ -367,6 +388,10 @@ export const TimerProvider = ({ children }) => {
     }
   });
 
+  // Approved Leave status for today
+  const [isOnLeaveToday, setIsOnLeaveToday] = useState(false);
+  const [todayLeaveRecord, setTodayLeaveRecord] = useState(null);
+
   // Reload timer state when userKey switches (Multi-User Safe)
   useEffect(() => {
     const today = getTodayStr();
@@ -490,17 +515,37 @@ export const TimerProvider = ({ children }) => {
       const localIsClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
       const localHadClockedOut = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
 
+      // 🌟 Check if employee is on approved leave today
+      const isRecordOnLeave = Boolean(rec && rec.date === today && rec.status === 'on_leave');
+      if (isRecordOnLeave) {
+        setIsOnLeaveToday(true);
+        setTodayLeaveRecord(rec);
+        setIsClockedIn(false);
+        setIsRunning(false);
+        setIsOnBreak(false);
+        setHadClockedOutToday(false);
+        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
+        return;
+      } else {
+        setIsOnLeaveToday(false);
+        setTodayLeaveRecord(null);
+      }
+
+      // 🌟 Remote MongoDB is authoritative over stale local cache:
+      // If remote record shows isClockedIn is true for today, employee is actively working regardless of local stale clock-out flag!
       const remoteIsClockedIn = Boolean(
         rec &&
         rec.date === today &&
         rec.isClockedIn === true &&
-        rec.clockInTime &&
+        (rec.clockInTime || rec.clockIn) &&
         !rec.clockOutTime &&
-        !localHadClockedOut
+        rec.status !== 'on_leave'
       );
 
-      const isActuallyClockedIn = (localIsClockedIn && (!localSessionDate || localSessionDate === today)) || remoteIsClockedIn;
-      const isActuallyClockedOut = !isActuallyClockedIn && (localHadClockedOut || Boolean(rec && rec.date === today && rec.clockOutTime && !rec.isClockedIn));
+      const isActuallyClockedIn = remoteIsClockedIn || (localIsClockedIn && (!localSessionDate || localSessionDate === today) && !localHadClockedOut);
+      const isActuallyClockedOut = !isActuallyClockedIn && (Boolean(rec && rec.date === today && (rec.clockOutTime || rec.clockOut) && !rec.isClockedIn) || localHadClockedOut);
 
       if (isActuallyClockedIn) {
         const inTime = rec?.clockInTime || rec?.clockIn || loginTime || localStorage.getItem(`ems_timer_${userKey}_login_time`);
@@ -1272,15 +1317,52 @@ export const TimerProvider = ({ children }) => {
   const handleClockIn = () => {
     const today = getTodayStr();
     const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const isFirstClockIn = !loginTime || sessionDate !== today;
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // 🌟 Check if user already had an active or recorded clock-in today in attendance mirror (e.g. from Online Atlas)
+    let existingRec = null;
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const list = JSON.parse(attRaw);
+        existingRec = list.find(a => isRecordForUser(a, today));
+      }
+    } catch (_) {}
+
+    const hasRemoteSessionToday = Boolean(
+      existingRec &&
+      existingRec.date === today &&
+      (existingRec.clockInTime || existingRec.clockIn)
+    );
+
+    const isFirstClockIn = !hasRemoteSessionToday && (!loginTime || sessionDate !== today);
 
     setSessionDate(today);
     const nowMs = Date.now();
     let clockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
 
-    if (isFirstClockIn || !clockInTs || clockInTs < todayMidnight.getTime()) {
+    if (hasRemoteSessionToday) {
+      // 🌟 ADOPT EXISTING ONLINE SESSION: Never overwrite a prior clock-in or reset workSeconds to 0!
+      const remoteInTime = existingRec.clockInTime || existingRec.clockIn;
+      let remoteTs = Number(existingRec.clockInTimestamp);
+      if (!remoteTs || remoteTs < todayMidnight.getTime()) {
+        const parsedSecs = parseTimeToSeconds(remoteInTime);
+        remoteTs = todayMidnight.getTime() + parsedSecs * 1000;
+      }
+      clockInTs = remoteTs;
+      setLoginTime(remoteInTime);
+      localStorage.setItem(`ems_timer_${userKey}_login_time`, remoteInTime);
+      localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(remoteTs));
+
+      const bSecs = Number(existingRec.breakSeconds) || (breakSeconds || 0);
+      const gross = Math.max(0, Math.floor((nowMs - remoteTs) / 1000));
+      const liveSecs = Math.max(0, gross - bSecs);
+      setWorkSeconds(prev => (prev > 0 ? prev : (Number(existingRec.workSeconds) || liveSecs)));
+      localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(liveSecs));
+      localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, nowMs.toString());
+      localStorage.setItem(`ems_timer_${userKey}_current_session_in`, nowStr);
+    } else if (isFirstClockIn || !clockInTs || clockInTs < todayMidnight.getTime()) {
       clockInTs = nowMs;
       setLoginTime(nowStr);
       setWorkSeconds(0);
@@ -1822,6 +1904,8 @@ export const TimerProvider = ({ children }) => {
       breakType,
       customBreakLimitMinutes,
       isClockedIn,
+      isOnLeaveToday,
+      todayLeaveRecord,
       breakHistory,
       punchSessions,
       activeBreakLimit,

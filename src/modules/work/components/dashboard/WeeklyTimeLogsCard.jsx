@@ -105,10 +105,21 @@ export const WeeklyTimeLogsCard = ({
       }
 
       // 1. Strictly filter timesheets recorded on this exact calendar date
-      const dayTs = (timesheets || []).filter(ts => {
+      const rawDayTs = (timesheets || []).filter(ts => {
         if (ts.date !== dateStr && !ts.createdAt?.startsWith(dateStr)) return false;
         return isMyTimesheet(ts);
       });
+
+      // Deduplicate timesheets by task (if multiple auto-saves exist today for same task, take latest/consolidated duration)
+      const taskMap = new Map();
+      rawDayTs.forEach(ts => {
+        const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+        const dur = Number(ts.totalDurationSeconds) || 0;
+        if (!taskMap.has(key) || dur > (Number(taskMap.get(key).totalDurationSeconds) || 0)) {
+          taskMap.set(key, ts);
+        }
+      });
+      const dayTs = Array.from(taskMap.values());
 
       let dayTotalSecs = dayTs.reduce((acc, curr) => {
         const raw = Number(curr.totalDurationSeconds) || 0;

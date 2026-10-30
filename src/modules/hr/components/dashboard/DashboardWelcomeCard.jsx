@@ -10,6 +10,7 @@ export const DashboardWelcomeCard = ({
   effectiveTargetUser,
   currentUser,
   isViewingOtherEmployee,
+  displayedIsOnLeave,
   displayedIsClockedIn,
   displayedIsOnBreak,
   displayedHadClockedOut,
@@ -34,7 +35,7 @@ export const DashboardWelcomeCard = ({
             alt={effectiveTargetUser?.name}
             className="w-[42px] h-[42px] rounded-[10px] object-cover border-[1.5px] border-slate-200 dark:border-slate-700 shadow-sm"
           />
-          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${displayedIsClockedIn ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${displayedIsOnLeave ? 'bg-teal-500' : (displayedIsClockedIn ? 'bg-emerald-500' : 'bg-slate-400')}`} />
         </div>
 
         <div className="min-w-0 flex-1">

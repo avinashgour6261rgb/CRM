@@ -37,6 +37,13 @@ const isBackendAvailable = async () => {
 };
 
 const getLocalDateString = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const formatSecondsSafe = (secs) => {
+  const s = Math.max(0, Number(secs) || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const remSecs = s % 60;
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`;
+};
 
 const getAuthUser = () => {
   try {
@@ -802,32 +809,59 @@ export const workService = {
       }
     }
 
-    const timesheets = getCollection(KEYS.TIMESHEETS);
-    const newEntry = {
-      _id: `time_${Date.now()}`,
-      ...entryData,
-      createdAt: new Date().toISOString()
-    };
-    timesheets.unshift(newEntry);
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const targetDate = entryData.date || getLocalDateString();
+    const durationSecs = Number(entryData.totalDurationSeconds) || 0;
+    const targetEmpId = String(enrichedData.employeeId || '');
+
+    // Check if a timesheet for this task on this date already exists
+    const existingIdx = timesheets.findIndex(ts =>
+      ts.date === targetDate &&
+      (String(ts.taskId) === String(entryData.taskId) || (entryData.taskCode && ts.taskCode === entryData.taskCode)) &&
+      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
+    );
+
+    let savedEntry = null;
+    if (existingIdx !== -1) {
+      timesheets[existingIdx] = {
+        ...timesheets[existingIdx],
+        ...entryData,
+        totalDurationSeconds: durationSecs,
+        totalDurationText: entryData.totalDurationText || formatSecondsSafe(durationSecs),
+        updatedAt: new Date().toISOString()
+      };
+      savedEntry = timesheets[existingIdx];
+    } else {
+      savedEntry = {
+        _id: `time_${Date.now()}`,
+        ...enrichedData,
+        totalDurationSeconds: durationSecs,
+        totalDurationText: entryData.totalDurationText || formatSecondsSafe(durationSecs),
+        date: targetDate,
+        createdAt: new Date().toISOString()
+      };
+      timesheets.unshift(savedEntry);
+    }
     saveCollection(KEYS.TIMESHEETS, timesheets);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
 
-    // Update task logged hours
+    // Accurately recalculate task logged hours strictly by summing all timesheets for this task
     if (entryData.taskId) {
-      const tasks = getCollection(KEYS.TASKS);
-      const tIndex = tasks.findIndex(t => t._id === entryData.taskId);
+      const tasks = getCollection(KEYS.TASKS) || [];
+      const tIndex = tasks.findIndex(t => String(t._id || t.id) === String(entryData.taskId) || (entryData.taskCode && t.taskCode === entryData.taskCode));
       if (tIndex !== -1) {
-        const durationHours = (entryData.totalDurationSeconds || 0) / 3600;
-        tasks[tIndex].hoursLogged = Number(((tasks[tIndex].hoursLogged || 0) + durationHours).toFixed(2));
-        const totalSecs = Math.round(tasks[tIndex].hoursLogged * 3600);
+        const allTaskTimesheets = timesheets.filter(ts => String(ts.taskId) === String(tasks[tIndex]._id || tasks[tIndex].id) || (tasks[tIndex].taskCode && ts.taskCode === tasks[tIndex].taskCode));
+        const totalSecs = allTaskTimesheets.reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
         const hrs = Math.floor(totalSecs / 3600);
         const mins = Math.floor((totalSecs % 3600) / 60);
+        tasks[tIndex].hoursLogged = Number((totalSecs / 3600).toFixed(2));
         tasks[tIndex].hoursLoggedText = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
         saveCollection(KEYS.TASKS, tasks);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       }
     }
 
-    return newEntry;
+    return savedEntry;
   },
 
   async stopTimer(stopData) {
@@ -840,8 +874,8 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          const timesheets = getCollection(KEYS.TIMESHEETS);
-          const idx = timesheets.findIndex(t => t._id === json.data._id);
+          const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+          const idx = timesheets.findIndex(t => t._id === json.data._id || (t.date === json.data.date && String(t.taskId) === String(json.data.taskId)));
           if (idx !== -1) timesheets[idx] = json.data;
           else timesheets.unshift(json.data);
           saveCollection(KEYS.TIMESHEETS, timesheets);
@@ -855,21 +889,10 @@ export const workService = {
     }
 
     // Local calculation & saving
-    const { taskId, totalDurationSeconds, memo, startTime, endTime } = stopData;
-    const tasks = getCollection(KEYS.TASKS);
-    const task = tasks.find(t => t._id === taskId);
-    if (task) {
-      task.timerRunning = false;
-      task.timerSeconds = totalDurationSeconds;
-      task.durationSeconds = totalDurationSeconds;
-      const hoursAdded = totalDurationSeconds / 3600;
-      task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
-      const totalSecs = Math.round(task.hoursLogged * 3600);
-      const hrs = Math.floor(totalSecs / 3600);
-      const mins = Math.floor((totalSecs % 3600) / 60);
-      task.hoursLoggedText = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
-      saveCollection(KEYS.TASKS, tasks);
-    }
+    const { taskId, totalDurationSeconds = 0, memo, startTime, endTime } = stopData;
+    const targetDate = stopData.date || getLocalDateString();
+    const tasks = getCollection(KEYS.TASKS) || [];
+    const task = tasks.find(t => String(t._id || t.id) === String(taskId) || (stopData.taskCode && t.taskCode === stopData.taskCode));
 
     const hrs = String(Math.floor(totalDurationSeconds / 3600)).padStart(2, '0');
     const mins = String(Math.floor((totalDurationSeconds % 3600) / 60)).padStart(2, '0');
@@ -877,31 +900,70 @@ export const workService = {
     const durationText = `${hrs}:${mins}:${secs}`;
 
     const authUser = getAuthUser();
-    const timesheets = getCollection(KEYS.TIMESHEETS);
-    const newLog = {
-      _id: `time_${Date.now()}`,
-      taskId: task?._id || taskId,
-      taskCode: task?.taskCode || stopData.taskCode || '',
-      taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
-      projectId: task?.projectId || '',
-      employeeId: stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
-      employeeCode: stopData.employeeCode || authUser?.employeeCode || '',
-      employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
-      employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
-      employeeRole: authUser?.role || task?.assignedToRole || '',
-      date: stopData.date || getLocalDateString(),
-      startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
-      endTime: endTime || new Date().toTimeString().split(' ')[0],
-      totalDurationSeconds,
-      totalDurationText: durationText,
-      memo: memo || 'Work session saved',
-      status: 'stopped',
-      createdAt: new Date().toISOString()
-    };
-    timesheets.unshift(newLog);
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const targetEmpId = String(stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '');
+
+    const existingIdx = timesheets.findIndex(ts =>
+      ts.date === targetDate &&
+      (String(ts.taskId) === String(taskId) || (task?.taskCode && ts.taskCode === task.taskCode) || (stopData.taskCode && ts.taskCode === stopData.taskCode)) &&
+      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
+    );
+
+    let finalLog = null;
+    if (existingIdx !== -1) {
+      timesheets[existingIdx] = {
+        ...timesheets[existingIdx],
+        totalDurationSeconds,
+        totalDurationText: durationText,
+        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        memo: memo || timesheets[existingIdx].memo,
+        status: 'stopped',
+        updatedAt: new Date().toISOString()
+      };
+      finalLog = timesheets[existingIdx];
+    } else {
+      finalLog = {
+        _id: `time_${Date.now()}`,
+        taskId: task?._id || taskId,
+        taskCode: task?.taskCode || stopData.taskCode || '',
+        taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
+        projectId: task?.projectId || '',
+        employeeId: targetEmpId,
+        employeeCode: stopData.employeeCode || authUser?.employeeCode || '',
+        employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
+        employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
+        employeeRole: authUser?.role || task?.assignedToRole || '',
+        date: targetDate,
+        startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
+        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        totalDurationSeconds,
+        totalDurationText: durationText,
+        memo: memo || 'Work session saved',
+        status: 'stopped',
+        createdAt: new Date().toISOString()
+      };
+      timesheets.unshift(finalLog);
+    }
     saveCollection(KEYS.TIMESHEETS, timesheets);
+
+    if (task) {
+      task.timerRunning = false;
+      task.timerSeconds = totalDurationSeconds;
+      task.durationSeconds = totalDurationSeconds;
+      task.accumulatedSeconds = totalDurationSeconds;
+
+      const allTaskTimesheets = timesheets.filter(ts => String(ts.taskId) === String(task._id || task.id) || (task.taskCode && ts.taskCode === task.taskCode));
+      const totalSecs = allTaskTimesheets.reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+      const totalHrs = Math.floor(totalSecs / 3600);
+      const totalMins = Math.floor((totalSecs % 3600) / 60);
+      task.hoursLogged = Number((totalSecs / 3600).toFixed(2));
+      task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+      saveCollection(KEYS.TASKS, tasks);
+    }
+
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
-    return newLog;
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+    return finalLog;
   },
 
   async deleteTimesheet(id) {

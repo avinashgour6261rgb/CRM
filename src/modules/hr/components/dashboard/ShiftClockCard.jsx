@@ -9,6 +9,7 @@ import { OvertimeRequestModal } from '../attendance/OvertimeRequestModal';
 
 export const ShiftClockCard = ({
   currentTime,
+  displayedIsOnLeave,
   displayedIsClockedIn,
   displayedIsOnBreak,
   displayedHadClockedOut,
@@ -73,7 +74,9 @@ export const ShiftClockCard = ({
             </div>
             <span
               className={`text-[10.5px] font-bold py-[3px] px-2 rounded-[5px] inline-flex items-center gap-1.5 border ${
-                displayedIsOnBreak
+                displayedIsOnLeave
+                  ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+                  : displayedIsOnBreak
                   ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                   : displayedIsClockedIn
                   ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
@@ -84,10 +87,10 @@ export const ShiftClockCard = ({
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full inline-block ${
-                  displayedIsOnBreak ? 'bg-amber-500' : displayedIsClockedIn ? 'bg-green-500' : displayedHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
+                  displayedIsOnLeave ? 'bg-teal-500' : displayedIsOnBreak ? 'bg-amber-500' : displayedIsClockedIn ? 'bg-green-500' : displayedHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
                 }`}
               />
-              {displayedIsOnBreak ? `On ${displayedBreakType}` : displayedIsClockedIn ? 'Shift Active 🟢' : displayedHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
+              {displayedIsOnLeave ? 'On Approved Leave 🌴' : displayedIsOnBreak ? `On ${displayedBreakType}` : displayedIsClockedIn ? 'Shift Active 🟢' : displayedHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
             </span>
           </div>
 
@@ -220,6 +223,12 @@ export const ShiftClockCard = ({
                   <Square size={12} fill="#fff" />
                   <span>Clock Out</span>
                 </button>
+              </div>
+            ) : displayedIsOnLeave ? (
+              <div className="flex items-center gap-2">
+                <span className="py-2.5 px-4 rounded-lg text-[13px] font-bold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 inline-flex items-center gap-1.5 shadow-xs">
+                  <span>🌴 Shift Paused: Approved Leave Active</span>
+                </span>
               </div>
             ) : (
               <button

@@ -267,6 +267,8 @@ export const DashboardPage = () => {
     breakRemainingTimeString,
     isBreakOverdue,
     isClockedIn,
+    isOnLeaveToday,
+    todayLeaveRecord,
     togglePauseResume,
     handleClockIn,
     handleClockOut,
@@ -440,11 +442,30 @@ export const DashboardPage = () => {
     // Today's attendance
     const attRec = (attendance || []).find(a =>
       a.date === todayStr && (
-        a.employeeId === empId ||
-        a.employeeCode === emp.employeeCode ||
-        (empName && a.employeeName?.toLowerCase() === empName.toLowerCase())
+        String(a.employeeId) === String(empId) ||
+        String(a.employee) === String(empId) ||
+        (emp.employeeCode && (String(a.employeeCode) === String(emp.employeeCode) || String(a.employeeId) === String(emp.employeeCode))) ||
+        (empKey && (String(a.employeeCode) === String(empKey) || String(a.employeeId) === String(empKey))) ||
+        (empName && a.employeeName?.trim().toLowerCase() === empName.trim().toLowerCase())
       )
     );
+
+    // Check if employee is on approved leave today
+    const isOnLeave = Boolean(
+      attRec?.status === 'on_leave' ||
+      (leaves || []).some(l =>
+        l.status === 'approved' &&
+        l.startDate <= todayStr &&
+        l.endDate >= todayStr &&
+        (
+          String(l.employeeId) === String(empId) ||
+          String(l.employee) === String(empId) ||
+          (emp.employeeCode && l.employeeCode === emp.employeeCode) ||
+          (empName && l.employeeName?.trim().toLowerCase() === empName.trim().toLowerCase())
+        )
+      )
+    );
+    const leaveNote = attRec?.notes || 'Approved Leave';
 
     // Stored live keys
     const storedClockedIn = localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true';
@@ -583,20 +604,22 @@ export const DashboardPage = () => {
       empKey,
       empId,
       empName,
-      isClockedIn,
-      isOnBreak: storedOnBreak,
+      isOnLeave,
+      leaveNote,
+      isClockedIn: !isOnLeave && isClockedIn,
+      isOnBreak: !isOnLeave && storedOnBreak,
       breakType: storedBreakType,
-      isClockedOut,
-      loginTime,
-      clockOutTime,
-      workSecs,
+      isClockedOut: !isOnLeave && isClockedOut,
+      loginTime: !isOnLeave ? loginTime : null,
+      clockOutTime: !isOnLeave ? clockOutTime : null,
+      workSecs: !isOnLeave ? workSecs : 0,
       breakSecs: storedBreakSecs,
       breakHistory: storedBreakHistory,
-      runningTask,
+      runningTask: !isOnLeave ? runningTask : null,
       empTasks,
       completedTasksToday
     };
-  }, [attendance, tasks, todayStr, currentUser?._id, formatSeconds]);
+  }, [attendance, leaves, tasks, todayStr, currentUser?._id, formatSeconds]);
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
@@ -605,12 +628,13 @@ export const DashboardPage = () => {
 
   const teamStats = React.useMemo(() => {
     const total = teamTodayStates.length;
+    const onLeave = teamTodayStates.filter(s => s.isOnLeave).length;
     const clockedIn = teamTodayStates.filter(s => s.isClockedIn).length;
     const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
     const runningTask = teamTodayStates.filter(s => s.runningTask).length;
     const present = teamTodayStates.filter(s => s.isClockedIn || s.isClockedOut).length;
-    return { total, clockedIn, onBreak, clockedOut, runningTask, present };
+    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present };
   }, [teamTodayStates]);
 
   // Active view user's live today state
@@ -1194,6 +1218,7 @@ export const DashboardPage = () => {
   const todayDisplayTasks = myTasks;
 
   // Resolved live shift state for currently displayed user perspective
+  const displayedIsOnLeave = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnLeave) : Boolean(isOnLeaveToday || activeEmpState?.isOnLeave);
   const displayedIsClockedIn = isViewingOtherEmployee ? activeEmpState?.isClockedIn : isClockedIn;
   const displayedIsOnBreak = isViewingOtherEmployee ? activeEmpState?.isOnBreak : isOnBreak;
   const displayedBreakType = isViewingOtherEmployee ? (activeEmpState?.breakType || 'Break') : breakType;
@@ -1256,7 +1281,7 @@ export const DashboardPage = () => {
 
   // Stable logged total duration today strictly scoped to current viewed user (timesheets logged today + active task timer seconds)
   const todayTimesheets = React.useMemo(() => {
-    return (timesheets || []).filter(ts => {
+    const rawList = (timesheets || []).filter(ts => {
       const isToday = ts.date === todayStr || ts.createdAt?.startsWith(todayStr);
       const tsEmpId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee).toLowerCase() : '');
       const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
@@ -1269,6 +1294,17 @@ export const DashboardPage = () => {
         (myName && tsName && (tsName === myName || tsName.includes(myName) || myName.includes(tsName)));
       return isToday && isMine;
     });
+
+    // Deduplicate by task (taking max duration) to prevent duplicate auto-saves from inflating today's total
+    const dedupeMap = new Map();
+    rawList.forEach(ts => {
+      const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+      const dur = Number(ts.totalDurationSeconds) || 0;
+      if (!dedupeMap.has(key) || dur > (Number(dedupeMap.get(key).totalDurationSeconds) || 0)) {
+        dedupeMap.set(key, ts);
+      }
+    });
+    return Array.from(dedupeMap.values());
   }, [timesheets, todayStr, effectiveTargetUser]);
 
   const totalLoggedTodaySecs = todayTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
@@ -2286,6 +2322,7 @@ export const DashboardPage = () => {
           effectiveTargetUser={effectiveTargetUser}
           currentUser={currentUser}
           isViewingOtherEmployee={isViewingOtherEmployee}
+          displayedIsOnLeave={displayedIsOnLeave}
           displayedIsClockedIn={displayedIsClockedIn}
           displayedIsOnBreak={displayedIsOnBreak}
           displayedHadClockedOut={displayedHadClockedOut}
@@ -2304,6 +2341,7 @@ export const DashboardPage = () => {
 
         <ShiftClockCard
           currentTime={currentTime}
+          displayedIsOnLeave={displayedIsOnLeave}
           displayedIsClockedIn={displayedIsClockedIn}
           displayedIsOnBreak={displayedIsOnBreak}
           displayedHadClockedOut={displayedHadClockedOut}

@@ -77,7 +77,7 @@ export const DashboardKpiStrip = ({
               <Palmtree size={13} color="#d97706" />
             </div>
             <div className="text-lg font-extrabold text-amber-600 dark:text-amber-400">
-              {employeesOnLeave.length}
+              {employeesOnLeave.length || teamStats.onLeave || 0}
             </div>
           </div>
 
