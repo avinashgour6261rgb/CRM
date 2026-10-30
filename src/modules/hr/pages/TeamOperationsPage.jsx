@@ -582,10 +582,10 @@ export const TeamOperationsPage = () => {
     return (
       <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 mt-5">
         <Shield size={40} className="mx-auto mb-3 text-red-600" />
-        <h2 className="text-lg font-extrabold text-slate-900">
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
           Access Restricted
         </h2>
-        <p className="text-slate-500 text-[13px] mt-1.5">
+        <p className="text-slate-500 dark:text-slate-400 text-[13px] mt-1.5">
           Live Operations & Emergency Shift Overrides require Administrator, HR, or delegated Live Operations permission.
         </p>
       </div>
@@ -597,20 +597,20 @@ export const TeamOperationsPage = () => {
       {/* ── HEADER BANNER ── */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
             <Zap size={17} className="fill-orange-600 text-orange-600" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
+              <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
                 Live Operations & Shift Controls
               </h1>
-              <span className="text-[10.5px] font-bold bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-[10px] inline-flex items-center gap-1">
+              <span className="text-[10.5px] font-bold bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/60 px-1.5 py-0.5 rounded-[10px] inline-flex items-center gap-1">
                 <span className="w-[5px] h-[5px] rounded-full bg-emerald-500" />
                 Real-Time Sync
               </span>
             </div>
-            <p className="text-[11.5px] text-slate-500 m-0 mt-0.5">
+            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
               Administrative operational hub for real-time shift oversight, emergency overrides, and task controls.
             </p>
           </div>
@@ -631,15 +631,15 @@ export const TeamOperationsPage = () => {
 
       {/* ── PENDING CREDENTIAL CHANGE REQUESTS (ADMIN REVIEW) ── */}
       {isHRorAdmin && pendingProfileRequests.length > 0 && (
-        <div className="bg-blue-50/70 rounded-xl border-[1.5px] border-blue-200 px-5 py-4 flex flex-col gap-3">
+        <div className="bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border-[1.5px] border-blue-200 dark:border-blue-900/50 px-5 py-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield size={18} className="text-blue-600" />
-              <span className="text-sm font-extrabold text-blue-800">
+              <Shield size={18} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-extrabold text-blue-800 dark:text-blue-200">
                 Pending Employee Credential Change Requests ({pendingProfileRequests.length})
               </span>
             </div>
-            <span className="text-[11px] text-blue-500 font-semibold">
+            <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
               Requires Super Admin Approval to update official database records
             </span>
           </div>
@@ -652,19 +652,19 @@ export const TeamOperationsPage = () => {
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-[13px] text-slate-900">
+                    <span className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">
                       {req.employeeName}
                     </span>
-                    <span className="text-[11px] text-slate-500">({req.employeeCode})</span>
-                    <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${req.field === 'email' ? 'bg-pink-50 text-pink-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">({req.employeeCode})</span>
+                    <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${req.field === 'email' ? 'bg-pink-50 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'}`}>
                       Requested {req.field === 'email' ? 'Email' : 'Name'} Change
                     </span>
                   </div>
-                  <div className="text-xs text-slate-700 mt-1">
-                    <span className="line-through text-slate-400">{req.currentValue}</span>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                    <span className="line-through text-slate-400 dark:text-slate-500">{req.currentValue}</span>
                     <span className="mx-1.5">➔</span>
                     <strong className="text-blue-600">{req.requestedValue}</strong>
-                    <span className="text-slate-500 ml-2.5 italic">Reason: &quot;{req.reason}&quot;</span>
+                    <span className="text-slate-500 dark:text-slate-400 ml-2.5 italic">Reason: &quot;{req.reason}&quot;</span>
                   </div>
                 </div>
 
@@ -691,50 +691,50 @@ export const TeamOperationsPage = () => {
       {/* ── KPI STATS CARDS ── */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
             <span>Total Team</span>
             <Users size={16} className="text-sky-600" />
           </div>
-          <div className="text-[22px] font-extrabold text-slate-900 mt-1.5">
+          <div className="text-[22px] font-extrabold text-slate-900 dark:text-slate-100 mt-1.5">
             {kpiStats.total}
           </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
             Registered employees
           </div>
         </div>
 
-        <div className="rounded-[10px] border border-green-200 bg-green-50/70 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-green-800 text-xs font-bold">
+        <div className="rounded-[10px] border border-green-200 dark:border-green-900/50 bg-green-50/70 dark:bg-green-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-green-800 dark:text-green-300 text-xs font-bold">
             <span>Working Now</span>
-            <Clock size={16} className="text-green-700" />
+            <Clock size={16} className="text-green-700 dark:text-green-400" />
           </div>
-          <div className="text-[22px] font-extrabold text-green-700 mt-1.5">
+          <div className="text-[22px] font-extrabold text-green-700 dark:text-green-400 mt-1.5">
             {kpiStats.working}
           </div>
-          <div className="text-[11px] text-green-800 mt-0.5">
+          <div className="text-[11px] text-green-800 dark:text-green-400 mt-0.5">
             Actively on shift
           </div>
         </div>
 
-        <div className="rounded-[10px] border border-amber-200 bg-amber-50/70 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-amber-800 text-xs font-bold">
+        <div className="rounded-[10px] border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 text-xs font-bold">
             <span>On Break</span>
-            <Coffee size={16} className="text-amber-700" />
+            <Coffee size={16} className="text-amber-700 dark:text-amber-400" />
           </div>
-          <div className="text-[22px] font-extrabold text-amber-700 mt-1.5">
+          <div className="text-[22px] font-extrabold text-amber-700 dark:text-amber-400 mt-1.5">
             {kpiStats.onBreak}
           </div>
-          <div className="text-[11px] text-amber-800 mt-0.5">
+          <div className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
             Tea / Lunch breaks
           </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
             <span>Shift Ended</span>
-            <LogOut size={16} className="text-slate-500" />
+            <LogOut size={16} className="text-slate-500 dark:text-slate-400" />
           </div>
-          <div className="text-[22px] font-extrabold text-slate-600 mt-1.5">
+          <div className="text-[22px] font-extrabold text-slate-600 dark:text-slate-300 mt-1.5">
             {kpiStats.clockedOut}
           </div>
           <div className="text-[11px] text-slate-400 mt-0.5">
@@ -742,15 +742,15 @@ export const TeamOperationsPage = () => {
           </div>
         </div>
 
-        <div className="rounded-[10px] border border-blue-200 bg-blue-50/70 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-blue-800 text-xs font-bold">
+        <div className="rounded-[10px] border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-blue-800 dark:text-blue-300 text-xs font-bold">
             <span>Running Tasks</span>
-            <Play size={16} className="text-blue-600 fill-blue-600" />
+            <Play size={16} className="text-blue-600 dark:text-blue-400 fill-blue-600 dark:fill-blue-400" />
           </div>
-          <div className="text-[22px] font-extrabold text-blue-600 mt-1.5">
+          <div className="text-[22px] font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">
             {kpiStats.runningTasksCount}
           </div>
-          <div className="text-[11px] text-blue-800 mt-0.5">
+          <div className="text-[11px] text-blue-800 dark:text-blue-400 mt-0.5">
             Active timers live
           </div>
         </div>
@@ -773,7 +773,7 @@ export const TeamOperationsPage = () => {
               className={`border-0 px-3 py-1.5 rounded-md text-xs cursor-pointer transition-all ${
                 statusFilter === tab.id
                   ? 'font-bold bg-sky-600 text-white'
-                  : 'font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  : 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               {tab.label}
@@ -783,17 +783,17 @@ export const TeamOperationsPage = () => {
 
         {/* Search & Department Filters */}
         <div className="flex items-center gap-2 flex-wrap flex-1 justify-end">
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-md px-2.5 py-[5px] max-w-[240px] w-full">
-            <Search size={14} className="text-slate-500" />
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] max-w-[240px] w-full">
+            <Search size={14} className="text-slate-500 dark:text-slate-400" />
             <input
               type="text"
               placeholder="Search employee..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="border-0 bg-transparent outline-none text-xs text-slate-900 w-full"
+              className="border-0 bg-transparent outline-none text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full"
             />
             {searchQuery && (
-              <X size={12} className="text-slate-400 cursor-pointer hover:text-slate-600" onClick={() => setSearchQuery('')} />
+              <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300" onClick={() => setSearchQuery('')} />
             )}
           </div>
 
@@ -816,7 +816,7 @@ export const TeamOperationsPage = () => {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+              <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                 <th className="px-4 py-3 font-bold">Employee</th>
                 <th className="px-4 py-3 font-bold">Work Mode</th>
                 <th className="px-4 py-3 font-bold">Department</th>
@@ -844,7 +844,7 @@ export const TeamOperationsPage = () => {
                   return (
                     <tr
                       key={emp._id}
-                      className={`border-b border-slate-100 transition-colors ${
+                      className={`border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/50 ${
                         item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20 dark:bg-amber-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20') : 'bg-white dark:bg-slate-900'
                       }`}
                     >
@@ -854,19 +854,19 @@ export const TeamOperationsPage = () => {
                           <img
                             src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                             alt={emp.name}
-                            className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+                            className="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
                           />
                           <div>
-                            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                            <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                               <span>{emp.name}</span>
                               {isCur && (
-                                <span className="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full leading-tight">
+                                <span className="text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full leading-tight">
                                   You
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500">
-                              {emp.role || 'Member'} • <span className="text-slate-400">#{emp.employeeCode || emp._id}</span>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {emp.role || 'Member'} • <span className="text-slate-400 dark:text-slate-500">#{emp.employeeCode || emp._id}</span>
                             </div>
                           </div>
                         </div>
@@ -876,18 +876,18 @@ export const TeamOperationsPage = () => {
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[11px] font-bold border ${
                           emp.workingMode === 'Remote'
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
                             : emp.workingMode === 'Hybrid'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : 'bg-blue-50 text-blue-600 border-blue-200'
+                            ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                            : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                         }`}>
                           <span>{emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
                         </span>
                       </td>
 
                       {/* Department */}
-                      <td className="px-4 py-3 text-slate-600 font-semibold">
-                        <span className="bg-slate-100 px-2 py-[3px] rounded text-[11px]">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-[3px] rounded text-[11px]">
                           {item.department}
                         </span>
                       </td>
@@ -896,12 +896,12 @@ export const TeamOperationsPage = () => {
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
                           item.isClockedIn && item.isOnLeave
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                             : item.isOnLeave
-                            ? 'bg-teal-100 text-teal-800 border-teal-200'
+                            ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
                             : item.isClockedIn
-                            ? (item.isOnBreak ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-green-100 text-green-700 border-green-200')
-                            : (item.isClockedOut ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-slate-50 text-slate-400 border-slate-200')
+                            ? (item.isOnBreak ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800')
+                            : (item.isClockedOut ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700')
                         }`}>
                           <span className={`w-[7px] h-[7px] rounded-full ${
                             item.isClockedIn
@@ -923,18 +923,18 @@ export const TeamOperationsPage = () => {
                       </td>
 
                       {/* Punch Times */}
-                      <td className="px-4 py-3 text-[11.5px] text-slate-600">
-                        <div>In: <strong className={item.loginTime ? 'text-slate-900' : 'text-slate-400'}>{item.loginTime || '--'}</strong></div>
-                        <div>Out: <strong className={item.clockOutTime ? 'text-red-600' : 'text-slate-400'}>{item.clockOutTime || '--'}</strong></div>
+                      <td className="px-4 py-3 text-[11.5px] text-slate-600 dark:text-slate-400">
+                        <div>In: <strong className={item.loginTime ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>{item.loginTime || '--'}</strong></div>
+                        <div>Out: <strong className={item.clockOutTime ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}>{item.clockOutTime || '--'}</strong></div>
                       </td>
 
                       {/* Net Work Time */}
                       <td className="px-4 py-3">
-                        <div className="font-extrabold text-sky-600 text-[13px]">
+                        <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px]">
                           {formatTimeDurationSafe(item.workSecs)}
                         </div>
                         {item.breakSecs > 0 && (
-                          <div className="text-[10.5px] text-amber-800 mt-0.5">
+                          <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
                             Breaks: {Math.round(item.breakSecs / 60)}m
                           </div>
                         )}
@@ -946,15 +946,15 @@ export const TeamOperationsPage = () => {
                           <div className="max-w-[240px]">
                             <div className="flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                              <strong className="text-[11.5px] text-slate-900 truncate">
+                              <strong className="text-[11.5px] text-slate-900 dark:text-slate-100 truncate">
                                 #{item.runningTask.taskCode || 'TSK'}: {item.runningTask.title}
                               </strong>
                             </div>
-                            <div className="text-[10.5px] text-slate-500 mt-0.5 flex items-center gap-1.5">
-                              <span>⏱️ <strong className="text-sky-600">{item.runningTask.liveDurationText}</strong></span>
+                            <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                              <span>⏱️ <strong className="text-sky-600 dark:text-sky-400">{item.runningTask.liveDurationText}</strong></span>
                               <button
                                 onClick={() => pauseTaskTimer(item.runningTask._id)}
-                                className="border border-blue-200 bg-blue-50 text-blue-700 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100"
+                                className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
                                 title="Pause task timer for employee"
                               >
                                 Pause ⏸️
@@ -972,19 +972,19 @@ export const TeamOperationsPage = () => {
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => startTaskTimer(firstTask._id)}
-                                  className="inline-flex items-center gap-1 border border-green-300 bg-green-50 text-green-600 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100"
+                                  className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
                                   title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
                                 >
                                   <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
                                 </button>
                                 {empPendingTasks.length > 1 && (
-                                  <span className="text-[10px] text-slate-500">+{empPendingTasks.length - 1} more</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
                                 )}
                               </div>
                             );
                           }
                           return (
-                            <span className="text-slate-400 text-[11.5px] italic">
+                            <span className="text-slate-400 dark:text-slate-500 text-[11.5px] italic">
                               No active tasks
                             </span>
                           );
@@ -1002,7 +1002,7 @@ export const TeamOperationsPage = () => {
                                 setEmergencyReason('Power cut / offline assist');
                                 setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 text-green-700 border border-green-200 text-[11.5px] font-bold cursor-pointer hover:bg-green-100"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
                               title="Clock in employee manually (e.g. power outage or offline)"
                             >
                               <LogIn size={11} />
@@ -1018,7 +1018,7 @@ export const TeamOperationsPage = () => {
                                 setEmergencyReason('Power cut / left office');
                                 setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 text-red-600 border border-red-200 text-[11.5px] font-bold cursor-pointer hover:bg-red-100"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
                               title="End employee shift manually (e.g. left without punch)"
                             >
                               <LogOut size={11} />
@@ -1029,7 +1029,7 @@ export const TeamOperationsPage = () => {
                           {/* Day Log View */}
                           <button
                             onClick={() => handleOpenDayLog(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-sky-600 border border-blue-200 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/50 text-sky-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
                             title={`Inspect ${emp.name}'s complete day audit log`}
                           >
                             <Eye size={12} className="text-sky-600" />
@@ -1042,12 +1042,12 @@ export const TeamOperationsPage = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="text-center py-9 text-slate-400">
-                    <Users size={32} className="mx-auto mb-2 text-slate-300" />
-                    <div className="text-[13px] font-bold text-slate-600">
+                  <td colSpan="8" className="text-center py-9 text-slate-400 dark:text-slate-500">
+                    <Users size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                    <div className="text-[13px] font-bold text-slate-600 dark:text-slate-300">
                       No employees match filter
                     </div>
-                    <div className="text-[11.5px] text-slate-400 mt-0.5">
+                    <div className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">
                       Try selecting another status tab or clear search query.
                     </div>
                   </td>
@@ -1064,28 +1064,28 @@ export const TeamOperationsPage = () => {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-green-100 text-green-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 flex items-center justify-center">
                   <LogIn size={18} />
                 </div>
-                <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
+                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Emergency Clock-In Override
                 </h3>
               </div>
               <button
                 onClick={() => setClockInModalTarget(null)}
-                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600"
+                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p className="text-[12.5px] text-slate-600 mb-4 leading-relaxed">
+            <p className="text-[12.5px] text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
               You are manually initiating shift clock-in for <strong>{clockInModalTarget.name}</strong> (#{clockInModalTarget.employeeCode}). This will be logged in the permanent audit trail.
             </p>
 
             <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label className="text-[11.5px] font-bold text-slate-700 block mb-1">
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Punch In Time
                 </label>
                 <input
@@ -1093,12 +1093,12 @@ export const TeamOperationsPage = () => {
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
                   placeholder="e.g. 09:30 AM"
-                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-[12.5px] text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-[11.5px] font-bold text-slate-700 block mb-1">
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Operational Reason (Power outage / offline assist)
                 </label>
                 <input
@@ -1106,7 +1106,7 @@ export const TeamOperationsPage = () => {
                   value={emergencyReason}
                   onChange={(e) => setEmergencyReason(e.target.value)}
                   placeholder="Enter reason..."
-                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-[12.5px] text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
@@ -1136,28 +1136,28 @@ export const TeamOperationsPage = () => {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300 flex items-center justify-center">
                   <LogOut size={18} />
                 </div>
-                <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
+                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Emergency Clock-Out Override
                 </h3>
               </div>
               <button
                 onClick={() => setClockOutModalTarget(null)}
-                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600"
+                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p className="text-[12.5px] text-slate-600 mb-4 leading-relaxed">
+            <p className="text-[12.5px] text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
               You are manually ending the shift for <strong>{clockOutModalTarget.name}</strong> (#{clockOutModalTarget.employeeCode}). Any active running task timer will also be automatically paused.
             </p>
 
             <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label className="text-[11.5px] font-bold text-slate-700 block mb-1">
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Punch Out Time
                 </label>
                 <input
@@ -1165,12 +1165,12 @@ export const TeamOperationsPage = () => {
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
                   placeholder="e.g. 06:30 PM"
-                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-[12.5px] text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-[11.5px] font-bold text-slate-700 block mb-1">
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Reason (Power outage, left office, assist)
                 </label>
                 <input
@@ -1178,7 +1178,7 @@ export const TeamOperationsPage = () => {
                   value={emergencyReason}
                   onChange={(e) => setEmergencyReason(e.target.value)}
                   placeholder="Enter reason..."
-                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-[12.5px] text-slate-900 outline-none focus:border-blue-500"
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>

@@ -2264,11 +2264,11 @@ export const DashboardPage = () => {
             <div>
               <div className="text-[13.5px] font-extrabold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
                 <span>Team Operations & Shift Controls</span>
-                <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-px rounded font-bold">
+                <span className="text-[10px] bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 px-1.5 py-px rounded font-bold">
                   {teamStats.clockedIn} Working Live
                 </span>
               </div>
-              <div className="text-[11.5px] text-orange-700">
+              <div className="text-[11.5px] text-orange-700 dark:text-orange-300">
                 Emergency clock-in/out, power outage overrides, task controls, and full team shift tracking are centralized in Live Operations.
               </div>
             </div>
