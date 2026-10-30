@@ -12,6 +12,11 @@ import { getCompanySettings } from '../services/companySettingsService';
 import { API_BASE } from '../config/apiConfig';
 
 import { calculateComputedBirthdays, calculateComputedAnniversaries } from '../../modules/crm/utils/celebrationUtils';
+import {
+  isConversationVisibleToUser,
+  getUnreadCountForUser,
+  playChatNotificationSound
+} from '../../modules/crm/utils/chatPrivacyUtils';
 
 const DEFAULT_WEEKLY_TIMELOGS = [
   { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
@@ -188,6 +193,41 @@ export const CRMProvider = ({ children }) => {
   const [events, setEvents] = useState(() => (getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
   const [conversations, setConversations] = useState(() => ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
   const [activeConversationId, setActiveConversationId] = useState('channel_general');
+
+  // Strict Scoped Conversations & Global Unread Badges
+  const visibleConversations = useMemo(() => {
+    if (!currentUser) return conversations || [];
+    return (conversations || []).filter(c => isConversationVisibleToUser(c, currentUser));
+  }, [conversations, currentUser]);
+
+  const totalUnreadMessagesCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return visibleConversations.reduce((sum, conv) => {
+      return sum + getUnreadCountForUser(conv, currentUser);
+    }, 0);
+  }, [visibleConversations, currentUser]);
+
+  // Audio chime notification for incoming chat messages
+  useEffect(() => {
+    const handleChatMessage = (e) => {
+      const { message } = e.detail || {};
+      if (!message || !currentUser) return;
+      const myId = String(currentUser._id || '').toLowerCase();
+      const myCode = String(currentUser.employeeCode || '').toLowerCase();
+      const myEmail = String(currentUser.email || '').toLowerCase();
+
+      const senderId = String(message.senderId || '').toLowerCase();
+      const senderCode = String(message.senderCode || '').toLowerCase();
+      const senderEmail = String(message.senderEmail || '').toLowerCase();
+
+      const isFromMe = (myId && senderId === myId) || (myCode && senderCode === myCode) || (myEmail && senderEmail === myEmail);
+      if (!isFromMe) {
+        playChatNotificationSound();
+      }
+    };
+    window.addEventListener('ems_chat_message_sent', handleChatMessage);
+    return () => window.removeEventListener('ems_chat_message_sent', handleChatMessage);
+  }, [currentUser]);
   const [wfhEmployees, setWfhEmployees] = useState(() => getCollection(KEYS.WFH));
   const [storedWeeklyTimeLogs, setStoredWeeklyTimeLogs] = useState(() => getCollection(KEYS.WEEKLY_TIMELOGS));
   const [leads, setLeads] = useState(() => getCollection(KEYS.LEADS));
@@ -1370,12 +1410,26 @@ export const CRMProvider = ({ children }) => {
     const currentId = currentUser?._id || currentUser?.employeeCode || 'EMP-001';
     const targetId = emp._id || emp.employeeCode;
 
-    // Check if DM exists between current user and this target
-    const existing = currentConvs.find(c =>
-      c.type === 'dm' &&
-      ((c.participantId === emp._id || c.participantCode === emp.employeeCode) ||
-       (Array.isArray(c.participants) && c.participants.includes(currentId) && c.participants.includes(targetId)))
-    );
+    const myIdStr = String(currentUser?._id || '').toLowerCase();
+    const myCodeStr = String(currentUser?.employeeCode || '').toLowerCase();
+    const targetIdStr = String(emp._id || '').toLowerCase();
+    const targetCodeStr = String(emp.employeeCode || '').toLowerCase();
+
+    // Check if DM exists strictly between current user and this target
+    const existing = currentConvs.find(c => {
+      if (c.type !== 'dm') return false;
+      if (Array.isArray(c.participants) && c.participants.length > 0) {
+        const parts = c.participants.map(p => String(p).toLowerCase());
+        const hasMe = (myIdStr && parts.includes(myIdStr)) || (myCodeStr && parts.includes(myCodeStr));
+        const hasTarget = (targetIdStr && parts.includes(targetIdStr)) || (targetCodeStr && parts.includes(targetCodeStr));
+        return hasMe && hasTarget;
+      }
+      const c1 = String(c.createdBy || '').toLowerCase();
+      const p1 = String(c.participantId || c.participantCode || '').toLowerCase();
+      const match1 = ((c1 === myIdStr || c1 === myCodeStr) && (p1 === targetIdStr || p1 === targetCodeStr));
+      const match2 = ((c1 === targetIdStr || c1 === targetCodeStr) && (p1 === myIdStr || p1 === myCodeStr));
+      return match1 || match2;
+    });
 
     if (existing) {
       setActiveConversationId(existing.id);
@@ -1383,18 +1437,29 @@ export const CRMProvider = ({ children }) => {
       return existing.id;
     }
 
-    const dmId = 'dm_' + [String(currentId), String(targetId)].sort().join('_');
+    const dmId = 'dm_' + [String(currentUser?.employeeCode || currentId), String(emp.employeeCode || targetId)].sort().join('_');
     const newConv = {
       id: dmId,
       type: 'dm',
-      participants: [currentId, targetId],
+      participants: [
+        String(currentUser?._id || ''),
+        String(currentUser?.employeeCode || ''),
+        String(emp._id || ''),
+        String(emp.employeeCode || '')
+      ].filter(Boolean),
       participantId: emp._id,
       participantCode: emp.employeeCode,
       participantName: emp.name,
       participantRole: emp.role || 'Team Member',
-      participantDepartment: emp.department || 'IT & Software Development',
+      participantDepartment: emp.department || 'General',
       participantAvatar: emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
       participantEmail: emp.email,
+      createdBy: currentId,
+      createdByName: currentUser?.name || 'Administrator',
+      creatorCode: currentUser?.employeeCode || '',
+      creatorRole: currentUser?.role || 'Team Member',
+      creatorDepartment: currentUser?.department || 'General',
+      creatorAvatar: currentUser?.avatar || '',
       isOnline: true,
       lastMessage: 'Conversation started',
       lastMessageTime: 'Just now',
@@ -1410,6 +1475,39 @@ export const CRMProvider = ({ children }) => {
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     addToast(`New conversation started with ${emp.name}!`, 'success');
     return newConv.id;
+  };
+
+  const markConversationAsRead = (conversationId) => {
+    if (!conversationId || !currentUser) return;
+    const myId = String(currentUser._id || '').toLowerCase();
+    const myCode = String(currentUser.employeeCode || '').toLowerCase();
+    const myEmail = String(currentUser.email || '').toLowerCase();
+
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
+    let changed = false;
+    if (Array.isArray(currentConvs[idx].messages)) {
+      currentConvs[idx].messages.forEach(msg => {
+        const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+        const hasRead = readBy.some(id => {
+          const s = String(id).toLowerCase();
+          return (myId && s === myId) || (myCode && s === myCode) || (myEmail && s === myEmail);
+        });
+        if (!hasRead) {
+          msg.readBy = [...readBy, currentUser._id || currentUser.employeeCode];
+          changed = true;
+        }
+      });
+    }
+
+    if (changed) {
+      currentConvs[idx].unreadCount = 0;
+      saveCollection(KEYS.CONVERSATIONS, currentConvs);
+      setConversations([...currentConvs]);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    }
   };
 
   const createChannel = ({ name, description = '', category = 'general' }) => {
@@ -1870,11 +1968,14 @@ export const CRMProvider = ({ children }) => {
     anniversaries: computedAnniversaries,
 
     conversations,
+    visibleConversations,
+    totalUnreadMessagesCount,
     activeConversationId,
     setActiveConversationId,
     sendMessage,
     startConversation,
     createChannel,
+    markConversationAsRead,
 
     notices,
     createNotice,
@@ -1907,7 +2008,7 @@ export const CRMProvider = ({ children }) => {
     updateUserProfile
   }), [
     expenses, tickets, events, computedBirthdays, computedAnniversaries,
-    conversations, activeConversationId, notices, leads, leadsFilter,
+    conversations, visibleConversations, totalUnreadMessagesCount, activeConversationId, notices, leads, leadsFilter,
     emergencyContacts, userSettings, wfhEmployees,
     computedWeeklyTimeLogs, darkMode
   ]);

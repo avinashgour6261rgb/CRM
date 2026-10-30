@@ -24,6 +24,7 @@ import {
   Key,
   Sun,
   Moon,
+  MessageSquare,
   LayoutDashboard
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -72,7 +73,7 @@ export const TopNavbar = () => {
     ? 'admin'
     : (currentUser?.systemRole === 'hr' || currentUser?.role?.toLowerCase().includes('hr') ? 'hr' : 'employee');
 
-  const { darkMode, toggleDarkMode, tickets, computedBirthdays, computedAnniversaries } = useCRM();
+  const { darkMode, toggleDarkMode, tickets, computedBirthdays, computedAnniversaries, totalUnreadMessagesCount = 0 } = useCRM();
   const theme = darkMode ? 'dark' : 'light';
   const { tasks, projects } = useWork();
 
@@ -308,6 +309,24 @@ export const TopNavbar = () => {
           title="Quick Overview & Module Switcher"
         >
           <LayoutDashboard size={18} />
+        </button>
+
+        {/* ── 💬 Team Chat / Messages Quick Launch Icon with Badge ── */}
+        <button
+          onClick={() => navigate('/messages')}
+          className={`w-8 h-8 rounded-md border-none flex items-center justify-center cursor-pointer transition-colors relative ${
+            location.pathname === '/messages'
+              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400'
+              : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Team Chat & Messages"
+        >
+          <MessageSquare size={18} />
+          {totalUnreadMessagesCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-extrabold rounded-full min-w-4 h-4 flex items-center justify-center px-1 border-2 border-white dark:border-slate-900 animate-pulse shadow-xs">
+              {totalUnreadMessagesCount > 99 ? '99+' : totalUnreadMessagesCount}
+            </span>
+          )}
         </button>
 
         {/* ── 🔔 Notification Bell Icon with Badge ── */}

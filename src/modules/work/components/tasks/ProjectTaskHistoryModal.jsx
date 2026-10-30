@@ -389,13 +389,13 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
               const badge = getActionBadge(item.action);
               const formattedDate = item.timestamp
                 ? new Date(item.timestamp).toLocaleString('en-US', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  })
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true
+                })
                 : 'Recent';
 
               return (
@@ -410,7 +410,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
                         {badge.label}
                       </span>
 
-                      <span className="text-[11.5px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-[1px] rounded border border-blue-200 dark:border-blue-800">
+                      <span className="text-[11.5px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800">
                         #{item.taskCode}
                       </span>
 
@@ -419,7 +419,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
                       </span>
 
                       {item.isPersonal && (
-                        <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-[1px] rounded border border-purple-200 dark:border-purple-800 font-bold">
+                        <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded border border-purple-200 dark:border-purple-800 font-bold">
                           🔒 Personal
                         </span>
                       )}

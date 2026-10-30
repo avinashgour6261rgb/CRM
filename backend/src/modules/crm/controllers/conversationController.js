@@ -129,6 +129,22 @@ exports.getConversations = async (req, res) => {
       convs = await Conversation.find().sort({ updatedAt: -1 });
     }
 
+    const userId = req.headers['x-user-id'] || req.user?.id;
+    if (userId) {
+      const uStr = String(userId).toLowerCase();
+      convs = convs.filter(c => {
+        if (c.type === 'channel') return true;
+        if (Array.isArray(c.participants) && c.participants.length > 0) {
+          return c.participants.some(p => String(p).toLowerCase() === uStr);
+        }
+        return (
+          String(c.participantId || '').toLowerCase() === uStr ||
+          String(c.participantCode || '').toLowerCase() === uStr ||
+          String(c.createdBy || '').toLowerCase() === uStr
+        );
+      });
+    }
+
     res.json({
       success: true,
       data: convs

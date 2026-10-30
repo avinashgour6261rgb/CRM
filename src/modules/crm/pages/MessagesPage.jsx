@@ -35,11 +35,18 @@ import { useHR } from '../../hr/context/HRContext';
 import { NewConversationModal } from '../components/messages/NewConversationModal';
 import { ChatMediaViewerModal } from '../components/messages/ChatMediaViewerModal';
 import { processFileForChat, downloadChatAttachment } from '../utils/chatMediaUtils';
+import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
 
 export const MessagesPage = () => {
-  const { conversations, activeConversationId, setActiveConversationId, sendMessage } = useCRM();
-  const { currentUser } = useHR();
+  const {
+    visibleConversations,
+    activeConversationId,
+    setActiveConversationId,
+    sendMessage,
+    markConversationAsRead
+  } = useCRM();
+  const { currentUser, employees } = useHR();
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'channels' | 'dms'
@@ -56,25 +63,40 @@ export const MessagesPage = () => {
   const inputRef = useRef(null);
 
   const activeConv = useMemo(() => {
-    return (conversations || []).find(c => c.id === activeConversationId) || conversations?.[0] || null;
-  }, [conversations, activeConversationId]);
+    return (visibleConversations || []).find(c => c.id === activeConversationId) || visibleConversations?.[0] || null;
+  }, [visibleConversations, activeConversationId]);
 
-  // Filter conversations by active tab and search query
+  // Auto-mark conversation as read when active or new message arrives
+  useEffect(() => {
+    if (activeConv?.id) {
+      markConversationAsRead(activeConv.id);
+    }
+  }, [activeConv?.id, activeConv?.messages?.length]);
+
+  // Filter conversations by active tab and search query with privacy resolution
   const filteredConversations = useMemo(() => {
     const q = searchContact.toLowerCase().trim();
-    return (conversations || []).filter(c => {
+    return (visibleConversations || []).filter(c => {
       // Tab filter
       if (activeTab === 'channels' && c.type !== 'channel') return false;
       if (activeTab === 'dms' && c.type === 'channel') return false;
 
       // Search filter
       if (!q) return true;
-      const title = (c.channelName || c.name || c.participantName || '').toLowerCase();
-      const role = (c.participantRole || c.description || '').toLowerCase();
+      let title = '';
+      let role = '';
+      if (c.type === 'channel') {
+        title = (c.channelName || c.name || '').toLowerCase();
+        role = (c.description || '').toLowerCase();
+      } else {
+        const partner = getDmPartner(c, currentUser, employees);
+        title = (partner?.name || c.participantName || '').toLowerCase();
+        role = (partner?.role || partner?.department || c.participantRole || '').toLowerCase();
+      }
       const lastMsg = (c.lastMessage || '').toLowerCase();
       return title.includes(q) || role.includes(q) || lastMsg.includes(q);
     });
-  }, [conversations, activeTab, searchContact]);
+  }, [visibleConversations, activeTab, searchContact, currentUser, employees]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -225,6 +247,10 @@ export const MessagesPage = () => {
               filteredConversations.map(conv => {
                 const isSelected = activeConv?.id === conv.id;
                 const isChannel = conv.type === 'channel';
+                const partner = !isChannel ? getDmPartner(conv, currentUser, employees) : null;
+                const displayName = isChannel ? (conv.channelName || conv.name) : (partner?.name || conv.participantName || 'Colleague');
+                const displayAvatar = isChannel ? null : (partner?.avatar || conv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100');
+                const unreadCount = getUnreadCountForUser(conv, currentUser);
 
                 return (
                   <div
@@ -249,8 +275,8 @@ export const MessagesPage = () => {
                       ) : (
                         <>
                           <img
-                            src={conv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                            alt={conv.participantName}
+                            src={displayAvatar}
+                            alt={displayName}
                             className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                           />
                           <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
@@ -262,17 +288,24 @@ export const MessagesPage = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className={`text-[13px] truncate ${isSelected ? 'font-extrabold text-blue-900 dark:text-sky-200' : 'font-bold text-slate-800 dark:text-slate-100'}`}>
-                          {isChannel ? conv.channelName || conv.name : conv.participantName}
+                          {displayName}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-1">
                           {conv.lastMessageTime || ''}
                         </span>
                       </div>
 
-                      <div className={`text-[11.5px] truncate mt-0.5 ${
-                        isSelected ? 'text-blue-700 dark:text-sky-300 font-medium' : 'text-slate-500 dark:text-slate-400'
-                      }`}>
-                        {conv.lastMessage || 'No messages yet'}
+                      <div className="flex items-center justify-between mt-0.5 gap-1.5">
+                        <div className={`text-[11.5px] truncate flex-1 ${
+                          isSelected ? 'text-blue-700 dark:text-sky-300 font-medium' : 'text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {conv.lastMessage || 'No messages yet'}
+                        </div>
+                        {unreadCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-rose-600 text-white font-extrabold text-[10px] min-w-[18px] text-center shadow-xs shrink-0 animate-pulse">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -290,42 +323,49 @@ export const MessagesPage = () => {
               <MessageSquare size={36} className="text-slate-300 dark:text-slate-600" />
               <div className="text-sm font-semibold">Select a conversation or channel to chat</div>
             </div>
-          ) : (
-            <>
-              {/* Chat Header */}
-              <div className="p-3 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
-                <div className="flex items-center gap-3 min-w-0">
-                  {activeConv.type === 'channel' ? (
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
-                      <Hash size={20} />
-                    </div>
-                  ) : (
-                    <div className="relative shrink-0">
-                      <img
-                        src={activeConv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={activeConv.participantName}
-                        className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-                      />
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
-                    </div>
-                  )}
+          ) : (() => {
+            const activeIsChannel = activeConv.type === 'channel';
+            const activePartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
+            const headerTitle = activeIsChannel ? (activeConv.channelName || activeConv.name) : (activePartner?.name || activeConv.participantName);
+            const headerAvatar = activePartner?.avatar || activeConv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+            const headerSubtitle = activeIsChannel
+              ? (activeConv.description || 'Workspace Group Thread')
+              : `${activePartner?.role || activeConv.participantRole || 'Team Member'} • ${activePartner?.department || activeConv.participantDepartment || 'General'}`;
 
-                  <div className="min-w-0">
-                    <div className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
-                      <span>{activeConv.type === 'channel' ? activeConv.channelName || activeConv.name : activeConv.participantName}</span>
-                      {activeConv.type === 'channel' && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-sky-300">
-                          Channel
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
-                      {activeConv.type === 'channel'
-                        ? activeConv.description || 'Workspace Group Thread'
-                        : `${activeConv.participantRole || 'Team Member'} • ${activeConv.participantDepartment || 'General'}`}
+            return (
+              <>
+                {/* Chat Header */}
+                <div className="p-3 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {activeIsChannel ? (
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-sm">
+                        <Hash size={20} />
+                      </div>
+                    ) : (
+                      <div className="relative shrink-0">
+                        <img
+                          src={headerAvatar}
+                          alt={headerTitle}
+                          className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                        />
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
+                        <span>{headerTitle}</span>
+                        {activeIsChannel && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-sky-300">
+                            Channel
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
+                        {headerSubtitle}
+                      </div>
                     </div>
                   </div>
-                </div>
 
                 <div className="flex items-center gap-2">
                   <button
@@ -361,7 +401,7 @@ export const MessagesPage = () => {
                         {!outgoing && (
                           <div className="flex items-center gap-1.5 mb-1 ml-1">
                             <span className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300">
-                              {msg.senderName || activeConv.participantName}
+                              {msg.senderName || activePartner?.name || activeConv.participantName}
                             </span>
                             {msg.senderRole && (
                               <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
@@ -568,7 +608,8 @@ export const MessagesPage = () => {
                 </button>
               </form>
             </>
-          )}
+          );
+        })()}
         </div>
       </div>
 

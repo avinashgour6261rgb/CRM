@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
+import { useCRM } from '../../context/CRMContext';
 import { canAccessModule, isLeaderOrAbove, canManageProjects } from '../../utils/permissionUtils';
 import { getCompanySettings } from '../../services/companySettingsService';
 import { EmployeeDirectoryModal } from '../../../modules/hr/components/employees/EmployeeDirectoryModal';
@@ -37,6 +38,7 @@ export const Sidebar = () => {
   const { currentUser: authUser } = useAuth();
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
+  const { totalUnreadMessagesCount = 0 } = useCRM();
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
@@ -459,13 +461,24 @@ export const Sidebar = () => {
           }
         >
           <div className="flex items-center gap-3">
-            <MessageSquare size={18} className={location.pathname === '/messages' ? 'text-blue-400' : 'text-slate-400'} />
+            <div className="relative flex items-center justify-center">
+              <MessageSquare size={18} className={location.pathname === '/messages' ? 'text-blue-400' : 'text-slate-400'} />
+              {totalUnreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-[#101b33] animate-pulse" />
+              )}
+            </div>
             {!collapsed && <span>Messages</span>}
           </div>
           {!collapsed && (
-            <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
-              Chat
-            </span>
+            totalUnreadMessagesCount > 0 ? (
+              <span className="text-[10px] py-0.5 px-2 rounded-full bg-rose-600 text-white font-extrabold shadow-sm animate-pulse min-w-[20px] text-center">
+                {totalUnreadMessagesCount > 99 ? '99+' : totalUnreadMessagesCount}
+              </span>
+            ) : (
+              <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                Chat
+              </span>
+            )
           )}
         </NavLink>
 

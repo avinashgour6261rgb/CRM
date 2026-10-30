@@ -56,9 +56,8 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
       <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className={`p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between rounded-t-2xl ${
-          isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
-        }`}>
+        <div className={`p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between rounded-t-2xl ${isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
+          }`}>
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold border border-blue-200 dark:border-blue-800">
@@ -307,11 +306,10 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
                       <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
                         👤 {t.assignedToName || 'Team'}
                       </span>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                        t.status === 'completed'
-                          ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400'
-                          : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
-                      }`}>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${t.status === 'completed'
+                        ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                        : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                        }`}>
                         {t.status}
                       </span>
                     </div>
