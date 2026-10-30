@@ -174,16 +174,16 @@ export const EmployeePermissionsTab = () => {
     <div className="flex flex-col gap-5 py-4">
       
       {/* Header Info */}
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border-[1.5px] border-blue-200">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border-[1.5px] border-blue-200 dark:border-blue-900/50">
             <ShieldCheck size={22} />
           </div>
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 m-0">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0">
               Employee Access & Permission Management
             </h2>
-            <p className="text-[12.5px] text-slate-500 mt-0.5 m-0">
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-0.5 m-0">
               Admin control: Decide which modules each employee can access and toggle their data visibility.
             </p>
           </div>
@@ -194,7 +194,7 @@ export const EmployeePermissionsTab = () => {
           <button
             type="button"
             onClick={handleResetToRoleDefault}
-            className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
           >
             <RotateCcw size={13} />
             <span>Reset to Default</span>
@@ -216,15 +216,15 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* Employee Selector Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3.5">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:px-5 flex items-center justify-between flex-wrap gap-3.5">
         <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-          <label className="text-[13px] font-bold text-slate-700 whitespace-nowrap">
+          <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
             Select Employee:
           </label>
           <select
             value={selectedEmpId}
             onChange={(e) => setSelectedEmpId(e.target.value)}
-            className="px-3 py-2 rounded-lg border-[1.5px] border-slate-300 bg-white text-[13px] text-slate-900 font-semibold cursor-pointer flex-1 max-w-[360px] outline-none focus:border-blue-500 transition-colors"
+            className="px-3 py-2 rounded-lg border-[1.5px] border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 font-semibold cursor-pointer flex-1 max-w-[360px] outline-none focus:border-blue-500 transition-colors"
           >
             {(employees || []).map(emp => (
               <option key={emp._id} value={emp._id}>
@@ -236,18 +236,18 @@ export const EmployeePermissionsTab = () => {
 
         {/* Selected Employee Quick Card */}
         {selectedEmp && (
-          <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/60 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/60">
             <img
               src={selectedEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
               alt={selectedEmp.name}
               className="w-8 h-8 rounded-full object-cover"
             />
             <div>
-              <div className="text-[12.5px] font-bold text-slate-900">
+              <div className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100">
                 {selectedEmp.name}
               </div>
-              <div className="text-[11px] text-slate-500">
-                Role: <span className="font-bold text-blue-600">{selectedEmp.role}</span> • ID: #{selectedEmp.employeeCode || 'EMP-001'}
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                Role: <span className="font-bold text-blue-600 dark:text-blue-400">{selectedEmp.role}</span> • ID: #{selectedEmp.employeeCode || 'EMP-001'}
               </div>
             </div>
           </div>
@@ -257,8 +257,8 @@ export const EmployeePermissionsTab = () => {
       {/* ── MASTER ADMIN AUTHORITY DELEGATION CARD ── */}
       <div className={`rounded-2xl p-4 sm:px-5 flex items-center justify-between transition-all flex-wrap gap-3.5 ${
         isDelegatedAdmin
-          ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-[1.5px] border-blue-500 shadow-md shadow-blue-500/10'
-          : 'bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 shadow-xs'
+          ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 border-[1.5px] border-blue-500 dark:border-blue-600 shadow-md shadow-blue-500/10'
+          : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-850 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
       }`}>
         <div className="flex items-center gap-3.5">
           <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white shrink-0 ${
@@ -268,7 +268,7 @@ export const EmployeePermissionsTab = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-extrabold ${isDelegatedAdmin ? 'text-blue-900' : 'text-slate-800'}`}>
+              <span className={`text-sm font-extrabold ${isDelegatedAdmin ? 'text-blue-900 dark:text-blue-200' : 'text-slate-800 dark:text-slate-100'}`}>
                 Full Admin Authority Delegation
               </span>
               {isDelegatedAdmin && (
@@ -277,7 +277,7 @@ export const EmployeePermissionsTab = () => {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-1 m-0">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 m-0">
               Grant this user identical superpowers to Master Admin (all employees, reports, documentation, approvals, and system controls).
             </p>
           </div>
@@ -303,8 +303,8 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* ── MODULE TOGGLE PERMISSIONS MATRIX ── */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="px-[18px] py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs font-bold text-slate-600">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+        <div className="px-[18px] py-3 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
           <span>MODULE & FEATURE</span>
           <span>ACCESS PERMISSION</span>
         </div>
@@ -319,8 +319,8 @@ export const EmployeePermissionsTab = () => {
               <div
                 key={mod.id}
                 className={`flex items-center justify-between px-[18px] py-3.5 transition-colors ${
-                  index < MODULE_LIST.length - 1 ? 'border-b border-slate-100' : ''
-                } ${adminHasMod ? (isEnabled ? 'bg-white' : 'bg-neutral-50/50') : 'bg-rose-50/40'} ${
+                  index < MODULE_LIST.length - 1 ? 'border-b border-slate-100 dark:border-slate-800/60' : ''
+                } ${adminHasMod ? (isEnabled ? 'bg-white dark:bg-slate-900' : 'bg-neutral-50/50 dark:bg-slate-950/40') : 'bg-rose-50/40 dark:bg-rose-950/20'} ${
                   adminHasMod ? 'opacity-100' : 'opacity-70'
                 }`}
               >
@@ -328,23 +328,23 @@ export const EmployeePermissionsTab = () => {
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                     adminHasMod
-                      ? (isEnabled ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400')
-                      : 'bg-red-100 text-red-600'
+                      ? (isEnabled ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500')
+                      : 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400'
                   }`}>
                     {adminHasMod ? <Icon size={18} /> : <Lock size={16} />}
                   </div>
                   <div>
                     <div className={`text-[13.5px] font-bold flex items-center gap-1.5 ${
-                      adminHasMod ? (isEnabled ? 'text-slate-900' : 'text-slate-500') : 'text-red-600'
+                      adminHasMod ? (isEnabled ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400') : 'text-red-600 dark:text-red-400'
                     }`}>
                       {mod.label}
                       {!adminHasMod && (
-                        <span className="text-[10px] bg-red-200 text-red-600 rounded px-1.5 py-0.5">
+                        <span className="text-[10px] bg-red-200 dark:bg-red-900/60 text-red-600 dark:text-red-300 rounded px-1.5 py-0.5">
                           No Access
                         </span>
                       )}
                     </div>
-                    <div className="text-[11.5px] text-slate-400 mt-0.5">
+                    <div className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">
                       {adminHasMod ? mod.desc : 'You lack access to this module — cannot grant it'}
                     </div>
                   </div>
@@ -353,7 +353,7 @@ export const EmployeePermissionsTab = () => {
                 {/* Right: Toggle Switch */}
                 <div className="flex items-center gap-2.5">
                   <span className={`text-[11.5px] font-bold min-w-[45px] text-right ${
-                    !adminHasMod ? 'text-red-600' : (isEnabled ? 'text-green-600' : 'text-slate-400')
+                    !adminHasMod ? 'text-red-600 dark:text-red-400' : (isEnabled ? 'text-green-600 dark:text-green-400' : 'text-slate-400 dark:text-slate-500')
                   }`}>
                     {!adminHasMod ? 'LOCKED' : (isEnabled ? 'ON' : 'OFF')}
                   </span>
@@ -367,7 +367,7 @@ export const EmployeePermissionsTab = () => {
                       className="sr-only"
                     />
                     <span className={`block w-full h-full rounded-full transition-colors ${
-                      !adminHasMod ? 'bg-slate-200 cursor-not-allowed' : (isEnabled ? 'bg-green-500 cursor-pointer' : 'bg-slate-300 cursor-pointer')
+                      !adminHasMod ? 'bg-slate-200 dark:bg-slate-800 cursor-not-allowed' : (isEnabled ? 'bg-green-500 cursor-pointer' : 'bg-slate-300 dark:bg-slate-700 cursor-pointer')
                     }`}>
                       <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
                         isEnabled ? 'left-[22px]' : 'left-[3px]'
@@ -382,16 +382,16 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* ── ADDITIONAL DATA SCOPE CONTROLS ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:px-5 flex flex-col gap-3">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 sm:px-5 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Eye size={16} className="text-sky-600" />
-          <h3 className="text-sm font-bold text-slate-900 m-0">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 m-0">
             Data Visibility Scope (Item 17)
           </h3>
         </div>
-        <p className="text-xs text-slate-500 m-0">
+        <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
           By default, employees only see their own data. Toggle below to grant wider company visibility.
-          {' '}<span className="text-red-600 font-semibold">🔒 Locked toggles</span>{' '}mean you do not have that permission yourself and cannot grant it.
+          {' '}<span className="text-red-600 dark:text-red-400 font-semibold">🔒 Locked toggles</span>{' '}mean you do not have that permission yourself and cannot grant it.
         </p>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3 mt-1.5">
@@ -411,15 +411,15 @@ export const EmployeePermissionsTab = () => {
               <div
                 key={key}
                 className={`p-3 px-3.5 rounded-lg flex items-center justify-between gap-2.5 transition-colors ${
-                  adminHas ? 'bg-slate-50 border border-slate-200 opacity-100' : 'bg-red-50 border border-red-200 opacity-75'
+                  adminHas ? 'bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 opacity-100' : 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 opacity-75'
                 }`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-bold text-slate-800 flex items-center gap-1">
+                  <div className="text-[12.5px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                     {emoji} {label}
                     {!adminHas && <Lock size={11} className="text-red-600 shrink-0" />}
                   </div>
-                  <div className={`text-[11px] mt-0.5 ${adminHas ? 'text-slate-500' : 'text-red-600'}`}>
+                  <div className={`text-[11px] mt-0.5 ${adminHas ? 'text-slate-500 dark:text-slate-400' : 'text-red-600 dark:text-red-400'}`}>
                     {!adminHas ? 'You lack this permission — cannot grant' : (isEnabled ? onDesc : offDesc)}
                   </div>
                 </div>
@@ -432,7 +432,7 @@ export const EmployeePermissionsTab = () => {
                     className="sr-only"
                   />
                   <span className={`block w-full h-full rounded-full transition-colors ${
-                    !adminHas ? 'bg-slate-200' : isEnabled ? 'bg-sky-600' : 'bg-slate-300'
+                    !adminHas ? 'bg-slate-200 dark:bg-slate-800' : isEnabled ? 'bg-sky-600' : 'bg-slate-300 dark:bg-slate-700'
                   }`}>
                     <span className={`absolute top-[3px] h-3.5 w-3.5 bg-white rounded-full transition-all shadow-xs ${
                       isEnabled ? 'left-[20px]' : 'left-[3px]'

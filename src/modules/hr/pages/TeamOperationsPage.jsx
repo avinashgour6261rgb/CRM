@@ -580,7 +580,7 @@ export const TeamOperationsPage = () => {
 
   if (!canAccessLiveOps) {
     return (
-      <div className="p-10 text-center bg-white rounded-xl border border-slate-200 mt-5">
+      <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 mt-5">
         <Shield size={40} className="mx-auto mb-3 text-red-600" />
         <h2 className="text-lg font-extrabold text-slate-900">
           Access Restricted
@@ -595,7 +595,7 @@ export const TeamOperationsPage = () => {
   return (
     <div className="flex flex-col gap-[18px] pb-[30px]">
       {/* ── HEADER BANNER ── */}
-      <div className="bg-white rounded-[10px] border border-slate-200 px-4 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm min-h-[68px] box-border shrink-0">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
             <Zap size={17} className="fill-orange-600 text-orange-600" />
@@ -622,7 +622,7 @@ export const TeamOperationsPage = () => {
             setSyncTick(t => t + 1);
             addToast('Refreshed live shift data', 'info');
           }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-all"
+          className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all"
         >
           <RefreshCw size={13} />
           <span>Sync Now</span>
@@ -648,7 +648,7 @@ export const TeamOperationsPage = () => {
             {pendingProfileRequests.map(req => (
               <div
                 key={req.id}
-                className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-blue-100 gap-3 flex-wrap"
+                className="flex items-center justify-between bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-blue-100 dark:border-blue-900/40 gap-3 flex-wrap"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -671,7 +671,7 @@ export const TeamOperationsPage = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleRejectProfileRequest(req)}
-                    className="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-500 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50"
+                    className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
                   >
                     Decline
                   </button>
@@ -690,7 +690,7 @@ export const TeamOperationsPage = () => {
 
       {/* ── KPI STATS CARDS ── */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-        <div className="bg-white rounded-[10px] border border-slate-200 px-4 py-3.5 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>Total Team</span>
             <Users size={16} className="text-sky-600" />
@@ -729,7 +729,7 @@ export const TeamOperationsPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[10px] border border-slate-200 px-4 py-3.5 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>Shift Ended</span>
             <LogOut size={16} className="text-slate-500" />
@@ -757,7 +757,7 @@ export const TeamOperationsPage = () => {
       </div>
 
       {/* ── FILTER & SEARCH STRIP ── */}
-      <div className="bg-white rounded-[10px] border border-slate-200 px-4 py-3 flex items-center justify-between flex-wrap gap-3 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-3 shadow-sm">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 flex-wrap">
           {[
@@ -800,7 +800,7 @@ export const TeamOperationsPage = () => {
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-md border border-slate-300 bg-white text-xs text-slate-700 font-semibold outline-none cursor-pointer"
+            className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer"
           >
             {departments.map(dept => (
               <option key={dept} value={dept}>
@@ -812,7 +812,7 @@ export const TeamOperationsPage = () => {
       </div>
 
       {/* ── LIVE OPERATIONS TABLE ── */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
@@ -845,7 +845,7 @@ export const TeamOperationsPage = () => {
                     <tr
                       key={emp._id}
                       className={`border-b border-slate-100 transition-colors ${
-                        item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20' : 'bg-emerald-50/20') : 'bg-white'
+                        item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20 dark:bg-amber-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20') : 'bg-white dark:bg-slate-900'
                       }`}
                     >
                       {/* Employee Info */}
@@ -1061,7 +1061,7 @@ export const TeamOperationsPage = () => {
       {/* ── MODAL: EMERGENCY CLOCK IN ── */}
       {clockInModalTarget && (
         <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[3px] flex items-center justify-center z-[1000] p-4">
-          <div className="bg-white rounded-xl border border-slate-200 max-w-[460px] w-full p-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-green-100 text-green-700 flex items-center justify-center">
@@ -1114,7 +1114,7 @@ export const TeamOperationsPage = () => {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setClockInModalTarget(null)}
-                className="px-3.5 py-[7px] rounded-md border border-slate-300 bg-white text-slate-600 text-xs font-semibold cursor-pointer hover:bg-slate-50"
+                className="px-3.5 py-[7px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
               >
                 Cancel
               </button>
@@ -1133,7 +1133,7 @@ export const TeamOperationsPage = () => {
       {/* ── MODAL: EMERGENCY CLOCK OUT ── */}
       {clockOutModalTarget && (
         <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[3px] flex items-center justify-center z-[1000] p-4">
-          <div className="bg-white rounded-xl border border-slate-200 max-w-[460px] w-full p-5 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
@@ -1186,7 +1186,7 @@ export const TeamOperationsPage = () => {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setClockOutModalTarget(null)}
-                className="px-3.5 py-[7px] rounded-md border border-slate-300 bg-white text-slate-600 text-xs font-semibold cursor-pointer hover:bg-slate-50"
+                className="px-3.5 py-[7px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
               >
                 Cancel
               </button>

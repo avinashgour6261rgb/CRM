@@ -224,12 +224,12 @@ export const ProfileTab = () => {
       
       {/* ── Profile Picture Upload Area (Matching Screenshot 6 & 9) ── */}
       <div>
-        <label className="block text-[13px] font-semibold text-slate-600 mb-2">
+        <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-2">
           Profile Picture <span className="text-slate-400 text-xs">ⓘ</span>
         </label>
         
         <div className="flex items-center gap-5 flex-wrap">
-          <div className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center overflow-hidden relative">
+          <div className="w-[100px] h-[100px] rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col items-center justify-center overflow-hidden relative">
             {formData.avatar ? (
               <img
                 src={formData.avatar}
@@ -244,7 +244,7 @@ export const ProfileTab = () => {
             )}
           </div>
 
-          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-300 text-[13px] font-semibold text-slate-700 cursor-pointer shadow-xs hover:bg-slate-50 transition-colors">
+          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-[13px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
             <Camera size={16} className="text-blue-600" />
             Upload New Photo
             <input
@@ -261,14 +261,14 @@ export const ProfileTab = () => {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Your Name */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Your Name *
           </label>
           <div className="flex gap-1.5">
             <select
               value={formData.salutation}
               onChange={e => handleChange('salutation', e.target.value)}
-              className="w-[75px] px-2 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
+              className="w-[75px] px-2 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
             >
               <option value="---">---</option>
               <option value="Mr.">Mr.</option>
@@ -281,14 +281,14 @@ export const ProfileTab = () => {
               required
               value={formData.name}
               onChange={e => handleChange('name', e.target.value)}
-              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
             />
           </div>
         </div>
 
         {/* Your Email */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Your Email *
           </label>
           <input
@@ -296,13 +296,13 @@ export const ProfileTab = () => {
             required
             value={formData.email}
             onChange={e => handleChange('email', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* Your Password */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Your Password
           </label>
           <div className="relative flex items-center">
@@ -311,7 +311,7 @@ export const ProfileTab = () => {
               placeholder="Must have at least 8 characters"
               value={formData.password}
               onChange={e => handleChange('password', e.target.value)}
-              className="w-full py-[9px] pl-3 pr-[70px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
+              className="w-full py-[9px] pl-3 pr-[70px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
             />
             <div className="absolute right-2 flex items-center gap-1.5">
               <button
@@ -340,7 +340,7 @@ export const ProfileTab = () => {
         {/* Designation / Company Role */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[13px] font-semibold text-slate-600">
+            <label className="text-[13px] font-semibold text-slate-600 dark:text-slate-300">
               Designation / Role *
             </label>
             {canEditRole ? (
@@ -365,7 +365,7 @@ export const ProfileTab = () => {
                 value={formData.role}
                 onChange={e => handleChange('role', e.target.value)}
                 placeholder="e.g. Senior Software Engineer / Team Leader"
-                className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-blue-500 text-[13px] outline-none font-semibold bg-white focus:border-blue-600 transition-colors"
+                className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-blue-500 dark:border-blue-600 text-[13px] outline-none font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600 transition-colors"
               />
               <datalist id="settings-profile-roles">
                 {availableRoles
@@ -386,7 +386,7 @@ export const ProfileTab = () => {
               type="text"
               disabled
               value={formData.role}
-              className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-slate-100 text-slate-500 font-semibold"
+              className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold"
             />
           )}
         </div>
@@ -396,11 +396,11 @@ export const ProfileTab = () => {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Receive email notifications? */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-2.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-2.5">
             Receive email notifications?
           </label>
           <div className="flex gap-6 items-center">
-            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
               <input
                 type="radio"
                 name="emailNotifications"
@@ -411,7 +411,7 @@ export const ProfileTab = () => {
               />
               Enable
             </label>
-            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
               <input
                 type="radio"
                 name="emailNotifications"
@@ -427,11 +427,11 @@ export const ProfileTab = () => {
 
         {/* Enable Google Calendar */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-2.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-2.5">
             Enable Google Calendar
           </label>
           <div className="flex gap-6 items-center">
-            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
               <input
                 type="radio"
                 name="googleCalendar"
@@ -442,7 +442,7 @@ export const ProfileTab = () => {
               />
               Yes
             </label>
-            <label className="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <label className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-slate-300 cursor-pointer">
               <input
                 type="radio"
                 name="googleCalendar"
@@ -458,7 +458,7 @@ export const ProfileTab = () => {
 
         {/* Country */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Country
           </label>
           <select
@@ -468,7 +468,7 @@ export const ProfileTab = () => {
               handleChange('country', e.target.value);
               if (selected) handleChange('countryCode', selected.dial);
             }}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           >
             {COUNTRIES.map(c => (
               <option key={c.code} value={c.name}>
@@ -483,11 +483,11 @@ export const ProfileTab = () => {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Mobile */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Mobile
           </label>
           <div className="flex gap-1.5">
-            <div className="flex items-center gap-1 px-2 rounded-lg border border-slate-300 bg-slate-50 text-[13px] font-semibold">
+            <div className="flex items-center gap-1 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100">
               <span>{selectedCountryObj.flag}</span>
               <span>{formData.countryCode}</span>
             </div>
@@ -496,20 +496,20 @@ export const ProfileTab = () => {
               placeholder="e.g. 1234567890"
               value={formData.mobile}
               onChange={e => handleChange('mobile', e.target.value)}
-              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
             />
           </div>
         </div>
 
         {/* Change Language */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Change Language
           </label>
           <select
             value={formData.language}
             onChange={e => handleChange('language', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           >
             {LANGUAGES.map(l => (
               <option key={l.code} value={l.name}>
@@ -521,13 +521,13 @@ export const ProfileTab = () => {
 
         {/* Gender */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Gender
           </label>
           <select
             value={formData.gender}
             onChange={e => handleChange('gender', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           >
             <option value="Male">Male</option>
             <option value="Female">Female</option>
@@ -540,20 +540,20 @@ export const ProfileTab = () => {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
         {/* Date of Birth */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             🎂 Date of Birth (Auto-generates Calendar Birthday Event)
           </label>
           <input
             type="date"
             value={formData.dob}
             onChange={e => handleChange('dob', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* City / Base Location */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             City / Base Location
           </label>
           <input
@@ -561,19 +561,19 @@ export const ProfileTab = () => {
             placeholder="e.g. Indore, Madhya Pradesh"
             value={formData.city}
             onChange={e => handleChange('city', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-slate-300 text-[13px] outline-none bg-white text-slate-900 focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border-[1.5px] border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
           />
         </div>
 
         {/* Marital Status */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
             Marital Status
           </label>
           <select
             value={formData.maritalStatus}
             onChange={e => handleChange('maritalStatus', e.target.value)}
-            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] bg-white outline-none focus:border-blue-500 transition-colors"
+            className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-colors"
           >
             <option value="Single">Single</option>
             <option value="Married">Married</option>
@@ -585,7 +585,7 @@ export const ProfileTab = () => {
 
       {/* ── Row 5: Your Address ── */}
       <div>
-        <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+        <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
           Your Address
         </label>
         <textarea
@@ -593,20 +593,20 @@ export const ProfileTab = () => {
           placeholder="e.g. 102, Scheme 54, Vijay Nagar, Indore, Madhya Pradesh 452010"
           value={formData.address}
           onChange={e => handleChange('address', e.target.value)}
-          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-[13px] font-sans outline-none resize-y focus:border-blue-500 transition-colors"
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] font-sans outline-none resize-y bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
         />
       </div>
 
       {/* ── Row 6: About ── */}
       <div>
-        <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
+        <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
           About
         </label>
         <textarea
           rows={3}
           value={formData.about}
           onChange={e => handleChange('about', e.target.value)}
-          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-[13px] font-sans outline-none resize-y focus:border-blue-500 transition-colors"
+          className="w-full px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] font-sans outline-none resize-y bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
         />
       </div>
 

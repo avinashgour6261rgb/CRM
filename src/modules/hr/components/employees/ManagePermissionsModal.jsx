@@ -191,7 +191,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
               <button
                 type="button"
                 onClick={() => setIsChangePassModalOpen(true)}
-                className="inline-flex items-center gap-1 py-1 px-2.5 rounded-md bg-white text-green-800 border border-green-300 text-[11.5px] font-bold cursor-pointer hover:bg-green-50"
+                className="inline-flex items-center gap-1 py-1 px-2.5 rounded-md bg-white dark:bg-slate-800 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/40"
               >
                 <Lock size={12} />
                 <span>Custom Reset</span>
@@ -200,7 +200,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           </div>
 
           {generatedPass && (
-            <div className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-green-300 text-xs mt-1">
+            <div className="flex items-center justify-between py-2 px-3 bg-white dark:bg-slate-800 rounded-lg border border-green-300 dark:border-green-800 text-xs mt-1">
               <div>
                 <span className="text-green-800 font-semibold">
                   🎉 Active Temporary Password for {employee.name}:
@@ -238,7 +238,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
               <div
                 key={item.key}
                 onClick={() => handleToggle(item.key)}
-                className={`flex items-center justify-between p-3 px-3.5 rounded-xl transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50/70' : 'border-slate-200 bg-white'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`flex items-center justify-between p-3 px-3.5 rounded-xl transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
               >
                 <div className="flex items-start gap-2.5">
                   <span className="text-lg leading-none">{item.icon}</span>
@@ -266,7 +266,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           <button
             type="button"
             onClick={onClose}
-            className="py-2 px-4 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold cursor-pointer hover:bg-slate-50"
+            className="py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             Cancel
           </button>

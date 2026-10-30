@@ -59,7 +59,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-5">
-      <div className="bg-white rounded-2xl w-full max-w-[520px] shadow-[0_20px_40px_rgba(0,0,0,0.2)] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-[0_20px_40px_rgba(0,0,0,0.2)] border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Modal Header */}
         <div className="py-[18px] px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <h3 className="text-base font-extrabold text-slate-900 m-0">
@@ -82,7 +82,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
             <select
               value={selectedEmployee}
               onChange={e => setSelectedEmployee(e.target.value)}
-              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 outline-none bg-white"
+              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800"
             >
               {employees.map(emp => (
                 <option key={emp.employeeCode} value={emp.employeeCode}>
@@ -99,7 +99,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
             <select
               value={docType}
               onChange={e => setDocType(e.target.value)}
-              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 outline-none bg-white"
+              className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800"
             >
               <option value="Aadhaar Card">Aadhaar Card (National ID)</option>
               <option value="PAN Card">PAN Card (Tax Identification)</option>
@@ -155,7 +155,7 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
             <button
               type="button"
               onClick={onClose}
-              className="py-[9px] px-4 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold cursor-pointer hover:bg-slate-50"
+              className="py-[9px] px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

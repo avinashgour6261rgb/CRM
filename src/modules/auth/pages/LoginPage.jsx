@@ -165,7 +165,7 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0b132b] bg-[radial-gradient(at_0%_0%,rgba(37,99,235,0.25)_0px,transparent_50%),radial-gradient(at_100%_100%,rgba(124,58,237,0.2)_0px,transparent_50%)] flex items-center justify-center p-4 sm:p-6 font-sans">
-      <div className="w-full max-w-[1120px] bg-white rounded-3xl shadow-2xl ring-1 ring-white/10 grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] overflow-hidden">
+      <div className="w-full max-w-[1120px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl ring-1 ring-white/10 dark:ring-slate-800 grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] overflow-hidden">
         {/* Left Side: Enterprise Branding & 1-Click Demo Accounts */}
         <div className="bg-slate-900 p-8 sm:p-10 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/10">
           <div>
@@ -298,7 +298,7 @@ export const LoginPage = () => {
                 type="button"
                 onClick={() => handleQuickLogin(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123', 'Administrator')}
                 disabled={loading}
-                className="p-2 px-1.5 bg-white border border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs font-bold text-slate-900">👑 Admin</span>
                 <span className="text-[10px] text-slate-500">admin123</span>
@@ -308,7 +308,7 @@ export const LoginPage = () => {
                 type="button"
                 onClick={() => handleQuickLogin('janvi@inforag.com', 'emp123', 'Janvi Hiwse')}
                 disabled={loading}
-                className="p-2 px-1.5 bg-white border border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs font-bold text-slate-900">💼 Janvi (HR)</span>
                 <span className="text-[10px] text-slate-500">emp123</span>
@@ -318,7 +318,7 @@ export const LoginPage = () => {
                 type="button"
                 onClick={() => handleQuickLogin('sandeep@inforag.com', 'emp123', 'Sandeep Meena')}
                 disabled={loading}
-                className="p-2 px-1.5 bg-white border border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs font-bold text-slate-900">👤 Sandeep</span>
                 <span className="text-[10px] text-slate-500">emp123</span>
@@ -346,7 +346,7 @@ export const LoginPage = () => {
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="e.g. sandeep@inforag.com or EMP-002"
                   required
-                  className="w-full py-3 pr-3.5 pl-[42px] rounded-[10px] border border-slate-200 bg-slate-50 text-slate-900 text-sm outline-none focus:border-blue-600 focus:bg-white transition-all"
+                  className="w-full py-3 pr-3.5 pl-[42px] rounded-[10px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-800 transition-all"
                 />
               </div>
             </div>
@@ -400,7 +400,7 @@ export const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
-                  className="w-full py-3 px-[42px] rounded-[10px] border border-slate-200 bg-slate-50 text-slate-900 text-sm outline-none focus:border-blue-600 focus:bg-white transition-all"
+                  className="w-full py-3 px-[42px] rounded-[10px] border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-800 transition-all"
                 />
                 <button
                   type="button"

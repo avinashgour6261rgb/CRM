@@ -116,7 +116,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-5">
-      <div className="bg-white rounded-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
         {/* Modal Header */}
         <div className="py-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
@@ -210,7 +210,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                     setSelectedRole(e.target.value);
                     setCustomRoleTitle('');
                   }}
-                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white"
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
                   <option value="">-- Choose Role Preset --</option>
                   <optgroup label="System Roles">
@@ -256,7 +256,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                 <select
                   value={selectedDepartment}
                   onChange={e => setSelectedDepartment(e.target.value)}
-                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white"
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
                   <option value="Engineering">Engineering</option>
                   <option value="Product Design">Product Design</option>
@@ -275,7 +275,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                   type="date"
                   value={effectiveDate}
                   onChange={e => setEffectiveDate(e.target.value)}
-                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white"
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -288,7 +288,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
               <select
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none bg-white"
+                className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="Merit-based Performance & Leadership">Merit-based Performance & Leadership</option>
                 <option value="Annual Performance Review & Seniority">Annual Performance Review & Seniority</option>
@@ -334,7 +334,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="py-[9px] px-4 rounded-lg border border-slate-300 bg-white text-slate-600 text-[13px] font-semibold cursor-pointer hover:bg-slate-50"
+                  className="py-[9px] px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
@@ -352,7 +352,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
         ) : (
           /* Official Promotion Letter Preview */
           <div className="py-7 px-9 flex flex-col gap-4">
-            <div className="border-2 border-blue-600 rounded-xl py-6 px-[30px] bg-white shadow-sm">
+            <div className="border-2 border-blue-600 dark:border-blue-500 rounded-xl py-6 px-[30px] bg-white dark:bg-slate-900 shadow-sm">
               {/* Header */}
               <div className="flex justify-between border-b-2 border-blue-600 pb-3.5 mb-[18px]">
                 <div>
@@ -412,7 +412,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(false)}
-                className="py-2 px-3.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50"
+                className="py-2 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 ← Back to Config
               </button>

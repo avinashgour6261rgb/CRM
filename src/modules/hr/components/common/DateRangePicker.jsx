@@ -42,7 +42,7 @@ export const DateRangePicker = () => {
       </div>
 
       {isOpen && (
-        <div className="absolute top-[42px] left-0 bg-white border border-slate-200 rounded-xl p-4 shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-50 w-[280px] flex flex-col gap-3 animate-[fadeIn_0.15s_ease]">
+        <div className="absolute top-[42px] left-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-50 w-[280px] flex flex-col gap-3 animate-[fadeIn_0.15s_ease]">
           <div>
             <label className="text-[11px] font-semibold text-slate-500 block mb-1">
               Start Date

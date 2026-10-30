@@ -173,9 +173,9 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-5">
-      <div className="bg-white rounded-2xl w-full max-w-[720px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[720px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
         {/* Top Header Bar */}
-        <div className="p-4 sm:px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl">
+        <div className="p-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 rounded-t-2xl">
           <div className="flex items-center gap-2.5">
             <div className={`w-[38px] h-[38px] rounded-xl flex items-center justify-center ${
               isHike ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
@@ -183,24 +183,24 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               {isHike ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
             </div>
             <div>
-              <h3 className="text-[15.5px] font-extrabold text-slate-900 m-0">
+              <h3 className="text-[15.5px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                 Salary Revision & Compensation Engine
               </h3>
-              <p className="m-0 text-[11.5px] text-slate-500">
+              <p className="m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
                 Bi-directional adjustments (Hike 📈 / Deduction 📉) with real-time statutory recalculation.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="bg-transparent border-0 text-slate-500 hover:text-slate-700 cursor-pointer p-1"
+            className="bg-transparent border-0 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer p-1"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Employee Info Header */}
-        <div className="p-3.5 sm:px-6 bg-blue-50 border-b border-blue-100 flex items-center justify-between flex-wrap gap-3">
+        <div className="p-3.5 sm:px-6 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/50 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <img
               src={employee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -208,15 +208,15 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               className="w-11 h-11 rounded-full object-cover border-2 border-blue-500"
             />
             <div>
-              <div className="text-[14.5px] font-extrabold text-blue-900">{employee.name}</div>
-              <div className="text-xs text-blue-600">
+              <div className="text-[14.5px] font-extrabold text-blue-900 dark:text-blue-200">{employee.name}</div>
+              <div className="text-xs text-blue-600 dark:text-blue-400">
                 {employee.role} • <strong>{employee.employeeCode}</strong> • {employee.department}
               </div>
             </div>
           </div>
           <div className="text-right">
             <span className="text-[11px] text-slate-500 font-semibold">Current Monthly CTC</span>
-            <div className="text-[17px] font-extrabold text-slate-900">
+            <div className="text-[17px] font-extrabold text-slate-900 dark:text-slate-100">
               ₹{oldGrossMonthly.toLocaleString()} <span className="text-[11px] text-slate-500 font-normal">/ mo</span>
             </div>
             <span className="text-[10.5px] text-slate-600">Annual: ₹{oldAnnualCTC.toLocaleString()}</span>
@@ -229,7 +229,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
             
             {/* Step 1: Choose Revision Type (Hike vs Decrease) */}
             <div>
-              <label className="block text-[12.5px] font-bold text-slate-700 mb-2">
+              <label className="block text-[12.5px] font-bold text-slate-700 dark:text-slate-300 mb-2">
                 1. Select Salary Action Type
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -243,7 +243,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                   className={`flex items-center gap-2.5 p-3 sm:px-4 rounded-xl cursor-pointer transition-all text-left ${
                     revisionType === 'hike'
                       ? 'border-2 border-green-600 bg-green-50/70 text-green-700'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
@@ -267,7 +267,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                   className={`flex items-center gap-2.5 p-3 sm:px-4 rounded-xl cursor-pointer transition-all text-left ${
                     revisionType === 'decrease'
                       ? 'border-2 border-red-600 bg-red-50/70 text-red-700'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
@@ -313,8 +313,8 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
 
             {/* Step 3: Input Controls */}
             {mode === 'fixed' ? (
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <label className="block text-[12.5px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Target Monthly Gross CTC (₹)
                 </label>
                 <div className="relative">
@@ -326,7 +326,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                     min="1000"
                     step="500"
                     placeholder="Enter revised monthly gross..."
-                    className={`w-full py-2.5 pr-3.5 pl-8 rounded-lg text-base font-extrabold text-slate-900 outline-none bg-white transition-colors ${
+                    className={`w-full py-2.5 pr-3.5 pl-8 rounded-lg text-base font-extrabold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 transition-colors ${
                       isHike ? 'border-[1.5px] border-green-600 focus:border-green-700' : 'border-[1.5px] border-red-600 focus:border-red-700'
                     }`}
                   />
@@ -344,7 +344,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                         className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
                           targetFixedSalary === oldGrossMonthly + addAmt
                             ? 'border-[1.5px] border-green-600 bg-green-100 text-green-700'
-                            : 'border border-slate-300 bg-white text-green-700 hover:bg-green-50'
+                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30'
                         }`}
                       >
                         +₹{addAmt.toLocaleString()}
@@ -359,7 +359,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                         className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
                           targetFixedSalary === Math.max(1000, oldGrossMonthly - subAmt)
                             ? 'border-[1.5px] border-red-600 bg-red-100 text-red-700'
-                            : 'border border-slate-300 bg-white text-red-700 hover:bg-red-50'
+                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
                         }`}
                       >
                         -₹{subAmt.toLocaleString()}
@@ -401,7 +401,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                       className={`px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
                         percentageValue === p
                           ? isHike ? 'border-[1.5px] border-green-600 bg-blue-50 text-green-700' : 'border-[1.5px] border-red-600 bg-red-50 text-red-700'
-                          : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                          : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                       }`}
                     >
                       {isHike ? `+${p}%` : `-${p}%`}
@@ -481,7 +481,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 <select
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
+                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 >
                   {isHike ? (
                     <>
@@ -512,7 +512,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                   type="date"
                   value={effectiveDate}
                   onChange={e => setEffectiveDate(e.target.value)}
-                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 text-[13px] outline-none bg-white focus:border-blue-500 transition-colors"
+                  className="w-full px-3 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
@@ -548,7 +548,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-[9px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[13px] font-semibold cursor-pointer transition-colors"
+                  className="px-4 py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
@@ -569,7 +569,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
         ) : (
           /* Official Document Letter Preview (Adaptive: Appraisal vs Revision Notice) */
           <div className="p-6 sm:px-8 flex flex-col gap-4">
-            <div className={`border-2 rounded-xl p-6 sm:px-[30px] bg-white shadow-md ${
+            <div className={`border-2 rounded-xl p-6 sm:px-[30px] bg-white dark:bg-slate-900 shadow-md ${
               isHike ? 'border-blue-600' : 'border-amber-500'
             }`}>
               {/* Header Letterhead */}
@@ -668,7 +668,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(false)}
-                className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-600 text-[12.5px] font-semibold cursor-pointer transition-colors"
+                className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer transition-colors"
               >
                 ← Back to Config
               </button>

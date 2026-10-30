@@ -62,14 +62,14 @@ export const DocumentationPage = () => {
 
   if (!canAccessDocs) {
     return (
-      <div className="flex flex-col items-center justify-center p-[60px_20px] text-center bg-white rounded-xl border border-slate-200 my-6 mx-auto max-w-[540px]">
+      <div className="flex flex-col items-center justify-center p-[60px_20px] text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 my-6 mx-auto max-w-[540px]">
         <div className="w-14 h-14 rounded-[14px] bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-4">
           <FolderLock size={28} />
         </div>
-        <h3 className="text-lg font-extrabold text-slate-900 m-0 mb-2">
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 m-0 mb-2">
           Documentation Access Restricted
         </h3>
-        <p className="text-[13.5px] text-slate-500 leading-normal m-0 mb-4">
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 leading-normal m-0 mb-4">
           Company documents and KYC records are restricted to HR & Administrators by default. Please contact your administrator if you require documentation access.
         </p>
       </div>
@@ -96,19 +96,19 @@ export const DocumentationPage = () => {
   return (
     <div className="flex flex-col gap-5 min-h-full">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <FolderLock size={17} />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="m-0 text-base font-extrabold text-slate-900 leading-tight">Documentation & KYC Hub</h1>
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Documentation & KYC Hub</h1>
               <span className="text-[10.5px] py-px px-1.5 rounded bg-green-100 text-green-600 font-bold">
                 Verified Cloud
               </span>
             </div>
-            <p className="m-0 mt-px text-[11.5px] text-slate-500">
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Secure repository for Aadhaar, PAN, Offer Letters & compliance certificates
             </p>
           </div>
@@ -125,10 +125,10 @@ export const DocumentationPage = () => {
 
       {/* Metric Cards - Compact High-Density Grid */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
-        <div className="bg-white rounded-[10px] p-[10px_14px] border border-slate-200 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] p-[10px_14px] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Total KYC Documents</span>
-            <div className="text-lg font-extrabold text-slate-900 mt-0.5">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total KYC Documents</span>
+            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">
               {documents.length} <span className="text-xs font-semibold text-slate-500">Files</span>
             </div>
             <span className="text-[10.5px] text-green-600 font-bold">● 100% Encrypted</span>
@@ -138,9 +138,9 @@ export const DocumentationPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[10px] p-[10px_14px] border border-slate-200 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] p-[10px_14px] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Verified Onboarding</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Verified Onboarding</span>
             <div className="text-lg font-extrabold text-green-600 mt-0.5">
               {employees.length} / {employees.length} <span className="text-xs font-semibold text-slate-500">Complete</span>
             </div>
@@ -151,9 +151,9 @@ export const DocumentationPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[10px] p-[10px_14px] border border-slate-200 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] p-[10px_14px] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Storage Used</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Storage Used</span>
             <div className="text-lg font-extrabold text-blue-600 mt-0.5">
               11.4 MB
             </div>
@@ -166,24 +166,24 @@ export const DocumentationPage = () => {
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-[10px] border border-slate-200 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         {/* Filter / Search Bar */}
-        <div className="p-2 px-3 border-b border-slate-100 flex items-center justify-between gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 bg-slate-50 w-60">
+        <div className="p-2 px-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2.5 flex-wrap">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-60">
             <Search size={13} color="#94a3b8" />
             <input
               type="text"
               placeholder="Search document or employee..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="border-none bg-transparent outline-none text-xs w-full text-slate-900"
+              className="border-none bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100"
             />
           </div>
 
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="h-[30px] px-2.5 rounded-md border border-slate-300 bg-white text-xs text-slate-900 outline-none"
+            className="h-[30px] px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
           >
             <option value="all">All Document Types</option>
             <option value="Aadhaar Card">Aadhaar Card</option>

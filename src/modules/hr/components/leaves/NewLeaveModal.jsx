@@ -224,11 +224,11 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         <div className="grid grid-cols-2 gap-3.5">
           {/* Employee Applying */}
           <div>
-            <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Applying Employee *
             </label>
             {!isPrivileged ? (
-              <div className="h-[42px] px-3 rounded-lg bg-slate-100 border border-slate-300 flex items-center gap-2 text-[13px] font-bold text-slate-900">
+              <div className="h-[42px] px-3 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-slate-100">
                 <span>👤 {selectedEmp?.name || activeUser?.name || 'You'} ({selectedEmp?.role || activeUser?.role || 'Member'})</span>
               </div>
             ) : (
@@ -244,10 +244,10 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
                     appliedToId: nextApprover?._id || ''
                   });
                 }}
-                className="filter-select w-full h-[42px] rounded-lg [color-scheme:light] bg-white text-slate-900"
+                className="filter-select w-full h-[42px] rounded-lg"
               >
                 {employees.map(emp => (
-                  <option key={emp._id} value={emp._id} className="bg-white text-slate-900">
+                  <option key={emp._id} value={emp._id}>
                     {emp.name} ({emp.role}) {emp._id === activeUser?._id ? "— You" : ''}
                   </option>
                 ))}
@@ -257,19 +257,19 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
           {/* Send Request To (Approver / Manager) */}
           <div>
-            <label className="block text-[13px] font-bold text-blue-800 mb-1.5">
+            <label className="block text-[13px] font-bold text-blue-800 dark:text-blue-300 mb-1.5">
               Send Request To (Select Approver / Manager / HR) *
             </label>
             <select
               value={formData.appliedToId}
               onChange={(e) => setFormData({ ...formData, appliedToId: e.target.value })}
-              className="filter-select w-full h-[42px] rounded-lg border border-blue-500 bg-blue-50 [color-scheme:light] text-slate-900"
+              className="filter-select w-full h-[42px] rounded-lg border border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100"
             >
               {potentialApprovers.length === 0 ? (
                 <option value="">No authorized approvers found</option>
               ) : (
                 potentialApprovers.map(emp => (
-                  <option key={emp._id} value={emp._id} className="bg-white text-slate-900">
+                  <option key={emp._id} value={emp._id}>
                     {emp.name} — {emp.role || 'Reviewer'}
                   </option>
                 ))
@@ -280,26 +280,26 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
         {/* Leave Type */}
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Leave Type *
           </label>
           <select
             value={formData.leaveType}
             onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-            className="filter-select w-full h-10 rounded-lg [color-scheme:light] bg-white text-slate-900"
+            className="filter-select w-full h-10 rounded-lg"
           >
-            <option value="Casual Leave" className="bg-white text-slate-900">Casual Leave (CL)</option>
-            <option value="Sick Leave" className="bg-white text-slate-900">Sick Leave (SL)</option>
-            <option value="Earned Leave" className="bg-white text-slate-900">Earned Leave (EL)</option>
-            <option value="Maternity/Paternity" className="bg-white text-slate-900">Maternity / Paternity Leave</option>
-            <option value="Unpaid Leave" className="bg-white text-slate-900">Unpaid Leave</option>
+            <option value="Casual Leave">Casual Leave (CL)</option>
+            <option value="Sick Leave">Sick Leave (SL)</option>
+            <option value="Earned Leave">Earned Leave (EL)</option>
+            <option value="Maternity/Paternity">Maternity / Paternity Leave</option>
+            <option value="Unpaid Leave">Unpaid Leave</option>
           </select>
         </div>
 
         {/* Date Selection Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               From Date *
             </label>
             <input
@@ -311,7 +311,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             />
           </div>
           <div>
-            <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               To Date *
             </label>
             <input
@@ -326,7 +326,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
         {/* Duration Type (Full Day / Half Day) */}
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Duration Mode
           </label>
           <div className="flex gap-3">
@@ -361,29 +361,29 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Live Calculation Preview Strip */}
-        <div className={`border rounded-lg py-2.5 px-3.5 flex justify-between items-center text-[12.5px] ${isBalanceExceeded ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+        <div className={`border rounded-lg py-2.5 px-3.5 flex justify-between items-center text-[12.5px] ${isBalanceExceeded ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50' : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900/50'}`}>
           <div>
-            <span className="text-slate-600 font-medium">Calculated Duration: </span>
-            <strong className={`text-[13px] font-bold ${isBalanceExceeded ? 'text-red-600' : 'text-green-600'}`}>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">Calculated Duration: </span>
+            <strong className={`text-[13px] font-bold ${isBalanceExceeded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
               {isEndBeforeStart ? 'Invalid Date Range' : `${calculatedDays} Day${calculatedDays > 1 ? 's' : ''}`}
             </strong>
           </div>
           {availableBalance !== null && (
-            <div className={`text-xs ${isBalanceExceeded ? 'text-red-600' : 'text-green-800'}`}>
+            <div className={`text-xs ${isBalanceExceeded ? 'text-red-600 dark:text-red-400' : 'text-green-800 dark:text-green-300'}`}>
               Available Balance: <strong>{availableBalance} Days</strong>
             </div>
           )}
         </div>
 
         {isBalanceExceeded && (
-          <div className="text-[11.5px] text-red-600 bg-red-100 py-1.5 px-2.5 rounded-md">
+          <div className="text-[11.5px] text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/50 py-1.5 px-2.5 rounded-md">
             ⚠️ Notice: Requested duration ({calculatedDays} days) exceeds available quota ({availableBalance} days).
           </div>
         )}
 
         {/* Reason Text */}
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Reason for Leave *
           </label>
           <textarea
@@ -391,7 +391,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             value={formData.reason}
             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
             placeholder="Please specify the reason for your leave request..."
-            className="w-full py-2.5 px-3 border border-slate-300 rounded-lg text-[13px] outline-none resize-y font-inherit"
+            className="w-full py-2.5 px-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-[13px] outline-none resize-y font-inherit"
             required
           />
         </div>

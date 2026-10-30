@@ -211,16 +211,16 @@ export const LeavesPage = () => {
   return (
     <div className="flex flex-col gap-3.5 min-h-full pb-6">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Palmtree size={17} />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Leave Management & Approvals
             </h1>
-            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500">
+            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
               Apply for leaves, track approval workflows, and view leave balances.
             </p>
           </div>
@@ -820,7 +820,7 @@ export const LeavesPage = () => {
             <div
               key={leave._id}
               onClick={() => setSelectedLeave(leave)}
-              className="bg-white border border-slate-200 rounded-xl p-[18px] shadow-sm cursor-pointer transition-all hover:shadow-md"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-[18px] shadow-sm cursor-pointer transition-all hover:shadow-md"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="employee-cell">
@@ -835,9 +835,9 @@ export const LeavesPage = () => {
                 <span className={`badge badge-${leave.status}`}>{leave.status}</span>
               </div>
 
-              <div className="text-[13px] text-slate-700 font-semibold mb-1.5">{leave.leaveType} ({leave.durationText})</div>
-              <div className="text-[12.5px] text-slate-500 mb-2.5">📅 {leave.startDate} to {leave.endDate}</div>
-              <p className="text-xs text-slate-600 bg-slate-50 p-2 px-2.5 rounded-md">"{leave.reason}"</p>
+              <div className="text-[13px] text-slate-700 dark:text-slate-200 font-semibold mb-1.5">{leave.leaveType} ({leave.durationText})</div>
+              <div className="text-[12.5px] text-slate-500 dark:text-slate-400 mb-2.5">📅 {leave.startDate} to {leave.endDate}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2 px-2.5 rounded-md">"{leave.reason}"</p>
 
               {(() => {
                 const isApplicant = isLeaveApplicant(leave, currentUser);
@@ -927,14 +927,14 @@ export const LeavesPage = () => {
               return (
                 <div
                   key={dayNum}
-                  className={`min-h-[80px] border border-slate-100 rounded-lg p-1.5 ${dayLeaves.length > 0 ? 'bg-blue-50' : 'bg-white'}`}
+                  className={`min-h-[80px] border border-slate-100 dark:border-slate-800 rounded-lg p-1.5 ${dayLeaves.length > 0 ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-slate-900'}`}
                 >
                   <div className="text-[11px] font-bold text-slate-500">{dayNum}</div>
                   {dayLeaves.map(dl => (
                     <div
                       key={dl._id}
                       onClick={() => setSelectedLeave(dl)}
-                      className={`text-[10.5px] font-semibold py-0.5 px-1 rounded mt-1 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${dl.status === 'approved' ? 'text-sky-700 bg-sky-100' : 'text-amber-800 bg-amber-100'}`}
+                      className={`text-[10.5px] font-semibold py-0.5 px-1 rounded mt-1 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${dl.status === 'approved' ? 'text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60' : 'text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60'}`}
                       title={`${dl.employeeName} - ${dl.leaveType} (${dl.status})`}
                     >
                       {dl.employeeName} ({dl.leaveType})

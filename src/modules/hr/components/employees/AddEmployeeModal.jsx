@@ -490,7 +490,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               placeholder="name@company.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className={`filter-input w-full h-10 pl-3 ${isEmailDuplicate ? 'border-red-500 bg-red-50' : 'border-slate-300 bg-white'}`}
+              className={`filter-input w-full h-10 pl-3 ${isEmailDuplicate ? 'border-red-500 bg-red-50 dark:bg-red-950/40' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}
               required
             />
             {isEmailDuplicate && (
@@ -555,7 +555,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             <select
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
+              className="filter-select w-full h-10"
             >
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -578,7 +578,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               type="date"
               value={formData.dob}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-              className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
+              className="filter-input w-full h-10 pl-3"
               required
             />
           </div>
@@ -594,7 +594,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               type="date"
               value={formData.joiningDate}
               onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
-              className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
+              className="filter-input w-full h-10 pl-3"
               required
             />
           </div>
@@ -652,7 +652,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   placeholder="e.g. Civil Engineer, Telecaller, Branch Manager"
                   value={newRoleInput}
                   onChange={(e) => setNewRoleInput(e.target.value)}
-                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 bg-white outline-none"
+                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -677,7 +677,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   placeholder="Select or type designation (e.g. Full Stack Developer)"
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="filter-input w-full h-10 pl-3 [color-scheme:light] bg-white text-slate-900"
+                  className="filter-input w-full h-10 pl-3"
                   required
                 />
                 <datalist id="role-options-list">
@@ -699,12 +699,12 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             <select
               value={formData.systemRole}
               onChange={(e) => handleSystemRoleChange(e.target.value)}
-              className="filter-select w-full h-10 font-bold text-blue-600 [color-scheme:light] bg-white"
+              className="filter-select w-full h-10 font-bold text-blue-600"
             >
-              <option value="team_member" className="bg-white text-slate-900">👤 Team Member (Personal Workspace & Own Data)</option>
-              <option value="team_leader" className="bg-white text-slate-900">🚀 Team Leader (Team Management & Sprint Delegation)</option>
-              <option value="hr" className="bg-white text-slate-900">💼 HR Manager (Workforce, Leaves & Attendance)</option>
-              <option value="admin" className="bg-white text-slate-900">👑 Administrator (Full Master Control)</option>
+              <option value="team_member">👤 Team Member (Personal Workspace & Own Data)</option>
+              <option value="team_leader">🚀 Team Leader (Team Management & Sprint Delegation)</option>
+              <option value="hr">💼 HR Manager (Workforce, Leaves & Attendance)</option>
+              <option value="admin">👑 Administrator (Full Master Control)</option>
             </select>
           </div>
         </div>
@@ -733,7 +733,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   placeholder="e.g. Logistics, Hospital, Retail"
                   value={newDeptInput}
                   onChange={(e) => setNewDeptInput(e.target.value)}
-                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 bg-white outline-none"
+                  className="flex-1 h-10 px-2.5 rounded-lg border-2 border-blue-600 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -754,10 +754,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               <select
                 value={formData.department}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
+                className="filter-select w-full h-10"
               >
                 {customDepartments.map(d => (
-                  <option key={d} value={d} className="bg-white text-slate-900">{d}</option>
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             )}
@@ -770,11 +770,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             <select
               value={formData.workMode || 'Office'}
               onChange={(e) => setFormData({ ...formData, workMode: e.target.value })}
-              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
+              className="filter-select w-full h-10"
             >
-              <option value="Office" className="bg-white text-slate-900">🏢 Office</option>
-              <option value="Remote" className="bg-white text-slate-900">🏡 Remote</option>
-              <option value="Hybrid" className="bg-white text-slate-900">🔄 Hybrid</option>
+              <option value="Office">🏢 Office</option>
+              <option value="Remote">🏡 Remote</option>
+              <option value="Hybrid">🔄 Hybrid</option>
             </select>
           </div>
 
@@ -785,11 +785,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
             <select
               value={formData.status || 'active'}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="filter-select w-full h-10 [color-scheme:light] bg-white text-slate-900"
+              className="filter-select w-full h-10"
             >
-              <option value="active" className="bg-white text-slate-900">Active</option>
-              <option value="probation" className="bg-white text-slate-900">Probation</option>
-              <option value="contract" className="bg-white text-slate-900">Contract</option>
+              <option value="active">Active</option>
+              <option value="probation">Probation</option>
+              <option value="contract">Contract</option>
             </select>
           </div>
         </div>
@@ -815,7 +815,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 <div
                   key={perm.key}
                   onClick={() => handlePermissionToggle(perm.key)}
-                  className={`flex items-center justify-between py-2 px-2.5 rounded-lg cursor-pointer select-none transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'}`}
+                  className={`flex items-center justify-between py-2 px-2.5 rounded-lg cursor-pointer select-none transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                   title={perm.desc}
                 >
                   <div className="flex items-center gap-1.5">
@@ -908,7 +908,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                           startingSalary: num !== '' ? Math.round(num / 12) : ''
                         }));
                       }}
-                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 bg-white"
+                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800"
                       required
                     />
                     <div className="text-[11px] text-slate-500 mt-1">
@@ -935,7 +935,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                           annualCTC: num !== '' ? num * 12 : ''
                         }));
                       }}
-                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 bg-white"
+                      className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800"
                       required
                     />
                     <div className="text-[11px] text-slate-500 mt-1">
@@ -1005,7 +1005,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 </label>
 
                 {formData.enableDeductions ? (
-                  <div className="bg-white rounded-lg border border-slate-200 p-3 flex flex-col gap-2.5">
+                  <div className="bg-white dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-2.5">
                     <div className="flex items-center gap-2.5">
                       <label className="flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-700 cursor-pointer">
                         <input
@@ -1062,28 +1062,28 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                     placeholder="Bank Name (e.g. HDFC Bank)"
                     value={formData.bankName}
                     onChange={(e) => setFormData(prev => ({ ...prev, bankName: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="A/C Number"
                     value={formData.accountNumber}
                     onChange={(e) => setFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="IFSC Code"
                     value={formData.ifsc}
                     onChange={(e) => setFormData(prev => ({ ...prev, ifsc: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                   />
                   <input
                     type="text"
                     placeholder="PAN Number"
                     value={formData.pan}
                     onChange={(e) => setFormData(prev => ({ ...prev, pan: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 text-[11.5px] bg-white text-slate-900 outline-none"
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                   />
                 </div>
               </div>

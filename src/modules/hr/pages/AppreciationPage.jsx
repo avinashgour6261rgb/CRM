@@ -133,19 +133,19 @@ export const AppreciationPage = () => {
   return (
     <div className="animate-fade-in flex flex-col gap-3">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
             <Trophy size={17} />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="m-0 text-[15px] font-extrabold text-slate-900">Employee Appreciation & Awards</h1>
-              <span className="text-[10.5px] py-px px-1.5 rounded bg-amber-100 text-amber-800 font-bold">
+              <h1 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">Employee Appreciation & Awards</h1>
+              <span className="text-[10.5px] py-px px-1.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold">
                 {totalAppreciationsCount} Total Awards
               </span>
             </div>
-            <p className="m-0 mt-px text-[11.5px] text-slate-500">
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Recognize top performers, peer milestones, rewards & spot awards
             </p>
           </div>
@@ -154,7 +154,7 @@ export const AppreciationPage = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white text-blue-600 border border-slate-300 text-xs font-bold cursor-pointer hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             Export CSV
@@ -211,7 +211,7 @@ export const AppreciationPage = () => {
               <Star size={16} />
             </div>
           </div>
-          <div className="kpi-value text-slate-900 text-[17px]">
+          <div className="kpi-value text-slate-900 dark:text-slate-100 text-[17px]">
             {topPerformerName}
           </div>
           <div className="kpi-subtext text-fuchsia-600">
@@ -237,15 +237,15 @@ export const AppreciationPage = () => {
       </div>
 
       {/* Action Bar (Search & Filters) */}
-      <div className="bg-white rounded-[10px] border border-slate-200 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Employee Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="font-semibold">Employee:</span>
             <select
               value={selectedEmployeeFilter}
               onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-              className="h-[30px] px-2 rounded-md border border-slate-300 bg-white text-xs text-slate-900 outline-none cursor-pointer"
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -255,23 +255,23 @@ export const AppreciationPage = () => {
           </div>
 
           {/* Search Bar */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 bg-slate-50 min-w-[240px]">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 min-w-[240px]">
             <Search size={13} color="#94a3b8" />
             <input
               type="text"
               placeholder="Search recipient, reason, citation..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="border-none bg-transparent outline-none text-xs w-full text-slate-900"
+              className="border-none bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100"
             />
           </div>
         </div>
 
         {/* View Switcher Icons (Table / Cards Showcase) */}
-        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md">
           <button
             onClick={() => setViewMode('table')}
-            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'table' ? 'bg-white text-blue-600 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             title="Table View"
           >
             <Award size={13} />
@@ -279,7 +279,7 @@ export const AppreciationPage = () => {
           </button>
           <button
             onClick={() => setViewMode('cards')}
-            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'cards' ? 'bg-white text-blue-600 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-700'}`}
+            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             title="Awards Showcase Gallery"
           >
             <Trophy size={13} />

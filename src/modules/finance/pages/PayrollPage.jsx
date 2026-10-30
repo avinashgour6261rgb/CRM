@@ -45,14 +45,14 @@ export const PayrollPage = () => {
 
   if (!isPrivileged) {
     return (
-      <div className="flex flex-col items-center justify-center py-[60px] px-5 text-center bg-white rounded-2xl border border-slate-200 my-[30px] mx-auto max-w-[540px] shadow-sm">
+      <div className="flex flex-col items-center justify-center py-[60px] px-5 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 my-[30px] mx-auto max-w-[540px] shadow-sm">
         <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-4">
           <DollarSign size={28} />
         </div>
-        <h3 className="text-lg font-extrabold text-slate-900 mb-2 m-0">
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mb-2 m-0">
           Payroll & Salary Access Restricted
         </h3>
-        <p className="text-[13.5px] text-slate-500 leading-relaxed mb-4 m-0">
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4 m-0">
           Company payroll records and salary management are restricted to HR & Administrators only. You can view your personal payslip from your profile.
         </p>
       </div>
@@ -155,16 +155,16 @@ export const PayrollPage = () => {
     <div className="flex flex-col gap-3.5 min-h-full pb-6">
       
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-xl border border-slate-200 shadow-xs min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <DollarSign size={17} />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Payroll & Compensation Hub
             </h1>
-            <p className="mt-0.5 m-0 text-[11.5px] text-slate-500">
+            <p className="mt-0.5 m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Manage salary hikes 📈, tax & PF deductions, and automated monthly payslips.
             </p>
           </div>
@@ -174,7 +174,7 @@ export const PayrollPage = () => {
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
-            className="px-2.5 h-[30px] rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-900 cursor-pointer outline-none focus:border-blue-500 transition-colors"
+            className="px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500 transition-colors"
           >
             <option value="October 2026">October 2026</option>
             <option value="September 2026">September 2026</option>
@@ -195,13 +195,13 @@ export const PayrollPage = () => {
       {/* Metric Cards (Compact 10px padding) */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
         {/* Total Payroll */}
-        <div className="bg-white rounded-xl p-2.5 px-3.5 border border-slate-200 shadow-xs flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <DollarSign size={16} />
           </div>
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Total Payroll Expense</span>
-            <div className="text-lg font-extrabold text-slate-900 leading-tight">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Payroll Expense</span>
+            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
               ₹{totalGross.toLocaleString()}
             </div>
             <span className="text-[10.5px] text-green-600 font-semibold">Gross for {selectedMonth}</span>
@@ -209,12 +209,12 @@ export const PayrollPage = () => {
         </div>
 
         {/* Net Disbursed */}
-        <div className="bg-white rounded-xl p-2.5 px-3.5 border border-slate-200 shadow-xs flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-green-50 text-green-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-md bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-400 flex items-center justify-center shrink-0">
             <CreditCard size={16} />
           </div>
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Net In-Hand Pay</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Net In-Hand Pay</span>
             <div className="text-lg font-extrabold text-green-700 leading-tight">
               ₹{totalNetPay.toLocaleString()}
             </div>
@@ -223,12 +223,12 @@ export const PayrollPage = () => {
         </div>
 
         {/* Deductions & Taxes */}
-        <div className="bg-white rounded-xl p-2.5 px-3.5 border border-slate-200 shadow-xs flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-md bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
             <ArrowUpDown size={16} />
           </div>
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Total Deductions</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Deductions</span>
             <div className="text-lg font-extrabold text-red-700 leading-tight">
               ₹{totalDeductions.toLocaleString()}
             </div>
@@ -237,12 +237,12 @@ export const PayrollPage = () => {
         </div>
 
         {/* Workforce on Payroll */}
-        <div className="bg-white rounded-xl p-2.5 px-3.5 border border-slate-200 shadow-xs flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
             <Building2 size={16} />
           </div>
           <div>
-            <span className="text-[11px] font-semibold text-slate-500">Active Payees</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Active Payees</span>
             <div className="text-lg font-extrabold text-purple-700 leading-tight">
               {employees.length} Members
             </div>
@@ -252,25 +252,25 @@ export const PayrollPage = () => {
       </div>
 
       {/* Salary List Table Card */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
         {/* Search & Filter Bar */}
-        <div className="p-2.5 px-3.5 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+        <div className="p-2.5 px-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 bg-slate-50 w-60 focus-within:border-blue-500 focus-within:bg-white transition-colors">
+            <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-60 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-colors">
               <Search size={14} className="text-slate-400" />
               <input
                 type="text"
                 placeholder="Search employee, ID or role..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="border-0 bg-transparent outline-none text-xs w-full text-slate-900 placeholder:text-slate-400"
+                className="border-0 bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
               />
             </div>
 
             <select
               value={selectedDepartment}
               onChange={e => setSelectedDepartment(e.target.value)}
-              className="px-2 h-[30px] rounded-md border border-slate-300 bg-white text-xs font-medium text-slate-700 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              className="px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
             >
               {departments.map(dept => (
                 <option key={dept} value={dept}>
@@ -280,7 +280,7 @@ export const PayrollPage = () => {
             </select>
           </div>
 
-          <div className="text-[11px] text-slate-500 font-semibold">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
             Showing {filteredEmployees.length} of {employees.length} employees
           </div>
         </div>
@@ -289,7 +289,7 @@ export const PayrollPage = () => {
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                 <th className="p-2 px-2.5">Employee</th>
                 <th className="p-2 px-2.5">Designation & Dept</th>
                 <th className="p-2 px-2.5">Monthly Gross</th>
@@ -314,7 +314,7 @@ export const PayrollPage = () => {
                 return (
                   <tr
                     key={emp._id || emp.employeeCode}
-                    className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                    className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
                   >
                     {/* Employee info */}
                     <td className="py-[7px] px-2.5 whitespace-nowrap">
@@ -325,7 +325,7 @@ export const PayrollPage = () => {
                           className="w-[26px] h-[26px] rounded-full object-cover"
                         />
                         <div>
-                          <div className="font-bold text-slate-900 text-xs leading-tight">{emp.name}</div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-xs leading-tight">{emp.name}</div>
                           <div className="flex items-center gap-1 mt-[1px]">
                             <span className="text-[10.5px] text-slate-500">{emp.employeeCode}</span>
                             {revisionPercent && (
@@ -345,17 +345,17 @@ export const PayrollPage = () => {
 
                     {/* Role & Department */}
                     <td className="py-[7px] px-2.5 whitespace-nowrap">
-                      <div className="font-semibold text-slate-800 text-xs">{emp.role}</div>
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs">{emp.role}</div>
                       <div className="text-[10.5px] text-slate-500">{emp.department}</div>
                     </td>
 
                     {/* Gross CTC */}
-                    <td className="py-[7px] px-2.5 font-extrabold text-slate-900 text-xs whitespace-nowrap">
+                    <td className="py-[7px] px-2.5 font-extrabold text-slate-900 dark:text-slate-100 text-xs whitespace-nowrap">
                       ₹{gross.toLocaleString()}
                     </td>
 
                     {/* Basic */}
-                    <td className="py-[7px] px-2.5 font-semibold text-slate-700 text-[11.5px] whitespace-nowrap">
+                    <td className="py-[7px] px-2.5 font-semibold text-slate-700 dark:text-slate-300 text-[11.5px] whitespace-nowrap">
                       ₹{s.basic.toLocaleString()}
                     </td>
 
@@ -381,7 +381,7 @@ export const PayrollPage = () => {
                         {/* Revise Salary Button */}
                         <button
                           onClick={() => handleOpenRevisionModal(emp)}
-                          className="inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md bg-slate-50 hover:bg-blue-50 text-blue-900 border border-blue-200 text-[11px] font-bold cursor-pointer h-6 transition-colors"
+                          className="inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11px] font-bold cursor-pointer h-6 transition-colors"
                           title="Hike (Increase) or Deduct (Decrease) Employee Salary"
                         >
                           <ArrowUpDown size={11} className="text-blue-600" />

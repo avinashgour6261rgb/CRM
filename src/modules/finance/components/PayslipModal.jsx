@@ -291,12 +291,12 @@ export const PayslipModal = ({
       `}</style>
 
       <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white rounded-2xl w-full max-w-[820px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
           {/* Modal Action Header (Excluded from Print) */}
-          <div className="no-print p-3.5 px-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 flex-wrap gap-2.5 rounded-t-2xl">
+          <div className="no-print p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 flex-wrap gap-2.5 rounded-t-2xl">
             <div className="flex items-center gap-2">
               <Building2 size={20} className="text-blue-600" />
-              <span className="text-[15px] font-extrabold text-slate-900">
+              <span className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
                 Salary Slip Generator
               </span>
             </div>
@@ -307,7 +307,7 @@ export const PayslipModal = ({
               <select
                 value={selectedMonthName}
                 onChange={e => setSelectedMonthName(e.target.value)}
-                className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-900 bg-white outline-none cursor-pointer focus:border-blue-500 transition-colors"
+                className="h-8 rounded-md border border-slate-300 dark:border-slate-700 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-500 transition-colors"
               >
                 {MONTH_OPTIONS.map(m => (
                   <option key={m} value={m}>{m}</option>
@@ -317,7 +317,7 @@ export const PayslipModal = ({
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(e.target.value)}
-                className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-900 bg-white outline-none cursor-pointer focus:border-blue-500 transition-colors"
+                className="h-8 rounded-md border border-slate-300 dark:border-slate-700 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-500 transition-colors"
               >
                 {['2025', '2026', '2027'].map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -329,7 +329,7 @@ export const PayslipModal = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={handleNavigateToCompanySettings}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 text-[11.5px] font-semibold cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer transition-colors"
                 title="Configure Company Name, Logo & Legal Info in Settings"
               >
                 <Settings size={13} />
@@ -360,7 +360,7 @@ export const PayslipModal = ({
           </div>
 
           {/* Printable Payslip Body */}
-          <div ref={printRef} className="payslip-print-container p-9 sm:px-10 text-slate-900 bg-white">
+          <div ref={printRef} className="payslip-print-container p-9 sm:px-10 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
             
             {/* 1. Official Corporate Header */}
             <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-4 mb-5">

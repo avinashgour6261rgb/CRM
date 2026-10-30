@@ -181,8 +181,8 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
 
         {/* Deny note input field (if opened) */}
         {showDenyInput && leave.status === 'pending' && (
-          <div className="p-3 bg-rose-50 rounded-lg border border-rose-200 flex flex-col gap-2">
-            <label className="text-xs font-bold text-rose-800">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-lg border border-rose-200 dark:border-rose-900/50 flex flex-col gap-2">
+            <label className="text-xs font-bold text-rose-800 dark:text-rose-300">
               Reason for Denying this Request (will be shown to employee):
             </label>
             <input
@@ -190,13 +190,13 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
               value={rejectionNote}
               onChange={e => setRejectionNote(e.target.value)}
               placeholder="e.g., Important sprint deliverable, insufficient coverage..."
-              className="py-2 px-2.5 rounded-md border border-rose-300 text-[13px] outline-none bg-white"
+              className="py-2 px-2.5 rounded-md border border-rose-300 dark:border-rose-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowDenyInput(false)}
-                className="py-1 px-3 rounded-md border border-slate-300 bg-white text-slate-600 text-xs font-semibold cursor-pointer hover:bg-slate-50"
+                className="py-1 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>
