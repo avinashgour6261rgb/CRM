@@ -458,7 +458,7 @@ button, input, select, textarea {
 
 .filter-input:focus {
   border-color: var(--primary);
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
@@ -471,8 +471,7 @@ select {
   font-size: 12.5px;
   font-weight: 500;
   color: var(--text-main);
-  color-scheme: light;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
@@ -486,15 +485,87 @@ select {
 .filter-select:focus,
 select:focus {
   border-color: var(--primary);
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .filter-select option,
-select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+select option,
+option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
   padding: 8px 12px;
+}
+
+/* Explicit Dark Mode Overrides for Form Selects and Native Options */
+:is([data-theme="dark"], .dark, .dark-mode) .filter-select,
+:is([data-theme="dark"], .dark, .dark-mode) select {
+  color-scheme: dark !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .filter-select:focus,
+:is([data-theme="dark"], .dark, .dark-mode) select:focus {
+  background-color: #1e293b !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .filter-select option,
+:is([data-theme="dark"], .dark, .dark-mode) select option,
+:is([data-theme="dark"], .dark, .dark-mode) option,
+html.dark option,
+.dark option,
+.dark-mode option,
+[data-theme="dark"] option {
+  color-scheme: dark !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .filter-input {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .filter-input:focus {
+  background: #1e293b !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .btn-outline {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .btn-outline:hover {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .btn-icon-only {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .btn-icon-only:hover {
+  background: #334155 !important;
+  border-color: #475569 !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .employee-avatar {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
 }
 
 /* Button Styles */
@@ -635,6 +706,19 @@ select option {
   box-shadow: var(--shadow-sm);
 }
 
+:is([data-theme="dark"], .dark, .dark-mode) .view-switch-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .view-switch-btn {
+  color: #94a3b8;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .view-switch-btn:hover {
+  color: #f8fafc;
+}
+
 /* Data Table Component Styles */
 .table-card {
   background: var(--bg-card);
@@ -688,6 +772,22 @@ select option {
   border-bottom: none;
 }
 
+/* Dark mode overrides for CRM table */
+:is([data-theme="dark"], .dark, .dark-mode) .crm-table th {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+  border-bottom-color: #334155 !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .crm-table td {
+  border-bottom-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .crm-table tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+}
+
 /* Pagination Footer */
 .table-pagination-footer {
   display: flex;
@@ -700,6 +800,12 @@ select option {
   color: var(--text-muted);
   flex-wrap: wrap;
   gap: 10px;
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .table-pagination-footer {
+  background: #0f172a !important;
+  border-top-color: #1e293b !important;
+  color: #94a3b8 !important;
 }
 
 .pagination-controls {
@@ -724,9 +830,20 @@ select option {
   justify-content: center;
 }
 
+:is([data-theme="dark"], .dark, .dark-mode) .page-btn {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
 .page-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--border-medium);
+}
+
+:is([data-theme="dark"], .dark, .dark-mode) .page-btn:hover:not(:disabled) {
+  background: #334155 !important;
+  border-color: #475569 !important;
 }
 
 .page-btn.active {

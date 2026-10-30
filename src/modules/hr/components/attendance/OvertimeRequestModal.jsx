@@ -122,25 +122,25 @@ export const OvertimeRequestModal = ({
 
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-[560px] shadow-2xl border border-slate-200 overflow-hidden animate-[modalSlideUp_0.2s_ease-out]">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-[modalSlideUp_0.2s_ease-out]">
         {/* Header */}
-        <div className="py-[18px] px-6 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 flex items-center justify-between">
+        <div className="py-[18px] px-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-[38px] h-[38px] rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+            <div className="w-[38px] h-[38px] rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Clock size={20} />
             </div>
             <div>
-              <h3 className="m-0 text-[17px] font-extrabold text-slate-900">
+              <h3 className="m-0 text-[17px] font-extrabold text-slate-900 dark:text-slate-100">
                 Overtime Detected & Clock Out
               </h3>
-              <p className="m-0 mt-0.5 text-xs text-slate-500">
+              <p className="m-0 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 Shift exceeded standard {standardWorkHours}h ({shiftStartTime} - {shiftEndTime})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="bg-transparent border-0 cursor-pointer text-slate-400 p-1.5 rounded-md hover:text-slate-600"
+            className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-md"
           >
             <X size={18} />
           </button>
@@ -150,29 +150,29 @@ export const OvertimeRequestModal = ({
         <div className="py-5 px-6 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
           {/* Dual Metrics Strip */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3.5 rounded-xl bg-green-50 border border-green-200 flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-green-800 uppercase tracking-wider">
+            <div className="p-3.5 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/60 flex flex-col gap-1">
+              <span className="text-[11px] font-bold text-green-800 dark:text-green-300 uppercase tracking-wider">
                 Total Shift Duration
               </span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-extrabold text-green-700">
+                <span className="text-xl font-extrabold text-green-700 dark:text-green-400">
                   {workHoursInt}h {workMinsInt}m
                 </span>
-                <span className="text-[11px] font-bold text-green-700 bg-green-100 py-0.5 px-1.5 rounded">
+                <span className="text-[11px] font-bold text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-950/60 py-0.5 px-1.5 rounded">
                   +{overtimeHoursInt}h {overtimeMinsInt}m extra
                 </span>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 flex flex-col gap-1">
-              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">
+            <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex flex-col gap-1">
+              <span className="text-[11px] font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
                 Productive Task Time
               </span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-extrabold text-blue-600">
+                <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">
                   {totalTaskHoursInt}h {totalTaskMinsInt}m
                 </span>
-                <span className="text-[11px] font-semibold text-slate-500">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   ({tasksWorkedList.length} task{tasksWorkedList.length === 1 ? '' : 's'})
                 </span>
               </div>
@@ -181,8 +181,8 @@ export const OvertimeRequestModal = ({
 
           {/* Tasks Worked Breakdown */}
           <div>
-            <div className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
-              <Briefcase size={14} color="#64748b" />
+            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+              <Briefcase size={14} className="text-slate-500 dark:text-slate-400" />
               <span>Tasks Worked Today:</span>
             </div>
             {tasksWorkedList.length > 0 ? (
@@ -190,16 +190,16 @@ export const OvertimeRequestModal = ({
                 {tasksWorkedList.map((t, idx) => {
                   const secs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
                   return (
-                    <div key={t._id || idx} className="py-2 px-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                    <div key={t._id || idx} className="py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="bg-slate-200 text-slate-700 font-bold py-px px-1.5 rounded text-[11px]">
+                        <span className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-px px-1.5 rounded text-[11px]">
                           {t.taskCode || 'TSK'}
                         </span>
-                        <span className="text-slate-900 font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
+                        <span className="text-slate-900 dark:text-slate-100 font-semibold whitespace-nowrap overflow-hidden text-ellipsis">
                           {t.title}
                         </span>
                       </div>
-                      <span className="text-sky-600 font-bold shrink-0 ml-2">
+                      <span className="text-sky-600 dark:text-sky-400 font-bold shrink-0 ml-2">
                         {formatSecs(secs)}
                       </span>
                     </div>
@@ -207,7 +207,7 @@ export const OvertimeRequestModal = ({
                 })}
               </div>
             ) : (
-              <div className="py-2.5 px-3 rounded-lg bg-slate-50 border border-dashed border-slate-300 text-[11.5px] text-slate-500">
+              <div className="py-2.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-[11.5px] text-slate-500 dark:text-slate-400">
                 No active tasks logged today. Working hours will be submitted for overtime review.
               </div>
             )}
@@ -215,27 +215,27 @@ export const OvertimeRequestModal = ({
 
           {/* Admin Authority Banner or Approver Picker */}
           {isAdminUser ? (
-            <div className="py-3 px-3.5 rounded-xl bg-yellow-50 border border-yellow-200 flex items-start gap-2.5">
-              <ShieldCheck size={18} color="#ca8a04" className="shrink-0 mt-0.5" />
+            <div className="py-3 px-3.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/60 flex items-start gap-2.5">
+              <ShieldCheck size={18} className="text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-[12.5px] text-yellow-800 block">
+                <strong className="text-[12.5px] text-yellow-800 dark:text-yellow-300 block">
                   Admin Direct Authority
                 </strong>
-                <span className="text-[11.5px] text-yellow-700">
+                <span className="text-[11.5px] text-yellow-700 dark:text-yellow-400">
                   As an Administrator, you can self-confirm your extra working hours directly, or choose to skip claiming overtime.
                 </span>
               </div>
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Submit Request To Approver:
               </label>
               {eligibleApprovers.length > 0 ? (
                 <select
                   value={selectedApproverId}
                   onChange={(e) => setSelectedApproverId(e.target.value)}
-                  className="w-full py-2 px-3 rounded-lg border border-slate-300 text-[13px] text-slate-900 bg-white outline-none"
+                  className="w-full py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none"
                 >
                   {eligibleApprovers.map(a => (
                     <option key={a._id} value={a._id}>
@@ -244,7 +244,7 @@ export const OvertimeRequestModal = ({
                   ))}
                 </select>
               ) : (
-                <div className="text-xs text-slate-500 italic">
+                <div className="text-xs text-slate-500 dark:text-slate-400 italic">
                   Request will be routed to HR Administrator by default.
                 </div>
               )}
@@ -253,7 +253,7 @@ export const OvertimeRequestModal = ({
 
           {/* Reason / Deliverables Textarea */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Work Accomplished & Overtime Reason:
             </label>
             <textarea
@@ -261,18 +261,18 @@ export const OvertimeRequestModal = ({
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Worked on completing client bug fixes and database indexing past shift end..."
               rows={3}
-              className="w-full py-2.5 px-3 rounded-lg border border-slate-300 text-[12.5px] text-slate-900 font-inherit resize-none outline-none box-border"
+              className="w-full py-2.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 font-inherit resize-none outline-none box-border placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="py-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2.5">
+        <div className="py-4 px-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between flex-wrap gap-2.5">
           <button
             type="button"
             onClick={handleSkipOvertime}
             disabled={isSubmitting}
-            className="py-2 px-4 rounded-lg border border-slate-300 bg-white text-slate-500 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 disabled:opacity-50"
+            className="py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
             title="Clock out immediately without claiming extra overtime"
           >
             Clock Out Without Claim

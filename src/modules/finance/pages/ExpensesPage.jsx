@@ -127,7 +127,7 @@ export const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      
+
       {/* Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2.5">
@@ -178,7 +178,7 @@ export const ExpensesPage = () => {
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
         <div className="flex items-center gap-2.5 flex-wrap">
-          
+
           {/* Duration */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <span className="font-semibold">Duration:</span>
@@ -270,11 +270,10 @@ export const ExpensesPage = () => {
                 filteredExpenses.map((exp, idx) => (
                   <tr
                     key={exp._id}
-                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
-                      selectedIds.includes(exp._id)
+                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${selectedIds.includes(exp._id)
                         ? 'bg-blue-600/10 dark:bg-blue-900/30'
                         : 'bg-white dark:bg-slate-900 hover:bg-slate-50/70 dark:hover:bg-slate-800/50'
-                    }`}
+                      }`}
                   >
                     {/* Checkbox */}
                     <td className="py-[7px] px-3 whitespace-nowrap">
@@ -335,13 +334,12 @@ export const ExpensesPage = () => {
 
                     {/* Status */}
                     <td className="py-[7px] px-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded text-[11px] font-bold capitalize ${
-                        exp.status === 'approved'
+                      <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded text-[11px] font-bold capitalize ${exp.status === 'approved'
                           ? 'bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-400 border border-green-200 dark:border-emerald-800'
                           : exp.status === 'pending'
-                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                          : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-                      }`}>
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                            : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                        }`}>
                         {exp.status === 'approved' && <CheckCircle2 size={12} />}
                         {exp.status === 'pending' && <Clock size={12} />}
                         {exp.status === 'rejected' && <XCircle size={12} />}

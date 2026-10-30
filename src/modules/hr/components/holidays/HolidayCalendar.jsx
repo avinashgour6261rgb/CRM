@@ -241,7 +241,7 @@ export const HolidayCalendar = () => {
   return (
     <div className="table-card p-0 overflow-hidden shadow-xs">
       {/* Calendar Header Controls */}
-        <div className="flex items-center justify-between p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-wrap gap-3">
+        <div className="flex items-center justify-between p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 dark:border-slate-800 bg-white dark:bg-slate-900 flex-wrap gap-3">
           {/* Left: Prev / Next / Today & Quick Month-Year Selectors */}
           <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
@@ -364,20 +364,20 @@ export const HolidayCalendar = () => {
                                       key={index}
                                       onClick={() => handleCellClick(cell.dateStr)}
                                       className={`min-h-[115px] p-2 flex flex-col justify-between cursor-pointer transition-all ${hasOff
-                                          ? 'bg-red-50/40 hover:bg-red-50/70 border-t-2 border-t-red-500'
+                                          ? 'bg-red-50/40 dark:bg-red-950/30 hover:bg-red-50/70 dark:hover:bg-red-950/50 border-t-2 border-t-red-500'
                                           : hasFestival
-                                            ? 'bg-amber-50/40 hover:bg-amber-50/70 border-t-2 border-t-amber-500'
-                                            : (cell.isCurrentMonth ? 'bg-white hover:bg-blue-50/20' : 'bg-slate-50/70')
+                                            ? 'bg-amber-50/40 dark:bg-amber-950/30 hover:bg-amber-50/70 dark:hover:bg-amber-950/50 border-t-2 border-t-amber-500'
+                                            : (cell.isCurrentMonth ? 'bg-white dark:bg-slate-900 hover:bg-blue-50/20 dark:hover:bg-slate-800' : 'bg-slate-50/70 dark:bg-slate-950/60')
                                         }`}
                                       title={canManageHolidays ? "Click date to declare company holiday" : ""}
                                     >
                                       <div className="flex items-center justify-between mb-1">
                                         {hasOff ? (
-                                          <span className="text-[9.5px] font-extrabold text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded shadow-2xs">
+                                          <span className="text-[9.5px] font-extrabold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/70 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded shadow-2xs">
                                             🏖️ PAID OFF
                                           </span>
                                         ) : hasFestival ? (
-                                          <span className="text-[9.5px] font-extrabold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shadow-2xs">
+                                          <span className="text-[9.5px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded shadow-2xs">
                                             🪔 FESTIVAL
                                           </span>
                                         ) : (
@@ -386,8 +386,8 @@ export const HolidayCalendar = () => {
                                         <span className={`text-xs ml-auto font-bold flex items-center justify-center rounded-full ${isTodayCell
                                             ? 'w-5 h-5 bg-blue-600 text-white shadow-xs'
                                             : cell.isCurrentMonth
-                                              ? 'text-slate-900'
-                                              : 'text-slate-300'
+                                              ? 'text-slate-900 dark:text-slate-100'
+                                              : 'text-slate-400 dark:text-slate-600'
                                           }`}>
                                           {cell.day}
                                         </span>
@@ -400,7 +400,7 @@ export const HolidayCalendar = () => {
                                           <div
                                             key={hol._id || hol.code || hol.date}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-red-100/80 border-red-500 text-red-900"
+                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-red-100/80 dark:bg-red-950/70 border-red-500 dark:border-red-600 text-red-900 dark:text-red-200"
                                             title={`${hol.name} (${hol.type}) - Click trash to cancel`}
                                           >
                                             <span className="truncate flex items-center gap-1">
@@ -429,7 +429,7 @@ export const HolidayCalendar = () => {
                                                 handleConfirmFestivalClick(fest);
                                               }
                                             }}
-                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-amber-100/90 border-amber-500 text-amber-900 cursor-pointer hover:bg-amber-200/90 transition-colors"
+                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-amber-100/90 dark:bg-amber-950/70 border-amber-500 dark:border-amber-600 text-amber-900 dark:text-amber-200 cursor-pointer hover:bg-amber-200/90 dark:hover:bg-amber-900/60 transition-colors"
                                             title={canManageHolidays ? `${fest.name} - Click to declare official paid company holiday` : `${fest.name} (Indian Festival)`}
                                           >
                                             <span className="truncate flex items-center gap-1">
@@ -437,7 +437,7 @@ export const HolidayCalendar = () => {
                                               <span className="truncate">{fest.name}</span>
                                             </span>
                                             {canManageHolidays && (
-                                              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-200 text-amber-800 shrink-0 hover:bg-amber-300">
+                                              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 shrink-0 hover:bg-amber-300 dark:hover:bg-amber-800/80">
                                                 + Off
                                               </span>
                                             )}
@@ -468,26 +468,26 @@ export const HolidayCalendar = () => {
 
                                     return (
                                       <div key={idx} className={`rounded-lg p-3 border min-h-[160px] flex flex-col justify-between ${dayHols.length > 0
-                                          ? 'bg-red-50/50 border-red-200'
+                                          ? 'bg-red-50/50 dark:bg-red-950/25 border-red-200 dark:border-red-900/60'
                                           : dayFests.length > 0
-                                            ? 'bg-amber-50/50 border-amber-200'
-                                            : 'bg-slate-50 border-slate-200'
+                                            ? 'bg-amber-50/50 dark:bg-amber-950/25 border-amber-200 dark:border-amber-900/60'
+                                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                                         }`}>
                                         <div>
                                           <div className="flex items-center justify-between mb-1">
-                                            <div className="font-extrabold text-xs text-slate-900">{dayName}</div>
+                                            <div className="font-extrabold text-xs text-slate-900 dark:text-slate-100">{dayName}</div>
                                             {dayHols.length > 0 ? (
-                                              <span className="text-[9px] font-bold text-red-700 bg-red-100 px-1 rounded">Paid Off</span>
+                                              <span className="text-[9px] font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/70 px-1 rounded">Paid Off</span>
                                             ) : dayFests.length > 0 ? (
-                                              <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 rounded">Festival</span>
+                                              <span className="text-[9px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-1 rounded">Festival</span>
                                             ) : null}
                                           </div>
-                                          <div className="text-[11px] text-slate-500 mb-2">{dayDateStr}</div>
+                                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">{dayDateStr}</div>
 
                                           <div className="flex flex-col gap-1">
                                             {/* Declared Holidays */}
                                             {dayHols.map(h => (
-                                              <div key={h._id || h.code} className="bg-red-100/90 text-red-800 p-1.5 rounded text-[11px] font-bold border border-red-200 flex items-center justify-between gap-1 shadow-2xs">
+                                              <div key={h._id || h.code} className="bg-red-100/90 dark:bg-red-950/70 text-red-800 dark:text-red-200 p-1.5 rounded text-[11px] font-bold border border-red-200 dark:border-red-800 flex items-center justify-between gap-1 shadow-2xs">
                                                 <span className="truncate">{h.icon || '🏖️'} {h.name}</span>
                                                 {canManageHolidays && (
                                                   <button
@@ -506,7 +506,7 @@ export const HolidayCalendar = () => {
                                               <div
                                                 key={f.code || f.date}
                                                 onClick={() => canManageHolidays && handleConfirmFestivalClick(f)}
-                                                className="bg-amber-100/90 text-amber-900 p-1.5 rounded text-[11px] font-bold border border-amber-300 flex items-center justify-between gap-1 cursor-pointer hover:bg-amber-200 shadow-2xs"
+                                                className="bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 p-1.5 rounded text-[11px] font-bold border border-amber-300 dark:border-amber-800 flex items-center justify-between gap-1 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/60 shadow-2xs"
                                                 title={canManageHolidays ? "Click to declare as paid holiday" : f.name}
                                               >
                                                 <span className="truncate">{f.icon || '🪔'} {f.name}</span>
@@ -566,7 +566,7 @@ export const HolidayCalendar = () => {
                                         onClick={() => setListTypeFilter('all')}
                                         className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'all'
                                             ? 'bg-blue-600 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                                           }`}
                                       >
                                         All Days ({allListItems.length})
@@ -575,7 +575,7 @@ export const HolidayCalendar = () => {
                                         onClick={() => setListTypeFilter('official')}
                                         className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'official'
                                             ? 'bg-red-600 text-white'
-                                            : 'bg-red-50 text-red-700 hover:bg-red-100'
+                                            : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40'
                                           }`}
                                       >
                                         🏖️ Official Paid Offs ({(holidays || []).length})
@@ -584,7 +584,7 @@ export const HolidayCalendar = () => {
                                         onClick={() => setListTypeFilter('festival')}
                                         className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'festival'
                                             ? 'bg-amber-600 text-white'
-                                            : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'
                                           }`}
                                       >
                                         🪔 Cultural Festivals ({(suggestedHolidays || []).filter(s => !(holidays || []).some(h => h.date === s.date)).length})
@@ -656,31 +656,31 @@ export const HolidayCalendar = () => {
                                         const isOff = hol.isConfirmed;
 
                                         return (
-                                          <tr key={hol._id || hol.code || hol.date} className={isOff ? 'bg-red-50/20' : 'bg-amber-50/20'}>
-                                            <td className="font-extrabold text-slate-900">
+                                          <tr key={hol._id || hol.code || hol.date} className={isOff ? 'bg-red-50/20 dark:bg-red-950/20' : 'bg-amber-50/20 dark:bg-amber-950/20'}>
+                                            <td className="font-extrabold text-slate-900 dark:text-slate-100">
                                               {hol.icon || (isOff ? '🏖️' : '🪔')} {hol.name}
                                             </td>
-                                            <td className="font-bold text-xs">{hol.date}</td>
-                                            <td className="text-slate-600 font-medium text-xs">
+                                            <td className="font-bold text-xs text-slate-800 dark:text-slate-200">{hol.date}</td>
+                                            <td className="text-slate-600 dark:text-slate-400 font-medium text-xs">
                                               {hol.dayOfWeek || new Date(hol.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}
                                             </td>
                                             <td>
                                               <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${isOff
-                                                  ? 'bg-red-50 text-red-700 border border-red-200'
-                                                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                                  ? 'bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                                                 }`}>
                                                 {hol.displayType || hol.type || (isOff ? 'Company Holiday' : 'Major Festival')}
                                               </span>
                                             </td>
                                             <td>
                                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOff
-                                                  ? 'bg-red-100 text-red-800 border border-red-200'
-                                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                  ? 'bg-red-100 dark:bg-red-950/70 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+                                                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                                                 }`}>
                                                 {isOff ? '🏖️ Paid Off' : '🪔 Cultural Festival'}
                                               </span>
                                             </td>
-                                            <td className="text-slate-500 text-xs max-w-[260px] truncate">
+                                            <td className="text-slate-500 dark:text-slate-400 text-xs max-w-[260px] truncate">
                                               {hol.description || (isOff ? 'Declared company holiday.' : 'Indian festival.')}
                                             </td>
                                             <td className="text-right">
@@ -688,7 +688,7 @@ export const HolidayCalendar = () => {
                                                 isOff ? (
                                                   <button
                                                     onClick={() => handleCancelHolidayClick(hol)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold border border-red-200 cursor-pointer transition-colors shadow-2xs"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold border border-red-200 dark:border-red-800 cursor-pointer transition-colors shadow-2xs"
                                                     title="Cancel / Delete this holiday (Restore normal working day)"
                                                   >
                                                     <Trash2 size={12} />
@@ -697,7 +697,7 @@ export const HolidayCalendar = () => {
                                                 ) : (
                                                   <button
                                                     onClick={() => handleConfirmFestivalClick(hol)}
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold border border-amber-300 cursor-pointer transition-colors shadow-2xs"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-xs font-bold border border-amber-300 dark:border-amber-800 cursor-pointer transition-colors shadow-2xs"
                                                     title="Declare this festival as official company holiday"
                                                   >
                                                     <Plus size={12} />

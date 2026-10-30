@@ -70,29 +70,29 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
   });
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
       {/* Header and Filter */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3.5 border-b border-slate-100">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3.5 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center">
             <Clock size={16} />
           </div>
           <div>
-            <h3 className="m-0 text-[15px] font-extrabold text-slate-900">
+            <h3 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
               Overtime Requests & Approvals
             </h3>
-            <p className="m-0 text-[11.5px] text-slate-500">
+            <p className="m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Side-by-side shift extra hours & task duration verification
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-600">Filter:</span>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Filter:</span>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="py-1.5 px-2.5 rounded-md border border-slate-300 text-xs font-semibold text-slate-900 outline-none bg-white"
+            className="py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800"
           >
             <option value="all">All ({requests.length})</option>
             <option value="pending">Pending</option>
@@ -104,16 +104,16 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
       {/* List */}
       {loading ? (
-        <div className="text-center py-[30px] text-slate-500 text-[13px]">
+        <div className="text-center py-[30px] text-slate-500 dark:text-slate-400 text-[13px]">
           Loading overtime records...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-10 px-5 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-          <Clock size={28} className="mb-2 text-slate-400" />
-          <div className="text-[13px] font-bold text-slate-700">
+        <div className="text-center py-10 px-5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+          <Clock size={28} className="mb-2 text-slate-400 dark:text-slate-500" />
+          <div className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
             No Overtime Requests Found
           </div>
-          <div className="text-xs text-slate-500 mt-0.5">
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             When employees work beyond standard shift hours, their overtime claims and task work will appear here.
           </div>
         </div>
@@ -130,37 +130,37 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
             return (
               <div
                 key={item._id || item.id}
-                className={`py-3.5 px-[18px] rounded-xl border flex items-center justify-between flex-wrap gap-3 ${isPending ? 'border-orange-200 bg-orange-50/50' : (isApproved ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50')}`}
+                className={`py-3.5 px-[18px] rounded-xl border flex items-center justify-between flex-wrap gap-3 ${isPending ? 'border-orange-200 dark:border-orange-800/60 bg-orange-50/50 dark:bg-orange-950/30' : (isApproved ? 'border-green-200 dark:border-green-800/60 bg-green-50/50 dark:bg-green-950/30' : 'border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-950/30')}`}
               >
                 {/* Left Info */}
                 <div className="flex items-center gap-3 min-w-[260px]">
-                  <div className="w-[38px] h-[38px] rounded-full bg-slate-200 text-slate-900 font-extrabold text-sm flex items-center justify-center shrink-0">
+                  <div className="w-[38px] h-[38px] rounded-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-extrabold text-sm flex items-center justify-center shrink-0">
                     {(item.employeeName || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <strong className="text-[13.5px] text-slate-900">
+                      <strong className="text-[13.5px] text-slate-900 dark:text-slate-100">
                         {item.employeeName || 'Employee'}
                       </strong>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
                         ({item.employeeCode || 'EMP'})
                       </span>
-                      <span className={`text-[11px] font-bold py-0.5 px-2 rounded ${isPending ? 'bg-orange-100 text-orange-700' : (isApproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}`}>
+                      <span className={`text-[11px] font-bold py-0.5 px-2 rounded ${isPending ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300' : (isApproved ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300')}`}>
                         {status.toUpperCase()}
                       </span>
                     </div>
 
-                    <div className="text-[11.5px] text-slate-500 mt-1 flex items-center gap-2.5 flex-wrap">
-                      <span>📅 Date: <strong>{item.date}</strong></span>
-                      <span>⏰ Extra Time: <strong className="text-orange-600">+{hours}h</strong></span>
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2.5 flex-wrap">
+                      <span>📅 Date: <strong className="text-slate-800 dark:text-slate-200">{item.date}</strong></span>
+                      <span>⏰ Extra Time: <strong className="text-orange-600 dark:text-orange-400">+{hours}h</strong></span>
                       {item.overtimeRequestedTo && (
-                        <span>Approver: <strong>{item.overtimeRequestedTo}</strong></span>
+                        <span>Approver: <strong className="text-slate-800 dark:text-slate-200">{item.overtimeRequestedTo}</strong></span>
                       )}
                     </div>
 
                     {/* Reason Note */}
                     {item.overtimeReason && (
-                      <div className="text-[11.5px] text-slate-700 mt-1 italic">
+                      <div className="text-[11.5px] text-slate-700 dark:text-slate-300 mt-1 italic">
                         "{item.overtimeReason}"
                       </div>
                     )}
@@ -168,11 +168,11 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
                     {/* Tasks Worked Pills */}
                     {tasks.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                        <span className="text-[10.5px] font-bold text-slate-500">Tasks:</span>
+                        <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400">Tasks:</span>
                         {tasks.map((t, tidx) => (
                           <span
                             key={tidx}
-                            className="bg-white border border-slate-300 rounded py-[1px] px-1.5 text-[10.5px] text-slate-800 font-semibold"
+                            className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded py-[1px] px-1.5 text-[10.5px] text-slate-800 dark:text-slate-200 font-semibold"
                           >
                             {t.taskCode || 'TSK'}: {t.title || 'Task'} ({t.durationText || ''})
                           </span>
@@ -194,7 +194,7 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
                     </button>
                     <button
                       onClick={() => handleDecision(item._id || item.id, 'rejected')}
-                      className="py-1.5 px-3 rounded-md border border-red-300 bg-white text-red-600 text-xs font-semibold cursor-pointer inline-flex items-center gap-1 hover:bg-red-50"
+                      className="py-1.5 px-3 rounded-md border border-red-300 dark:border-red-800/60 bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 text-xs font-semibold cursor-pointer inline-flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/40"
                     >
                       <XCircle size={13} />
                       <span>Reject</span>

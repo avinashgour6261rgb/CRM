@@ -46,35 +46,35 @@ export const MonthlyMatrixTable = ({
         return { icon: '⭐', color: '#854d0e', bg: '#fef9c3', label: 'Holiday' };
       }
       if (isWeekend) {
-        return { icon: '📅', color: '#94a3b8', bg: '#f1f5f9', label: 'Day Off' };
+        return { icon: '📅', color: '#94a3b8', bg: 'transparent', label: 'Day Off' };
       }
-      return { icon: '—', color: '#cbd5e1', bg: '#ffffff', label: 'Upcoming' };
+      return { icon: '—', color: '#cbd5e1', bg: 'transparent', label: 'Upcoming' };
     }
 
     if (!record) {
       if (isWeekend) {
-        return { icon: '📅', color: '#64748b', bg: '#f1f5f9', label: 'Day Off' };
+        return { icon: '📅', color: '#64748b', bg: 'transparent', label: 'Day Off' };
       }
-      return { icon: '—', color: '#94a3b8', bg: '#ffffff', label: 'Not Marked' };
+      return { icon: '—', color: '#94a3b8', bg: 'transparent', label: 'Not Marked' };
     }
 
     switch (record.status) {
       case 'present':
-        return { icon: '✔️', color: '#16a34a', bg: '#dcfce7', label: 'Present' };
+        return { icon: '✔️', color: '#16a34a', bg: 'transparent', label: 'Present' };
       case 'late':
-        return { icon: '⚠️', color: '#d97706', bg: '#fef3c7', label: `Late (${record.clockInTime || '10:30'})` };
+        return { icon: '⚠️', color: '#d97706', bg: 'transparent', label: `Late (${record.clockInTime || '10:30'})` };
       case 'half_day':
-        return { icon: '🌟', color: '#8b5cf6', bg: '#f3e8ff', label: 'Half Day' };
+        return { icon: '🌟', color: '#8b5cf6', bg: 'transparent', label: 'Half Day' };
       case 'absent':
-        return { icon: '❌', color: '#dc2626', bg: '#fee2e2', label: 'Absent' };
+        return { icon: '❌', color: '#dc2626', bg: 'transparent', label: 'Absent' };
       case 'on_leave':
-        return { icon: '✈️', color: '#0284c7', bg: '#e0f2fe', label: 'On Leave' };
+        return { icon: '✈️', color: '#0284c7', bg: 'transparent', label: 'On Leave' };
       case 'holiday':
-        return { icon: '⭐', color: '#854d0e', bg: '#fef9c3', label: 'Holiday' };
+        return { icon: '⭐', color: '#854d0e', bg: 'transparent', label: 'Holiday' };
       case 'day_off':
-        return { icon: '📅', color: '#64748b', bg: '#f1f5f9', label: 'Day Off' };
+        return { icon: '📅', color: '#64748b', bg: 'transparent', label: 'Day Off' };
       case 'not_marked':
-        return { icon: '—', color: '#94a3b8', bg: '#f8fafc', label: 'Not Marked' };
+        return { icon: '—', color: '#94a3b8', bg: 'transparent', label: 'Not Marked' };
       default:
         return { icon: '—', color: '#94a3b8', bg: 'transparent', label: 'Not Marked' };
     }
@@ -87,7 +87,7 @@ export const MonthlyMatrixTable = ({
           <thead>
             <tr>
               {/* Sticky Employee Column */}
-              <th className="sticky left-0 z-20 bg-slate-50 min-w-[220px] border-r-2 border-slate-200">
+              <th className="sticky left-0 z-20 bg-slate-50 dark:bg-slate-900 min-w-[220px] border-r-2 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
                 Employee
               </th>
 
@@ -98,7 +98,7 @@ export const MonthlyMatrixTable = ({
                 return (
                   <th
                     key={day}
-                    className={`text-center py-2 px-[3px] min-w-[34px] text-[11px] border-r border-slate-100 ${isWeekend ? 'bg-slate-100 text-slate-500' : 'bg-slate-50 text-slate-700'}`}
+                    className={`text-center py-2 px-[3px] min-w-[34px] text-[11px] border-r border-slate-100 dark:border-slate-800 ${isWeekend ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' : 'bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300'}`}
                   >
                     <div className="font-bold text-xs">{day}</div>
                     <div className="text-[9.5px] text-slate-400 uppercase">{dayName}</div>
@@ -107,7 +107,7 @@ export const MonthlyMatrixTable = ({
               })}
 
               {/* Total Column */}
-              <th className="text-center min-w-[80px] font-bold bg-slate-50 sticky right-0 z-20 border-l-2 border-slate-200">
+              <th className="text-center min-w-[80px] font-bold bg-slate-50 dark:bg-slate-900 sticky right-0 z-20 border-l-2 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
                 Total
               </th>
             </tr>
@@ -120,10 +120,10 @@ export const MonthlyMatrixTable = ({
               const empRecords = attendance.filter(a => {
                 if (!a.date || !a.date.startsWith(monthPrefix)) return false;
                 return a.employeeId === emp._id ||
-                       a.employeeId === emp.employeeCode ||
-                       a.employeeCode === emp.employeeCode ||
-                       a.employeeCode === emp._id ||
-                       (a.employeeName && emp.name && a.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase());
+                  a.employeeId === emp.employeeCode ||
+                  a.employeeCode === emp.employeeCode ||
+                  a.employeeCode === emp._id ||
+                  (a.employeeName && emp.name && a.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase());
               });
               // Only past and current dates (<= todayStr) can count toward present totals
               const validPresenceRecords = empRecords.filter(a => a.date <= todayStr);
@@ -135,19 +135,19 @@ export const MonthlyMatrixTable = ({
               return (
                 <tr key={emp._id}>
                   {/* Sticky Employee Details Cell */}
-                  <td className="sticky left-0 z-10 bg-white border-r-2 border-slate-200 py-3 px-3.5">
+                  <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r-2 border-slate-200 dark:border-slate-800 py-3 px-3.5">
                     <div className="employee-cell">
                       <div className="employee-avatar">
                         {emp.avatar ? <img src={emp.avatar} alt={emp.name} /> : emp.name.charAt(0)}
                       </div>
                       <div className="employee-name-group">
-                        <span className="employee-name text-[13px]">
+                        <span className="employee-name text-[13px] text-slate-900 dark:text-slate-100 font-bold">
                           {emp.name}
                           {isEmployeeSelf(emp) && (
                             <span className="its-you-pill text-[9px] py-[1px] px-[5px]">It's You</span>
                           )}
                         </span>
-                        <span className="employee-role text-[11px]">{emp.role}</span>
+                        <span className="employee-role text-[11px] text-slate-500 dark:text-slate-400">{emp.role}</span>
                       </div>
                     </div>
                   </td>
@@ -186,7 +186,21 @@ export const MonthlyMatrixTable = ({
                             notes: safeRecord?.notes
                           });
                         }}
-                        className={`text-center py-1.5 px-0.5 border-r border-slate-100 transition-all duration-150 ${isFuture ? 'cursor-default' : 'cursor-pointer'} ${isMuted ? 'opacity-30 bg-slate-50' : (isFuture ? 'bg-[#fafafa]' : (safeRecord?.status === 'late' ? 'bg-amber-100' : (safeRecord?.status === 'absent' ? 'bg-red-100' : (isWeekend ? 'bg-[#fafafa]' : 'bg-transparent'))))}`}
+                        className={`text-center py-1.5 px-0.5 border-r border-slate-100 dark:border-slate-800 transition-all duration-150 ${
+                          isFuture ? 'cursor-default' : 'cursor-pointer'
+                        } ${
+                          isMuted
+                            ? 'opacity-25 bg-slate-50 dark:bg-slate-950/40'
+                            : isFuture
+                            ? 'bg-[#fafafa] dark:bg-slate-950/30'
+                            : safeRecord?.status === 'late'
+                            ? 'bg-amber-100 dark:bg-amber-950/50'
+                            : safeRecord?.status === 'absent'
+                            ? 'bg-red-100 dark:bg-red-950/50'
+                            : isWeekend
+                            ? 'bg-[#fafafa] dark:bg-slate-900/60'
+                            : 'bg-transparent'
+                        }`}
                         title={isFuture ? `${emp.name} - ${dateStr}: ${display.label}` : `${emp.name} - ${dateStr}: ${display.label}${timeDetail}`}
                       >
                         <span
@@ -200,7 +214,7 @@ export const MonthlyMatrixTable = ({
                   })}
 
                   {/* Sticky Total Count Cell (Matches 6/30 in screenshot) */}
-                  <td className="text-center font-bold text-[13px] text-slate-900 sticky right-0 z-10 bg-white border-l-2 border-slate-200">
+                  <td className="text-center font-bold text-[13px] text-slate-900 dark:text-slate-100 sticky right-0 z-10 bg-white dark:bg-slate-900 border-l-2 border-slate-200 dark:border-slate-800">
                     <span title={`${effectivePresentDays} present days (${totalHoursWorked.toFixed(1)} hrs total)`}>
                       {effectivePresentDays} / {daysInMonth}
                     </span>

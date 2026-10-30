@@ -217,3 +217,4 @@ export const matchesSearch = (item, searchQuery, customFields = []) => {
 
   return defaultValues.some(val => val && normalizeString(val).includes(query));
 };
+

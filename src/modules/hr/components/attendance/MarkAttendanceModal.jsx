@@ -83,7 +83,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         
         {/* Admin Audit Trail Notice */}
         {isPrivileged && (
-          <div className="flex items-start gap-2.5 py-2.5 px-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <div className="flex items-start gap-2.5 py-2.5 px-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg text-xs text-amber-800 dark:text-amber-300">
             <ShieldAlert size={18} color="#d97706" className="shrink-0 mt-0.5" />
             <div>
               <strong>Audit Trail Logging Active:</strong> Manual adjustments made by you will be timestamped and permanently logged under Administrator ID <code>#{adminIdentifier}</code> ({currentUser?.name}).
@@ -92,7 +92,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         )}
 
         <div>
-          <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
             Employee
           </label>
           <select
@@ -113,7 +113,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Date
             </label>
             <input
@@ -127,7 +127,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
           </div>
 
           <div>
-            <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Status
             </label>
             <select
@@ -149,7 +149,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         {['present', 'late', 'half_day'].includes(formData.status) && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Clock-In Time
               </label>
               <input
@@ -161,7 +161,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             </div>
 
             <div>
-              <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Clock-Out Time
               </label>
               <input
@@ -175,7 +175,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         )}
 
         <div>
-          <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
             General Notes
           </label>
           <input
@@ -190,17 +190,17 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         {/* Mandatory Admin Override Reason */}
         {isPrivileged && (
           <div>
-            <label className="block text-[13px] font-bold text-red-800 mb-1.5">
+            <label className="block text-[13px] font-bold text-red-800 dark:text-red-300 mb-1.5">
               Admin Override Explanation / Audit Note <span className="text-red-600">*</span>
             </label>
             <textarea
               value={formData.auditNote}
               onChange={(e) => setFormData({ ...formData, auditNote: e.target.value })}
               placeholder="Mandatory: Detail why this attendance/shift record was manually created or modified (e.g., Punch system failure, approved off-site client deployment, manual hour adjustment)..."
-              className="w-full min-h-[65px] py-2 px-3 rounded-md border border-red-300 bg-red-50/50 text-xs outline-none font-inherit"
+              className="w-full min-h-[65px] py-2 px-3 rounded-md border border-red-300 dark:border-red-800/60 bg-red-50/50 dark:bg-red-950/30 text-xs text-slate-900 dark:text-slate-100 outline-none font-inherit placeholder:text-slate-400 dark:placeholder:text-slate-500"
               required={!!initialData}
             />
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
               Recorded by Admin #{adminIdentifier} ({currentUser?.name || 'Administrator'}) in compliance audit log.
             </span>
           </div>

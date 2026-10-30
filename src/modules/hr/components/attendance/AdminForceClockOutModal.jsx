@@ -44,7 +44,7 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
       <form onSubmit={handleForceClockOut} className="flex flex-col gap-4">
         
         {/* Warning Banner */}
-        <div className="flex items-start gap-2.5 p-3 px-3.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+        <div className="flex items-start gap-2.5 p-3 px-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 rounded-lg text-xs text-red-800 dark:text-red-300">
           <ShieldAlert size={20} className="shrink-0 mt-0.5 text-red-600" />
           <div>
             <strong>Administrative Action Required:</strong> This action will immediately clock out the employee's live shift, pause their task timers, and stamp this event into both the employee's time log and the system audit log under Administrator ID <code>#{adminIdentifier}</code>.
@@ -53,19 +53,19 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
 
         {/* Target Employee Selection */}
         <div>
-          <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+          <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
             Target Employee
           </label>
           {targetEmployee ? (
-            <div className="flex items-center gap-2.5 p-2.5 px-3 bg-slate-50 border border-slate-200 rounded-md">
+            <div className="flex items-center gap-2.5 p-2.5 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-md">
               <img
                 src={targetEmployee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                 alt={targetEmployee.name}
                 className="w-7 h-7 rounded-full object-cover"
               />
               <div>
-                <div className="text-[13px] font-bold text-slate-900">{targetEmployee.name}</div>
-                <div className="text-[11px] text-slate-500">{targetEmployee.role} • ID: {targetEmployee.employeeCode || targetEmployee._id}</div>
+                <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{targetEmployee.name}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">{targetEmployee.role} • ID: {targetEmployee.employeeCode || targetEmployee._id}</div>
               </div>
             </div>
           ) : (
@@ -84,16 +84,16 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
         </div>
 
         {/* Current Time Stamp Callout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
           <div>
-            <span className="text-slate-500">Closing Time Stamp:</span>
-            <div className="font-bold text-slate-900 text-[13px]">
+            <span className="text-slate-500 dark:text-slate-400">Closing Time Stamp:</span>
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-[13px]">
               {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} (Immediate)
             </div>
           </div>
           <div>
-            <span className="text-slate-500">Authorized By:</span>
-            <div className="font-bold text-slate-900 text-[13px]">
+            <span className="text-slate-500 dark:text-slate-400">Authorized By:</span>
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-[13px]">
               {adminName} <span className="text-blue-600 text-[11px]">[#{adminIdentifier}]</span>
             </div>
           </div>
@@ -101,17 +101,17 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
 
         {/* Mandatory Reason for Override */}
         <div>
-          <label className="block text-[13px] font-bold text-slate-900 mb-1.5">
+          <label className="block text-[13px] font-bold text-slate-900 dark:text-slate-100 mb-1.5">
             Audit Note & Reason for Force Clock-Out <span className="text-red-600">*</span>
           </label>
           <textarea
             value={auditNote}
             onChange={(e) => setAuditNote(e.target.value)}
             placeholder="e.g. Employee left premises at 06:30 PM without clocking out; verified via security logs / client off-site transition."
-            className="w-full min-h-[75px] p-2.5 px-3 rounded-md border border-slate-300 bg-white text-[12.5px] outline-none font-sans focus:border-red-500 transition-colors"
+            className="w-full min-h-[75px] p-2.5 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12.5px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none font-sans focus:border-red-500 transition-colors"
             required
           />
-          <span className="text-[11px] text-slate-500 mt-1 block">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
             This note will be permanently etched in the employee's audit log and daily timecard.
           </span>
         </div>

@@ -177,16 +177,16 @@ export const AttendancePage = () => {
   return (
     <div className="flex flex-col gap-3.5 min-h-full pb-6">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <CalendarCheck size={17} />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Attendance & Shift Tracking
             </h1>
-            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500">
+            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
               Live employee presence, monthly attendance matrix, and audit trails.
             </p>
           </div>
@@ -195,7 +195,7 @@ export const AttendancePage = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Export attendance records to CSV"
           >
             <Download size={13} />
@@ -217,96 +217,96 @@ export const AttendancePage = () => {
 
       {/* Top Attendance Summary KPI Cards */}
       <div className="kpi-grid-6">
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">Present Days</span>
-            <div className="kpi-icon-wrap bg-green-100 text-green-600">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">Present Days</span>
+            <div className="kpi-icon-wrap bg-green-100 dark:bg-green-950/60 text-green-600 dark:text-green-400">
               <UserCheck size={18} />
             </div>
           </div>
-          <div className="kpi-value text-green-600">{presentCount}</div>
-          <div className="kpi-subtext text-green-600">
+          <div className="kpi-value text-green-600 dark:text-green-400">{presentCount}</div>
+          <div className="kpi-subtext text-green-600 dark:text-green-400">
             <span>✔️ On-time attendance</span>
           </div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">Half Days</span>
-            <div className="kpi-icon-wrap bg-purple-100 text-purple-500">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">Half Days</span>
+            <div className="kpi-icon-wrap bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
               <Award size={18} />
             </div>
           </div>
-          <div className="kpi-value text-purple-500">{halfDayCount}</div>
-          <div className="kpi-subtext text-purple-500">
+          <div className="kpi-value text-purple-600 dark:text-purple-400">{halfDayCount}</div>
+          <div className="kpi-subtext text-purple-600 dark:text-purple-400">
             <span>🌟 4-hour shifts</span>
           </div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">Late Arrivals</span>
-            <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">Late Arrivals</span>
+            <div className="kpi-icon-wrap bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
               <AlertTriangle size={18} />
             </div>
           </div>
-          <div className="kpi-value text-amber-600">{lateCount}</div>
-          <div className="kpi-subtext text-amber-600">
+          <div className="kpi-value text-amber-600 dark:text-amber-400">{lateCount}</div>
+          <div className="kpi-subtext text-amber-600 dark:text-amber-400">
             <span>⚠️ Past grace period</span>
           </div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">Absences</span>
-            <div className="kpi-icon-wrap bg-red-100 text-red-600">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">Absences</span>
+            <div className="kpi-icon-wrap bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400">
               <UserX size={18} />
             </div>
           </div>
-          <div className="kpi-value text-red-600">{absentCount}</div>
-          <div className="kpi-subtext text-red-600">
+          <div className="kpi-value text-red-600 dark:text-red-400">{absentCount}</div>
+          <div className="kpi-subtext text-red-600 dark:text-red-400">
             <span>❌ Unplanned leaves</span>
           </div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">On Leave</span>
-            <div className="kpi-icon-wrap bg-sky-100 text-sky-600">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">On Leave</span>
+            <div className="kpi-icon-wrap bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
               <Palmtree size={18} />
             </div>
           </div>
-          <div className="kpi-value text-sky-600">{onLeaveCount}</div>
-          <div className="kpi-subtext text-sky-600">
+          <div className="kpi-value text-sky-600 dark:text-sky-400">{onLeaveCount}</div>
+          <div className="kpi-subtext text-sky-600 dark:text-sky-400">
             <span>✈️ Approved leaves</span>
           </div>
         </div>
 
-        <div className="kpi-card">
+        <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="kpi-header">
-            <span className="kpi-title">Days Off & Holidays</span>
-            <div className="kpi-icon-wrap bg-slate-100 text-slate-500">
+            <span className="kpi-title text-slate-600 dark:text-slate-300">Days Off & Holidays</span>
+            <div className="kpi-icon-wrap bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
               <CalendarCheck size={18} />
             </div>
           </div>
-          <div className="kpi-value">{dayOffCount + holidayCount}</div>
-          <div className="kpi-subtext text-slate-500">
+          <div className="kpi-value text-slate-800 dark:text-slate-100">{dayOffCount + holidayCount}</div>
+          <div className="kpi-subtext text-slate-500 dark:text-slate-400">
             <span>📅 Weekends & Holidays</span>
           </div>
         </div>
       </div>
 
       {/* Top Filter Bar (Matches Screenshot 2 + Attendance Status Filter) */}
-      <div className="action-bar-card">
+      <div className="action-bar-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <div className="filter-left-group">
           {/* Employee Selector */}
           <div className="filter-item">
-            <span className="font-semibold text-slate-600">Employee:</span>
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Employee:</span>
             <select
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
               disabled={!canViewAllAttendance}
-              className={`filter-select min-w-[180px] ${!canViewAllAttendance ? 'bg-slate-100 cursor-not-allowed' : 'bg-white cursor-pointer'}`}
+              className={`filter-select min-w-[180px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 ${!canViewAllAttendance ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed text-slate-400' : 'bg-white dark:bg-slate-800 cursor-pointer'}`}
             >
               {canViewAllAttendance ? (
                 <>
@@ -327,11 +327,11 @@ export const AttendancePage = () => {
 
           {/* Month Selector */}
           <div className="filter-item">
-            <span className="font-semibold text-slate-600">Month:</span>
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Month:</span>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
             >
               {months.map(m => (
                 <option key={m.value} value={m.value}>{m.name}</option>
@@ -341,11 +341,11 @@ export const AttendancePage = () => {
 
           {/* Year Selector */}
           <div className="filter-item">
-            <span className="font-semibold text-slate-600">Year:</span>
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Year:</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
             >
               {years.map(y => (
                 <option key={y} value={y}>{y}</option>
@@ -355,11 +355,11 @@ export const AttendancePage = () => {
 
           {/* Attendance Status Filter (Explicit Requirement) */}
           <div className="filter-item">
-            <span className="font-semibold text-slate-600">Status:</span>
+            <span className="font-semibold text-slate-600 dark:text-slate-300">Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select min-w-[140px]"
+              className="filter-select min-w-[140px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
             >
               <option value="all">All Statuses</option>
               <option value="present">✔️ Present</option>
@@ -379,7 +379,7 @@ export const AttendancePage = () => {
           {isPrivileged && (
             <button
               onClick={() => setIsForceClockOutOpen(true)}
-              className="btn btn-outline text-red-600 border-red-300 bg-red-50 text-xs font-bold hover:bg-red-100 transition-colors"
+              className="btn btn-outline text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
               title="Forcefully clock out an active employee shift with mandatory audit logging"
             >
               <LogOut size={14} />
@@ -399,7 +399,7 @@ export const AttendancePage = () => {
           {/* Export Button */}
           <button
             onClick={handleExportCSV}
-            className="btn btn-outline"
+            className="btn btn-outline dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
           >
             <Download size={15} />
             <span>Export</span>
@@ -433,7 +433,7 @@ export const AttendancePage = () => {
             </button>
             <button
               onClick={() => setViewMode('audit')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'audit' ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-transparent border-transparent'}`}
+              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'audit' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
               title="Complete Admin & Employee Audit Trail"
             >
               <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
@@ -441,7 +441,7 @@ export const AttendancePage = () => {
             </button>
             <button
               onClick={() => setViewMode('overtime')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'overtime' ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-transparent border-transparent'}`}
+              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'overtime' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
               title="Overtime Requests & Approvals"
             >
               <Clock size={15} color={viewMode === 'overtime' ? '#ea580c' : '#64748b'} />
@@ -571,48 +571,48 @@ export const AttendancePage = () => {
       {/* Analytics Summary */}
       {viewMode === 'summary' && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-6">
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-500 font-semibold">Present Rate</span>
+              <span className="text-[13px] text-slate-500 dark:text-slate-400 font-semibold">Present Rate</span>
               <CheckCircle2 color="#16a34a" size={20} />
             </div>
-            <div className="text-[28px] font-extrabold text-green-600 mt-2.5">
+            <div className="text-[28px] font-extrabold text-green-600 dark:text-green-400 mt-2.5">
               {Math.round(((presentCount + lateCount + halfDayCount) / (totalLogs || 1)) * 100)}%
             </div>
-            <span className="text-xs text-slate-500">Effective presence recorded</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Effective presence recorded</span>
           </div>
 
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-500 font-semibold">Average Daily Hours</span>
+              <span className="text-[13px] text-slate-500 dark:text-slate-400 font-semibold">Average Daily Hours</span>
               <Clock color="#2563eb" size={20} />
             </div>
-            <div className="text-[28px] font-extrabold text-blue-600 mt-2.5">
-              8.2 <span className="text-sm font-semibold text-slate-500">hrs/day</span>
+            <div className="text-[28px] font-extrabold text-blue-600 dark:text-blue-400 mt-2.5">
+              8.2 <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">hrs/day</span>
             </div>
-            <span className="text-xs text-slate-500">Standard shift compliance</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Standard shift compliance</span>
           </div>
 
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-500 font-semibold">Late Incidents</span>
+              <span className="text-[13px] text-slate-500 dark:text-slate-400 font-semibold">Late Incidents</span>
               <AlertTriangle color="#d97706" size={20} />
             </div>
-            <div className="text-[28px] font-extrabold text-amber-600 mt-2.5">
+            <div className="text-[28px] font-extrabold text-amber-600 dark:text-amber-400 mt-2.5">
               {lateCount}
             </div>
-            <span className="text-xs text-slate-500">Check-ins past 09:30 AM</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Check-ins past 09:30 AM</span>
           </div>
 
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-slate-500 font-semibold">Total Absences</span>
+              <span className="text-[13px] text-slate-500 dark:text-slate-400 font-semibold">Total Absences</span>
               <XCircle color="#dc2626" size={20} />
             </div>
-            <div className="text-[28px] font-extrabold text-red-600 mt-2.5">
+            <div className="text-[28px] font-extrabold text-red-600 dark:text-red-400 mt-2.5">
               {absentCount}
             </div>
-            <span className="text-xs text-slate-500">Requires follow-up</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Requires follow-up</span>
           </div>
         </div>
       )}
