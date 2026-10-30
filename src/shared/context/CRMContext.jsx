@@ -370,9 +370,63 @@ export const CRMProvider = ({ children }) => {
     setTickets(getCollection(KEYS.TICKETS) || []);
   };
 
+  // Synchronize conversations with MongoDB backend database
+  const loadConversations = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/conversations`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteConvs = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteConvs) && remoteConvs.length > 0) {
+          const local = getCollection(KEYS.CONVERSATIONS) || [];
+          const map = new Map();
+
+          // Index remote channels & conversations from database
+          remoteConvs.forEach(c => map.set(c.id, c));
+
+          // Check local for any messages or conversations that haven't synced yet
+          let hasUnsynced = false;
+          local.forEach(c => {
+            if (!map.has(c.id)) {
+              map.set(c.id, c);
+              hasUnsynced = true;
+            } else {
+              const remote = map.get(c.id);
+              const remoteMsgCount = remote.messages?.length || 0;
+              const localMsgCount = c.messages?.length || 0;
+              if (localMsgCount > remoteMsgCount) {
+                map.set(c.id, { ...remote, ...c });
+                hasUnsynced = true;
+              }
+            }
+          });
+
+          const merged = Array.from(map.values());
+          saveCollection(KEYS.CONVERSATIONS, merged);
+          setConversations(merged);
+
+          if (hasUnsynced) {
+            fetch(`${API_BASE}/conversations/sync-batch`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ conversations: merged })
+            }).catch(() => {});
+          }
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for conversations:', err);
+    }
+    setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+  };
+
   useEffect(() => {
     loadTickets();
-  }, []);
+    loadConversations();
+  }, [currentUser]);
 
   useEffect(() => {
     const handleStorageUpdate = (e) => {
@@ -1400,6 +1454,17 @@ export const CRMProvider = ({ children }) => {
     setConversations([...currentConvs]);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     window.dispatchEvent(new CustomEvent('ems_chat_message_sent', { detail: { message: newMsg, conversationId } }));
+
+    // Persist message to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newMsg)
+      }).catch(err => console.warn('[CRMContext] Offline message sync queued:', err));
+    } catch (err) {
+      console.warn('[CRMContext] Message database persistence failed:', err);
+    }
   };
 
   const startConversation = (employeeId) => {
@@ -1474,6 +1539,17 @@ export const CRMProvider = ({ children }) => {
     setActiveConversationId(newConv.id);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     addToast(`New conversation started with ${emp.name}!`, 'success');
+
+    // Persist conversation to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newConv)
+      }).catch(err => console.warn('[CRMContext] Offline conversation sync queued:', err));
+    } catch (err) {
+      console.warn('[CRMContext] Conversation database persistence failed:', err);
+    }
     return newConv.id;
   };
 
@@ -1507,6 +1583,15 @@ export const CRMProvider = ({ children }) => {
       saveCollection(KEYS.CONVERSATIONS, currentConvs);
       setConversations([...currentConvs]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+
+      // Persist read status to MongoDB Atlas database
+      try {
+        fetch(`${API_BASE}/conversations/${conversationId}/read`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ userId: currentUser?._id || currentUser?.employeeCode })
+        }).catch(() => {});
+      } catch (err) {}
     }
   };
 
@@ -1555,6 +1640,16 @@ export const CRMProvider = ({ children }) => {
     setActiveConversationId(newChannel.id);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     addToast(`Channel #${cleanName} created successfully!`, 'success');
+
+    // Persist channel to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newChannel)
+      }).catch(err => console.warn('[CRMContext] Offline channel sync queued:', err));
+    } catch (err) {}
+
     return newChannel.id;
   };
 

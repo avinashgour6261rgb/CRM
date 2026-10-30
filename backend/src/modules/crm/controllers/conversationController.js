@@ -1,6 +1,6 @@
 /**
  * @file conversationController.js
- * @description Controller for Team Chat Conversations, Channels & Real-time Messaging.
+ * @description Controller for Team Chat Conversations, Channels & Real-time Messaging in MongoDB Atlas.
  */
 
 const Conversation = require('../models/Conversation');
@@ -157,9 +157,16 @@ exports.getConversations = async (req, res) => {
 exports.createConversation = async (req, res) => {
   try {
     const data = req.body;
+    if (!data.id) {
+      return res.status(400).json({ success: false, message: 'Conversation id is required' });
+    }
+
     let conv = await Conversation.findOne({ id: data.id });
     if (conv) {
-      return res.json({ success: true, data: conv, message: 'Conversation already exists' });
+      // Update metadata if exists
+      Object.assign(conv, data);
+      await conv.save();
+      return res.json({ success: true, data: conv, message: 'Conversation updated' });
     }
 
     conv = new Conversation(data);
@@ -175,12 +182,29 @@ exports.sendMessage = async (req, res) => {
     const { id } = req.params;
     const message = req.body;
 
-    const conv = await Conversation.findOne({ id });
+    let conv = await Conversation.findOne({ id });
     if (!conv) {
-      return res.status(404).json({ success: false, message: 'Conversation not found' });
+      // Auto-upsert conversation container if missing
+      conv = new Conversation({
+        id,
+        type: id.startsWith('channel_') ? 'channel' : 'dm',
+        channelName: id.startsWith('channel_') ? `#${id.replace('channel_', '')}` : undefined,
+        name: id.startsWith('channel_') ? id.replace('channel_', '') : undefined,
+        participants: message.participants || [message.senderId],
+        messages: [message],
+        lastMessage: message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment'),
+        lastMessageTime: message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      await conv.save();
+      return res.status(201).json({ success: true, data: conv });
     }
 
-    conv.messages.push(message);
+    // Check if message is already recorded to avoid duplicates
+    const alreadyExists = conv.messages.some(m => m.id === message.id);
+    if (!alreadyExists) {
+      conv.messages.push(message);
+    }
+
     conv.lastMessage = message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment');
     conv.lastMessageTime = message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -191,3 +215,78 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+exports.markAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['x-user-id'] || req.body?.userId;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const conv = await Conversation.findOne({ id });
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    const uStr = String(userId).toLowerCase();
+    let updated = false;
+
+    if (Array.isArray(conv.messages)) {
+      conv.messages.forEach(msg => {
+        const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+        if (!readBy.some(r => String(r).toLowerCase() === uStr)) {
+          msg.readBy.push(userId);
+          updated = true;
+        }
+      });
+    }
+
+    if (updated) {
+      await conv.save();
+    }
+
+    res.json({ success: true, data: conv });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.syncBatch = async (req, res) => {
+  try {
+    const { conversations: batchConvs } = req.body;
+    if (!Array.isArray(batchConvs) || batchConvs.length === 0) {
+      return res.json({ success: true, count: 0 });
+    }
+
+    let syncedCount = 0;
+    for (const item of batchConvs) {
+      if (!item.id) continue;
+      let existing = await Conversation.findOne({ id: item.id });
+      if (!existing) {
+        existing = new Conversation(item);
+        await existing.save();
+        syncedCount++;
+      } else {
+        // Merge messages if remote has fewer
+        const remoteMsgIds = new Set(existing.messages.map(m => m.id));
+        let addedMsg = false;
+        (item.messages || []).forEach(m => {
+          if (!remoteMsgIds.has(m.id)) {
+            existing.messages.push(m);
+            addedMsg = true;
+          }
+        });
+        if (addedMsg) {
+          existing.lastMessage = item.lastMessage || existing.lastMessage;
+          existing.lastMessageTime = item.lastMessageTime || existing.lastMessageTime;
+          await existing.save();
+          syncedCount++;
+        }
+      }
+    }
+
+    res.json({ success: true, count: syncedCount });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { getRoles } from '../../../../shared/services/roleManagementService';
 import { KEYS } from '../../../../shared/services/storageService';
+import { API_BASE } from '../../../../shared/config/apiConfig';
 import {
   ROLES,
   GRANULAR_PERMISSIONS_LIST,
@@ -401,7 +402,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           const genIdx = convs.findIndex(c => c.id === 'channel_general' || c.channelName === '#general');
           if (genIdx !== -1) {
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            convs[genIdx].messages.push({
+            const welcomeMsg = {
               id: `msg_welcome_${Date.now()}`,
               conversationId: convs[genIdx].id,
               senderId: 'ADM-001',
@@ -413,11 +414,19 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               timestamp: timeStr,
               createdAt: Date.now(),
               readBy: ['ADM-001']
-            });
+            };
+            convs[genIdx].messages.push(welcomeMsg);
             convs[genIdx].lastMessage = `Welcome ${formData.name} to the team!`;
             convs[genIdx].lastMessageTime = timeStr;
             localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convs));
             window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+
+            // Also persist to MongoDB database
+            fetch(`${API_BASE}/conversations/channel_general/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(welcomeMsg)
+            }).catch(() => {});
           }
         }
       } catch (e) {
