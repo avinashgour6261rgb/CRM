@@ -166,25 +166,25 @@ export const HolidayPage = () => {
   return (
     <div className="animate-fade-in flex flex-col gap-3">
       {/* Header Bar */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white p-3 px-4 rounded-[10px] border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-            <CalendarCheck size={17} />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="m-0 text-base font-extrabold text-slate-900 leading-tight">Company Holidays & Offs</h1>
-              {canManageHolidays ? (
-                <span className="text-[10.5px] py-px px-1.5 rounded bg-green-100 text-green-600 font-bold">
+        <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+          <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <CalendarCheck size={17} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-white leading-tight">Company Holidays & Offs</h1>
+                  {canManageHolidays ? (
+                <span className="text-[10.5px] py-px px-1.5 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-bold">
                   Admin & HR Access
                 </span>
               ) : (
-                <span className="text-[10.5px] py-px px-1.5 rounded bg-slate-100 text-slate-500 font-semibold">
+                <span className="text-[10.5px] py-px px-1.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                   Employee View
                 </span>
               )}
             </div>
-            <p className="m-0 mt-px text-[11.5px] text-slate-500">
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Annual gazetted, national festivals & company declared leaves
             </p>
           </div>
@@ -195,7 +195,7 @@ export const HolidayPage = () => {
             <button
               onClick={handleSyncAll12Months}
               disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold cursor-pointer hover:bg-indigo-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
               title="Synchronize all 12 months (Jan-Dec) of official Indian gazetted holidays and festivals for this year"
             >
               <Sparkles size={13} className={isSyncing ? 'animate-spin' : ''} />
@@ -204,7 +204,7 @@ export const HolidayPage = () => {
           )}
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white text-blue-600 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             <Download size={13} />
             <span>Export Calendar</span>
@@ -219,183 +219,182 @@ export const HolidayPage = () => {
         </div>
       </div>
 
-      {/* Admin / HR Auto-Suggested National Holidays & Festivals Confirmation Banner */}
-      {canManageHolidays && unconfirmedSuggestions.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 rounded-[10px] p-3.5 px-4 shadow-sm flex flex-col gap-2.5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center text-xl shrink-0 shadow-xs">
-                🪔
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="m-0 text-sm font-extrabold text-slate-900 leading-tight">
-                    {unconfirmedSuggestions.length} Pan-India National Holidays & Festivals Available for {currentYear}
-                  </h3>
-                  <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
-                    Action Required
-                  </span>
-                </div>
-                <p className="m-0 text-xs text-slate-600 mt-0.5">
-                  Google Calendar & National Gazetted list has identified major festivals (Diwali, Holi, Eid, Independence Day, etc.). Confirm them to officially enforce as paid company offs.
-                </p>
-              </div>
-            </div>
+                {/* Admin / HR Auto-Suggested National Holidays & Festivals Confirmation Banner */}
+                {canManageHolidays && unconfirmedSuggestions.length > 0 && (
+                    <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-[10px] p-3.5 px-4 shadow-sm flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 flex items-center justify-center text-xl shrink-0 shadow-xs">
+                              🪔
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                  <h3 className="m-0 text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                                    {unconfirmedSuggestions.length} Pan-India National Holidays & Festivals Available for {currentYear}
+                                  </h3>
+                                    <span className="text-[10px] font-extrabold bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full">
+                                      Action Required
+                                    </span>
+                                  </div>
+                                    <p className="m-0 text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                                      Google Calendar & National Gazetted list has identified major festivals (Diwali, Holi, Eid, Independence Day, etc.). Confirm them to officially enforce as paid company offs.
+                                    </p>
+                                  </div>
+                              </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsReviewOpen(!isReviewOpen)}
-                className="px-3 h-[32px] rounded-md border border-amber-300 bg-white text-amber-900 text-xs font-semibold hover:bg-amber-50 cursor-pointer flex items-center gap-1"
-              >
-                <span>{isReviewOpen ? 'Hide Review' : 'Review List'}</span>
-                {isReviewOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              </button>
-              <button
-                onClick={handleConfirmAll}
-                className="px-3.5 h-[32px] rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5 transition-colors"
-              >
-                <CheckCircle2 size={14} />
-                <span>Confirm All as Company Offs</span>
-              </button>
-            </div>
-          </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setIsReviewOpen(!isReviewOpen)}
+                                  className="px-3 h-[32px] rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/60 cursor-pointer flex items-center gap-1"
+                                >
+                                  <span>{isReviewOpen ? 'Hide Review' : 'Review List'}</span>
+                                  {isReviewOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                </button>
+                                <button
+                                  onClick={handleConfirmAll}
+                                  className="px-3.5 h-[32px] rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5 transition-colors"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  <span>Confirm All as Company Offs</span>
+                                </button>
+                              </div>
+                            </div>
 
-          {/* Collapsible Review Table */}
-          {isReviewOpen && (
-            <div className="mt-2 pt-3 border-t border-amber-200/60 overflow-x-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                {suggestedHolidays.map(item => (
-                  <div
-                    key={item.code}
-                    className={`p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 ${
-                      item.isConfirmed
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                        : 'bg-white border-amber-200 text-slate-800'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-extrabold flex items-center gap-1.5 truncate">
-                        <span>{item.icon}</span>
-                        <span className="truncate">{item.name}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-medium mt-0.5">
-                        {item.date} ({item.dayOfWeek})
-                      </div>
-                    </div>
-                    {item.isConfirmed ? (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                          <Check size={11} /> Off
-                        </span>
-                        {canManageHolidays && (
-                          <button
-                            onClick={() => handleCancelOne(item)}
-                            title="Cancel / Revert this company holiday"
-                            className="text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleConfirmOne(item)}
-                        className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10.5px] cursor-pointer shrink-0 transition-colors shadow-xs"
-                      >
-                        Confirm
-                      </button>
-                    )}
-                  </div>
+                            {/* Collapsible Review Table */}
+                            {isReviewOpen && (
+                                <div className="mt-2 pt-3 border-t border-amber-200/60 dark:border-amber-800/60 overflow-x-auto">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                    {suggestedHolidays.map(item => (
+                                      <div
+                                        key={item.code}
+                                        className={`p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 ${item.isConfirmed
+                                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                                              : 'bg-white dark:bg-slate-800 border-amber-200 dark:border-amber-800/60 text-slate-800 dark:text-slate-200'
+                                          }`}
+                                      >
+                                        <div className="min-w-0">
+                                          <div className="font-extrabold flex items-center gap-1.5 truncate">
+                                            <span>{item.icon}</span>
+                                            <span className="truncate">{item.name}</span>
+                                          </div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                              {item.date} ({item.dayOfWeek})
+                                            </div>
+                                          </div>
+                                          {item.isConfirmed ? (
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
+                                                  <Check size={11} /> Off
+                                                </span>
+                                                {canManageHolidays && (
+                                                  <button
+                                                    onClick={() => handleCancelOne(item)}
+                                                    title="Cancel / Revert this company holiday"
+                                                    className="text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/60 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                )}
+                                            </div>
+                                          ) : (
+                                            <button
+                                              onClick={() => handleConfirmOne(item)}
+                                              className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10.5px] cursor-pointer shrink-0 transition-colors shadow-xs"
+                                            >
+                                              Confirm
+                                            </button>
+                                          )}
+                                        </div>
                 ))}
-              </div>
+                                      </div>
             </div>
           )}
-        </div>
+                                </div>
       )}
 
-      {/* Top Holiday Summary Cards (Total, Upcoming, Completed, This Month) */}
-      <div className="kpi-grid-4">
-        {/* 1. Total Holidays */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-title">Total Holidays</span>
-            <div className="kpi-icon-wrap bg-blue-50 text-blue-600">
-              <CalendarCheck size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">{totalHolidaysCount} <span className="text-xs font-semibold text-slate-500">Days</span></div>
-          <div className="kpi-subtext text-slate-500">
-            <span>Annual gazetted, national & company offs</span>
-          </div>
-        </div>
+                                {/* Top Holiday Summary Cards (Total, Upcoming, Completed, This Month) */}
+                                <div className="kpi-grid-4">
+                                  {/* 1. Total Holidays */}
+                                  <div className="kpi-card">
+                                    <div className="kpi-header">
+                                      <span className="kpi-title">Total Holidays</span>
+                                      <div className="kpi-icon-wrap bg-blue-50 text-blue-600">
+                                        <CalendarCheck size={16} />
+                                      </div>
+                                    </div>
+                                    <div className="kpi-value">{totalHolidaysCount} <span className="text-xs font-semibold text-slate-500">Days</span></div>
+                                    <div className="kpi-subtext text-slate-500">
+                                      <span>Annual gazetted, national & company offs</span>
+                                    </div>
+                                  </div>
 
-        {/* 2. Upcoming Holidays */}
-        <div className="kpi-card border-l-[3px] border-yellow-800">
-          <div className="kpi-header">
-            <span className="kpi-title">Upcoming Holidays</span>
-            <div className="kpi-icon-wrap bg-yellow-100 text-yellow-800">
-              <Clock size={16} />
-            </div>
-          </div>
-          <div className="kpi-value text-yellow-800">{upcomingHolidays.length} <span className="text-xs font-semibold text-slate-500">Remaining</span></div>
-          <div className="kpi-subtext text-yellow-800">
-            <span>Next: {nextHol ? `${nextHol.name} in ${daysToNextHoliday}d` : 'None upcoming'}</span>
-          </div>
-        </div>
+                                  {/* 2. Upcoming Holidays */}
+                                  <div className="kpi-card border-l-[3px] border-yellow-800">
+                                    <div className="kpi-header">
+                                      <span className="kpi-title">Upcoming Holidays</span>
+                                      <div className="kpi-icon-wrap bg-yellow-100 text-yellow-800">
+                                        <Clock size={16} />
+                                      </div>
+                                    </div>
+                                    <div className="kpi-value text-yellow-800">{upcomingHolidays.length} <span className="text-xs font-semibold text-slate-500">Remaining</span></div>
+                                    <div className="kpi-subtext text-yellow-800">
+                                      <span>Next: {nextHol ? `${nextHol.name} in ${daysToNextHoliday}d` : 'None upcoming'}</span>
+                                    </div>
+                                  </div>
 
-        {/* 3. Completed Holidays */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-title">Completed Holidays</span>
-            <div className="kpi-icon-wrap bg-green-100 text-green-600">
-              <CheckCircle2 size={16} />
-            </div>
-          </div>
-          <div className="kpi-value text-green-600">{completedHolidays.length} <span className="text-xs font-semibold text-slate-500">Passed</span></div>
-          <div className="kpi-subtext text-green-600">
-            <span>Celebrated earlier this year</span>
-          </div>
-        </div>
+                                  {/* 3. Completed Holidays */}
+                                  <div className="kpi-card">
+                                    <div className="kpi-header">
+                                      <span className="kpi-title">Completed Holidays</span>
+                                      <div className="kpi-icon-wrap bg-green-100 text-green-600">
+                                        <CheckCircle2 size={16} />
+                                      </div>
+                                    </div>
+                                    <div className="kpi-value text-green-600">{completedHolidays.length} <span className="text-xs font-semibold text-slate-500">Passed</span></div>
+                                    <div className="kpi-subtext text-green-600">
+                                      <span>Celebrated earlier this year</span>
+                                    </div>
+                                  </div>
 
-        {/* 4. Pan-India Festivals (Jan - Dec) */}
-        <div className="kpi-card">
-          <div className="kpi-header">
-            <span className="kpi-title">Pan-India Festivals ({currentYear})</span>
-            <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
-              <Sparkles size={16} />
-            </div>
-          </div>
-          <div className="kpi-value text-amber-600">{suggestedHolidays.length || 32} <span className="text-xs font-semibold text-slate-500">Jan - Dec</span></div>
-          <div className="kpi-subtext text-amber-600">
-            <span>{suggestedHolidays.filter(s => s.isConfirmed).length} confirmed offs • {unconfirmedSuggestions.length} available to review</span>
-          </div>
-        </div>
-      </div>
+                                  {/* 4. Pan-India Festivals (Jan - Dec) */}
+                                  <div className="kpi-card">
+                                    <div className="kpi-header">
+                                      <span className="kpi-title">Pan-India Festivals ({currentYear})</span>
+                                      <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
+                                        <Sparkles size={16} />
+                                      </div>
+                                    </div>
+                                    <div className="kpi-value text-amber-600">{suggestedHolidays.length || 32} <span className="text-xs font-semibold text-slate-500">Jan - Dec</span></div>
+                                    <div className="kpi-subtext text-amber-600">
+                                      <span>{suggestedHolidays.filter(s => s.isConfirmed).length} confirmed offs • {unconfirmedSuggestions.length} available to review</span>
+                                    </div>
+                                  </div>
+                                </div>
 
-      {/* Action Bar (Search Filter) */}
-      <div className="bg-white rounded-[10px] border border-slate-200 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 bg-slate-50 min-w-[280px]">
-          <Search size={13} color="#94a3b8" />
-          <input
-            type="text"
-            placeholder="Search holiday name, festival, category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="border-none bg-transparent outline-none text-xs w-full text-slate-900"
-          />
-        </div>
-      </div>
+                                {/* Action Bar (Search Filter) */}
+                                    <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                                      <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 min-w-[280px]">
+                                        <Search size={13} className="text-slate-400" />
+                                        <input
+                                          type="text"
+                                          placeholder="Search holiday name, festival, category..."
+                                          value={searchQuery}
+                                          onChange={(e) => setSearchQuery(e.target.value)}
+                                          className="border-none bg-transparent outline-none text-xs w-full text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                        />
+                                      </div>
+                                    </div>
 
-      {/* Calendar Grid & List Section */}
-      <HolidayCalendar />
+                                    {/* Calendar Grid & List Section */}
+                                    <HolidayCalendar />
 
-      {/* Add Holiday Modal */}
-      {canManageHolidays && (
-        <AddHolidayModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-        />
-      )}
-    </div>
-  );
+                                    {/* Add Holiday Modal */}
+                                    {canManageHolidays && (
+                                      <AddHolidayModal
+                                        isOpen={isAddModalOpen}
+                                        onClose={() => setIsAddModalOpen(false)}
+                                      />
+                                    )}
+                                  </div>
+                                  );
 };

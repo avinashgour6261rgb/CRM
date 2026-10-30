@@ -95,13 +95,12 @@ export const LeadsKanban = ({
                       <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 py-0.5 px-1.5 rounded">
                         {lead.leadCode || `#${lead.idNumber}`}
                       </span>
-                      <span className={`text-[10px] font-bold py-0.5 px-1.5 rounded uppercase ${
-                        lead.priority === 'urgent'
+                      <span className={`text-[10px] font-bold py-0.5 px-1.5 rounded uppercase ${lead.priority === 'urgent'
                           ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300'
                           : lead.priority === 'high'
-                          ? 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                      }`}>
+                            ? 'bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                        }`}>
                         {lead.priority}
                       </span>
                     </div>

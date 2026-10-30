@@ -1627,16 +1627,16 @@ export const DashboardPage = () => {
     <div className="flex flex-col gap-3.5 min-h-full pb-6">
 
       {/* ── 🏢 Top Page Header Bar (Standardized matching Tickets & All Pages) ── */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white py-3 px-4 rounded-[10px] border border-slate-200 shadow-xs min-h-[68px] box-border shrink-0">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <LayoutDashboard size={17} />
           </div>
           <div>
-            <h1 className="text-base font-extrabold text-slate-900 m-0 leading-tight">
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-white m-0 leading-tight">
               Enterprise Operations Dashboard
             </h1>
-            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500">
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Live shift tracking, active tasks, team presence & workplace overview.
             </p>
           </div>
@@ -1647,7 +1647,7 @@ export const DashboardPage = () => {
           {isUserAdminOrHR && (
             <button
               onClick={() => setIsEmpDirectoryOpen(true)}
-              className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
+              className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-xs font-semibold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
               title="Open full Employee Directory"
             >
               <Users size={13} />
@@ -1657,7 +1657,7 @@ export const DashboardPage = () => {
 
           <button
             onClick={() => setIsRaiseTicketOpen(true)}
-            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
+            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Raise support ticket or IT request"
           >
             <LifeBuoy size={13} color="#0284c7" />
@@ -1678,7 +1678,7 @@ export const DashboardPage = () => {
       {/* ── ⏰ LIVE DUE TASK REMINDER ALERT BANNER ── */}
       {dueReminders.length > 0 && (
         <div
-          className="bg-orange-50 border-[1.5px] border-orange-400 rounded-[10px] py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(251,146,60,0.15)] animate-[reminderPulseGlow_2.5s_infinite]"
+          className="bg-orange-50 dark:bg-orange-950/40 border-[1.5px] border-orange-400 dark:border-orange-800 rounded-[10px] py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(251,146,60,0.15)] animate-[reminderPulseGlow_2.5s_infinite]"
         >
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
@@ -1686,14 +1686,14 @@ export const DashboardPage = () => {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-extrabold bg-orange-200 text-orange-900 px-1.5 py-px rounded">
+                <span className="text-[10px] font-extrabold bg-orange-200 dark:bg-orange-900/60 text-orange-900 dark:text-orange-200 px-1.5 py-px rounded">
                   ⏰ REMINDER DUE
                 </span>
-                <span className="text-[13px] font-extrabold text-slate-900">
+                <span className="text-[13px] font-extrabold text-slate-900 dark:text-white">
                   #{dueReminders[0].taskCode || 'TSK'}: {dueReminders[0].title}
                 </span>
               </div>
-              <div className="text-[11px] text-orange-950 mt-0.5">
+              <div className="text-[11px] text-orange-950 dark:text-orange-200 mt-0.5">
                 Paused at <strong>{dueReminders[0].hoursLoggedText || formatTimeDurationSafe(dueReminders[0].timerSeconds || 0)}</strong>
                 {dueReminders[0].reminderNote ? ` • Note: "${dueReminders[0].reminderNote}"` : ''}
               </div>
@@ -1711,7 +1711,7 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => snoozeTask(dueReminders[0]._id, { remindInMinutes: 15, note: 'Snoozed 15m' })}
-              className="py-1.5 px-2.5 rounded-md bg-white text-orange-900 border border-orange-300 text-[11.5px] font-semibold cursor-pointer hover:bg-orange-50 transition-colors"
+              className="py-1.5 px-2.5 rounded-md bg-white dark:bg-slate-800 text-orange-900 dark:text-orange-300 border border-orange-300 dark:border-orange-800 text-[11.5px] font-semibold cursor-pointer hover:bg-orange-50 dark:hover:bg-slate-700 transition-colors"
               title="Snooze for another 15 minutes"
             >
               +15m Snooze
@@ -1719,7 +1719,7 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => dismissTaskReminder(dueReminders[0]._id, targetActiveUid)}
-              className="py-1.5 px-2 rounded-md bg-transparent text-orange-900 border-none text-[11.5px] font-semibold cursor-pointer hover:bg-orange-100 transition-colors"
+              className="py-1.5 px-2 rounded-md bg-transparent text-orange-900 dark:text-orange-300 border-none text-[11.5px] font-semibold cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
               title="Dismiss reminder"
             >
               ✕
@@ -1730,9 +1730,9 @@ export const DashboardPage = () => {
 
       {/* ── ⚠️ REOPENED PROJECTS BANNER (FOR ASSIGNEES) ── */}
       {reopenedProjectsForMe.length > 0 && (
-        <div className="bg-orange-50 border-[1.5px] border-orange-300 rounded-[10px] py-2.5 px-3.5 flex items-center gap-2.5 shadow-[0_2px_6px_rgba(194,65,12,0.08)]">
+        <div className="bg-orange-50 dark:bg-orange-950/40 border-[1.5px] border-orange-300 dark:border-orange-800 rounded-[10px] py-2.5 px-3.5 flex items-center gap-2.5 shadow-[0_2px_6px_rgba(194,65,12,0.08)]">
           <span className="text-lg">⚠️</span>
-          <div className="flex-1 text-xs text-orange-900">
+          <div className="flex-1 text-xs text-orange-900 dark:text-orange-200">
             <strong>Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened by Admin: </strong>
             {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
           </div>
@@ -1747,22 +1747,22 @@ export const DashboardPage = () => {
 
       {/* ── 📋 PROJECT COMPLETION APPROVALS QUEUE (ADMIN / HR PERSPECTIVE) ── */}
       {isUserAdminOrHR && pendingApprovalProjects.length > 0 && (
-        <div className="bg-white rounded-xl border-[1.5px] border-purple-300 shadow-[0_4px_14px_rgba(147,51,234,0.08)] overflow-hidden">
-          <div className="py-2.5 px-4 bg-purple-50 border-b border-purple-100 flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border-[1.5px] border-purple-300 dark:border-purple-800 shadow-[0_4px_14px_rgba(147,51,234,0.08)] overflow-hidden">
+          <div className="py-2.5 px-4 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-900/40 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-base">📋</span>
               <div>
-                <span className="text-[13px] font-extrabold text-purple-950">
+                <span className="text-[13px] font-extrabold text-purple-950 dark:text-purple-200">
                   Project Completion Review Queue ({pendingApprovalProjects.length})
                 </span>
-                <span className="text-[11px] text-purple-700 ml-1.5">
+                <span className="text-[11px] text-purple-700 dark:text-purple-400 ml-1.5">
                   Submitted for final sign-off
                 </span>
               </div>
             </div>
             <button
               onClick={() => navigate('/projects')}
-              className="bg-transparent border-none text-purple-700 text-[11.5px] font-bold cursor-pointer underline hover:text-purple-900"
+              className="bg-transparent border-none text-purple-700 dark:text-purple-400 text-[11.5px] font-bold cursor-pointer underline hover:text-purple-900 dark:hover:text-purple-300"
             >
               Manage All in Projects →
             </button>
@@ -1772,17 +1772,17 @@ export const DashboardPage = () => {
             {pendingApprovalProjects.map(proj => (
               <div
                 key={proj._id}
-                className="flex items-center justify-between flex-wrap gap-2.5 py-2 px-3 rounded-lg bg-fuchsia-50/60 border border-fuchsia-200"
+                className="flex items-center justify-between flex-wrap gap-2.5 py-2 px-3 rounded-lg bg-fuchsia-50/60 dark:bg-fuchsia-950/20 border border-fuchsia-200 dark:border-fuchsia-900/50"
               >
                 <div className="flex items-center gap-2">
                   <span className="py-0.5 px-1.5 rounded bg-purple-600 text-white text-[10.5px] font-extrabold">
                     {proj.projectCode || 'PRJ'}
                   </span>
                   <div>
-                    <div className="text-[12.5px] font-bold text-slate-900">
+                    <div className="text-[12.5px] font-bold text-slate-900 dark:text-white">
                       {proj.name}
                     </div>
-                    <div className="text-[10.5px] text-slate-500">
+                    <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
                       Submitted by: <strong>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
                       {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
                     </div>
@@ -1807,7 +1807,7 @@ export const DashboardPage = () => {
                         await reopenProject(proj._id, reason.trim());
                       }
                     }}
-                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200 text-[11px] font-bold cursor-pointer hover:bg-orange-100 transition-colors"
+                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px] font-bold cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
                     title="Send project back to in-progress with revision notes"
                   >
                     <span>🔄 Reopen</span>
@@ -1821,7 +1821,7 @@ export const DashboardPage = () => {
 
       {/* ── ⏮️ LEFTOVER / PREVIOUS DAYS TASK REMINDER BANNER ── */}
       {!isLeftoverDismissed && myLeftoverTasks.length > 0 && (
-        <div className="bg-red-50 border-[1.5px] border-red-400 rounded-[10px] py-3 px-4 flex flex-col gap-2.5 shadow-[0_4px_14px_rgba(239,68,68,0.12)] relative">
+        <div className="bg-red-50 dark:bg-red-950/40 border-[1.5px] border-red-400 dark:border-red-800 rounded-[10px] py-3 px-4 flex flex-col gap-2.5 shadow-[0_4px_14px_rgba(239,68,68,0.12)] relative">
           {/* Header row */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
@@ -1830,14 +1830,14 @@ export const DashboardPage = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10.5px] font-extrabold bg-red-100 text-red-800 py-0.5 px-2 rounded uppercase tracking-wider">
+                  <span className="text-[10.5px] font-extrabold bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200 py-0.5 px-2 rounded uppercase tracking-wider">
                     ⏮️ Leftover from Previous Day
                   </span>
-                  <span className="text-xs font-bold text-red-700">
+                  <span className="text-xs font-bold text-red-700 dark:text-red-300">
                     {myLeftoverTasks.length} task{myLeftoverTasks.length > 1 ? 's were' : ' was'} left incomplete
                   </span>
                 </div>
-                <div className="text-[11px] text-red-900 mt-0.5">
+                <div className="text-[11px] text-red-900 dark:text-red-200 mt-0.5">
                   Please take action: start working now, reschedule for future, snooze reminder, or mark completed.
                 </div>
               </div>
@@ -1850,17 +1850,17 @@ export const DashboardPage = () => {
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.max(0, i - 1))}
                     disabled={activeLeftoverIdx === 0}
-                    className={`py-1 px-1.5 rounded border border-red-300 text-xs font-semibold ${activeLeftoverIdx === 0 ? 'bg-red-100 text-gray-400 cursor-default' : 'bg-white text-red-700 cursor-pointer'}`}
+                    className={`py-1 px-1.5 rounded border border-red-300 dark:border-red-800 text-xs font-semibold ${activeLeftoverIdx === 0 ? 'bg-red-100 dark:bg-red-950/60 text-gray-400 cursor-default' : 'bg-white dark:bg-slate-800 text-red-700 dark:text-red-300 cursor-pointer'}`}
                   >
                     ◀
                   </button>
-                  <span className="text-xs font-bold text-red-800">
+                  <span className="text-xs font-bold text-red-800 dark:text-red-300">
                     {activeLeftoverIdx + 1} of {myLeftoverTasks.length}
                   </span>
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.min(myLeftoverTasks.length - 1, i + 1))}
                     disabled={activeLeftoverIdx === myLeftoverTasks.length - 1}
-                    className={`py-1 px-1.5 rounded border border-red-300 text-xs font-semibold ${activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'bg-red-100 text-gray-400 cursor-default' : 'bg-white text-red-700 cursor-pointer'}`}
+                    className={`py-1 px-1.5 rounded border border-red-300 dark:border-red-800 text-xs font-semibold ${activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'bg-red-100 dark:bg-red-950/60 text-gray-400 cursor-default' : 'bg-white dark:bg-slate-800 text-red-700 dark:text-red-300 cursor-pointer'}`}
                   >
                     ▶
                   </button>
@@ -1869,7 +1869,7 @@ export const DashboardPage = () => {
               <button
                 onClick={handleDismissLeftover}
                 title="Dismiss reminder banner"
-                className="border-none bg-transparent text-red-800 text-sm cursor-pointer py-0.5 px-1.5 rounded hover:bg-red-200/50 transition-colors"
+                className="border-none bg-transparent text-red-800 dark:text-red-300 text-sm cursor-pointer py-0.5 px-1.5 rounded hover:bg-red-200/50 dark:hover:bg-red-900/40 transition-colors"
               >
                 ✕
               </button>
@@ -1887,26 +1887,26 @@ export const DashboardPage = () => {
               : 1;
 
             return (
-              <div className="bg-white border border-red-200 rounded-lg py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5">
+              <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/60 rounded-lg py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5">
                 <div className="flex-1 min-w-[240px]">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-extrabold text-red-600">
+                    <span className="text-[11px] font-extrabold text-red-600 dark:text-red-400">
                       #{currentLeftover.taskCode || 'TSK'}:
                     </span>
-                    <span className="text-[13px] font-bold text-slate-800">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">
                       {currentLeftover.title}
                     </span>
                     {currentLeftover.projectName && (
-                      <span className="text-[10px] bg-slate-100 text-slate-600 py-px px-1.5 rounded font-semibold">
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-px px-1.5 rounded font-semibold">
                         📁 {currentLeftover.projectName}
                       </span>
                     )}
-                    <span className="text-[10px] bg-red-100 text-red-600 py-px px-1.5 rounded font-bold">
+                    <span className="text-[10px] bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 py-px px-1.5 rounded font-bold">
                       Due {diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`} ({currentLeftover.dueDate || 'Past Due'})
                     </span>
                   </div>
-                  <div className="text-[11.5px] text-slate-500 mt-1">
-                    Priority: <strong className={`capitalize ${currentLeftover.priority === 'urgent' ? 'text-red-600' : currentLeftover.priority === 'high' ? 'text-orange-600' : 'text-slate-600'}`}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
+                    Priority: <strong className={`capitalize ${currentLeftover.priority === 'urgent' ? 'text-red-600 dark:text-red-400' : currentLeftover.priority === 'high' ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}`}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
                     {currentLeftover.assignedBy && ` • Assigned by: ${currentLeftover.assignedBy}`}
                   </div>
                 </div>
@@ -1963,7 +1963,7 @@ export const DashboardPage = () => {
                         addToast(`📅 Task rescheduled to next week (${nextWeekStr})`, 'success');
                       }
                     }}
-                    className="py-1.5 px-2.5 rounded-md bg-slate-50 text-slate-700 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="py-1.5 px-2.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     title="Move deadline to Next Week (+7 Days)"
                   >
                     +7d Next Week
@@ -1997,7 +1997,7 @@ export const DashboardPage = () => {
                   {/* Open Detail Modal (Full history + custom reschedule) */}
                   <button
                     onClick={() => setSelectedTask(currentLeftover)}
-                    className="py-1.5 px-2 rounded-md bg-slate-100 text-slate-600 border border-slate-300 text-[11px] font-semibold cursor-pointer hover:bg-slate-200 transition-colors"
+                    className="py-1.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     title="View details & assignment history"
                   >
                     Details
@@ -2015,17 +2015,17 @@ export const DashboardPage = () => {
           {myDecidedLeaves.map(leave => (
             <div
               key={leave._id}
-              className={`rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 ${leave.status === 'approved' ? 'bg-emerald-50 border-[1.5px] border-emerald-300 shadow-[0_4px_12px_rgba(16,185,129,0.12)]' : 'bg-rose-50 border-[1.5px] border-rose-300 shadow-[0_4px_12px_rgba(239,68,68,0.12)]'}`}
+              className={`rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 ${leave.status === 'approved' ? 'bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 shadow-[0_4px_12px_rgba(16,185,129,0.12)]' : 'bg-rose-50 dark:bg-rose-950/40 border-[1.5px] border-rose-300 dark:border-rose-800 shadow-[0_4px_12px_rgba(239,68,68,0.12)]'}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-[9px] text-white flex items-center justify-center shrink-0 ${leave.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'}`}>
                   {leave.status === 'approved' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
                 </div>
                 <div>
-                  <div className={`text-[13.5px] font-bold ${leave.status === 'approved' ? 'text-emerald-900' : 'text-red-900'}`}>
+                  <div className={`text-[13.5px] font-bold ${leave.status === 'approved' ? 'text-emerald-900 dark:text-emerald-200' : 'text-red-900 dark:text-red-200'}`}>
                     {leave.status === 'approved' ? '🎉 Leave Application Approved!' : '⚠️ Leave Application Declined'}
                   </div>
-                  <div className={`text-xs mt-0.5 ${leave.status === 'approved' ? 'text-emerald-700' : 'text-red-700'}`}>
+                  <div className={`text-xs mt-0.5 ${leave.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                     <strong>{leave.leaveType} ({leave.durationText || `${leave.durationDays} Days`})</strong> • 📅 {leave.startDate} to {leave.endDate}
                     <span className="mx-1.5 opacity-60">•</span>
                     <span>
@@ -2045,7 +2045,7 @@ export const DashboardPage = () => {
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  className="bg-white text-slate-700 border border-slate-300 py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   View Details
                 </button>
@@ -2061,7 +2061,7 @@ export const DashboardPage = () => {
           {myPendingLeaves.slice(0, 1).map(l => (
             <div
               key={`my_pending_top_${l._id}`}
-              className="bg-blue-50 border-[1.5px] border-blue-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_2px_8px_rgba(37,99,235,0.08)]"
+              className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_2px_8px_rgba(37,99,235,0.08)]"
             >
               <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                 <div className="w-9 h-9 rounded-[9px] bg-blue-500 text-white flex items-center justify-center shrink-0">
@@ -2069,14 +2069,14 @@ export const DashboardPage = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[13.5px] font-extrabold text-blue-800">
+                    <span className="text-[13.5px] font-extrabold text-blue-800 dark:text-blue-200">
                       📋 Your Leave Application is Pending Review
                     </span>
-                    <span className="text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-px rounded">
+                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded">
                       Awaiting Decision
                     </span>
                   </div>
-                  <div className="text-xs text-blue-900 mt-0.5">
+                  <div className="text-xs text-blue-900 dark:text-blue-200 mt-0.5">
                     <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong> • Sent to <strong>{l.appliedToName || 'Reviewer'}</strong> ({l.appliedToRole || 'Approver'})
                     {l.reason && <span> • <em>"{l.reason}"</em></span>}
                   </div>
@@ -2085,7 +2085,7 @@ export const DashboardPage = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCancellingLeaveTarget(l)}
-                  className="py-1.5 px-3 rounded-md bg-white text-red-600 border border-red-300 text-[11.5px] font-bold cursor-pointer hover:bg-red-50 transition-colors"
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700 transition-colors"
                   title="Withdraw / Cancel this request"
                 >
                   Cancel Request
@@ -2108,7 +2108,7 @@ export const DashboardPage = () => {
           {activeTopLeaveRequests.map(l => (
             <div
               key={`top_leave_${l._id}`}
-              className="bg-amber-50 border-[1.5px] border-amber-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.12)]"
+              className="bg-amber-50 dark:bg-amber-950/40 border-[1.5px] border-amber-200 dark:border-amber-800 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.12)]"
             >
               <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                 <div className="w-9 h-9 rounded-[9px] bg-amber-500 text-white flex items-center justify-center shrink-0">
@@ -2116,14 +2116,14 @@ export const DashboardPage = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[13.5px] font-extrabold text-amber-900">
+                    <span className="text-[13.5px] font-extrabold text-amber-900 dark:text-amber-200">
                       📩 New Leave Request Pending Your Approval
                     </span>
-                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-px rounded">
+                    <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-1.5 py-px rounded">
                       Needs Review
                     </span>
                   </div>
-                  <div className="text-xs text-amber-950 mt-0.5">
+                  <div className="text-xs text-amber-950 dark:text-amber-200 mt-0.5">
                     <strong>{l.employeeName}</strong> ({l.employeeRole || 'Member'}) has requested <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong>
                     {l.reason && <span> • <em>"{l.reason}"</em></span>}
                   </div>
@@ -2147,13 +2147,13 @@ export const DashboardPage = () => {
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  className="py-1.5 px-3 rounded-md bg-white text-slate-600 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   Manage →
                 </button>
                 <button
                   onClick={() => dismissTopAlert(l._id)}
-                  className="p-1.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200 cursor-pointer flex items-center justify-center ml-1 hover:bg-amber-200 transition-colors"
+                  className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 cursor-pointer flex items-center justify-center ml-1 hover:bg-amber-200 dark:hover:bg-amber-900 transition-colors"
                   title="Dismiss alert from top (remains available in Leave section below)"
                 >
                   <X size={15} />
@@ -2170,7 +2170,7 @@ export const DashboardPage = () => {
           {activeTopNotices.slice(0, 2).map(not => (
             <div
               key={`top_notice_${not._id || not.id}`}
-              className="bg-blue-50 border-[1.5px] border-blue-200 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.08)]"
+              className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.08)]"
             >
               <div className="flex items-center gap-3 flex-1 min-w-[280px]">
                 <div className="w-9 h-9 rounded-[9px] bg-blue-600 text-white flex items-center justify-center shrink-0">
@@ -2178,16 +2178,16 @@ export const DashboardPage = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[13.5px] font-extrabold text-blue-800">
+                    <span className="text-[13.5px] font-extrabold text-blue-800 dark:text-blue-200">
                       📢 Important Announcement: {not.title}
                     </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not.isImportant ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not.isImportant ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900' : 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}`}>
                       {not.category || 'Company Notice'}
                     </span>
                   </div>
-                  <div className="text-xs text-blue-900 mt-0.5">
+                  <div className="text-xs text-blue-900 dark:text-blue-200 mt-0.5">
                     {not.shortDescription || not.description || not.fullContent}
-                    {not.postedBy && <span className="text-slate-500 ml-1.5">• Posted by <strong>{not.postedBy}</strong></span>}
+                    {not.postedBy && <span className="text-slate-500 dark:text-slate-400 ml-1.5">• Posted by <strong>{not.postedBy}</strong></span>}
                   </div>
                 </div>
               </div>
@@ -2201,13 +2201,13 @@ export const DashboardPage = () => {
                 </button>
                 <button
                   onClick={() => navigate('/notice-board')}
-                  className="py-1.5 px-3 rounded-md bg-white text-slate-600 border border-slate-300 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   Notice Board
                 </button>
                 <button
                   onClick={() => dismissTopAlert(not._id || not.id)}
-                  className="p-1.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200 cursor-pointer flex items-center justify-center ml-1 hover:bg-blue-200 transition-colors"
+                  className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 cursor-pointer flex items-center justify-center ml-1 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
                   title="Dismiss announcement from top (remains available in Notices section below)"
                 >
                   <X size={15} />
@@ -2220,13 +2220,13 @@ export const DashboardPage = () => {
 
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
       {(isUserAdminOrHR || perms?.liveOperations || perms?.viewAllAttendance) && (
-        <div className="bg-orange-50 rounded-[10px] border border-orange-200 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
+        <div className="bg-orange-50 dark:bg-orange-950/40 rounded-[10px] border border-orange-200 dark:border-orange-800 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-[34px] h-[34px] rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
               <Zap size={18} fill="#ffffff" />
             </div>
             <div>
-              <div className="text-[13.5px] font-extrabold text-orange-900 flex items-center gap-1.5">
+              <div className="text-[13.5px] font-extrabold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
                 <span>Team Operations & Shift Controls</span>
                 <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-px rounded font-bold">
                   {teamStats.clockedIn} Working Live
@@ -2378,11 +2378,11 @@ export const DashboardPage = () => {
                 setPendingTasksModalFilter('all');
                 setIsPendingTasksModalOpen(true);
               }}
-              className="bg-white rounded-[10px] border border-slate-200 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
+              className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all pending tasks list"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-600">Tasks</span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Tasks</span>
                 <ListTodo size={15} color="#0284c7" />
               </div>
               <div className="flex items-baseline gap-3.5 mt-0.5">
@@ -2395,8 +2395,8 @@ export const DashboardPage = () => {
                   title="Click to view pending tasks"
                   className="cursor-pointer"
                 >
-                  <span className="text-lg font-extrabold text-sky-600">{myPendingTasks.length}</span>
-                  <span className="text-[10.5px] text-slate-500 ml-1">Pending</span>
+                  <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400">{myPendingTasks.length}</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Pending</span>
                 </div>
                 <div
                   onClick={(e) => {
@@ -2407,8 +2407,8 @@ export const DashboardPage = () => {
                   title="Click to view overdue tasks"
                   className="cursor-pointer"
                 >
-                  <span className={`text-lg font-extrabold ${overdueTasksCount > 0 ? 'text-red-600' : 'text-slate-500'}`}>{overdueTasksCount}</span>
-                  <span className="text-[10.5px] text-slate-500 ml-1">Overdue</span>
+                  <span className={`text-lg font-extrabold ${overdueTasksCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>{overdueTasksCount}</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
@@ -2416,25 +2416,25 @@ export const DashboardPage = () => {
             {/* Projects Mini Card */}
             <div
               onClick={() => navigate('/projects')}
-              className="bg-white rounded-[10px] border border-slate-200 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
+              className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all projects"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-600">Projects</span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Projects</span>
                 <Layers size={15} color="#0284c7" />
               </div>
               <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div>
-                  <span className="text-lg font-extrabold text-green-600">
+                  <span className="text-lg font-extrabold text-green-600 dark:text-green-400">
                     {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
                   </span>
-                  <span className="text-[10.5px] text-slate-500 ml-1">In Progress</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">In Progress</span>
                 </div>
                 <div>
-                  <span className={`text-lg font-extrabold ${userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                  <span className={`text-lg font-extrabold ${userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                     {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
                   </span>
-                  <span className="text-[10.5px] text-slate-500 ml-1">Overdue</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
@@ -2501,13 +2501,13 @@ export const DashboardPage = () => {
       ───────────────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-3.5 items-stretch">
         {/* Support Tickets Widget */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-900 m-0">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
                 🎫 Support Tickets
               </h3>
-              <span className="text-[10.5px] font-bold text-sky-600 bg-sky-100 px-1.5 py-px rounded-full">
+              <span className="text-[10.5px] font-bold text-sky-600 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-1.5 py-px rounded-full">
                 {openTicketsList.length} Open
               </span>
             </div>
@@ -2521,7 +2521,7 @@ export const DashboardPage = () => {
               </button>
               <button
                 onClick={() => navigate('/tickets')}
-                className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
+                className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
               >
                 All →
               </button>
@@ -2529,29 +2529,29 @@ export const DashboardPage = () => {
           </div>
 
           {/* Ticket Filter Pills */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 gap-1.5 flex-wrap">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 gap-1.5 flex-wrap">
             <div className="flex gap-1">
               <button
                 onClick={() => setTicketFilterTab('all')}
-                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'all' ? 'bg-slate-100 text-slate-900' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 All ({(tickets || []).length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('open')}
-                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'open' ? 'bg-blue-50 text-sky-600' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'open' ? 'bg-blue-50 dark:bg-blue-950/60 text-sky-600 dark:text-sky-400' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 Open ({openTicketsList.length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('resolved')}
-                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'resolved' ? 'bg-emerald-50 text-green-600' : 'bg-transparent text-slate-500 hover:bg-slate-50'}`}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'resolved' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-green-600 dark:text-green-400' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 Resolved ({resolvedTicketsList.length})
               </button>
             </div>
 
-            <span className="text-[10.5px] text-slate-400">
+            <span className="text-[10.5px] text-slate-400 dark:text-slate-500">
               Click row to view discussion
             </span>
           </div>
@@ -2559,7 +2559,7 @@ export const DashboardPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-100 text-slate-500">
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                   <th className="py-1.5 px-1 font-semibold">Ticket#</th>
                   <th className="py-1.5 px-1 font-semibold">Subject</th>
                   <th className="py-1.5 px-1 font-semibold">Priority</th>
@@ -2573,40 +2573,40 @@ export const DashboardPage = () => {
                     <tr
                       key={tkt?._id || Math.random()}
                       onClick={() => setSelectedTicket(tkt)}
-                      className="border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
+                      className="border-b border-slate-50 dark:border-slate-800/70 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                       title="Click to view full discussion & reply"
                     >
-                      <td className="py-2 px-1 text-sky-600 font-bold font-mono text-[11.5px] whitespace-nowrap">
+                      <td className="py-2 px-1 text-sky-600 dark:text-sky-400 font-bold font-mono text-[11.5px] whitespace-nowrap">
                         #{tkt?.ticketCode || 'TKT-1'}
                       </td>
-                      <td className="py-2 px-1 text-slate-900 font-semibold">
+                      <td className="py-2 px-1 text-slate-900 dark:text-white font-semibold">
                         <div className="truncate max-w-[170px]">
                           {tkt?.subject}
                         </div>
-                        <div className="text-[10px] text-slate-500 font-normal">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                           From: {tkt?.requestedBy || tkt?.clientName || 'Employee'}
                         </div>
                       </td>
                       <td className="py-2 px-1 whitespace-nowrap">
-                        <span className={`px-1.5 py-px rounded-md text-[10px] font-bold border ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? 'bg-red-50 text-red-600 border-red-200' : tkt?.priority === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
+                        <span className={`px-1.5 py-px rounded-md text-[10px] font-bold border ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900' : tkt?.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900' : 'bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900'}`}>
                           {tkt?.priority || 'Normal'}
                         </span>
                       </td>
                       <td className="py-2 px-1 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded-lg text-[10.5px] font-semibold border ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded-lg text-[10.5px] font-semibold border ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900'}`}>
                           <span className={`w-1 h-1 rounded-full ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-600' : 'bg-blue-600'}`} />
                           {tkt?.status || 'Open'}
                         </span>
                       </td>
-                      <td className="py-2 px-1 text-right text-slate-500 text-[11px] whitespace-nowrap">
+                      <td className="py-2 px-1 text-right text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                         {tkt?.requestedOn || 'Today'}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="text-center py-[18px] text-slate-400">
-                      <LifeBuoy size={22} className="mx-auto mb-1 block text-slate-300" />
+                    <td colSpan="5" className="text-center py-[18px] text-slate-400 dark:text-slate-500">
+                      <LifeBuoy size={22} className="mx-auto mb-1 block text-slate-300 dark:text-slate-600" />
                       <div className="text-xs font-semibold">No {ticketFilterTab} support tickets found.</div>
                     </td>
                   </tr>
@@ -2617,14 +2617,14 @@ export const DashboardPage = () => {
         </div>
 
         {/* Schedule & Events Widget (Paired with Tickets) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <h3 className="text-sm font-bold text-slate-900 m-0">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               📅 Schedule & Events
             </h3>
             <button
               onClick={() => navigate('/calendar')}
-              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               Full Calendar →
             </button>
@@ -2636,23 +2636,22 @@ export const DashboardPage = () => {
                 <div
                   key={ev?._id || Math.random()}
                   onClick={() => navigate('/calendar')}
-                  className="flex items-center gap-2 py-1.5 px-2.5 rounded cursor-pointer"
+                  className="flex items-center gap-2 py-1.5 px-2.5 rounded cursor-pointer bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/60"
                   style={{
-                    backgroundColor: ev?.bgColor || '#eff6ff',
                     borderLeft: `3.5px solid ${ev?.color || '#2563eb'}`
                   }}
                   title="Click to open calendar"
                 >
-                  <span className="text-[10.5px] font-bold font-mono" style={{ color: ev?.color || '#2563eb' }}>
+                  <span className="text-[10.5px] font-bold font-mono text-sky-600 dark:text-sky-400">
                     {ev?.time || 'All Day'}
                   </span>
-                  <span className="text-[11.5px] font-semibold text-slate-900">
+                  <span className="text-[11.5px] font-semibold text-slate-900 dark:text-white">
                     {ev?.title}
                   </span>
                 </div>
               ))
             ) : (
-              <div className="text-xs text-slate-400 text-center py-3">
+              <div className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">
                 No upcoming events this month
               </div>
             )}
@@ -2665,17 +2664,17 @@ export const DashboardPage = () => {
       ───────────────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* Birthdays Widget */}
-        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
           <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
               <button
                 type="button"
                 onClick={() => setCelebrationTab('birthdays')}
-                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'birthdays' ? 'bg-white text-amber-700 shadow-xs' : 'bg-transparent text-slate-500'}`}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'birthdays' ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-xs' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}
               >
                 <span>🎂 Birthdays</span>
-                <span className="text-[10px] px-1 rounded-full bg-amber-100 text-amber-700">
+                <span className="text-[10px] px-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
                   {(computedBirthdays || []).length}
                 </span>
               </button>
@@ -2683,10 +2682,10 @@ export const DashboardPage = () => {
               <button
                 type="button"
                 onClick={() => setCelebrationTab('anniversaries')}
-                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'anniversaries' ? 'bg-white text-purple-700 shadow-xs' : 'bg-transparent text-slate-500'}`}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'anniversaries' ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-xs' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}
               >
                 <span>🌟 Anniversaries</span>
-                <span className="text-[10px] px-1 rounded-full bg-purple-100 text-purple-700">
+                <span className="text-[10px] px-1 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
                   {(computedAnniversaries || []).length}
                 </span>
               </button>
@@ -2694,7 +2693,7 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => navigate('/calendar')}
-              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
@@ -2709,20 +2708,20 @@ export const DashboardPage = () => {
                   <div
                     key={bday?._id || bday?.employeeId || Math.random()}
                     onClick={() => addToast(`🎉 Birthday greetings sent to ${bday?.name || 'Colleague'}!`, 'success')}
-                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer transition-all duration-150 hover:bg-amber-50"
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 cursor-pointer transition-all duration-150 hover:bg-amber-50 dark:hover:bg-amber-950/20"
                     title="Click to send birthday greetings"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={bday?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(bday?.name || 'User')}`}
                         alt={bday?.name}
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                        className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                       />
                       <div className="min-w-0">
-                        <div className="text-[12.5px] font-bold text-slate-900 truncate">
+                        <div className="text-[12.5px] font-bold text-slate-900 dark:text-white truncate">
                           {bday?.name}
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           🎂 {bday?.role || 'Team Member'}
                         </div>
                       </div>
@@ -2730,11 +2729,11 @@ export const DashboardPage = () => {
 
                     <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div className="text-[11.5px] font-bold text-slate-900 flex items-center gap-1">
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         <span>📅 {bday?.birthdayDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 text-green-700 border-green-300' : (diffDays === 1 ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-amber-100 text-amber-700 border-amber-300')}`}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-300 dark:border-green-800' : (diffDays === 1 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -2748,20 +2747,20 @@ export const DashboardPage = () => {
                   <div
                     key={anniv?._id || anniv?.employeeId || Math.random()}
                     onClick={() => addToast(`🌟 Work Anniversary congratulations sent to ${anniv?.name || 'Colleague'}!`, 'success')}
-                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer transition-all duration-150 hover:bg-purple-50"
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 cursor-pointer transition-all duration-150 hover:bg-purple-50 dark:hover:bg-purple-950/20"
                     title="Click to send work anniversary congratulations"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={anniv?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(anniv?.name || 'User')}`}
                         alt={anniv?.name}
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                        className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                       />
                       <div className="min-w-0">
-                        <div className="text-[12.5px] font-bold text-slate-900 truncate">
+                        <div className="text-[12.5px] font-bold text-slate-900 dark:text-white truncate">
                           {anniv?.name}
                         </div>
-                        <div className="text-[11px] text-purple-600 font-semibold">
+                        <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
                           🌟 {anniv?.serviceYearsText} Work Anniversary
                         </div>
                       </div>
@@ -2769,11 +2768,11 @@ export const DashboardPage = () => {
 
                     <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div className="text-[11.5px] font-bold text-slate-900 flex items-center gap-1">
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         <span>📅 {anniv?.anniversaryDate || anniv?.annivFormattedDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 text-green-700 border-green-300' : (diffDays === 1 ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-purple-50 text-purple-700 border-purple-200')}`}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-300 dark:border-green-800' : (diffDays === 1 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800' : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -2783,13 +2782,13 @@ export const DashboardPage = () => {
             )}
 
             {celebrationTab === 'birthdays' && (!computedBirthdays || computedBirthdays.length === 0) && (
-              <div className="text-center p-4 text-slate-400 text-xs">
+              <div className="text-center p-4 text-slate-400 dark:text-slate-500 text-xs">
                 🎂 No birthdays scheduled
               </div>
             )}
 
             {celebrationTab === 'anniversaries' && (!computedAnniversaries || computedAnniversaries.length === 0) && (
-              <div className="text-center p-4 text-slate-400 text-xs">
+              <div className="text-center p-4 text-slate-400 dark:text-slate-500 text-xs">
                 🌟 No work anniversaries scheduled
               </div>
             )}
@@ -2797,14 +2796,14 @@ export const DashboardPage = () => {
         </div>
 
         {/* Employee Appreciations Widget */}
-        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 m-0">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               🏆 Appreciations
             </h3>
             <button
               onClick={() => navigate('/appreciation')}
-              className="bg-transparent border-none text-sky-600 text-[11.5px] font-semibold cursor-pointer hover:underline"
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
@@ -2815,16 +2814,16 @@ export const DashboardPage = () => {
               <div
                 key={app?._id || Math.random()}
                 onClick={() => navigate('/appreciation')}
-                className="p-2 px-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 transition-colors"
+                className="p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
               >
-                <div className="w-7 h-7 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <Award size={15} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    {app?.givenToName} — <span className="text-amber-600">{app?.awardName}</span>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    {app?.givenToName} — <span className="text-amber-600 dark:text-amber-400">{app?.awardName}</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     "{app?.appreciationNote}"
                   </div>
                 </div>
@@ -2839,14 +2838,14 @@ export const DashboardPage = () => {
       ───────────────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* On Leave Today */}
-        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 m-0">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               🏖️ On Leave Today
             </h3>
             <button
               onClick={() => setIsApplyLeaveOpen(true)}
-              className="flex items-center gap-1 bg-slate-100 text-sky-600 border border-slate-300 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 transition-colors"
+              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-700 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               <Palmtree size={12} /> Apply
             </button>
@@ -2854,8 +2853,8 @@ export const DashboardPage = () => {
 
           {/* Leave Requests: Separated Review Queue (for Reviewers) vs My Pending Applications (for Applicant) */}
           {pendingLeaveRequestsForMe.length > 0 && (
-            <div className="p-2 px-2.5 bg-amber-50 rounded-lg border border-amber-200 flex flex-col gap-1.5">
-              <div className="text-[11px] font-extrabold text-amber-800 flex items-center justify-between">
+            <div className="p-2 px-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-amber-800 dark:text-amber-300 flex items-center justify-between">
                 <span>⏳ For Your Review ({pendingLeaveRequestsForMe.length})</span>
                 <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   Manage →
@@ -2863,22 +2862,22 @@ export const DashboardPage = () => {
               </div>
               <div className="flex flex-col gap-1.5">
                 {pendingLeaveRequestsForMe.slice(0, 2).map(l => (
-                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white rounded-md border border-amber-100">
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-amber-100 dark:border-amber-900/40">
                     <div>
-                      <div className="text-[11.5px] font-bold text-slate-900">{l.employeeName}</div>
-                      <div className="text-[10px] text-slate-500">{l.leaveType} ({l.durationText})</div>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white">{l.employeeName}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">{l.leaveType} ({l.durationText})</div>
                     </div>
                     <div className="flex gap-1">
                       <button
                         onClick={() => updateLeaveStatus(l._id, 'approved')}
-                        className="py-0.5 px-2 rounded bg-green-100 text-green-700 border border-green-200 text-[10.5px] font-bold cursor-pointer hover:bg-green-200"
+                        className="py-0.5 px-2 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[10.5px] font-bold cursor-pointer hover:bg-green-200 dark:hover:bg-green-900"
                         title="Accept & approve leave"
                       >
                         ✓ Accept
                       </button>
                       <button
                         onClick={() => setRejectingLeaveTarget(l)}
-                        className="py-0.5 px-2 rounded bg-red-100 text-red-700 border border-red-200 text-[10.5px] font-bold cursor-pointer hover:bg-red-200"
+                        className="py-0.5 px-2 rounded bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10.5px] font-bold cursor-pointer hover:bg-red-200 dark:hover:bg-red-900"
                         title="Deny leave"
                       >
                         ✕ Deny
@@ -2892,8 +2891,8 @@ export const DashboardPage = () => {
 
           {/* 1. Real-time Decision Status Cards for currently logged-in user */}
           {myDecidedLeaves.length > 0 && (
-            <div className="p-2 px-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex flex-col gap-1.5">
-              <div className="text-[11px] font-extrabold text-green-700 flex items-center justify-between">
+            <div className="p-2 px-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-green-700 dark:text-green-300 flex items-center justify-between">
                 <span>📬 Leave Decision Update ({myDecidedLeaves.length})</span>
                 <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   All Leaves →
@@ -2901,21 +2900,21 @@ export const DashboardPage = () => {
               </div>
               <div className="flex flex-col gap-1.5">
                 {myDecidedLeaves.map(l => (
-                  <div key={l._id} className={`p-1.5 px-2 bg-white rounded-md border ${l.status === 'approved' ? 'border-green-300' : 'border-red-300'}`}>
+                  <div key={l._id} className={`p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border ${l.status === 'approved' ? 'border-green-300 dark:border-green-800' : 'border-red-300 dark:border-red-800'}`}>
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[11.5px] font-bold text-slate-900">
+                      <span className="text-[11.5px] font-bold text-slate-900 dark:text-white">
                         {l.leaveType} ({l.durationText || `${l.durationDays}d`})
                       </span>
-                      <span className={`text-[9.5px] font-bold py-px px-1.5 rounded ${l.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`text-[9.5px] font-bold py-px px-1.5 rounded ${l.status === 'approved' ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'}`}>
                         {l.status === 'approved' ? '✓ Approved' : '✕ Declined'}
                       </span>
                     </div>
 
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                       📅 {l.startDate} to {l.endDate}
                     </div>
 
-                    <div className={`text-[10px] mt-0.5 font-semibold ${l.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-[10px] mt-0.5 font-semibold ${l.status === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       {l.status === 'approved'
                         ? `Approved by ${l.approvedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}`
                         : `Declined by ${l.rejectedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}${l.rejectionReason ? ` • "${l.rejectionReason}"` : ''}`}
@@ -2937,8 +2936,8 @@ export const DashboardPage = () => {
 
           {/* 2. Pending leaves submitted by current user (awaiting review) */}
           {myPendingLeaves.length > 0 && (
-            <div className="p-2 px-2.5 bg-blue-50 rounded-lg border border-blue-200 flex flex-col gap-1.5">
-              <div className="text-[11px] font-extrabold text-blue-700 flex items-center justify-between">
+            <div className="p-2 px-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-blue-700 dark:text-blue-300 flex items-center justify-between">
                 <span>📋 My Leave Application ({myPendingLeaves.length} Pending)</span>
                 <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   History →
@@ -2946,22 +2945,22 @@ export const DashboardPage = () => {
               </div>
               <div className="flex flex-col gap-1.5">
                 {myPendingLeaves.slice(0, 2).map(l => (
-                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white rounded-md border border-blue-100">
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-blue-100 dark:border-blue-900/40">
                     <div>
-                      <div className="text-[11.5px] font-bold text-slate-900">
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white">
                         {l.leaveType} ({l.durationText})
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
                         📅 {l.startDate} • Sent to {l.appliedToName || 'Reviewer'}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[9.5px] font-bold bg-amber-100 text-amber-700 py-px px-1.5 rounded">
+                      <span className="text-[9.5px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 py-px px-1.5 rounded">
                         ⏳ Pending Approval
                       </span>
                       <button
                         onClick={() => setCancellingLeaveTarget(l)}
-                        className="py-0.5 px-1.5 rounded bg-slate-100 text-slate-500 border border-slate-300 text-[10px] font-semibold cursor-pointer hover:bg-slate-200"
+                        className="py-0.5 px-1.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-300 dark:border-slate-600 text-[10px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600"
                         title="Cancel this leave request"
                       >
                         Cancel
@@ -2975,15 +2974,15 @@ export const DashboardPage = () => {
 
           {/* 3. If neither pending nor unacknowledged decisions exist, show latest leave status history */}
           {myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length > 0 && (
-            <div className="py-1.5 px-2.5 bg-slate-50 rounded-md border border-slate-200 flex items-center justify-between">
-              <div className="text-[10.5px] text-slate-600">
+            <div className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="text-[10.5px] text-slate-600 dark:text-slate-300">
                 <span className="font-bold">Recent Leave:</span> {myRecentLeaves[0].leaveType} ({myRecentLeaves[0].startDate}) •{' '}
-                <strong className={myRecentLeaves[0].status === 'approved' ? 'text-green-600' : (myRecentLeaves[0].status === 'rejected' ? 'text-red-600' : 'text-amber-600')}>
+                <strong className={myRecentLeaves[0].status === 'approved' ? 'text-green-600 dark:text-green-400' : (myRecentLeaves[0].status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')}>
                   {myRecentLeaves[0].status === 'approved' ? '✓ Approved' : (myRecentLeaves[0].status === 'rejected' ? '✕ Denied' : 'Pending')}
                 </strong>
-                {myRecentLeaves[0].approvedBy && <span className="text-slate-500"> by {myRecentLeaves[0].approvedBy}</span>}
+                {myRecentLeaves[0].approvedBy && <span className="text-slate-500 dark:text-slate-400"> by {myRecentLeaves[0].approvedBy}</span>}
               </div>
-              <span onClick={() => navigate('/leaves')} className="cursor-pointer text-sky-600 text-[10.5px] font-semibold hover:underline">
+              <span onClick={() => navigate('/leaves')} className="cursor-pointer text-sky-600 dark:text-sky-400 text-[10.5px] font-semibold hover:underline">
                 View →
               </span>
             </div>
@@ -2992,18 +2991,18 @@ export const DashboardPage = () => {
           {employeesOnLeave.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {employeesOnLeave.map(l => (
-                <div key={l._id} className="flex items-center gap-1.5 p-1.5 bg-slate-50 rounded-md">
+                <div key={l._id} className="flex items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-md">
                   <img src={l.employeeAvatar} alt={l.employeeName} className="w-6 h-6 rounded-full" />
                   <div>
-                    <div className="text-xs font-semibold">{l.employeeName}</div>
-                    <div className="text-[10px] text-sky-600">{l.leaveType} ({l.durationText})</div>
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">{l.employeeName}</div>
+                    <div className="text-[10px] text-sky-600 dark:text-sky-400">{l.leaveType} ({l.durationText})</div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
-              <div className="text-center py-3 text-slate-400">
+              <div className="text-center py-3 text-slate-400 dark:text-slate-500">
                 <Plane size={22} className="mx-auto mb-1" />
                 <div className="text-[11.5px]">No leaves today</div>
               </div>
@@ -3012,13 +3011,13 @@ export const DashboardPage = () => {
         </div>
 
         {/* Right Column: 📢 Company Notices & Announcements */}
-        <div className="bg-white rounded-[10px] border border-slate-200 p-3.5 px-[18px] flex flex-col justify-start gap-3 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-3 shadow-xs">
           <div className="flex items-center justify-between flex-wrap gap-1.5">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 m-0">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
                 📢 Company Notices & Announcements
               </h3>
-              <p className="text-[11px] text-slate-500 m-0 mt-0.5">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
                 Official HR notices, policy updates, and team announcements
               </p>
             </div>
@@ -3033,7 +3032,7 @@ export const DashboardPage = () => {
               )}
               <button
                 onClick={() => navigate('/notice-board')}
-                className="bg-transparent border-none text-sky-600 text-xs font-semibold cursor-pointer hover:underline"
+                className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-xs font-semibold cursor-pointer hover:underline"
               >
                 All Notices →
               </button>
@@ -3046,33 +3045,33 @@ export const DashboardPage = () => {
                 <div
                   key={not?._id || not?.id || Math.random()}
                   onClick={() => setSelectedNotice(not)}
-                  className="p-2.5 px-3 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white hover:border-blue-300 hover:shadow-xs"
+                  className="p-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xs"
                 >
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 bg-red-100' : 'text-blue-600 bg-blue-100'}`}>
+                      <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60' : 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/60'}`}>
                         {not?.category || 'Announcement'}
                       </span>
                       {not?.isImportant && (
-                        <span className="text-[9.5px] font-extrabold text-red-600">
+                        <span className="text-[9.5px] font-extrabold text-red-600 dark:text-red-400">
                           ⚡ Important
                         </span>
                       )}
                     </div>
-                    <span className="text-[10.5px] text-slate-400">{not?.date}</span>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500">{not?.date}</span>
                   </div>
 
-                  <div className="text-[12.5px] font-bold text-slate-900 leading-snug">
+                  <div className="text-[12.5px] font-bold text-slate-900 dark:text-white leading-snug">
                     {not?.title}
                   </div>
 
-                  <div className="text-[11.5px] text-slate-500 leading-normal">
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-normal">
                     {not?.shortDescription || not?.description}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400">
                     <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
-                    <span className="text-[11.5px] text-sky-600 font-semibold">View Details →</span>
+                    <span className="text-[11.5px] text-sky-600 dark:text-sky-400 font-semibold">View Details →</span>
                   </div>
                 </div>
               ))

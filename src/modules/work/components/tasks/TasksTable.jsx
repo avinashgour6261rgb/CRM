@@ -83,14 +83,14 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
 
   if (!tasks || tasks.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 py-[60px] px-5 text-center">
-        <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4 text-blue-600">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 py-[60px] px-5 text-center">
+        <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400">
           <Clock size={28} />
         </div>
-        <h3 className="text-base font-bold text-slate-900 m-0 mb-1.5">
+        <h3 className="text-base font-bold text-slate-900 dark:text-white m-0 mb-1.5">
           No Tasks Found
         </h3>
-        <p className="text-[13.5px] text-slate-500 m-0">
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 m-0">
           Create a new task to assign it to team members and start tracking work.
         </p>
       </div>
@@ -98,11 +98,11 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800">
               <th className="py-2 px-2.5 w-8">
                 <input
                   type="checkbox"
@@ -111,7 +111,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   className="cursor-pointer"
                 />
               </th>
-              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[65px]">
+              <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[65px]">
                 Code
               </th>
               <th className="py-2 px-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-[95px]">
@@ -148,7 +148,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                 <tr
                   key={task._id}
                   onClick={() => onSelectTask && onSelectTask(task)}
-                  className={`border-b border-slate-100 cursor-pointer transition-colors ${isSelected ? 'bg-slate-50' : 'hover:bg-slate-50/80'}`}
+                  className={`border-b border-slate-100 dark:border-slate-800/80 cursor-pointer transition-colors ${isSelected ? 'bg-slate-50 dark:bg-slate-800/60' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'}`}
                 >
                   {/* Checkbox */}
                   <td className="py-1.5 px-2.5">
@@ -162,7 +162,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
 
                   {/* Code (e.g. TSK-1) */}
-                  <td className="py-1.5 px-2.5 text-[11.5px] font-bold text-slate-600 whitespace-nowrap">
+                  <td className="py-1.5 px-2.5 text-[11.5px] font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap">
                     {task.taskCode || 'TSK-1'}
                   </td>
 
@@ -396,8 +396,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                       value={task.status}
                       onClick={e => e.stopPropagation()}
                       onChange={(e) => changeTaskStatus(task._id, e.target.value)}
-                      className={`py-0.5 px-1.5 rounded-full text-[11px] font-semibold outline-none cursor-pointer h-6 border ${
-                        task.status === 'completed'
+                      className={`py-0.5 px-1.5 rounded-full text-[11px] font-semibold outline-none cursor-pointer h-6 border ${task.status === 'completed'
                           ? 'bg-green-50 text-green-700 dark:bg-green-950/60 dark:text-green-300 border-green-200 dark:border-green-800'
                           : task.status === 'in_progress'
                             ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
@@ -406,7 +405,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                               : task.status === 'under_review'
                                 ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800'
                                 : 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border-red-200 dark:border-red-800'
-                      }`}
+                        }`}
                     >
                       <option value="incomplete">🔴 Incomplete</option>
                       <option value="in_progress">🔵 In Progress</option>
@@ -441,7 +440,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           e.stopPropagation();
                           setActiveMenuId(isMenuOpen ? null : task._id);
                         }}
-                        className="bg-transparent border-none text-slate-500 p-1 rounded cursor-pointer inline-flex items-center justify-center hover:bg-slate-100 transition-colors"
+                        className="bg-transparent border-none text-slate-500 dark:text-slate-400 p-1 rounded cursor-pointer inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       >
                         <MoreVertical size={14} />
                       </button>
@@ -450,14 +449,14 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                     {isMenuOpen && (
                       <div
                         onClick={e => e.stopPropagation()}
-                        className="absolute right-2.5 top-8 bg-white rounded-md shadow-lg border border-slate-200 p-1 z-50 min-w-[140px] text-left"
+                        className="absolute right-2.5 top-8 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 p-1 z-50 min-w-[140px] text-left"
                       >
                         <div
                           onClick={() => {
                             onSelectTask && onSelectTask(task);
                             setActiveMenuId(null);
                           }}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-slate-700 cursor-pointer rounded hover:bg-slate-100 transition-colors"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-slate-700 dark:text-slate-200 cursor-pointer rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                         >
                           <Eye size={13} className="text-blue-500" /> View Details & History 📋
                         </div>
@@ -466,9 +465,9 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             onSelectTask && onSelectTask(task);
                             setActiveMenuId(null);
                           }}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-sky-600 cursor-pointer rounded hover:bg-sky-50 transition-colors"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-sky-600 dark:text-sky-400 cursor-pointer rounded hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
                         >
-                          <Calendar size={13} className="text-sky-600" /> Reschedule for Future 📅
+                          <Calendar size={13} className="text-sky-600 dark:text-sky-400" /> Reschedule for Future 📅
                         </div>
                         <div
                           onClick={() => {
@@ -476,13 +475,13 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             setIsSnoozeModalOpen(true);
                             setActiveMenuId(null);
                           }}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-purple-700 cursor-pointer rounded hover:bg-purple-50 transition-colors"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-purple-700 dark:text-purple-300 cursor-pointer rounded hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
                         >
-                          <Bell size={13} className="text-purple-600" /> Do Later & Remind ⏰
+                          <Bell size={13} className="text-purple-600 dark:text-purple-400" /> Do Later & Remind ⏰
                         </div>
                         <div
                           onClick={(e) => handleDelete(task._id, e)}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-red-500 cursor-pointer rounded hover:bg-red-50 transition-colors"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 text-[11.5px] text-red-500 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                         >
                           <Trash2 size={13} /> Delete Task
                         </div>
@@ -497,49 +496,49 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
       </div>
 
       {/* Table Footer & Pagination */}
-      <div className="py-3.5 px-5 bg-white border-t border-slate-100 flex items-center justify-between text-[13px] text-slate-500 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span>Show</span>
-          <select
-            defaultValue="25"
-            className="py-1 px-2 rounded-md border border-slate-300 text-[12.5px] text-slate-700 outline-none"
-          >
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-          </select>
-          <span>entries</span>
-        </div>
+        <div className="py-3.5 px-5 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[13px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span>Show</span>
+            <select
+              defaultValue="25"
+              className="py-1 px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12.5px] text-slate-700 dark:text-slate-200 outline-none"
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <span>entries</span>
+          </div>
 
-        <div className="flex items-center gap-4">
-          <span>Showing 1 to {tasks.length} of {tasks.length} entries</span>
-          <div className="flex gap-1">
-            <button
-              disabled
-              className="py-1 px-3 rounded-md border border-slate-200 bg-slate-50 text-slate-400 text-xs cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              className="py-1 px-3 rounded-md border border-sky-600 bg-sky-600 text-white text-xs font-semibold cursor-pointer"
-            >
-              1
-            </button>
-            <button
-              disabled
-              className="py-1 px-3 rounded-md border border-slate-200 bg-slate-50 text-slate-400 text-xs cursor-not-allowed"
-            >
-              Next
-            </button>
+          <div className="flex items-center gap-4">
+            <span>Showing 1 to {tasks.length} of {tasks.length} entries</span>
+            <div className="flex gap-1">
+              <button
+                disabled
+                className="py-1 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                className="py-1 px-3 rounded-md border border-sky-600 bg-sky-600 text-white text-xs font-semibold cursor-pointer"
+              >
+                1
+              </button>
+              <button
+                disabled
+                className="py-1 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <SnoozeTaskModal
-        isOpen={isSnoozeModalOpen}
-        onClose={() => setIsSnoozeModalOpen(false)}
-        task={snoozeTargetTask}
-      />
-    </div>
-  );
+        <SnoozeTaskModal
+          isOpen={isSnoozeModalOpen}
+          onClose={() => setIsSnoozeModalOpen(false)}
+          task={snoozeTargetTask}
+        />
+      </div>
+      );
 };
