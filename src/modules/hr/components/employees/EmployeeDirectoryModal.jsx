@@ -161,7 +161,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                     </td>
 
                     <td className="text-[12.5px] text-slate-500">
-                      {emp.joiningDate || '2023-01-15'}
+                      {emp.joiningDate || '—'}
                     </td>
 
                     <td className="text-xs text-sky-600 font-semibold">

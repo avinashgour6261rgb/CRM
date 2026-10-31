@@ -24,6 +24,7 @@ export const HRProvider = ({ children }) => {
   const [holidays, setHolidays] = useState(() => getCollection(KEYS.HOLIDAYS) || []);
   const [appreciations, setAppreciations] = useState(() => getCollection(KEYS.APPRECIATIONS) || []);
   const [auditLogs, setAuditLogs] = useState(() => getCollection(KEYS.ATTENDANCE_AUDIT) || []);
+  const [resignations, setResignations] = useState(() => getCollection(KEYS.RESIGNATIONS) || []);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -53,10 +54,11 @@ export const HRProvider = ({ children }) => {
         hrService.getMonthlyAttendance(selectedMonth, selectedYear, selectedEmployeeId),
         hrService.getHolidays(selectedYear, searchQuery),
         hrService.getAppreciations({ employeeId: selectedEmployeeId, search: searchQuery }),
-        hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear })
+        hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear }),
+        hrService.getResignations()
       ]);
 
-      const [empsRes, currRes, lvsRes, attsRes, holsRes, appsRes, audsRes] = results;
+      const [empsRes, currRes, lvsRes, attsRes, holsRes, appsRes, audsRes, resgRes] = results;
 
       const emps = empsRes.status === 'fulfilled' && empsRes.value ? empsRes.value : (getCollection(KEYS.EMPLOYEES) || []);
       const curr = currRes.status === 'fulfilled' ? currRes.value : null;
@@ -65,6 +67,10 @@ export const HRProvider = ({ children }) => {
       const hols = holsRes.status === 'fulfilled' && holsRes.value ? holsRes.value : (getCollection(KEYS.HOLIDAYS) || []);
       const apps = appsRes.status === 'fulfilled' && appsRes.value ? appsRes.value : (getCollection(KEYS.APPRECIATIONS) || []);
       const auds = audsRes.status === 'fulfilled' && audsRes.value ? audsRes.value : (getCollection(KEYS.ATTENDANCE_AUDIT) || []);
+      const resgRaw = resgRes.status === 'fulfilled' && resgRes.value ? resgRes.value : (getCollection(KEYS.RESIGNATIONS) || []);
+      const resg = Array.isArray(resgRaw?.data) ? resgRaw.data : (Array.isArray(resgRaw) ? resgRaw : []);
+      setResignations(resg);
+      saveCollection(KEYS.RESIGNATIONS, resg);
 
       // Smart Merging: preserve any local leaves created recently or pending sync
       const localLeaves = getCollection(KEYS.LEAVES) || [];
@@ -413,6 +419,30 @@ export const HRProvider = ({ children }) => {
     }
   };
 
+  const submitResignation = async (data) => {
+    try {
+      const res = await hrService.submitResignation(data);
+      addToast('Resignation request submitted for higher authority approval', 'info');
+      await loadData();
+      return res;
+    } catch (err) {
+      addToast(err.message || 'Failed to submit resignation', 'error');
+      throw err;
+    }
+  };
+
+  const reviewResignation = async (resignationId, reviewData) => {
+    try {
+      const res = await hrService.reviewResignation(resignationId, reviewData);
+      addToast(`Resignation ${reviewData.status || 'reviewed'} successfully`, 'success');
+      await loadData();
+      return res;
+    } catch (err) {
+      addToast(err.message || 'Failed to review resignation', 'error');
+      throw err;
+    }
+  };
+
   const hrContextValue = useMemo(() => ({
     loading,
     employees,
@@ -448,7 +478,10 @@ export const HRProvider = ({ children }) => {
     bulkConfirmGazetted,
     resetHolidayConfirmations,
     addAppreciation,
-    deleteAppreciation
+    deleteAppreciation,
+    resignations,
+    submitResignation,
+    reviewResignation
   }), [
     loading, employees, currentUser, leaves, attendance, auditLogs,
     holidays, appreciations, selectedMonth, selectedYear,
@@ -456,7 +489,8 @@ export const HRProvider = ({ children }) => {
     addEmployee, updateEmployee, deleteEmployee, applyLeave,
     updateLeaveStatus, acknowledgeLeave, deleteLeave,
     markAttendanceRecord, adminForceClockOut, addHoliday,
-    deleteHoliday, toggleHolidayConfirmation, bulkConfirmGazetted, resetHolidayConfirmations, addAppreciation, deleteAppreciation
+    deleteHoliday, toggleHolidayConfirmation, bulkConfirmGazetted, resetHolidayConfirmations, addAppreciation, deleteAppreciation,
+    resignations, submitResignation, reviewResignation
   ]);
 
   return (

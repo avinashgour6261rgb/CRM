@@ -15,6 +15,7 @@ import { useToast } from './ToastContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { useAuth } from './AuthContext';
 import { hrService } from '../../modules/hr/services/hrService';
+import { getCompanySettings } from '../services/companySettingsService';
 
 const TimerContext = createContext();
 
@@ -1421,13 +1422,27 @@ export const TimerProvider = ({ children }) => {
       const existingPunchSessions = existingRec?.punchSessions || punchSessions || [];
       const currentWorkSeconds = isFirstClockIn ? 0 : (existingRec?.workSeconds !== undefined ? existingRec.workSeconds : workSeconds);
 
+      // ⏱️ Dynamic Shift Policy Calculation from Company Settings
+      const companySettings = getCompanySettings();
+      const shiftStartTime = companySettings.shiftStartTime || '09:30 AM';
+      const graceMins = Number(companySettings.gracePeriodMinutes) || 15;
+      const shiftStartSecs = parseTimeToSeconds(shiftStartTime);
+      const graceLimitSecs = shiftStartSecs + (graceMins * 60);
+      const clockInSecs = parseTimeToSeconds(initialClockIn);
+      const isLateCheckIn = clockInSecs > graceLimitSecs;
+      const lateMins = isLateCheckIn ? Math.floor((clockInSecs - shiftStartSecs) / 60) : 0;
+
+      const computedStatus = isLateCheckIn
+        ? 'late'
+        : (existingRec?.status === 'absent' ? 'present' : (existingRec?.status || 'present'));
+
       const record = {
         _id: existingRec ? existingRec._id : `att_${targetEmpId}_${Date.now()}`,
         employeeId: targetEmpId,
         employeeCode: targetEmpCode,
         employeeName: targetEmpName,
         date: today,
-        status: existingRec?.status === 'absent' ? 'present' : (existingRec?.status || 'present'),
+        status: computedStatus,
         clockInTime: initialClockIn,
         clockIn: initialClockIn,
         clockOutTime: null,
@@ -1440,8 +1455,11 @@ export const TimerProvider = ({ children }) => {
         isClockedIn: true,
         punchSessions: isFirstClockIn ? [] : existingPunchSessions,
         totalWorkingHours: +(currentWorkSeconds / 3600).toFixed(2),
-        isLate: false,
-        notes: existingRec?.notes || '',
+        isLate: isLateCheckIn,
+        lateByMinutes: lateMins,
+        notes: isLateCheckIn
+          ? (existingRec?.notes || `Late check-in by ${lateMins} mins (Shift Start: ${shiftStartTime})`)
+          : (existingRec?.notes || ''),
         updatedAt: new Date().toISOString()
       };
 
@@ -1613,13 +1631,33 @@ export const TimerProvider = ({ children }) => {
       const existingRec = existingIdx >= 0 ? attendance[existingIdx] : null;
       const finalClockIn = existingRec?.clockInTime || existingRec?.clockIn || loginTime || logoutStr;
 
+      // ⏱️ Dynamic Shift Policy & Half-Day / Overtime Calculation
+      const companySettings = getCompanySettings();
+      const halfDayThreshold = Number(companySettings.halfDayThresholdHours) || 4.5;
+      const standardWorkHours = Number(companySettings.standardWorkHours) || 9;
+      const isHalfDay = computedHours > 0 && computedHours < halfDayThreshold;
+
+      let finalStatus = existingRec?.status || 'present';
+      if (isHalfDay && !['on_leave', 'holiday', 'day_off'].includes(finalStatus)) {
+        finalStatus = 'half_day';
+      } else if (existingRec?.isLate || existingRec?.status === 'late') {
+        finalStatus = 'late';
+      }
+
+      let overtimeHours = 0;
+      let overtimeSeconds = 0;
+      if (computedHours > standardWorkHours) {
+        overtimeHours = +(computedHours - standardWorkHours).toFixed(2);
+        overtimeSeconds = Math.round(overtimeHours * 3600);
+      }
+
       const updatedRecord = {
         _id: existingRec ? existingRec._id : `att_${targetEmpId}_${Date.now()}`,
         employeeId: targetEmpId,
         employeeCode: targetEmpCode,
         employeeName: targetEmpName,
         date: today,
-        status: existingRec?.status || 'present',
+        status: finalStatus,
         clockInTime: finalClockIn,
         clockIn: finalClockIn,
         clockOutTime: logoutStr,
@@ -1632,7 +1670,12 @@ export const TimerProvider = ({ children }) => {
         isClockedIn: false,
         punchSessions: updatedSessions,
         totalWorkingHours: computedHours || +(workSeconds / 3600).toFixed(2),
-        notes: existingRec?.notes || '',
+        overtimeHours,
+        overtimeSeconds,
+        isLate: existingRec?.isLate || false,
+        notes: isHalfDay
+          ? `${existingRec?.notes ? existingRec.notes + ' | ' : ''}Half Day (Worked ${computedHours}h < ${halfDayThreshold}h threshold)`
+          : (existingRec?.notes || ''),
         updatedAt: new Date().toISOString()
       };
 

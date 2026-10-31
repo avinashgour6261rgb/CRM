@@ -42,6 +42,7 @@ export const EmployeesPage = () => {
   const [selectedDept, setSelectedDept] = useState('all');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('all');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'cards'
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'archived'
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedPromoteEmp, setSelectedPromoteEmp] = useState(null);
@@ -104,9 +105,16 @@ export const EmployeesPage = () => {
   }
 
   const departments = Array.from(new Set((employees || []).map(e => e.department).filter(Boolean)));
-        const systemRoles = getRoles();
+  const systemRoles = getRoles();
+
+  const activeCount = (employees || []).filter(e => e.status !== 'resigned' && e.status !== 'relieved').length;
+  const archivedCount = (employees || []).filter(e => e.status === 'resigned' || e.status === 'relieved').length;
 
   const filteredEmployees = (employees || []).filter(e => {
+    const isArchived = e.status === 'resigned' || e.status === 'relieved';
+    if (activeTab === 'active' && isArchived) return false;
+    if (activeTab === 'archived' && !isArchived) return false;
+
     if (selectedDept !== 'all' && !matchesFilter(e.department, selectedDept)) return false;
     if (selectedRoleFilter !== 'all') {
       const matchRole =
@@ -206,6 +214,35 @@ export const EmployeesPage = () => {
                                 </div>
                               </div>
                             </div>
+
+            {/* ── Workforce Status Filter: Active vs Archived Ex-Employees ── */}
+            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('active')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  activeTab === 'active'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Users size={13} />
+                <span>Active Workforce ({activeCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('archived')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  activeTab === 'archived'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <ShieldCheck size={13} />
+                <span>Ex-Employees / Archived ({archivedCount})</span>
+              </button>
+            </div>
 
                             {/* ── Filters & Search Bar (Compact) ── */}
                               <div className="bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-[10px] border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
@@ -329,7 +366,13 @@ export const EmployeesPage = () => {
                                                         </td>
 
                                                           <td className="p-2 px-2.5 text-[11.5px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                                                            {emp.joiningDate || '2023-01-15'}
+                                                            {emp.status === 'resigned' || emp.status === 'relieved' ? (
+                                                              <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold">
+                                                                Relieved: {emp.relievedDate || 'Archived'}
+                                                              </span>
+                                                            ) : (
+                                                              emp.joiningDate || '—'
+                                                            )}
                                                           </td>
 
                                                           {/* Actions: Direct Role Change & Profile Edit */}

@@ -31,9 +31,11 @@ import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAudi
 import { AdminForceClockOutModal } from '../components/attendance/AdminForceClockOutModal';
 import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const AttendancePage = () => {
   const { addToast } = useToast();
+  const companySettings = getCompanySettings();
   const { currentUser: authUser } = useAuth();
   const {
     employees,
@@ -588,9 +590,9 @@ export const AttendancePage = () => {
               <Clock color="#2563eb" size={20} />
             </div>
             <div className="text-[28px] font-extrabold text-blue-600 dark:text-blue-400 mt-2.5">
-              8.2 <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">hrs/day</span>
+              {avgDailyHours} <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">hrs/day</span>
             </div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Standard shift compliance</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Standard shift: {companySettings.standardWorkHours || 9}h</span>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -601,7 +603,7 @@ export const AttendancePage = () => {
             <div className="text-[28px] font-extrabold text-amber-600 dark:text-amber-400 mt-2.5">
               {lateCount}
             </div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Check-ins past 09:30 AM</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Check-ins past {companySettings.shiftStartTime || '09:30 AM'}</span>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">

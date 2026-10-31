@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Check,
   X,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -26,6 +27,7 @@ import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
+import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
 import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
@@ -39,9 +41,13 @@ export const LeavesPage = () => {
     setSearchQuery,
     updateLeaveStatus,
     acknowledgeLeave,
-    deleteLeave
+    deleteLeave,
+    resignations
   } = useHR();
   const currentUser = authUser || hrUser;
+
+  const [pageTab, setPageTab] = useState('leaves'); // 'leaves' | 'resignations'
+  const pendingResignationsCount = (resignations || []).filter(r => r.status === 'pending').length;
 
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -238,7 +244,45 @@ export const LeavesPage = () => {
         </div>
       </div>
 
-      {/* ── 🔔 REAL-TIME LEAVE STATUS DECISION NOTIFICATION BADGE / CARD ── */}
+      {/* Tab Switcher: Leaves & Time-off vs Resignations & Offboarding */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setPageTab('leaves')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+            pageTab === 'leaves'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Palmtree size={14} />
+          <span>Leaves & Time-Off</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPageTab('resignations')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+            pageTab === 'resignations'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <FileText size={14} />
+          <span>Resignations & Offboarding</span>
+          {pendingResignationsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-black">
+              {pendingResignationsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {pageTab === 'resignations' ? (
+        <ResignationsListPanel />
+      ) : (
+        <>
+          {/* ── 🔔 REAL-TIME LEAVE STATUS DECISION NOTIFICATION BADGE / CARD ── */}
       {myRecentDecisions.length > 0 && (
         <div className="flex flex-col gap-2.5 mb-[18px]">
           {myRecentDecisions.map(dec => (
@@ -945,6 +989,8 @@ export const LeavesPage = () => {
             })}
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Modals */}

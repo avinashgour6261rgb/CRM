@@ -575,21 +575,23 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-blue-600 dark:hover:text-sky-400 cursor-pointer border-0 transition-colors"
-                    title="Attach Photo, Video or Document"
+                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#1a2744] hover:bg-slate-200 dark:hover:bg-[#23355d] border border-slate-200 dark:border-slate-700/80 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 cursor-pointer transition-all shadow-xs shrink-0"
+                    title="Attach Photo, Video, Document or Code file"
                   >
-                    <Paperclip size={18} />
+                    <Paperclip size={19} className="rotate-45" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className={`w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer border-0 transition-colors ${
-                      showEmojiPicker ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-500'
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all border shadow-xs shrink-0 ${
+                      showEmojiPicker
+                        ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 ring-2 ring-amber-400/30'
+                        : 'bg-slate-100 dark:bg-[#1a2744] hover:bg-slate-200 dark:hover:bg-[#23355d] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:text-amber-500 dark:hover:text-amber-400'
                     }`}
-                    title="Emoji reactions"
+                    title="Quick Reactions & Stickers"
                   >
-                    <Smile size={18} />
+                    <Smile size={19} />
                   </button>
 
                   <input

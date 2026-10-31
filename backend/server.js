@@ -103,6 +103,10 @@ app.use('/api/events',        require('./src/modules/events/routes/eventRoutes')
 // Finance Module (Expenses)
 app.use('/api/expenses',     require('./src/modules/finance/routes/expenseRoutes'));
 
+// Company Settings & Resignations Module
+app.use('/api/company-settings', require('./src/modules/settings/routes/companySettingsRoutes'));
+app.use('/api/resignations',     require('./src/modules/hr/routes/resignationRoutes'));
+
 // 404 & Error Handlers
 app.use(notFound);
 app.use(errorHandler);

@@ -49,6 +49,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     email: '',
     phone: '',
     dob: '',
+    joiningDate: '',
     avatar: '',
     bio: '',
     workingMode: 'Office',
@@ -125,6 +126,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         email: targetEmp.email || 'employee@company.com',
         phone: targetEmp.phone || '+91 98765 43210',
         dob: targetEmp.dob || '1998-10-15',
+        joiningDate: targetEmp.joiningDate || '',
         avatar: targetEmp.avatar || PRESET_AVATARS[0],
         bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
         workingMode: targetEmp.workingMode || localStorage.getItem('ems_working_mode') || 'Office',
@@ -525,6 +527,35 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
               />
             </div>
+          </div>
+
+          {/* Work Anniversary / Joining Date */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                ⭐ Joining Date (Automatic Work Anniversary Celebration)
+              </label>
+              {canEditRole ? (
+                <span className="text-[10px] text-purple-700 dark:text-purple-300 font-bold bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded">
+                  👑 Admin/HR Direct Edit
+                </span>
+              ) : (
+                <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
+                  🔒 Company Record
+                </span>
+              )}
+            </div>
+            <input
+              type="date"
+              disabled={!canEditRole}
+              value={formData.joiningDate || ''}
+              onChange={e => handleChange('joiningDate', e.target.value)}
+              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
+                canEditRole
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-purple-600'
+                  : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+              }`}
+            />
           </div>
 
           {/* Employee ID / Code */}

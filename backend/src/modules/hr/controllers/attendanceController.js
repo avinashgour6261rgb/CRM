@@ -167,21 +167,62 @@ const markAttendance = asyncHandler(async (req, res) => {
   const adminActorId = req.user?.id || req.user?._id || markedBy || 'ADMIN';
   const adminActorName = req.user?.name || markedBy || 'HR Administrator';
 
-  // Compute working hours and late calculation if both times exist
+  // Dynamically load CompanySettings for shift timing, grace period & half-day threshold
+  const CompanySettings = require('../../settings/models/CompanySettings');
+  let companySettings = null;
+  try {
+    companySettings = await CompanySettings.findOne().lean();
+  } catch (err) {
+    console.warn('[attendanceController] Could not fetch CompanySettings, using defaults:', err.message);
+  }
+
+  const shiftStartTime = companySettings?.shiftStartTime || '09:30 AM';
+  const graceMins = companySettings?.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
+  const standardWorkHours = companySettings?.standardWorkHours !== undefined ? Number(companySettings.standardWorkHours) : 9;
+  const halfDayThresholdHours = companySettings?.halfDayThresholdHours !== undefined ? Number(companySettings.halfDayThresholdHours) : 4.5;
+
+  const shiftStartSecs = parseTimeStringToSeconds(shiftStartTime);
+  const graceLimitSecs = shiftStartSecs + (graceMins * 60);
+
+  // Compute working hours and late calculation dynamically based on company policy
   let totalWorkingHours = 0;
   let isLate = status === 'late';
   let lateByMinutes = 0;
+  let calculatedStatus = status;
+
+  if (clockInTime) {
+    const inSecs = parseTimeStringToSeconds(clockInTime);
+    if (inSecs > graceLimitSecs) {
+      isLate = true;
+      lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
+      if (calculatedStatus === 'present') {
+        calculatedStatus = 'late';
+      }
+    }
+  }
 
   if (clockInTime && clockOutTime) {
     const inSecs = parseTimeStringToSeconds(clockInTime);
     const outSecs = parseTimeStringToSeconds(clockOutTime);
     const diffSecs = Math.max(0, outSecs - inSecs);
     totalWorkingHours = +(diffSecs / 3600).toFixed(2);
-    const graceLimit = 9 * 3600 + 30 * 60; // 09:30 AM
-    if (inSecs > graceLimit) {
-      isLate = true;
-      lateByMinutes = Math.floor((inSecs - graceLimit) / 60);
-    }
+  }
+
+  const effectiveWorkHours = (workSeconds !== undefined && Number(workSeconds) > 0)
+    ? +(Number(workSeconds) / 3600).toFixed(2)
+    : totalWorkingHours;
+
+  // Evaluate half-day if employee worked fewer hours than company half-day threshold
+  if (clockOutTime && effectiveWorkHours > 0 && effectiveWorkHours < halfDayThresholdHours && !['on_leave', 'holiday', 'day_off'].includes(calculatedStatus)) {
+    calculatedStatus = 'half_day';
+  }
+
+  // Calculate Overtime if employee worked beyond standard work hours
+  let overtimeHours = 0;
+  let overtimeSeconds = 0;
+  if (effectiveWorkHours > standardWorkHours) {
+    overtimeHours = +(effectiveWorkHours - standardWorkHours).toFixed(2);
+    overtimeSeconds = Math.round(overtimeHours * 3600);
   }
 
   // Upsert: update existing or create new
@@ -192,9 +233,11 @@ const markAttendance = asyncHandler(async (req, res) => {
     employeeRole: targetEmpRole,
     employeeAvatar: targetEmpAvatar,
     date,
-    status,
+    status: calculatedStatus,
     notes: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : ''),
-    markedBy: adminActorName
+    markedBy: adminActorName,
+    overtimeHours,
+    overtimeSeconds
   };
 
   if (clockInTime !== undefined) updateFields.clockInTime = clockInTime;

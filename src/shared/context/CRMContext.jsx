@@ -484,7 +484,7 @@ export const CRMProvider = ({ children }) => {
   // 🎂 AUTOMATIC BIRTHDAY & ANNIVERSARY ENGINE (Pure Calculation Helper)
   // =========================================================================
   const computedBirthdays = useMemo(() => calculateComputedBirthdays(employees), [employees]);
-  const computedAnniversaries = useMemo(() => calculateComputedAnniversaries(employees), [employees]);
+  const computedAnniversaries = useMemo(() => calculateComputedAnniversaries(employees, companySettings), [employees, companySettings]);
 
   // =========================================================================
   // ⏱️ DYNAMIC WEEKLY TIME LOGS & TASK ACTIVITY ENGINE (Mon, Tue, Wed, Thu, Fri, Sat, Sun)

@@ -1420,5 +1420,104 @@ export const hrService = {
     } catch (_) {}
 
     return res;
+  },
+
+  // ─── RESIGNATIONS & EX-EMPLOYEE WORKFLOW ───
+  async getResignations() {
+    return await fetchWithFallback(`${API_BASE}/resignations`, {
+      method: 'GET'
+    }, async () => {
+      return getCollection(KEYS.RESIGNATIONS) || [];
+    });
+  },
+
+  async submitResignation(resignationData) {
+    const res = await fetchWithFallback(`${API_BASE}/resignations`, {
+      method: 'POST',
+      body: JSON.stringify(resignationData)
+    }, async () => {
+      const resignations = getCollection(KEYS.RESIGNATIONS) || [];
+      const newRes = {
+        id: `res_${Date.now()}`,
+        status: 'pending',
+        submissionDate: new Date().toISOString().split('T')[0],
+        ...resignationData
+      };
+      resignations.unshift(newRes);
+      saveCollection(KEYS.RESIGNATIONS, resignations);
+      return newRes;
+    });
+
+    try {
+      const resignations = getCollection(KEYS.RESIGNATIONS) || [];
+      const rec = (res && res.data) ? res.data : res;
+      if (rec && rec.id) {
+        const idx = resignations.findIndex(r => r.id === rec.id);
+        if (idx >= 0) {
+          resignations[idx] = rec;
+        } else {
+          resignations.unshift(rec);
+        }
+        saveCollection(KEYS.RESIGNATIONS, resignations);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.RESIGNATIONS } }));
+      }
+    } catch (_) {}
+
+    return res;
+  },
+
+  async reviewResignation(resignationId, reviewData) {
+    const res = await fetchWithFallback(`${API_BASE}/resignations/${resignationId}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(reviewData)
+    }, async () => {
+      const resignations = getCollection(KEYS.RESIGNATIONS) || [];
+      const idx = resignations.findIndex(r => r.id === resignationId);
+      if (idx >= 0) {
+        resignations[idx] = {
+          ...resignations[idx],
+          ...reviewData,
+          status: reviewData.status || resignations[idx].status,
+          reviewedAt: new Date().toISOString()
+        };
+        saveCollection(KEYS.RESIGNATIONS, resignations);
+      }
+      return { success: true, data: resignations[idx] };
+    });
+
+    try {
+      const resignations = getCollection(KEYS.RESIGNATIONS) || [];
+      const idx = resignations.findIndex(r => r.id === resignationId);
+      if (idx >= 0) {
+        resignations[idx] = {
+          ...resignations[idx],
+          ...reviewData,
+          status: reviewData.status || resignations[idx].status,
+          isRelieved: reviewData.isRelieved || resignations[idx].isRelieved
+        };
+        saveCollection(KEYS.RESIGNATIONS, resignations);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.RESIGNATIONS } }));
+      }
+
+      // If relieved, update employee status to 'resigned' in local storage cache
+      if (reviewData.isRelieved || reviewData.status === 'relieved') {
+        const emps = getCollection(KEYS.EMPLOYEES) || [];
+        const empIdx = emps.findIndex(e =>
+          (reviewData.employeeId && (e._id === reviewData.employeeId || e.id === reviewData.employeeId)) ||
+          (reviewData.employeeCode && e.employeeCode === reviewData.employeeCode)
+        );
+        if (empIdx >= 0) {
+          emps[empIdx] = {
+            ...emps[empIdx],
+            status: 'resigned',
+            relievedDate: new Date().toISOString().split('T')[0]
+          };
+          saveCollection(KEYS.EMPLOYEES, emps);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+        }
+      }
+    } catch (_) {}
+
+    return res;
   }
 };

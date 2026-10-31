@@ -43,6 +43,7 @@ import { AddProjectModal } from '../../../modules/work/components/projects/AddPr
 import { RaiseTicketModal } from '../modals/RaiseTicketModal';
 import { NewLeaveModal } from '../../../modules/hr/components/leaves/NewLeaveModal';
 import { AddLeadModal } from '../../../modules/crm/components/leads/AddLeadModal';
+import { SubmitResignationModal } from '../../../modules/hr/components/resignations/SubmitResignationModal';
 import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 import { LogoutConfirmModal } from '../modals/LogoutConfirmModal';
 import { DashboardOverviewModal } from '../modals/DashboardOverviewModal';
@@ -92,6 +93,7 @@ export const TopNavbar = () => {
   const [isApplyLeaveOpen, setIsApplyLeaveOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isOverviewOpen, setIsOverviewOpen] = useState(false);
+  const [isResignationOpen, setIsResignationOpen] = useState(false);
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -615,6 +617,17 @@ export const TopNavbar = () => {
                   <Clock size={14} className="text-slate-500" />
                   <span>My Attendance</span>
                 </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    setIsResignationOpen(true);
+                  }}
+                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-rose-600 dark:text-rose-400 text-xs font-medium cursor-pointer text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                >
+                  <FileText size={14} className="text-rose-500" />
+                  <span>Submit Resignation</span>
+                </button>
               </div>
             </div>
           )}
@@ -766,6 +779,11 @@ export const TopNavbar = () => {
       <DashboardOverviewModal
         isOpen={isOverviewOpen}
         onClose={() => setIsOverviewOpen(false)}
+      />
+
+      <SubmitResignationModal
+        isOpen={isResignationOpen}
+        onClose={() => setIsResignationOpen(false)}
       />
     </header>
   );

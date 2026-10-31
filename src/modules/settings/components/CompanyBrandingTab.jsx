@@ -13,7 +13,7 @@ import {
   Edit3,
   Clock
 } from 'lucide-react';
-import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
+import { getCompanySettings, saveCompanySettings, fetchCompanySettingsFromDB } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
 
 export const CompanyBrandingTab = () => {
@@ -22,6 +22,9 @@ export const CompanyBrandingTab = () => {
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
+    fetchCompanySettingsFromDB().then(data => {
+      if (data) setFormData(data);
+    });
     const handleUpdate = () => setFormData(getCompanySettings());
     window.addEventListener('company-settings-updated', handleUpdate);
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
@@ -199,16 +202,36 @@ export const CompanyBrandingTab = () => {
             </div>
           </div>
 
+          {/* 🏢 Company Foundation Day & Anniversary (Admin Configurable) */}
+          <div className="p-3.5 px-4 bg-purple-50 dark:bg-purple-950/40 border-[1.5px] border-purple-200 dark:border-purple-900/60 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-[13px] font-bold text-purple-900 dark:text-purple-200 flex items-center gap-2">
+                <span>🎉 Company Foundation Day & Anniversary</span>
+              </div>
+              <div className="text-[11.5px] text-purple-700 dark:text-purple-300 mt-0.5">
+                Official establishment date of the organization. Displayed on Dashboard & Events calendar for all employees.
+              </div>
+            </div>
+            <div className="shrink-0 w-full sm:w-auto">
+              <input
+                type="date"
+                value={formData.foundationDate || '2020-04-15'}
+                onChange={e => handleChange('foundationDate', e.target.value)}
+                className="h-9 px-3 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-purple-500"
+              />
+            </div>
+          </div>
+
           {/* ⏱️ Work Shift Timings & Working Hours Configuration (Admin/HR Setting) */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-[1.5px] border-slate-200 dark:border-slate-800 rounded-xl flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-blue-600" />
               <div>
                 <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
-                  Work Shift Timing & Hours Configuration
+                  Work Shift Timing & Hours Configuration (Universal Company Policy)
                 </div>
                 <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
-                  Define company default work shift hours. Applied to Calendar, Attendance, and Employee shift trackers.
+                  Define company default work shift hours. Late check-ins, half-days, and overtime across all employees are calculated against these times.
                 </div>
               </div>
             </div>
@@ -220,9 +243,9 @@ export const CompanyBrandingTab = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.shiftStartTime || '10:00 AM'}
+                  value={formData.shiftStartTime || '09:30 AM'}
                   onChange={e => handleChange('shiftStartTime', e.target.value)}
-                  placeholder="e.g. 10:00 AM or 09:30 AM"
+                  placeholder="e.g. 09:30 AM"
                   className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -233,9 +256,9 @@ export const CompanyBrandingTab = () => {
                 </label>
                 <input
                   type="text"
-                  value={formData.shiftEndTime || '07:00 PM'}
+                  value={formData.shiftEndTime || '06:30 PM'}
                   onChange={e => handleChange('shiftEndTime', e.target.value)}
-                  placeholder="e.g. 07:00 PM or 06:30 PM"
+                  placeholder="e.g. 06:30 PM"
                   className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -253,6 +276,41 @@ export const CompanyBrandingTab = () => {
                   placeholder="9"
                   className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Late Arrival Grace Period (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={formData.gracePeriodMinutes ?? 15}
+                  onChange={e => handleChange('gracePeriodMinutes', Number(e.target.value) || 0)}
+                  placeholder="15"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
+                />
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Clock-ins after start time + grace (e.g. after 09:45 AM) are auto-marked Late.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Half-Day Threshold (Hours)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="2"
+                  max="8"
+                  value={formData.halfDayThresholdHours ?? 4.5}
+                  onChange={e => handleChange('halfDayThresholdHours', Number(e.target.value) || 4.5)}
+                  placeholder="4.5"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
+                />
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Total work hours completed below this will be recorded as Half Day.</p>
               </div>
             </div>
           </div>

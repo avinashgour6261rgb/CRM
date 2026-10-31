@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
 import { ShieldAlert, AlertCircle, Info } from 'lucide-react';
+import { getCompanySettings } from '../../../../shared/services/companySettingsService';
 
-const toTimeInput = (timeStr, fallback = '09:15') => {
+const toTimeInput = (timeStr, fallback = '09:30') => {
   if (!timeStr) return fallback;
   if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
   if (/^\d{2}:\d{2}:\d{2}$/.test(timeStr)) return timeStr.substring(0, 5);
@@ -21,6 +22,9 @@ const toTimeInput = (timeStr, fallback = '09:15') => {
 
 export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => {
   const { employees, markAttendanceRecord, currentUser } = useHR();
+  const companySettings = getCompanySettings();
+  const defaultInTime = toTimeInput(companySettings.shiftStartTime, '09:30') + ':00';
+  const defaultOutTime = toTimeInput(companySettings.shiftEndTime, '18:30') + ':00';
 
   const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.role === 'admin' || currentUser?.role === 'hr';
   const adminIdentifier = currentUser?.employeeCode || currentUser?._id || 'ADM-001';
@@ -29,8 +33,8 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
     employeeId: 'emp_001',
     date: new Date().toISOString().split('T')[0],
     status: 'present',
-    clockInTime: '09:15:00',
-    clockOutTime: '18:30:00',
+    clockInTime: defaultInTime,
+    clockOutTime: defaultOutTime,
     notes: '',
     auditNote: ''
   });
@@ -41,13 +45,13 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
         employeeId: initialData.employeeId || 'emp_001',
         date: initialData.date || new Date().toISOString().split('T')[0],
         status: initialData.status || 'present',
-        clockInTime: initialData.clockInTime || '09:15:00',
-        clockOutTime: initialData.clockOutTime || '18:30:00',
+        clockInTime: initialData.clockInTime || defaultInTime,
+        clockOutTime: initialData.clockOutTime || defaultOutTime,
         notes: initialData.notes || '',
         auditNote: ''
       });
     }
-  }, [initialData]);
+  }, [initialData, defaultInTime, defaultOutTime]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -154,7 +158,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
               </label>
               <input
                 type="time"
-                value={toTimeInput(formData.clockInTime, '09:15')}
+                value={toTimeInput(formData.clockInTime, toTimeInput(companySettings.shiftStartTime, '09:30'))}
                 onChange={(e) => setFormData({ ...formData, clockInTime: `${e.target.value}:00` })}
                 className="filter-input w-full h-10 pl-3"
               />
@@ -166,7 +170,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
               </label>
               <input
                 type="time"
-                value={toTimeInput(formData.clockOutTime, '18:30')}
+                value={toTimeInput(formData.clockOutTime, toTimeInput(companySettings.shiftEndTime, '18:30'))}
                 onChange={(e) => setFormData({ ...formData, clockOutTime: `${e.target.value}:00` })}
                 className="filter-input w-full h-10 pl-3"
               />
