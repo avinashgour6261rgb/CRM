@@ -202,7 +202,12 @@ export const isLeaderOrAbove = (user) => {
 };
 
 // ── Feature-Specific Permission Gates ──
-export const canManageEmployees = (user) => isHRorAdmin(user);
+export const canManageEmployees = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.manageEmployees || perms?.employees);
+};
 export const canApproveLeaves = (user) => {
   if (!user) return false;
   if (isAdmin(user)) return true;
@@ -211,18 +216,285 @@ export const canApproveLeaves = (user) => {
   const perms = getUserModulePermissions(user);
   return !!(perms?.approveLeaves || perms?.viewAllLeaves || perms?.allLeaves);
 };
-export const canManageCompanyHolidays = (user) => isHRorAdmin(user);
-export const canManagePayroll = (user) => isHRorAdmin(user);
+
+/**
+ * Check if the active user is the applicant who requested the leave
+ */
+export const isLeaveApplicant = (leave, user) => {
+  if (!leave || !user) return false;
+  const uId = String(user._id || user.id || '').trim();
+  const uCode = String(user.employeeCode || '').trim();
+  const uName = String(user.name || '').trim().toLowerCase();
+  const uEmail = String(user.email || '').trim().toLowerCase();
+
+  const lEmpId = String(leave.employeeId || leave.employee || '').trim();
+  const lEmpCode = String(leave.employeeCode || '').trim();
+  const lEmpName = String(leave.employeeName || leave.name || '').trim().toLowerCase();
+  const lEmpEmail = String(leave.employeeEmail || leave.email || '').trim().toLowerCase();
+
+  return (
+    (uId && lEmpId && uId === lEmpId) ||
+    (uCode && lEmpCode && uCode === lEmpCode) ||
+    (uName && lEmpName && uName === lEmpName) ||
+    (uEmail && lEmpEmail && uEmail === lEmpEmail)
+  );
+};
+
+/**
+ * Check if the active user is the designated approver chosen for this specific leave
+ */
+export const isLeaveDesignatedApprover = (leave, user) => {
+  if (!leave || !user) return false;
+  const uId = String(user._id || user.id || '').trim();
+  const uCode = String(user.employeeCode || '').trim();
+  const uName = String(user.name || '').trim().toLowerCase();
+  const uEmail = String(user.email || '').trim().toLowerCase();
+
+  const lAppId = String(leave.appliedToId || leave.appliedTo?._id || leave.appliedTo || leave.approverId || '').trim();
+  const lAppCode = String(leave.appliedToCode || '').trim();
+  const lAppName = String(leave.appliedToName || leave.appliedTo?.name || leave.approverName || '').trim().toLowerCase();
+  const lAppEmail = String(leave.appliedToEmail || leave.appliedTo?.email || leave.approverEmail || '').trim().toLowerCase();
+
+  if (uId && lAppId && (uId === lAppId || uId.toLowerCase() === lAppId.toLowerCase())) return true;
+  if (uCode && lAppId && (uCode === lAppId || uCode.toLowerCase() === lAppId.toLowerCase())) return true;
+  if (uCode && lAppCode && (uCode === lAppCode || uCode.toLowerCase() === lAppCode.toLowerCase())) return true;
+  if (uName && lAppName) {
+    if (uName === lAppName) return true;
+    if (uName.includes(lAppName) || lAppName.includes(uName)) return true;
+    const uFirst = uName.split(/\s+/)[0];
+    const lFirst = lAppName.split(/\s+/)[0];
+    if (uFirst && lFirst && uFirst.length >= 3 && uFirst === lFirst) return true;
+  }
+  if (uEmail && lAppEmail && uEmail === lAppEmail) return true;
+
+  return false;
+};
+
+/**
+ * Check if user is authorized to cancel a leave:
+ * Strictly:
+ * 1. The employee who requested the leave (Applicant)
+ * 2. The designated approver to whom the request was sent
+ * 3. HR or Admin (System Authority)
+ * NO ONE ELSE!
+ */
+export const canCancelLeave = (leave, user) => {
+  if (!leave || !user) return false;
+  if (isHRorAdmin(user)) return true;
+  if (isLeaveApplicant(leave, user)) return true;
+  if (isLeaveDesignatedApprover(leave, user)) return true;
+  return false;
+};
+
+/**
+ * Check if user is authorized to review (Approve / Reject) a pending leave:
+ * Strictly:
+ * 1. Cannot be applicant themselves (an employee can NEVER approve own leave)
+ * 2. The designated approver, OR HR, OR Admin
+ * NO ONE ELSE!
+ */
+export const canReviewLeave = (leave, user) => {
+  if (!leave || !user) return false;
+  if (isLeaveApplicant(leave, user)) return false;
+  if (isHRorAdmin(user)) return true;
+  if (isLeaveDesignatedApprover(leave, user)) return true;
+  return false;
+};
+export const canManageCompanyHolidays = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.events || perms?.holidays);
+};
+export const canManagePayroll = (user) => {
+  if (!user) return false;
+  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.payroll || perms?.finance || perms?.accessFinance);
+};
 export const canManageProjects = (user) => {
   if (!user) return false;
-  if (isLeaderOrAbove(user)) return true;
+  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
   const perms = getUserModulePermissions(user);
   return !!(perms?.manageProjects || perms?.createProjects || perms?.projects);
 };
-export const canAssignRoles = (user) => isAdmin(user);
-export const canPostNotices = (user) => isLeaderOrAbove(user);
+export const canAssignRoles = (user) => isAdmin(user) || user?.isDelegatedAdmin;
+export const canPostNotices = (user) => {
+  if (!user) return false;
+  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.notices || perms?.dashboard);
+};
 export const canDeleteEmployee = (user) => isAdmin(user);
-export const canEditSettings = (user) => isAdmin(user);
+export const canEditSettings = (user) => isAdmin(user) || user?.isDelegatedAdmin;
+
+/**
+ * Check if a project is visible to a user.
+ * High Authority (Admin, HR, or with viewAllProjects permission): Always true.
+ * Regular User (Team Member):
+ * - Project Creator: Always true.
+ * - Project Member / Assignee (members, membersList, teamIds, visibleToIds, leadId): True.
+ * - Truly Company-Wide (isCompanyWide === true && visibility === 'all'): True.
+ * - Otherwise: False.
+ */
+export const isProjectVisibleToUser = (project, user) => {
+  if (!project) return false;
+  if (!user) return false;
+
+  // 1. High Authority access
+  if (isHRorAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.viewAllProjects) return true;
+
+  const uId = String(user._id || user.id || '').toLowerCase().trim();
+  const uCode = String(user.employeeCode || '').toLowerCase().trim();
+  const uName = String(user.name || '').toLowerCase().trim();
+  const uEmail = String(user.email || '').toLowerCase().trim();
+
+  // 2. Creator access
+  const creatorIds = [
+    project.createdBy,
+    project.createdById,
+    project.creatorCode
+  ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+
+  if (uId && creatorIds.includes(uId)) return true;
+  if (uCode && creatorIds.includes(uCode)) return true;
+  if (project.creatorEmail && project.creatorEmail.toLowerCase().trim() === uEmail) return true;
+  if (project.creatorName && project.creatorName.toLowerCase().trim() === uName) return true;
+
+  // 3. Project Lead
+  if (project.leadId && (String(project.leadId).toLowerCase() === uId || String(project.leadId).toLowerCase() === uCode)) return true;
+  if (project.lead && project.lead.toLowerCase().trim() === uName) return true;
+
+  // 4. Assigned Team / Member list
+  if (Array.isArray(project.teamIds) && (project.teamIds.some(id => String(id).toLowerCase() === uId || String(id).toLowerCase() === uCode))) {
+    return true;
+  }
+  if (Array.isArray(project.visibleToIds) && (project.visibleToIds.some(id => String(id).toLowerCase() === uId || String(id).toLowerCase() === uCode))) {
+    return true;
+  }
+  if (Array.isArray(project.members) && project.members.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mCode = String(m.employeeCode || '').toLowerCase();
+    const mEmail = String(m.email || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uCode && mCode === uCode) || (uEmail && mEmail === uEmail) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+  if (Array.isArray(project.membersList) && project.membersList.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mCode = String(m.employeeCode || '').toLowerCase();
+    const mEmail = String(m.email || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uCode && mCode === uCode) || (uEmail && mEmail === uEmail) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+  if (Array.isArray(project.team) && project.team.some(m => {
+    if (!m) return false;
+    const mId = String(m._id || m.id || '').toLowerCase();
+    const mName = String(m.name || '').toLowerCase().trim();
+    return (uId && mId === uId) || (uName && mName === uName);
+  })) {
+    return true;
+  }
+
+  // 5. Explicitly marked as company-wide AND visibility === 'all' (only when not restricted)
+  if (project.isCompanyWide === true && project.visibility === 'all' && (!Array.isArray(project.visibleToIds) || project.visibleToIds.length === 0)) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Check if a task is visible to a user.
+ * High Authority: Sees all non-personal tasks (and their own personal tasks).
+ * Regular User: Sees ONLY tasks assigned to them (single or multi-assignee), or delegated/created by them.
+ */
+export const isTaskVisibleToUser = (task, user) => {
+  if (!task || !user) return false;
+
+  const uId = String(user._id || user.id || '').toLowerCase().trim();
+  const uCode = String(user.employeeCode || '').toLowerCase().trim();
+  const uName = String(user.name || '').toLowerCase().trim();
+  const uEmail = String(user.email || '').toLowerCase().trim();
+  const uTokens = uName.split(/\s+/).filter(tok => tok.length >= 3);
+
+  // Match assignment (single or multi-assignee)
+  const isAssigned = (() => {
+    const directAssignedTo = (task.assignedTo && typeof task.assignedTo === 'object')
+      ? String(task.assignedTo._id || task.assignedTo.id || '')
+      : String(task.assignedTo || '');
+
+    const directIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToCode, task.assignedToEmail]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+
+    if (uId && directIds.includes(uId)) return true;
+    if (uCode && directIds.includes(uCode)) return true;
+    if (uEmail && directIds.includes(uEmail)) return true;
+
+    if (task.assignedToName) {
+      const aName = task.assignedToName.toLowerCase().trim();
+      if (uName && (uName === aName || uName.includes(aName) || aName.includes(uName))) return true;
+      const aTokens = aName.split(/\s+/).filter(tok => tok.length >= 3);
+      if (uTokens.some(ut => aTokens.includes(ut))) return true;
+    }
+
+    if (Array.isArray(task.assignedToIds) && task.assignedToIds.some(id => {
+      const s = String(id).toLowerCase().trim();
+      return s === uId || s === uCode;
+    })) {
+      return true;
+    }
+
+    if (Array.isArray(task.assignees) && task.assignees.some(a => {
+      if (!a) return false;
+      const aId = String(a._id || a.id || '').toLowerCase().trim();
+      const aCode = String(a.employeeCode || '').toLowerCase().trim();
+      const aEmail = String(a.email || '').toLowerCase().trim();
+      const aName = String(a.name || '').toLowerCase().trim();
+      if (uId && aId === uId) return true;
+      if (uCode && aCode === uCode) return true;
+      if (uEmail && aEmail === uEmail) return true;
+      if (uName && (uName === aName || uName.includes(aName) || aName.includes(uName))) return true;
+      return false;
+    })) {
+      return true;
+    }
+
+    return false;
+  })();
+
+  // Match delegation/creation
+  const isCreatorOrAssigner = (() => {
+    const creatorIds = [task.assignedById, task.assignedByCode, task.createdById, task.createdBy]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+    if (uId && creatorIds.includes(uId)) return true;
+    if (uCode && creatorIds.includes(uCode)) return true;
+    if (task.assignedBy && uName && task.assignedBy.trim().toLowerCase() === uName) return true;
+    return false;
+  })();
+
+  // 1. Personal Task Isolation
+  if (task.isPersonal) {
+    return isAssigned || isCreatorOrAssigner;
+  }
+
+  // 2. High Authority access
+  if (isHRorAdmin(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.viewAllTasks) return true;
+
+  // 3. Regular User: strictly assigned or created by them
+  return isAssigned || isCreatorOrAssigner;
+};
 
 export const getRoleConfig = (roleIdOrUser) => {
   const roleId = typeof roleIdOrUser === 'object' ? getUserRole(roleIdOrUser) : roleIdOrUser;
@@ -253,7 +525,11 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: true,
     accessFinance: true,
     manageEmployees: true,
-    grantPermissions: true
+    grantPermissions: true,
+    liveOperations: true,
+    payroll: true,
+    finance: true,
+    employees: true
   },
   hr: {
     dashboard: true,
@@ -278,7 +554,10 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: false,
     accessFinance: true,
     manageEmployees: true,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: true,
+    payroll: true,
+    finance: true
   },
   team_leader: {
     dashboard: true,
@@ -303,7 +582,10 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: true,
     accessFinance: false,
     manageEmployees: false,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: false,
+    payroll: false,
+    finance: false
   },
   team_member: {
     dashboard: true,
@@ -316,8 +598,8 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     expenses: true,
     leads: false,
     projects: true,
-    manageProjects: true,
-    createProjects: true,
+    manageProjects: false,
+    createProjects: false,
     employees: false,
     reports: false,
     documentation: false,
@@ -334,7 +616,8 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessCRM: false,
     accessFinance: false,
     manageEmployees: false,
-    grantPermissions: false
+    grantPermissions: false,
+    liveOperations: false
   }
 };
 
@@ -421,7 +704,7 @@ export const canUserGrantPermissions = (user) => {
  */
 export const canAccessModule = (user, moduleId) => {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isAdmin(user) || user.isDelegatedAdmin) return true;
   const role = getUserRole(user);
   const perms = getUserModulePermissions(user);
   const normalizedKey = String(moduleId).toLowerCase().replace(/[-_]/g, '');
@@ -456,24 +739,39 @@ export const canAccessModule = (user, moduleId) => {
     expense: 'expenses',
     settings: 'settings',
     projects: 'projects',
-    project: 'projects'
+    project: 'projects',
+    teamoperations: 'liveOperations',
+    liveoperations: 'liveOperations',
+    operations: 'liveOperations'
   };
 
   const permKey = keyMap[normalizedKey] || moduleId;
 
-  // 1. Explicit boolean in user's permissions overrides defaults
+  // 1. Explicit boolean in user's permissions overrides defaults (Admin power)
   if (perms && typeof perms[permKey] === 'boolean') {
     return perms[permKey];
   }
 
-  // Project management grant override (Admin delegation)
-  if (permKey === 'projects' && perms && (perms.manageProjects || perms.createProjects || perms.projects || perms.viewAllProjects)) {
+  // Capability & alias fallbacks
+  if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations || perms?.viewAllAttendance)) {
+    return true;
+  }
+  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance)) {
+    return true;
+  }
+  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees)) {
+    return true;
+  }
+  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads)) {
+    return true;
+  }
+  if (permKey === 'projects' && (perms?.projects || perms?.manageProjects || perms?.createProjects || perms?.viewAllProjects)) {
     return true;
   }
 
-  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules by default
+  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted
   if (role === ROLES.TEAM_MEMBER) {
-    const privilegedModules = ['employees', 'teamoperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
+    const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
     if (privilegedModules.includes(permKey)) return false;
     return true; // allowed modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
   }

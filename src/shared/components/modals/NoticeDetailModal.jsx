@@ -17,140 +17,58 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
   if (!notice) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '620px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '22px 26px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{
-                padding: '3px 8px',
-                backgroundColor: notice.isImportant ? '#fee2e2' : '#eff6ff',
-                color: notice.isImportant ? '#dc2626' : '#2563eb',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontWeight: '700'
-              }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`px-2 py-0.5 rounded-md text-[11.5px] font-bold ${
+                notice.isImportant 
+                  ? 'bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400' 
+                  : 'bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+              }`}>
                 {notice.isImportant ? '🔥 High Priority' : '📢 Notice'}
               </span>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 {notice.category}
               </span>
             </div>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0, lineHeight: '1.4' }}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white m-0 leading-snug">
               {notice.title}
             </h2>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="p-6 flex flex-col gap-4">
           {/* Metadata bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 14px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '8px',
-            fontSize: '12.5px',
-            color: '#64748b'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <User size={14} /> Posted By: <strong style={{ color: '#334155' }}>{notice.postedBy}</strong>
+          <div className="flex items-center justify-between p-2.5 px-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg text-[12.5px] text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <User size={14} /> Posted By: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{notice.postedBy}</strong>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               <Calendar size={14} /> {notice.date}
             </div>
           </div>
 
           {/* Full Content */}
-          <div style={{
-            fontSize: '14px',
-            color: '#334155',
-            lineHeight: '1.7',
-            whiteSpace: 'pre-line',
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '10px',
-            padding: '18px'
-          }}>
+          <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-xl p-[18px]">
             {notice.fullContent || notice.shortDescription}
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '14px 26px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          backgroundColor: '#f8fafc',
-          borderBottomLeftRadius: '16px',
-          borderBottomRightRadius: '16px'
-        }}>
+        <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           <button
             onClick={onClose}
-            style={{
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              padding: '8px 20px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="bg-sky-600 hover:bg-sky-700 text-white border-none px-5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors shadow-sm"
           >
             Acknowledge & Close
           </button>

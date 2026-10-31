@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { AlertTriangle, Calendar, Clock, CheckCircle2, Play, X, ArrowRight } from 'lucide-react';
+import { useToast } from '../../../../shared/context/ToastContext';
 
 export const OverdueTaskModal = ({
   task,
@@ -18,6 +19,7 @@ export const OverdueTaskModal = ({
 
   const [customDate, setCustomDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { addToast } = useToast();
 
   const handleQuickExtend = async (days) => {
     setSubmitting(true);
@@ -34,7 +36,7 @@ export const OverdueTaskModal = ({
     try {
       const today = new Date().toISOString().split('T')[0];
       if (customDate < today) {
-        alert('Please choose a future date for the new deadline.');
+        addToast('Please choose a future date for the new deadline.', 'warning');
         return;
       }
       // Calculate diff in days
@@ -57,72 +59,24 @@ export const OverdueTaskModal = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '14px',
-        width: '100%',
-        maxWidth: '520px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        border: '1px solid #fed7aa',
-        overflow: 'hidden',
-        animation: 'fadeIn 0.2s ease-out'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-2xl border border-orange-200 dark:border-orange-900/50 overflow-hidden animate-fadeIn">
         {/* Header Banner */}
-        <div style={{
-          backgroundColor: '#fff7ed',
-          borderBottom: '1px solid #ffedd5',
-          padding: '16px 20px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              backgroundColor: '#fed7aa',
-              color: '#c2410c',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+        <div className="bg-orange-50 dark:bg-orange-950/40 border-b border-orange-100 dark:border-orange-900/60 p-4 sm:px-5 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-orange-200 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 flex items-center justify-center shrink-0">
               <AlertTriangle size={22} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '800',
-                  color: '#9a3412',
-                  backgroundColor: '#ffedd5',
-                  padding: '2px 7px',
-                  borderRadius: '4px',
-                  textTransform: 'uppercase'
-                }}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-extrabold text-orange-800 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/60 px-1.5 py-[1px] rounded uppercase">
                   {task.taskCode || 'TASK'}
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#ea580c' }}>
+                <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400">
                   ⚠️ Deadline Expired
                 </span>
               </div>
-              <h3 style={{ margin: '4px 0 0', fontSize: '15px', fontWeight: '800', color: '#431407' }}>
+              <h3 className="m-0 mt-1 text-sm sm:text-base font-extrabold text-orange-950 dark:text-orange-200">
                 Overdue Task Timer Restriction
               </h3>
             </div>
@@ -130,70 +84,41 @@ export const OverdueTaskModal = ({
 
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#9a3412',
-              cursor: 'pointer',
-              padding: '4px',
-              borderRadius: '6px'
-            }}
+            className="bg-transparent border-none text-orange-800 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white cursor-pointer p-1 rounded-md transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '20px' }}>
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            padding: '12px 14px',
-            marginBottom: '16px'
-          }}>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>
+        <div className="p-5">
+          <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 p-3 px-3.5 mb-4">
+            <div className="text-[13px] font-bold text-slate-900 dark:text-white mb-1">
               {task.title}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '11.5px', color: '#64748b' }}>
-              <span>Project: <strong style={{ color: '#334155' }}>{task.projectName || 'General Work'}</strong></span>
-              <span>Due Date: <strong style={{ color: '#dc2626' }}>{task.dueDate || 'Passed'} (Expired)</strong></span>
+            <div className="flex items-center gap-4 text-[11.5px] text-slate-500 dark:text-slate-400">
+              <span>Project: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{task.projectName || 'General Work'}</strong></span>
+              <span>Due Date: <strong className="text-red-600 dark:text-red-400 font-semibold">{task.dueDate || 'Passed'} (Expired)</strong></span>
             </div>
           </div>
 
-          <p style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', margin: '0 0 16px' }}>
+          <p className="text-[12.5px] text-slate-600 dark:text-slate-300 leading-relaxed mb-4 mt-0">
             This task has passed its designated deadline. To maintain clean project timelines and prevent unmonitored time drift, please choose an action below before tracking time:
           </p>
 
           {/* Action Choice 1: Quick Extension */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.02em' }}>
+          <div className="mb-4">
+            <label className="block text-[11.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
               Option 1: Extend Task Deadline & Start Timer
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+            <div className="grid grid-cols-3 gap-2 mb-2">
               <button
                 type="button"
                 disabled={submitting}
                 onClick={() => handleQuickExtend(1)}
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#0f172a',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.backgroundColor = '#eff6ff'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
               >
-                <Calendar size={13} color="#2563eb" />
+                <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
                 <span>+1 Day</span>
               </button>
 
@@ -201,25 +126,9 @@ export const OverdueTaskModal = ({
                 type="button"
                 disabled={submitting}
                 onClick={() => handleQuickExtend(3)}
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#0f172a',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.backgroundColor = '#eff6ff'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
               >
-                <Calendar size={13} color="#2563eb" />
+                <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
                 <span>+3 Days</span>
               </button>
 
@@ -227,61 +136,27 @@ export const OverdueTaskModal = ({
                 type="button"
                 disabled={submitting}
                 onClick={() => handleQuickExtend(7)}
-                style={{
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#0f172a',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.backgroundColor = '#eff6ff'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.backgroundColor = '#ffffff'; }}
+                className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors disabled:opacity-50"
               >
-                <Calendar size={13} color="#2563eb" />
+                <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
                 <span>+1 Week</span>
               </button>
             </div>
 
             {/* Custom Date Picker */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="flex gap-2 items-center">
               <input
                 type="date"
                 value={customDate}
                 onChange={e => setCustomDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                style={{
-                  flex: 1,
-                  height: '32px',
-                  padding: '0 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  outline: 'none'
-                }}
+                className="flex-1 h-8 px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500"
               />
               <button
                 type="button"
                 disabled={!customDate || submitting}
                 onClick={handleCustomExtend}
-                style={{
-                  height: '32px',
-                  padding: '0 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: !customDate ? '#e2e8f0' : '#2563eb',
-                  color: !customDate ? '#94a3b8' : '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: !customDate || submitting ? 'not-allowed' : 'pointer'
-                }}
+                className="h-8 px-3 rounded-md border-none bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer transition-colors disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:cursor-not-allowed"
               >
                 Apply Date
               </button>
@@ -289,49 +164,22 @@ export const OverdueTaskModal = ({
           </div>
 
           {/* Option 2 & 3: Complete Task or Continue */}
-          <div style={{
-            borderTop: '1px solid #f1f5f9',
-            paddingTop: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3.5 flex flex-col gap-2">
             <button
               type="button"
               disabled={submitting}
               onClick={handleCompleteTask}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #86efac',
-                backgroundColor: '#f0fdf4',
-                color: '#15803d',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: submitting ? 'not-allowed' : 'pointer'
-              }}
+              className="w-full py-2 px-3 rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 text-[12.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
             >
               <CheckCircle2 size={15} />
               <span>Mark Task as Completed</span>
             </button>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+            <div className="flex justify-between items-center mt-1">
               <button
                 type="button"
                 onClick={onClose}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  padding: '6px 0'
-                }}
+                className="bg-transparent border-none text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 text-xs cursor-pointer py-1.5 transition-colors"
               >
                 Cancel
               </button>
@@ -343,15 +191,7 @@ export const OverdueTaskModal = ({
                   onContinueAnyway(task._id);
                   onClose();
                 }}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#c2410c',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                  textDecoration: 'underline'
-                }}
+                className="bg-transparent border-none text-orange-700 hover:text-orange-800 dark:text-orange-400 text-[11.5px] font-bold cursor-pointer underline transition-colors disabled:opacity-50"
                 title="Continue tracking on overdue task without deadline change"
               >
                 Continue Tracking Anyway →

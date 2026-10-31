@@ -93,61 +93,19 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '740px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Upload size={18} />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 m-0">
                 Import Company Expenses
               </h2>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">
                 Upload CSV or Excel files with price, category, and vendor details
               </p>
             </div>
@@ -155,46 +113,23 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="p-6 flex flex-col gap-5">
           
           {/* Action Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ fontSize: '13px', color: '#475569' }}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-[13px] text-slate-600 dark:text-slate-300">
               Need the template structure? Download the standardized CSV schema:
             </div>
             <button
               onClick={handleDownloadSample}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#2563eb',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               <Download size={14} />
               Download Sample CSV
@@ -202,46 +137,20 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Upload Dropzone */}
-          <div style={{
-            border: '2px dashed #cbd5e1',
-            borderRadius: '12px',
-            padding: '32px 20px',
-            textAlign: 'center',
-            backgroundColor: '#f8fafc',
-            cursor: 'pointer',
-            position: 'relative'
-          }}>
+          <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl py-8 px-5 text-center bg-slate-50 dark:bg-slate-800/40 cursor-pointer relative hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
             <input
               type="file"
               accept=".csv, .xlsx, .xls"
               onChange={handleFileUpload}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer'
-              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '50%',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 12px'
-            }}>
+            <div className="w-11 h-11 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3">
               <FileSpreadsheet size={22} />
             </div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
               {fileName ? `Selected: ${fileName}` : 'Choose CSV file or drag & drop here'}
             </div>
-            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Supports CSV with UTF-8 encoding
             </div>
           </div>
@@ -249,49 +158,39 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
           {/* Preview Table */}
           {previewData.length > 0 && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                   Preview Table ({previewData.length} entries parsed)
                 </span>
-                <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: '600' }}>
+                <span className="text-xs text-green-600 dark:text-emerald-400 font-semibold">
                   ✓ Valid Schema Verified
                 </span>
               </div>
 
-              <div style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+              <div className="max-h-[200px] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="w-full border-collapse text-[12.5px]">
                   <thead>
-                    <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                      <th style={{ padding: '8px 12px' }}>Item Name</th>
-                      <th style={{ padding: '8px 12px' }}>Price</th>
-                      <th style={{ padding: '8px 12px' }}>Category</th>
-                      <th style={{ padding: '8px 12px' }}>Purchased From</th>
-                      <th style={{ padding: '8px 12px' }}>Date</th>
-                      <th style={{ padding: '8px 12px' }}>Status</th>
+                    <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-left">
+                      <th className="p-2 px-3">Item Name</th>
+                      <th className="p-2 px-3">Price</th>
+                      <th className="p-2 px-3">Category</th>
+                      <th className="p-2 px-3">Purchased From</th>
+                      <th className="p-2 px-3">Date</th>
+                      <th className="p-2 px-3">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewData.map(row => (
-                      <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: '600', color: '#0f172a' }}>{row.itemName}</td>
-                        <td style={{ padding: '8px 12px', color: '#16a34a', fontWeight: '700' }}>₹{row.price}</td>
-                        <td style={{ padding: '8px 12px', color: '#64748b' }}>{row.category}</td>
-                        <td style={{ padding: '8px 12px', color: '#334155' }}>{row.purchasedFrom}</td>
-                        <td style={{ padding: '8px 12px', color: '#64748b' }}>{row.purchaseDate}</td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            backgroundColor: row.status === 'approved' ? '#dcfce7' : '#fef3c7',
-                            color: row.status === 'approved' ? '#15803d' : '#b45309'
-                          }}>
+                      <tr key={row.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                        <td className="p-2 px-3 font-semibold text-slate-900 dark:text-slate-100">{row.itemName}</td>
+                        <td className="p-2 px-3 text-green-600 dark:text-emerald-400 font-bold">₹{row.price}</td>
+                        <td className="p-2 px-3 text-slate-500 dark:text-slate-400">{row.category}</td>
+                        <td className="p-2 px-3 text-slate-700 dark:text-slate-300">{row.purchasedFrom}</td>
+                        <td className="p-2 px-3 text-slate-500 dark:text-slate-400">{row.purchaseDate}</td>
+                        <td className="p-2 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            row.status === 'approved' ? 'bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                          }`}>
                             {row.status}
                           </span>
                         </td>
@@ -304,27 +203,11 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
           )}
 
           {/* Footer */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={onClose}
               disabled={importing}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-[18px] py-[9px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer transition-colors"
             >
               Cancel
             </button>
@@ -332,20 +215,11 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
             <button
               onClick={handleExecuteImport}
               disabled={importing || previewData.length === 0}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: previewData.length > 0 ? '#2563eb' : '#94a3b8',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: previewData.length > 0 ? 'pointer' : 'not-allowed',
-                boxShadow: previewData.length > 0 ? '0 2px 6px rgba(37,99,235,0.35)' : 'none'
-              }}
+              className={`inline-flex items-center gap-2 px-[22px] py-[9px] rounded-lg border-0 text-white text-[13px] font-bold transition-all ${
+                previewData.length > 0
+                  ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-md shadow-blue-600/35'
+                  : 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed'
+              }`}
             >
               <CheckCircle2 size={16} />
               {importing ? 'Importing Data...' : `Import ${previewData.length} Records`}

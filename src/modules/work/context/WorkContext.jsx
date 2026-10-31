@@ -15,6 +15,7 @@ import { hrService } from '../../hr/services/hrService';
 import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
+import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 const WorkContext = createContext();
 
@@ -96,11 +97,39 @@ export const WorkProvider = ({ children }) => {
       return true;
     }
 
-    if (t.assignedToName && currentUser?.name && t.assignedToName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) {
-      return true;
+    if (t.assignedToName && currentUser?.name) {
+      const myName = currentUser.name.trim().toLowerCase();
+      const aName = t.assignedToName.trim().toLowerCase();
+      if (myName === aName || myName.includes(aName) || aName.includes(myName)) return true;
+      const myTokens = myName.split(/\s+/).filter(tok => tok.length >= 3);
+      const aTokens = aName.split(/\s+/).filter(tok => tok.length >= 3);
+      if (myTokens.some(mt => aTokens.includes(mt))) return true;
     }
     return false;
   }, [userKey, currentUser]);
+
+  // Permission authorization helper: only Admin, HR, Assigner/Creator, or Assigned Member can control tasks
+  const canUserControlTask = useCallback((targetTask) => {
+    if (!targetTask || !currentUser) return false;
+    const isUserAdminOrHR = currentUser?.isAdmin ||
+      currentUser?.systemRole === 'admin' ||
+      currentUser?.systemRole === 'hr' ||
+      currentUser?.role === 'Administrator' ||
+      currentUser?.role === 'HR Manager' ||
+      isHRorAdmin(currentUser);
+    if (isUserAdminOrHR) return true;
+
+    // Check assigner / creator
+    const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase());
+    const creatorIds = [targetTask.assignedById, targetTask.assignedByCode].filter(Boolean).map(s => String(s).toLowerCase());
+    if (myIds.some(id => creatorIds.includes(id))) return true;
+    if (targetTask.assignedBy && currentUser?.name && targetTask.assignedBy.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) return true;
+
+    // Check assigned member (single or multi-assignee)
+    if (isTaskAssignedToMe(targetTask)) return true;
+
+    return false;
+  }, [currentUser, userKey, isTaskAssignedToMe]);
 
   const isEventForMe = useCallback((e) => {
     if (!e || !e.detail) return true;
@@ -175,7 +204,17 @@ export const WorkProvider = ({ children }) => {
     }
     const startTs = typeof timerState.startedAt === 'number' ? timerState.startedAt : new Date(timerState.startedAt).getTime();
     if (!startTs || isNaN(startTs)) return base;
-    const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    if (startTs < todayMidnightMs) {
+      // Started on a previous day: cap to seconds before midnight so runaway ghost time is never added to today!
+      const elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnightMs - startTs) / 1000));
+      return base + Math.min(elapsedBeforeMidnight, 14 * 3600);
+    }
+
+    const elapsedSinceStart = Math.min(Math.max(0, Math.floor((Date.now() - startTs) / 1000)), 14 * 3600);
     return base + elapsedSinceStart;
   }, []);
 
@@ -194,11 +233,11 @@ export const WorkProvider = ({ children }) => {
   const [timesheetFilter, setTimesheetFilter] = useState({ employeeId: 'all', projectId: 'all', taskId: 'all', date: '', status: 'all', search: '' });
 
   // Load all Work module data and merge active persistent timer
-  const loadWorkData = useCallback(async () => {
+  const loadWorkData = useCallback(async (isSilent = false) => {
     if (isFetchingRef.current) return;
     try {
       isFetchingRef.current = true;
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const [prjs, rawTsks, times] = await Promise.all([
         workService.getProjects(projectFilter),
         workService.getTasks(taskFilter),
@@ -219,25 +258,43 @@ export const WorkProvider = ({ children }) => {
         return false;
       };
 
-      // 1. Seed with local tasks first (excluding legacy test tasks)
+      // Authoritative task list from backend MongoDB Atlas
+      const localMap = new Map();
       localTasks.forEach(lt => {
         const id = String(lt._id || lt.id);
-        if (id && !isLegacyTask(lt)) taskMap.set(id, { ...lt });
+        if (id && !isLegacyTask(lt)) localMap.set(id, lt);
       });
 
-      // 2. Merge backend tasks (excluding legacy test tasks)
+      // 1. Map backend tasks with live timer overlay
       (rawTsks || []).forEach(bt => {
         const id = String(bt._id || bt.id);
         if (id && !isLegacyTask(bt)) {
-          const existing = taskMap.get(id);
+          const existing = localMap.get(id);
           if (existing) {
             const localSecs = Number(existing.timerSeconds) || 0;
             const backendSecs = Number(bt.timerSeconds) || 0;
+            const localAccum = Number(existing.accumulatedSeconds) || 0;
+            const backendAccum = Number(bt.accumulatedSeconds) || 0;
+
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
+            const todayMidnightMs = todayMidnight.getTime();
+            const isStartedToday = bt.startedAt && Number(bt.startedAt) >= todayMidnightMs;
+            const isBackendActive = Boolean(bt.timerRunning && isStartedToday);
+            const isLocalActive = Boolean(existing.timerRunning || (activeTimer && String(activeTimer.taskId) === id && activeTimer.timerRunning));
+
+            // Keep timer running if actively running locally or on backend
+            const effectiveRunning = isLocalActive || isBackendActive;
+            const effectiveStartedAt = isLocalActive ? (existing.startedAt || activeTimer?.startedAt || Date.now()) : (isBackendActive ? bt.startedAt : null);
+
             taskMap.set(id, {
-              ...bt,
               ...existing,
+              ...bt,
+              timerRunning: effectiveRunning,
+              startedAt: effectiveStartedAt,
               timerSeconds: Math.max(localSecs, backendSecs),
-              status: existing.status || bt.status
+              accumulatedSeconds: Math.max(localAccum, backendAccum),
+              status: bt.status || existing.status
             });
           } else {
             taskMap.set(id, { ...bt });
@@ -245,7 +302,20 @@ export const WorkProvider = ({ children }) => {
         }
       });
 
-      // 3. Apply active timer state if running (unified across user perspectives & assignments)
+      // 2. Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
+      const remoteIds = new Set((rawTsks || []).map(r => String(r._id || r.id)));
+      localTasks.forEach(lt => {
+        const id = String(lt._id || lt.id);
+        if (id.startsWith('tsk_') && !remoteIds.has(id) && !isLegacyTask(lt)) {
+          taskMap.set(id, { ...lt });
+        }
+      });
+
+      // 3. Apply active timer state if running (strictly 1 active running task per user)
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const todayMidnightMs = todayMidnight.getTime();
+
       const mergedList = Array.from(taskMap.values()).map(t => {
         const tId = String(t._id || t.id);
         const isCompleted = t.status === 'completed' || !!t.completedAt;
@@ -264,14 +334,25 @@ export const WorkProvider = ({ children }) => {
           };
         }
 
-        const isActive = activeTimer && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
-        const isRunning = (isActive && activeTimer.timerRunning) || (t.timerRunning && t.startedAt);
+        const isAssignedToMe = isTaskAssignedToMe(t);
+        const isActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
+
+        // For current user: ONLY the single active task timer is running!
+        let isRunning = false;
+        if (isAssignedToMe) {
+          isRunning = Boolean(isActive);
+        } else {
+          const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+          isRunning = Boolean(t.timerRunning && isStartedToday);
+        }
 
         if (isRunning) {
-          const startedAtTs = (isActive && activeTimer.startedAt) ? activeTimer.startedAt : t.startedAt;
+          const startedAtTs = (isActive && activeTimer.startedAt) ? activeTimer.startedAt : (t.startedAt || Date.now());
           const baseSecs = (isActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
             ? Number(activeTimer.accumulatedSeconds)
-            : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : (Number(t.timerSeconds) || 0));
+            : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+              ? Number(t.accumulatedSeconds)
+              : (Number(t.timerSeconds) || 0));
           const elapsed = Math.max(0, Math.floor((Date.now() - Number(startedAtTs)) / 1000));
           const currentSecs = baseSecs + elapsed;
 
@@ -286,10 +367,13 @@ export const WorkProvider = ({ children }) => {
           };
         }
 
-        const staticSecs = Number(t.timerSeconds) || 0;
+        const staticSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          ? Number(t.accumulatedSeconds)
+          : (Number(t.timerSeconds) || 0);
         return {
           ...t,
           timerRunning: false,
+          startedAt: null,
           timerSeconds: staticSecs,
           accumulatedSeconds: staticSecs,
           liveDurationText: formatSeconds(staticSecs),
@@ -300,17 +384,53 @@ export const WorkProvider = ({ children }) => {
       // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
       localStorage.setItem(KEYS.TASKS, JSON.stringify(mergedList));
 
+      // Synchronize running task timer across devices / laptops
+      const remoteRunningTask = mergedList.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
+      const curSnapshot = getActiveTimerSnapshot();
+
+      if (remoteRunningTask) {
+        const rTaskId = String(remoteRunningTask._id || remoteRunningTask.id);
+        if (!curSnapshot || String(curSnapshot.taskId) !== rTaskId || !curSnapshot.timerRunning) {
+          saveActiveTimerSnapshot({
+            taskId: remoteRunningTask._id || remoteRunningTask.id,
+            taskCode: remoteRunningTask.taskCode || 'TSK',
+            title: remoteRunningTask.title,
+            projectName: remoteRunningTask.projectName || 'General Work',
+            assignedToId: userKey,
+            assignedToName: remoteRunningTask.assignedToName || currentUser?.name || 'User',
+            timerRunning: true,
+            startedAt: remoteRunningTask.startedAt || Date.now(),
+            accumulatedSeconds: remoteRunningTask.accumulatedSeconds !== undefined ? Number(remoteRunningTask.accumulatedSeconds) : (Number(remoteRunningTask.timerSeconds) || 0),
+            date: today,
+            lastUpdated: Date.now()
+          });
+        }
+      } else if (curSnapshot?.timerRunning) {
+        const matchTask = mergedList.find(t => String(t._id || t.id) === String(curSnapshot.taskId));
+        if (matchTask && !matchTask.timerRunning) {
+          saveActiveTimerSnapshot({
+            ...curSnapshot,
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: matchTask.accumulatedSeconds !== undefined ? Number(matchTask.accumulatedSeconds) : Number(matchTask.timerSeconds)
+          });
+        }
+      }
+
       setProjects(prjs || []);
       setTasks(mergedList);
       setTimesheets(times || []);
+      if (Array.isArray(times) && times.length > 0) {
+        localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(times));
+      }
     } catch (err) {
       console.error('Error loading Work module data:', err);
-      addToast('Failed to sync Work module data', 'error');
+      if (!isSilent) addToast('Failed to sync Work module data', 'error');
     } finally {
       isFetchingRef.current = false;
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast]);
+  }, [projectFilter, taskFilter, timesheetFilter, getActiveTimerSnapshot, getElapsedSeconds, formatSeconds, addToast, isTaskAssignedToMe, saveActiveTimerSnapshot, userKey, currentUser]);
 
   // Derived reactive active running task strictly scoped to current logged-in user
   const activeRunningTask = useMemo(() => {
@@ -319,13 +439,13 @@ export const WorkProvider = ({ children }) => {
   }, [tasks, currentUser, isTaskAssignedToMe]);
 
   useEffect(() => {
-    loadWorkData();
+    loadWorkData(false);
 
-    const scheduleDebouncedLoad = () => {
+    const scheduleDebouncedLoad = (silent = true) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
-        loadWorkData();
-      }, 300);
+        loadWorkData(silent);
+      }, 400);
     };
 
     const handleStorageUpdate = (e) => {
@@ -336,7 +456,7 @@ export const WorkProvider = ({ children }) => {
         changedKey.startsWith('ems_active_task_timer') ||
         changedKey.startsWith('ems_timer_')
       ) {
-        scheduleDebouncedLoad();
+        scheduleDebouncedLoad(true);
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
@@ -351,12 +471,30 @@ export const WorkProvider = ({ children }) => {
         SYNC_EVENTS.TASK_COMPLETED,
         SYNC_EVENTS.STORAGE_MUTATION
       ].includes(ev.type)) {
-        scheduleDebouncedLoad();
+        scheduleDebouncedLoad(true);
       }
     });
 
+    // Periodic synchronization from DB (every 12 seconds) + tab focus across laptops (Localhost vs Vercel Live)
+    const syncInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        scheduleDebouncedLoad(true);
+      }
+    }, 12000);
+
+    const handleFocus = () => scheduleDebouncedLoad(true);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleDebouncedLoad(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       unsubscribeSync();
@@ -373,6 +511,12 @@ export const WorkProvider = ({ children }) => {
       const isShiftOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
         (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
 
+      const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
+        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true') ||
+        (currentUser?._id && localStorage.getItem(`ems_timer_${currentUser._id}_is_clocked_in`) === 'true') ||
+        Boolean(activeTimer?.timerRunning);
+
+      // Auto-pause task timer strictly when employee is on break
       if (isShiftOnBreak && activeTimer?.timerRunning) {
         const currentSecs = getElapsedSeconds(activeTimer);
         const today = getTodayStr();
@@ -382,14 +526,25 @@ export const WorkProvider = ({ children }) => {
           startedAt: null,
           accumulatedSeconds: currentSecs,
           date: today,
-          wasPausedForBreak: true
+          wasPausedForBreak: true,
+          wasPausedForClockOut: false
         };
         saveActiveTimerSnapshot(pausedTimerState);
 
         const allTasks = getCollection(KEYS.TASKS) || [];
         const updatedAll = allTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
-            return { ...t, timerRunning: false, startedAt: null, accumulatedSeconds: currentSecs, timerSeconds: currentSecs };
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: isShiftOnBreak,
+              wasPausedForClockOut: !isShiftClockedIn
+            };
           }
           return t;
         });
@@ -397,10 +552,37 @@ export const WorkProvider = ({ children }) => {
 
         setTasks(prevTasks => prevTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
-            return { ...t, timerRunning: false, startedAt: null, accumulatedSeconds: currentSecs, timerSeconds: currentSecs, liveDurationText: formatSeconds(currentSecs) };
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: isShiftOnBreak,
+              wasPausedForClockOut: !isShiftClockedIn
+            };
           }
           return t;
         }));
+
+        // Log session to timesheet if clock-out caused pause
+        if (!isShiftClockedIn && currentSecs > 0) {
+          workService.createTimesheet({
+            taskId: activeTimer.taskId,
+            taskCode: activeTimer.taskCode,
+            taskTitle: activeTimer.title,
+            projectName: activeTimer.projectName,
+            employeeId: activeTimer.assignedToId || userKey,
+            employeeName: activeTimer.assignedToName || currentUser?.name || 'User',
+            date: activeTimer.date || today,
+            totalDurationSeconds: currentSecs,
+            totalDurationText: formatSeconds(currentSecs),
+            memo: 'Shift clock-out auto-save',
+            status: 'stopped'
+          }).catch(() => {});
+        }
         return;
       }
 
@@ -420,8 +602,20 @@ export const WorkProvider = ({ children }) => {
             return t;
           }
 
+          const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
-          const isTaskRunning = isMyActive || (t.timerRunning && t.startedAt);
+
+          if (isAssignedToMe && (!isMyActive || !isShiftClockedIn) && t.timerRunning) {
+            changed = true;
+            return { ...t, timerRunning: false, startedAt: null };
+          }
+
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          const todayMidnightMs = todayMidnight.getTime();
+          const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+
+          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive && isShiftClockedIn) : Boolean(t.timerRunning && isStartedToday);
 
           if (isTaskRunning) {
             changed = true;
@@ -429,8 +623,9 @@ export const WorkProvider = ({ children }) => {
             const base = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
               ? Number(activeTimer.accumulatedSeconds)
               : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : (Number(t.timerSeconds) || 0));
-            const elapsed = Math.max(0, Math.floor((now - startTs) / 1000));
-            const liveSecs = base + elapsed;
+            const safeStartTs = Math.max(startTs, todayMidnightMs);
+            const elapsed = Math.min(Math.max(0, Math.floor((now - safeStartTs) / 1000)), 14 * 3600);
+            const liveSecs = Math.min(base + elapsed, 14 * 3600);
             const text = formatSeconds(liveSecs);
 
             return {
@@ -440,7 +635,8 @@ export const WorkProvider = ({ children }) => {
               accumulatedSeconds: base,
               timerSeconds: liveSecs,
               liveDurationText: text,
-              hoursLoggedText: text
+              hoursLoggedText: text,
+              sessionDate: getTodayStr()
             };
           }
           return t;
@@ -479,6 +675,7 @@ export const WorkProvider = ({ children }) => {
     const handleBreakStarted = (e) => {
       if (!isEventForMe(e)) return; // Ignore breaks for other employees!
       const activeTimer = getActiveTimerSnapshot();
+      const today = getTodayStr();
       if (activeTimer && activeTimer.timerRunning) {
         const currentSecs = getElapsedSeconds(activeTimer);
         const pausedState = {
@@ -486,15 +683,68 @@ export const WorkProvider = ({ children }) => {
           timerRunning: false,
           startedAt: null,
           accumulatedSeconds: currentSecs,
+          timerSeconds: currentSecs,
+          date: today,
           wasPausedForBreak: true
         };
         saveActiveTimerSnapshot(pausedState);
 
-        setTasks(prevTasks => prevTasks.map(t => {
-          if (t._id === activeTimer.taskId) {
-            return { ...t, timerRunning: false, timerSeconds: currentSecs, wasPausedForBreak: true };
+        const allTasks = getCollection(KEYS.TASKS) || [];
+        const updatedAll = allTasks.map(t => {
+          if (String(t._id || t.id) === String(activeTimer.taskId)) {
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              sessionDate: today,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: true
+            };
           }
           return t;
+        });
+        saveCollection(KEYS.TASKS, updatedAll);
+
+        setTasks(prevTasks => prevTasks.map(t => {
+          if (String(t._id || t.id) === String(activeTimer.taskId)) {
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: currentSecs,
+              timerSeconds: currentSecs,
+              sessionDate: today,
+              liveDurationText: formatSeconds(currentSecs),
+              hoursLoggedText: formatSeconds(currentSecs),
+              wasPausedForBreak: true
+            };
+          }
+          return t;
+        }));
+
+        try {
+          workService.updateTask(activeTimer.taskId, {
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            timerSeconds: currentSecs,
+            sessionDate: today,
+            hoursLogged: +(currentSecs / 3600).toFixed(2),
+            hoursLoggedText: formatSeconds(currentSecs)
+          }).catch(() => {});
+        } catch {}
+
+        broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, {
+          taskId: activeTimer.taskId,
+          empKey: userKey,
+          accumulatedSeconds: currentSecs,
+          pausedForBreak: true
+        });
+        window.dispatchEvent(new CustomEvent('ems_task_timer_paused', {
+          detail: { taskId: activeTimer.taskId, userKey, empKey: userKey }
         }));
       }
     };
@@ -515,7 +765,7 @@ export const WorkProvider = ({ children }) => {
         saveActiveTimerSnapshot(pausedState);
 
         setTasks(prevTasks => prevTasks.map(t => {
-          if (t._id === activeTimer.taskId) {
+          if (String(t._id || t.id) === String(activeTimer.taskId)) {
             return { ...t, timerRunning: false, wasPausedForBreak: false, liveDurationText: formatSeconds(currentSecs) };
           }
           return t;
@@ -529,64 +779,41 @@ export const WorkProvider = ({ children }) => {
       window.removeEventListener('ems_break_started', handleBreakStarted);
       window.removeEventListener('ems_break_ended', handleBreakEnded);
     };
-  }, [getActiveTimerSnapshot, getElapsedSeconds, saveActiveTimerSnapshot, formatSeconds, isEventForMe]);
+  }, [getActiveTimerSnapshot, getElapsedSeconds, saveActiveTimerSnapshot, formatSeconds, isEventForMe, userKey]);
 
-  // ── Automatic Task Timer Pause on Clock-In (Task timer should NOT auto-start on Shift Clock-In) ──
+  // ── On Clock-In: Restore any task timer that was paused for clock-out ──
+  // NOTE: Do NOT pause running task timers on clock-in — task timer is independent of shift clock.
+  // Only restore wasPausedForClockOut tasks back to their previous state if applicable.
   useEffect(() => {
     const handleClockedIn = (e) => {
       if (!isEventForMe(e)) return; // Ignore clock-in for other employees!
       const activeTimer = getActiveTimerSnapshot();
-      if (activeTimer) {
-        const currentSecs = Number(activeTimer.accumulatedSeconds) || 0;
-        const today = getTodayStr();
-        const pausedState = {
+      // If there is a saved snapshot that was paused specifically because of clock-out, restore it
+      if (activeTimer && activeTimer.wasPausedForClockOut) {
+        // Resume the task timer from where it left off
+        const now = Date.now();
+        const resumedState = {
           ...activeTimer,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: currentSecs,
-          date: today,
+          timerRunning: true,
+          startedAt: now,
           wasPausedForClockOut: false
         };
-        saveActiveTimerSnapshot(pausedState);
-
-        const allTasks = getCollection(KEYS.TASKS) || [];
-        const updatedAll = allTasks.map(t => {
-          if (t._id === activeTimer.taskId) {
-            return { ...t, timerRunning: false, timerSeconds: currentSecs, sessionDate: today };
-          }
-          if (t.timerRunning && isTaskAssignedToMe(t)) {
-            return { ...t, timerRunning: false };
-          }
-          return t;
-        });
-        saveCollection(KEYS.TASKS, updatedAll);
+        saveActiveTimerSnapshot(resumedState);
 
         setTasks(prev => prev.map(t => {
           if (t._id === activeTimer.taskId) {
             return {
               ...t,
-              timerRunning: false,
-              timerSeconds: currentSecs,
-              sessionDate: today,
-              liveDurationText: formatSeconds(currentSecs)
+              timerRunning: true,
+              startedAt: now,
+              liveDurationText: formatSeconds(Number(activeTimer.accumulatedSeconds) || 0)
             };
-          }
-          if (t.timerRunning && isTaskAssignedToMe(t)) {
-            return { ...t, timerRunning: false };
           }
           return t;
         }));
-      } else {
-        const allTasks = getCollection(KEYS.TASKS) || [];
-        const updatedAll = allTasks.map(t => {
-          if (t.timerRunning && isTaskAssignedToMe(t)) {
-            return { ...t, timerRunning: false };
-          }
-          return t;
-        });
-        saveCollection(KEYS.TASKS, updatedAll);
-        setTasks(prev => prev.map(t => (t.timerRunning && isTaskAssignedToMe(t) ? { ...t, timerRunning: false } : t)));
       }
+      // If there was NO active timer and no snapshot, nothing to do — task timer
+      // starts only when user explicitly clicks "Start Task"
     };
 
     window.addEventListener('ems_clocked_in', handleClockedIn);
@@ -595,7 +822,7 @@ export const WorkProvider = ({ children }) => {
       window.removeEventListener('ems_clocked_in', handleClockedIn);
       window.removeEventListener('ems_reclock_in', handleClockedIn);
     };
-  }, [getActiveTimerSnapshot, saveActiveTimerSnapshot, formatSeconds, isEventForMe, isTaskAssignedToMe]);
+  }, [getActiveTimerSnapshot, saveActiveTimerSnapshot, formatSeconds, isEventForMe]);
 
   // ── Automatic Task Timer Pause on Clock-Out ──
   useEffect(() => {
@@ -675,47 +902,64 @@ export const WorkProvider = ({ children }) => {
         localStorage.setItem(`ems_work_session_date_${userKey}`, today);
         setWorkSessionDate(today);
 
-        // Check if yesterday had an active unclosed timer
+        // Check if yesterday had an active unclosed timer across midnight
         const rawSaved = localStorage.getItem(activeTimerKey);
         if (rawSaved) {
           try {
             const prev = JSON.parse(rawSaved);
             if (prev && prev.date && prev.date !== today) {
-              const duration = Number(prev.accumulatedSeconds) || 60;
-              workService.createTimesheet({
-                taskId: prev.taskId,
-                taskCode: prev.taskCode,
-                taskTitle: prev.title,
-                projectName: prev.projectName,
-                employeeId: prev.assignedToId,
-                employeeName: prev.assignedToName,
-                date: prev.date || storedWorkDate,
-                totalDurationSeconds: Math.min(duration, 8 * 3600),
-                totalDurationText: formatSeconds(Math.min(duration, 8 * 3600)),
-                memo: 'Automatic end-of-day timesheet close',
-                status: 'stopped'
-              }).catch(e => console.warn('Auto timesheet close error:', e));
+              const prevStartTs = prev.startedAt ? Number(prev.startedAt) : null;
+              let elapsedBeforeMidnight = 0;
+              if (prev.timerRunning && prevStartTs) {
+                const todayMidnight = new Date();
+                todayMidnight.setHours(0, 0, 0, 0);
+                elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnight.getTime() - prevStartTs) / 1000));
+              }
+              const duration = (Number(prev.accumulatedSeconds) || 0) + elapsedBeforeMidnight;
+              if (duration > 0) {
+                workService.createTimesheet({
+                  taskId: prev.taskId,
+                  taskCode: prev.taskCode,
+                  taskTitle: prev.title || prev.taskTitle,
+                  projectName: prev.projectName,
+                  employeeId: prev.assignedToId || userKey,
+                  employeeName: prev.assignedToName || currentUser?.name,
+                  date: prev.date || storedWorkDate,
+                  totalDurationSeconds: Math.min(duration, 14 * 3600),
+                  totalDurationText: formatSeconds(Math.min(duration, 14 * 3600)),
+                  memo: 'Automatic midnight rollover session save',
+                  status: 'stopped'
+                }).catch(e => console.warn('Auto timesheet close error:', e));
+              }
             }
           } catch (e) {}
         }
 
-        // Reset active timer snapshot for the new day
+        // Reset active timer snapshot for the new day so Day 2 starts clean
         saveActiveTimerSnapshot(null);
 
-        // Reset all tasks' session timer to 0 for the fresh new day
+        // Stop running state on all tasks for new day so ghost hours do not count while sleeping
         const allTasks = getCollection(KEYS.TASKS) || [];
-        const resetTasks = allTasks.map(t => ({
-          ...t,
-          timerRunning: false,
-          timerSeconds: 0,
-          sessionDate: today
-        }));
+        const resetTasks = allTasks.map(t => {
+          if (t.timerRunning) {
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              sessionDate: today
+            };
+          }
+          return {
+            ...t,
+            sessionDate: today
+          };
+        });
         saveCollection(KEYS.TASKS, resetTasks);
 
         setTasks(prev => prev.map(t => ({
           ...t,
           timerRunning: false,
-          timerSeconds: 0,
+          startedAt: null,
           sessionDate: today
         })));
 
@@ -903,6 +1147,14 @@ export const WorkProvider = ({ children }) => {
 
   const changeTaskStatus = async (id, status) => {
     try {
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const targetTask = (tasks || []).find(t => String(t._id || t.id) === String(id)) ||
+        allTasks.find(t => String(t._id || t.id) === String(id));
+      if (targetTask && !canUserControlTask(targetTask)) {
+        addToast('⛔ Access Denied: Only assigned team members, the task creator, or HR/Admin can update this task.', 'error');
+        return;
+      }
+
       if (status === 'completed') {
         return await completeTask(id);
       }
@@ -1023,50 +1275,37 @@ export const WorkProvider = ({ children }) => {
       allTasks.find(t => String(t._id || t.id) === String(taskId));
     if (!targetTask) return;
 
+    // Strict Permission Guard: Only authorized members can start/control this task
+    if (!canUserControlTask(targetTask)) {
+      addToast('⛔ Access Denied: Only assigned team members, the task creator, or HR/Admin can start this task.', 'error');
+      return;
+    }
+
     // Detect if this task is assigned to another employee
-    const assignedEmpId = targetTask.assignedToId || targetTask.assignedTo;
-    const assignedEmpName = targetTask.assignedToName || 'Employee';
-    const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager';
-    const isForOtherEmployee = isUserAdminOrHR && assignedEmpId && String(assignedEmpId) !== String(userKey) && String(assignedEmpId) !== String(currentUser?._id);
+    const assignedEmpId = targetTask.assignedToId ||
+      (typeof targetTask.assignedTo === 'string' ? targetTask.assignedTo : targetTask.assignedTo?._id) ||
+      (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds[0]) ||
+      (Array.isArray(targetTask.assignees) && (targetTask.assignees[0]?._id || targetTask.assignees[0]?.employeeCode)) ||
+      userKey;
+    const assignedEmpName = targetTask.assignedToName ||
+      (Array.isArray(targetTask.assignees) && targetTask.assignees[0]?.name) ||
+      'Employee';
+    const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager' || isHRorAdmin(currentUser);
+    const isForOtherEmployee = (isUserAdminOrHR || targetTask.assignedById === currentUser?._id) &&
+      !isTaskAssignedToMe(targetTask) &&
+      assignedEmpId &&
+      String(assignedEmpId) !== String(userKey) &&
+      String(assignedEmpId) !== String(currentUser?._id);
 
     // Target user who owns this task
-    const targetUserKey = isForOtherEmployee ? assignedEmpId : userKey;
+    const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
-    // 1. Shift Sync: Ensure shift is actively marked clocked in for target user
-    if (isForOtherEmployee) {
-      const isEmpClockedIn = localStorage.getItem(`ems_timer_${targetUserKey}_is_clocked_in`) === 'true';
-      if (!isEmpClockedIn) {
-        const today = getTodayStr();
-        const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem(`ems_timer_${targetUserKey}_is_clocked_in`, 'true');
-        localStorage.setItem(`ems_timer_${targetUserKey}_is_running`, 'true');
-        localStorage.setItem(`ems_timer_${targetUserKey}_login_time`, nowStr);
-        localStorage.setItem(`ems_timer_${targetUserKey}_clock_in_timestamp`, Date.now().toString());
-        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey: targetUserKey, loginTime: nowStr, date: today } }));
-      }
-    } else {
-      const isClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
-      if (!isClockedIn) {
-        const today = getTodayStr();
-        const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'true');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'true');
-        localStorage.setItem(`ems_timer_${userKey}_login_time`, nowStr);
-        localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, Date.now().toString());
-        if (currentUser?.employeeCode) {
-          localStorage.setItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`, 'true');
-        }
-        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey, employeeId: currentUser?._id, employeeCode: currentUser?.employeeCode, loginTime: nowStr, date: today } }));
-      }
-
-      // 2. Break Guard for self
-      const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
-        (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
-      if (isOnBreak) {
-        addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
-        return;
-      }
+    // 1. Break Guard: You cannot track task time while actively on break
+    const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
+      (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
+    if (isOnBreak) {
+      addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
+      return;
     }
 
     // 3. Overdue Task Guard
@@ -1117,11 +1356,46 @@ export const WorkProvider = ({ children }) => {
       previousTaskElapsed = getElapsedSeconds(activeTimer);
     }
 
-    // Existing seconds for today's session
-    let existingSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
-      ? Number(targetTask.accumulatedSeconds)
-      : (Number(targetTask.timerSeconds) || 0);
-    if (activeTimer && String(activeTimer.taskId) === String(taskId) && !isForOtherEmployee) {
+    // Multi-day isolation: calculate time logged on previous days
+    const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const prevDaysLogged = allTimesheets
+      .filter(ts => (String(ts.taskId) === String(taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== today)
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+    // If task was last worked on an earlier date and had unlogged time, auto-archive it for that date
+    if (targetTask.sessionDate && targetTask.sessionDate !== today) {
+      const rawPrevSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
+        ? Number(targetTask.accumulatedSeconds)
+        : (Number(targetTask.timerSeconds) || 0);
+      const unloggedFromPrevDay = Math.max(0, rawPrevSecs - prevDaysLogged);
+      if (unloggedFromPrevDay > 0) {
+        workService.createTimesheet({
+          taskId: targetTask._id || taskId,
+          taskCode: targetTask.taskCode,
+          taskTitle: targetTask.title,
+          projectName: targetTask.projectName,
+          employeeId: assignedEmpId,
+          employeeName: assignedEmpName,
+          date: targetTask.sessionDate,
+          totalDurationSeconds: unloggedFromPrevDay,
+          totalDurationText: formatSeconds(unloggedFromPrevDay),
+          memo: `Work session completed on ${targetTask.sessionDate}`,
+          status: 'stopped'
+        }).catch(err => console.warn('Auto timesheet archive error:', err));
+      }
+    }
+
+    // Existing seconds for today's session:
+    // If targetTask was already worked today (sessionDate === today), resume today's portion.
+    // If it's a new day, today's session starts fresh at 0!
+    let existingSecs = 0;
+    if (targetTask.sessionDate === today) {
+      const rawSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
+        ? Number(targetTask.accumulatedSeconds)
+        : (Number(targetTask.timerSeconds) || 0);
+      existingSecs = Math.max(0, rawSecs - prevDaysLogged);
+    }
+    if (activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today && !isForOtherEmployee) {
       existingSecs = Math.max(existingSecs, getElapsedSeconds(activeTimer));
     }
 
@@ -1183,12 +1457,49 @@ export const WorkProvider = ({ children }) => {
           sessionDate: today
         };
       }
-      if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        return { ...t, timerRunning: false, startedAt: null };
+      if (t.timerRunning && ((!isForOtherEmployee && isTaskAssignedToMe(t)) || String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
+        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
+        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          ? Number(t.accumulatedSeconds)
+          : (Number(t.timerSeconds) || 0);
+        const tTotal = tBase + tElapsed;
+        return {
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: tTotal,
+          timerSeconds: tTotal,
+          liveDurationText: formatSeconds(tTotal),
+          sessionDate: today
+        };
       }
       return t;
     });
     saveCollection(KEYS.TASKS, updatedAll);
+
+    // Persist running state to MongoDB Atlas via workService.updateTask
+    try {
+      workService.updateTask(taskId, {
+        timerRunning: true,
+        startedAt: now,
+        accumulatedSeconds: existingSecs,
+        timerSeconds: existingSecs,
+        status: targetTask.status === 'incomplete' ? 'in_progress' : targetTask.status,
+        sessionDate: today,
+        activeUserId: targetUserKey,
+        activeUserName: assignedEmpName
+      }).catch(err => console.warn('Sync task timer start to backend notice:', err));
+
+      if (previousTaskId) {
+        workService.updateTask(previousTaskId, {
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: previousTaskElapsed,
+          timerSeconds: previousTaskElapsed,
+          sessionDate: today
+        }).catch(() => {});
+      }
+    } catch (e) {}
 
     // Instant cross-tab broadcast
     broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_STARTED, {
@@ -1238,7 +1549,20 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        return { ...t, timerRunning: false, startedAt: null };
+        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
+        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          ? Number(t.accumulatedSeconds)
+          : (Number(t.timerSeconds) || 0);
+        const tTotal = tBase + tElapsed;
+        return {
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: tTotal,
+          timerSeconds: tTotal,
+          liveDurationText: formatSeconds(tTotal),
+          sessionDate: today
+        };
       }
       return t;
     }));
@@ -1278,10 +1602,24 @@ export const WorkProvider = ({ children }) => {
       allTasks.find(t => String(t._id || t.id) === String(taskId));
     if (!targetTask) return;
 
-    const assignedEmpId = targetTask.assignedToId || targetTask.assignedTo;
-    const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager';
-    const isForOtherEmployee = isUserAdminOrHR && assignedEmpId && String(assignedEmpId) !== String(userKey) && String(assignedEmpId) !== String(currentUser?._id);
-    const targetUserKey = isForOtherEmployee ? assignedEmpId : userKey;
+    // Strict Permission Guard: Only authorized members can pause/control this task
+    if (!canUserControlTask(targetTask)) {
+      addToast('⛔ Access Denied: Only assigned team members, the task creator, or HR/Admin can pause this task.', 'error');
+      return;
+    }
+
+    const assignedEmpId = targetTask.assignedToId ||
+      (typeof targetTask.assignedTo === 'string' ? targetTask.assignedTo : targetTask.assignedTo?._id) ||
+      (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds[0]) ||
+      (Array.isArray(targetTask.assignees) && (targetTask.assignees[0]?._id || targetTask.assignees[0]?.employeeCode)) ||
+      userKey;
+    const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager' || isHRorAdmin(currentUser);
+    const isForOtherEmployee = (isUserAdminOrHR || targetTask.assignedById === currentUser?._id) &&
+      !isTaskAssignedToMe(targetTask) &&
+      assignedEmpId &&
+      String(assignedEmpId) !== String(userKey) &&
+      String(assignedEmpId) !== String(currentUser?._id);
+    const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
     let currentSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
       ? Number(targetTask.accumulatedSeconds)
@@ -1357,6 +1695,19 @@ export const WorkProvider = ({ children }) => {
       return t;
     }));
 
+    // Persist paused state to backend
+    try {
+      workService.updateTask(taskId, {
+        timerRunning: false,
+        startedAt: null,
+        accumulatedSeconds: currentSecs,
+        timerSeconds: currentSecs,
+        sessionDate: today,
+        hoursLogged: +(currentSecs / 3600).toFixed(2),
+        hoursLoggedText: formatSeconds(currentSecs)
+      });
+    } catch (e) {}
+
     // Daily Activity Audit Record
     try {
       hrService.createAttendanceAuditLog({
@@ -1387,6 +1738,11 @@ export const WorkProvider = ({ children }) => {
       allTasks.find(t => String(t._id || t.id) === String(taskId));
     if (!targetTask && !activeTimer) return;
 
+    if (targetTask && !canUserControlTask(targetTask)) {
+      addToast('⛔ Access Denied: Only assigned team members, the task creator, or HR/Admin can stop this task.', 'error');
+      return;
+    }
+
     let totalSecs = (targetTask?.accumulatedSeconds !== undefined && targetTask?.accumulatedSeconds !== null)
       ? Number(targetTask.accumulatedSeconds)
       : (Number(targetTask?.timerSeconds) || 0);
@@ -1398,7 +1754,13 @@ export const WorkProvider = ({ children }) => {
       totalSecs = getElapsedSeconds(activeTimer);
     }
 
-    if (totalSecs <= 0) totalSecs = 60; // Minimum 1 min fallback if stopped instantly
+    const todayStr = getTodayStr();
+    const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const prevDaysLogged = allTimesheets
+      .filter(ts => (String(ts.taskId) === String(targetTask?._id || taskId) || (targetTask?.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== todayStr)
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+    const todaySessionSecs = Math.max(0, totalSecs - prevDaysLogged);
+    const durationToLog = todaySessionSecs > 0 ? todaySessionSecs : totalSecs;
 
     try {
       await workService.stopTimer({
@@ -1408,7 +1770,8 @@ export const WorkProvider = ({ children }) => {
         projectName: targetTask?.projectName || 'General Work',
         employeeId: targetTask?.assignedToId || userKey,
         employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
-        totalDurationSeconds: totalSecs,
+        totalDurationSeconds: durationToLog,
+        date: todayStr,
         memo: memo || `Work on ${targetTask?.title || 'Task'}`
       });
 
@@ -1420,16 +1783,24 @@ export const WorkProvider = ({ children }) => {
         try { localStorage.removeItem(`ems_active_task_timer_${targetTask.activeUserId}`); } catch {}
       }
 
-      // In storage tasks collection reset timer
-      const updatedAll = allTasks.map(t => {
+      const hoursLoggedNum = +(totalSecs / 3600).toFixed(2);
+      const hoursLoggedFormatted = formatSeconds(totalSecs);
+
+      // In storage tasks collection update timer to stopped but preserve total time logged
+      const freshAllTasks = getCollection(KEYS.TASKS) || [];
+      const updatedAll = freshAllTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           return {
             ...t,
             timerRunning: false,
             startedAt: null,
-            accumulatedSeconds: 0,
-            timerSeconds: 0,
-            liveDurationText: '00:00:00'
+            accumulatedSeconds: totalSecs,
+            timerSeconds: totalSecs,
+            durationSeconds: totalSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            liveDurationText: hoursLoggedFormatted,
+            sessionDate: todayStr
           };
         }
         return t;
@@ -1442,9 +1813,13 @@ export const WorkProvider = ({ children }) => {
             ...t,
             timerRunning: false,
             startedAt: null,
-            accumulatedSeconds: 0,
-            timerSeconds: 0,
-            liveDurationText: '00:00:00'
+            accumulatedSeconds: totalSecs,
+            timerSeconds: totalSecs,
+            durationSeconds: totalSecs,
+            hoursLogged: hoursLoggedNum,
+            hoursLoggedText: hoursLoggedFormatted,
+            liveDurationText: hoursLoggedFormatted,
+            sessionDate: todayStr
           };
         }
         return t;
@@ -1472,11 +1847,28 @@ export const WorkProvider = ({ children }) => {
         allTasks.find(t => String(t._id || t.id) === String(taskId));
       if (!targetTask) return null;
 
-      const assignedEmpId = targetTask.assignedToId || targetTask.assignedTo || userKey;
-      const assignedEmpName = targetTask.assignedToName || currentUser?.name || 'User';
-      const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager';
-      const isForOtherEmployee = isUserAdminOrHR && assignedEmpId && String(assignedEmpId) !== String(userKey) && String(assignedEmpId) !== String(currentUser?._id);
-      const targetUserKey = isForOtherEmployee ? assignedEmpId : userKey;
+      // Strict Permission Guard: Only authorized members can complete this task
+      if (!canUserControlTask(targetTask)) {
+        addToast('⛔ Access Denied: Only assigned team members, the task creator, or HR/Admin can complete this task.', 'error');
+        return null;
+      }
+
+      const assignedEmpId = targetTask.assignedToId ||
+        (typeof targetTask.assignedTo === 'string' ? targetTask.assignedTo : targetTask.assignedTo?._id) ||
+        (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds[0]) ||
+        (Array.isArray(targetTask.assignees) && (targetTask.assignees[0]?._id || targetTask.assignees[0]?.employeeCode)) ||
+        userKey;
+      const assignedEmpName = targetTask.assignedToName ||
+        (Array.isArray(targetTask.assignees) && targetTask.assignees[0]?.name) ||
+        currentUser?.name ||
+        'User';
+      const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager' || isHRorAdmin(currentUser);
+      const isForOtherEmployee = (isUserAdminOrHR || targetTask.assignedById === currentUser?._id) &&
+        !isTaskAssignedToMe(targetTask) &&
+        assignedEmpId &&
+        String(assignedEmpId) !== String(userKey) &&
+        String(assignedEmpId) !== String(currentUser?._id);
+      const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
       // Calculate duration actually spent on this task session
       let durationSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
@@ -1492,13 +1884,20 @@ export const WorkProvider = ({ children }) => {
 
       // Log timesheet for the actual ASSIGNED EMPLOYEE
       if (durationSecs > 0) {
+        const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+        const prevDaysLogged = allTimesheets
+          .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== todayStr)
+          .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+        const todaySessionSecs = Math.max(0, durationSecs - prevDaysLogged);
+        const durationToLog = todaySessionSecs > 0 ? todaySessionSecs : durationSecs;
+
         try {
           await workService.stopTimer({
             taskId: targetTask._id || taskId,
             taskCode: targetTask.taskCode,
             taskTitle: targetTask.title,
             projectName: targetTask.projectName,
-            totalDurationSeconds: durationSecs,
+            totalDurationSeconds: durationToLog,
             date: todayStr,
             employeeId: assignedEmpId,
             employeeName: assignedEmpName,
@@ -1823,19 +2222,25 @@ export const WorkProvider = ({ children }) => {
   };
 
   /**
-   * Dismiss a reminder banner without starting timer yet
+   * Dismiss a reminder banner without starting timer yet (Scoped per user so one user dismissing doesn't hide it for other assignees)
    */
-  const dismissTaskReminder = async (taskId) => {
+  const dismissTaskReminder = async (taskId, userOverrideId) => {
     try {
+      const activeUid = userOverrideId || currentUser?._id || currentUser?.employeeCode || 'global';
       alertedTaskIdsRef.current.add(String(taskId));
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const currentTask = allTasks.find(t => String(t._id || t.id) === String(taskId));
+      const existingDismissedBy = Array.isArray(currentTask?.reminderDismissedBy) ? currentTask.reminderDismissedBy : (currentTask?.reminderDismissed ? ['global'] : []);
+      const updatedDismissedBy = [...new Set([...existingDismissedBy, String(activeUid)])];
+
       const updatePayload = {
         snoozed: false,
         remindAt: null,
         reminderAlerted: true,
-        reminderDismissed: true
+        reminderDismissed: true,
+        reminderDismissedBy: updatedDismissedBy
       };
       await workService.updateTask(taskId, updatePayload);
-      const allTasks = getCollection(KEYS.TASKS) || [];
       const updatedAll = allTasks.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t);
       saveCollection(KEYS.TASKS, updatedAll);
       setTasks(prev => prev.map(t => String(t._id || t.id) === String(taskId) ? { ...t, ...updatePayload } : t));

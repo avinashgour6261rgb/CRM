@@ -25,21 +25,27 @@ import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 
 const CATEGORIES = [
-  'Web Development',
-  'Digital Marketing',
-  'UI/UX Design',
+  'Web & Web App Development',
   'Mobile App Development',
-  'Cloud Infrastructure',
-  'SEO & Growth',
-  'Internal / Ops'
+  'SEO & Organic Growth',
+  'Social Media Marketing (SMM)',
+  'Paid Advertising (Google & Meta PPC)',
+  'UI/UX & Product Design',
+  'Branding & Creative Design',
+  'Cloud Infrastructure & DevOps',
+  'Content Marketing & Copywriting',
+  'Lead Generation & Sales Funnels',
+  'Maintenance & Support'
 ];
 
 const DEPARTMENTS = [
-  'Engineering',
-  'Marketing & Growth',
-  'Product Design',
-  'Sales & CRM',
+  'IT & Software Development',
+  'Digital Marketing',
+  'UI/UX & Creative Design',
+  'Content & SEO',
+  'Sales & Client Servicing',
   'Human Resources',
+  'Finance & Accounts',
   'Executive Management'
 ];
 
@@ -67,15 +73,16 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     name: '',
     projectCode: defaultCode,
     client: '',
-    category: 'Web Development',
-    department: 'Engineering',
+    category: 'Web & Web App Development',
+    department: 'IT & Software Development',
     startDate: getTodayStr(),
     deadline: getOffsetMonthStr(2),
     budget: '50000',
     currency: 'INR',
     summary: '',
-    isCompanyWide: true,
-    selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)]
+    isCompanyWide: false,
+    visibility: 'members',
+    selectedMembers: [currentUserId]
   });
 
   const [memberSearch, setMemberSearch] = useState('');
@@ -108,8 +115,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   const selectAllMembers = () => {
     setFormData(prev => ({
       ...prev,
-      selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)],
-      isCompanyWide: true
+      selectedMembers: [currentUserId, ...(employees || []).map(e => e._id)]
     }));
   };
 
@@ -117,8 +123,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
     // Keep creator in selected members
     setFormData(prev => ({
       ...prev,
-      selectedMembers: [currentUserId],
-      isCompanyWide: true
+      selectedMembers: [currentUserId]
     }));
   };
 
@@ -135,6 +140,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
       const creatorName = currentUser?.name || 'Authorized Member';
       const creatorRole = currentUser?.role || 'Team Member';
       const creatorEmail = currentUser?.email || '';
+
+      const isCompanyWide = formData.isCompanyWide === true;
+      const visibility = isCompanyWide ? 'all' : 'members';
 
       // Ensure creator is ALWAYS included in selected members list
       const rawSelectedIds = Array.from(new Set([
@@ -167,6 +175,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         });
       }
 
+      const teamIds = memberList.map(m => m._id);
+      const visibleToIds = isCompanyWide ? [] : teamIds;
+
       await createProject({
         name: formData.name.trim(),
         projectCode: (formData.projectCode || defaultCode).toUpperCase(),
@@ -181,9 +192,9 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         summary: formData.summary.trim(),
         status: 'in_progress',
         progress: 0,
-        isCompanyWide: true,
-        visibility: 'all',
-        visibleToIds: [],
+        isCompanyWide,
+        visibility,
+        visibleToIds,
         createdBy: creatorId,
         createdById: creatorId,
         creatorName: creatorName,
@@ -192,11 +203,11 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         creatorAvatar: currentUser?.avatar,
         members: memberList,
         membersList: memberList,
-        teamIds: memberList.map(m => m._id),
+        teamIds,
         team: memberList
       });
 
-      addToast(`Project "${formData.name}" created successfully! Deadlines shared with the team.`, 'success');
+      addToast(`Project "${formData.name}" created successfully!`, 'success');
       onClose();
     } catch (err) {
       console.error(err);
@@ -207,60 +218,19 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.6)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '600px',
-        maxHeight: '92vh',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.2)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[600px] max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid #bfdbfe'
-            }}>
+        <div className="p-4 sm:px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
               <FolderGit2 size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white m-0">
                 Create New Project
               </h2>
-              <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 mb-0">
                 Add a company project accessible across Admin, HR, and team members
               </p>
             </div>
@@ -269,30 +239,20 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
           <button
             onClick={onClose}
             aria-label="Close modal"
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              cursor: 'pointer',
-              color: '#64748b',
-              padding: '6px',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 rounded-lg flex items-center justify-center transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form onSubmit={handleSubmit} className="p-4 sm:px-5 overflow-y-auto flex flex-col gap-3.5">
           
           {/* Project Name & Code */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr] gap-2.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
-                Project Name <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+                Project Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -301,22 +261,12 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. Enterprise Cloud Dashboard, Mobile Client Portal"
                 autoFocus
                 required
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  fontWeight: '600',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] font-semibold text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Project Code
               </label>
               <input
@@ -324,26 +274,15 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 value={formData.projectCode}
                 onChange={(e) => handleChange('projectCode', e.target.value)}
                 placeholder="PRJ-001"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: '#0284c7',
-                  outline: 'none',
-                  backgroundColor: '#f8fafc',
-                  textTransform: 'uppercase'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] font-bold text-sky-600 dark:text-sky-400 outline-none bg-slate-50 dark:bg-slate-800 uppercase focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Client & Category */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Client / Brand Name
               </label>
               <input
@@ -351,36 +290,18 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 value={formData.client}
                 onChange={(e) => handleChange('client', e.target.value)}
                 placeholder="e.g. Internal / Apex Solutions"
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Category
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => handleChange('category', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full px-2.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 cursor-pointer focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               >
                 {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -390,45 +311,37 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Dates & Quick Presets */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Start Date
               </label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => handleChange('startDate', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '7px 10px',
-                  borderRadius: '6px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12px',
-                  color: '#0f172a',
-                  outline: 'none'
-                }}
+                className="w-full px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Target Deadline
                 </label>
-                <div style={{ display: 'flex', gap: '3px' }}>
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => handleChange('deadline', getOffsetMonthStr(1))}
-                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
+                    className="text-[10px] text-sky-600 dark:text-sky-400 border-none bg-transparent cursor-pointer font-semibold hover:underline"
                   >
                     1 Month
                   </button>
-                  <span style={{ fontSize: '10px', color: '#cbd5e1' }}>•</span>
+                  <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
                   <button
                     type="button"
                     onClick={() => handleChange('deadline', getOffsetMonthStr(3))}
-                    style={{ fontSize: '10px', color: '#0284c7', border: 'none', background: 'none', cursor: 'pointer', fontWeight: '600' }}
+                    className="text-[10px] text-sky-600 dark:text-sky-400 border-none bg-transparent cursor-pointer font-semibold hover:underline"
                   >
                     3 Months
                   </button>
@@ -438,75 +351,84 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                 type="date"
                 value={formData.deadline}
                 onChange={(e) => handleChange('deadline', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '7px 10px',
-                  borderRadius: '6px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '12px',
-                  color: '#0f172a',
-                  outline: 'none'
-                }}
+                className="w-full px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          {/* Project Visibility & Team Access (Key Requirement) */}
-          <div style={{
-            padding: '12px 14px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
+          {/* Project Visibility & Team Access */}
+          <div className="p-3 sm:px-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col gap-2.5">
             {/* Header & Creator Attribution */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Users size={16} color="#0284c7" />
-                <span style={{ fontSize: '12.5px', fontWeight: '800', color: '#0f172a' }}>
-                  Project Team Members & Collaboration
+            <div className="flex items-center justify-between flex-wrap gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Users size={16} className="text-sky-600 dark:text-sky-400" />
+                <span className="text-[12.5px] font-extrabold text-slate-900 dark:text-white">
+                  Visibility & Assigned Members
                 </span>
               </div>
-              <div style={{
-                fontSize: '11px',
-                color: '#0369a1',
-                backgroundColor: '#e0f2fe',
-                padding: '2px 8px',
-                borderRadius: '10px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
+              <div className="text-[11px] text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                 <UserCheck size={12} />
                 Creator: {currentUser?.name || 'You'}
               </div>
             </div>
 
-            <p style={{ fontSize: '11px', color: '#64748b', margin: 0, lineHeight: '1.4' }}>
-              Select team members to assign to this project. Project milestones and deadlines remain open to all employees on the Calendar so anyone can contribute and help meet targets.
-            </p>
+            {/* Visibility Scope Choice */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isCompanyWide: false, visibility: 'members' }))}
+                className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                  !formData.isCompanyWide
+                    ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <Lock size={15} className={`mt-0.5 shrink-0 ${!formData.isCompanyWide ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-xs font-bold">Assigned Members Only</div>
+                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Only selected team members & creator can view this project.
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isCompanyWide: true, visibility: 'all' }))}
+                className={`p-2.5 rounded-lg border text-left flex items-start gap-2 transition-all cursor-pointer ${
+                  formData.isCompanyWide
+                    ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                }`}
+              >
+                <Globe size={15} className={`mt-0.5 shrink-0 ${formData.isCompanyWide ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                <div>
+                  <div className="text-xs font-bold">Entire Company (Public)</div>
+                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Visible to all company employees across all departments.
+                  </div>
+                </div>
+              </button>
+            </div>
 
             {/* Member Selection Area */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
                   Assigned Team Members ({formData.selectedMembers.length} selected):
                 </span>
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={selectAllMembers}
-                    style={{ fontSize: '10.5px', color: '#0284c7', background: '#e0f2fe', border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: '700' }}
+                    className="text-[10.5px] text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 border-none px-2 py-0.5 rounded cursor-pointer font-bold transition-colors"
                   >
                     Select All
                   </button>
                   <button
                     type="button"
                     onClick={clearAllMembers}
-                    style={{ fontSize: '10.5px', color: '#64748b', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer' }}
+                    className="text-[10.5px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 px-2 py-0.5 rounded cursor-pointer transition-colors"
                   >
                     Clear Others
                   </button>
@@ -514,17 +436,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Member Chips */}
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '5px',
-                maxHeight: '110px',
-                overflowY: 'auto',
-                padding: '4px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px'
-              }}>
+              <div className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
                 {employees && employees.map(emp => {
                   const isCreator = String(emp._id) === String(currentUserId);
                   const isSelected = isCreator || formData.selectedMembers.includes(emp._id);
@@ -534,35 +446,22 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
                       key={emp._id}
                       type="button"
                       onClick={() => toggleMember(emp._id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        padding: '3px 8px',
-                        borderRadius: '14px',
-                        border: isCreator
-                          ? '1.5px solid #2563eb'
-                          : isSelected ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                        backgroundColor: isCreator
-                          ? '#eff6ff'
-                          : isSelected ? '#f0fdf4' : '#ffffff',
-                        color: isCreator
-                          ? '#1d4ed8'
-                          : isSelected ? '#15803d' : '#475569',
-                        fontSize: '11px',
-                        fontWeight: isSelected ? '700' : '500',
-                        cursor: isCreator ? 'default' : 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] transition-all ${
+                        isCreator
+                          ? 'border-[1.5px] border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-bold cursor-default'
+                          : isSelected
+                            ? 'border border-sky-500 bg-green-50 text-green-700 dark:bg-green-950/50 dark:text-green-300 font-bold cursor-pointer'
+                            : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium cursor-pointer hover:border-slate-400'
+                      }`}
                       title={isCreator ? 'You are the project creator (always included)' : `Click to toggle visibility for ${emp.name}`}
                     >
                       <img
                         src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                         alt={emp.name}
-                        style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }}
+                        className="w-4 h-4 rounded-full object-cover"
                       />
                       <span>{emp.name} {isCreator ? '(Creator)' : ''}</span>
-                      {isSelected && <CheckCircle2 size={11} color={isCreator ? '#2563eb' : '#16a34a'} />}
+                      {isSelected && <CheckCircle2 size={11} className={isCreator ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'} />}
                     </button>
                   );
                 })}
@@ -572,7 +471,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
 
           {/* Project Summary */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
               Project Summary & Scope (Optional)
             </label>
             <textarea
@@ -580,43 +479,16 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
               value={formData.summary}
               onChange={(e) => handleChange('summary', e.target.value)}
               placeholder="Describe deliverables, key targets, or client objectives..."
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '12.5px',
-                lineHeight: '1.4',
-                color: '#0f172a',
-                outline: 'none',
-                resize: 'none',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] leading-snug text-slate-900 dark:text-white outline-none resize-none font-sans bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           {/* Modal Footer Actions */}
-          <div style={{
-            paddingTop: '12px',
-            borderTop: '1px solid #f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px'
-          }}>
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '7px 14px',
-                borderRadius: '7px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               Cancel
             </button>
@@ -624,20 +496,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '7px',
-                border: 'none',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 1px 4px rgba(2, 132, 199, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
+              className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[12.5px] font-bold cursor-pointer shadow-md shadow-sky-600/30 flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <CheckCircle2 size={14} />
               {submitting ? 'Creating...' : 'Create Project'}

@@ -106,91 +106,38 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '680px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <Sparkles size={18} />
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-50 m-0">
                 Edit Lead: {lead.leadCode || `#${lead.idNumber}`}
               </h2>
             </div>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '4px 0 0 40px' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0 mt-1 ml-10">
               Update prospect contact info, stage status, and owner assignment
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           
           {/* Row 1: Lead Name & Company Name */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead / Deal Name *
               </label>
               <input
@@ -198,12 +145,12 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
                 required
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Company / Client Name *
               </label>
               <input
@@ -213,27 +160,27 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
                   handleChange('companyName', e.target.value);
                   handleChange('client', e.target.value);
                 }}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Row 2: Contact Person, Work Email & Phone */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Contact Person
               </label>
               <input
                 type="text"
                 value={formData.contactPerson}
                 onChange={e => handleChange('contactPerson', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Work Email *
               </label>
               <input
@@ -241,33 +188,33 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
                 required
                 value={formData.email}
                 onChange={e => handleChange('email', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Phone Number
               </label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={e => handleChange('phone', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Row 3: Lead Owner & Created By */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Owner (Assigned Team Member) *
               </label>
               <select
                 value={formData.leadOwnerId}
                 onChange={e => handleChange('leadOwnerId', e.target.value)}
-                style={selectStyle}
+                className={selectClass}
               >
                 {employees.map(emp => (
                   <option key={emp._id} value={emp._id}>
@@ -278,23 +225,15 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Originally Created By
               </label>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                backgroundColor: '#f1f5f9',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0'
-              }}>
-                <UserCheck size={16} color="#16a34a" />
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="flex items-center gap-2 py-2 px-3 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <UserCheck size={16} className="text-green-600" />
+                <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                   {lead.createdByName || 'Team Member'}
                 </span>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
                   on {lead.createdDate || '09-12-2026'}
                 </span>
               </div>
@@ -302,15 +241,15 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
           </div>
 
           {/* Row 4: Lead Type, Status, Priority, Deal Value */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+          <div className="grid grid-cols-4 gap-2.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Type / Category
               </label>
               <select
                 value={formData.leadType}
                 onChange={e => handleChange('leadType', e.target.value)}
-                style={selectStyle}
+                className={selectClass}
               >
                 <option value="Enterprise">Enterprise</option>
                 <option value="Inbound Web">Inbound Web</option>
@@ -322,13 +261,13 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Status
               </label>
               <select
                 value={formData.status}
                 onChange={e => handleChange('status', e.target.value)}
-                style={selectStyle}
+                className={selectClass}
               >
                 <option value="new">New Inquiry</option>
                 <option value="active">Active Contact</option>
@@ -340,13 +279,13 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Priority Level
               </label>
               <select
                 value={formData.priority}
                 onChange={e => handleChange('priority', e.target.value)}
-                style={selectStyle}
+                className={selectClass}
               >
                 <option value="urgent">⚡ Urgent</option>
                 <option value="high">🔥 High</option>
@@ -356,52 +295,52 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Deal Value (₹)
               </label>
               <input
                 type="number"
                 value={formData.dealValue}
                 onChange={e => handleChange('dealValue', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Row 5: Start Date, Target End Date & Lead Source */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start / Inquiry Date
               </label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={e => handleChange('startDate', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Target Close / Deadline
               </label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={e => handleChange('endDate', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Source
               </label>
               <select
                 value={formData.leadSource}
                 onChange={e => handleChange('leadSource', e.target.value)}
-                style={selectStyle}
+                className={selectClass}
               >
                 <option value="Website Inquiry">Website Inquiry</option>
                 <option value="LinkedIn Campaign">LinkedIn Campaign</option>
@@ -416,46 +355,24 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
 
           {/* Row 6: Description & Requirements */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Notes & Deal Requirements
             </label>
             <textarea
               rows={3}
               value={formData.notes}
               onChange={e => handleChange('notes', e.target.value)}
-              style={{
-                ...inputStyle,
-                height: 'auto',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none resize-y focus:border-blue-600 font-sans transition-colors"
             />
           </div>
 
           {/* Footer Actions */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9',
-            marginTop: '4px'
-          }}>
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800 mt-1">
             <button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-[9px] px-[18px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
             >
               Cancel
             </button>
@@ -463,20 +380,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.35)'
-              }}
+              className="inline-flex items-center gap-2 py-[9px] px-[22px] rounded-lg border-none bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md transition-colors"
             >
               <Check size={16} />
               {submitting ? 'Updating Lead...' : 'Save Changes'}
@@ -488,27 +392,5 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
   );
 };
 
-const inputStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 12px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a'
-};
-
-const selectStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 10px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a',
-  cursor: 'pointer'
-};
+const inputClass = "w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600 transition-colors";
+const selectClass = "w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-600 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 cursor-pointer focus:border-blue-600 transition-colors";

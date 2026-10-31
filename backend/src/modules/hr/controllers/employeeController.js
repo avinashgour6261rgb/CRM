@@ -29,7 +29,16 @@ const getEmployees = asyncHandler(async (req, res) => {
 
 // ─── GET /api/employees/current ───────────────────────────────────────────────
 const getCurrentUser = asyncHandler(async (req, res) => {
-  let user = await Employee.findOne({ isCurrentUser: true });
+  let user = null;
+  if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    user = await Employee.findById(req.user._id);
+  }
+  if (!user && req.user?.employeeCode) {
+    user = await Employee.findOne({ employeeCode: req.user.employeeCode });
+  }
+  if (!user) {
+    user = await Employee.findOne({ isCurrentUser: true });
+  }
   if (!user) {
     user = (await Employee.findOne({ employeeCode: 'ADM-001' })) ||
            (await Employee.findOne({ isAdmin: true })) ||
@@ -157,10 +166,20 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     ? { _id: id }
     : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
 
-  const employee = await Employee.findOneAndDelete(query);
+  const employee = await Employee.findOne(query);
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
+
+  // Prevent deleting your own active account if user is attached to request
+  if (req.user && String(req.user._id) === String(employee._id)) {
+    return res.status(400).json({
+      success: false,
+      message: 'You cannot delete your own active administrator account.'
+    });
+  }
+
+  await Employee.deleteOne({ _id: employee._id });
   res.json({ success: true, message: 'Employee removed', data: {} });
 });
 

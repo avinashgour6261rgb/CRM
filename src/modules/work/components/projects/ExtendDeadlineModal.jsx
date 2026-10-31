@@ -121,101 +121,45 @@ export const ExtendDeadlineModal = ({ isOpen, onClose, project, onSuccess }) => 
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1100,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '560px',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1100] p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '18px 22px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: isOverdue ? '#fff1f2' : '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '10px',
-              backgroundColor: isOverdue ? '#fee2e2' : '#eff6ff',
-              color: isOverdue ? '#dc2626' : '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid ${isOverdue ? '#fca5a5' : '#bfdbfe'}`
-            }}>
+        <div className={`p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between rounded-t-2xl ${
+          isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+              isOverdue 
+                ? 'bg-red-100 text-red-600 border-red-300 dark:bg-red-900/40 dark:text-red-400 dark:border-red-800' 
+                : 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800'
+            }`}>
               {isOverdue ? <AlertTriangle size={20} /> : <Calendar size={20} />}
             </div>
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white m-0">
                 Extend Project Deadline
               </h3>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                <span style={{ fontWeight: '700', color: '#2563eb' }}>{project.projectCode}</span> — {project.name}
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span className="font-bold text-blue-600 dark:text-blue-400">{project.projectCode}</span> — {project.name}
               </div>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Body Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 flex flex-col gap-[18px]">
           {/* Overdue Alert Banner if overdue */}
           {isOverdue ? (
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1.5px solid #f87171',
-              borderRadius: '10px',
-              padding: '12px 14px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px'
-            }}>
-              <AlertTriangle size={18} color="#dc2626" style={{ marginTop: '2px', flexShrink: 0 }} />
-              <div style={{ fontSize: '12.5px', color: '#991b1b', lineHeight: '1.5' }}>
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900 rounded-xl p-3 px-3.5 flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+              <div className="text-[12.5px] text-red-800 dark:text-red-300 leading-relaxed">
                 <strong>⚠️ Project is currently OVERDUE!</strong>
                 <div>
                   Original deadline passed on <strong>{project.deadline}</strong> ({overdueDays} day{overdueDays > 1 ? 's' : ''} ago). Specify the client-approved extension date and reason below.
@@ -223,20 +167,10 @@ export const ExtendDeadlineModal = ({ isOpen, onClose, project, onSuccess }) => 
               </div>
             </div>
           ) : (
-            <div style={{
-              backgroundColor: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '12.5px',
-              color: '#1e40af'
-            }}>
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 px-3.5 flex items-center justify-between text-[12.5px] text-blue-800 dark:text-blue-300">
               <span><strong>Current Deadline:</strong> {currentDeadline}</span>
               {project.hasDeadlineExtended && (
-                <span style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>
+                <span className="bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full text-[11px] font-bold">
                   Previously Extended {project.extensionCount || 1}x
                 </span>
               )}
@@ -245,102 +179,57 @@ export const ExtendDeadlineModal = ({ isOpen, onClose, project, onSuccess }) => 
 
           {/* New Deadline Selection */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
                 New Extended Deadline *
               </label>
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div className="flex gap-1">
                 <button
                   type="button"
                   onClick={() => handleQuickAdd(7)}
-                  style={{
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: '600',
-                    color: '#475569',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                 >
                   +1 Wk
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickAdd(14)}
-                  style={{
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: '600',
-                    color: '#475569',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                 >
                   +2 Wks
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickAdd(30)}
-                  style={{
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    padding: '2px 6px',
-                    fontSize: '10.5px',
-                    fontWeight: '600',
-                    color: '#475569',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                 >
                   +1 Mo
                 </button>
               </div>
             </div>
 
-            <div style={{ position: 'relative' }}>
-              <Calendar size={16} color="#64748b" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+            <div className="relative">
+              <Calendar size={16} className="text-slate-400 absolute left-3 top-3 pointer-events-none" />
               <input
                 type="date"
                 value={newDeadline}
                 onChange={e => setNewDeadline(e.target.value)}
                 min={todayStr}
                 required
-                style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Reason Category */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Reason Category *
             </label>
             <select
               value={reasonCategory}
               onChange={e => setReasonCategory(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '13px',
-                color: '#0f172a',
-                outline: 'none',
-                backgroundColor: '#ffffff'
-              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-900 dark:text-white outline-none bg-white dark:bg-slate-800 cursor-pointer focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               {REASON_CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -350,7 +239,7 @@ export const ExtendDeadlineModal = ({ isOpen, onClose, project, onSuccess }) => 
 
           {/* Reason / Client Explanation Notes */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Detailed Reason & Client Notes *
             </label>
             <textarea
@@ -359,77 +248,33 @@ export const ExtendDeadlineModal = ({ isOpen, onClose, project, onSuccess }) => 
               onChange={e => setReasonText(e.target.value)}
               placeholder="e.g. Client requested additional payment integration and requested 2 weeks extension for UAT testing..."
               required
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1.5px solid #cbd5e1',
-                fontSize: '13px',
-                color: '#0f172a',
-                outline: 'none',
-                resize: 'vertical',
-                backgroundColor: '#ffffff',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] text-slate-900 dark:text-white outline-none resize-y bg-white dark:bg-slate-800 font-sans focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
-            <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
               ℹ️ Reason audit log me permanently record hoga taaki client delivery timeline track ho sake.
             </span>
           </div>
 
           {/* Extended By Info */}
-          <div style={{
-            padding: '8px 12px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            fontSize: '11.5px',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
+          <div className="p-2 px-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-[11.5px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
             <span>👤 <strong>Extended By:</strong> {currentUser?.name || 'Authorized Member'} ({currentUser?.role || 'Team Member'})</span>
             <span>🕒 {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+          <div className="flex items-center justify-end gap-2.5 mt-1.5">
             <button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              style={{
-                padding: '9px 16px',
-                borderRadius: '8px',
-                backgroundColor: '#f1f5f9',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[13px] font-semibold cursor-pointer transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.35)',
-                opacity: submitting ? 0.7 : 1
-              }}
+              className="px-[18px] py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer flex items-center gap-1.5 shadow-md shadow-blue-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 size={15} />
               {submitting ? 'Extending Deadline...' : 'Save & Extend Deadline'}

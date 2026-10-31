@@ -63,55 +63,30 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '520px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
+        <div className="px-6 py-[18px] border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">
               {contactToEdit ? 'Edit Emergency Contact' : 'Add Emergency Contact'}
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">
               Add a trusted family member or contact person in case of emergencies
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+            className="bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Contact Name *
             </label>
             <input
@@ -120,20 +95,13 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
               placeholder="e.g. Sunita Sharma"
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '9px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 transition-colors"
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Mobile Number *
               </label>
               <input
@@ -142,33 +110,18 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
                 placeholder="+91 98765 43210"
                 value={formData.mobile}
                 onChange={e => setFormData({ ...formData, mobile: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 transition-colors"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Relationship *
               </label>
               <select
                 value={formData.relationship}
                 onChange={e => setFormData({ ...formData, relationship: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  backgroundColor: '#ffffff',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 transition-colors"
               >
                 <option value="Father">Father</option>
                 <option value="Mother">Mother</option>
@@ -181,9 +134,9 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Email Address
               </label>
               <input
@@ -191,19 +144,12 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
                 placeholder="contact@example.com"
                 value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 transition-colors"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Alternate Number
               </label>
               <input
@@ -211,20 +157,13 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
                 placeholder="+91 98765 00000"
                 value={formData.alternateNumber}
                 onChange={e => setFormData({ ...formData, alternateNumber: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Address
             </label>
             <textarea
@@ -232,53 +171,23 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
               placeholder="Residential address..."
               value={formData.address}
               onChange={e => setFormData({ ...formData, address: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-2.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none resize-y font-inherit focus:border-sky-600 transition-colors"
             />
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+          <div className="flex justify-end gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 20px',
-                borderRadius: '8px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-0 text-[13px] font-bold cursor-pointer shadow-sm hover:shadow transition-all disabled:opacity-70"
             >
               <Check size={15} />
               {saving ? 'Saving...' : contactToEdit ? 'Update Contact' : 'Save Contact'}

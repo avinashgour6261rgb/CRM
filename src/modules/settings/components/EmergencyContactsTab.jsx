@@ -6,10 +6,12 @@
 import React, { useState } from 'react';
 import { Plus, Edit3, Trash2, Phone, Mail, UserCheck, List } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddEmergencyContactModal } from './AddEmergencyContactModal';
 
 export const EmergencyContactsTab = () => {
   const { emergencyContacts, deleteEmergencyContact } = useCRM();
+  const { confirm } = useConfirm();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
 
@@ -18,14 +20,20 @@ export const EmergencyContactsTab = () => {
     setIsAddModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to remove this emergency contact?')) {
+  const handleDelete = async (id) => {
+    const ok = await confirm({
+      title: 'Remove Contact',
+      message: 'Are you sure you want to remove this emergency contact?',
+      confirmText: 'Remove Contact',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteEmergencyContact(id);
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '12px 0' }}>
+    <div className="flex flex-col gap-3.5 py-3">
       
       {/* Top Action Button */}
       <div>
@@ -34,21 +42,7 @@ export const EmergencyContactsTab = () => {
             setContactToEdit(null);
             setIsAddModalOpen(true);
           }}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            height: '30px',
-            borderRadius: '6px',
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)'
-          }}
+          className="inline-flex items-center gap-1.5 px-3.5 h-[30px] rounded-md bg-sky-600 hover:bg-sky-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs hover:shadow transition-all"
         >
           <Plus size={14} />
           Create New
@@ -56,20 +50,15 @@ export const EmergencyContactsTab = () => {
       </div>
 
       {/* Table Container Matching Screenshot 8 */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
-              <th style={{ padding: '8px 12px', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Name</th>
-              <th style={{ padding: '8px 12px', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email</th>
-              <th style={{ padding: '8px 12px', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mobile</th>
-              <th style={{ padding: '8px 12px', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Relationship</th>
-              <th style={{ padding: '8px 12px', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>Action</th>
+            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+              <th className="py-2 px-3 font-bold text-[11px] uppercase tracking-wider">Name</th>
+              <th className="py-2 px-3 font-bold text-[11px] uppercase tracking-wider">Email</th>
+              <th className="py-2 px-3 font-bold text-[11px] uppercase tracking-wider">Mobile</th>
+              <th className="py-2 px-3 font-bold text-[11px] uppercase tracking-wider">Relationship</th>
+              <th className="py-2 px-3 font-bold text-[11px] uppercase tracking-wider text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -77,64 +66,34 @@ export const EmergencyContactsTab = () => {
               emergencyContacts.map(contact => (
                 <tr
                   key={contact._id}
-                  style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 >
-                  <td style={{ padding: '7px 12px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {contact.name}
                   </td>
-                  <td style={{ padding: '7px 12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     {contact.email || '—'}
                   </td>
-                  <td style={{ padding: '7px 12px', color: '#0f172a', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                  <td className="py-1.5 px-3 text-slate-900 dark:text-slate-100 font-medium whitespace-nowrap">
                     {contact.mobile}
                   </td>
-                  <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      backgroundColor: '#eff6ff',
-                      color: '#2563eb'
-                    }}>
+                  <td className="py-1.5 px-3 whitespace-nowrap">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
                       {contact.relationship}
                     </span>
                   </td>
-                  <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                  <td className="py-1.5 px-3 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => handleEdit(contact)}
-                        style={{
-                          background: '#f8fafc',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '5px',
-                          padding: '3px 6px',
-                          cursor: 'pointer',
-                          color: '#475569',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-[5px] p-1 text-slate-600 dark:text-slate-300 inline-flex items-center justify-center cursor-pointer transition-colors"
                         title="Edit Contact"
                       >
                         <Edit3 size={12} />
                       </button>
                       <button
                         onClick={() => handleDelete(contact._id)}
-                        style={{
-                          background: '#fef2f2',
-                          border: '1px solid #fecaca',
-                          borderRadius: '5px',
-                          padding: '3px 6px',
-                          cursor: 'pointer',
-                          color: '#dc2626',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/60 rounded-[5px] p-1 text-red-600 dark:text-red-400 inline-flex items-center justify-center cursor-pointer transition-colors"
                         title="Delete Contact"
                       >
                         <Trash2 size={14} />
@@ -145,9 +104,9 @@ export const EmergencyContactsTab = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: '48px 18px', color: '#94a3b8' }}>
-                  <List size={28} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                  <div style={{ fontSize: '13.5px' }}>- No record found. -</div>
+                <td colSpan={5} className="text-center py-12 px-[18px] text-slate-400">
+                  <List size={28} className="mx-auto mb-2 opacity-50" />
+                  <div className="text-[13.5px]">- No record found. -</div>
                 </td>
               </tr>
             )}
@@ -155,15 +114,13 @@ export const EmergencyContactsTab = () => {
         </table>
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* Add / Edit Contact Modal */}
       <AddEmergencyContactModal
         isOpen={isAddModalOpen}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setContactToEdit(null);
-        }}
+        onClose={() => setIsAddModalOpen(false)}
         contactToEdit={contactToEdit}
       />
+
     </div>
   );
 };

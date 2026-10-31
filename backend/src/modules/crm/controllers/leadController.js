@@ -3,6 +3,7 @@
  * @description Controller actions for Lead management.
  */
 
+const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 
 // @desc    Get all leads with filtering & search
@@ -48,13 +49,20 @@ exports.createLead = async (req, res, next) => {
     const count = await Lead.countDocuments();
     const nextNum = count + 1;
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const nextMonthStr = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
     const leadData = {
       ...req.body,
       idNumber: nextNum,
       leadCode: req.body.leadCode || `LEAD-${1000 + nextNum}`,
+      startDate: req.body.startDate || todayStr,
+      endDate: req.body.endDate || nextMonthStr,
       createdDate: req.body.createdDate || now.toLocaleDateString('en-GB').replace(/\//g, '-')
     };
+    if (leadData._id && !mongoose.Types.ObjectId.isValid(leadData._id)) {
+      delete leadData._id;
+    }
 
     const lead = await Lead.create(leadData);
     res.status(201).json({ success: true, data: lead });
@@ -67,10 +75,17 @@ exports.createLead = async (req, res, next) => {
 // @route   PUT /api/leads/:id
 exports.updateLead = async (req, res, next) => {
   try {
-    const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const { id } = req.params;
+    const updateData = { ...req.body };
+    if (updateData._id) delete updateData._id;
+
+    let lead = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      lead = await Lead.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });
+    } else {
+      lead = await Lead.findOneAndUpdate({ leadCode: id }, updateData, { new: true, runValidators: false });
+    }
+
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
@@ -84,7 +99,14 @@ exports.updateLead = async (req, res, next) => {
 // @route   DELETE /api/leads/:id
 exports.deleteLead = async (req, res, next) => {
   try {
-    const lead = await Lead.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    let lead = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      lead = await Lead.findByIdAndDelete(id);
+    } else {
+      lead = await Lead.findOneAndDelete({ leadCode: id });
+    }
+
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }

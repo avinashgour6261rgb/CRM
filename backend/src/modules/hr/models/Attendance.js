@@ -36,6 +36,35 @@ const AttendanceSchema = new mongoose.Schema(
       min: 0,
       max: 24
     },
+    clockInTimestamp: {
+      type: Number,
+      default: null
+    },
+    clockOutTimestamp: {
+      type: Number,
+      default: null
+    },
+    workSeconds: {
+      type: Number,
+      default: 0
+    },
+    breakSeconds: {
+      type: Number,
+      default: 0
+    },
+    isOnBreak: {
+      type: Boolean,
+      default: false
+    },
+    breakType: {
+      type: String,
+      default: null
+    },
+    breakHistory: [mongoose.Schema.Types.Mixed],
+    isClockedIn: {
+      type: Boolean,
+      default: false
+    },
     isLate: {
       type: Boolean,
       default: false
@@ -52,6 +81,37 @@ const AttendanceSchema = new mongoose.Schema(
     markedBy: {
       type: String,
       default: 'System'
+    },
+    overtimeHours: {
+      type: Number,
+      default: 0
+    },
+    overtimeSeconds: {
+      type: Number,
+      default: 0
+    },
+    overtimeStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none'
+    },
+    overtimeReason: {
+      type: String,
+      default: ''
+    },
+    punchSessions: [mongoose.Schema.Types.Mixed],
+    overtimeTasks: [mongoose.Schema.Types.Mixed],
+    overtimeRequestedTo: {
+      type: String,
+      default: ''
+    },
+    overtimeApprovedBy: {
+      type: String,
+      default: ''
+    },
+    overtimeApprovedAt: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -65,17 +125,35 @@ const AttendanceSchema = new mongoose.Schema(
 AttendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 AttendanceSchema.index({ date: 1, status: 1 });
 
-// Auto-compute totalWorkingHours from clock times
-AttendanceSchema.pre('save', function (next) {
-  if (this.clockInTime && this.clockOutTime) {
-    const [inH, inM, inS = 0] = this.clockInTime.split(':').map(Number);
-    const [outH, outM, outS = 0] = this.clockOutTime.split(':').map(Number);
-    const inTotal = inH * 3600 + inM * 60 + inS;
-    const outTotal = outH * 3600 + outM * 60 + outS;
-    const diffSecs = Math.max(0, outTotal - inTotal);
-    this.totalWorkingHours = +(diffSecs / 3600).toFixed(2);
+// Auto-compute totalWorkingHours from clock times or exact cumulative workSeconds
+const parseAttendanceTime = (str) => {
+  if (!str) return 0;
+  const m = String(str).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!m) return 0;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const sec = parseInt(m[3] || '0', 10);
+  const ampm = (m[4] || '').toUpperCase();
+  if (ampm === 'PM' && h < 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  if (isNaN(h) || isNaN(min) || isNaN(sec)) return 0;
+  return h * 3600 + min * 60 + sec;
+};
 
-    // Late if clock-in after 09:30
+AttendanceSchema.pre('save', function (next) {
+  if (this.workSeconds > 0) {
+    this.totalWorkingHours = +(this.workSeconds / 3600).toFixed(2);
+  } else if (this.clockInTime && this.clockOutTime) {
+    const inTotal = parseAttendanceTime(this.clockInTime);
+    const outTotal = parseAttendanceTime(this.clockOutTime);
+    if (inTotal > 0 && outTotal > 0) {
+      const diffSecs = Math.max(0, outTotal - inTotal);
+      this.totalWorkingHours = +(diffSecs / 3600).toFixed(2);
+    }
+  }
+
+  if (this.clockInTime) {
+    const inTotal = parseAttendanceTime(this.clockInTime);
     const graceLimit = 9 * 3600 + 30 * 60;
     if (inTotal > graceLimit) {
       this.isLate = true;

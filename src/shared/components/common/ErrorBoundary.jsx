@@ -46,50 +46,22 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          color: '#ffffff',
-          padding: '24px',
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-        }}>
-          <div style={{
-            maxWidth: '500px',
-            width: '100%',
-            backgroundColor: '#1e293b',
-            borderRadius: '16px',
-            padding: '36px 32px',
-            textAlign: 'center',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08)',
-            border: '1px solid #334155'
-          }}>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 font-sans">
+          <div className="max-w-[500px] w-full bg-slate-800 rounded-2xl p-8 sm:p-9 text-center shadow-2xl ring-1 ring-white/10 border border-slate-700">
             {/* Friendly, reassuring icon */}
-            <div style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              color: '#60a5fa'
-            }}>
+            <div className="w-[60px] h-[60px] rounded-2xl bg-gradient-to-br from-blue-600/20 to-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-5 text-blue-400">
               <Sparkles size={28} />
             </div>
 
-            <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 8px 0', color: '#f8fafc', letterSpacing: '-0.02em' }}>
+            <h2 className="text-xl font-bold m-0 mb-2 text-slate-50 tracking-tight">
               Session Sync & Recovery
             </h2>
 
-            <p style={{ fontSize: '13.5px', color: '#94a3b8', lineHeight: '1.6', margin: '0 0 24px 0' }}>
+            <p className="text-[13.5px] text-slate-400 leading-relaxed m-0 mb-6">
               Your workspace data and timelogs are safely preserved. A quick view refresh will restore full dashboard functionality.
             </p>
 
+<<<<<<< HEAD
             {this.state.error && (
               <div style={{
                 textAlign: 'left',
@@ -117,23 +89,12 @@ export class ErrorBoundary extends React.Component {
             )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '18px' }}>
+=======
+            <div className="flex gap-2.5 justify-center flex-wrap mb-[18px]">
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
               <button
                 onClick={this.handleReset}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '10px 22px',
-                  borderRadius: '9px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)',
-                  transition: 'background 0.2s'
-                }}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-0 py-2.5 px-[22px] rounded-[9px] text-[13px] font-semibold cursor-pointer shadow-md shadow-blue-600/35 transition-colors"
               >
                 <RefreshCw size={15} />
                 Refresh Application
@@ -141,19 +102,7 @@ export class ErrorBoundary extends React.Component {
 
               <button
                 onClick={this.handleGoHome}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  backgroundColor: '#334155',
-                  color: '#f8fafc',
-                  border: '1px solid #475569',
-                  padding: '10px 20px',
-                  borderRadius: '9px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-50 border border-slate-600 py-2.5 px-5 rounded-[9px] text-[13px] font-semibold cursor-pointer transition-colors"
               >
                 <Home size={15} />
                 Dashboard
@@ -161,51 +110,24 @@ export class ErrorBoundary extends React.Component {
             </div>
 
             {/* Subtle Diagnostic Toggle (Keeps UI clean for users, inspectable when needed) */}
-            <div style={{ borderTop: '1px solid #334155', paddingTop: '14px', marginTop: '10px' }}>
+            <div className="border-t border-slate-700 pt-3.5 mt-2.5">
               <button
                 onClick={() => this.setState(prev => ({ showDetails: !prev.showDetails }))}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#64748b',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px'
-                }}
+                className="bg-transparent border-0 text-slate-400 hover:text-slate-300 text-[11px] cursor-pointer inline-flex items-center gap-1 py-1 px-2 transition-colors"
               >
                 <span>Diagnostics</span>
                 {this.state.showDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
 
               {this.state.showDetails && (
-                <div style={{
-                  textAlign: 'left',
-                  background: '#090d16',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  marginTop: '8px',
-                  border: '1px solid #1e293b',
-                  fontSize: '11px',
-                  color: '#94a3b8'
-                }}>
-                  <div style={{ color: '#f87171', fontWeight: '600', marginBottom: '4px' }}>
+                <div className="text-left bg-slate-950 p-2.5 px-3 rounded-lg mt-2 border border-slate-800 text-[11px] text-slate-400">
+                  <div className="text-red-400 font-semibold mb-1">
                     {this.state.error?.name || 'Runtime'}: {this.state.error?.message || 'Interface state synced'}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                  <div className="flex justify-end mt-2">
                     <button
                       onClick={this.handleClearCache}
-                      style={{
-                        background: '#1e293b',
-                        color: '#94a3b8',
-                        border: '1px solid #334155',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        padding: '3px 8px',
-                        cursor: 'pointer'
-                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 rounded text-[10px] py-1 px-2 cursor-pointer transition-colors"
                     >
                       Clear Cache & Reset
                     </button>

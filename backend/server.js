@@ -10,6 +10,8 @@ const { errorHandler, notFound } = require('./src/shared/middleware/errorHandler
 const { authenticateUser } = require('./src/shared/middleware/authMiddleware');
 
 // Load environment variables
+const path = require('path');
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 // Connect to MongoDB
@@ -33,8 +35,11 @@ app.use(cors({
     }
     return callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-email', 'x-user-code', 'x-user-role', 'Accept']
 }));
+app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -88,14 +93,19 @@ app.use('/api/timer',        require('./src/modules/work/routes/timesheetRoutes'
 app.use('/api/timelogs',     require('./src/modules/work/routes/timesheetRoutes'));
 app.use('/api/timelog',      require('./src/modules/work/routes/timesheetRoutes'));
 
-// CRM Module (Leads, Notices, Tickets, Events)
-app.use('/api/leads',        require('./src/modules/crm/routes/leadRoutes'));
-app.use('/api/notices',      require('./src/modules/notices/routes/noticeRoutes'));
-app.use('/api/tickets',      require('./src/modules/tickets/routes/ticketRoutes'));
-app.use('/api/events',       require('./src/modules/events/routes/eventRoutes'));
+// CRM Module (Leads, Notices, Tickets, Events, Conversations)
+app.use('/api/leads',         require('./src/modules/crm/routes/leadRoutes'));
+app.use('/api/conversations', require('./src/modules/crm/routes/conversationRoutes'));
+app.use('/api/notices',       require('./src/modules/notices/routes/noticeRoutes'));
+app.use('/api/tickets',       require('./src/modules/tickets/routes/ticketRoutes'));
+app.use('/api/events',        require('./src/modules/events/routes/eventRoutes'));
 
 // Finance Module (Expenses)
 app.use('/api/expenses',     require('./src/modules/finance/routes/expenseRoutes'));
+
+// Company Settings & Resignations Module
+app.use('/api/company-settings', require('./src/modules/settings/routes/companySettingsRoutes'));
+app.use('/api/resignations',     require('./src/modules/hr/routes/resignationRoutes'));
 
 // 404 & Error Handlers
 app.use(notFound);

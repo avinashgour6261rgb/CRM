@@ -172,58 +172,19 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1100,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '14px',
-        width: '100%',
-        maxWidth: '460px',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1100] p-4 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[460px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-[34px] h-[34px] rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Key size={18} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+              <h3 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
                 {isSelf ? 'Change Your Password' : `Reset Password for ${effectiveUser?.name || 'Employee'}`}
               </h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
                 {isSelf ? 'Enter your current password to set a new password.' : 'Admin override: Set or generate a new login password.'}
               </p>
             </div>
@@ -231,98 +192,42 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#94a3b8',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1 flex items-center justify-center transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Content Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5">
           
           {/* Target User Info Badge */}
-          <div style={{
-            padding: '10px 12px',
-            borderRadius: '8px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '50%',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: '700',
-                fontSize: '11px'
-              }}>
+          <div className="p-2.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[11px]">
                 {(effectiveUser?.name || 'U').charAt(0)}
               </div>
               <div>
-                <span style={{ fontWeight: '700', color: '#0f172a' }}>{effectiveUser?.name}</span>
-                <span style={{ color: '#64748b', marginLeft: '6px' }}>({effectiveUser?.employeeCode || 'ID: User'})</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{effectiveUser?.name}</span>
+                <span className="text-slate-500 dark:text-slate-400 ml-1.5">({effectiveUser?.employeeCode || 'ID: User'})</span>
               </div>
             </div>
-            <span style={{
-              fontSize: '10.5px',
-              fontWeight: '700',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb'
-            }}>
+            <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
               {effectiveUser?.role || 'Member'}
             </span>
           </div>
 
           {/* Error / Success Banners */}
           {errorMsg && (
-            <div style={{
-              padding: '10px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#b91c1c',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <div className="p-2.5 px-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div style={{
-              padding: '10px 12px',
-              borderRadius: '8px',
-              backgroundColor: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              color: '#047857',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+            <div className="p-2.5 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 size={15} className="shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
@@ -330,39 +235,22 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
           {/* Current Password Field (Required for Self-Service) */}
           {isSelf && (
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>
-                Current Password <span style={{ color: '#ef4444' }}>*</span>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Current Password <span className="text-red-500">*</span>
               </label>
-              <div style={{ position: 'relative' }}>
+              <div className="relative">
                 <input
                   type={showCurrent ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={e => setCurrentPassword(e.target.value)}
                   placeholder="Enter your current password"
                   required
-                  style={{
-                    width: '100%',
-                    padding: '9px 36px 9px 12px',
-                    borderRadius: '7px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  className="w-full py-2 pl-3 pr-9 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all box-border"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer'
-                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
                 >
                   {showCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -372,21 +260,11 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
 
           {/* Admin Fast Helper: Auto Generate Button */}
           {!isSelf && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handleAutoGenerate}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1 bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-bold cursor-pointer hover:underline"
               >
                 <RefreshCw size={12} />
                 <span>🔄 Auto-Generate Temporary Password</span>
@@ -396,57 +274,33 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
 
           {/* New Password Field */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-                New Password <span style={{ color: '#ef4444' }}>*</span>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                New Password <span className="text-red-500">*</span>
               </label>
               {isSelf && (
                 <button
                   type="button"
                   onClick={handleAutoGenerate}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11px] font-bold cursor-pointer hover:underline"
                 >
                   Suggest Strong Pass
                 </button>
               )}
             </div>
-            <div style={{ position: 'relative' }}>
+            <div className="relative">
               <input
                 type={showNew ? 'text' : 'password'}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="At least 6 characters"
                 required
-                style={{
-                  width: '100%',
-                  padding: '9px 36px 9px 12px',
-                  borderRadius: '7px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                className="w-full py-2 pl-3 pr-9 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all box-border"
               />
               <button
                 type="button"
                 onClick={() => setShowNew(!showNew)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer'
-                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
@@ -455,39 +309,22 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
 
           {/* Confirm New Password Field */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>
-              Confirm New Password <span style={{ color: '#ef4444' }}>*</span>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Confirm New Password <span className="text-red-500">*</span>
             </label>
-            <div style={{ position: 'relative' }}>
+            <div className="relative">
               <input
                 type={showConfirm ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter new password"
                 required
-                style={{
-                  width: '100%',
-                  padding: '9px 36px 9px 12px',
-                  borderRadius: '7px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
+                className="w-full py-2 pl-3 pr-9 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all box-border"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: '#94a3b8',
-                  cursor: 'pointer'
-                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
@@ -496,35 +333,14 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
 
           {/* Copy newly generated password helper if Admin */}
           {!isSelf && newPassword && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '8px 12px',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '7px',
-              border: '1px solid #bbf7d0',
-              fontSize: '12px'
-            }}>
-              <span style={{ color: '#166534' }}>
+            <div className="flex items-center justify-between p-2 px-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-[7px] border border-emerald-200 dark:border-emerald-900/50 text-xs">
+              <span className="text-emerald-800 dark:text-emerald-300">
                 New Password to give employee: <strong>{newPassword}</strong>
               </span>
               <button
                 type="button"
                 onClick={() => handleCopy(newPassword)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #86efac',
-                  color: '#166534',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold cursor-pointer hover:bg-emerald-50 dark:hover:bg-slate-700 transition-colors"
               >
                 {copied ? <Check size={12} /> : <Copy size={12} />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -533,27 +349,11 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
           )}
 
           {/* Modal Actions */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px',
-            paddingTop: '8px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '7px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-3.5 py-2 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
@@ -561,21 +361,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                borderRadius: '7px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(37,99,235,0.25)',
-                opacity: isSubmitting ? 0.7 : 1
-              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[7px] border-0 bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-bold cursor-pointer shadow-sm hover:shadow transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
               <Lock size={13} />
               <span>{isSubmitting ? 'Saving...' : 'Update Password'}</span>

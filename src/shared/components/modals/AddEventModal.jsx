@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const EVENT_TYPES = [
   { value: 'Personal Reminder', label: '⏰ Personal Reminder / Task Reminder', color: '#d97706', bg: '#fffbeb' },
@@ -33,6 +34,7 @@ const EVENT_TYPES = [
 export const AddEventModal = ({ isOpen, onClose }) => {
   const { createEvent } = useCRM();
   const { currentUser } = useAuth();
+  const { addToast } = useToast();
 
   const now = new Date().toISOString().split('T')[0];
 
@@ -59,7 +61,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.eventName.trim()) {
-      alert('Please enter an event or reminder title');
+      addToast('Please enter an event or reminder title', 'warning');
       return;
     }
 
@@ -100,59 +102,23 @@ export const AddEventModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const inputClass = "w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  const selectClass = "w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '620px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 rounded-t-2xl">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-500 dark:text-sky-400 flex items-center justify-center">
               <Calendar size={18} />
             </div>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white m-0">
                 Create Company Event
               </h2>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-0">
                 Schedule festivals, meetings, celebrations & annual company milestones
               </p>
             </div>
@@ -160,29 +126,18 @@ export const AddEventModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
           
           {/* Event Name */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Event Name *
             </label>
             <input
@@ -191,19 +146,19 @@ export const AddEventModal = ({ isOpen, onClose }) => {
               placeholder="e.g. Diwali Festive Gala, Q4 Strategy Sync, Annual Hackathon"
               value={formData.eventName}
               onChange={e => handleChange('eventName', e.target.value)}
-              style={inputStyle}
+              className={inputClass}
             />
           </div>
 
           {/* Event Type */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Event Type / Category
             </label>
             <select
               value={formData.eventType}
               onChange={e => handleChange('eventType', e.target.value)}
-              style={selectStyle}
+              className={selectClass}
             >
               {EVENT_TYPES.map(t => (
                 <option key={t.value} value={t.value}>
@@ -214,9 +169,9 @@ export const AddEventModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Start Date & End Date */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start Date *
               </label>
               <input
@@ -224,27 +179,27 @@ export const AddEventModal = ({ isOpen, onClose }) => {
                 required
                 value={formData.startDate}
                 onChange={e => handleChange('startDate', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 End Date
               </label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={e => handleChange('endDate', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Start Time & Location */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start Time
               </label>
               <input
@@ -252,12 +207,12 @@ export const AddEventModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. 10:00 AM or All Day"
                 value={formData.startTime}
                 onChange={e => handleChange('startTime', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Location / Video Stream
               </label>
               <input
@@ -265,14 +220,14 @@ export const AddEventModal = ({ isOpen, onClose }) => {
                 placeholder="e.g. Main Auditorium / Zoom Link"
                 value={formData.location}
                 onChange={e => handleChange('location', e.target.value)}
-                style={inputStyle}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Description */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Description / Agenda
             </label>
             <textarea
@@ -280,71 +235,42 @@ export const AddEventModal = ({ isOpen, onClose }) => {
               placeholder="Event agenda, special instructions, dress code or details..."
               value={formData.description}
               onChange={e => handleChange('description', e.target.value)}
-              style={{
-                ...inputStyle,
-                height: 'auto',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-y font-sans focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           {/* Toggles (Notification & Recurring Event) */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '12px',
-            backgroundColor: '#f8fafc',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700">
+            <label className="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={formData.notification}
                 onChange={e => handleChange('notification', e.target.checked)}
-                style={{ accentColor: '#2563eb' }}
+                className="accent-blue-600 rounded"
               />
-              <Bell size={15} color="#2563eb" />
+              <Bell size={15} className="text-blue-600 dark:text-blue-400" />
               <span>Send Notification</span>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+            <label className="flex items-center gap-2 cursor-pointer text-[13px] font-semibold text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={formData.isRecurring}
                 onChange={e => handleChange('isRecurring', e.target.checked)}
-                style={{ accentColor: '#2563eb' }}
+                className="accent-blue-600 rounded"
               />
-              <Repeat size={15} color="#16a34a" />
+              <Repeat size={15} className="text-green-600 dark:text-green-400" />
               <span>Recurring Yearly Event</span>
             </label>
           </div>
 
           {/* Footer */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '10px',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
               disabled={submitting}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-[13px] font-semibold cursor-pointer transition-colors"
             >
               Cancel
             </button>
@@ -352,20 +278,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '9px 22px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.35)'
-              }}
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-500/30 transition-colors disabled:opacity-50"
             >
               <Check size={16} />
               {submitting ? 'Scheduling...' : 'Save Event'}
@@ -375,29 +288,4 @@ export const AddEventModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-};
-
-const inputStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 12px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a'
-};
-
-const selectStyle = {
-  width: '100%',
-  height: '38px',
-  padding: '0 10px',
-  borderRadius: '8px',
-  border: '1px solid #cbd5e1',
-  fontSize: '13px',
-  outline: 'none',
-  backgroundColor: '#ffffff',
-  color: '#0f172a',
-  cursor: 'pointer'
 };

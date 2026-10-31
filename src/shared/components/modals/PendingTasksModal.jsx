@@ -94,13 +94,13 @@ export const PendingTasksModal = ({
   const getPriorityBadge = (priority) => {
     switch (priority) {
       case 'urgent':
-        return { bg: '#fee2e2', text: '#dc2626', border: '#fca5a5', label: 'Urgent' };
+        return { cls: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950/60 dark:text-red-300 dark:border-red-800', label: 'Urgent' };
       case 'high':
-        return { bg: '#ffedd5', text: '#c2410c', border: '#fed7aa', label: 'High' };
+        return { cls: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800', label: 'High' };
       case 'medium':
-        return { bg: '#fef3c7', text: '#b45309', border: '#fde68a', label: 'Medium' };
+        return { cls: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800', label: 'Medium' };
       default:
-        return { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0', label: 'Normal' };
+        return { cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700', label: 'Normal' };
     }
   };
 
@@ -108,75 +108,29 @@ export const PendingTasksModal = ({
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}
+      className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[9999] flex items-center justify-center p-5 animate-fade-in"
       onClick={onClose}
     >
       <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          width: '100%',
-          maxWidth: '860px',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden',
-          animation: 'modalSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
+        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[860px] max-h-[90vh] flex flex-col shadow-2xl ring-1 ring-slate-200 dark:ring-slate-800 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div style={{
-          padding: '16px 22px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'linear-gradient(to right, #ffffff, #f8fafc)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: '#e0f2fe',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ListTodo size={20} color="#0284c7" />
+        <div className="px-[22px] py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-white to-slate-50 dark:from-slate-900 dark:to-slate-800/70">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-[10px] bg-sky-100 dark:bg-sky-950/60 flex items-center justify-center text-sky-600 dark:text-sky-400">
+              <ListTodo size={20} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Pending Tasks Queue
                 </h2>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: '#0284c7',
-                  backgroundColor: '#e0f2fe',
-                  padding: '2px 8px',
-                  borderRadius: '12px'
-                }}>
+                <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 rounded-full">
                   {tasks.length} Total
                 </span>
               </div>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <p className="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">
                 {user ? `Active and upcoming tasks assigned to ${user.name}` : 'All team pending work requiring action'}
               </p>
             </div>
@@ -184,158 +138,83 @@ export const PendingTasksModal = ({
 
           <button
             onClick={onClose}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#f1f5f9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#64748b',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+            className="w-8 h-8 rounded-lg border-0 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Filter Controls & Search */}
-        <div style={{
-          padding: '12px 22px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          flexWrap: 'wrap',
-          backgroundColor: '#ffffff'
-        }}>
+        <div className="px-[22px] py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900">
           {/* Filter Tabs */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <div className="flex gap-1.5 flex-wrap">
             <button
               onClick={() => setFilterTab('all')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                backgroundColor: filterTab === 'all' ? '#0284c7' : '#f1f5f9',
-                color: filterTab === 'all' ? '#ffffff' : '#64748b',
-                transition: 'all 0.15s ease'
-              }}
+              className={`px-3 py-1.5 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${
+                filterTab === 'all'
+                  ? 'bg-sky-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
               All ({tasks.length})
             </button>
 
             <button
               onClick={() => setFilterTab('in_progress')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                backgroundColor: filterTab === 'in_progress' ? '#eff6ff' : '#f1f5f9',
-                color: filterTab === 'in_progress' ? '#2563eb' : '#64748b',
-                outline: filterTab === 'in_progress' ? '1px solid #bfdbfe' : 'none',
-                transition: 'all 0.15s ease'
-              }}
+              className={`px-3 py-1.5 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${
+                filterTab === 'in_progress'
+                  ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-800'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
               ⏱️ In Progress ({inProgressCount})
             </button>
 
             <button
               onClick={() => setFilterTab('overdue')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                backgroundColor: filterTab === 'overdue' ? '#fee2e2' : '#f1f5f9',
-                color: filterTab === 'overdue' ? '#dc2626' : '#64748b',
-                outline: filterTab === 'overdue' ? '1px solid #fecaca' : 'none',
-                transition: 'all 0.15s ease'
-              }}
+              className={`px-3 py-1.5 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${
+                filterTab === 'overdue'
+                  ? 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 ring-1 ring-red-300 dark:ring-red-800'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
               🔥 Overdue ({overdueCount})
             </button>
 
             <button
               onClick={() => setFilterTab('due_today')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                backgroundColor: filterTab === 'due_today' ? '#fef3c7' : '#f1f5f9',
-                color: filterTab === 'due_today' ? '#d97706' : '#64748b',
-                outline: filterTab === 'due_today' ? '1px solid #fde68a' : 'none',
-                transition: 'all 0.15s ease'
-              }}
+              className={`px-3 py-1.5 rounded-lg border-0 text-xs font-bold cursor-pointer transition-all ${
+                filterTab === 'due_today'
+                  ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 ring-1 ring-amber-300 dark:ring-amber-800'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
               📅 Due Today ({dueTodayCount})
             </button>
           </div>
 
           {/* Search Input */}
-          <div style={{ position: 'relative', minWidth: '220px' }}>
-            <Search size={14} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+          <div className="relative min-w-[220px]">
+            <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by task, code, project..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 12px 6px 32px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                fontSize: '12px',
-                outline: 'none',
-                backgroundColor: '#f8fafc',
-                transition: 'all 0.15s ease'
-              }}
-              onFocus={(e) => { e.target.style.borderColor = '#0284c7'; e.target.style.backgroundColor = '#ffffff'; }}
-              onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.backgroundColor = '#f8fafc'; }}
+              className="w-full py-1.5 pl-8 pr-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs outline-none bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-sky-600 focus:bg-white dark:focus:bg-slate-900 transition-all"
             />
           </div>
         </div>
 
         {/* Task List Body */}
-        <div style={{
-          padding: '16px 22px',
-          overflowY: 'auto',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px'
-        }}>
+        <div className="px-[22px] py-4 overflow-y-auto flex-1 flex flex-col gap-2.5">
           {filteredTasks.length === 0 ? (
-            <div style={{
-              padding: '40px 20px',
-              textAlign: 'center',
-              color: '#64748b',
-              backgroundColor: '#f8fafc',
-              borderRadius: '12px',
-              border: '1px dashed #cbd5e1'
-            }}>
-              <CheckCircle2 size={36} color="#16a34a" style={{ margin: '0 auto 10px auto' }} />
-              <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
+            <div className="p-10 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+              <CheckCircle2 size={36} className="text-green-600 mx-auto mb-2.5" />
+              <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 m-0 mb-1">
                 No pending tasks found
               </h4>
-              <p style={{ fontSize: '12px', margin: 0 }}>
+              <p className="text-xs m-0">
                 {searchQuery ? 'Try adjusting your search criteria.' : 'All tasks under this filter are completed or caught up!'}
               </p>
             </div>
@@ -349,105 +228,48 @@ export const PendingTasksModal = ({
               return (
                 <div
                   key={task._id || task.id}
-                  style={{
-                    backgroundColor: isCurrentActive ? '#f0f9ff' : '#ffffff',
-                    border: `1px solid ${isCurrentActive ? '#0284c7' : '#e2e8f0'}`,
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isCurrentActive ? '0 2px 6px rgba(2, 132, 199, 0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
-                  }}
+                  className={`rounded-[10px] p-3 px-4 flex flex-col gap-2 transition-all ${
+                    isCurrentActive
+                      ? 'bg-sky-50 dark:bg-sky-950/30 border border-sky-500 shadow-sm'
+                      : 'bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-xs hover:border-slate-300'
+                  }`}
                 >
                   {/* Row 1: Code, Title, Badges */}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        color: '#0284c7',
-                        backgroundColor: '#e0f2fe',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontFamily: 'monospace'
-                      }}>
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-extrabold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/50 px-1.5 py-0.5 rounded font-mono">
                         #{task.taskCode || 'TSK'}
                       </span>
 
                       <h4
                         onClick={() => onSelectTask && onSelectTask(task)}
-                        style={{
-                          fontSize: '13.5px',
-                          fontWeight: '700',
-                          color: '#0f172a',
-                          margin: 0,
-                          cursor: 'pointer',
-                          textDecoration: 'none'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#0284c7'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = '#0f172a'}
+                        className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100 m-0 cursor-pointer hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
                         title="Click to view full details"
                       >
                         {task.title}
                       </h4>
 
                       {isCurrentActive && (
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          color: '#0284c7',
-                          backgroundColor: '#e0f2fe',
-                          padding: '1px 6px',
-                          borderRadius: '10px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px'
-                        }}>
-                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#0284c7' }} />
+                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/60 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-600" />
                           Active Now
                         </span>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        backgroundColor: priorityInfo.bg,
-                        color: priorityInfo.text,
-                        border: `1px solid ${priorityInfo.border}`
-                      }}>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded border ${priorityInfo.cls}`}>
                         {priorityInfo.label}
                       </span>
 
                       {isOverdue && (
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: '800',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          backgroundColor: '#fee2e2',
-                          color: '#dc2626',
-                          border: '1px solid #fecaca'
-                        }}>
+                        <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/60 dark:text-red-400 dark:border-red-900">
                           ⚠️ Overdue
                         </span>
                       )}
 
                       {isDueToday && (
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: '800',
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          backgroundColor: '#fef3c7',
-                          color: '#d97706',
-                          border: '1px solid #fde68a'
-                        }}>
+                        <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-900">
                           📅 Due Today
                         </span>
                       )}
@@ -455,34 +277,25 @@ export const PendingTasksModal = ({
                   </div>
 
                   {/* Row 2: Project, Due Date, Time Stats */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    fontSize: '11.5px',
-                    color: '#64748b',
-                    flexWrap: 'wrap',
-                    paddingTop: '2px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Layers size={13} color="#94a3b8" />
-                        <strong style={{ color: '#334155' }}>{task.projectName || 'General Work'}</strong>
+                  <div className="flex items-center justify-between gap-3 text-[11.5px] text-slate-500 dark:text-slate-400 flex-wrap pt-0.5">
+                    <div className="flex items-center gap-3.5 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Layers size={13} className="text-slate-400" />
+                        <strong className="text-slate-700 dark:text-slate-300">{task.projectName || 'General Work'}</strong>
                       </span>
 
                       {task.dueDate && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Calendar size={13} color={isOverdue ? '#dc2626' : '#94a3b8'} />
-                          <span>Due: <strong style={{ color: isOverdue ? '#dc2626' : '#334155' }}>{task.dueDate}</strong></span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={13} className={isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-400'} />
+                          <span>Due: <strong className={isOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}>{task.dueDate}</strong></span>
                         </span>
                       )}
 
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={13} color="#94a3b8" />
-                        <span>Est: <strong style={{ color: '#334155' }}>{task.estimatedHours || 3}h</strong></span>
+                      <span className="flex items-center gap-1">
+                        <Clock size={13} className="text-slate-400" />
+                        <span>Est: <strong className="text-slate-700 dark:text-slate-300">{task.estimatedHours || 3}h</strong></span>
                         {Number(task.timerSeconds) > 0 && (
-                          <span style={{ color: '#0284c7', fontWeight: '700', marginLeft: '4px' }}>
+                          <span className="text-sky-600 dark:text-sky-400 font-bold ml-1">
                             (Tracked: {formatSecs(task.timerSeconds)})
                           </span>
                         )}
@@ -490,42 +303,18 @@ export const PendingTasksModal = ({
                     </div>
 
                     {/* Action Buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="flex items-center gap-1.5">
                       {task.timerRunning ? (
                         <button
                           onClick={() => onPauseTimer && onPauseTimer(task._id)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            border: '1px solid #bfdbfe',
-                            padding: '4px 8px',
-                            borderRadius: '5px',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
+                          className="flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 px-2 py-1 rounded text-[11px] font-bold cursor-pointer hover:bg-blue-100 transition-colors"
                         >
                           <Pause size={12} /> Pause
                         </button>
                       ) : (
                         <button
                           onClick={() => onStartTimer && onStartTimer(task._id)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            backgroundColor: '#0284c7',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: '5px',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
+                          className="flex items-center gap-1 bg-sky-600 hover:bg-sky-700 text-white border-0 px-2 py-1 rounded text-[11px] font-bold cursor-pointer shadow-xs transition-colors"
                         >
                           <Play size={12} /> {Number(task.timerSeconds) > 0 ? 'Resume' : 'Start'}
                         </button>
@@ -533,35 +322,14 @@ export const PendingTasksModal = ({
 
                       <button
                         onClick={() => onCompleteTask && onCompleteTask(task._id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          backgroundColor: '#16a34a',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '5px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer'
-                        }}
+                        className="flex items-center gap-0.5 bg-green-600 hover:bg-green-700 text-white border-0 px-2 py-1 rounded text-[11px] font-bold cursor-pointer shadow-xs transition-colors"
                       >
                         <CheckCircle2 size={12} /> Complete
                       </button>
 
                       <button
                         onClick={() => onSelectTask && onSelectTask(task)}
-                        style={{
-                          backgroundColor: '#f8fafc',
-                          color: '#475569',
-                          border: '1px solid #cbd5e1',
-                          padding: '4px 8px',
-                          borderRadius: '5px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
+                        className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2 py-1 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                       >
                         Details
                       </button>
@@ -574,30 +342,13 @@ export const PendingTasksModal = ({
         </div>
 
         {/* Modal Footer */}
-        <div style={{
-          padding: '12px 22px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
+        <div className="px-[22px] py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
           <button
             onClick={() => {
               onClose();
               navigate('/tasks');
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'none',
-              border: 'none',
-              color: '#0284c7',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="flex items-center gap-1 bg-transparent border-0 text-sky-600 dark:text-sky-400 text-xs font-bold cursor-pointer hover:underline"
           >
             <span>Open Dedicated Tasks Board</span>
             <ExternalLink size={13} />
@@ -605,16 +356,7 @@ export const PendingTasksModal = ({
 
           <button
             onClick={onClose}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '7px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              color: '#334155',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="px-3.5 py-1.5 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             Close
           </button>

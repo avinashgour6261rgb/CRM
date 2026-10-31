@@ -1,13 +1,34 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Trash2, Calendar, Clock, CheckCircle2, Lock } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Calendar as CalendarIcon,
+  Clock,
+  CheckCircle2,
+  Lock,
+  Filter,
+  Search,
+  Sparkles,
+  AlertTriangle,
+  Plus
+} from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 import { AddHolidayModal } from './AddHolidayModal';
+import { holidaySyncService } from '../../services/holidaySyncService';
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 export const HolidayCalendar = () => {
   const { addToast } = useToast();
-  const { holidays, deleteHoliday, currentUser } = useHR();
+  const { confirm } = useConfirm();
+  const { holidays, deleteHoliday, currentUser, searchQuery } = useHR();
 
   const canManageHolidays = isHRorAdmin(currentUser);
 
@@ -16,10 +37,34 @@ export const HolidayCalendar = () => {
   const [calendarView, setCalendarView] = useState('month'); // 'month', 'week', 'day', 'list'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState('');
+  const [listMonthFilter, setListMonthFilter] = useState('all'); // 'all' or 1-12
+  const [listTypeFilter, setListTypeFilter] = useState('all'); // 'all' | 'official' | 'festival'
+  const [suggestedHolidays, setSuggestedHolidays] = useState([]);
 
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-indexed
+
+  // Load Pan-India suggested festivals and national holidays (e.g. Dhanteras, Diwali, Govardhan, Chhath, etc.)
+  const loadSuggested = async () => {
+    try {
+      const list = await holidaySyncService.getSuggestedHolidays(currentYear);
+      setSuggestedHolidays(list || []);
+    } catch (err) {
+      console.warn('[HolidayCalendar] Failed to fetch suggested festivals:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSuggested();
+    const handleSync = () => loadSuggested();
+    window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('ems_holidays_updated', handleSync);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('ems_holidays_updated', handleSync);
+    };
+  }, [currentYear, holidays]);
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -37,7 +82,17 @@ export const HolidayCalendar = () => {
     setCurrentDate(new Date(todayNow.getFullYear(), todayNow.getMonth(), 1));
   };
 
-  // Calendar calculations
+  const handleMonthChange = (e) => {
+    const m = parseInt(e.target.value, 10);
+    setCurrentDate(new Date(currentYear, m, 1));
+  };
+
+  const handleYearChange = (e) => {
+    const y = parseInt(e.target.value, 10);
+    setCurrentDate(new Date(y, currentMonth, 1));
+  };
+
+  // Calendar calculations for Month View
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const startDayOffset = (firstDayOfMonth + 6) % 7; // Monday = 0
 
@@ -80,303 +135,592 @@ export const HolidayCalendar = () => {
 
   const handleCellClick = (dateStr) => {
     if (!canManageHolidays) {
-      addToast('🔒 Access Restricted: Only HR & Admin can add or modify company holidays.', 'warning');
+      addToast('🔒 Access Restricted: Only HR & Admin can declare or modify company holidays.', 'warning');
       return;
     }
     setSelectedDayDate(dateStr);
     setIsAddModalOpen(true);
   };
 
+  // Safe holiday cancellation with modern confirmation modal
+  const handleCancelHolidayClick = async (hol) => {
+    if (!canManageHolidays) return;
+    const ok = await confirm({
+      title: 'Cancel Company Holiday?',
+      message: `Are you sure you want to cancel "${hol.name}" on ${hol.date}? This will immediately restore regular working day status for all employees across the company.`,
+      confirmText: 'Yes, Cancel Holiday',
+      cancelText: 'Keep Holiday',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteHoliday(hol._id || hol.code || hol.date);
+      addToast(`Holiday "${hol.name}" cancelled successfully.`, 'success');
+      loadSuggested();
+    } catch {
+      addToast('Failed to cancel holiday.', 'error');
+    }
+  };
+
+  // 1-Click: Confirm Indian cultural festival as paid company holiday
+  const handleConfirmFestivalClick = async (fest) => {
+    if (!canManageHolidays) return;
+    const ok = await confirm({
+      title: 'Declare Official Paid Holiday?',
+      message: `Do you want to declare "${fest.name}" (${fest.date}) as an official paid holiday for all employees across the company?`,
+      confirmText: 'Yes, Declare Holiday',
+      cancelText: 'Keep as Normal Day',
+      variant: 'primary'
+    });
+    if (!ok) return;
+
+    try {
+      await holidaySyncService.confirmHolidayAsCompanyOff(fest, currentUser);
+      addToast(`Declared "${fest.name}" as official paid company holiday!`, 'success');
+      loadSuggested();
+    } catch {
+      addToast('Failed to declare holiday.', 'error');
+    }
+  };
+
+  // Combined master items for List View (combining declared company holidays and cultural festivals)
+  const allListItems = useMemo(() => {
+    const confirmedMap = new Map();
+    (holidays || []).forEach(h => {
+      confirmedMap.set(h.date, h);
+    });
+
+    const unconfirmed = (suggestedHolidays || []).filter(s => !confirmedMap.has(s.date));
+
+    const combined = [
+      ...(holidays || []).map(h => ({
+        ...h,
+        isConfirmed: true,
+        displayType: h.type || 'Company Holiday'
+      })),
+      ...unconfirmed.map(f => ({
+        ...f,
+        isConfirmed: false,
+        displayType: f.type || 'Major Indian Festival'
+      }))
+    ];
+
+    return combined.sort((a, b) => a.date.localeCompare(b.date));
+  }, [holidays, suggestedHolidays]);
+
+  // Filtered list for List View (supports viewing all 12 months or specific month and type)
+  const filteredListHolidays = useMemo(() => {
+    return allListItems.filter(item => {
+      if (!item || !item.date) return false;
+
+      // Month filter
+      if (listMonthFilter !== 'all') {
+        const m = parseInt(item.date.split('-')[1], 10);
+        if (m !== parseInt(listMonthFilter, 10)) return false;
+      }
+
+      // Type filter
+      if (listTypeFilter === 'official' && !item.isConfirmed) return false;
+      if (listTypeFilter === 'festival' && item.isConfirmed) return false;
+
+      // Search Query filter
+      if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matches = (item.name || '').toLowerCase().includes(q) ||
+          (item.description || '').toLowerCase().includes(q) ||
+          (item.displayType || '').toLowerCase().includes(q) ||
+          (item.date || '').includes(q);
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [allListItems, listMonthFilter, listTypeFilter, searchQuery]);
+
   return (
-    <div className="table-card" style={{ padding: '0', overflow: 'hidden' }}>
-      {/* Calendar Header Controls (Matching Screenshot 3) */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '16px 20px',
-        borderBottom: '1px solid #e2e8f0',
-        backgroundColor: '#ffffff',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        {/* Left: Prev / Next / Today Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button
-            onClick={handlePrevMonth}
-            className="page-btn"
-            style={{ width: '32px', height: '32px', padding: '0' }}
-            title="Previous Month"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={handleNextMonth}
-            className="page-btn"
-            style={{ width: '32px', height: '32px', padding: '0' }}
-            title="Next Month"
-          >
-            <ChevronRight size={16} />
-          </button>
-          <button
-            onClick={handleToday}
-            className="page-btn"
-            style={{ height: '32px', padding: '0 12px', marginLeft: '4px' }}
-          >
-            today
-          </button>
-        </div>
+    <div className="table-card p-0 overflow-hidden shadow-xs">
+      {/* Calendar Header Controls */}
+        <div className="flex items-center justify-between p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 dark:border-slate-800 bg-white dark:bg-slate-900 flex-wrap gap-3">
+          {/* Left: Prev / Next / Today & Quick Month-Year Selectors */}
+          <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+                <button
+                  onClick={handlePrevMonth}
+                  className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer"
+                  title="Previous Month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={handleNextMonth}
+                  className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none cursor-pointer"
+                  title="Next Month"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
 
-        {/* Center: Month Year Title */}
-        <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
-          {monthName}
-        </div>
+              <button
+                onClick={handleToday}
+                className="h-8 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                Today
+              </button>
 
-        {/* Right: View Switcher (month | week | day | list) matching Screenshot 3 */}
-        <div className="view-switch-group">
+              {/* Quick Jump Month Dropdown */}
+              <select
+                value={currentMonth}
+                onChange={handleMonthChange}
+                className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
+              >
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={name} value={idx}>{name}</option>
+                ))}
+              </select>
+
+              {/* Quick Jump Year Dropdown */}
+              <select
+                value={currentYear}
+                onChange={handleYearChange}
+                className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
+              >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+              </select>
+            </div>
+
+            {/* Center: Month Year Title */}
+              <div className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+                {monthName}
+              </div>
+
+        {/* Right: View Switcher (month | week | day | list) */}
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
           {['month', 'week', 'day', 'list'].map((view) => (
             <button
               key={view}
               onClick={() => setCalendarView(view)}
-              className="page-btn"
-              style={{
-                height: '30px',
-                padding: '0 12px',
-                borderRadius: '4px',
-                border: 'none',
-                textTransform: 'capitalize',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                backgroundColor: calendarView === view ? '#101b33' : 'transparent',
-                color: calendarView === view ? '#ffffff' : '#64748b'
-              }}
+              className={`h-[28px] px-3.5 rounded-md border-none capitalize text-xs font-bold cursor-pointer transition-all ${
+                calendarView === view ? 'bg-blue-600 text-white shadow-xs' : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
               {view}
             </button>
           ))}
         </div>
-      </div>
+            </div>
 
-      {/* Main Month Grid View (Matching Screenshot 3) */}
-      {calendarView === 'month' && (
-        <div>
-          {/* Weekday Headers */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            backgroundColor: '#f8fafc',
-            borderBottom: '1px solid #e2e8f0',
-            textAlign: 'center',
-            fontSize: '12.5px',
-            fontWeight: '600',
-            color: '#475569',
-            padding: '10px 0'
-          }}>
-            <div>Mon</div>
-            <div>Tue</div>
-            <div>Wed</div>
-            <div>Thu</div>
-            <div>Fri</div>
-            <div>Sat</div>
-            <div>Sun</div>
-          </div>
-
-          {/* Calendar Day Grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            backgroundColor: '#e2e8f0',
-            gap: '1px'
-          }}>
-            {calendarCells.map((cell, index) => {
-              const dayHolidays = holidays.filter(h => h.date === cell.dateStr && !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))));
-
-              return (
-                <div
-                  key={index}
-                  onClick={() => handleCellClick(cell.dateStr)}
-                  style={{
-                    minHeight: '110px',
-                    backgroundColor: cell.isCurrentMonth ? '#ffffff' : '#f8fafc',
-                    padding: '8px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (cell.isCurrentMonth) e.currentTarget.style.backgroundColor = '#f1f5f9';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (cell.isCurrentMonth) e.currentTarget.style.backgroundColor = '#ffffff';
-                  }}
-                >
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: cell.isCurrentMonth ? '600' : '400',
-                    color: cell.isCurrentMonth ? '#0f172a' : '#cbd5e1',
-                    textAlign: 'right'
-                  }}>
-                    {cell.day}
+            {/* Quick Visual Legend Bar */}
+                <div className="flex items-center gap-4 px-5 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs flex-wrap">
+                  <span className="font-extrabold text-slate-400 dark:text-slate-500 uppercase text-[10px] tracking-wider">Legend:</span>
+                  <div className="flex items-center gap-1.5 font-bold text-red-700 dark:text-red-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+                    <span>🏖️ Official Paid Off</span>
                   </div>
-
-                  {/* Holiday Badges / Events */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', flex: 1 }}>
-                    {dayHolidays.map(hol => (
-                      <div
-                        key={hol._id}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          background: hol.type === 'National Holiday' ? '#fef3c7' : '#e0f2fe',
-                          borderLeft: hol.type === 'National Holiday' ? '3px solid #d97706' : '3px solid #0284c7',
-                          padding: '4px 6px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          color: hol.type === 'National Holiday' ? '#92400e' : '#0369a1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '4px',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
-                      >
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          ⭐ {hol.name}
-                        </span>
-                        {canManageHolidays && (
-                          <button
-                            onClick={() => deleteHoliday(hol._id)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#94a3b8',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              padding: '1px'
-                            }}
-                            title="Remove holiday (Admin/HR)"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Week View */}
-      {calendarView === 'week' && (
-        <div style={{ padding: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px' }}>
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => {
-              const startOfWeek = new Date(currentDate);
-              const dayOffset = (startOfWeek.getDay() + 6) % 7;
-              startOfWeek.setDate(startOfWeek.getDate() - dayOffset + idx);
-              const dayDateStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
-              const dayHols = holidays.filter(h => h.date === dayDateStr);
-              return (
-                <div key={idx} style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', border: '1px solid #e2e8f0', minHeight: '140px' }}>
-                  <div style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>{dayName}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>{dayDateStr}</div>
-                  {dayHols.map(h => (
-                    <div key={h._id} style={{ background: '#fef3c7', color: '#92400e', padding: '4px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
-                      ⭐ {h.name}
+                    <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                      <span>🪔 Indian Cultural Festival</span>
                     </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                      <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+                        <span>🏛️ Gazetted / Public Holiday</span>
+                      </div>
+                        <div className="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-400">
+                          <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
+                          <span>💼 Working Day</span>
+                        </div>
+                      </div>
+
+                      {/* Main Month Grid View */}
+                      {calendarView === 'month' && (
+                        <div>
+                          {/* Weekday Headers */}
+                            <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-center text-xs font-bold text-slate-600 dark:text-slate-300 py-2.5">
+                              <div>Mon</div>
+                              <div>Tue</div>
+                              <div>Wed</div>
+                              <div>Thu</div>
+                              <div>Fri</div>
+                              <div>Sat</div>
+                              <div>Sun</div>
+                            </div>
+
+                            {/* Calendar Day Grid */}
+                              <div className="grid grid-cols-7 bg-slate-200 dark:bg-slate-800 gap-px">
+                                {calendarCells.map((cell, index) => {
+                                  const dayHolidays = (holidays || []).filter(h => h.date === cell.dateStr);
+                                  const dayFestivals = (suggestedHolidays || []).filter(s =>
+                                    s.date === cell.dateStr &&
+                                    !dayHolidays.some(h => h.date === s.date || (h.name && s.name && h.name.toLowerCase().trim() === s.name.toLowerCase().trim()))
+                                  );
+                                  const isTodayCell = cell.dateStr === todayStr;
+                                  const hasOff = dayHolidays.length > 0;
+                                  const hasFestival = dayFestivals.length > 0;
+
+                                  return (
+                                    <div
+                                      key={index}
+                                      onClick={() => handleCellClick(cell.dateStr)}
+                                      className={`min-h-[115px] p-2 flex flex-col justify-between cursor-pointer transition-all ${hasOff
+                                          ? 'bg-red-50/40 dark:bg-red-950/30 hover:bg-red-50/70 dark:hover:bg-red-950/50 border-t-2 border-t-red-500'
+                                          : hasFestival
+                                            ? 'bg-amber-50/40 dark:bg-amber-950/30 hover:bg-amber-50/70 dark:hover:bg-amber-950/50 border-t-2 border-t-amber-500'
+                                            : (cell.isCurrentMonth ? 'bg-white dark:bg-slate-900 hover:bg-blue-50/20 dark:hover:bg-slate-800' : 'bg-slate-50/70 dark:bg-slate-950/60')
+                                        }`}
+                                      title={canManageHolidays ? "Click date to declare company holiday" : ""}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        {hasOff ? (
+                                          <span className="text-[9.5px] font-extrabold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/70 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded shadow-2xs">
+                                            🏖️ PAID OFF
+                                          </span>
+                                        ) : hasFestival ? (
+                                          <span className="text-[9.5px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded shadow-2xs">
+                                            🪔 FESTIVAL
+                                          </span>
+                                        ) : (
+                                          <span />
+                                        )}
+                                        <span className={`text-xs ml-auto font-bold flex items-center justify-center rounded-full ${isTodayCell
+                                            ? 'w-5 h-5 bg-blue-600 text-white shadow-xs'
+                                            : cell.isCurrentMonth
+                                              ? 'text-slate-900 dark:text-slate-100'
+                                              : 'text-slate-400 dark:text-slate-600'
+                                          }`}>
+                                          {cell.day}
+                                        </span>
+                                      </div>
+
+                                      {/* Holiday & Festival Badges */}
+                                      <div className="flex flex-col gap-1 mt-0.5 flex-1 overflow-hidden">
+                                        {/* Confirmed Paid Off Holidays */}
+                                        {dayHolidays.map(hol => (
+                                          <div
+                                            key={hol._id || hol.code || hol.date}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-red-100/80 dark:bg-red-950/70 border-red-500 dark:border-red-600 text-red-900 dark:text-red-200"
+                                            title={`${hol.name} (${hol.type}) - Click trash to cancel`}
+                                          >
+                                            <span className="truncate flex items-center gap-1">
+                                              <span>{hol.icon || '🏖️'}</span>
+                                              <span className="truncate">{hol.name}</span>
+                                            </span>
+                                            {canManageHolidays && (
+                                              <button
+                                                onClick={() => handleCancelHolidayClick(hol)}
+                                                className="w-4 h-4 flex items-center justify-center text-red-400 hover:text-white hover:bg-red-600 rounded cursor-pointer transition-colors shrink-0"
+                                                title="Cancel / Delete this holiday"
+                                              >
+                                                <Trash2 size={11} />
+                                              </button>
+                                            )}
+                                          </div>
+                                        ))}
+
+                                        {/* Cultural Festivals (Dhanteras, Govardhan, Bhai Dooj, Chhath, etc.) */}
+                                        {dayFestivals.map(fest => (
+                                          <div
+                                            key={fest.code || fest.date}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (canManageHolidays) {
+                                                handleConfirmFestivalClick(fest);
+                                              }
+                                            }}
+                                            className="p-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-between gap-1 shadow-2xs border-l-[3px] bg-amber-100/90 dark:bg-amber-950/70 border-amber-500 dark:border-amber-600 text-amber-900 dark:text-amber-200 cursor-pointer hover:bg-amber-200/90 dark:hover:bg-amber-900/60 transition-colors"
+                                            title={canManageHolidays ? `${fest.name} - Click to declare official paid company holiday` : `${fest.name} (Indian Festival)`}
+                                          >
+                                            <span className="truncate flex items-center gap-1">
+                                              <span>{fest.icon || '🪔'}</span>
+                                              <span className="truncate">{fest.name}</span>
+                                            </span>
+                                            {canManageHolidays && (
+                                              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 shrink-0 hover:bg-amber-300 dark:hover:bg-amber-800/80">
+                                                + Off
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
       )}
 
-      {/* Day View */}
-      {calendarView === 'day' && (
-        <div style={{ padding: '24px', textAlign: 'center' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>
-            Daily Schedule View
-          </h3>
-          <p style={{ fontSize: '13px', color: '#64748b' }}>
-            Click on any date on the Month view to add new company holidays or view schedules.
-          </p>
-        </div>
-      )}
+                            {/* Week View */}
+                            {calendarView === 'week' && (
+                              <div className="p-4">
+                                <div className="grid grid-cols-7 gap-2">
+                                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => {
+                                    const startOfWeek = new Date(currentDate);
+                                    const dayOffset = (startOfWeek.getDay() + 6) % 7;
+                                    startOfWeek.setDate(startOfWeek.getDate() - dayOffset + idx);
+                                    const dayDateStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
+                                    const dayHols = (holidays || []).filter(h => h.date === dayDateStr);
+                                    const dayFests = (suggestedHolidays || []).filter(s =>
+                                      s.date === dayDateStr &&
+                                      !dayHols.some(h => h.date === s.date || (h.name && s.name && h.name.toLowerCase().trim() === s.name.toLowerCase().trim()))
+                                    );
 
-      {/* List View with Name, Date, Day of Week, Type, Status */}
-      {calendarView === 'list' && (
-        <div style={{ padding: '16px' }}>
-          <table className="crm-table">
-            <thead>
-              <tr>
-                <th>Holiday Name</th>
-                <th>Date</th>
-                <th>Day of Week</th>
-                <th>Category / Type</th>
-                <th>Status</th>
-                <th>Description</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holidays.map(hol => {
-                const isUpcoming = hol.date >= todayStr;
-                return (
-                  <tr key={hol._id}>
-                    <td style={{ fontWeight: '700', color: '#0f172a' }}>
-                      ⭐ {hol.name}
-                    </td>
-                    <td style={{ fontWeight: '600' }}>{hol.date}</td>
-                    <td style={{ color: '#475569', fontWeight: '500' }}>
-                      {hol.dayOfWeek || new Date(hol.date).toLocaleDateString('en-US', { weekday: 'long' })}
-                    </td>
-                    <td>
-                      <span className="badge badge-holiday">{hol.type}</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${isUpcoming ? 'badge-pending' : 'badge-approved'}`}>
-                        {isUpcoming ? 'Upcoming' : 'Completed'}
-                      </span>
-                    </td>
-                    <td style={{ color: '#64748b', fontSize: '12.5px', maxWidth: '240px' }}>
-                      {hol.description || '—'}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {canManageHolidays ? (
-                        <button
-                          onClick={() => deleteHoliday(hol._id)}
-                          className="btn-icon-only"
-                          style={{ width: '28px', height: '28px', color: '#ef4444' }}
-                          title="Delete holiday (Admin/HR)"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
-                          Official
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                                    return (
+                                      <div key={idx} className={`rounded-lg p-3 border min-h-[160px] flex flex-col justify-between ${dayHols.length > 0
+                                          ? 'bg-red-50/50 dark:bg-red-950/25 border-red-200 dark:border-red-900/60'
+                                          : dayFests.length > 0
+                                            ? 'bg-amber-50/50 dark:bg-amber-950/25 border-amber-200 dark:border-amber-900/60'
+                                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                                        }`}>
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <div className="font-extrabold text-xs text-slate-900 dark:text-slate-100">{dayName}</div>
+                                            {dayHols.length > 0 ? (
+                                              <span className="text-[9px] font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/70 px-1 rounded">Paid Off</span>
+                                            ) : dayFests.length > 0 ? (
+                                              <span className="text-[9px] font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-1 rounded">Festival</span>
+                                            ) : null}
+                                          </div>
+                                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">{dayDateStr}</div>
 
-      {/* Add Holiday Modal */}
-      <AddHolidayModal
-        isOpen={isAddModalOpen}
-        selectedDate={selectedDayDate}
-        onClose={() => setIsAddModalOpen(false)}
-      />
-    </div>
-  );
+                                          <div className="flex flex-col gap-1">
+                                            {/* Declared Holidays */}
+                                            {dayHols.map(h => (
+                                              <div key={h._id || h.code} className="bg-red-100/90 dark:bg-red-950/70 text-red-800 dark:text-red-200 p-1.5 rounded text-[11px] font-bold border border-red-200 dark:border-red-800 flex items-center justify-between gap-1 shadow-2xs">
+                                                <span className="truncate">{h.icon || '🏖️'} {h.name}</span>
+                                                {canManageHolidays && (
+                                                  <button
+                                                    onClick={() => handleCancelHolidayClick(h)}
+                                                    className="text-red-500 hover:text-red-700 cursor-pointer"
+                                                    title="Cancel holiday"
+                                                  >
+                                                    <Trash2 size={11} />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ))}
+
+                                            {/* Cultural Festivals */}
+                                            {dayFests.map(f => (
+                                              <div
+                                                key={f.code || f.date}
+                                                onClick={() => canManageHolidays && handleConfirmFestivalClick(f)}
+                                                className="bg-amber-100/90 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 p-1.5 rounded text-[11px] font-bold border border-amber-300 dark:border-amber-800 flex items-center justify-between gap-1 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/60 shadow-2xs"
+                                                title={canManageHolidays ? "Click to declare as paid holiday" : f.name}
+                                              >
+                                                <span className="truncate">{f.icon || '🪔'} {f.name}</span>
+                                                {canManageHolidays && (
+                                                  <span className="text-[9px] font-bold text-amber-800 underline">
+                                                    + Off
+                                                  </span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        {canManageHolidays && dayHols.length === 0 && dayFests.length === 0 && (
+                                          <button
+                                            onClick={() => handleCellClick(dayDateStr)}
+                                            className="text-[10.5px] font-bold text-blue-600 hover:text-blue-700 text-left cursor-pointer"
+                                          >
+                                            + Declare Off
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Day View */}
+                            {calendarView === 'day' && (
+                              <div className="p-6 text-center">
+                                <CalendarIcon size={36} className="mx-auto text-blue-600 mb-2 opacity-80" />
+                                <h3 className="text-base font-bold text-slate-900 mb-1">
+                                  Company Holiday Calendar
+                                </h3>
+                                <p className="text-xs text-slate-500 max-w-md mx-auto mb-3">
+                                  Click on any date in the Month view to declare an official company holiday or cancel an existing holiday.
+                                </p>
+                                <button
+                                  onClick={() => setCalendarView('month')}
+                                  className="px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold cursor-pointer"
+                                >
+                                  Back to Month Grid
+                                </button>
+                              </div>
+                            )}
+
+                            {/* List View Across All 12 Months */}
+                            {calendarView === 'list' && (
+                              <div className="p-4 flex flex-col gap-3">
+                                {/* Month & Type Quick Filter Pills */}
+                                <div className="flex flex-col gap-2.5 pb-2 border-b border-slate-200">
+                                  {/* Top row: Type switcher */}
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-bold text-slate-500">Show:</span>
+                                      <button
+                                        onClick={() => setListTypeFilter('all')}
+                                        className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'all'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                          }`}
+                                      >
+                                        All Days ({allListItems.length})
+                                      </button>
+                                      <button
+                                        onClick={() => setListTypeFilter('official')}
+                                        className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'official'
+                                            ? 'bg-red-600 text-white'
+                                            : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40'
+                                          }`}
+                                      >
+                                        🏖️ Official Paid Offs ({(holidays || []).length})
+                                      </button>
+                                      <button
+                                        onClick={() => setListTypeFilter('festival')}
+                                        className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listTypeFilter === 'festival'
+                                            ? 'bg-amber-600 text-white'
+                                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                                          }`}
+                                      >
+                                        🪔 Cultural Festivals ({(suggestedHolidays || []).filter(s => !(holidays || []).some(h => h.date === s.date)).length})
+                                      </button>
+                                    </div>
+
+                                    <span className="text-[11.5px] text-slate-500 font-medium">
+                                      Showing {filteredListHolidays.length} days
+                                    </span>
+                                  </div>
+
+                                  {/* Bottom row: Month Filter Pills */}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                      <Filter size={12} /> Month:
+                                    </span>
+                                    <button
+                                      onClick={() => setListMonthFilter('all')}
+                                      className={`text-xs px-2.5 py-1 rounded-md font-bold cursor-pointer transition-colors ${listMonthFilter === 'all'
+                                          ? 'bg-slate-800 text-white'
+                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                      All 12 Months
+                                    </button>
+                                    {MONTH_NAMES.map((mName, idx) => {
+                                      const mNum = idx + 1;
+                                      const count = allListItems.filter(h => h.date && parseInt(h.date.split('-')[1], 10) === mNum).length;
+                                      if (count === 0 && listMonthFilter !== String(mNum)) return null;
+
+                                      return (
+                                        <button
+                                          key={mName}
+                                          onClick={() => setListMonthFilter(String(mNum))}
+                                          className={`text-xs px-2 py-1 rounded-md font-bold cursor-pointer transition-colors ${listMonthFilter === String(mNum)
+                                              ? 'bg-slate-800 text-white'
+                                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                          {mName.slice(0, 3)} ({count})
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <table className="crm-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Holiday / Festival Name</th>
+                                      <th>Date</th>
+                                      <th>Day of Week</th>
+                                      <th>Type</th>
+                                      <th>Status</th>
+                                      <th>Description</th>
+                                      <th className="text-right">Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filteredListHolidays.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={7} className="text-center py-8 text-xs text-slate-400">
+                                          No holidays or festivals found for this filter.
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      filteredListHolidays.map(hol => {
+                                        const isUpcoming = hol.date >= todayStr;
+                                        const isOff = hol.isConfirmed;
+
+                                        return (
+                                          <tr key={hol._id || hol.code || hol.date} className={isOff ? 'bg-red-50/20 dark:bg-red-950/20' : 'bg-amber-50/20 dark:bg-amber-950/20'}>
+                                            <td className="font-extrabold text-slate-900 dark:text-slate-100">
+                                              {hol.icon || (isOff ? '🏖️' : '🪔')} {hol.name}
+                                            </td>
+                                            <td className="font-bold text-xs text-slate-800 dark:text-slate-200">{hol.date}</td>
+                                            <td className="text-slate-600 dark:text-slate-400 font-medium text-xs">
+                                              {hol.dayOfWeek || new Date(hol.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}
+                                            </td>
+                                            <td>
+                                              <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${isOff
+                                                  ? 'bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                                }`}>
+                                                {hol.displayType || hol.type || (isOff ? 'Company Holiday' : 'Major Festival')}
+                                              </span>
+                                            </td>
+                                            <td>
+                                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOff
+                                                  ? 'bg-red-100 dark:bg-red-950/70 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
+                                                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                                }`}>
+                                                {isOff ? '🏖️ Paid Off' : '🪔 Cultural Festival'}
+                                              </span>
+                                            </td>
+                                            <td className="text-slate-500 dark:text-slate-400 text-xs max-w-[260px] truncate">
+                                              {hol.description || (isOff ? 'Declared company holiday.' : 'Indian festival.')}
+                                            </td>
+                                            <td className="text-right">
+                                              {canManageHolidays && (
+                                                isOff ? (
+                                                  <button
+                                                    onClick={() => handleCancelHolidayClick(hol)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 dark:bg-red-950/50 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold border border-red-200 dark:border-red-800 cursor-pointer transition-colors shadow-2xs"
+                                                    title="Cancel / Delete this holiday (Restore normal working day)"
+                                                  >
+                                                    <Trash2 size={12} />
+                                                    <span>Cancel Off</span>
+                                                  </button>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => handleConfirmFestivalClick(hol)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-xs font-bold border border-amber-300 dark:border-amber-800 cursor-pointer transition-colors shadow-2xs"
+                                                    title="Declare this festival as official company holiday"
+                                                  >
+                                                    <Plus size={12} />
+                                                    <span>Declare Off</span>
+                                                  </button>
+                                                )
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* Add Holiday Modal */}
+                            <AddHolidayModal
+                              isOpen={isAddModalOpen}
+                              selectedDate={selectedDayDate}
+                              onClose={() => setIsAddModalOpen(false)}
+                            />
+                          </div>
+                          );
 };

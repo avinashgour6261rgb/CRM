@@ -51,8 +51,23 @@ exports.getTasks = async (req, res, next) => {
       if (user.name) {
         const escapedName = String(user.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         userAssignedFilter.push({ assignedToName: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ assignedToName: new RegExp(escapedName, 'i') });
         userAssignedFilter.push({ assignedBy: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ assignedBy: new RegExp(escapedName, 'i') });
         userAssignedFilter.push({ 'assignees.name': new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ 'assignees.name': new RegExp(escapedName, 'i') });
+
+        const parts = String(user.name).trim().split(/\s+/).filter(p => p.length >= 3);
+        for (const p of parts) {
+          const escP = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          userAssignedFilter.push({ assignedToName: new RegExp(escP, 'i') });
+          userAssignedFilter.push({ 'assignees.name': new RegExp(escP, 'i') });
+        }
+      }
+      if (user.email) {
+        const escEmail = String(user.email).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        userAssignedFilter.push({ assignedToEmail: new RegExp(`^${escEmail}$`, 'i') });
+        userAssignedFilter.push({ 'assignees.email': new RegExp(`^${escEmail}$`, 'i') });
       }
 
       if (query.$or) {
@@ -160,6 +175,24 @@ exports.createTask = async (req, res, next) => {
       taskData.project = null;
     }
 
+    if (!taskData.history || !Array.isArray(taskData.history) || taskData.history.length === 0) {
+      taskData.history = [{
+        id: `hist_${Date.now()}_create`,
+        action: 'created',
+        title: 'Task Created & Assigned',
+        timestamp: new Date().toISOString(),
+        performedBy: taskData.assignedBy || 'Administrator',
+        performedById: taskData.assignedById || 'admin',
+        assignedTo: taskData.assignedToName || 'Team Members',
+        details: `Task #${taskData.taskCode} created and assigned to ${taskData.assignedToName || 'team'} by ${taskData.assignedBy || 'Administrator'}. (Due: ${taskData.hasNoDueDate ? 'No Due Date' : (taskData.dueDate || 'Open')})`,
+        metadata: {
+          priority: taskData.priority || 'medium',
+          category: taskData.category || 'General',
+          projectName: taskData.projectName || 'General Work'
+        }
+      }];
+    }
+
     const task = await Task.create(taskData);
     res.status(201).json({
       success: true,
@@ -225,7 +258,10 @@ exports.updateTaskStatus = async (req, res, next) => {
     if (status === 'completed') {
       update.completedOn = new Date().toISOString().split('T')[0];
       update.timerRunning = false;
-      update.timerSeconds = 0;
+      if (req.body.timerSeconds !== undefined) update.timerSeconds = req.body.timerSeconds;
+      if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;
+      if (req.body.hoursLogged !== undefined) update.hoursLogged = req.body.hoursLogged;
+      if (req.body.hoursLoggedText !== undefined) update.hoursLoggedText = req.body.hoursLoggedText;
     }
 
     let task = null;

@@ -1,10 +1,18 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+=======
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
 import {
   LayoutDashboard,
-  Users2,
+  Users,
   Briefcase,
-  Layers,
+  FolderGit2,
+  ListTodo,
+  CalendarCheck,
+  Palmtree,
   DollarSign,
   Ticket,
   Calendar,
@@ -14,8 +22,8 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  Zap,
   Award,
+<<<<<<< HEAD
   CalendarCheck,
   Palmtree,
   UserCheck,
@@ -37,10 +45,26 @@ import {
   canManageProjects,
 } from "../../utils/permissionUtils";
 import { getCompanySettings } from "../../services/companySettingsService";
+=======
+  Zap,
+  Clock,
+  Layers,
+  Users2,
+  UserCheck
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useHR } from '../../../modules/hr/context/HRContext';
+import { useCRM } from '../../context/CRMContext';
+import { canAccessModule, isLeaderOrAbove, canManageProjects } from '../../utils/permissionUtils';
+import { getCompanySettings } from '../../services/companySettingsService';
+import { EmployeeDirectoryModal } from '../../../modules/hr/components/employees/EmployeeDirectoryModal';
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
 
 export const Sidebar = () => {
+  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+<<<<<<< HEAD
   const {
     currentUser: authUser,
     isAdmin,
@@ -50,13 +74,14 @@ export const Sidebar = () => {
     isLeaderOrAbove,
     roleConfig: authRoleConfig,
   } = useAuth();
+=======
+  const { currentUser: authUser } = useAuth();
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
-  const roleConfig = authRoleConfig || getRoleConfig(currentUser);
-  const [collapsed, setCollapsed] = useState(false);
-  const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
-  const [companyInfo, setCompanyInfo] = useState(() => getCompanySettings());
+  const { totalUnreadMessagesCount = 0 } = useCRM();
 
+<<<<<<< HEAD
   // toggle profile
   const [isOpen, setisOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -170,6 +195,53 @@ export const Sidebar = () => {
   const isLeadsActive = ["/leads", "/lead-contact"].some((path) =>
     location.pathname.startsWith(path),
   );
+=======
+  const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
+  const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setCompanyInfo(getCompanySettings());
+    };
+    window.addEventListener('company-settings-updated', handleSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', handleSettingsUpdate);
+  }, []);
+
+  const [leadsExpanded, setLeadsExpanded] = useState(false);
+  const [hrExpanded, setHrExpanded] = useState(false);
+  const [workExpanded, setWorkExpanded] = useState(false);
+  const [financeExpanded, setFinanceExpanded] = useState(false);
+
+  // Synchronize submenu expanded states based on active URL
+  useEffect(() => {
+    const p = location.pathname;
+    if (p.startsWith('/lead')) setLeadsExpanded(true);
+    if (p.startsWith('/leaves') || p.startsWith('/attendance') || p.startsWith('/holiday') || p.startsWith('/documents') || p.startsWith('/appreciation')) {
+      setHrExpanded(true);
+    }
+    if (p.startsWith('/projects') || p.startsWith('/tasks') || p.startsWith('/timesheet')) {
+      setWorkExpanded(true);
+    }
+    if (p.startsWith('/payroll') || p.startsWith('/expenses') || p.startsWith('/finance')) {
+      setFinanceExpanded(true);
+    }
+  }, [location.pathname]);
+
+  const toggleSection = (section) => {
+    if (section === 'leads') setLeadsExpanded(!leadsExpanded);
+    if (section === 'hr') setHrExpanded(!hrExpanded);
+    if (section === 'work') setWorkExpanded(!workExpanded);
+    if (section === 'finance') setFinanceExpanded(!financeExpanded);
+  };
+
+  const isHRorAdmin = currentUser?.role === 'HR' ||
+    currentUser?.role === 'Super Admin' ||
+    currentUser?.isAdmin ||
+    currentUser?.systemRole === 'admin' ||
+    currentUser?.systemRole === 'hr';
+
+  const isLeadsActive = ['/leads', '/lead-contact'].some(path => location.pathname.startsWith(path));
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
 
   const isHrActive = [
     "/leaves",
@@ -208,6 +280,7 @@ export const Sidebar = () => {
   ].some((path) => location.pathname.startsWith(path));
 
   return (
+<<<<<<< HEAD
     <aside
       style={{
         width: collapsed ? "72px" : "250px",
@@ -247,11 +320,21 @@ export const Sidebar = () => {
               overflow: "hidden",
               cursor: "pointer",
             }}
+=======
+    <aside className={`bg-[#101b33] text-slate-400 flex flex-col h-screen shrink-0 border-r border-slate-800 sticky top-0 z-[100] overflow-hidden transition-[width] duration-250 ease-out ${collapsed ? 'w-[72px]' : 'w-[250px]'}`}>
+      {/* Brand & User Top Header */}
+      <div className={`border-b border-white/6 flex items-center justify-between min-h-[70px] ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}>
+        {!collapsed ? (
+          <div
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-3 overflow-hidden cursor-pointer"
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             title="Click to open Profile Settings"
           >
             {currentUser?.avatar ? (
               <img
                 src={currentUser.avatar}
+<<<<<<< HEAD
                 alt={currentUser.name || "User"}
                 style={{
                   width: "36px",
@@ -331,11 +414,33 @@ export const Sidebar = () => {
                   }}
                 >
                   {currentUser?.name || "Avinash"}
+=======
+                alt={currentUser.name || 'User'}
+                className="w-9 h-9 rounded-[10px] object-cover border-2 border-blue-500/60 shadow-md shadow-blue-600/40 shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40 shrink-0">
+                <Zap size={20} fill="#ffffff" />
+              </div>
+            )}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1">
+                <span className="text-[15px] font-extrabold text-white tracking-tight max-w-[140px] truncate">
+                  {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
+                </span>
+                <ChevronDown size={13} className="text-slate-400" />
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+                <span className="text-xs text-slate-300 font-semibold max-w-[130px] truncate">
+                  {currentUser?.name || 'Avinash'}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 </span>
               </div>
             </div>
           </div>
         ) : (
+<<<<<<< HEAD
           <div
             style={{
               width: "36px",
@@ -349,6 +454,9 @@ export const Sidebar = () => {
               color: "#ffffff",
             }}
           >
+=======
+          <div className="w-9 h-9 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40">
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             <Zap size={20} fill="#ffffff" />
           </div>
         )}
@@ -526,6 +634,7 @@ export const Sidebar = () => {
       )}
 
       {/* Navigation Links */}
+<<<<<<< HEAD
       <div
         style={{
           flex: 1,
@@ -536,10 +645,14 @@ export const Sidebar = () => {
           gap: "4px",
         }}
       >
+=======
+      <div className={`flex-1 overflow-y-auto flex flex-col gap-1 ${collapsed ? 'py-3 px-1.5' : 'py-4 px-3'}`}>
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
         {/* Dashboard */}
         {canAccessModule(currentUser, "dashboard") && (
           <NavLink
             to="/dashboard"
+<<<<<<< HEAD
             style={({ isActive }) => ({
               display: "flex",
               alignItems: "center",
@@ -560,6 +673,14 @@ export const Sidebar = () => {
               size={18}
               color={location.pathname === "/dashboard" ? "#60a5fa" : "#94a3b8"}
             />
+=======
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              }`
+            }
+          >
+            <LayoutDashboard size={18} className={location.pathname === '/dashboard' ? 'text-blue-400' : 'text-slate-400'} />
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             {!collapsed && <span>Dashboard</span>}
           </NavLink>
         )}
@@ -568,6 +689,7 @@ export const Sidebar = () => {
         {isHRorAdmin && (
           <NavLink
             to="/employees"
+<<<<<<< HEAD
             style={({ isActive }) => ({
               display: "flex",
               alignItems: "center",
@@ -608,6 +730,18 @@ export const Sidebar = () => {
                     fontWeight: "700",
                   }}
                 >
+=======
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              }`
+            }
+          >
+            <Users size={18} className={location.pathname === '/employees' ? 'text-blue-400' : 'text-slate-400'} />
+            {!collapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span>Employees & Roles</span>
+                <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   RBAC
                 </span>
               </div>
@@ -619,6 +753,7 @@ export const Sidebar = () => {
         {isHRorAdmin && (
           <NavLink
             to="/team-operations"
+<<<<<<< HEAD
             style={({ isActive }) => ({
               display: "flex",
               alignItems: "center",
@@ -664,6 +799,18 @@ export const Sidebar = () => {
                     fontWeight: "700",
                   }}
                 >
+=======
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-orange-600/25 font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              }`
+            }
+          >
+            <Zap size={18} className={location.pathname === '/team-operations' ? 'text-orange-400' : 'text-orange-500'} fill={location.pathname === '/team-operations' ? '#fb923c' : 'none'} />
+            {!collapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span>Live Operations</span>
+                <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   ADMIN
                 </span>
               </div>
@@ -672,6 +819,7 @@ export const Sidebar = () => {
         )}
 
         {/* Leads - Core CRM Prospect & Deal Pipeline Section */}
+<<<<<<< HEAD
         {canAccessModule(currentUser, "leads") && (
           <div>
             <div
@@ -785,10 +933,62 @@ export const Sidebar = () => {
                 ) : (
                   <ChevronRight size={14} color="#64748b" />
                 ))}
+=======
+        {canAccessModule(currentUser, 'leads') && (
+          <div>
+            <div
+              onClick={() => toggleSection('leads')}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isLeadsActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <Users2 size={18} className={isLeadsActive ? 'text-blue-500' : 'text-slate-400'} />
+                {!collapsed && <span>Leads</span>}
+              </div>
+              {!collapsed && (
+                leadsExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-500" />
+              )}
+            </div>
+
+            {/* Submenu for Leads */}
+            {leadsExpanded && (
+              <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
+                <NavLink
+                  to="/lead-contact"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+                >
+                  <UserCheck size={15} />
+                  {!collapsed && <span>Lead Contact</span>}
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* HR - Dedicated Personnel & Attendance Section */}
+        {(canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance')) && (
+          <div>
+            <div
+              onClick={() => toggleSection('hr')}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isHrActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <Briefcase size={18} className={isHrActive ? 'text-blue-500' : 'text-slate-400'} />
+                {!collapsed && <span>HR</span>}
+              </div>
+              {!collapsed && (
+                hrExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-500" />
+              )}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             </div>
 
             {/* Submenu for HR */}
             {hrExpanded && (
+<<<<<<< HEAD
               <div
                 style={{
                   marginTop: "4px",
@@ -818,12 +1018,23 @@ export const Sidebar = () => {
                       fontWeight: isActive ? "600" : "400",
                       transition: "all 0.15s ease",
                     })}
+=======
+              <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
+                {canAccessModule(currentUser, 'leaves') && (
+                  <NavLink
+                    to="/leaves"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   >
                     <Palmtree size={15} />
                     {!collapsed && <span>Leaves</span>}
                   </NavLink>
                 )}
 
+<<<<<<< HEAD
                 {canAccessModule(currentUser, "attendance") && (
                   <NavLink
                     to="/attendance"
@@ -840,6 +1051,15 @@ export const Sidebar = () => {
                       fontWeight: isActive ? "600" : "400",
                       transition: "all 0.15s ease",
                     })}
+=======
+                {canAccessModule(currentUser, 'attendance') && (
+                  <NavLink
+                    to="/attendance"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   >
                     <UserCheck size={15} />
                     {!collapsed && <span>Attendance</span>}
@@ -848,6 +1068,7 @@ export const Sidebar = () => {
 
                 <NavLink
                   to="/holiday"
+<<<<<<< HEAD
                   style={({ isActive }) => ({
                     display: "flex",
                     alignItems: "center",
@@ -861,6 +1082,12 @@ export const Sidebar = () => {
                     fontWeight: isActive ? "600" : "400",
                     transition: "all 0.15s ease",
                   })}
+=======
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 >
                   <CalendarCheck size={15} />
                   {!collapsed && <span>Holiday</span>}
@@ -868,6 +1095,7 @@ export const Sidebar = () => {
 
                 <NavLink
                   to="/appreciation"
+<<<<<<< HEAD
                   style={({ isActive }) => ({
                     display: "flex",
                     alignItems: "center",
@@ -881,11 +1109,18 @@ export const Sidebar = () => {
                     fontWeight: isActive ? "600" : "400",
                     transition: "all 0.15s ease",
                   })}
+=======
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 >
                   <Award size={15} />
                   {!collapsed && <span>Appreciation</span>}
                 </NavLink>
 
+<<<<<<< HEAD
                 {(isHRorAdmin ||
                   canAccessModule(currentUser, "documentation") ||
                   currentUser?.isDelegatedAdmin) && (
@@ -904,6 +1139,15 @@ export const Sidebar = () => {
                       fontWeight: isActive ? "600" : "400",
                       transition: "all 0.15s ease",
                     })}
+=======
+                {(isHRorAdmin || canAccessModule(currentUser, 'documentation') || currentUser?.isDelegatedAdmin) && (
+                  <NavLink
+                    to="/documents"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   >
                     <FolderGit2 size={15} />
                     {!collapsed && <span>Documents & KYC</span>}
@@ -915,6 +1159,7 @@ export const Sidebar = () => {
         )}
 
         {/* Work - Core Daily Work Section */}
+<<<<<<< HEAD
         {canAccessModule(currentUser, "tasks") && (
           <div>
             <div
@@ -950,10 +1195,27 @@ export const Sidebar = () => {
                 ) : (
                   <ChevronRight size={14} color="#64748b" />
                 ))}
+=======
+        {canAccessModule(currentUser, 'tasks') && (
+          <div>
+            <div
+              onClick={() => toggleSection('work')}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isWorkActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <Layers size={18} className={isWorkActive ? 'text-blue-500' : 'text-slate-400'} />
+                {!collapsed && <span>Work</span>}
+              </div>
+              {!collapsed && (
+                workExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-500" />
+              )}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             </div>
 
             {/* Submenu for Work */}
             {workExpanded && (
+<<<<<<< HEAD
               <div
                 style={{
                   marginTop: "4px",
@@ -985,6 +1247,16 @@ export const Sidebar = () => {
                       fontWeight: isActive ? "600" : "400",
                       transition: "all 0.15s ease",
                     })}
+=======
+              <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
+                {(isLeaderOrAbove || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+                  <NavLink
+                    to="/projects"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   >
                     <FolderGit2 size={15} />
                     {!collapsed && <span>Projects</span>}
@@ -993,6 +1265,7 @@ export const Sidebar = () => {
 
                 <NavLink
                   to="/tasks"
+<<<<<<< HEAD
                   style={({ isActive }) => ({
                     display: "flex",
                     alignItems: "center",
@@ -1006,6 +1279,12 @@ export const Sidebar = () => {
                     fontWeight: isActive ? "600" : "400",
                     transition: "all 0.15s ease",
                   })}
+=======
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 >
                   <ListTodo size={15} />
                   {!collapsed && <span>Tasks</span>}
@@ -1013,6 +1292,7 @@ export const Sidebar = () => {
 
                 <NavLink
                   to="/timesheet"
+<<<<<<< HEAD
                   style={({ isActive }) => ({
                     display: "flex",
                     alignItems: "center",
@@ -1026,6 +1306,12 @@ export const Sidebar = () => {
                     fontWeight: isActive ? "600" : "400",
                     transition: "all 0.15s ease",
                   })}
+=======
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 >
                   <Clock size={15} />
                   {!collapsed && <span>Timesheet</span>}
@@ -1036,6 +1322,7 @@ export const Sidebar = () => {
         )}
 
         {/* Finance - Dedicated Financial Section (Admin / HR full access, employees only personal expenses) */}
+<<<<<<< HEAD
         {(isHRorAdmin || canAccessModule(currentUser, "expenses")) && (
           <div>
             <div
@@ -1071,10 +1358,27 @@ export const Sidebar = () => {
                 ) : (
                   <ChevronRight size={14} color="#64748b" />
                 ))}
+=======
+        {(isHRorAdmin || canAccessModule(currentUser, 'expenses')) && (
+          <div>
+            <div
+              onClick={() => toggleSection('finance')}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] cursor-pointer transition-all duration-150 ${isFinanceActive ? 'text-white bg-blue-600/15 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <DollarSign size={18} className={isFinanceActive ? 'text-blue-500' : 'text-slate-400'} />
+                {!collapsed && <span>Finance</span>}
+              </div>
+              {!collapsed && (
+                financeExpanded ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-500" />
+              )}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             </div>
 
             {/* Submenu for Finance */}
             {financeExpanded && (
+<<<<<<< HEAD
               <div
                 style={{
                   marginTop: "4px",
@@ -1103,6 +1407,15 @@ export const Sidebar = () => {
                     fontWeight: isActive ? "600" : "400",
                     transition: "all 0.15s ease",
                   })}
+=======
+              <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
+                <NavLink
+                  to="/expenses"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                    }`
+                  }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                 >
                   <DollarSign size={15} />
                   {!collapsed && <span>Expenses</span>}
@@ -1111,6 +1424,7 @@ export const Sidebar = () => {
                 {isHRorAdmin && (
                   <NavLink
                     to="/payroll"
+<<<<<<< HEAD
                     style={({ isActive }) => ({
                       display: "flex",
                       alignItems: "center",
@@ -1124,6 +1438,12 @@ export const Sidebar = () => {
                       fontWeight: isActive ? "600" : "400",
                       transition: "all 0.15s ease",
                     })}
+=======
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
                   >
                     <DollarSign size={15} />
                     {!collapsed && <span>Salary & Payslips</span>}
@@ -1134,6 +1454,7 @@ export const Sidebar = () => {
           </div>
         )}
 
+<<<<<<< HEAD
         {canAccessModule(currentUser, "tickets") && (
           <NavLink
             to="/tickets"
@@ -1157,10 +1478,22 @@ export const Sidebar = () => {
               size={18}
               color={location.pathname === "/tickets" ? "#60a5fa" : "#94a3b8"}
             />
+=======
+        {canAccessModule(currentUser, 'tickets') && (
+          <NavLink
+            to="/tickets"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              }`
+            }
+          >
+            <Ticket size={18} className={location.pathname === '/tickets' ? 'text-blue-400' : 'text-slate-400'} />
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             {!collapsed && <span>Tickets</span>}
           </NavLink>
         )}
 
+<<<<<<< HEAD
         {canAccessModule(currentUser, "events") && (
           <NavLink
             to="/events"
@@ -1184,12 +1517,24 @@ export const Sidebar = () => {
               size={18}
               color={location.pathname === "/events" ? "#60a5fa" : "#94a3b8"}
             />
+=======
+        {canAccessModule(currentUser, 'events') && (
+          <NavLink
+            to="/events"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+              }`
+            }
+          >
+            <Calendar size={18} className={location.pathname === '/events' ? 'text-blue-400' : 'text-slate-400'} />
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
             {!collapsed && <span>Events</span>}
           </NavLink>
         )}
 
         <NavLink
           to="/messages"
+<<<<<<< HEAD
           style={({ isActive }) => ({
             display: "flex",
             alignItems: "center",
@@ -1211,10 +1556,39 @@ export const Sidebar = () => {
             color={location.pathname === "/messages" ? "#60a5fa" : "#94a3b8"}
           />
           {!collapsed && <span>Messages</span>}
+=======
+          className={({ isActive }) =>
+            `flex items-center justify-between px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${
+              isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+            }`
+          }
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center">
+              <MessageSquare size={18} className={location.pathname === '/messages' ? 'text-blue-400' : 'text-slate-400'} />
+              {totalUnreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-rose-600 rounded-full border-2 border-[#101b33] animate-pulse" />
+              )}
+            </div>
+            {!collapsed && <span>Messages</span>}
+          </div>
+          {!collapsed && (
+            totalUnreadMessagesCount > 0 ? (
+              <span className="text-[10px] py-0.5 px-2 rounded-full bg-rose-600 text-white font-extrabold shadow-sm animate-pulse min-w-[20px] text-center">
+                {totalUnreadMessagesCount > 99 ? '99+' : totalUnreadMessagesCount}
+              </span>
+            ) : (
+              <span className="text-[10px] py-0.5 px-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                Chat
+              </span>
+            )
+          )}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
         </NavLink>
 
         <NavLink
           to="/notice-board"
+<<<<<<< HEAD
           style={({ isActive }) => ({
             display: "flex",
             alignItems: "center",
@@ -1237,11 +1611,20 @@ export const Sidebar = () => {
               location.pathname === "/notice-board" ? "#60a5fa" : "#94a3b8"
             }
           />
+=======
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+            }`
+          }
+        >
+          <BellRing size={18} className={location.pathname === '/notice-board' ? 'text-blue-400' : 'text-slate-400'} />
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
           {!collapsed && <span>Notice Board</span>}
         </NavLink>
 
         <NavLink
           to="/settings"
+<<<<<<< HEAD
           style={({ isActive }) => ({
             display: "flex",
             alignItems: "center",
@@ -1262,11 +1645,20 @@ export const Sidebar = () => {
             size={18}
             color={location.pathname === "/settings" ? "#60a5fa" : "#94a3b8"}
           />
+=======
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg no-underline text-[13.5px] transition-all duration-150 ${isActive ? 'text-white bg-blue-600/20 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-medium'
+            }`
+          }
+        >
+          <Settings size={18} className={location.pathname === '/settings' ? 'text-blue-400' : 'text-slate-400'} />
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
           {!collapsed && <span>Settings</span>}
         </NavLink>
       </div>
 
       {/* Sidebar Footer & Collapse Toggle */}
+<<<<<<< HEAD
       <div
         style={{
           padding: collapsed ? "12px 8px" : "14px 18px",
@@ -1294,6 +1686,14 @@ export const Sidebar = () => {
             margin: collapsed ? "0 auto" : "0",
           }}
           title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+=======
+      <div className={`border-t border-white/6 flex items-center justify-between text-xs text-slate-500 ${collapsed ? 'py-3 px-2' : 'py-3.5 px-4.5'}`}>
+        {!collapsed && <span>v1.0.0</span>}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className={`bg-transparent border-0 text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-center p-1 rounded transition-colors ${collapsed ? 'mx-auto' : ''}`}
+          title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

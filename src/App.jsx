@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // Shared Providers & Layout
 import { ToastProvider } from './shared/context/ToastContext';
+import { ConfirmProvider } from './shared/context/ConfirmContext';
 import { AuthProvider } from './shared/context/AuthContext';
 import { TimerProvider } from './shared/context/TimerContext';
 import { Layout } from './shared/components/layout/Layout';
@@ -39,38 +40,17 @@ import { PayrollPage } from './modules/finance/pages/PayrollPage';
 import { DocumentationPage } from './modules/hr/pages/DocumentationPage';
 import { SettingsPage } from './modules/settings/pages/SettingsPage';
 
-/**
- * ModulePlaceholder — Shown for future modules
- */
-const ModulePlaceholder = ({ title }) => (
-  <div style={{
-    background: '#ffffff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '48px 24px',
-    textAlign: 'center',
-    maxWidth: '600px',
-    margin: '40px auto'
-  }}>
-    <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚙️</div>
-    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>
-      {title} Module
-    </h2>
-    <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: '1.6' }}>
-      All Core Modules (Dashboard, Leads, Work, HR, Finance/Expenses, Tickets, Events, Messages, and Notice Board) are fully operational.
-    </p>
-  </div>
-);
 
 export function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <AuthProvider>
-          <HRProvider>
-            <TimerProvider>
-              <WorkProvider>
-                <CRMProvider>
+        <ConfirmProvider>
+          <AuthProvider>
+            <HRProvider>
+              <TimerProvider>
+                <WorkProvider>
+                  <CRMProvider>
                   <BrowserRouter>
                     <Routes>
                       {/* ── Public Auth Routes ── */}
@@ -140,7 +120,8 @@ export function App() {
           </TimerProvider>
         </HRProvider>
       </AuthProvider>
-    </ToastProvider>
+    </ConfirmProvider>
+  </ToastProvider>
   </ErrorBoundary>
 );
 }

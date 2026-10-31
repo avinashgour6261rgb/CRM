@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Holiday = require('../models/Holiday');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
@@ -31,7 +32,14 @@ const getHolidays = asyncHandler(async (req, res) => {
 // @desc    Get single holiday
 // @route   GET /api/holidays/:id
 const getHolidayById = asyncHandler(async (req, res) => {
-  const holiday = await Holiday.findById(req.params.id);
+  let holiday = null;
+  if (mongoose.isValidObjectId(req.params.id)) {
+    holiday = await Holiday.findById(req.params.id);
+  }
+  if (!holiday) {
+    holiday = await Holiday.findOne({ $or: [{ code: req.params.id }, { date: req.params.id }] });
+  }
+
   if (!holiday) {
     return res.status(404).json({ success: false, message: 'Holiday not found' });
   }
@@ -41,7 +49,14 @@ const getHolidayById = asyncHandler(async (req, res) => {
 // @desc    Create new holiday
 // @route   POST /api/holidays
 const createHoliday = asyncHandler(async (req, res) => {
-  const holiday = new Holiday(req.body);
+  // If exists on same date, update it
+  let holiday = await Holiday.findOne({ date: req.body.date });
+  if (holiday) {
+    holiday = await Holiday.findOneAndUpdate({ date: req.body.date }, req.body, { new: true });
+    return res.json({ success: true, data: holiday });
+  }
+
+  holiday = new Holiday(req.body);
   await holiday.save();
   res.status(201).json({ success: true, data: holiday });
 });
@@ -49,11 +64,13 @@ const createHoliday = asyncHandler(async (req, res) => {
 // @desc    Update holiday
 // @route   PUT /api/holidays/:id
 const updateHoliday = asyncHandler(async (req, res) => {
-  const holiday = await Holiday.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true, runValidators: true }
-  );
+  let holiday = null;
+  if (mongoose.isValidObjectId(req.params.id)) {
+    holiday = await Holiday.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  } else {
+    holiday = await Holiday.findOneAndUpdate({ $or: [{ code: req.params.id }, { date: req.params.id }] }, req.body, { new: true, runValidators: true });
+  }
+
   if (!holiday) {
     return res.status(404).json({ success: false, message: 'Holiday not found' });
   }
@@ -63,9 +80,17 @@ const updateHoliday = asyncHandler(async (req, res) => {
 // @desc    Delete holiday
 // @route   DELETE /api/holidays/:id
 const deleteHoliday = asyncHandler(async (req, res) => {
-  const holiday = await Holiday.findByIdAndDelete(req.params.id);
+  let holiday = null;
+  if (mongoose.isValidObjectId(req.params.id)) {
+    holiday = await Holiday.findByIdAndDelete(req.params.id);
+  }
   if (!holiday) {
-    return res.status(404).json({ success: false, message: 'Holiday not found' });
+    holiday = await Holiday.findOneAndDelete({ $or: [{ code: req.params.id }, { date: req.params.id }] });
+  }
+
+  if (!holiday) {
+    // If not found in DB, return success true so frontend can cleanly remove from local cache
+    return res.json({ success: true, message: 'Holiday not found or already removed', data: {} });
   }
   res.json({ success: true, message: 'Holiday removed', data: {} });
 });
@@ -77,4 +102,3 @@ module.exports = {
   updateHoliday,
   deleteHoliday
 };
-

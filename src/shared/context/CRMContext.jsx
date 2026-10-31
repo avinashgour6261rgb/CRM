@@ -7,9 +7,17 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { getCollection, saveCollection, KEYS } from '../services/storageService';
 import { useToast } from './ToastContext';
+import { useAuth } from './AuthContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
 import { API_BASE } from '../config/apiConfig';
+
+import { calculateComputedBirthdays, calculateComputedAnniversaries } from '../../modules/crm/utils/celebrationUtils';
+import {
+  isConversationVisibleToUser,
+  getUnreadCountForUser,
+  playChatNotificationSound
+} from '../../modules/crm/utils/chatPrivacyUtils';
 
 const DEFAULT_WEEKLY_TIMELOGS = [
   { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
@@ -25,7 +33,22 @@ const CRMContext = createContext();
 
 export const CRMProvider = ({ children }) => {
   const { addToast } = useToast();
-  const { currentUser, updateEmployee, employees } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { currentUser: hrUser, updateEmployee, employees } = useHR();
+
+  // Resolve canonical user profile across Auth and HR contexts
+  const currentUser = useMemo(() => {
+    const base = authUser || hrUser;
+    if (!base) return null;
+    const localEmps = getCollection(KEYS.EMPLOYEES) || employees || [];
+    const matched = localEmps.find(e =>
+      (base._id && (String(e._id) === String(base._id) || String(e.id) === String(base._id))) ||
+      (base.id && (String(e._id) === String(base.id) || String(e.id) === String(base.id))) ||
+      (base.employeeCode && (String(e.employeeCode).toUpperCase() === String(base.employeeCode).toUpperCase())) ||
+      (base.email && e.email && String(e.email).toLowerCase() === String(base.email).toLowerCase())
+    );
+    return matched ? { ...base, ...matched } : base;
+  }, [authUser, hrUser, employees]);
 
   // Helper to normalize event objects so undefined values never leak to UI
   const normalizeEvent = (e) => ({
@@ -47,18 +70,198 @@ export const CRMProvider = ({ children }) => {
     ...e
   });
 
+  // Default company and department channels for chat
+  const DEFAULT_ENTERPRISE_CHANNELS = [
+    {
+      id: 'channel_general',
+      type: 'channel',
+      name: 'General',
+      channelName: '#general',
+      description: 'Company-wide open discussion, daily greetings, and team collaboration',
+      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120',
+      members: ['all'],
+      isOnline: true,
+      lastMessage: 'Welcome to Inforag Technology official workspace chat!',
+      lastMessageTime: '09:00 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_gen_init',
+          conversationId: 'channel_general',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '👋 Welcome everyone to the Inforag Technology company chat! Feel free to collaborate, share project updates, photos, videos, documents, and connect with teammates.',
+          attachments: [],
+          timestamp: '09:00 AM',
+          createdAt: 1730000000000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_it_dev',
+      type: 'channel',
+      name: 'IT & Software Development',
+      channelName: '#it-software-development',
+      description: 'Code architecture, sprint deliverables, bug fixes & tech stack updates',
+      avatar: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=120',
+      members: ['all_it'],
+      isOnline: true,
+      lastMessage: 'All sprint environments are live and operational.',
+      lastMessageTime: '09:15 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_it_init',
+          conversationId: 'channel_it_dev',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '💻 IT & Software Development channel is active. Share code files, pull request reviews, architecture diagrams, and testing logs here.',
+          attachments: [],
+          timestamp: '09:15 AM',
+          createdAt: 1730000100000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_marketing',
+      type: 'channel',
+      name: 'Digital Marketing & Growth',
+      channelName: '#digital-marketing',
+      description: 'Campaigns, SEO, PPC Ads, SMM, copywriting and creative design discussions',
+      avatar: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=120',
+      members: ['all_marketing'],
+      isOnline: true,
+      lastMessage: 'Weekly campaign creatives and review assets.',
+      lastMessageTime: '09:30 AM',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_mkt_init',
+          conversationId: 'channel_marketing',
+          senderId: 'ADM-001',
+          senderName: 'Inforag Admin',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Administrator',
+          text: '🚀 Digital Marketing hub is ready! Share campaign creatives, Google & Meta Ads performance reports, SEO audit sheets, and copy decks.',
+          attachments: [],
+          timestamp: '09:30 AM',
+          createdAt: 1730000200000,
+          readBy: ['ADM-001']
+        }
+      ]
+    },
+    {
+      id: 'channel_announcements',
+      type: 'channel',
+      name: 'Company Announcements',
+      channelName: '#announcements',
+      description: 'Official corporate notices, policy updates, and executive announcements',
+      avatar: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=120',
+      members: ['all'],
+      isOnline: true,
+      lastMessage: 'Official guidelines and company updates.',
+      lastMessageTime: 'Yesterday',
+      unreadCount: 0,
+      messages: [
+        {
+          id: 'msg_ann_init',
+          conversationId: 'channel_announcements',
+          senderId: 'ADM-001',
+          senderName: 'HR & Executive Team',
+          senderAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120',
+          senderRole: 'Executive',
+          text: '📢 This channel is reserved for official Inforag Technology company-wide announcements, policy rollouts, and holiday reminders.',
+          attachments: [],
+          timestamp: 'Yesterday',
+          createdAt: 1729900000000,
+          readBy: ['ADM-001']
+        }
+      ]
+    }
+  ];
+
+  const ensureDefaultChannels = (storedConvs = []) => {
+    let convs = Array.isArray(storedConvs) ? [...storedConvs] : [];
+    let changed = false;
+    DEFAULT_ENTERPRISE_CHANNELS.forEach(defaultCh => {
+      const exists = convs.some(c => c.id === defaultCh.id || c.channelName === defaultCh.channelName);
+      if (!exists) {
+        convs.unshift(defaultCh);
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveCollection(KEYS.CONVERSATIONS, convs);
+    }
+    return convs;
+  };
+
   // Core Storage States
   const [expenses, setExpenses] = useState(() => getCollection(KEYS.EXPENSES));
   const [tickets, setTickets] = useState(() => getCollection(KEYS.TICKETS));
   const [notices, setNotices] = useState(() => getCollection(KEYS.NOTICES));
   const [events, setEvents] = useState(() => (getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
-  const [conversations, setConversations] = useState(() => getCollection(KEYS.CONVERSATIONS));
-  const [activeConversationId, setActiveConversationId] = useState('conv_1');
+  const [conversations, setConversations] = useState(() => ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+  const [activeConversationId, setActiveConversationIdState] = useState(() => {
+    try {
+      return localStorage.getItem('ems_active_chat_conv_id') || 'channel_general';
+    } catch {
+      return 'channel_general';
+    }
+  });
+
+  const setActiveConversationId = (id) => {
+    if (!id) return;
+    setActiveConversationIdState(id);
+    try {
+      localStorage.setItem('ems_active_chat_conv_id', id);
+    } catch (_) {}
+  };
+
+  // Strict Scoped Conversations & Global Unread Badges
+  const visibleConversations = useMemo(() => {
+    if (!currentUser) return conversations || [];
+    return (conversations || []).filter(c => isConversationVisibleToUser(c, currentUser));
+  }, [conversations, currentUser]);
+
+  const totalUnreadMessagesCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return visibleConversations.reduce((sum, conv) => {
+      return sum + getUnreadCountForUser(conv, currentUser);
+    }, 0);
+  }, [visibleConversations, currentUser]);
+
+  // Audio chime notification for incoming chat messages
+  useEffect(() => {
+    const handleChatMessage = (e) => {
+      const { message } = e.detail || {};
+      if (!message || !currentUser) return;
+      const myId = String(currentUser._id || '').toLowerCase();
+      const myCode = String(currentUser.employeeCode || '').toLowerCase();
+      const myEmail = String(currentUser.email || '').toLowerCase();
+
+      const senderId = String(message.senderId || '').toLowerCase();
+      const senderCode = String(message.senderCode || '').toLowerCase();
+      const senderEmail = String(message.senderEmail || '').toLowerCase();
+
+      const isFromMe = (myId && senderId === myId) || (myCode && senderCode === myCode) || (myEmail && senderEmail === myEmail);
+      if (!isFromMe) {
+        playChatNotificationSound();
+      }
+    };
+    window.addEventListener('ems_chat_message_sent', handleChatMessage);
+    return () => window.removeEventListener('ems_chat_message_sent', handleChatMessage);
+  }, [currentUser]);
   const [wfhEmployees, setWfhEmployees] = useState(() => getCollection(KEYS.WFH));
   const [storedWeeklyTimeLogs, setStoredWeeklyTimeLogs] = useState(() => getCollection(KEYS.WEEKLY_TIMELOGS));
   const [leads, setLeads] = useState(() => getCollection(KEYS.LEADS));
   const [emergencyContacts, setEmergencyContacts] = useState(() => getCollection(KEYS.EMERGENCY_CONTACTS));
-  const [stickyNotes, setStickyNotes] = useState(() => getCollection(KEYS.STICKY_NOTES));
   const [userSettings, setUserSettings] = useState(() => {
     const saved = localStorage.getItem(KEYS.USER_SETTINGS);
     if (saved) {
@@ -68,16 +271,16 @@ export const CRMProvider = ({ children }) => {
       salutation: 'Mr.',
       emailNotifications: 'enable',
       googleCalendar: 'yes',
-      country: 'Afghanistan',
-      countryCode: '+93',
-      mobile: '9876543210',
+      country: 'India',
+      countryCode: '+91',
+      mobile: '',
       language: 'English',
       gender: 'Male',
-      dob: '1998-10-15',
+      dob: '',
       slackId: '',
       maritalStatus: 'Single',
-      address: '132, My Street, Kingston, New York 12401',
-      about: 'Passionate product & growth lead optimizing CRM and enterprise systems.',
+      address: '',
+      about: '',
       twoFactorEmail: false,
       twoFactorAuth: false
     };
@@ -95,20 +298,21 @@ export const CRMProvider = ({ children }) => {
   });
 
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('ems_dark_mode') === 'true';
+    return localStorage.getItem('ems_dark_mode') === 'true' || localStorage.getItem('ems_theme') === 'dark';
   });
 
   useEffect(() => {
     localStorage.setItem('ems_dark_mode', darkMode.toString());
+    localStorage.setItem('ems_theme', darkMode ? 'dark' : 'light');
     if (darkMode) {
-      document.documentElement.classList.add('dark-mode');
+      document.documentElement.classList.add('dark-mode', 'dark');
       document.documentElement.setAttribute('data-theme', 'dark');
-      document.body.classList.add('dark-mode');
+      document.body.classList.add('dark-mode', 'dark');
       document.body.setAttribute('data-theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark-mode');
+      document.documentElement.classList.remove('dark-mode', 'dark');
       document.documentElement.removeAttribute('data-theme');
-      document.body.classList.remove('dark-mode');
+      document.body.classList.remove('dark-mode', 'dark');
       document.body.removeAttribute('data-theme');
     }
   }, [darkMode]);
@@ -119,6 +323,22 @@ export const CRMProvider = ({ children }) => {
       addToast(next ? 'Dark Mode Enabled 🌙' : 'Light Mode Enabled ☀️', 'info');
       return next;
     });
+  };
+
+  const getAuthHeaders = () => {
+    try {
+      const s = localStorage.getItem('ems_auth_session');
+      if (!s) return { 'Content-Type': 'application/json' };
+      const parsed = JSON.parse(s);
+      const u = parsed?.user || parsed;
+      return {
+        'Content-Type': 'application/json',
+        'x-user-id': String(u?._id || u?.id || u?.employeeCode || ''),
+        'x-user-role': String(u?.systemRole || (u?.isAdmin ? 'admin' : (u?.department === 'Human Resources' ? 'hr' : 'team_member')))
+      };
+    } catch {
+      return { 'Content-Type': 'application/json' };
+    }
   };
 
   const [storageTick, setStorageTick] = useState(0);
@@ -135,14 +355,113 @@ export const CRMProvider = ({ children }) => {
     setStoredWeeklyTimeLogs(getCollection(KEYS.WEEKLY_TIMELOGS));
     setLeads(getCollection(KEYS.LEADS));
     setEmergencyContacts(getCollection(KEYS.EMERGENCY_CONTACTS));
-    setStickyNotes(getCollection(KEYS.STICKY_NOTES));
     setStorageTick(prev => prev + 1);
   };
+
+  // Synchronize tickets with MongoDB backend
+  const loadTickets = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/tickets`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteTickets = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteTickets)) {
+          const local = getCollection(KEYS.TICKETS) || [];
+          const ticketMap = new Map();
+
+          remoteTickets.forEach(t => {
+            const key = String(t._id || t.ticketCode);
+            ticketMap.set(key, t);
+          });
+
+          local.forEach(t => {
+            const key = String(t._id || t.ticketCode);
+            if (!ticketMap.has(key)) {
+              ticketMap.set(key, t);
+            } else {
+              const remote = ticketMap.get(key);
+              if ((t.replies?.length || 0) > (remote.replies?.length || 0)) {
+                ticketMap.set(key, { ...remote, replies: t.replies });
+              }
+            }
+          });
+
+          const merged = Array.from(ticketMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          saveCollection(KEYS.TICKETS, merged);
+          setTickets(merged);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for tickets:', err);
+    }
+    setTickets(getCollection(KEYS.TICKETS) || []);
+  };
+
+  // Synchronize conversations with MongoDB backend database
+  const loadConversations = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/conversations`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteConvs = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteConvs) && remoteConvs.length > 0) {
+          const local = getCollection(KEYS.CONVERSATIONS) || [];
+          const map = new Map();
+
+          // Index remote channels & conversations from database
+          remoteConvs.forEach(c => map.set(c.id, c));
+
+          // Check local for any messages or conversations that haven't synced yet
+          let hasUnsynced = false;
+          local.forEach(c => {
+            if (!map.has(c.id)) {
+              map.set(c.id, c);
+              hasUnsynced = true;
+            } else {
+              const remote = map.get(c.id);
+              const remoteMsgCount = remote.messages?.length || 0;
+              const localMsgCount = c.messages?.length || 0;
+              if (localMsgCount > remoteMsgCount) {
+                map.set(c.id, { ...remote, ...c });
+                hasUnsynced = true;
+              }
+            }
+          });
+
+          const merged = Array.from(map.values());
+          saveCollection(KEYS.CONVERSATIONS, merged);
+          setConversations(merged);
+
+          if (hasUnsynced) {
+            fetch(`${API_BASE}/conversations/sync-batch`, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({ conversations: merged })
+            }).catch(() => {});
+          }
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for conversations:', err);
+    }
+    setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+  };
+
+  useEffect(() => {
+    loadTickets();
+    loadConversations();
+  }, [currentUser]);
 
   useEffect(() => {
     const handleStorageUpdate = (e) => {
       // FIX: Use 'hrms_attendance' (not 'ems_attendance') to match TimerContext dispatch key
-      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_sticky_notes', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
+      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
         syncWithStorage();
       }
     };
@@ -192,197 +511,10 @@ export const CRMProvider = ({ children }) => {
   }, []);
 
   // =========================================================================
-  // 🎂 AUTOMATIC BIRTHDAY ENGINE (Calculates directly from Employee DOB)
+  // 🎂 AUTOMATIC BIRTHDAY & ANNIVERSARY ENGINE (Pure Calculation Helper)
   // =========================================================================
-  const computedBirthdays = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    return employees
-      .filter(emp => emp.dob || emp.birthdayDate)
-      .map(emp => {
-        let birthMonth = 9; // 0-indexed default
-        let birthDay = 15;
-        let dobStr = emp.dob;
-
-        if (dobStr) {
-          // Parse YYYY-MM-DD or DD-MM-YYYY
-          const parts = dobStr.split(/[-/]/);
-          if (parts.length === 3) {
-            if (parts[0].length === 4) {
-              // YYYY-MM-DD
-              birthMonth = parseInt(parts[1], 10) - 1;
-              birthDay = parseInt(parts[2], 10);
-            } else {
-              // DD-MM-YYYY
-              birthDay = parseInt(parts[0], 10);
-              birthMonth = parseInt(parts[1], 10) - 1;
-            }
-          }
-        }
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-        const birthdayThisYear = new Date(currentYear, birthMonth, birthDay);
-        const birthdayFormattedDate = `${birthDay.toString().padStart(2, '0')} ${monthNames[birthMonth]}`;
-        const birthdayEventDate = `${currentYear}-${(birthMonth + 1).toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`;
-
-        // Calculate days remaining
-        const diffTime = birthdayThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        let targetEventDate = birthdayEventDate;
-
-        if (diffDays < 0) {
-          // If already occurred this calendar year, roll to next year's birthday
-          const nextYearBday = new Date(currentYear + 1, birthMonth, birthDay);
-          diffDays = Math.ceil((nextYearBday.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-          targetEventDate = `${currentYear + 1}-${(birthMonth + 1).toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`;
-        }
-
-        // 🌟 Strict Rule: Only display birthdays within 1 month (<= 30 days). If > 30 days, do NOT show!
-        if (diffDays < 0 || diffDays > 30) {
-          return null;
-        }
-
-        let daysRemainingText = '';
-        if (diffDays === 0) {
-          daysRemainingText = "Today! 🎉 Happy Birthday!";
-        } else if (diffDays === 1) {
-          daysRemainingText = 'Tomorrow 🎂';
-        } else {
-          daysRemainingText = `In ${diffDays} days`;
-        }
-
-        return {
-          _id: `bday_auto_${emp._id}`,
-          employeeId: emp._id,
-          name: emp.name,
-          role: emp.role,
-          department: emp.department,
-          avatar: emp.avatar,
-          dob: emp.dob,
-          birthdayDate: birthdayFormattedDate,
-          eventDate: targetEventDate,
-          daysRemainingText,
-          diffDays,
-          isUpcoming30Days: true,
-          isToday: diffDays === 0,
-          fullMonth: fullMonthNames[birthMonth],
-          dayOfMonth: birthDay
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.diffDays - b.diffDays);
-  }, [employees]);
-
-  // =========================================================================
-  // 💼 AUTOMATIC WORK ANNIVERSARY ENGINE (Calculates directly from Employee joiningDate)
-  // =========================================================================
-  const computedAnniversaries = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    return employees
-      .filter(emp => emp && (emp.joiningDate || emp.joinDate))
-      .map(emp => {
-        let joinMonth = -1;
-        let joinDay = 1;
-        let joinYear = currentYear;
-        const joinStr = emp.joiningDate || emp.joinDate;
-
-        if (joinStr) {
-          const parts = String(joinStr).split(/[-/]/);
-          if (parts.length === 3) {
-            if (parts[0].length === 4) {
-              // YYYY-MM-DD
-              joinYear = parseInt(parts[0], 10);
-              joinMonth = parseInt(parts[1], 10) - 1;
-              joinDay = parseInt(parts[2], 10);
-            } else {
-              // DD-MM-YYYY
-              joinDay = parseInt(parts[0], 10);
-              joinMonth = parseInt(parts[1], 10) - 1;
-              joinYear = parseInt(parts[2], 10);
-            }
-          }
-        }
-
-        // 🌟 Strict Rule: Employees joined this year (e.g. 2026) or with 0 years have NO anniversary!
-        const serviceYears = currentYear - joinYear;
-        if (serviceYears < 1 || isNaN(serviceYears) || joinMonth < 0 || isNaN(joinMonth)) {
-          return null;
-        }
-
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-        const getOrdinal = (n) => {
-          const s = ['th', 'st', 'nd', 'rd'];
-          const v = n % 100;
-          return n + (s[(v - 20) % 10] || s[v] || s[0]);
-        };
-        const serviceYearsText = getOrdinal(serviceYears);
-
-        const annivThisYear = new Date(currentYear, joinMonth, joinDay);
-        const annivFormattedDate = `${joinDay.toString().padStart(2, '0')} ${monthNames[joinMonth]}`;
-        const annivEventDate = `${currentYear}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
-
-        const diffTime = annivThisYear.getTime() - today.setHours(0, 0, 0, 0);
-        let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        let targetEventDate = annivEventDate;
-        let milestoneYears = serviceYears;
-
-        if (diffDays < 0) {
-          // If already celebrated this calendar year, roll to upcoming milestone next year
-          const nextYearAnniv = new Date(currentYear + 1, joinMonth, joinDay);
-          diffDays = Math.ceil((nextYearAnniv.getTime() - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
-          targetEventDate = `${currentYear + 1}-${(joinMonth + 1).toString().padStart(2, '0')}-${joinDay.toString().padStart(2, '0')}`;
-          milestoneYears = serviceYears + 1;
-        }
-
-        const milestoneYearsText = getOrdinal(milestoneYears);
-
-        // 🌟 Strict Rule: Only display work anniversaries within 1 month (<= 30 days). If > 30 days, do NOT show!
-        if (diffDays < 0 || diffDays > 30) {
-          return null;
-        }
-
-        let daysRemainingText = '';
-        if (diffDays === 0) {
-          daysRemainingText = `Today! 🌟 ${serviceYearsText} Work Anniversary!`;
-        } else if (diffDays === 1) {
-          daysRemainingText = `Tomorrow 💼 (${milestoneYearsText} Anniversary)`;
-        } else {
-          daysRemainingText = `In ${diffDays} days (${milestoneYearsText} Anniversary)`;
-        }
-
-        return {
-          _id: `anniv_auto_${emp._id}`,
-          employeeId: emp._id,
-          name: emp.name,
-          role: emp.role,
-          department: emp.department,
-          avatar: emp.avatar,
-          joiningDate: joinStr,
-          serviceYears: milestoneYears,
-          serviceYearsText: milestoneYearsText,
-          anniversaryDate: annivFormattedDate,
-          annivFormattedDate: annivFormattedDate,
-          eventDate: targetEventDate,
-          daysRemainingText,
-          diffDays,
-          isUpcoming30Days: true,
-          isToday: diffDays === 0,
-          fullMonth: fullMonthNames[joinMonth],
-          dayOfMonth: joinDay
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => a.diffDays - b.diffDays);
-  }, [employees]);
+  const computedBirthdays = useMemo(() => calculateComputedBirthdays(employees), [employees]);
+  const computedAnniversaries = useMemo(() => calculateComputedAnniversaries(employees, companySettings), [employees, companySettings]);
 
   // =========================================================================
   // ⏱️ DYNAMIC WEEKLY TIME LOGS & TASK ACTIVITY ENGINE (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
@@ -453,21 +585,33 @@ export const CRMProvider = ({ children }) => {
       }
 
       // Find matching timesheet logs for this date strictly scoped to authenticated user
-      const matchingTimesheets = timesheets.filter(t => {
-        if (t.date !== dateStr) return false;
+      const rawMatchingTimesheets = timesheets.filter(t => {
+        if (t.date !== dateStr && !t.createdAt?.startsWith(dateStr)) return false;
         if (!currentUser) return true;
-        const cId = currentUser._id ? String(currentUser._id) : null;
-        const cCode = currentUser.employeeCode ? String(currentUser.employeeCode) : null;
+        const cId = currentUser._id ? String(currentUser._id).toLowerCase() : null;
+        const cCode = currentUser.employeeCode ? String(currentUser.employeeCode).toLowerCase() : null;
         const cName = currentUser.name ? currentUser.name.toLowerCase().trim() : null;
 
-        const tEmpId = t.employeeId ? String(t.employeeId) : (t.employee ? String(t.employee) : null);
+        const tEmpId = t.employeeId ? String(t.employeeId).toLowerCase() : (t.employee ? String(t.employee._id || t.employee).toLowerCase() : null);
+        const tEmpCode = t.employeeCode ? String(t.employeeCode).toLowerCase() : null;
         const tEmpName = t.employeeName ? t.employeeName.toLowerCase().trim() : null;
 
-        if (cId && tEmpId === cId) return true;
-        if (cCode && (tEmpId === cCode || t.employeeCode === cCode)) return true;
+        if (cId && (tEmpId === cId || String(t.employee) === cId)) return true;
+        if (cCode && (tEmpId === cCode || tEmpCode === cCode)) return true;
         if (cName && tEmpName && (tEmpName === cName || tEmpName.includes(cName) || cName.includes(tEmpName))) return true;
         return false;
       });
+
+      // Deduplicate by task to prevent double-counting multiple auto-saves on the same day
+      const crmTaskMap = new Map();
+      rawMatchingTimesheets.forEach(ts => {
+        const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+        const dur = Number(ts.totalDurationSeconds) || 0;
+        if (!crmTaskMap.has(key) || dur > (Number(crmTaskMap.get(key).totalDurationSeconds) || 0)) {
+          crmTaskMap.set(key, ts);
+        }
+      });
+      const matchingTimesheets = Array.from(crmTaskMap.values());
       let timesheetTaskSeconds = matchingTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
       const allTasks = getCollection(KEYS.TASKS) || [];
@@ -516,13 +660,21 @@ export const CRMProvider = ({ children }) => {
       let dayTotalTaskSeconds = timesheetTaskSeconds;
       let activeTimerTask = null;
       let liveActiveTimerSecs = 0;
+      let dayTasks = [];
+      // Also find any tasks completed on this date that aren't already captured in timesheets
+      const matchingCompletedTasks = allTasks.filter(t => {
+        if (!isTaskForMe(t)) return false;
+        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+        const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id || ts.taskCode === t.taskCode);
+        return isCompletedOnDate && !alreadyInTimesheets;
+      });
 
       if (isCurrentDay) {
         const rawLogin = localStorage.getItem(`ems_timer_${userKey}_login_time`);
         const rawLogout = localStorage.getItem(`ems_timer_${userKey}_clockout_time`);
         const todayAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
-        dayLoginTime = rawLogin || todayAttRec?.clockInTime || todayAttRec?.clockIn || (isClockedInToday ? `${shiftStart} (Active)` : `${shiftStart} (Scheduled)`);
-        dayLogoutTime = rawLogout || todayAttRec?.clockOutTime || todayAttRec?.clockOut || (isClockedInToday ? 'Active / In Progress' : (hadClockedOutToday ? shiftEnd : `${shiftEnd} (Scheduled)`));
+        dayLoginTime = rawLogin || todayAttRec?.clockInTime || todayAttRec?.clockIn || (isClockedInToday ? 'Active' : '--');
+        dayLogoutTime = rawLogout || todayAttRec?.clockOutTime || todayAttRec?.clockOut || (isClockedInToday ? 'Active / In Progress' : (hadClockedOutToday ? (rawLogout || '--') : '--'));
         dayClockIns = isClockedInToday || hadClockedOutToday ? 1 : 0;
         dayClockOuts = hadClockedOutToday ? 1 : 0;
 
@@ -539,55 +691,118 @@ export const CRMProvider = ({ children }) => {
           activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || localStorage.getItem('ems_active_task_timer') || 'null');
         } catch (e) {}
 
-        if (activeTimer && activeTimer.date === dateStr) {
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
+
+        if (activeTimer && activeTimer.date === dateStr && (isClockedInToday || hadClockedOutToday)) {
           const nowMs = Date.now();
-          const runningElapsed = activeTimer.timerRunning && activeTimer.startedAt
-            ? Math.floor((nowMs - activeTimer.startedAt) / 1000)
+          const isStartedToday = activeTimer.startedAt && Number(activeTimer.startedAt) >= todayMidnightMs;
+          const runningElapsed = activeTimer.timerRunning && isStartedToday
+            ? Math.max(0, Math.floor((nowMs - Number(activeTimer.startedAt)) / 1000))
             : 0;
-          liveActiveTimerSecs = (Number(activeTimer.accumulatedSeconds) || 0) + runningElapsed;
+          const liveActiveTimerSecs = (Number(activeTimer.accumulatedSeconds) || 0) + runningElapsed;
           activeTimerTask = activeTimer;
-          // Add active timer if not already logged into matchingTimesheets
-          const alreadyLogged = matchingTimesheets.some(ts => ts.taskId === activeTimer.taskId);
-          if (!alreadyLogged) {
-            dayTotalTaskSeconds += liveActiveTimerSecs;
-          }
+
+          const timesheetsForThisTask = matchingTimesheets
+            .filter(ts => String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode))
+            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+          const otherDaysLogged = (timesheets || [])
+            .filter(ts => (String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode)) && ts.date !== dateStr)
+            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+          const dayPortion = Math.max(0, liveActiveTimerSecs - otherDaysLogged);
+          const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
+          dayTotalTaskSeconds += unsubmitted;
         }
 
-        // 2. Check any other paused tasks worked today that haven't been stopped into timesheets yet
+        // 2. Check any other paused or worked tasks today (strictly tasks worked today!)
+        if (isClockedInToday || hadClockedOutToday) {
+          allTasks.forEach(t => {
+            if (!isTaskForMe(t)) return;
+            const tId = String(t._id || t.id);
+            if (activeTimerTask && (String(activeTimerTask.taskId) === tId || String(activeTimerTask._id) === tId)) return;
+
+            // Strict guard: Skip tasks completed on other days
+            const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+            if (t.status === 'completed' && !isCompletedToday) return;
+
+            // Only consider tasks explicitly worked/paused on this date or completed today
+            const isWorkedToday = (t.sessionDate === dateStr && !t.completedAt) || isCompletedToday;
+            if (!isWorkedToday) return;
+
+            const timesheetsForThisTask = matchingTimesheets
+              .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
+              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+            const otherDaysLogged = (timesheets || [])
+              .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== dateStr)
+              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+            const taskSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+            const dayPortion = Math.max(0, taskSecs - otherDaysLogged);
+            const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
+            dayTotalTaskSeconds += unsubmitted;
+          });
+        }
+      } else {
+        const completedTaskSeconds = matchingCompletedTasks.reduce((acc, curr) => {
+          const secs = Number(curr.timerSeconds) > 0
+            ? Number(curr.timerSeconds)
+            : (Number(curr.durationSeconds) > 0
+                ? Number(curr.durationSeconds)
+                : (Number(curr.hoursLogged) > 0 ? Math.round(Number(curr.hoursLogged) * 3600) : 0));
+          return acc + secs;
+        }, 0);
+
+        dayTotalTaskSeconds += completedTaskSeconds;
+
+        // Also check any tasks worked on this past date that were not marked completed
         allTasks.forEach(t => {
           if (!isTaskForMe(t)) return;
-          if (activeTimerTask && activeTimerTask.taskId === t._id) return;
-          const alreadyLogged = matchingTimesheets.some(ts => ts.taskId === t._id);
-          const secs = Number(t.timerSeconds) || 0;
-          if (!alreadyLogged && secs > 0) {
+          const tId = String(t._id || t.id);
+          const isWorkedOnDate = t.sessionDate === dateStr;
+          if (!isWorkedOnDate) return;
+
+          const alreadyInTimesheets = matchingTimesheets.some(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode));
+          const alreadyInCompleted = matchingCompletedTasks.some(ct => String(ct._id || ct.id) === tId);
+          if (alreadyInTimesheets || alreadyInCompleted) return;
+
+          const secs = Number(t.timerSeconds) > 0
+            ? Number(t.timerSeconds)
+            : (Number(t.accumulatedSeconds) > 0
+                ? Number(t.accumulatedSeconds)
+                : (Number(t.hoursLogged) > 0 ? Math.round(Number(t.hoursLogged) * 3600) : 0));
+          if (secs > 0) {
             dayTotalTaskSeconds += secs;
+            const estH = t.estimatedHours || 3;
+            const loggedH = secs / 3600;
+            const isOver = loggedH > estH;
+            dayTasks.push({
+              taskId: t._id,
+              taskCode: t.taskCode || 'TSK',
+              taskTitle: t.title || 'Worked Task',
+              projectName: t.projectName || 'General Work',
+              durationText: `${Math.floor(secs / 3600)}h ${String(Math.floor((secs % 3600) / 60)).padStart(2, '0')}m`,
+              durationSeconds: secs,
+              estimatedHours: estH,
+              isOverBudget: isOver,
+              overBudgetHours: isOver ? +(loggedH - estH).toFixed(1) : 0,
+              startTime: shiftStart,
+              endTime: shiftEnd,
+              memo: `Worked on task: ${Math.floor(secs / 60)} mins tracked`,
+              employeeName: t.assignedToName || currentUser?.name || 'Employee',
+              status: t.status || 'in_progress',
+              isCompleted: false
+            });
           }
         });
       }
 
-      // Also find any tasks completed on this date that aren't already captured in timesheets
-      const matchingCompletedTasks = allTasks.filter(t => {
-        if (!isTaskForMe(t)) return false;
-        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
-        const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id || ts.taskCode === t.taskCode);
-        return isCompletedOnDate && !alreadyInTimesheets;
-      });
-
-      const completedTaskSeconds = matchingCompletedTasks.reduce((acc, curr) => {
-        const secs = Number(curr.timerSeconds) > 0
-          ? Number(curr.timerSeconds)
-          : (Number(curr.durationSeconds) > 0
-              ? Number(curr.durationSeconds)
-              : (Number(curr.hoursLogged) > 0 ? Math.round(Number(curr.hoursLogged) * 3600) : 0));
-        return acc + secs;
-      }, 0);
-
-      dayTotalTaskSeconds += completedTaskSeconds;
-
       // Map tasks worked with budget estimate comparison
-      let dayTasks = [];
       if (matchingTimesheets.length > 0) {
-        dayTasks = matchingTimesheets.map(t => {
+        const mappedTimesheets = matchingTimesheets.map(t => {
           const matchedTask = allTasks.find(at => at._id === t.taskId || at.taskCode === t.taskCode);
           const estH = matchedTask?.estimatedHours || 3;
           const loggedH = (t.totalDurationSeconds || 0) / 3600;
@@ -610,6 +825,7 @@ export const CRMProvider = ({ children }) => {
             isCompleted: true
           };
         });
+        dayTasks = [...dayTasks, ...mappedTimesheets];
       }
 
       matchingCompletedTasks.forEach(t => {
@@ -639,14 +855,14 @@ export const CRMProvider = ({ children }) => {
 
       if (isCurrentDay) {
         // Paused tasks worked today that haven't been stopped into timesheets yet
-        const pausedTasks = allTasks.filter(t => {
+        const pausedTasks = (isClockedInToday || hadClockedOutToday) ? allTasks.filter(t => {
           if (!isTaskForMe(t)) return false;
-          if (activeTimerTask && (activeTimerTask.taskId === t._id || activeTimerTask._id === t._id)) return false;
+          if (activeTimerTask && (String(activeTimerTask.taskId) === String(t._id) || String(activeTimerTask._id) === String(t._id))) return false;
           const alreadyInTimesheets = matchingTimesheets.some(ts => ts.taskId === t._id);
           const alreadyInCompleted = matchingCompletedTasks.some(ct => ct._id === t._id);
-          const secs = Number(t.timerSeconds) || 0;
-          return !alreadyInTimesheets && !alreadyInCompleted && secs > 0 && (t.sessionDate === dateStr || t.status === 'in_progress' || t.status === 'on_hold' || t.status === 'incomplete');
-        });
+          const secs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
+          return !alreadyInTimesheets && !alreadyInCompleted && secs > 0 && (t.sessionDate === dateStr || t.timerRunning);
+        }) : [];
 
         pausedTasks.forEach(pt => {
           const secs = Number(pt.timerSeconds) || 0;
@@ -672,6 +888,13 @@ export const CRMProvider = ({ children }) => {
             timerRunning: false
           });
         });
+
+        // Shift work seconds guard: Ensure valid tracking without artificially clamping independent task time
+        const rawShiftWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
+        const isOnBreakToday = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+        if (!isClockedInToday && !isOnBreakToday && !hadClockedOutToday && rawShiftWorkSecs === 0 && matchingTimesheets.length === 0 && !activeTimerTask) {
+          dayTotalTaskSeconds = 0;
+        }
 
         if (dayTotalTaskSeconds > 0) {
           const hrs = Math.floor(dayTotalTaskSeconds / 3600);
@@ -722,14 +945,19 @@ export const CRMProvider = ({ children }) => {
       } else if (isPastDay) {
         // For past working days: Strictly check if employee has actual logged attendance or timesheets
         const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
+        const rawWorkHours = pastAttRec
+          ? (Number(pastAttRec.totalWorkingHours) > 0
+              ? Number(pastAttRec.totalWorkingHours)
+              : (Number(pastAttRec.workSeconds) > 0 ? Number(pastAttRec.workSeconds) / 3600 : 0))
+          : 0;
         const hasRealAttendanceHours = pastAttRec &&
           pastAttRec.status !== 'absent' &&
           pastAttRec.status !== 'on_leave' &&
           pastAttRec.status !== 'day_off' &&
-          Number(pastAttRec.totalWorkingHours) > 0;
+          rawWorkHours > 0;
 
         if (hasRealAttendanceHours) {
-          const workHours = Number(pastAttRec.totalWorkingHours);
+          const workHours = rawWorkHours;
           dayTotalTaskSeconds = Math.round(workHours * 3600);
           const hrs = Math.floor(dayTotalTaskSeconds / 3600);
           const mins = Math.floor((dayTotalTaskSeconds % 3600) / 60);
@@ -929,24 +1157,37 @@ export const CRMProvider = ({ children }) => {
   // 🎫 TICKETS MODULE (Immediate Admin & Employee Synchronization)
   // =========================================================================
   const createTicket = async (ticketData) => {
-    const currentList = getCollection(KEYS.TICKETS);
+    const currentList = getCollection(KEYS.TICKETS) || [];
     const nextNum = currentList.length > 0 ? Math.max(...currentList.map(t => parseInt(t.ticketCode?.replace('TKT-', '') || '1040', 10))) + 1 : 1041;
     const now = new Date();
+
+    const u = currentUser;
+    const reqId = String(u?._id || u?.employeeCode || 'emp_001');
+    const reqName = u?.name || 'Employee';
+    const reqAvatar = u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+    const reqRole = u?.role || 'Team Member';
 
     const newTicket = {
       _id: `tkt_${Date.now()}`,
       ticketCode: `TKT-${nextNum}`,
       subject: ticketData.subject || 'Helpdesk Support Request',
-      category: ticketData.category || 'General Issue',
+      category: ticketData.category || 'General Support',
       priority: ticketData.priority || 'medium',
-      description: ticketData.description || '',
+      description: ticketData.description || 'Support request raised.',
       attachment: ticketData.attachment || '',
       status: 'open',
-      requestedById: currentUser?._id || 'emp_001',
-      requestedByName: currentUser?.name || 'Employee',
-      requestedByAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      department: ticketData.category || 'IT Support',
+      requestedById: reqId,
+      requestedByName: reqName,
+      requestedByAvatar: reqAvatar,
+      requestedByRole: reqRole,
+      createdBy: reqId,
+      createdByName: reqName,
+      createdByAvatar: reqAvatar,
+      createdByRole: reqRole,
       assignedToId: ticketData.assignedToId || 'emp_005',
       assignedToName: ticketData.assignedToName || 'Amit Kumar (Admin / Support)',
+      assignedTo: ticketData.assignedToId || 'emp_005',
       requestedOn: now.toISOString().split('T')[0],
       createdAt: now.toISOString(),
       replies: [],
@@ -955,16 +1196,21 @@ export const CRMProvider = ({ children }) => {
     };
 
     try {
+      const payload = { ...newTicket };
+      delete payload._id;
       const res = await fetch(`${API_BASE}/tickets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTicket)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newTicket._id = json.data._id;
+        if (json.data?._id) newTicket._id = String(json.data._id);
+        if (json.data?.ticketCode) newTicket.ticketCode = json.data.ticketCode;
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('[CRMContext] Ticket offline save:', e);
+    }
 
     currentList.unshift(newTicket);
     saveCollection(KEYS.TICKETS, currentList);
@@ -978,13 +1224,13 @@ export const CRMProvider = ({ children }) => {
     try {
       await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
     } catch (_) {}
 
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       currentList[idx].status = status;
       currentList[idx].updatedAt = new Date().toISOString();
@@ -997,8 +1243,8 @@ export const CRMProvider = ({ children }) => {
 
   const replyToTicket = async (ticketId, messageText) => {
     if (!messageText.trim()) return;
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       const isUserAdmin = currentUser?.role?.toLowerCase().includes('lead') || currentUser?.role?.toLowerCase().includes('director') || currentUser?.role?.toLowerCase().includes('manager') || currentUser?.role?.toLowerCase().includes('admin');
       const newReply = {
@@ -1014,18 +1260,19 @@ export const CRMProvider = ({ children }) => {
       try {
         await fetch(`${API_BASE}/tickets/${ticketId}/comments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             authorName: newReply.senderName,
             authorAvatar: newReply.senderAvatar,
             authorRole: isUserAdmin ? 'Administrator' : 'Team Member',
-            text: messageText
+            text: messageText,
+            message: messageText,
+            isAdminReply: isUserAdmin
           })
         });
       } catch (_) {}
 
       currentList[idx].replies = [...(currentList[idx].replies || []), newReply];
-      // Automatically advance status to in_progress if currently open
       if (currentList[idx].status === 'open' && isUserAdmin) {
         currentList[idx].status = 'in_progress';
       }
@@ -1039,8 +1286,8 @@ export const CRMProvider = ({ children }) => {
 
   const addTicketInternalNote = async (ticketId, noteText) => {
     if (!noteText.trim()) return;
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       const newNote = {
         id: `note_${Date.now()}`,
@@ -1049,6 +1296,13 @@ export const CRMProvider = ({ children }) => {
         date: new Date().toISOString()
       };
       currentList[idx].internalNotes = [...(currentList[idx].internalNotes || []), newNote];
+      try {
+        await fetch(`${API_BASE}/tickets/${ticketId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ internalNotes: currentList[idx].internalNotes })
+        });
+      } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -1057,17 +1311,17 @@ export const CRMProvider = ({ children }) => {
   };
 
   const assignTicket = async (ticketId, employeeId) => {
-    const currentList = getCollection(KEYS.TICKETS);
-    const idx = currentList.findIndex(t => t._id === ticketId);
-    const emp = employees.find(e => e._id === employeeId);
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
+    const emp = employees.find(e => String(e._id) === String(employeeId));
     if (idx !== -1 && emp) {
       currentList[idx].assignedToId = emp._id;
       currentList[idx].assignedToName = emp.name;
       try {
         await fetch(`${API_BASE}/tickets/${ticketId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assignedTo: emp._id, assignedToName: emp.name })
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ assignedTo: emp._id, assignedToId: emp._id, assignedToName: emp.name })
         });
       } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
@@ -1079,14 +1333,20 @@ export const CRMProvider = ({ children }) => {
 
   const deleteTicket = async (ticketId) => {
     try {
-      await fetch(`${API_BASE}/tickets/${ticketId}`, { method: 'DELETE' });
-    } catch (_) {}
-    const currentList = getCollection(KEYS.TICKETS);
-    const filtered = currentList.filter(t => t._id !== ticketId);
+      await fetch(`${API_BASE}/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+    } catch (e) {
+      console.warn('[CRMContext] Ticket deleted offline:', e);
+    }
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const filtered = currentList.filter(t => String(t._id) !== String(ticketId) && String(t.ticketCode) !== String(ticketId));
     saveCollection(KEYS.TICKETS, filtered);
     setTickets(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
-    addToast('Ticket removed', 'info');
+    addToast('Ticket removed successfully', 'info');
+    return true;
   };
 
   // =========================================================================
@@ -1116,14 +1376,16 @@ export const CRMProvider = ({ children }) => {
     };
 
     try {
+      const payload = { ...newEvent };
+      delete payload._id;
       const res = await fetch(`${API_BASE}/events`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEvent)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newEvent._id = json.data._id;
+        if (json.data?._id) newEvent._id = String(json.data._id);
       }
     } catch (_) {}
 
@@ -1137,15 +1399,17 @@ export const CRMProvider = ({ children }) => {
 
   const updateEvent = async (eventId, updateData) => {
     try {
+      const payload = { ...updateData };
+      delete payload._id;
       await fetch(`${API_BASE}/events/${eventId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EVENTS);
-    const idx = currentList.findIndex(e => e._id === eventId);
+    const idx = currentList.findIndex(e => e._id === eventId || e.id === eventId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1161,11 +1425,14 @@ export const CRMProvider = ({ children }) => {
 
   const deleteEvent = async (eventId) => {
     try {
-      await fetch(`${API_BASE}/events/${eventId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/events/${eventId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EVENTS);
-    const filtered = currentList.filter(e => e._id !== eventId);
+    const filtered = currentList.filter(e => e._id !== eventId && e.id !== eventId);
     saveCollection(KEYS.EVENTS, filtered);
     setEvents(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EVENTS } }));
@@ -1173,63 +1440,104 @@ export const CRMProvider = ({ children }) => {
   };
 
   // =========================================================================
-  // 💬 MESSAGES & TEAM CHAT
+  // 💬 MESSAGES & TEAM CHAT (ENTERPRISE MULTI-USER ENGINE)
   // =========================================================================
-  const sendMessage = (conversationId, text) => {
-    if (!text.trim()) return;
+  const sendMessage = (conversationId, text = '', attachments = []) => {
+    const trimmedText = (text || '').trim();
+    const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+    if (!trimmedText && !hasAttachments) return;
+
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
     const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const senderId = currentUser?._id || currentUser?.employeeCode || 'EMP-001';
 
     const newMsg = {
-      id: `msg_${Date.now()}`,
-      senderId: currentUser?._id || 'emp_001',
-      senderName: currentUser?.name || 'Employee',
-      text: text.trim(),
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      conversationId,
+      senderId,
+      senderCode: currentUser?.employeeCode || 'EMP-001',
+      senderName: currentUser?.name || 'Team Member',
+      senderAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      senderRole: currentUser?.role || 'Associate',
+      senderEmail: currentUser?.email || '',
+      text: trimmedText,
+      attachments: hasAttachments ? attachments : [],
       timestamp: timeStr,
-      isOutgoing: true
+      createdAt: Date.now(),
+      readBy: [senderId]
     };
 
-    if (idx !== -1) {
-      currentConvs[idx].messages.push(newMsg);
-      currentConvs[idx].lastMessage = text.trim();
-      currentConvs[idx].lastMessageTime = timeStr;
-      saveCollection(KEYS.CONVERSATIONS, currentConvs);
-      setConversations([...currentConvs]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    if (!Array.isArray(currentConvs[idx].messages)) {
+      currentConvs[idx].messages = [];
+    }
 
-      // Simulate a smart automatic friendly response after 2 seconds!
-      setTimeout(() => {
-        const contactName = currentConvs[idx].participantName || 'Colleague';
-        const simulatedReply = {
-          id: `msg_reply_${Date.now()}`,
-          senderId: currentConvs[idx].participantId,
-          senderName: contactName,
-          text: `Got it, thanks for sharing! I am on it right away.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isOutgoing: false
-        };
-        const latestConvs = getCollection(KEYS.CONVERSATIONS);
-        const lIdx = latestConvs.findIndex(c => c.id === conversationId);
-        if (lIdx !== -1) {
-          latestConvs[lIdx].messages.push(simulatedReply);
-          latestConvs[lIdx].lastMessage = simulatedReply.text;
-          latestConvs[lIdx].lastMessageTime = simulatedReply.timestamp;
-          saveCollection(KEYS.CONVERSATIONS, latestConvs);
-          setConversations([...latestConvs]);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
-        }
-      }, 1500);
+    currentConvs[idx].messages.push(newMsg);
+    currentConvs[idx].lastMessage = trimmedText || (hasAttachments ? `📎 Shared ${attachments.length} file(s)` : 'Attachment');
+    currentConvs[idx].lastMessageTime = timeStr;
+    currentConvs[idx].updatedAt = Date.now();
+
+    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    setConversations([...currentConvs]);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    window.dispatchEvent(new CustomEvent('ems_chat_message_sent', { detail: { message: newMsg, conversationId } }));
+
+    // Persist message to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newMsg)
+      }).catch(err => console.warn('[CRMContext] Offline message sync queued:', err));
+    } catch (err) {
+      console.warn('[CRMContext] Message database persistence failed:', err);
     }
   };
 
   const startConversation = (employeeId) => {
-    const emp = employees.find(e => e._id === employeeId);
-    if (!emp) return;
+    const emp = (employees || []).find(e =>
+      String(e._id) === String(employeeId) ||
+      String(e.id) === String(employeeId) ||
+      String(e.employeeCode).toUpperCase() === String(employeeId).toUpperCase()
+    );
+    if (!emp) return null;
 
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
-    const existing = currentConvs.find(c => c.participantId === employeeId);
+    const currentId = currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'EMP-001';
+    const targetId = emp._id || emp.id || emp.employeeCode;
+
+    const myIdentifiers = [
+      currentUser?._id,
+      currentUser?.id,
+      currentUser?.employeeCode,
+      currentUser?.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+    const targetIdentifiers = [
+      emp._id,
+      emp.id,
+      emp.employeeCode,
+      emp.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+    // Check if DM exists strictly between current user and this target
+    const existing = currentConvs.find(c => {
+      if (c.type !== 'dm') return false;
+      if (Array.isArray(c.participants) && c.participants.length > 0) {
+        const parts = c.participants.map(p => String(p).toLowerCase().trim());
+        const hasMe = parts.some(p => myIdentifiers.includes(p));
+        const hasTarget = parts.some(p => targetIdentifiers.includes(p));
+        return hasMe && hasTarget;
+      }
+      const c1 = String(c.createdBy || '').toLowerCase().trim();
+      const p1 = String(c.participantId || c.participantCode || '').toLowerCase().trim();
+      const match1 = (myIdentifiers.includes(c1) && targetIdentifiers.includes(p1));
+      const match2 = (targetIdentifiers.includes(c1) && myIdentifiers.includes(p1));
+      return match1 || match2;
+    });
 
     if (existing) {
       setActiveConversationId(existing.id);
@@ -1237,26 +1545,41 @@ export const CRMProvider = ({ children }) => {
       return existing.id;
     }
 
+    const dmId = 'dm_' + [String(currentUser?.employeeCode || currentId), String(emp.employeeCode || targetId)].sort().join('_');
+    const allParticipants = Array.from(new Set([
+      String(currentUser?._id || ''),
+      String(currentUser?.id || ''),
+      String(currentUser?.employeeCode || ''),
+      String(currentUser?.email || ''),
+      String(emp._id || ''),
+      String(emp.id || ''),
+      String(emp.employeeCode || ''),
+      String(emp.email || '')
+    ])).filter(Boolean);
+
     const newConv = {
-      id: `conv_${Date.now()}`,
-      participantId: emp._id,
+      id: dmId,
+      type: 'dm',
+      participants: allParticipants,
+      participantId: emp._id || emp.id,
+      participantCode: emp.employeeCode,
       participantName: emp.name,
-      participantRole: emp.role,
-      participantAvatar: emp.avatar,
+      participantRole: emp.role || 'Team Member',
+      participantDepartment: emp.department || 'General',
+      participantAvatar: emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      participantEmail: emp.email,
+      createdBy: currentId,
+      createdByName: currentUser?.name || 'Administrator',
+      creatorCode: currentUser?.employeeCode || '',
+      creatorRole: currentUser?.role || 'Team Member',
+      creatorDepartment: currentUser?.department || 'General',
+      creatorAvatar: currentUser?.avatar || '',
       isOnline: true,
-      lastMessage: 'Started new direct conversation.',
+      lastMessage: 'Conversation started',
       lastMessageTime: 'Just now',
       unreadCount: 0,
-      messages: [
-        {
-          id: `msg_init_${Date.now()}`,
-          senderId: currentUser?._id || 'emp_001',
-          senderName: currentUser?.name || 'Employee',
-          text: `Hi ${emp.name.split(' ')[0]}! Starting a new conversation.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isOutgoing: true
-        }
-      ]
+      createdAt: Date.now(),
+      messages: []
     };
 
     currentConvs.unshift(newConv);
@@ -1265,7 +1588,118 @@ export const CRMProvider = ({ children }) => {
     setActiveConversationId(newConv.id);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     addToast(`New conversation started with ${emp.name}!`, 'success');
+
+    // Persist conversation to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newConv)
+      }).catch(err => console.warn('[CRMContext] Offline conversation sync queued:', err));
+    } catch (err) {
+      console.warn('[CRMContext] Conversation database persistence failed:', err);
+    }
     return newConv.id;
+  };
+
+  const markConversationAsRead = (conversationId) => {
+    if (!conversationId || !currentUser) return;
+    const myId = String(currentUser._id || '').toLowerCase();
+    const myCode = String(currentUser.employeeCode || '').toLowerCase();
+    const myEmail = String(currentUser.email || '').toLowerCase();
+
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
+    let changed = false;
+    if (Array.isArray(currentConvs[idx].messages)) {
+      currentConvs[idx].messages.forEach(msg => {
+        const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+        const hasRead = readBy.some(id => {
+          const s = String(id).toLowerCase();
+          return (myId && s === myId) || (myCode && s === myCode) || (myEmail && s === myEmail);
+        });
+        if (!hasRead) {
+          msg.readBy = [...readBy, currentUser._id || currentUser.employeeCode];
+          changed = true;
+        }
+      });
+    }
+
+    if (changed) {
+      currentConvs[idx].unreadCount = 0;
+      saveCollection(KEYS.CONVERSATIONS, currentConvs);
+      setConversations([...currentConvs]);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+
+      // Persist read status to MongoDB Atlas database
+      try {
+        fetch(`${API_BASE}/conversations/${conversationId}/read`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ userId: currentUser?._id || currentUser?.employeeCode })
+        }).catch(() => {});
+      } catch (err) {}
+    }
+  };
+
+  const createChannel = ({ name, description = '', category = 'general' }) => {
+    if (!name || !name.trim()) return null;
+    const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/^#/, '');
+    const channelId = `channel_${cleanName}_${Date.now()}`;
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+
+    const newChannel = {
+      id: channelId,
+      type: 'channel',
+      name: name.trim(),
+      channelName: `#${cleanName}`,
+      description: description.trim() || 'Team collaboration channel',
+      avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120',
+      category,
+      members: ['all'],
+      createdBy: currentUser?._id || currentUser?.employeeCode,
+      createdByName: currentUser?.name || 'Administrator',
+      isOnline: true,
+      lastMessage: 'Channel created',
+      lastMessageTime: 'Just now',
+      unreadCount: 0,
+      createdAt: Date.now(),
+      messages: [
+        {
+          id: `msg_init_${Date.now()}`,
+          conversationId: channelId,
+          senderId: currentUser?._id || currentUser?.employeeCode,
+          senderName: currentUser?.name || 'Administrator',
+          senderAvatar: currentUser?.avatar || '',
+          senderRole: currentUser?.role || 'Admin',
+          text: `🎉 Channel #${cleanName} created! ${description.trim()}`,
+          attachments: [],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          createdAt: Date.now(),
+          readBy: [currentUser?._id || currentUser?.employeeCode]
+        }
+      ]
+    };
+
+    currentConvs.unshift(newChannel);
+    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    setConversations([...currentConvs]);
+    setActiveConversationId(newChannel.id);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    addToast(`Channel #${cleanName} created successfully!`, 'success');
+
+    // Persist channel to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newChannel)
+      }).catch(err => console.warn('[CRMContext] Offline channel sync queued:', err));
+    } catch (err) {}
+
+    return newChannel.id;
   };
 
   // =========================================================================
@@ -1274,8 +1708,7 @@ export const CRMProvider = ({ children }) => {
   const createNotice = async (noticeData) => {
     const currentList = getCollection(KEYS.NOTICES);
     const now = new Date();
-    const newNotice = {
-      _id: `not_${Date.now()}`,
+    const noticePayload = {
       title: noticeData.title || 'Company Notice',
       description: noticeData.description || noticeData.shortDescription || '',
       shortDescription: noticeData.shortDescription || noticeData.description || '',
@@ -1288,43 +1721,62 @@ export const CRMProvider = ({ children }) => {
       date: noticeData.date || now.toISOString().split('T')[0],
       expiryDate: noticeData.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       attachment: noticeData.attachment || '',
-      isImportant: noticeData.priority === 'urgent' || noticeData.priority === 'high',
-      fullContent: noticeData.description || '',
+      isImportant: noticeData.priority === 'urgent' || noticeData.priority === 'high' || !!noticeData.isImportant,
+      fullContent: noticeData.description || noticeData.fullContent || '',
       createdAt: now.toISOString(),
       ...noticeData
+    };
+    // Never send client-side temporary string ID to backend
+    delete noticePayload._id;
+
+    let savedNotice = {
+      _id: `not_${Date.now()}`,
+      ...noticePayload
     };
 
     try {
       const res = await fetch(`${API_BASE}/notices`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newNotice)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(noticePayload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newNotice._id = json.data._id;
+        if (json.data) {
+          savedNotice = {
+            ...savedNotice,
+            ...json.data,
+            _id: String(json.data._id || savedNotice._id)
+          };
+        }
+      } else {
+        console.warn('Backend rejected notice creation:', await res.text());
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Notice saved locally, offline sync will propagate to MongoDB:', err);
+    }
 
-    currentList.unshift(newNotice);
+    currentList.unshift(savedNotice);
     saveCollection(KEYS.NOTICES, currentList);
     setNotices([...currentList]);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
     addToast('Company announcement published to Notice Board & Dashboards!', 'success');
-    return newNotice;
+    return savedNotice;
   };
 
   const updateNotice = async (noticeId, updateData) => {
     try {
+      const payload = { ...updateData };
+      delete payload._id;
       await fetch(`${API_BASE}/notices/${noticeId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.NOTICES);
-    const idx = currentList.findIndex(n => n._id === noticeId);
+    const idx = currentList.findIndex(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1338,13 +1790,43 @@ export const CRMProvider = ({ children }) => {
     }
   };
 
+  const dismissNoticeForUser = async (noticeId, userIdentifier) => {
+    if (!noticeId || !userIdentifier) return;
+    const currentList = getCollection(KEYS.NOTICES) || [];
+    const idx = currentList.findIndex(n => String(n._id) === String(noticeId) || String(n.id) === String(noticeId) || String(n.noticeCode) === String(noticeId));
+    if (idx !== -1) {
+      const existingDismissed = Array.isArray(currentList[idx].dismissedBy) ? currentList[idx].dismissedBy : [];
+      const updatedDismissed = [...new Set([...existingDismissed, String(userIdentifier)])];
+      currentList[idx] = {
+        ...currentList[idx],
+        dismissedBy: updatedDismissed,
+        updatedAt: new Date().toISOString()
+      };
+      saveCollection(KEYS.NOTICES, currentList);
+      setNotices([...currentList]);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
+
+      try {
+        const realId = currentList[idx]._id || noticeId;
+        await fetch(`${API_BASE}/notices/${realId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ dismissedBy: updatedDismissed })
+        });
+      } catch (_) {}
+    }
+  };
+
   const deleteNotice = async (noticeId) => {
     try {
-      await fetch(`${API_BASE}/notices/${noticeId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/notices/${noticeId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.NOTICES);
-    const filtered = currentList.filter(n => n._id !== noticeId);
+    const filtered = currentList.filter(n => n._id !== noticeId && n.id !== noticeId && n.noticeCode !== noticeId);
     saveCollection(KEYS.NOTICES, filtered);
     setNotices(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
@@ -1369,10 +1851,9 @@ export const CRMProvider = ({ children }) => {
     const nextNum = (currentList.length > 0 ? Math.max(...currentList.map(l => l.idNumber || 0)) + 1 : 1);
     const now = new Date();
 
-    const newLead = {
-      _id: `lead_${Date.now()}`,
+    const leadPayload = {
       idNumber: nextNum,
-      leadCode: `LEAD-${1000 + nextNum}`,
+      leadCode: leadData.leadCode || `LEAD-${1000 + nextNum}`,
       name: leadData.name || leadData.contactPerson,
       contactPerson: leadData.contactPerson || leadData.name,
       companyName: leadData.companyName || leadData.client || 'Enterprise Client',
@@ -1399,18 +1880,52 @@ export const CRMProvider = ({ children }) => {
       notes: leadData.notes || '',
       ...leadData
     };
+    delete leadPayload._id;
 
-    currentList.unshift(newLead);
+    let savedLead = {
+      _id: `lead_${Date.now()}`,
+      ...leadPayload
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/leads`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(leadPayload)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          savedLead = {
+            ...savedLead,
+            ...json.data,
+            _id: String(json.data._id || savedLead._id)
+          };
+        }
+      }
+    } catch (_) {}
+
+    currentList.unshift(savedLead);
     saveCollection(KEYS.LEADS, currentList);
     setLeads([...currentList]);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
-    addToast(`Lead "${newLead.name}" added successfully!`, 'success');
-    return newLead;
+    addToast(`Lead "${savedLead.name}" added successfully!`, 'success');
+    return savedLead;
   };
 
   const updateLead = async (leadId, updateData) => {
+    try {
+      const payload = { ...updateData };
+      delete payload._id;
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const idx = currentList.findIndex(l => l._id === leadId);
+    const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
@@ -1426,8 +1941,16 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateLeadStatus = async (leadId, status) => {
+    try {
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status })
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const idx = currentList.findIndex(l => l._id === leadId);
+    const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
     if (idx !== -1) {
       const prevStatus = currentList[idx].status;
       currentList[idx].status = status;
@@ -1445,8 +1968,15 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteLead = async (leadId) => {
+    try {
+      await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+    } catch (_) {}
+
     const currentList = getCollection(KEYS.LEADS);
-    const filtered = currentList.filter(l => l._id !== leadId);
+    const filtered = currentList.filter(l => l._id !== leadId && l.id !== leadId && l.leadCode !== leadId);
     saveCollection(KEYS.LEADS, filtered);
     setLeads(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
@@ -1544,69 +2074,7 @@ export const CRMProvider = ({ children }) => {
     addToast('Emergency contact removed', 'info');
   };
 
-  // =========================================================================
-  // 📝 STICKY NOTES
-  // =========================================================================
-  const createStickyNote = async (noteData) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const newNote = {
-      _id: `note_${Date.now()}`,
-      title: noteData.title || 'Untitled Note',
-      content: noteData.content || '',
-      color: noteData.color || '#fef08a',
-      isPinned: !!noteData.isPinned,
-      isCompleted: false,
-      createdAt: new Date().toISOString()
-    };
-    currentList.unshift(newNote);
-    saveCollection(KEYS.STICKY_NOTES, currentList);
-    setStickyNotes([...currentList]);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    addToast('Sticky note created!', 'success');
-    return newNote;
-  };
 
-  const updateStickyNote = async (noteId, updateData) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx] = { ...currentList[idx], ...updateData, updatedAt: new Date().toISOString() };
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
-
-  const deleteStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const filtered = currentList.filter(n => n._id !== noteId);
-    saveCollection(KEYS.STICKY_NOTES, filtered);
-    setStickyNotes(filtered);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    addToast('Note deleted', 'info');
-  };
-
-  const togglePinStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx].isPinned = !currentList[idx].isPinned;
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
-
-  const toggleCompleteStickyNote = async (noteId) => {
-    const currentList = getCollection(KEYS.STICKY_NOTES);
-    const idx = currentList.findIndex(n => n._id === noteId);
-    if (idx !== -1) {
-      currentList[idx].isCompleted = !currentList[idx].isCompleted;
-      saveCollection(KEYS.STICKY_NOTES, currentList);
-      setStickyNotes([...currentList]);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.STICKY_NOTES } }));
-    }
-  };
 
   // =========================================================================
   // ⚙️ USER SETTINGS
@@ -1644,15 +2112,20 @@ export const CRMProvider = ({ children }) => {
     anniversaries: computedAnniversaries,
 
     conversations,
+    visibleConversations,
+    totalUnreadMessagesCount,
     activeConversationId,
     setActiveConversationId,
     sendMessage,
     startConversation,
+    createChannel,
+    markConversationAsRead,
 
     notices,
     createNotice,
     updateNotice,
     deleteNotice,
+    dismissNoticeForUser,
 
     leads,
     leadsFilter,
@@ -1668,13 +2141,6 @@ export const CRMProvider = ({ children }) => {
     updateEmergencyContact,
     deleteEmergencyContact,
 
-    stickyNotes,
-    createStickyNote,
-    updateStickyNote,
-    deleteStickyNote,
-    togglePinStickyNote,
-    toggleCompleteStickyNote,
-
     userSettings,
     updateUserSettings,
 
@@ -1686,8 +2152,8 @@ export const CRMProvider = ({ children }) => {
     updateUserProfile
   }), [
     expenses, tickets, events, computedBirthdays, computedAnniversaries,
-    conversations, activeConversationId, notices, leads, leadsFilter,
-    emergencyContacts, stickyNotes, userSettings, wfhEmployees,
+    conversations, visibleConversations, totalUnreadMessagesCount, activeConversationId, notices, leads, leadsFilter,
+    emergencyContacts, userSettings, wfhEmployees,
     computedWeeklyTimeLogs, darkMode
   ]);
 

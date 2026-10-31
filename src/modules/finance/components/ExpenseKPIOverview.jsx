@@ -24,87 +24,70 @@ export const ExpenseKPIOverview = ({ expenses = [] }) => {
   const approvedCount = expenses.filter(e => e.status === 'approved').length;
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-      gap: '10px',
-      marginBottom: '10px'
-    }}>
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5 mb-2.5">
       {/* Total Expenses */}
-      <div style={cardStyle('#3b82f6', '#eff6ff')}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Total Expenses</span>
-          <div style={iconBadgeStyle('#2563eb', '#eff6ff')}><DollarSign size={15} /></div>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-blue-500 p-2.5 px-3.5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Expenses</span>
+          <div className="w-[26px] h-[26px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <DollarSign size={15} />
+          </div>
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginTop: '4px', lineHeight: '1.1' }}>
+        <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1 leading-tight">
           ₹{totalAmount.toLocaleString('en-IN')}
         </div>
-        <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
           {expenses.length} recorded items
         </div>
       </div>
 
       {/* Approved Expenses */}
-      <div style={cardStyle('#10b981', '#f0fdf4')}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Approved</span>
-          <div style={iconBadgeStyle('#16a34a', '#dcfce7')}><CheckCircle2 size={15} /></div>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-emerald-500 p-2.5 px-3.5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Approved</span>
+          <div className="w-[26px] h-[26px] rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <CheckCircle2 size={15} />
+          </div>
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a', marginTop: '4px', lineHeight: '1.1' }}>
+        <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 leading-tight">
           ₹{approvedAmount.toLocaleString('en-IN')}
         </div>
-        <div style={{ fontSize: '10.5px', color: '#16a34a', marginTop: '2px', fontWeight: '500' }}>
+        <div className="text-[10.5px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">
           {approvedCount} items cleared
         </div>
       </div>
 
       {/* Pending Expenses */}
-      <div style={cardStyle('#f59e0b', '#fef3c7')}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Pending Review</span>
-          <div style={iconBadgeStyle('#d97706', '#fef3c7')}><Clock size={15} /></div>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-amber-500 p-2.5 px-3.5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Pending Review</span>
+          <div className="w-[26px] h-[26px] rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <Clock size={15} />
+          </div>
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706', marginTop: '4px', lineHeight: '1.1' }}>
+        <div className="text-lg font-extrabold text-amber-600 dark:text-amber-400 mt-1 leading-tight">
           ₹{pendingAmount.toLocaleString('en-IN')}
         </div>
-        <div style={{ fontSize: '10.5px', color: '#d97706', marginTop: '2px', fontWeight: '500' }}>
+        <div className="text-[10.5px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
           {pendingCount} items waiting
         </div>
       </div>
 
       {/* Rejected Expenses */}
-      <div style={cardStyle('#ef4444', '#fee2e2')}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Rejected</span>
-          <div style={iconBadgeStyle('#dc2626', '#fee2e2')}><XCircle size={15} /></div>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-red-500 p-2.5 px-3.5 shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Rejected</span>
+          <div className="w-[26px] h-[26px] rounded-md bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center">
+            <XCircle size={15} />
+          </div>
         </div>
-        <div style={{ fontSize: '18px', fontWeight: '800', color: '#dc2626', marginTop: '4px', lineHeight: '1.1' }}>
+        <div className="text-lg font-extrabold text-red-600 dark:text-red-400 mt-1 leading-tight">
           ₹{rejectedAmount.toLocaleString('en-IN')}
         </div>
-        <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
           Non-compliant requests
         </div>
       </div>
     </div>
   );
 };
-
-const cardStyle = (borderColor, hoverBg) => ({
-  backgroundColor: '#ffffff',
-  borderRadius: '10px',
-  border: '1px solid #e2e8f0',
-  borderLeft: `3px solid ${borderColor}`,
-  padding: '10px 14px',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-});
-
-const iconBadgeStyle = (color, bg) => ({
-  width: '26px',
-  height: '26px',
-  borderRadius: '6px',
-  backgroundColor: bg,
-  color: color,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center'
-});

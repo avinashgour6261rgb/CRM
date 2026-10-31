@@ -290,110 +290,46 @@ export const PayslipModal = ({
         }
       `}</style>
 
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        padding: '16px'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          width: '100%',
-          maxWidth: '820px',
-          maxHeight: '94vh',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
+      <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
           {/* Modal Action Header (Excluded from Print) */}
-          <div className="no-print" style={{
-            padding: '14px 20px',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#f8fafc',
-            flexWrap: 'wrap',
-            gap: '10px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Building2 size={20} color="#2563eb" />
-              <span style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+          <div className="no-print p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 flex-wrap gap-2.5 rounded-t-2xl">
+            <div className="flex items-center gap-2">
+              <Building2 size={20} className="text-blue-600" />
+              <span className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
                 Salary Slip Generator
               </span>
             </div>
 
             {/* Month & Year Interactive Picker */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={14} color="#64748b" />
+            <div className="flex items-center gap-1.5">
+              <Calendar size={14} className="text-slate-500" />
               <select
                 value={selectedMonthName}
                 onChange={e => setSelectedMonthName(e.target.value)}
-                style={{
-                  height: '32px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  padding: '0 8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#0f172a',
-                  backgroundColor: '#ffffff',
-                  colorScheme: 'light'
-                }}
+                className="h-8 rounded-md border border-slate-300 dark:border-slate-700 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-500 transition-colors"
               >
                 {MONTH_OPTIONS.map(m => (
-                  <option key={m} value={m} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{m}</option>
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
 
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(e.target.value)}
-                style={{
-                  height: '32px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  padding: '0 8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#0f172a',
-                  backgroundColor: '#ffffff',
-                  colorScheme: 'light'
-                }}
+                className="h-8 rounded-md border border-slate-300 dark:border-slate-700 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-500 transition-colors"
               >
                 {['2025', '2026', '2027'].map(y => (
-                  <option key={y} value={y} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>{y}</option>
+                  <option key={y} value={y}>{y}</option>
                 ))}
               </select>
             </div>
 
             {/* Quick Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleNavigateToCompanySettings}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: '#ffffff',
-                  color: '#64748b',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '11.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer transition-colors"
                 title="Configure Company Name, Logo & Legal Info in Settings"
               >
                 <Settings size={13} />
@@ -402,52 +338,21 @@ export const PayslipModal = ({
 
               <button
                 onClick={handleSendEmail}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 11px',
-                  borderRadius: '6px',
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb',
-                  border: '1px solid #bfdbfe',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-[5px] px-[11px] py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-semibold cursor-pointer transition-colors"
               >
                 <Mail size={13} /> <span>Email Slip</span>
               </button>
 
               <button
                 onClick={handlePrint}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)'
-                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors"
               >
                 <Printer size={13} /> <span>Print / Save PDF</span>
               </button>
 
               <button
                 onClick={onClose}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  padding: '4px'
-                }}
+                className="bg-transparent border-0 text-slate-500 hover:text-slate-700 cursor-pointer p-1"
               >
                 <X size={18} />
               </button>
@@ -455,32 +360,18 @@ export const PayslipModal = ({
           </div>
 
           {/* Printable Payslip Body */}
-          <div ref={printRef} className="payslip-print-container" style={{ padding: '36px 40px', color: '#0f172a', backgroundColor: '#ffffff' }}>
+          <div ref={printRef} className="payslip-print-container p-9 sm:px-10 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
             
             {/* 1. Official Corporate Header */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              borderBottom: '2.5px solid #1e3a8a',
-              paddingBottom: '16px',
-              marginBottom: '20px'
-            }}>
-              <div style={{ flex: 1, paddingRight: '20px' }}>
-                <h1 style={{
-                  fontSize: '22px',
-                  fontWeight: '800',
-                  color: '#1e3a8a',
-                  margin: 0,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.02em'
-                }}>
+            <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-4 mb-5">
+              <div className="flex-1 pr-5">
+                <h1 className="text-[22px] font-extrabold text-blue-900 m-0 uppercase tracking-wide">
                   {companyInfo.companyName || 'ENTERPRISE TECHNOLOGY SOLUTIONS'}
                 </h1>
-                <p style={{ fontSize: '11.5px', color: '#475569', margin: '4px 0 0 0', lineHeight: '1.4' }}>
+                <p className="text-[11.5px] text-slate-600 mt-1 m-0 leading-snug">
                   {companyInfo.address || 'Corporate Headquarters & Registered Office'}
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                <div className="flex flex-wrap gap-3 text-[11px] text-slate-500 mt-1">
                   {companyInfo.hrEmail && <span>Email: <strong>{companyInfo.hrEmail}</strong></span>}
                   {companyInfo.phone && <span>Phone: <strong>{companyInfo.phone}</strong></span>}
                   {companyInfo.cin && <span>CIN: <strong>{companyInfo.cin}</strong></span>}
@@ -489,142 +380,99 @@ export const PayslipModal = ({
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{
-                  display: 'inline-block',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  letterSpacing: '0.04em'
-                }}>
+              <div className="text-right shrink-0">
+                <div className="inline-block px-3.5 py-1.5 rounded-md bg-blue-100 text-blue-800 text-[13px] font-extrabold tracking-wider">
                   SALARY SLIP
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginTop: '4px' }}>
+                <div className="text-xs font-bold text-slate-700 mt-1">
                   {currentSlipPeriod.toUpperCase()}
                 </div>
               </div>
             </div>
 
             {/* 2. Employee Profile & Banking Details Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              padding: '16px 20px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              marginBottom: '22px',
-              fontSize: '12.5px'
-            }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:px-5 bg-slate-50 rounded-lg border border-slate-300 mb-[22px] text-[12.5px]">
               {/* Column 1: Employee Particulars */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Employee Name:</span>
-                  <span style={{ fontWeight: '800', color: '#0f172a' }}>{employee.name}</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Employee Name:</span>
+                  <span className="font-extrabold text-slate-900">{employee.name}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Employee ID / Code:</span>
-                  <span style={{ fontWeight: '700', color: '#1e40af' }}>{employee.employeeCode || employee._id || 'EMP-001'}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Employee ID / Code:</span>
+                  <span className="font-bold text-blue-900">{employee.employeeCode || employee._id || 'EMP-001'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Designation:</span>
-                  <span style={{ fontWeight: '600' }}>{employee.role || 'Senior Specialist'}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Designation:</span>
+                  <span className="font-semibold">{employee.role || 'Senior Specialist'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Department:</span>
-                  <span style={{ fontWeight: '600' }}>{employee.department || 'Operations'}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Department:</span>
+                  <span className="font-semibold">{employee.department || 'Operations'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Date of Joining:</span>
-                  <span style={{ fontWeight: '600' }}>{employee.joiningDate || '2024-01-15'}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Date of Joining:</span>
+                  <span className="font-semibold">{employee.joiningDate || '2024-01-15'}</span>
                 </div>
               </div>
 
               {/* Column 2: Bank & Attendance Summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Bank Name:</span>
-                  <span style={{ fontWeight: '700' }}>{bankName}</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bank Name:</span>
+                  <span className="font-bold">{bankName}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Bank A/C No:</span>
-                  <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{maskedAcct}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bank A/C No:</span>
+                  <span className="font-semibold font-mono">{maskedAcct}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>IFSC Code:</span>
-                  <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{ifscCode}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">IFSC Code:</span>
+                  <span className="font-semibold font-mono">{ifscCode}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Employee PAN:</span>
-                  <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{panNumber}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Employee PAN:</span>
+                  <span className="font-semibold font-mono">{panNumber}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Days Paid / Worked:</span>
-                  <span style={{ fontWeight: '800', color: '#16a34a' }}>{daysInMonth} / {daysInMonth} Days (LOP: 0)</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Days Paid / Worked:</span>
+                  <span className="font-extrabold text-green-600">{daysInMonth} / {daysInMonth} Days (LOP: 0)</span>
                 </div>
               </div>
             </div>
 
             {/* 3. Earnings & Deductions Table */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              border: '1.5px solid #94a3b8',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              marginBottom: '20px'
-            }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 border-[1.5px] border-slate-400 rounded-lg overflow-hidden mb-5">
               {/* Earnings Column */}
-              <div style={{ borderRight: '1.5px solid #94a3b8' }}>
-                <div style={{
-                  padding: '10px 16px',
-                  backgroundColor: '#f1f5f9',
-                  fontWeight: '800',
-                  fontSize: '13px',
-                  borderBottom: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
+              <div className="sm:border-r-[1.5px] sm:border-slate-400">
+                <div className="p-2.5 px-4 bg-slate-100 font-extrabold text-[13px] border-b border-slate-300 text-slate-900 flex justify-between">
                   <span>EARNINGS</span>
                   <span>AMOUNT (₹)</span>
                 </div>
-                <div style={{ padding: '14px 16px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="p-3.5 px-4 text-[13px] flex flex-col gap-[9px]">
+                  <div className="flex justify-between">
                     <span>Basic Salary</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.basic.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.basic.toLocaleString('en-IN')}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div className="flex justify-between">
                     <span>House Rent Allowance (HRA)</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.hra.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.hra.toLocaleString('en-IN')}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div className="flex justify-between">
                     <span>Special Allowance</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.allowances.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.allowances.toLocaleString('en-IN')}</span>
                   </div>
                   {resolvedSalary.bonus > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div className="flex justify-between">
                       <span>Performance Bonus / Incentive</span>
-                      <span style={{ fontWeight: '600' }}>₹{resolvedSalary.bonus.toLocaleString('en-IN')}</span>
+                      <span className="font-semibold">₹{resolvedSalary.bonus.toLocaleString('en-IN')}</span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                  <div className="flex justify-between text-slate-500">
                     <span>Conveyance Allowance</span>
-                    <span style={{ fontWeight: '600' }}>₹0</span>
+                    <span className="font-semibold">₹0</span>
                   </div>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    borderTop: '1.5px solid #cbd5e1',
-                    paddingTop: '10px',
-                    fontWeight: '800',
-                    color: '#15803d',
-                    fontSize: '13.5px'
-                  }}>
+                  <div className="flex justify-between border-t-[1.5px] border-slate-300 pt-2.5 font-extrabold text-green-700 text-[13.5px]">
                     <span>Total Gross Earnings</span>
                     <span>₹{resolvedSalary.gross.toLocaleString('en-IN')}</span>
                   </div>
@@ -633,45 +481,28 @@ export const PayslipModal = ({
 
               {/* Deductions Column */}
               <div>
-                <div style={{
-                  padding: '10px 16px',
-                  backgroundColor: '#f1f5f9',
-                  fontWeight: '800',
-                  fontSize: '13px',
-                  borderBottom: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
+                <div className="p-2.5 px-4 bg-slate-100 font-extrabold text-[13px] border-b border-slate-300 text-slate-900 flex justify-between">
                   <span>DEDUCTIONS</span>
                   <span>AMOUNT (₹)</span>
                 </div>
-                <div style={{ padding: '14px 16px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '9px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="p-3.5 px-4 text-[13px] flex flex-col gap-[9px]">
+                  <div className="flex justify-between">
                     <span>Provident Fund (EPF / PF)</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.pf.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.pf.toLocaleString('en-IN')}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div className="flex justify-between">
                     <span>Professional Tax (PT)</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.pt.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.pt.toLocaleString('en-IN')}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div className="flex justify-between">
                     <span>Tax Deducted at Source (TDS)</span>
-                    <span style={{ fontWeight: '600' }}>₹{resolvedSalary.tds.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold">₹{resolvedSalary.tds.toLocaleString('en-IN')}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                  <div className="flex justify-between text-slate-500">
                     <span>Other Deductions / Advance</span>
-                    <span style={{ fontWeight: '600' }}>₹0</span>
+                    <span className="font-semibold">₹0</span>
                   </div>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    borderTop: '1.5px solid #cbd5e1',
-                    paddingTop: '10px',
-                    fontWeight: '800',
-                    color: '#b91c1c',
-                    fontSize: '13.5px'
-                  }}>
+                  <div className="flex justify-between border-t-[1.5px] border-slate-300 pt-2.5 font-extrabold text-red-700 text-[13.5px]">
                     <span>Total Deductions</span>
                     <span>₹{resolvedSalary.deductions.toLocaleString('en-IN')}</span>
                   </div>
@@ -680,72 +511,45 @@ export const PayslipModal = ({
             </div>
 
             {/* 4. Net Salary & Words Banner */}
-            <div style={{
-              padding: '16px 20px',
-              backgroundColor: '#f0fdf4',
-              border: '1.5px solid #86efac',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '22px',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
+            <div className="p-4 sm:px-5 bg-emerald-50 border-[1.5px] border-emerald-300 rounded-xl flex items-center justify-between mb-[22px] flex-wrap gap-3">
               <div>
-                <span style={{ fontSize: '11px', fontWeight: '800', color: '#166534', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider">
                   NET TAKE-HOME SALARY PAYABLE
                 </span>
-                <div style={{ fontSize: '26px', fontWeight: '900', color: '#14532d', lineHeight: '1.2' }}>
+                <div className="text-[26px] font-black text-emerald-950 leading-tight">
                   ₹{resolvedSalary.netSalary.toLocaleString('en-IN')}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: '#166534', marginTop: '2px', fontStyle: 'italic' }}>
+                <div className="text-xs font-bold text-emerald-800 mt-0.5 italic">
                   ({numberToWordsINR(resolvedSalary.netSalary)})
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', fontSize: '12.5px', fontWeight: '700' }}>
+              <div className="flex items-center gap-1.5 text-emerald-600 text-[12.5px] font-bold">
                 <CheckCircle2 size={18} />
                 <span>Direct Bank Transfer Processed</span>
               </div>
             </div>
 
             {/* 5. Authorization & Verification Footer */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-              paddingTop: '20px',
-              borderTop: '1px solid #cbd5e1',
-              fontSize: '11px',
-              color: '#64748b'
-            }}>
+            <div className="flex justify-between items-end pt-5 border-t border-slate-300 text-[11px] text-slate-500">
               <div>
-                <p style={{ margin: 0, fontWeight: '600' }}>
+                <p className="m-0 font-semibold text-slate-700">
                   {companyInfo.footerNote || '* This is a computer-generated salary slip and does not require a physical signature.'}
                 </p>
-                <p style={{ margin: '3px 0 0 0', color: '#94a3b8' }}>
+                <p className="mt-[3px] m-0 text-slate-400">
                   Generated from {companyInfo.companyName || 'Enterprise Management Portal'} • Official Employee Payroll Record.
                 </p>
               </div>
 
-              <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  color: '#1e40af',
-                  fontSize: '10.5px',
-                  fontWeight: '700',
-                  marginBottom: '6px'
-                }}>
+              <div className="text-center min-w-[150px]">
+                <div className="inline-flex items-center gap-1 text-blue-900 text-[10.5px] font-bold mb-1.5">
                   <FileCheck size={14} /> Digitally Verified
                 </div>
-                <div style={{ width: '140px', borderBottom: '1.5px solid #64748b', margin: '0 auto 4px auto' }}></div>
-                <span style={{ fontWeight: '800', color: '#1e293b', fontSize: '12px' }}>
+                <div className="w-35 border-b-[1.5px] border-slate-500 mx-auto mb-1"></div>
+                <span className="font-extrabold text-slate-800 text-xs">
                   {companyInfo.signatoryTitle || 'Authorized Signatory'}
                 </span>
                 {companyInfo.signatoryName && (
-                  <div style={{ fontSize: '10.5px', color: '#475569', fontWeight: '600' }}>
+                  <div className="text-[10.5px] text-slate-600 font-semibold">
                     ({companyInfo.signatoryName})
                   </div>
                 )}

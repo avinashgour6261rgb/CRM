@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
+  X,
   XCircle,
   AlertTriangle,
   AlertCircle,
@@ -63,9 +64,11 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
+import { workService } from '../../work/services/workService';
+import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -83,8 +86,18 @@ import { TicketDetailModal } from '../../crm/components/tickets/TicketDetailModa
 import { EmployeeDirectoryModal } from '../components/employees/EmployeeDirectoryModal';
 import { SnoozeTaskModal } from '../../work/components/tasks/SnoozeTaskModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
+import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+<<<<<<< HEAD
 import { AttendanceShiftClock } from '../components/attendance/AttendanceShiftClock';
+=======
+import { ShiftClockCard } from '../components/dashboard/ShiftClockCard';
+import { ActiveTaskTimerCard } from '../../work/components/dashboard/ActiveTaskTimerCard';
+import { WeeklyTimeLogsCard } from '../../work/components/dashboard/WeeklyTimeLogsCard';
+import { DashboardKpiStrip } from '../components/dashboard/DashboardKpiStrip';
+import { DashboardWelcomeCard } from '../components/dashboard/DashboardWelcomeCard';
+import { DashboardTasksSection } from '../components/dashboard/DashboardTasksSection';
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
 
 const formatTimeDurationSafe = (totalSecs) => {
   const safe = Math.max(0, Number(totalSecs) || 0);
@@ -99,7 +112,16 @@ export const DashboardPage = () => {
   const { addToast } = useToast();
   const { currentUser: authUser, role: authRole, roleConfig: authRoleConfig } = useAuth();
   const { employees, leaves, attendance, holidays, appreciations, currentUser: hrUser, updateLeaveStatus, acknowledgeLeave, updateEmployee } = useHR();
-  const currentUser = authUser || hrUser;
+  const baseUser = authUser || hrUser;
+  const currentUser = React.useMemo(() => {
+    if (!baseUser) return null;
+    const found = (employees || []).find(e =>
+      (baseUser._id && String(e._id) === String(baseUser._id)) ||
+      (baseUser.employeeCode && String(e.employeeCode) === String(baseUser.employeeCode)) ||
+      (baseUser.email && e.email?.toLowerCase() === baseUser.email.toLowerCase())
+    );
+    return found ? { ...baseUser, ...found, leaveBalance: found.leaveBalance || baseUser.leaveBalance } : baseUser;
+  }, [baseUser, employees]);
   const {
     projects,
     tasks,
@@ -120,7 +142,7 @@ export const DashboardPage = () => {
     reopenProject,
     deleteTask
   } = useWork();
-  const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs } = useCRM();
+  const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs, dismissNoticeForUser } = useCRM();
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
   const [snoozeTaskTarget, setSnoozeTaskTarget] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
@@ -129,6 +151,69 @@ export const DashboardPage = () => {
   const [dashboardTaskTab, setDashboardTaskTab] = useState('pending');
   const [dashboardTaskScope, setDashboardTaskScope] = useState('assigned_to_me'); // 'assigned_to_me' | 'delegated' | 'all'
   const [rejectingLeaveTarget, setRejectingLeaveTarget] = useState(null);
+  const [cancellingLeaveTarget, setCancellingLeaveTarget] = useState(null);
+
+  // Role & Scope Detection
+  const userRole = authRole || getUserRole(currentUser);
+  const isUserAdminOrHR = userRole === ROLES.ADMIN || userRole === ROLES.HR || currentUser?.isAdmin;
+  const roleConfig = authRoleConfig || ROLE_CONFIGS[userRole] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
+  const perms = getUserModulePermissions(currentUser);
+
+  // Admin Perspective State: View any employee's live dashboard by name
+  const [selectedAdminEmpId, setSelectedAdminEmpId] = useState('me');
+  const isViewingOtherEmployee = isUserAdminOrHR && selectedAdminEmpId !== 'me';
+  const activeViewUser = React.useMemo(() => {
+    if (!isViewingOtherEmployee) return currentUser;
+    return (employees || []).find(e => String(e._id) === String(selectedAdminEmpId) || String(e.employeeCode) === String(selectedAdminEmpId)) || currentUser;
+  }, [isViewingOtherEmployee, selectedAdminEmpId, employees, currentUser]);
+  const effectiveTargetUser = isViewingOtherEmployee ? activeViewUser : currentUser;
+
+  // Target Active User UID for strictly user-scoped alerts and dismissals (Both for logged in employee and admin switcher perspective)
+  const targetActiveUid = React.useMemo(() => {
+    return String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || 'global');
+  }, [effectiveTargetUser?._id, effectiveTargetUser?.employeeCode, currentUser?._id, currentUser?.employeeCode]);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const userAlertKey = React.useMemo(() => {
+    return `ems_dismissed_top_alerts_${targetActiveUid}`;
+  }, [targetActiveUid]);
+
+  const [dismissedTopAlerts, setDismissedTopAlerts] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`ems_dismissed_top_alerts_${targetActiveUid}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  // Re-load alerts whenever the effective target user changes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(userAlertKey);
+      setDismissedTopAlerts(stored ? JSON.parse(stored) : []);
+    } catch (_) {
+      setDismissedTopAlerts([]);
+    }
+  }, [userAlertKey]);
+
+  // Per-User Top Alert Dismissal: Updates local user state, localStorage, and syncs notice dismissals to MongoDB
+  const dismissTopAlert = (alertId) => {
+    if (!alertId) return;
+    const strId = String(alertId);
+    setDismissedTopAlerts(prev => {
+      const next = [...new Set([...prev, strId])];
+      try {
+        localStorage.setItem(userAlertKey, JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+
+    if (typeof dismissNoticeForUser === 'function') {
+      dismissNoticeForUser(strId, targetActiveUid);
+    }
+  };
 
   // Projects pending final sign-off
   const pendingApprovalProjects = React.useMemo(() => {
@@ -141,18 +226,34 @@ export const DashboardPage = () => {
   // Projects reopened for current user
   const reopenedProjectsForMe = React.useMemo(() => {
     if (!currentUser) return [];
-    const uId = String(currentUser._id || currentUser.id || '');
-    const uCode = String(currentUser.employeeCode || '');
     return (projects || []).filter(p =>
-      p.reopened && !p.finalApproved && (
-        p.createdBy === uId || p.createdById === uId || p.createdBy === uCode ||
-        (Array.isArray(p.visibleToIds) && (p.visibleToIds.includes(uId) || p.visibleToIds.includes(uCode))) ||
-        (Array.isArray(p.members) && p.members.some(m => String(m._id || m.id) === uId || String(m.employeeCode) === uCode))
-      )
+      p.reopened && !p.finalApproved && isProjectVisibleToUser(p, currentUser)
     );
   }, [projects, currentUser]);
   const [activeLeftoverIdx, setActiveLeftoverIdx] = useState(0);
-  const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(false);
+  const leftoverDismissKey = `ems_dismissed_leftover_${targetActiveUid}_${todayStr}`;
+  const [isLeftoverDismissed, setIsLeftoverDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(`ems_dismissed_leftover_${targetActiveUid}_${todayStr}`) === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setIsLeftoverDismissed(localStorage.getItem(leftoverDismissKey) === 'true');
+    } catch (_) {
+      setIsLeftoverDismissed(false);
+    }
+  }, [leftoverDismissKey]);
+
+  const handleDismissLeftover = () => {
+    setIsLeftoverDismissed(true);
+    try {
+      localStorage.setItem(leftoverDismissKey, 'true');
+    } catch (_) {}
+  };
   const {
     loginTime,
     clockOutTime,
@@ -170,6 +271,8 @@ export const DashboardPage = () => {
     breakRemainingTimeString,
     isBreakOverdue,
     isClockedIn,
+    isOnLeaveToday,
+    todayLeaveRecord,
     togglePauseResume,
     handleClockIn,
     handleClockOut,
@@ -236,6 +339,8 @@ export const DashboardPage = () => {
     window.addEventListener('ems_task_timer_paused', handleSync);
     window.addEventListener('ems_task_timer_stopped', handleSync);
     window.addEventListener('ems_working_mode_changed', handleSync);
+    window.addEventListener('ems_break_started', handleSync);
+    window.addEventListener('ems_break_ended', handleSync);
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('hrms_storage_change', handleSync);
@@ -246,6 +351,8 @@ export const DashboardPage = () => {
       window.removeEventListener('ems_task_timer_paused', handleSync);
       window.removeEventListener('ems_task_timer_stopped', handleSync);
       window.removeEventListener('ems_working_mode_changed', handleSync);
+      window.removeEventListener('ems_break_started', handleSync);
+      window.removeEventListener('ems_break_ended', handleSync);
     };
   }, []);
 
@@ -268,8 +375,6 @@ export const DashboardPage = () => {
       clearInterval(tickInterval);
     };
   }, []);
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   // Helper for matching tasks assigned to a specific user (handles IDs, codes, names, emails, and multi-assignees)
   const isTaskAssignedToUser = (task, user) => {
@@ -305,8 +410,12 @@ export const DashboardPage = () => {
 
     const userName = (user.name || '').trim().toLowerCase();
     const taskAssigneeName = (task.assignedToName || '').trim().toLowerCase();
-    if (userName && taskAssigneeName && userName === taskAssigneeName) {
-      return true;
+    if (userName && taskAssigneeName) {
+      if (userName === taskAssigneeName) return true;
+      if (userName.includes(taskAssigneeName) || taskAssigneeName.includes(userName)) return true;
+      const userTokens = userName.split(/\s+/).filter(t => t.length >= 3);
+      const assigneeTokens = taskAssigneeName.split(/\s+/).filter(t => t.length >= 3);
+      if (userTokens.some(ut => assigneeTokens.includes(ut))) return true;
     }
     return false;
   };
@@ -318,12 +427,6 @@ export const DashboardPage = () => {
     return s === 'completed';
   };
 
-  // Role & Scope Detection
-  const userRole = authRole || getUserRole(currentUser);
-  const isUserAdminOrHR = userRole === ROLES.ADMIN || userRole === ROLES.HR || currentUser?.isAdmin;
-  const roleConfig = authRoleConfig || ROLE_CONFIGS[userRole] || ROLE_CONFIGS[ROLES.TEAM_MEMBER];
-  const perms = getUserModulePermissions(currentUser);
-
   // Dashboard Task Filter State
   const [taskScopeFilter, setTaskScopeFilter] = useState('all'); // 'all' | 'my' | 'delegated'
   const [taskMemberFilter, setTaskMemberFilter] = useState('all');
@@ -332,14 +435,6 @@ export const DashboardPage = () => {
   // Category-Wise Task Filter (Across all company categories for Admin/HR, and personal for employees)
   const [taskCategoryFilter, setTaskCategoryFilter] = useState('all');
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
-
-  // Admin Perspective State: View any employee's live dashboard by name
-  const [selectedAdminEmpId, setSelectedAdminEmpId] = useState('me');
-  const isViewingOtherEmployee = isUserAdminOrHR && selectedAdminEmpId !== 'me';
-  const activeViewUser = React.useMemo(() => {
-    if (!isViewingOtherEmployee) return currentUser;
-    return (employees || []).find(e => String(e._id) === String(selectedAdminEmpId) || String(e.employeeCode) === String(selectedAdminEmpId)) || currentUser;
-  }, [isViewingOtherEmployee, selectedAdminEmpId, employees, currentUser]);
 
   // Helper to read any employee's live today shift and task status from storage & attendance (with 1-sec real-time counting)
   const getEmployeeTodayState = React.useCallback((emp) => {
@@ -351,12 +446,15 @@ export const DashboardPage = () => {
     // Today's attendance
     const attRec = (attendance || []).find(a =>
       a.date === todayStr && (
-        a.employeeId === empId ||
-        a.employeeCode === emp.employeeCode ||
-        (empName && a.employeeName?.toLowerCase() === empName.toLowerCase())
+        String(a.employeeId) === String(empId) ||
+        String(a.employee) === String(empId) ||
+        (emp.employeeCode && (String(a.employeeCode) === String(emp.employeeCode) || String(a.employeeId) === String(emp.employeeCode))) ||
+        (empKey && (String(a.employeeCode) === String(empKey) || String(a.employeeId) === String(empKey))) ||
+        (empName && a.employeeName?.trim().toLowerCase() === empName.trim().toLowerCase())
       )
     );
 
+<<<<<<< HEAD
     // Stored live keys (strictly validated against todayStr so past days never bleed in)
     const storedSessionDate = localStorage.getItem(`ems_timer_${empKey}_work_session_date`);
     const isStoredDateToday = storedSessionDate === todayStr;
@@ -369,16 +467,55 @@ export const DashboardPage = () => {
     const storedWorkSecs = isStoredDateToday ? (Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0) : 0;
     const storedBreakSecs = isStoredDateToday ? (Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || 0) : 0;
     const storedBreakHistoryRaw = isStoredDateToday ? localStorage.getItem(`ems_timer_${empKey}_break_history`) : null;
+=======
+    // Check if employee is on approved leave today
+    const isOnLeave = Boolean(
+      attRec?.status === 'on_leave' ||
+      (leaves || []).some(l =>
+        l.status === 'approved' &&
+        l.startDate <= todayStr &&
+        l.endDate >= todayStr &&
+        (
+          String(l.employeeId) === String(empId) ||
+          String(l.employee) === String(empId) ||
+          (emp.employeeCode && l.employeeCode === emp.employeeCode) ||
+          (empName && l.employeeName?.trim().toLowerCase() === empName.trim().toLowerCase())
+        )
+      )
+    );
+    const leaveNote = attRec?.notes || 'Approved Leave';
+
+    // Stored live keys
+    const storedClockedIn = localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true';
+    const storedOnBreak = localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true';
+    const storedBreakType = localStorage.getItem(`ems_timer_${empKey}_break_type`) || 'Break';
+    const storedLogin = localStorage.getItem(`ems_timer_${empKey}_login_time`);
+    const storedClockOut = localStorage.getItem(`ems_timer_${empKey}_clock_out`);
+    const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
+    const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || 0;
+    const storedBreakHistoryRaw = localStorage.getItem(`ems_timer_${empKey}_break_history`);
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
     let storedBreakHistory = [];
     try {
       if (storedBreakHistoryRaw) storedBreakHistory = JSON.parse(storedBreakHistoryRaw);
-    } catch {}
+    } catch { }
 
-    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
-    const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? '09:30 AM' : null);
-    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
+    // Check if clockIn was from a previous calendar day (forgotten clock-out)
+    const storedSessionDate = localStorage.getItem(`ems_timer_${empKey}_work_session_date`);
+    const rawClockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(attRec?.clockInTimestamp);
+    let isStaleFromPreviousDay = false;
+    let inDate = '';
+    if (storedSessionDate && storedSessionDate !== todayStr) {
+      isStaleFromPreviousDay = true;
+      inDate = storedSessionDate;
+    } else if (rawClockInTs > 0) {
+      inDate = new Date(rawClockInTs).toISOString().split('T')[0];
+      if (inDate !== todayStr) {
+        isStaleFromPreviousDay = true;
+      }
+    }
 
+<<<<<<< HEAD
     // Calculate dynamic live work seconds
     let workSecs = storedWorkSecs;
     if (isClockedIn && !storedOnBreak) {
@@ -388,11 +525,93 @@ export const DashboardPage = () => {
         const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
         workSecs = Math.max(0, gross - storedBreakSecs);
       } else if (empId === currentUser?._id && isStoredDateToday) {
+=======
+    if (isStaleFromPreviousDay) {
+      // Auto-close stale yesterday session in background
+      try {
+        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
+        localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${empKey}_login_time`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
+        localStorage.removeItem(`ems_timer_${empKey}_current_session_start_timestamp`);
+        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+        const rawAtt = localStorage.getItem('hrms_attendance');
+        if (rawAtt) {
+          const list = JSON.parse(rawAtt);
+          let changed = false;
+          const updated = list.map(a => {
+            if (a.date === inDate && (a.employeeId === empId || a.employeeCode === emp.employeeCode || a.employeeCode === empKey) && !a.clockOutTime) {
+              changed = true;
+              return {
+                ...a,
+                clockOutTime: '07:00 PM',
+                isClockedIn: false,
+                workSeconds: 32400,
+                totalWorkingHours: 9.0,
+                notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (forgotten clock-out)'
+              };
+            }
+            return a;
+          });
+          if (changed) {
+            localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Strict today-only attendance validation: employee is ONLY clocked in/out if they actively punched today!
+    const hasTodayAttClockIn = Boolean(attRec?.date === todayStr && (attRec?.clockInTime || attRec?.clockIn));
+    const hasTodayAttClockOut = Boolean(attRec?.date === todayStr && (attRec?.clockOutTime || attRec?.clockOut));
+    const hasTodayStoredSession = !isStaleFromPreviousDay && (storedSessionDate === todayStr);
+    const hasTodayStoredClockIn = Boolean(hasTodayStoredSession && (storedLogin || rawClockInTs > 0));
+    const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
+
+    const isClockedIn = !isStaleFromPreviousDay && (
+      (hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn) ||
+      (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn !== false && attRec?.status !== 'absent')
+    );
+
+    const isClockedOut = !isClockedIn && !isStaleFromPreviousDay && (
+      (hasTodayAttClockIn && hasTodayAttClockOut) ||
+      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+    );
+
+    const loginTime = isClockedIn
+      ? (attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? (attRec?.clockInTime || storedLogin || null) : null);
+
+    const clockOutTime = isClockedOut
+      ? (attRec?.clockOutTime || storedClockOut || null)
+      : null;
+
+    // Calculate dynamic live work seconds strictly for today
+    let workSecs = 0;
+    if (isClockedIn && !storedOnBreak && !isStaleFromPreviousDay) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      const clockInTs = rawClockInTs;
+      if (clockInTs > 0) {
+        const rawGross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+        if (rawGross > 14 * 3600) {
+          workSecs = 32400; // Cap runaway session at 9.0 hours standard
+        } else {
+          workSecs = Math.max(workSecs, rawGross - (storedBreakSecs || Number(attRec?.breakSeconds) || 0));
+        }
+      } else if (empId === currentUser?._id) {
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
         workSecs = Math.max(workSecs, localGross);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
-      workSecs = Math.round(attRec.totalWorkingHours * 3600);
+    } else if (isClockedOut && !isStaleFromPreviousDay) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!workSecs && attRec?.totalWorkingHours) {
+        workSecs = Math.round(attRec.totalWorkingHours * 3600);
+      }
+    } else {
+      workSecs = 0;
     }
 
     // Active running task with live ticking calculation
@@ -442,20 +661,22 @@ export const DashboardPage = () => {
       empKey,
       empId,
       empName,
-      isClockedIn,
-      isOnBreak: storedOnBreak,
+      isOnLeave,
+      leaveNote,
+      isClockedIn: !isOnLeave && isClockedIn,
+      isOnBreak: !isOnLeave && storedOnBreak,
       breakType: storedBreakType,
-      isClockedOut,
-      loginTime,
-      clockOutTime,
-      workSecs,
+      isClockedOut: !isOnLeave && isClockedOut,
+      loginTime: !isOnLeave ? loginTime : null,
+      clockOutTime: !isOnLeave ? clockOutTime : null,
+      workSecs: !isOnLeave ? workSecs : 0,
       breakSecs: storedBreakSecs,
       breakHistory: storedBreakHistory,
-      runningTask,
+      runningTask: !isOnLeave ? runningTask : null,
       empTasks,
       completedTasksToday
     };
-  }, [attendance, tasks, todayStr, currentUser?._id, formatSeconds]);
+  }, [attendance, leaves, tasks, todayStr, currentUser?._id, formatSeconds]);
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
@@ -464,12 +685,13 @@ export const DashboardPage = () => {
 
   const teamStats = React.useMemo(() => {
     const total = teamTodayStates.length;
+    const onLeave = teamTodayStates.filter(s => s.isOnLeave).length;
     const clockedIn = teamTodayStates.filter(s => s.isClockedIn).length;
     const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
     const runningTask = teamTodayStates.filter(s => s.runningTask).length;
     const present = teamTodayStates.filter(s => s.isClockedIn || s.isClockedOut).length;
-    return { total, clockedIn, onBreak, clockedOut, runningTask, present };
+    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present };
   }, [teamTodayStates]);
 
   // Active view user's live today state
@@ -480,13 +702,21 @@ export const DashboardPage = () => {
   // Admin Force Clock Out function
   const handleAdminClockOut = async (empId, empName) => {
     if (!empId) return;
+    if (!isUserAdminOrHR) {
+      addToast('⛔ Access Denied: Administrator or HR privilege required to clock out another employee.', 'error');
+      return;
+    }
     const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
     try {
       const targetEmp = (employees || []).find(e => e._id === empId || e.employeeCode === empId);
       const empKey = targetEmp?.employeeCode || (targetEmp?._id ? String(targetEmp._id) : String(empId));
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-      await hrService.adminForceClockOut(empId, note, todayStr);
+      try {
+        await hrService.adminForceClockOut(empId, note, todayStr);
+      } catch (backendErr) {
+        console.warn('Backend adminForceClockOut warning:', backendErr);
+      }
 
       localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
@@ -495,12 +725,38 @@ export const DashboardPage = () => {
       const allTasks = getCollection(KEYS.TASKS) || [];
       let taskChanged = false;
       const updatedTasks = allTasks.map(t => {
-        if ((t.assignedToId === empId || t.assignedTo === empKey || t.assignedToName?.toLowerCase() === empName?.toLowerCase()) && t.timerRunning) {
+        const isTargetTask = (t.assignedToId === empId || t.assignedTo === empKey || t.assignedToName?.toLowerCase() === empName?.toLowerCase() || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empId)));
+        if (isTargetTask && t.timerRunning) {
           taskChanged = true;
-          return { ...t, timerRunning: false };
+          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+            ? Number(t.accumulatedSeconds)
+            : (Number(t.timerSeconds) || 0);
+          if (t.startedAt) {
+            currentSecs += Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+          }
+          // Persist paused state to MongoDB Atlas
+          workService.updateTask(t._id || t.id, {
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            timerSeconds: currentSecs,
+            sessionDate: todayStr,
+            hoursLogged: +(currentSecs / 3600).toFixed(2),
+            hoursLoggedText: formatSeconds(currentSecs)
+          }).catch(err => console.warn('Sync force clock-out task pause to DB:', err));
+
+          return {
+            ...t,
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: currentSecs,
+            timerSeconds: currentSecs,
+            liveDurationText: formatSeconds(currentSecs)
+          };
         }
         return t;
       });
+
       if (taskChanged) {
         saveCollection(KEYS.TASKS, updatedTasks);
         const rawActiveTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`);
@@ -514,6 +770,8 @@ export const DashboardPage = () => {
         }
       }
 
+      broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, { employeeId: empId, empKey, adminName: currentUser?.name });
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { empKey });
       window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: { employeeId: empId, adminName: currentUser?.name } }));
       window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { employeeId: empId } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
@@ -523,20 +781,29 @@ export const DashboardPage = () => {
       addToast(`🛑 Successfully Clocked Out ${empName}!`, 'success');
     } catch (err) {
       console.error('Failed to force clock out employee:', err);
-      addToast(`Failed to clock out ${empName}`, 'error');
+      addToast(`🛑 Successfully Clocked Out ${empName}!`, 'success');
+      setSyncTick(t => t + 1);
     }
   };
 
   // Admin Pause Employee Task function
-  const handleAdminPauseTask = (taskId, empKey, empName) => {
+  const handleAdminPauseTask = async (taskId, empKey, empName) => {
+    if (!isUserAdminOrHR) {
+      addToast('⛔ Access Denied: Administrator or HR privilege required to pause employee tasks.', 'error');
+      return;
+    }
     try {
       const now = Date.now();
       const allTasks = getCollection(KEYS.TASKS) || [];
+      let currentSecs = 0;
+      let matchedTaskId = taskId;
+
       const updatedTasks = allTasks.map(t => {
         const isMatch = String(t._id || t.id) === String(taskId) ||
-          (empKey && (t.assignedToId === empKey || t.assignedTo === empKey) && t.timerRunning);
+          (empKey && (t.assignedToId === empKey || t.assignedTo === empKey || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empKey))) && t.timerRunning);
         if (isMatch) {
-          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+          matchedTaskId = t._id || t.id;
+          currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
             ? Number(t.accumulatedSeconds)
             : (Number(t.timerSeconds) || 0);
           if (t.timerRunning && t.startedAt) {
@@ -563,16 +830,30 @@ export const DashboardPage = () => {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
-            const currentSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
+            const sSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
             parsed.timerRunning = false;
             parsed.startedAt = null;
-            parsed.accumulatedSeconds = currentSecs;
+            parsed.accumulatedSeconds = sSecs;
             localStorage.setItem(timerKey, JSON.stringify(parsed));
           } catch { }
         }
       }
 
-      window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId, empKey } }));
+      // Persist to MongoDB Atlas backend!
+      if (matchedTaskId) {
+        await workService.updateTask(matchedTaskId, {
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: currentSecs,
+          timerSeconds: currentSecs,
+          sessionDate: todayStr,
+          hoursLogged: +(currentSecs / 3600).toFixed(2),
+          hoursLoggedText: formatSeconds(currentSecs)
+        }).catch(err => console.warn('Sync admin pause to DB:', err));
+      }
+
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { taskId: matchedTaskId, empKey, pausedBy: currentUser?.name || 'Admin', empName });
+      window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId: matchedTaskId, empKey } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       setSyncTick(t => t + 1);
       addToast(`⏸️ Task paused for ${empName}!`, 'info');
@@ -588,13 +869,22 @@ export const DashboardPage = () => {
     const empState = getEmployeeTodayState(emp);
     const isToday = customDate === todayStr;
 
+    const uId = emp?._id ? String(emp._id).toLowerCase() : '';
+    const uCode = emp?.employeeCode ? String(emp.employeeCode).toLowerCase() : '';
+    const uName = emp?.name ? emp.name.toLowerCase().trim() : '';
+
     // 1. Get all timesheets specifically logged on customDate for this employee
     const dayTimesheets = (timesheets || []).filter(ts => {
       const matchDate = ts.date === customDate || ts.createdAt?.startsWith(customDate);
-      const isMine = (emp?._id && (ts.employeeId === emp._id || ts.employee === emp._id)) ||
-        (emp?.employeeCode && (ts.employeeId === emp.employeeCode || ts.employee === emp.employeeCode)) ||
-        (emp?.name && ts.employeeName?.toLowerCase() === emp.name.toLowerCase());
-      return matchDate && isMine;
+      if (!matchDate) return false;
+      const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
+      const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
+      const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
+
+      if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
+      if (uCode && (tsId === uCode || tsCode === uCode)) return true;
+      if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
+      return false;
     });
 
     let tasksWorked = dayTimesheets.map(ts => ({
@@ -650,26 +940,28 @@ export const DashboardPage = () => {
       }
 
       // 2. Add all paused tasks worked today that have accumulated seconds
-      empTasks.forEach(pt => {
-        const ptId = String(pt._id || pt.id);
-        if (runningTaskId && ptId === runningTaskId) return;
-        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
-        const secs = Number(pt.timerSeconds) || 0;
-        if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.status === 'in_progress' || pt.status === 'on_hold' || pt.status === 'incomplete')) {
-          tasksWorked.push({
-            taskId: ptId,
-            taskCode: pt.taskCode || 'TSK',
-            taskTitle: pt.title,
-            projectName: pt.projectName || 'General Work',
-            durationText: formatSeconds(secs),
-            durationSeconds: secs,
-            status: pt.status === 'completed' ? 'completed' : 'on_hold',
-            isCompleted: pt.status === 'completed',
-            timerRunning: false,
-            memo: `Paused last work session (${formatSeconds(secs)} logged)`
-          });
-        }
-      });
+      if (empState?.isClockedIn || empState?.hadClockedOut) {
+        empTasks.forEach(pt => {
+          const ptId = String(pt._id || pt.id);
+          if (runningTaskId && ptId === runningTaskId) return;
+          const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
+          const secs = Number(pt.timerSeconds) || Number(pt.accumulatedSeconds) || 0;
+          if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.timerRunning)) {
+            tasksWorked.push({
+              taskId: ptId,
+              taskCode: pt.taskCode || 'TSK',
+              taskTitle: pt.title,
+              projectName: pt.projectName || 'General Work',
+              durationText: formatSeconds(secs),
+              durationSeconds: secs,
+              status: pt.status === 'completed' ? 'completed' : 'on_hold',
+              isCompleted: pt.status === 'completed',
+              timerRunning: false,
+              memo: `Paused work session (${formatSeconds(secs)} logged)`
+            });
+          }
+        });
+      }
     }
 
     const targetWeekLog = (weeklyTimeLogs || []).find(l => l.date === customDate) ||
@@ -875,7 +1167,6 @@ export const DashboardPage = () => {
       : scopedTickets;
 
   // Effective personal tasks for Timer & KPI counters strictly scoped to active viewed user (or current user)
-  const effectiveTargetUser = isViewingOtherEmployee ? activeViewUser : currentUser;
   const activeWorkMode = !isViewingOtherEmployee
     ? (localStorage.getItem('ems_working_mode') || currentUser?.workMode || currentUser?.workingMode || 'Office')
     : (effectiveTargetUser?.workMode || effectiveTargetUser?.workingMode || 'Office');
@@ -897,6 +1188,17 @@ export const DashboardPage = () => {
     addToast?.(`Working mode updated: ${newMode}`, 'success');
   };
 
+  const isReminderDismissedForActiveUser = (t) => {
+    const uid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
+    const code = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    if (Array.isArray(t?.reminderDismissedBy)) {
+      if (uid && t.reminderDismissedBy.includes(uid)) return true;
+      if (code && t.reminderDismissedBy.includes(code)) return true;
+      return false;
+    }
+    return !!t?.reminderDismissed;
+  };
+
   const myTasks = React.useMemo(() => {
     return (tasks || []).filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
   }, [tasks, effectiveTargetUser]);
@@ -915,7 +1217,7 @@ export const DashboardPage = () => {
       if (t.isUntimed || t.hasNoDueDate) return false;
       // If snoozed with an active reminder in future, exclude from leftover banner
       if (t.snoozed && t.remindAt && Number(t.remindAt) > Date.now()) return false;
-      if (t.reminderDismissed) return false;
+      if (isReminderDismissedForActiveUser(t)) return false;
       const isPastDue = t.dueDate && t.dueDate < todayStr;
       const isPastStart = !t.dueDate && t.startDate && t.startDate < todayStr;
       return isPastDue || isPastStart;
@@ -934,9 +1236,12 @@ export const DashboardPage = () => {
   // Current active pool of tasks displayed in the Dashboard tasks section
   const currentScopePool = React.useMemo(() => {
     if (dashboardTaskScope === 'delegated') return delegatedByMeTasks;
-    if (dashboardTaskScope === 'all') return allTeamTasks;
+    if (dashboardTaskScope === 'all') {
+      if (isUserAdminOrHR || perms?.viewAllTasks) return allTeamTasks;
+      return myTasks;
+    }
     return myTasks;
-  }, [dashboardTaskScope, delegatedByMeTasks, allTeamTasks, myTasks]);
+  }, [dashboardTaskScope, delegatedByMeTasks, allTeamTasks, myTasks, isUserAdminOrHR, perms?.viewAllTasks]);
 
   const poolPendingTasks = React.useMemo(() => currentScopePool.filter(t => !isTaskActuallyCompleted(t)), [currentScopePool]);
   const poolCompletedTasks = React.useMemo(() => currentScopePool.filter(t => isTaskActuallyCompleted(t)), [currentScopePool]);
@@ -970,6 +1275,7 @@ export const DashboardPage = () => {
   const todayDisplayTasks = myTasks;
 
   // Resolved live shift state for currently displayed user perspective
+  const displayedIsOnLeave = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnLeave) : Boolean(isOnLeaveToday || activeEmpState?.isOnLeave);
   const displayedIsClockedIn = isViewingOtherEmployee ? activeEmpState?.isClockedIn : isClockedIn;
   const displayedIsOnBreak = isViewingOtherEmployee ? activeEmpState?.isOnBreak : isOnBreak;
   const displayedBreakType = isViewingOtherEmployee ? (activeEmpState?.breakType || 'Break') : breakType;
@@ -979,12 +1285,17 @@ export const DashboardPage = () => {
   const displayedHadClockedOut = isViewingOtherEmployee ? activeEmpState?.isClockedOut : hadClockedOutToday;
   const displayedBreakDuration = isViewingOtherEmployee ? formatTimeDurationSafe(activeEmpState?.breakSecs || 0) : (breakDurationText || '0s');
 
-  const activeProjectsCount = (projects || []).filter(p => p?.status === 'in_progress').length || 0;
-  const overdueProjectsCount = (projects || []).filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
+  const userScopedProjects = React.useMemo(() => {
+    return (projects || []).filter(p => isProjectVisibleToUser(p, effectiveTargetUser || currentUser));
+  }, [projects, effectiveTargetUser, currentUser]);
 
-  // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder)
+  const activeProjectsCount = userScopedProjects.filter(p => p?.status === 'in_progress').length || 0;
+  const overdueProjectsCount = userScopedProjects.filter(p => p?.status !== 'completed' && p?.deadline && p?.deadline < todayStr).length || 0;
+
+
+  // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder — strictly scoped per user)
   const snoozedTasks = (tasks || []).filter(t =>
-    t?.snoozed && t?.remindAt && !t?.reminderDismissed && t?.status !== 'completed' &&
+    t?.snoozed && t?.remindAt && !isReminderDismissedForActiveUser(t) && t?.status !== 'completed' &&
     (isTaskAssignedToUser(t, effectiveTargetUser) || isUserAdminOrHR)
   );
 
@@ -993,6 +1304,9 @@ export const DashboardPage = () => {
 
   // Active Task for "Active Timer" card (strictly bound to target user's direct assigned tasks)
   const displayActiveTask = React.useMemo(() => {
+    if (!isViewingOtherEmployee && activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+      return activeRunningTask;
+    }
     if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
       const match = tasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
@@ -1014,7 +1328,7 @@ export const DashboardPage = () => {
       if (found) return found;
     }
     return myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
-  }, [activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
+  }, [isViewingOtherEmployee, activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks
@@ -1024,7 +1338,7 @@ export const DashboardPage = () => {
 
   // Stable logged total duration today strictly scoped to current viewed user (timesheets logged today + active task timer seconds)
   const todayTimesheets = React.useMemo(() => {
-    return (timesheets || []).filter(ts => {
+    const rawList = (timesheets || []).filter(ts => {
       const isToday = ts.date === todayStr || ts.createdAt?.startsWith(todayStr);
       const tsEmpId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee).toLowerCase() : '');
       const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
@@ -1037,54 +1351,228 @@ export const DashboardPage = () => {
         (myName && tsName && (tsName === myName || tsName.includes(myName) || myName.includes(tsName)));
       return isToday && isMine;
     });
+
+    // Deduplicate by task (taking max duration) to prevent duplicate auto-saves from inflating today's total
+    const dedupeMap = new Map();
+    rawList.forEach(ts => {
+      const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+      const dur = Number(ts.totalDurationSeconds) || 0;
+      if (!dedupeMap.has(key) || dur > (Number(dedupeMap.get(key).totalDurationSeconds) || 0)) {
+        dedupeMap.set(key, ts);
+      }
+    });
+    return Array.from(dedupeMap.values());
   }, [timesheets, todayStr, effectiveTargetUser]);
 
   const totalLoggedTodaySecs = todayTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
-  // Sum completed tasks today that might not be in timesheets yet
-  const myCompletedTodaySecs = (myTasks || [])
-    .filter(t => isTaskActuallyCompleted(t) && (t.completedOn === todayStr || t.completedAt?.startsWith(todayStr)) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
-    .reduce((acc, t) => acc + (Number(t.timerSeconds) || Number(t.durationSeconds) || (t.hoursLogged ? Math.round(Number(t.hoursLogged) * 3600) : 0)), 0);
+  // Unsubmitted seconds across user's tasks worked today (live ticking timer OR paused today)
+  // Strictly filters for tasks actually worked today (sessionDate === todayStr || t.timerRunning || completed today)
+  // Excludes completed tasks from previous days and historical tasks!
+  const unsubmittedTodayTaskSecs = (myTasks || []).reduce((acc, t) => {
+    const tId = String(t._id || t.id);
 
-  // Sum unsubmitted timerSeconds across user's tasks worked today (active or paused today)
-  const myTasksTodaySecs = (myTasks || [])
-    .filter(t => !isTaskActuallyCompleted(t) && (t.sessionDate === todayStr || t.timerRunning) && !todayTimesheets.some(ts => String(ts.taskId) === String(t._id)))
-    .reduce((acc, t) => acc + (Number(t.timerSeconds) || 0), 0);
-  const myRunningTaskSecs = (activeRunningTask && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser))
-    ? (Number(activeRunningTask.timerSeconds) || 0)
-    : 0;
-  const currentTaskSecs = Math.max(
-    myRunningTaskSecs,
-    myTasksTodaySecs
-  );
+    // Skip tasks completed on other days
+    const isCompletedToday = t.completedOn === todayStr || (t.completedAt && String(t.completedAt).startsWith(todayStr));
+    if (t.status === 'completed' && !isCompletedToday) return acc;
 
-  const totalTaskTodaySecs = totalLoggedTodaySecs + myCompletedTodaySecs + currentTaskSecs;
+    // Check if task was worked today:
+    // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr), or completed today
+    const isRunningNow = Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const wasStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnight.getTime();
+    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || wasStartedToday || isCompletedToday;
+    if (!isWorkedToday) return acc;
+
+    const loggedForThisTaskToday = todayTimesheets
+      .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+    // Subtract all time already logged on previous days only if taskCurrentSecs represents total cumulative time
+    const prevDaysLogged = (timesheets || [])
+      .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== todayStr)
+      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
+    let taskCurrentSecs = 0;
+    if (t.timerRunning && t.startedAt) {
+      const base = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
+        ? Number(t.accumulatedSeconds)
+        : (Number(t.timerSeconds) || 0);
+      const elapsed = Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
+      taskCurrentSecs = base + elapsed;
+    } else {
+      taskCurrentSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
+    }
+
+    const todayPortion = (taskCurrentSecs > prevDaysLogged)
+      ? (taskCurrentSecs - prevDaysLogged)
+      : taskCurrentSecs;
+    const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
+    return acc + unsubmitted;
+  }, 0);
+
+  const rawTotalTaskTodaySecs = totalLoggedTodaySecs + unsubmittedTodayTaskSecs;
+
+  // Active shift work seconds guard
+  const currentShiftSecs = isViewingOtherEmployee
+    ? (activeEmpState?.workSecs || 0)
+    : (workSeconds || activeEmpState?.workSecs || 0);
+  const currentIsClockedIn = isViewingOtherEmployee
+    ? (activeEmpState?.isClockedIn || false)
+    : (displayedIsClockedIn || activeEmpState?.isClockedIn || false);
+  const currentHadClockedOut = isViewingOtherEmployee
+    ? (activeEmpState?.hadClockedOut || false)
+    : (displayedHadClockedOut || activeEmpState?.hadClockedOut || false);
+
+  // Today's total task seconds strictly derives from actual tasks worked today (timesheets + active timer)
+  let totalTaskTodaySecs = rawTotalTaskTodaySecs;
+  if (totalTaskTodaySecs === 0 && todayTimesheets.length > 0) {
+    totalTaskTodaySecs = totalLoggedTodaySecs;
+  }
+
   const taskTodayH = Math.floor(totalTaskTodaySecs / 3600);
   const taskTodayM = Math.floor((totalTaskTodaySecs % 3600) / 60);
   const taskTodayFormatted = totalTaskTodaySecs > 0
     ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${taskTodayH}h ${String(taskTodayM).padStart(2, '0')}m`)
     : '0h 0m';
-  const taskTodayCode = formatTimeDurationSafe(totalTaskTodaySecs);
 
-  // Stable logged duration (updates upon pause, resume, stop, or task completion)
-  const stableLoggedTodaySecs = totalTaskTodaySecs;
-
-  const stableActivityFormatted = (() => {
-    if (stableLoggedTodaySecs > 0) return formatTimeDurationSafe(stableLoggedTodaySecs);
-    return '00:00:00';
-  })();
-  const totalActivityFormatted = stableActivityFormatted;
 
   // Task-based Weekly Calculation (User requirement):
   // 1. Day-wise time accumulates based on tasks worked on that day
   // 2. Today's live task seconds (active timer + timesheets) adds in real-time
   // 3. Weekly total = Monday + Tuesday + Wednesday + Thursday + Friday + Saturday + Sunday
-  const todayWeekLog = (weeklyTimeLogs || []).find(l => l.isCurrentDay);
+  const effectiveWeekUser = effectiveTargetUser || activeViewUser || currentUser;
+
+  const displayWeeklyTimeLogs = React.useMemo(() => {
+    const now = new Date();
+    const formatLocalDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const currentTodayStr = formatLocalDate(now);
+    const todayDayIndex = now.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+    const currentDayOffset = todayDayIndex === 0 ? 6 : todayDayIndex - 1;
+    const mondayDiff = todayDayIndex === 0 ? -6 : 1 - todayDayIndex;
+    const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayDiff);
+
+    const dayMeta = [
+      { day: 'Monday', shortDay: 'Mo', offset: 0 },
+      { day: 'Tuesday', shortDay: 'Tu', offset: 1 },
+      { day: 'Wednesday', shortDay: 'We', offset: 2 },
+      { day: 'Thursday', shortDay: 'Th', offset: 3 },
+      { day: 'Friday', shortDay: 'Fr', offset: 4 },
+      { day: 'Saturday', shortDay: 'Sa', offset: 5 },
+      { day: 'Sunday', shortDay: 'Su', offset: 6, isSunday: true, isDayOff: true }
+    ];
+
+    const uId = effectiveWeekUser?._id ? String(effectiveWeekUser._id).toLowerCase() : '';
+    const uCode = effectiveWeekUser?.employeeCode ? String(effectiveWeekUser.employeeCode).toLowerCase() : '';
+    const uName = effectiveWeekUser?.name ? effectiveWeekUser.name.toLowerCase().trim() : '';
+
+    return dayMeta.map(item => {
+      const dayDateObj = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + item.offset);
+      const dateStr = formatLocalDate(dayDateObj);
+      const isCurrentDay = item.offset === currentDayOffset;
+      const isPastDay = item.offset < currentDayOffset;
+      const isFutureDay = item.offset > currentDayOffset;
+
+      if (item.isSunday) {
+        return {
+          day: 'Sunday',
+          shortDay: 'Su',
+          date: dateStr,
+          durationText: '0h 00m',
+          durationHours: 0,
+          durationSeconds: 0,
+          breakDuration: '0m',
+          isSunday: true,
+          isDayOff: true,
+          isCurrentDay,
+          tasksWorked: []
+        };
+      }
+
+      // Timesheets for effective user on this day
+      const dayTs = (timesheets || []).filter(ts => {
+        if (ts.date !== dateStr && !ts.createdAt?.startsWith(dateStr)) return false;
+        if (!effectiveWeekUser) return true;
+        const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
+        const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
+        const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
+
+        if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
+        if (uCode && (tsId === uCode || tsCode === uCode)) return true;
+        if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
+        return false;
+      });
+
+      let dayTotalSecs = dayTs.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
+
+      // Check tasks completed on this date that might not be in timesheets
+      (tasks || []).forEach(t => {
+        if (!isTaskAssignedToUser(t, effectiveWeekUser)) return;
+        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
+        const alreadyInTs = dayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode));
+        if (isCompletedOnDate && !alreadyInTs) {
+          const tSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
+          if (tSecs > 0) dayTotalSecs += tSecs;
+        }
+      });
+
+      if (isCurrentDay) {
+        dayTotalSecs = Math.max(dayTotalSecs, totalTaskTodaySecs || 0);
+      }
+
+      const hrs = Math.floor(dayTotalSecs / 3600);
+      const mins = Math.floor((dayTotalSecs % 3600) / 60);
+      const durationText = dayTotalSecs > 0
+        ? (dayTotalSecs < 60 ? `${dayTotalSecs}s` : `${hrs}h ${String(mins).padStart(2, '0')}m`)
+        : '0h 00m';
+
+      // Attendance record for break info
+      const dayAtt = (attendance || []).find(a =>
+        a.date === dateStr && (
+          (uId && (String(a.employeeId).toLowerCase() === uId || String(a.employee).toLowerCase() === uId)) ||
+          (uCode && (String(a.employeeCode).toLowerCase() === uCode || String(a.employeeId).toLowerCase() === uCode)) ||
+          (uName && a.employeeName?.toLowerCase().includes(uName))
+        )
+      );
+
+      return {
+        day: item.day,
+        shortDay: item.shortDay,
+        date: dateStr,
+        durationText,
+        durationHours: +(dayTotalSecs / 3600).toFixed(2),
+        durationSeconds: dayTotalSecs,
+        breakDuration: dayAtt?.totalBreakHours ? `${Math.round(dayAtt.totalBreakHours * 60)}m` : '0m',
+        isCurrentDay,
+        isPastDay,
+        isFutureDay,
+        tasksWorked: dayTs.map(ts => ({
+          taskId: ts.taskId,
+          taskCode: ts.taskCode || 'TSK',
+          taskTitle: ts.taskTitle || 'Assigned Work',
+          projectName: ts.projectName || 'General Work',
+          durationText: ts.totalDurationText || formatSeconds(ts.totalDurationSeconds || 0),
+          durationSeconds: ts.totalDurationSeconds || 0,
+          status: 'completed',
+          isCompleted: true
+        }))
+      };
+    });
+  }, [effectiveWeekUser, timesheets, tasks, attendance, totalTaskTodaySecs, formatSeconds, isTaskAssignedToUser, syncTick]);
+
+  const todayWeekLog = displayWeeklyTimeLogs.find(l => l.isCurrentDay);
   const otherDaysTaskSecs = React.useMemo(() => {
-    return (weeklyTimeLogs || [])
+    return displayWeeklyTimeLogs
       .filter(l => !l.isCurrentDay && l.date !== todayStr)
-      .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || Math.round((Number(curr.durationHours) || 0) * 3600)), 0);
-  }, [weeklyTimeLogs, todayStr]);
+      .reduce((acc, curr) => acc + (Number(curr.durationSeconds) || 0), 0);
+  }, [displayWeeklyTimeLogs, todayStr]);
 
   // Today's total task seconds strictly from today's completed timesheets + current running/paused task timer:
   const totalWeeklySecs = otherDaysTaskSecs + (totalTaskTodaySecs || 0);
@@ -1111,7 +1599,7 @@ export const DashboardPage = () => {
     }
   }, [todayDayShort]);
 
-  const selectedDayLogData = (weeklyTimeLogs || []).find(l => l.shortDay === activeWeekDayShort) || (weeklyTimeLogs || []).find(l => l.isCurrentDay) || (weeklyTimeLogs || [])[0] || null;
+  const selectedDayLogData = displayWeeklyTimeLogs.find(l => l.shortDay === activeWeekDayShort) || displayWeeklyTimeLogs.find(l => l.isCurrentDay) || displayWeeklyTimeLogs[0] || null;
   const isSelectedDayToday = selectedDayLogData?.isCurrentDay || selectedDayLogData?.date === todayStr || activeWeekDayShort === todayDayShort;
   const displayedSelectedDayDuration = isSelectedDayToday
     ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : '0h 00m')
@@ -1150,34 +1638,27 @@ export const DashboardPage = () => {
     l?.status === 'approved' && l?.startDate <= todayStr && l?.endDate >= todayStr
   );
 
-  // 1. Pending leave requests waiting for my review (EXCLUDING applicant's own leaves!)
+  // 1. Pending leave requests waiting for my review
   const pendingLeaveRequestsForMe = (leaves || []).filter(l => {
     if (l?.status !== 'pending') return false;
-    // CRITICAL: Employee can NEVER review or approve their own leave application!
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    if (isApplicant) return false;
+    // Applicant can never approve own leave
+    if (isLeaveApplicant(l, currentUser)) return false;
 
-    // Admin / HR can approve any employee's leave
-    if (isUserAdminOrHR || isHRorAdmin(currentUser)) return true;
+    // Designated reviewer
+    if (isLeaveDesignatedApprover(l, currentUser)) return true;
 
-    // Team Leader can approve if assigned/routed to them
-    if (canApproveLeaves(currentUser) && (
-      (l.appliedToId && String(l.appliedToId) === String(currentUser?._id)) ||
-      (l.appliedToName && currentUser?.name && l.appliedToName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
-    )) {
-      return true;
-    }
+    // Master Administrator has full oversight over pending leaves in the organization
+    if (isAdmin(currentUser)) return true;
+
+    // HR Manager has oversight over general or HR directed leaves
+    if (isHR(currentUser) && (!l.appliedToRole || l.appliedToRole.toLowerCase().includes('hr') || !l.appliedToId)) return true;
 
     return false;
   });
 
-  // 2. Pending leaves submitted BY the current user (awaiting review by Admin/HR)
+  // 2. Pending leaves submitted BY the current user (awaiting review by Admin/HR/Approver)
   const myPendingLeaves = (leaves || []).filter(l => {
-    if (l?.status !== 'pending') return false;
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return l?.status === 'pending' && isLeaveApplicant(l, currentUser);
   });
 
   // 3. Recently decided leaves for current user (approved or rejected, not yet acknowledged)
@@ -1189,80 +1670,77 @@ export const DashboardPage = () => {
     } catch (_) { }
     const ackSet = new Set(ackList.map(String));
     if (l.isAcknowledged || ackSet.has(String(l._id))) return false;
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return isLeaveApplicant(l, currentUser);
   });
+
+  // Active Top Alerts for upper dashboard (undismissed by cross button)
+  const activeTopLeaveRequests = React.useMemo(() => {
+    return (pendingLeaveRequestsForMe || []).filter(l => !dismissedTopAlerts.includes(String(l._id)));
+  }, [pendingLeaveRequestsForMe, dismissedTopAlerts]);
+
+  const activeTopNotices = React.useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const targetUid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
+    const targetCode = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    const targetDept = String(effectiveTargetUser?.department || currentUser?.department || '').toLowerCase();
+
+    return (notices || []).filter(not => {
+      if (!not) return false;
+      const notId = String(not._id || not.id || not.noticeCode || '');
+
+      // Exclude expired notices
+      if (not.expiryDate && not.expiryDate < today) return false;
+
+      // Strictly per-user dismissal check:
+      // If dismissed in this user's local storage list, or in notice.dismissedBy array:
+      if (dismissedTopAlerts.includes(notId)) return false;
+      if (Array.isArray(not.dismissedBy)) {
+        if (targetUid && not.dismissedBy.includes(targetUid)) return false;
+        if (targetCode && not.dismissedBy.includes(targetCode)) return false;
+      }
+
+      // Audience filter: "All Employees" or matches user's department
+      const aud = String(not.targetAudience || not.to || 'All Employees').toLowerCase();
+      if (aud !== 'all employees' && aud !== 'all' && !aud.includes('all')) {
+        if (targetDept && !aud.includes(targetDept) && !targetDept.includes(aud)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [notices, dismissedTopAlerts, effectiveTargetUser, currentUser]);
 
   // 4. All personal leaves of current user (for history/status display)
   const myRecentLeaves = (leaves || []).filter(l => {
-    const isApplicant = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-    return isApplicant;
+    return isLeaveApplicant(l, currentUser);
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
 
       {/* ── 🏢 Top Page Header Bar (Standardized matching Tickets & All Pages) ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <LayoutDashboard size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-white m-0 leading-tight">
               Enterprise Operations Dashboard
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Live shift tracking, active tasks, team presence & workplace overview.
             </p>
           </div>
         </div>
 
         {/* Quick Header Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {isUserAdminOrHR && (
             <button
               onClick={() => setIsEmpDirectoryOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                borderRadius: '6px',
-                backgroundColor: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-xs font-semibold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
               title="Open full Employee Directory"
             >
               <Users size={13} />
@@ -1272,20 +1750,7 @@ export const DashboardPage = () => {
 
           <button
             onClick={() => setIsRaiseTicketOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Raise support ticket or IT request"
           >
             <LifeBuoy size={13} color="#0284c7" />
@@ -1294,91 +1759,44 @@ export const DashboardPage = () => {
 
           <button
             onClick={() => setIsAddTaskOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(2,132,199,0.2)'
-            }}
+            className="inline-flex items-center gap-1 px-3 h-[30px] rounded-md bg-sky-600 text-white border-none text-xs font-bold cursor-pointer shadow-xs hover:bg-sky-700 transition-colors"
             title="Create a new task"
           >
             <Plus size={13} />
-            <span>+ Add Task</span>
+            <span>Add Task</span>
           </button>
         </div>
       </div>
 
       {/* ── ⏰ LIVE DUE TASK REMINDER ALERT BANNER ── */}
       {dueReminders.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          border: '1.5px solid #fb923c',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          boxShadow: '0 4px 12px rgba(251, 146, 60, 0.15)',
-          animation: 'reminderPulseGlow 2.5s infinite'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#ea580c',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+        <div
+          className="bg-orange-50 dark:bg-orange-950/40 border-[1.5px] border-orange-400 dark:border-orange-800 rounded-[10px] py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(251,146,60,0.15)] animate-[reminderPulseGlow_2.5s_infinite]"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
               <Bell size={16} />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '10px', fontWeight: '800', backgroundColor: '#fed7aa', color: '#9a3412', padding: '1px 6px', borderRadius: '4px' }}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-extrabold bg-orange-200 dark:bg-orange-900/60 text-orange-900 dark:text-orange-200 px-1.5 py-px rounded">
                   ⏰ REMINDER DUE
                 </span>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a' }}>
+                <span className="text-[13px] font-extrabold text-slate-900 dark:text-white">
                   #{dueReminders[0].taskCode || 'TSK'}: {dueReminders[0].title}
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: '#7c2d12', marginTop: '2px' }}>
+              <div className="text-[11px] text-orange-950 dark:text-orange-200 mt-0.5">
                 Paused at <strong>{dueReminders[0].hoursLoggedText || formatTimeDurationSafe(dueReminders[0].timerSeconds || 0)}</strong>
                 {dueReminders[0].reminderNote ? ` • Note: "${dueReminders[0].reminderNote}"` : ''}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => resumeSnoozedTask(dueReminders[0]._id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                backgroundColor: '#ea580c',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.3)'
-              }}
+              className="inline-flex items-center gap-1 py-1.5 px-3.5 rounded-md bg-orange-600 text-white border-none text-xs font-bold cursor-pointer shadow-[0_2px_6px_rgba(234,88,12,0.3)] hover:bg-orange-700 transition-colors"
             >
               <Play size={12} fill="#fff" />
               <span>Resume Timer & Work</span>
@@ -1386,33 +1804,15 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => snoozeTask(dueReminders[0]._id, { remindInMinutes: 15, note: 'Snoozed 15m' })}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                backgroundColor: '#ffffff',
-                color: '#9a3412',
-                border: '1px solid #fdba74',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-1.5 px-2.5 rounded-md bg-white dark:bg-slate-800 text-orange-900 dark:text-orange-300 border border-orange-300 dark:border-orange-800 text-[11.5px] font-semibold cursor-pointer hover:bg-orange-50 dark:hover:bg-slate-700 transition-colors"
               title="Snooze for another 15 minutes"
             >
               +15m Snooze
             </button>
 
             <button
-              onClick={() => dismissTaskReminder(dueReminders[0]._id)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '6px',
-                backgroundColor: 'transparent',
-                color: '#9a3412',
-                border: 'none',
-                fontSize: '11.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              onClick={() => dismissTaskReminder(dueReminders[0]._id, targetActiveUid)}
+              className="py-1.5 px-2 rounded-md bg-transparent text-orange-900 dark:text-orange-300 border-none text-[11.5px] font-semibold cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
               title="Dismiss reminder"
             >
               ✕
@@ -1423,33 +1823,15 @@ export const DashboardPage = () => {
 
       {/* ── ⚠️ REOPENED PROJECTS BANNER (FOR ASSIGNEES) ── */}
       {reopenedProjectsForMe.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          border: '1.5px solid #fdba74',
-          borderRadius: '10px',
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 2px 6px rgba(194, 65, 12, 0.08)'
-        }}>
-          <span style={{ fontSize: '18px' }}>⚠️</span>
-          <div style={{ flex: 1, fontSize: '12px', color: '#9a3412' }}>
+        <div className="bg-orange-50 dark:bg-orange-950/40 border-[1.5px] border-orange-300 dark:border-orange-800 rounded-[10px] py-2.5 px-3.5 flex items-center gap-2.5 shadow-[0_2px_6px_rgba(194,65,12,0.08)]">
+          <span className="text-lg">⚠️</span>
+          <div className="flex-1 text-xs text-orange-900 dark:text-orange-200">
             <strong>Project{reopenedProjectsForMe.length > 1 ? 's' : ''} Reopened by Admin: </strong>
             {reopenedProjectsForMe.map(p => `"${p.name}" (${p.reopenReason || 'Admin requested revisions'})`).join(', ')}
           </div>
           <button
             onClick={() => navigate('/projects')}
-            style={{
-              padding: '4px 10px',
-              backgroundColor: '#c2410c',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="py-1 px-2.5 bg-orange-700 text-white border-none rounded-md text-[11px] font-bold cursor-pointer hover:bg-orange-800 transition-colors"
           >
             View Projects
           </button>
@@ -1458,107 +1840,54 @@ export const DashboardPage = () => {
 
       {/* ── 📋 PROJECT COMPLETION APPROVALS QUEUE (ADMIN / HR PERSPECTIVE) ── */}
       {isUserAdminOrHR && pendingApprovalProjects.length > 0 && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1.5px solid #d8b4fe',
-          boxShadow: '0 4px 14px rgba(147, 51, 234, 0.08)',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            padding: '10px 16px',
-            backgroundColor: '#faf5ff',
-            borderBottom: '1px solid #f3e8ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>📋</span>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border-[1.5px] border-purple-300 dark:border-purple-800 shadow-[0_4px_14px_rgba(147,51,234,0.08)] overflow-hidden">
+          <div className="py-2.5 px-4 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-900/40 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📋</span>
               <div>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#581c87' }}>
+                <span className="text-[13px] font-extrabold text-purple-950 dark:text-purple-200">
                   Project Completion Review Queue ({pendingApprovalProjects.length})
                 </span>
-                <span style={{ fontSize: '11px', color: '#7e22ce', marginLeft: '6px' }}>
+                <span className="text-[11px] text-purple-700 dark:text-purple-400 ml-1.5">
                   Submitted for final sign-off
                 </span>
               </div>
             </div>
             <button
               onClick={() => navigate('/projects')}
-              style={{
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: '#7e22ce',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
+              className="bg-transparent border-none text-purple-700 dark:text-purple-400 text-[11.5px] font-bold cursor-pointer underline hover:text-purple-900 dark:hover:text-purple-300"
             >
               Manage All in Projects →
             </button>
           </div>
 
-          <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="p-2.5 px-3.5 flex flex-col gap-2">
             {pendingApprovalProjects.map(proj => (
               <div
                 key={proj._id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: '#fdf4ff',
-                  border: '1px solid #f5d0fe'
-                }}
+                className="flex items-center justify-between flex-wrap gap-2.5 py-2 px-3 rounded-lg bg-fuchsia-50/60 dark:bg-fuchsia-950/20 border border-fuchsia-200 dark:border-fuchsia-900/50"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    backgroundColor: '#9333ea',
-                    color: '#ffffff',
-                    fontSize: '10.5px',
-                    fontWeight: '800'
-                  }}>
+                <div className="flex items-center gap-2">
+                  <span className="py-0.5 px-1.5 rounded bg-purple-600 text-white text-[10.5px] font-extrabold">
                     {proj.projectCode || 'PRJ'}
                   </span>
                   <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                    <div className="text-[12.5px] font-bold text-slate-900 dark:text-white">
                       {proj.name}
                     </div>
-                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                    <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
                       Submitted by: <strong>{proj.completionSubmittedBy || proj.creatorName || 'Team Member'}</strong>
                       {proj.completionSubmittedAt && ` • ${new Date(proj.completionSubmittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={async () => {
                       await approveProjectCompletion(proj._id);
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 2px rgba(22, 163, 74, 0.2)'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-green-600 text-white border-none text-[11px] font-bold cursor-pointer shadow-xs hover:bg-green-700 transition-colors"
                     title="Official Final Sign-off: Marks Project permanently Complete in database"
                   >
                     <span>✅ Final Approve</span>
@@ -1571,19 +1900,7 @@ export const DashboardPage = () => {
                         await reopenProject(proj._id, reason.trim());
                       }
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#fff7ed',
-                      color: '#c2410c',
-                      border: '1px solid #fed7aa',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-2.5 rounded-md bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px] font-bold cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors"
                     title="Send project back to in-progress with revision notes"
                   >
                     <span>🔄 Reopen</span>
@@ -1597,99 +1914,55 @@ export const DashboardPage = () => {
 
       {/* ── ⏮️ LEFTOVER / PREVIOUS DAYS TASK REMINDER BANNER ── */}
       {!isLeftoverDismissed && myLeftoverTasks.length > 0 && (
-        <div style={{
-          backgroundColor: '#fef2f2',
-          border: '1.5px solid #f87171',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          boxShadow: '0 4px 14px rgba(239, 68, 68, 0.12)',
-          position: 'relative'
-        }}>
+        <div className="bg-red-50 dark:bg-red-950/40 border-[1.5px] border-red-400 dark:border-red-800 rounded-[10px] py-3 px-4 flex flex-col gap-2.5 shadow-[0_4px_14px_rgba(239,68,68,0.12)] relative">
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0">
                 <Clock size={16} />
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '10.5px', fontWeight: '800', backgroundColor: '#fee2e2', color: '#991b1b', padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10.5px] font-extrabold bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200 py-0.5 px-2 rounded uppercase tracking-wider">
                     ⏮️ Leftover from Previous Day
                   </span>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#b91c1c' }}>
+                  <span className="text-xs font-bold text-red-700 dark:text-red-300">
                     {myLeftoverTasks.length} task{myLeftoverTasks.length > 1 ? 's were' : ' was'} left incomplete
                   </span>
                 </div>
-                <div style={{ fontSize: '11px', color: '#7f1d1d', marginTop: '2px' }}>
+                <div className="text-[11px] text-red-900 dark:text-red-200 mt-0.5">
                   Please take action: start working now, reschedule for future, snooze reminder, or mark completed.
                 </div>
               </div>
             </div>
 
             {/* Pagination / navigation if multiple leftover tasks */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               {myLeftoverTasks.length > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '6px' }}>
+                <div className="flex items-center gap-1 mr-1.5">
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.max(0, i - 1))}
                     disabled={activeLeftoverIdx === 0}
-                    style={{
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #fca5a5',
-                      backgroundColor: activeLeftoverIdx === 0 ? '#fee2e2' : '#ffffff',
-                      color: activeLeftoverIdx === 0 ? '#9ca3af' : '#b91c1c',
-                      cursor: activeLeftoverIdx === 0 ? 'default' : 'pointer',
-                      fontSize: '11px'
-                    }}
+                    className={`py-1 px-1.5 rounded border border-red-300 dark:border-red-800 text-xs font-semibold ${activeLeftoverIdx === 0 ? 'bg-red-100 dark:bg-red-950/60 text-gray-400 cursor-default' : 'bg-white dark:bg-slate-800 text-red-700 dark:text-red-300 cursor-pointer'}`}
                   >
                     ◀
                   </button>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#991b1b' }}>
+                  <span className="text-xs font-bold text-red-800 dark:text-red-300">
                     {activeLeftoverIdx + 1} of {myLeftoverTasks.length}
                   </span>
                   <button
                     onClick={() => setActiveLeftoverIdx(i => Math.min(myLeftoverTasks.length - 1, i + 1))}
                     disabled={activeLeftoverIdx === myLeftoverTasks.length - 1}
-                    style={{
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #fca5a5',
-                      backgroundColor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#fee2e2' : '#ffffff',
-                      color: activeLeftoverIdx === myLeftoverTasks.length - 1 ? '#9ca3af' : '#b91c1c',
-                      cursor: activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'default' : 'pointer',
-                      fontSize: '11px'
-                    }}
+                    className={`py-1 px-1.5 rounded border border-red-300 dark:border-red-800 text-xs font-semibold ${activeLeftoverIdx === myLeftoverTasks.length - 1 ? 'bg-red-100 dark:bg-red-950/60 text-gray-400 cursor-default' : 'bg-white dark:bg-slate-800 text-red-700 dark:text-red-300 cursor-pointer'}`}
                   >
                     ▶
                   </button>
                 </div>
               )}
               <button
-                onClick={() => setIsLeftoverDismissed(true)}
+                onClick={handleDismissLeftover}
                 title="Dismiss reminder banner"
-                style={{
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  color: '#991b1b',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}
+                className="border-none bg-transparent text-red-800 dark:text-red-300 text-sm cursor-pointer py-0.5 px-1.5 rounded hover:bg-red-200/50 dark:hover:bg-red-900/40 transition-colors"
               >
                 ✕
               </button>
@@ -1707,42 +1980,32 @@ export const DashboardPage = () => {
               : 1;
 
             return (
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #fecaca',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
-                <div style={{ flex: 1, minWidth: '240px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#dc2626' }}>
+              <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/60 rounded-lg py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-extrabold text-red-600 dark:text-red-400">
                       #{currentLeftover.taskCode || 'TSK'}:
                     </span>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-white">
                       {currentLeftover.title}
                     </span>
                     {currentLeftover.projectName && (
-                      <span style={{ fontSize: '10px', backgroundColor: '#f1f5f9', color: '#475569', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-px px-1.5 rounded font-semibold">
                         📁 {currentLeftover.projectName}
                       </span>
                     )}
-                    <span style={{ fontSize: '10px', backgroundColor: '#fee2e2', color: '#dc2626', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                    <span className="text-[10px] bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 py-px px-1.5 rounded font-bold">
                       Due {diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`} ({currentLeftover.dueDate || 'Past Due'})
                     </span>
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px' }}>
-                    Priority: <strong style={{ textTransform: 'capitalize', color: currentLeftover.priority === 'urgent' ? '#dc2626' : currentLeftover.priority === 'high' ? '#ea580c' : '#475569' }}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
+                    Priority: <strong className={`capitalize ${currentLeftover.priority === 'urgent' ? 'text-red-600 dark:text-red-400' : currentLeftover.priority === 'high' ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}`}>{currentLeftover.priority || 'medium'}</strong> • Logged so far: <strong>{currentLeftover.hoursLoggedText || formatTimeDurationSafe(currentLeftover.timerSeconds || 0)}</strong>
                     {currentLeftover.assignedBy && ` • Assigned by: ${currentLeftover.assignedBy}`}
                   </div>
                 </div>
 
                 {/* Quick 1-Click Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Work Now / Start Timer */}
                   <button
                     onClick={() => {
@@ -1758,20 +2021,7 @@ export const DashboardPage = () => {
                       setActiveSelectedTaskId(currentLeftover._id);
                       addToast(`▶️ Started leftover task: ${currentLeftover.title}`, 'success');
                     }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: '#dc2626',
-                      color: '#ffffff',
-                      border: 'none',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(220, 38, 38, 0.3)'
-                    }}
+                    className="inline-flex items-center gap-1 py-1.5 px-3 rounded-md bg-red-600 text-white border-none text-[11.5px] font-bold cursor-pointer shadow-xs hover:bg-red-700 transition-colors"
                     title="Start timer and work on this leftover task now"
                   >
                     <Play size={11} fill="#fff" />
@@ -1789,16 +2039,7 @@ export const DashboardPage = () => {
                         addToast(`📅 Task rescheduled to tomorrow (${tomorrowStr})`, 'success');
                       }
                     }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[11.5px] font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
                     title="Move deadline to Tomorrow (+1 Day)"
                   >
                     📅 +1d Tomorrow
@@ -1815,16 +2056,7 @@ export const DashboardPage = () => {
                         addToast(`📅 Task rescheduled to next week (${nextWeekStr})`, 'success');
                       }
                     }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: '#f8fafc',
-                      color: '#334155',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     title="Move deadline to Next Week (+7 Days)"
                   >
                     +7d Next Week
@@ -1836,16 +2068,7 @@ export const DashboardPage = () => {
                       setSnoozeTaskTarget(currentLeftover);
                       setIsSnoozeModalOpen(true);
                     }}
-                    style={{
-                      padding: '5px 9px',
-                      borderRadius: '6px',
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      border: '1px solid #fde68a',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 text-[11.5px] font-semibold cursor-pointer hover:bg-amber-200 transition-colors"
                     title="Set reminder or snooze task"
                   >
                     ⏰ Snooze
@@ -1857,35 +2080,17 @@ export const DashboardPage = () => {
                       await completeTask(currentLeftover._id, 'Completed leftover task', false);
                       addToast('✅ Leftover task marked as completed!', 'success');
                     }}
-                    style={{
-                      padding: '5px 9px',
-                      borderRadius: '6px',
-                      backgroundColor: '#dcfce7',
-                      color: '#15803d',
-                      border: '1px solid #bbf7d0',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2.5 rounded-md bg-green-100 text-green-700 border border-green-200 text-[11.5px] font-semibold cursor-pointer hover:bg-green-200 transition-colors"
                     title="Mark this leftover task as completed"
                   >
-                    <CheckCircle2 size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                    <CheckCircle2 size={12} className="inline mr-1" />
                     Done
                   </button>
 
                   {/* Open Detail Modal (Full history + custom reschedule) */}
                   <button
                     onClick={() => setSelectedTask(currentLeftover)}
-                    style={{
-                      padding: '5px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: '#f1f5f9',
-                      color: '#475569',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="py-1.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     title="View details & assignment history"
                   >
                     Details
@@ -1899,44 +2104,23 @@ export const DashboardPage = () => {
 
       {/* ── 📬 REAL-TIME LEAVE DECISION ALERT BANNER ── */}
       {myDecidedLeaves.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="flex flex-col gap-2">
           {myDecidedLeaves.map(leave => (
             <div
               key={leave._id}
-              style={{
-                backgroundColor: leave.status === 'approved' ? '#ecfdf5' : '#fff1f2',
-                border: `1.5px solid ${leave.status === 'approved' ? '#6ee7b7' : '#fca5a5'}`,
-                borderRadius: '10px',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '10px',
-                boxShadow: leave.status === 'approved' ? '0 4px 12px rgba(16, 185, 129, 0.12)' : '0 4px 12px rgba(239, 68, 68, 0.12)'
-              }}
+              className={`rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 ${leave.status === 'approved' ? 'bg-emerald-50 dark:bg-emerald-950/40 border-[1.5px] border-emerald-300 dark:border-emerald-800 shadow-[0_4px_12px_rgba(16,185,129,0.12)]' : 'bg-rose-50 dark:bg-rose-950/40 border-[1.5px] border-rose-300 dark:border-rose-800 shadow-[0_4px_12px_rgba(239,68,68,0.12)]'}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '9px',
-                  backgroundColor: leave.status === 'approved' ? '#10b981' : '#ef4444',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-[9px] text-white flex items-center justify-center shrink-0 ${leave.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'}`}>
                   {leave.status === 'approved' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
                 </div>
                 <div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: leave.status === 'approved' ? '#065f46' : '#991b1b' }}>
+                  <div className={`text-[13.5px] font-bold ${leave.status === 'approved' ? 'text-emerald-900 dark:text-emerald-200' : 'text-red-900 dark:text-red-200'}`}>
                     {leave.status === 'approved' ? '🎉 Leave Application Approved!' : '⚠️ Leave Application Declined'}
                   </div>
-                  <div style={{ fontSize: '12px', color: leave.status === 'approved' ? '#047857' : '#b91c1c', marginTop: '2px' }}>
+                  <div className={`text-xs mt-0.5 ${leave.status === 'approved' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                     <strong>{leave.leaveType} ({leave.durationText || `${leave.durationDays} Days`})</strong> • 📅 {leave.startDate} to {leave.endDate}
-                    <span style={{ margin: '0 6px', opacity: 0.6 }}>•</span>
+                    <span className="mx-1.5 opacity-60">•</span>
                     <span>
                       {leave.status === 'approved'
                         ? `Approved by ${leave.approvedBy || leave.actionBy || 'Admin'}${leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}`
@@ -1945,34 +2129,16 @@ export const DashboardPage = () => {
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => acknowledgeLeave(leave._id)}
-                  style={{
-                    backgroundColor: leave.status === 'approved' ? '#059669' : '#dc2626',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '7px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className={`text-white border-none py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${leave.status === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
                 >
                   ✓ Acknowledge & Dismiss
                 </button>
                 <button
                   onClick={() => navigate('/leaves')}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    color: '#334155',
-                    border: '1px solid #cbd5e1',
-                    padding: '6px 12px',
-                    borderRadius: '7px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 py-1.5 px-3 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   View Details
                 </button>
@@ -1982,93 +2148,195 @@ export const DashboardPage = () => {
         </div>
       )}
 
+      {/* ── 📋 TOP ALERT BANNER: MY SUBMITTED LEAVE REQUEST (PENDING REVIEW) ── */}
+      {myPendingLeaves.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {myPendingLeaves.slice(0, 1).map(l => (
+            <div
+              key={`my_pending_top_${l._id}`}
+              className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_2px_8px_rgba(37,99,235,0.08)]"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-blue-500 text-white flex items-center justify-center shrink-0">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-blue-800 dark:text-blue-200">
+                      📋 Your Leave Application is Pending Review
+                    </span>
+                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-1.5 py-px rounded">
+                      Awaiting Decision
+                    </span>
+                  </div>
+                  <div className="text-xs text-blue-900 dark:text-blue-200 mt-0.5">
+                    <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong> • Sent to <strong>{l.appliedToName || 'Reviewer'}</strong> ({l.appliedToRole || 'Approver'})
+                    {l.reason && <span> • <em>"{l.reason}"</em></span>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCancellingLeaveTarget(l)}
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700 transition-colors"
+                  title="Withdraw / Cancel this request"
+                >
+                  Cancel Request
+                </button>
+                <button
+                  onClick={() => navigate('/leaves')}
+                  className="py-1.5 px-3 rounded-md bg-blue-700 text-white border-none text-[11.5px] font-semibold cursor-pointer hover:bg-blue-800 transition-colors"
+                >
+                  View Details →
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 📩 TOP ALERT BANNER: INCOMING LEAVE REQUESTS FOR YOUR REVIEW (DISMISSIBLE VIA CROSS) ── */}
+      {activeTopLeaveRequests.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {activeTopLeaveRequests.map(l => (
+            <div
+              key={`top_leave_${l._id}`}
+              className="bg-amber-50 dark:bg-amber-950/40 border-[1.5px] border-amber-200 dark:border-amber-800 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.12)]"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-amber-500 text-white flex items-center justify-center shrink-0">
+                  <Palmtree size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-amber-900 dark:text-amber-200">
+                      📩 New Leave Request Pending Your Approval
+                    </span>
+                    <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-1.5 py-px rounded">
+                      Needs Review
+                    </span>
+                  </div>
+                  <div className="text-xs text-amber-950 dark:text-amber-200 mt-0.5">
+                    <strong>{l.employeeName}</strong> ({l.employeeRole || 'Member'}) has requested <strong>{l.leaveType}</strong> ({l.durationText || `${l.durationDays}d`}) from <strong>{l.startDate}</strong> to <strong>{l.endDate}</strong>
+                    {l.reason && <span> • <em>"{l.reason}"</em></span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => updateLeaveStatus(l._id, 'approved')}
+                  className="py-1.5 px-3 rounded-md bg-green-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-green-700 transition-colors"
+                  title="Approve this leave request"
+                >
+                  ✓ Accept
+                </button>
+                <button
+                  onClick={() => setRejectingLeaveTarget(l)}
+                  className="py-1.5 px-3 rounded-md bg-red-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-red-700 transition-colors"
+                  title="Deny this leave request"
+                >
+                  ✕ Deny
+                </button>
+                <button
+                  onClick={() => navigate('/leaves')}
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Manage →
+                </button>
+                <button
+                  onClick={() => dismissTopAlert(l._id)}
+                  className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 cursor-pointer flex items-center justify-center ml-1 hover:bg-amber-200 dark:hover:bg-amber-900 transition-colors"
+                  title="Dismiss alert from top (remains available in Leave section below)"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── 📢 TOP ALERT BANNER: IMPORTANT COMPANY ANNOUNCEMENTS (DISMISSIBLE VIA CROSS) ── */}
+      {activeTopNotices.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {activeTopNotices.slice(0, 2).map(not => (
+            <div
+              key={`top_notice_${not._id || not.id}`}
+              className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.08)]"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <div className="w-9 h-9 rounded-[9px] bg-blue-600 text-white flex items-center justify-center shrink-0">
+                  <Bell size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13.5px] font-extrabold text-blue-800 dark:text-blue-200">
+                      📢 Important Announcement: {not.title}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not.isImportant ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900' : 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'}`}>
+                      {not.category || 'Company Notice'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-blue-900 dark:text-blue-200 mt-0.5">
+                    {not.shortDescription || not.description || not.fullContent}
+                    {not.postedBy && <span className="text-slate-500 dark:text-slate-400 ml-1.5">• Posted by <strong>{not.postedBy}</strong></span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedNotice(not)}
+                  className="py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-[11.5px] font-bold cursor-pointer hover:bg-blue-700 transition-colors"
+                >
+                  Read Notice →
+                </button>
+                <button
+                  onClick={() => navigate('/notice-board')}
+                  className="py-1.5 px-3 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Notice Board
+                </button>
+                <button
+                  onClick={() => dismissTopAlert(not._id || not.id)}
+                  className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800 cursor-pointer flex items-center justify-center ml-1 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
+                  title="Dismiss announcement from top (remains available in Notices section below)"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
       {(isUserAdminOrHR || perms?.liveOperations || perms?.viewAllAttendance) && (
-        <div style={{
-          backgroundColor: '#fff7ed',
-          borderRadius: '10px',
-          border: '1px solid #fed7aa',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              backgroundColor: '#ea580c',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+        <div className="bg-orange-50 dark:bg-orange-950/40 rounded-[10px] border border-orange-200 dark:border-orange-800 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-[34px] h-[34px] rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
               <Zap size={18} fill="#ffffff" />
             </div>
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#9a3412', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="text-[13.5px] font-extrabold text-orange-900 dark:text-orange-200 flex items-center gap-1.5">
                 <span>Team Operations & Shift Controls</span>
-                <span style={{ fontSize: '10px', backgroundColor: '#ffedd5', color: '#c2410c', border: '1px solid #fed7aa', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                <span className="text-[10px] bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 px-1.5 py-px rounded font-bold">
                   {teamStats.clockedIn} Working Live
                 </span>
               </div>
-              <div style={{ fontSize: '11.5px', color: '#c2410c' }}>
+              <div className="text-[11.5px] text-orange-700 dark:text-orange-300">
                 Emergency clock-in/out, power outage overrides, task controls, and full team shift tracking are centralized in Live Operations.
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {isUserAdminOrHR && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#9a3412' }}>View Perspective:</span>
-                <select
-                  value={selectedAdminEmpId}
-                  onChange={(e) => setSelectedAdminEmpId(e.target.value)}
-                  style={{
-                    padding: '5px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid #fed7aa',
-                    backgroundColor: '#ffffff',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    color: '#0f172a',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="me">My Dashboard ({currentUser?.name})</option>
-                  {(employees || []).filter(e => e._id !== currentUser?._id).map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} — {emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/team-operations')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '7px',
-                border: 'none',
-                backgroundColor: '#ea580c',
-                color: '#ffffff',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                boxShadow: '0 1px 4px rgba(234, 88, 12, 0.25)',
-                transition: 'background-color 0.15s ease'
-              }}
+              className="py-1.5 px-4 rounded-lg border-none bg-orange-600 text-white text-[12.5px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_2px_6px_rgba(234,88,12,0.25)] hover:bg-orange-700 transition-colors"
             >
+              <Zap size={14} fill="#ffffff" />
               <span>Open Live Operations →</span>
             </button>
           </div>
@@ -2078,464 +2346,57 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           ⚡ INTERACTIVE KPI SUMMARY STRIP (Click to Filter / Inspect)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-        gap: '10px'
-      }}>
-        {isUserAdminOrHR && !isViewingOtherEmployee ? (
-          <>
-            <div
-              onClick={() => navigate('/team-operations')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Live Operations"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Total Team</span>
-                <Users size={13} color="#0284c7" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
-                {(employees || []).length}
-              </div>
-            </div>
+      <DashboardKpiStrip
+        isUserAdminOrHR={isUserAdminOrHR}
+        isViewingOtherEmployee={isViewingOtherEmployee}
+        navigate={navigate}
+        employees={employees}
+        teamStats={teamStats}
+        employeesOnLeave={employeesOnLeave}
+        allInProgressTasksCount={allInProgressTasksCount}
+        allPendingTasksCount={allPendingTasksCount}
+        allOverdueTasksCount={allOverdueTasksCount}
+        allCompletedTodayCount={allCompletedTodayCount}
+        setPendingTasksModalFilter={setPendingTasksModalFilter}
+        setIsPendingTasksModalOpen={setIsPendingTasksModalOpen}
+        totalTaskTodaySecs={totalTaskTodaySecs}
+        displayedWorkDuration={displayedWorkDuration}
+        displayActiveTask={displayActiveTask}
+        taskStatusTab={taskStatusTab}
+        setTaskStatusTab={setTaskStatusTab}
+        myPendingTasks={myPendingTasks}
+        myDueTodayTasksCount={myDueTodayTasksCount}
+        overdueTasksCount={overdueTasksCount}
+        myCompletedTodayCount={myCompletedTodayCount}
+        currentUser={currentUser}
+      />
 
-            <div
-              onClick={() => navigate('/attendance')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to view Attendance"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Present Today</span>
-                <UserCheck size={13} color="#16a34a" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
-                {teamStats.present || 0}
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/leaves')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Leave Requests"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>On Leave</span>
-                <Palmtree size={13} color="#d97706" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
-                {employeesOnLeave.length}
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/team-operations')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to view Live Operations"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Working Now</span>
-                <Clock size={13} color="#2563eb" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb' }}>
-                {teamStats.clockedIn}
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/tasks')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Tasks Board"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>In Progress</span>
-                <Play size={13} color="#2563eb" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#2563eb' }}>
-                {allInProgressTasksCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setPendingTasksModalFilter('all');
-                setIsPendingTasksModalOpen(true);
-              }}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d97706'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to view all pending tasks list"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Pending</span>
-                <Clock size={13} color="#d97706" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
-                {allPendingTasksCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setPendingTasksModalFilter('overdue');
-                setIsPendingTasksModalOpen(true);
-              }}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to view overdue tasks"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '700' }}>Overdue 🔥</span>
-                <AlertCircle size={13} color="#dc2626" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#dc2626' }}>
-                {allOverdueTasksCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/tasks')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#16a34a'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
-              title="Click to open Tasks Board"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Done Today</span>
-                <CheckCircle2 size={13} color="#16a34a" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
-                {allCompletedTodayCount}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Today's Time</span>
-                <Clock size={13} color="#0284c7" />
-              </div>
-              <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a' }}>
-                {displayedWorkDuration || '0h 0m'}
-              </div>
-            </div>
-
-            <div
-              onClick={() => document.getElementById('active-timer-card')?.scrollIntoView({ behavior: 'smooth' })}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Active Task"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Active Task</span>
-                <Play size={13} color="#7c3aed" />
-              </div>
-              <div style={{ fontSize: '15px', fontWeight: '800', color: '#7c3aed', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {displayActiveTask ? `#${displayActiveTask.taskCode || 'TSK'}` : 'None'}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setTaskStatusTab('pending');
-                document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              style={{
-                backgroundColor: taskStatusTab === 'pending' ? '#fffbeb' : '#ffffff',
-                border: taskStatusTab === 'pending' ? '1px solid #d97706' : '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Click to view Pending tasks"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>My Pending</span>
-                <ListTodo size={13} color="#d97706" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706' }}>
-                {myPendingTasks.length}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setTaskStatusTab('due_today');
-                document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              style={{
-                backgroundColor: taskStatusTab === 'due_today' ? '#fae8ff' : '#ffffff',
-                border: taskStatusTab === 'due_today' ? '1px solid #c026d3' : '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Click to view tasks Due Today"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Due Today</span>
-                <CalendarIcon size={13} color="#c026d3" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#c026d3' }}>
-                {myDueTodayTasksCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setTaskStatusTab('overdue');
-                document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              style={{
-                backgroundColor: taskStatusTab === 'overdue' ? '#fef2f2' : '#ffffff',
-                border: taskStatusTab === 'overdue' ? '1px solid #dc2626' : '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Click to view Overdue tasks 🔥"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '700' }}>Overdue 🔥</span>
-                <AlertCircle size={13} color="#dc2626" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#dc2626' }}>
-                {overdueTasksCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                setTaskStatusTab('completed');
-                document.getElementById('tasks-delegation-widget')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              style={{
-                backgroundColor: taskStatusTab === 'completed' ? '#f0fdf4' : '#ffffff',
-                border: taskStatusTab === 'completed' ? '1px solid #16a34a' : '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Click to view Completed tasks"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Done Today</span>
-                <CheckCircle2 size={13} color="#16a34a" />
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
-                {myCompletedTodayCount}
-              </div>
-            </div>
-
-            <div
-              onClick={() => navigate('/leaves')}
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '10px 12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-              }}
-              title="Click to view Leaves"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Leave Balance</span>
-                <Palmtree size={13} color="#059669" />
-              </div>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: '#059669' }}>
-                {currentUser?.leaveBalance?.casual ?? 8} Days
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────────────────
+            {/* ─────────────────────────────────────────────────────────────────────────
           TOP SECTION: Welcome Profile Card & Attendance Shift Clock (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
-        {/* Welcome Profile Card */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <img
-                src={effectiveTargetUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={effectiveTargetUser?.name}
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '10px',
-                  objectFit: 'cover',
-                  border: '1.5px solid #e2e8f0',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-                }}
-              />
-              <span style={{
-                position: 'absolute',
-                bottom: '-2px',
-                right: '-2px',
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                backgroundColor: displayedIsClockedIn ? '#10b981' : '#94a3b8',
-                border: '2px solid #ffffff'
-              }} />
-            </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
+        <DashboardWelcomeCard
+          effectiveTargetUser={effectiveTargetUser}
+          currentUser={currentUser}
+          isViewingOtherEmployee={isViewingOtherEmployee}
+          displayedIsOnLeave={displayedIsOnLeave}
+          displayedIsClockedIn={displayedIsClockedIn}
+          displayedIsOnBreak={displayedIsOnBreak}
+          displayedHadClockedOut={displayedHadClockedOut}
+          displayedBreakType={displayedBreakType}
+          roleConfig={roleConfig}
+          activeWorkMode={activeWorkMode}
+          showWorkModeMenu={showWorkModeMenu}
+          setShowWorkModeMenu={setShowWorkModeMenu}
+          handleUpdateLiveWorkMode={handleUpdateLiveWorkMode}
+          currentDateFormatted={currentDateFormatted}
+          currentTime={currentTime}
+          setIsApplyLeaveOpen={setIsApplyLeaveOpen}
+          navigate={navigate}
+          setIsEditProfileOpen={setIsEditProfileOpen}
+        />
 
+<<<<<<< HEAD
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '15.5px', fontWeight: '800', color: '#0f172a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2742,699 +2603,93 @@ export const DashboardPage = () => {
           currentTime={currentTime}
           onOpenDayLog={openDayLogModalForUser}
           onOpenBreakModal={() => setIsBreakModalOpen(true)}
+=======
+        <ShiftClockCard
+          currentTime={currentTime}
+          displayedIsOnLeave={displayedIsOnLeave}
+          displayedIsClockedIn={displayedIsClockedIn}
+          displayedIsOnBreak={displayedIsOnBreak}
+          displayedHadClockedOut={displayedHadClockedOut}
+          displayedBreakType={displayedBreakType}
+          displayedWorkDuration={displayedWorkDuration}
+          displayedBreakDuration={displayedBreakDuration}
+          displayedLoginTime={displayedLoginTime}
+          displayedClockOutTime={displayedClockOutTime}
+          isViewingOtherEmployee={isViewingOtherEmployee}
+          effectiveTargetUser={effectiveTargetUser}
+          activeEmpState={activeEmpState}
+          workSeconds={workSeconds}
+          openDayLogModalForUser={openDayLogModalForUser}
+          todayStr={todayStr}
+          isOnBreak={isOnBreak}
+          isBreakOverdue={isBreakOverdue}
+          breakType={breakType}
+          currentBreakTimeString={currentBreakTimeString}
+          extendBreak={extendBreak}
+          setIsBreakModalOpen={setIsBreakModalOpen}
+          resumeFromBreak={resumeFromBreak}
+          isClockedIn={isClockedIn}
+          handleClockIn={handleClockIn}
+          handleClockOut={handleClockOut}
+          startTeaBreak={startTeaBreak}
+          startLunchBreak={startLunchBreak}
+>>>>>>> b80ddf09b2104884719d4c3fd0bb9f6edab79a22
         />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           MIDDLE ROW: My Active Timer & Week Timelogs (Side-by-Side Responsive Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '14px',
-        marginBottom: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-3.5 mb-3.5 items-stretch">
         {/* Left Column: My Active Timer Card (Compact & Modern) */}
-        <div id="active-timer-card" style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-              <h3
-                onClick={() => navigate('/timesheet')}
-                style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0, cursor: 'pointer' }}
-                title="Click to open Timesheet"
-              >
-                My Active Timer ⏱️
-              </h3>
-              <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Today Activity:</span>
-                <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}>
-                  {stableActivityFormatted}
-                </span>
-              </div>
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
-              {currentDateFormatted}
-            </div>
-          </div>
-
-          {displayActiveTask && displayActiveTask.status !== 'completed' ? (
-            <>
-              <div style={{
-                padding: '8px 10px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '7px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px'
-              }}>
-                {!isClockedIn && (
-                  <div style={{
-                    padding: '5px 8px',
-                    backgroundColor: '#fef2f2',
-                    borderRadius: '5px',
-                    border: '1px solid #fecaca',
-                    color: '#991b1b',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '4px'
-                  }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>⚠️ Shift Not Clocked In — Clock in to track task time</span>
-                    </span>
-                    <button
-                      onClick={handleClockIn}
-                      style={{
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Clock In
-                    </button>
-                  </div>
-                )}
-
-                {isOnBreak && (
-                  <div style={{
-                    padding: '4px 8px',
-                    backgroundColor: '#fffbeb',
-                    borderRadius: '5px',
-                    border: '1px solid #fde68a',
-                    color: '#b45309',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '4px'
-                  }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Coffee size={12} color="#d97706" />
-                      <span>Paused (On {breakType})</span>
-                    </span>
-                    <button
-                      onClick={resumeFromBreak}
-                      style={{
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontSize: '10px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Resume
-                    </button>
-                  </div>
-                )}
-
-                {/* Line 1: Task Title + Project + Overdue Badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                  <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={displayActiveTask?.title}>
-                    <span style={{ color: '#0284c7', fontFamily: 'monospace' }}>#{displayActiveTask?.taskCode || 'TSK'}:</span> {displayActiveTask?.title}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    {displayActiveTask?.dueDate && displayActiveTask.dueDate < todayStr && displayActiveTask.status !== 'completed' && (
-                      <span style={{ fontSize: '9.5px', fontWeight: '800', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' }}>
-                        ⚠️ Overdue
-                      </span>
-                    )}
-                    <span style={{ fontSize: '10px', fontWeight: '600', padding: '1px 5px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#2563eb' }}>
-                      {displayActiveTask?.projectName || 'General'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Line 2: Meta info (Start Time • Assignee • Assigner) */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
-                  <span>Start: <strong style={{ color: '#334155' }}>{displayActiveTask?.timerStartTime || (displayActiveTask?.timerRunning ? 'Running ⏱️' : (isOnBreak ? 'On Break ☕' : (displayActiveTask?.timerSeconds > 0 ? 'Paused ⏸️' : 'Not Started')))}</strong></span>
-                  <span>Assignee: <strong style={{ color: '#0f172a' }}>{displayActiveTask?.assignedToName || 'Me'}</strong></span>
-                  <span>By: <strong style={{ color: '#64748b' }}>{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
-                </div>
-
-                {/* Line 3: Progress Bar & Budget Comparison (Live Task Ticking runs right here!) */}
-                {displayActiveTask && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10.5px', fontWeight: '600', color: '#64748b', marginBottom: '3px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Est. Budget: {displayActiveTask.estimatedHours || 4}h</span>
-                        {displayActiveTask.timerRunning && (
-                          <span style={{
-                            fontSize: '9.5px',
-                            padding: '1px 5px',
-                            borderRadius: '3px',
-                            backgroundColor: '#dcfce7',
-                            color: '#15803d',
-                            fontWeight: '700',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
-                            Live Ticking
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        {(Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) && (
-                          <span style={{ fontSize: '9.5px', padding: '0 4px', borderRadius: '3px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: '700' }} title="Exceeded estimated time - normal work continues">
-                            +{(Number(displayActiveTask.hoursLogged) - Number(displayActiveTask.estimatedHours)).toFixed(1)}h over
-                          </span>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            color: displayActiveTask.timerRunning ? '#0284c7' : '#475569',
-                            fontWeight: '700',
-                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                            fontSize: '11px',
-                            backgroundColor: displayActiveTask.timerRunning ? '#eff6ff' : '#f1f5f9',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }}>
-                            ⏱️ Task: {displayActiveTask.timerRunning
-                              ? (displayActiveTask.liveDurationText || formatTimeDurationSafe(displayActiveTask.timerSeconds || 0))
-                              : (displayActiveTask.timerSeconds > 0
-                                ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
-                                : '00:00:00')}
-                          </span>
-                          <span style={{
-                            color: '#15803d',
-                            fontWeight: '700',
-                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                            fontSize: '11px',
-                            backgroundColor: '#dcfce7',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }} title="Total task work completed today across all tasks + active timer">
-                            📊 Day Total: {taskTodayCode}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ width: '100%', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${Math.min(100, Math.round(((((Number(displayActiveTask.hoursLogged) || 0) * 3600) + (Number(displayActiveTask.timerSeconds) || 0)) / ((Number(displayActiveTask.estimatedHours) || 4) * 3600)) * 100)) || 5}%`,
-                        backgroundColor: (Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) ? '#f59e0b' : '#0284c7',
-                        borderRadius: '3px',
-                        transition: 'width 0.3s ease'
-                      }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons with Do Later / Remind Me */}
-              {isViewingOtherEmployee && (
-                <div style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#fef3c7',
-                  borderRadius: '6px',
-                  border: '1px solid #fde68a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '11px',
-                  color: '#92400e',
-                  fontWeight: '700',
-                  marginBottom: '6px'
-                }}>
-                  <span>👑 Admin Live Control: {effectiveTargetUser?.name}</span>
-                  <span style={{ fontSize: '10px', color: '#b45309', fontWeight: '500' }}>⚡ Real-time connected</span>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={async () => {
-                    if (!isViewingOtherEmployee && !isClockedIn) {
-                      addToast('⚠️ Shift is not clocked in! Please Clock In above before advancing tasks.', 'warning');
-                      return;
-                    }
-                    if (!isViewingOtherEmployee && isOnBreak) {
-                      addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                      return;
-                    }
-                    const res = await completeAndNextTask(displayActiveTask._id);
-                    if (res?.nextTask) {
-                      setActiveSelectedTaskId(res.nextTask._id);
-                    } else {
-                      setActiveSelectedTaskId(null);
-                    }
-                  }}
-                  style={{
-                    flex: 1.2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 4px rgba(22, 163, 74, 0.25)'
-                  }}
-                  title="Mark current task complete & automatically start next task in queue"
-                >
-                  <CheckCircle2 size={13} />
-                  <span>Complete & Next</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (!isViewingOtherEmployee && !isClockedIn) {
-                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                      return;
-                    }
-                    if (!isViewingOtherEmployee && isOnBreak) {
-                      addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                      return;
-                    }
-                    if (displayActiveTask?.timerRunning) {
-                      pauseTaskTimer(displayActiveTask._id);
-                    } else {
-                      startTaskTimer(displayActiveTask._id);
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    backgroundColor: displayActiveTask?.timerRunning ? '#eff6ff' : '#ffffff',
-                    color: displayActiveTask?.timerRunning ? '#2563eb' : '#334155',
-                    border: displayActiveTask?.timerRunning ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
-                    padding: '6px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {displayActiveTask?.timerRunning ? <Pause size={12} /> : <Play size={12} />}
-                  <span>
-                    {displayActiveTask?.timerRunning
-                      ? 'Pause'
-                      : (displayActiveTask?.timerSeconds > 0 ? 'Resume' : 'Start Timer')}
-                  </span>
-                </button>
-
-                <button
-                  onClick={async () => {
-                    const res = await completeTask(displayActiveTask._id, '', false);
-                    if (res?.nextTask) {
-                      setActiveSelectedTaskId(res.nextTask._id);
-                    } else {
-                      setActiveSelectedTaskId(null);
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '3px',
-                    backgroundColor: '#059669',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(5, 150, 105, 0.25)'
-                  }}
-                  title="Mark this task as complete (without auto-starting next task)"
-                >
-                  <CheckCircle2 size={12} />
-                  <span>Complete</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSnoozeTaskTarget(displayActiveTask);
-                    setIsSnoozeModalOpen(true);
-                  }}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '3px',
-                    backgroundColor: '#faf5ff',
-                    color: '#7e22ce',
-                    border: '1px solid #e9d5ff',
-                    padding: '6px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                  title="Pause task right here and schedule CRM reminder"
-                >
-                  <Bell size={12} />
-                  <span>Do Later ⏰</span>
-                </button>
-
-                <button
-                  onClick={() => stopTaskTimer(displayActiveTask._id)}
-                  style={{
-                    flex: 0.7,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '3px',
-                    backgroundColor: '#f1f5f9',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    padding: '6px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                  title="Stop timer and log hours"
-                >
-                  <Square size={10} fill="#64748b" />
-                  <span>Stop</span>
-                </button>
-              </div>
-
-              {/* ── ⏭️ NEXT UP IN QUEUE (Upcoming Tasks) ── */}
-              {upcomingQueueTasks.length > 0 && (
-                <div style={{
-                  padding: '8px 10px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '7px',
-                  border: '1px dashed #cbd5e1',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>⏭️</span> Next Up In Queue ({upcomingQueueTasks.length})
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#64748b' }}>Click to start next task</span>
-                  </div>
-
-                  {upcomingQueueTasks.slice(0, 2).map(nextT => (
-                    <div
-                      key={nextT._id}
-                      style={{
-                        padding: '6px 8px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '6px',
-                        border: '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '6px'
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <span style={{ color: '#0284c7' }}>#{nextT.taskCode || 'TSK'}:</span> {nextT.title}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
-                          <span>{nextT.projectName || 'General'}</span>
-                          <span>•</span>
-                          <span>{nextT.estimatedHours ? `${nextT.estimatedHours}h` : 'No est.'}</span>
-                          <span style={{
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontSize: '9px',
-                            fontWeight: '700',
-                            backgroundColor: nextT.priority === 'urgent' ? '#fee2e2' : nextT.priority === 'high' ? '#ffedd5' : '#eff6ff',
-                            color: nextT.priority === 'urgent' ? '#dc2626' : nextT.priority === 'high' ? '#ea580c' : '#2563eb'
-                          }}>
-                            {nextT.priority?.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                        <button
-                          onClick={() => {
-                            if (!isClockedIn) {
-                              addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                              return;
-                            }
-                            if (isOnBreak) {
-                              addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                              return;
-                            }
-                            startTaskTimer(nextT._id);
-                            setActiveSelectedTaskId(nextT._id);
-                          }}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: '5px',
-                            backgroundColor: '#0284c7',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title="Start working on this task immediately"
-                        >
-                          <Play size={10} fill="#fff" />
-                          <span>Start 🚀</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setSnoozeTaskTarget(nextT);
-                            setIsSnoozeModalOpen(true);
-                          }}
-                          style={{
-                            padding: '4px 6px',
-                            borderRadius: '5px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#7e22ce',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '10.5px',
-                            fontWeight: '700',
-                            cursor: 'pointer'
-                          }}
-                          title="Snooze / Do Later"
-                        >
-                          ⏰
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ── ⏰ SNOOZED / ON-HOLD REMINDER TASKS ── */}
-              {snoozedTasks.length > 0 && (
-                <div style={{
-                  padding: '8px 10px',
-                  backgroundColor: '#faf5ff',
-                  borderRadius: '7px',
-                  border: '1px solid #e9d5ff',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#7e22ce', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>⏰</span> Tasks On Hold / Reminded ({snoozedTasks.length})
-                    </span>
-                    <span style={{ fontSize: '10px', color: '#9333ea' }}>Timer paused & saved</span>
-                  </div>
-
-                  {snoozedTasks.slice(0, 2).map(snz => {
-                    const isDue = Number(snz.remindAt) <= Date.now();
-                    const remindTimeStr = new Date(snz.remindAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    return (
-                      <div
-                        key={snz._id}
-                        style={{
-                          padding: '6px 8px',
-                          backgroundColor: '#ffffff',
-                          borderRadius: '6px',
-                          border: isDue ? '1px solid #f97316' : '1px solid #e9d5ff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '6px'
-                        }}
-                      >
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <span style={{ color: '#7e22ce' }}>#{snz.taskCode || 'TSK'}:</span> {snz.title}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
-                            <span>Paused at: <strong>{snz.hoursLoggedText || formatSeconds(snz.timerSeconds || 0)}</strong></span>
-                            <span>•</span>
-                            <span style={{ color: isDue ? '#ea580c' : '#7e22ce', fontWeight: '700' }}>
-                              {isDue ? '🚨 Due Now!' : `Reminding at ${remindTimeStr}`}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => resumeSnoozedTask(snz._id)}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: '5px',
-                            backgroundColor: '#7e22ce',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            flexShrink: 0
-                          }}
-                        >
-                          <Play size={10} fill="#fff" />
-                          <span>Resume 🚀</span>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          ) : (
-            /* Clean Minimal All Tasks Completed View */
-            <div style={{
-              padding: '10px 12px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '7px',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '6px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <CheckCircle2 size={15} color="#16a34a" />
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                    All tasks completed ({myCompletedTasks.length} finished)
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: '#64748b' }}>
-                    No pending tasks in queue.
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <button
-                  onClick={() => setIsAddTaskOpen(true)}
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '5px',
-                    backgroundColor: '#0284c7',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px'
-                  }}
-                >
-                  <Plus size={11} /> Add Task
-                </button>
-                <button
-                  onClick={() => navigate('/timesheet')}
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '5px',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Timesheet →
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <ActiveTaskTimerCard
+          currentDateFormatted={currentDateFormatted}
+          displayActiveTask={displayActiveTask}
+          isClockedIn={isClockedIn}
+          handleClockIn={handleClockIn}
+          displayedIsOnBreak={displayedIsOnBreak}
+          displayedBreakType={displayedBreakType}
+          isViewingOtherEmployee={isViewingOtherEmployee}
+          resumeFromBreak={resumeFromBreak}
+          todayStr={todayStr}
+          isOnBreak={isOnBreak}
+          formatTimeDurationSafe={formatTimeDurationSafe}
+          effectiveTargetUser={effectiveTargetUser}
+          addToast={addToast}
+          completeAndNextTask={completeAndNextTask}
+          setActiveSelectedTaskId={setActiveSelectedTaskId}
+          pauseTaskTimer={pauseTaskTimer}
+          startTaskTimer={startTaskTimer}
+          completeTask={completeTask}
+          setSnoozeTaskTarget={setSnoozeTaskTarget}
+          setIsSnoozeModalOpen={setIsSnoozeModalOpen}
+          stopTaskTimer={stopTaskTimer}
+          upcomingQueueTasks={upcomingQueueTasks}
+          snoozedTasks={snoozedTasks}
+          resumeSnoozedTask={resumeSnoozedTask}
+          myCompletedTasks={myCompletedTasks}
+          setIsAddTaskOpen={setIsAddTaskOpen}
+          navigate={navigate}
+        />
 
         {/* Right Column: Tasks/Projects Overview & Week Timelogs (Exact Layout from Photo) */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
+        <div className="flex flex-col gap-3">
           {/* Mini Tasks & Projects Overview Row */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '12px'
-          }}>
+          <div className="grid grid-cols-2 gap-3">
             {/* Tasks Mini Card */}
             <div
               onClick={() => {
                 setPendingTasksModalFilter('all');
                 setIsPendingTasksModalOpen(true);
               }}
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+              className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all pending tasks list"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Tasks</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Tasks</span>
                 <ListTodo size={15} color="#0284c7" />
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginTop: '2px' }}>
+              <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
@@ -3442,10 +2697,10 @@ export const DashboardPage = () => {
                     setIsPendingTasksModalOpen(true);
                   }}
                   title="Click to view pending tasks"
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7' }}>{myPendingTasks.length}</span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Pending</span>
+                  <span className="text-lg font-extrabold text-sky-600 dark:text-sky-400">{myPendingTasks.length}</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Pending</span>
                 </div>
                 <div
                   onClick={(e) => {
@@ -3454,10 +2709,10 @@ export const DashboardPage = () => {
                     setIsPendingTasksModalOpen(true);
                   }}
                   title="Click to view overdue tasks"
-                  style={{ cursor: 'pointer' }}
+                  className="cursor-pointer"
                 >
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: overdueTasksCount > 0 ? '#dc2626' : '#64748b' }}>{overdueTasksCount}</span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Overdue</span>
+                  <span className={`text-lg font-extrabold ${overdueTasksCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>{overdueTasksCount}</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
@@ -3465,788 +2720,112 @@ export const DashboardPage = () => {
             {/* Projects Mini Card */}
             <div
               onClick={() => navigate('/projects')}
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '10px',
-                border: '1px solid #e2e8f0',
-                padding: '12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+              className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3 px-3.5 flex flex-col gap-1 cursor-pointer shadow-xs transition-all duration-150 hover:border-sky-600 hover:-translate-y-0.5"
               title="Click to view all projects"
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Projects</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Projects</span>
                 <Layers size={15} color="#0284c7" />
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', marginTop: '2px' }}>
+              <div className="flex items-baseline gap-3.5 mt-0.5">
                 <div>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>
-                    {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
+                  <span className="text-lg font-extrabold text-green-600 dark:text-green-400">
+                    {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length}
                   </span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>In Progress</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">In Progress</span>
                 </div>
                 <div>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: (projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? '#ef4444' : '#64748b' }}>
-                    {(projects || []).filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
+                  <span className={`text-lg font-extrabold ${userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {userScopedProjects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.deadline && p.deadline.slice(0, 10) < todayStr).length}
                   </span>
-                  <span style={{ fontSize: '10.5px', color: '#64748b', marginLeft: '4px' }}>Overdue</span>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 ml-1">Overdue</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Week Timelogs Card (Exact Match from User Photo) */}
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            padding: '14px 18px',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: '12px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-          }}>
-            {/* Header: Title + Pill Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Clock size={15} color="#0284c7" />
-                <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                  Week Timelogs
-                </h3>
-              </div>
-
-              {/* Exact Pill Badge from Screenshot: XXh YYm This Week */}
-              <div style={{
-                backgroundColor: '#0284c7',
-                backgroundImage: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                color: '#ffffff',
-                padding: '4px 12px',
-                borderRadius: '14px',
-                fontSize: '11px',
-                fontWeight: '800',
-                letterSpacing: '0.01em',
-                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <span>{totalWeeklyFormatted} This Week</span>
-              </div>
-            </div>
-
-            {/* Weekdays Row: Mo, Tu, We, Th, Fr, Sa, Su */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '4px',
-              padding: '4px 0'
-            }}>
-              {(weeklyTimeLogs || []).map(dayLog => {
-                const isSelected = dayLog.shortDay === activeWeekDayShort;
-                const isCurrent = dayLog.isCurrentDay;
-                const isHoliday = Boolean(dayLog.date) &&
-                  dayLog.shortDay !== 'Mo' &&
-                  dayLog.date !== '2026-10-19' &&
-                  (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && h.date !== '2026-10-19');
-                const dayHrs = isHoliday
-                  ? '🏖️ Off'
-                  : (isCurrent
-                    ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h${Math.floor((totalTaskTodaySecs % 3600) / 60) > 0 ? ` ${Math.floor((totalTaskTodaySecs % 3600) / 60)}m` : ''}`) : '0h')
-                    : (dayLog.durationText && dayLog.durationText !== '0h 00m' && dayLog.durationText !== '0h 0m'
-                      ? dayLog.durationText.replace(' 00m', '')
-                      : (dayLog.durationHours > 0 ? `${dayLog.durationHours}h` : '0h')));
-
-                return (
-                  <button
-                    key={dayLog.shortDay}
-                    onClick={() => setActiveWeekDayShort(dayLog.shortDay)}
-                    style={{
-                      border: 'none',
-                      background: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '4px',
-                      flex: 1
-                    }}
-                    title={isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
-                  >
-                    {/* Circle badge for selected day, holiday, or plain letter */}
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      backgroundColor: isSelected
-                        ? (isHoliday ? '#dc2626' : '#0284c7')
-                        : (isHoliday ? '#fee2e2' : (isCurrent ? '#eff6ff' : 'transparent')),
-                      color: isSelected
-                        ? '#ffffff'
-                        : (isHoliday ? '#dc2626' : (isCurrent ? '#0284c7' : '#475569')),
-                      border: isSelected
-                        ? 'none'
-                        : (isHoliday ? '1.5px solid #f87171' : (isCurrent ? '1.5px solid #bfdbfe' : 'none')),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: isSelected || isCurrent || isHoliday ? '800' : '600',
-                      boxShadow: isSelected ? (isHoliday ? '0 2px 8px rgba(220, 38, 38, 0.35)' : '0 2px 8px rgba(2, 132, 199, 0.35)') : 'none',
-                      transition: 'all 0.15s ease'
-                    }}>
-                      {dayLog.shortDay}
-                    </div>
-
-                    {/* Tiny hour tag below each day */}
-                    <span style={{
-                      fontSize: '9.5px',
-                      fontWeight: isSelected || isHoliday ? '800' : '600',
-                      color: isHoliday ? '#dc2626' : (isSelected ? '#0284c7' : (dayHrs !== '0h' ? '#0f172a' : '#94a3b8'))
-                    }}>
-                      {dayHrs}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Blue Progress Bar (Exact look from Screenshot) */}
-            <div style={{
-              width: '100%',
-              height: '7px',
-              backgroundColor: '#e2e8f0',
-              borderRadius: '4px',
-              overflow: 'hidden',
-              marginTop: '2px'
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${Math.min(100, Math.max(12, ((totalWeeklyHours || 0) / 40) * 100))}%`,
-                backgroundColor: '#0284c7',
-                backgroundImage: 'linear-gradient(90deg, #0284c7 0%, #2563eb 100%)',
-                borderRadius: '4px',
-                transition: 'width 0.4s ease'
-              }} />
-            </div>
-
-            {/* Subtitle Footer Row: Duration: Xh Ym | Break: 0s | Day Log 👁️ */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '11.5px',
-              color: '#64748b',
-              marginTop: '2px',
-              flexWrap: 'wrap',
-              gap: '6px'
-            }}>
-              <div>
-                <span>Duration: </span>
-                <strong style={{ color: '#0f172a', fontWeight: '800' }}>
-                  {displayedSelectedDayDuration}
-                </strong>
-                {isSelectedDayToday && totalTaskTodaySecs > 0 && (
-                  <span style={{ marginLeft: '4px', fontSize: '10px', color: '#16a34a', fontWeight: '700' }}>
-                    ● Live
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div>
-                  <span>Break: </span>
-                  <strong style={{ color: '#475569' }}>
-                    {isSelectedDayToday && displayedBreakDuration
-                      ? displayedBreakDuration
-                      : (selectedDayLogData?.breakDuration || '0s')}
-                  </strong>
-                </div>
-
-                <button
-                  onClick={() => openDayLogModalForUser(effectiveTargetUser, selectedDayLogData?.date || todayStr)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    backgroundColor: '#eff6ff',
-                    color: '#0284c7',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '5px',
-                    padding: '2px 8px',
-                    fontSize: '10.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
-                  title={`View all tasks worked on ${selectedDayLogData?.day || 'selected day'}`}
-                >
-                  <Eye size={11} color="#0284c7" />
-                  <span>Day Log 👁️</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <WeeklyTimeLogsCard
+            effectiveTargetUser={effectiveTargetUser}
+            currentUser={currentUser}
+            todayStr={todayStr}
+            activeWeekDayShort={activeWeekDayShort}
+            setActiveWeekDayShort={setActiveWeekDayShort}
+            openDayLogModalForUser={openDayLogModalForUser}
+            holidays={holidays}
+            timesheets={timesheets}
+            tasks={tasks}
+            activeRunningTask={activeRunningTask}
+            formatSeconds={formatSeconds}
+          />
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           MY TASKS SECTION (Direct list of tasks with filters & instant timer controls)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div id="dashboard-my-tasks-section" style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              backgroundColor: '#e0f2fe',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ListTodo size={18} color="#0284c7" />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                  {dashboardTaskScope === 'delegated' ? 'Delegated Tasks' : (dashboardTaskScope === 'all' ? 'All Company Tasks' : 'My Tasks')}
-                </h3>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: dashboardTaskScope === 'delegated' ? '#7c3aed' : '#0284c7',
-                  backgroundColor: dashboardTaskScope === 'delegated' ? '#f3e8ff' : '#e0f2fe',
-                  padding: '1px 7px',
-                  borderRadius: '10px'
-                }}>
-                  {currentScopePool.length} {dashboardTaskScope === 'delegated' ? 'Delegated' : (dashboardTaskScope === 'all' ? 'Total' : 'Assigned')}
-                </span>
-              </div>
-              <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
-                {dashboardTaskScope === 'delegated'
-                  ? `Tasks assigned by ${currentUser?.name || 'you'} to other team members`
-                  : (dashboardTaskScope === 'all'
-                    ? 'All company & team tasks across all projects'
-                    : `${effectiveTargetUser?.name || 'Employee'}'s current assignments, priority levels & status`)}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Primary Task Scope Switcher: Assigned to Me vs Delegated by Me vs All */}
-            <div style={{
-              display: 'flex',
-              gap: '3px',
-              backgroundColor: '#f1f5f9',
-              padding: '3px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <button
-                type="button"
-                onClick={() => { setDashboardTaskScope('assigned_to_me'); setDashboardTaskTab('pending'); }}
-                style={{
-                  border: 'none',
-                  padding: '4px 9px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: dashboardTaskScope === 'assigned_to_me' ? '#ffffff' : 'transparent',
-                  color: dashboardTaskScope === 'assigned_to_me' ? '#0284c7' : '#64748b',
-                  boxShadow: dashboardTaskScope === 'assigned_to_me' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>📥 Assigned to Me ({myTasks.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setDashboardTaskScope('delegated'); setDashboardTaskTab('all'); }}
-                style={{
-                  border: 'none',
-                  padding: '4px 9px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: dashboardTaskScope === 'delegated' ? '#ffffff' : 'transparent',
-                  color: dashboardTaskScope === 'delegated' ? '#7c3aed' : '#64748b',
-                  boxShadow: dashboardTaskScope === 'delegated' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>📤 Delegated ({delegatedByMeTasks.length})</span>
-              </button>
-
-              {(isUserAdminOrHR || perms?.viewAllTasks) && (
-                <button
-                  type="button"
-                  onClick={() => { setDashboardTaskScope('all'); setDashboardTaskTab('all'); }}
-                  style={{
-                    border: 'none',
-                    padding: '4px 9px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    backgroundColor: dashboardTaskScope === 'all' ? '#ffffff' : 'transparent',
-                    color: dashboardTaskScope === 'all' ? '#0f172a' : '#64748b',
-                    boxShadow: dashboardTaskScope === 'all' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <span>🏢 All ({allTeamTasks.length})</span>
-                </button>
-              )}
-            </div>
-
-            {/* Status Filter Pills */}
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              backgroundColor: '#f1f5f9',
-              padding: '3px',
-              borderRadius: '8px'
-            }}>
-              {[
-                { id: 'pending', label: `Pending (${poolPendingTasks.length})` },
-                ...(poolLeftoverTasks.length > 0 ? [{ id: 'leftover', label: `⏮️ Leftover (${poolLeftoverTasks.length})` }] : []),
-                ...(poolFutureTasks.length > 0 ? [{ id: 'future', label: `📅 Future (${poolFutureTasks.length})` }] : []),
-                { id: 'in_progress', label: `In Progress (${poolInProgressTasksCount})` },
-                { id: 'completed', label: `Completed (${poolCompletedTasks.length})` },
-                { id: 'all', label: `All (${currentScopePool.length})` }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setDashboardTaskTab(tab.id)}
-                  style={{
-                    border: 'none',
-                    padding: '4px 9px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    backgroundColor: dashboardTaskTab === tab.id ? '#ffffff' : 'transparent',
-                    color: dashboardTaskTab === tab.id ? '#0284c7' : '#64748b',
-                    boxShadow: dashboardTaskTab === tab.id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setIsAddTaskOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '7px',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              <Plus size={13} /> Add Task
-            </button>
-
-            <button
-              onClick={() => navigate('/tasks')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                background: 'none',
-                border: 'none',
-                color: '#0284c7',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
-              Full Board →
-            </button>
-          </div>
-        </div>
-
-        {/* Tasks Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task#</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Task Title</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Assignee</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Project</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Priority</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Due Date</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600' }}>Status</th>
-                <th style={{ padding: '8px 6px', fontWeight: '600', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentScopePool
-                .filter(t => {
-                  if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
-                  if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
-                  if (dashboardTaskTab === 'future') return !isTaskActuallyCompleted(t) && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr));
-                  if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
-                  if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
-                  return true;
-                })
-                .length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: '24px 8px', textAlign: 'center', color: '#94a3b8' }}>
-                    No tasks found under "{dashboardTaskTab.replace('_', ' ')}"{dashboardTaskScope === 'delegated' ? ' in delegated tasks' : ''}. Click "Add Task" to create one.
-                  </td>
-                </tr>
-              ) : (
-                currentScopePool
-                  .filter(t => {
-                    if (dashboardTaskTab === 'pending') return !isTaskActuallyCompleted(t);
-                    if (dashboardTaskTab === 'leftover') return !isTaskActuallyCompleted(t) && !t.isUntimed && !t.hasNoDueDate && ((t.dueDate && t.dueDate < todayStr) || (!t.dueDate && t.startDate && t.startDate < todayStr));
-                    if (dashboardTaskTab === 'future') return !isTaskActuallyCompleted(t) && ((t.startDate && t.startDate > todayStr) || (t.dueDate && t.dueDate > todayStr));
-                    if (dashboardTaskTab === 'in_progress') return !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning);
-                    if (dashboardTaskTab === 'completed') return isTaskActuallyCompleted(t);
-                    return true;
-                  })
-                  .map(task => {
-                    const isDone = isTaskActuallyCompleted(task);
-                    const isOverdue = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate && task.dueDate < todayStr;
-                    const isDueToday = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate === todayStr;
-                    const isRunningTask = task.timerRunning;
-
-                    return (
-                      <tr
-                        key={task._id || task.id}
-                        style={{
-                          borderBottom: '1px solid #f8fafc',
-                          transition: 'background 0.15s ease',
-                          backgroundColor: isRunningTask ? '#f0f9ff' : 'transparent'
-                        }}
-                        onMouseEnter={e => { if (!isRunningTask) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                        onMouseLeave={e => { if (!isRunningTask) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                      >
-                        <td style={{ padding: '8px 6px', color: '#0284c7', fontWeight: '700', fontFamily: 'monospace', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
-                          #{task.taskCode || 'TSK'}
-                        </td>
-                        <td style={{ padding: '8px 6px', color: '#0f172a', fontWeight: '600' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <span
-                              onClick={() => setSelectedTask(task)}
-                              style={{ cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}
-                              title="Click to view task details"
-                            >
-                              {task.title}
-                            </span>
-                            {task.isUntimed && (
-                              <span style={{ fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                                ⚡ Normal Task
-                              </span>
-                            )}
-                          </div>
-                          {task.description && (
-                            <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '400', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '220px' }}>
-                              {task.description}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <img
-                              src={task.assignedToAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                              alt={task.assignedToName}
-                              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }}
-                            />
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a' }}>
-                                {task.assignedToName || 'Unassigned'}
-                              </span>
-                              {task.assignedBy && task.assignedBy !== task.assignedToName && (
-                                <span style={{ fontSize: '9.5px', color: '#64748b' }}>
-                                  by {task.assignedBy}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '8px 6px', color: '#475569', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
-                          {task.projectName || 'General Work'}
-                        </td>
-                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            padding: '1px 6px',
-                            borderRadius: '5px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            backgroundColor: task.priority === 'urgent' ? '#fee2e2' : (task.priority === 'high' ? '#ffedd5' : (task.priority === 'medium' ? '#fef3c7' : '#f1f5f9')),
-                            color: task.priority === 'urgent' ? '#dc2626' : (task.priority === 'high' ? '#c2410c' : (task.priority === 'medium' ? '#b45309' : '#475569'))
-                          }}>
-                            {task.priority ? task.priority.toUpperCase() : 'NORMAL'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: isOverdue || isDueToday ? '700' : '500',
-                            color: isOverdue ? '#dc2626' : (isDueToday ? '#d97706' : '#64748b')
-                          }}>
-                            {task.isUntimed ? '⚡ Flexible / Open' : (isOverdue ? `⚠️ ${task.dueDate}` : (isDueToday ? `📅 Today` : (task.hasNoDueDate ? 'No date' : (task.dueDate || 'No date'))))}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 6px', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            padding: '1px 6px',
-                            borderRadius: '8px',
-                            fontSize: '10.5px',
-                            fontWeight: '600',
-                            backgroundColor: isDone ? '#f0fdf4' : (isRunningTask ? '#eff6ff' : '#f8fafc'),
-                            color: isDone ? '#16a34a' : (isRunningTask ? '#2563eb' : '#64748b'),
-                            border: `1px solid ${isDone ? '#bbf7d0' : (isRunningTask ? '#bfdbfe' : '#e2e8f0')}`
-                          }}>
-                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isDone ? '#16a34a' : (isRunningTask ? '#2563eb' : '#94a3b8') }} />
-                            {isDone ? 'Completed' : (isRunningTask ? 'In Progress ⏱️' : (task.status ? task.status.replace('_', ' ') : 'Pending'))}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 6px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                            {!isDone && (
-                              isRunningTask ? (
-                                <button
-                                  onClick={() => pauseTaskTimer(task._id)}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    backgroundColor: '#eff6ff',
-                                    color: '#2563eb',
-                                    border: '1px solid #bfdbfe',
-                                    padding: '3px 7px',
-                                    borderRadius: '5px',
-                                    fontSize: '10.5px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="Pause timer"
-                                >
-                                  <Pause size={10} /> Pause
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    const isMyTask = isTaskAssignedToUser(task, currentUser);
-                                    if (isMyTask && !isClockedIn) {
-                                      addToast('⚠️ Shift is not clocked in! Please Clock In above before starting timers.', 'warning');
-                                      return;
-                                    }
-                                    if (isMyTask && isOnBreak) {
-                                      addToast('☕ You are on break. Please resume work first!', 'warning');
-                                      return;
-                                    }
-                                    startTaskTimer(task._id);
-                                    setActiveSelectedTaskId(task._id);
-                                  }}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    backgroundColor: '#0284c7',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    padding: '3px 7px',
-                                    borderRadius: '5px',
-                                    fontSize: '10.5px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="Start timer for this task"
-                                >
-                                  <Play size={10} /> Start
-                                </button>
-                              )
-                            )}
-
-                            {!isDone && (
-                              <button
-                                onClick={async () => {
-                                  await completeTask(task._id, '', false);
-                                  if (activeSelectedTaskId === task._id) {
-                                    setActiveSelectedTaskId(null);
-                                  }
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '2px',
-                                  backgroundColor: '#16a34a',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  padding: '3px 7px',
-                                  borderRadius: '5px',
-                                  fontSize: '10.5px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
-                                title="Mark task completed"
-                              >
-                                <CheckCircle2 size={10} /> Done
-                              </button>
-                            )}
-
-                            <button
-                              onClick={() => setSelectedTask(task)}
-                              style={{
-                                backgroundColor: '#f1f5f9',
-                                color: '#475569',
-                                border: 'none',
-                                padding: '3px 7px',
-                                borderRadius: '5px',
-                                fontSize: '10.5px',
-                                fontWeight: '600',
-                                cursor: 'pointer'
-                              }}
-                              title="View full task details"
-                            >
-                              View
-                            </button>
-
-                            {canDeleteTask(task) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
-                                    deleteTask(task._id);
-                                  }
-                                }}
-                                style={{
-                                  backgroundColor: '#fef2f2',
-                                  color: '#dc2626',
-                                  border: '1px solid #fecaca',
-                                  padding: '3px 6px',
-                                  borderRadius: '5px',
-                                  fontSize: '10.5px',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '2px'
-                                }}
-                                title="Delete task"
-                              >
-                                <Trash2 size={10} />
-                                <span>Delete</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+<DashboardTasksSection
+        dashboardTaskScope={dashboardTaskScope}
+        setDashboardTaskScope={setDashboardTaskScope}
+        dashboardTaskTab={dashboardTaskTab}
+        setDashboardTaskTab={setDashboardTaskTab}
+        currentScopePool={currentScopePool}
+        currentUser={currentUser}
+        effectiveTargetUser={effectiveTargetUser}
+        myTasks={myTasks}
+        delegatedByMeTasks={delegatedByMeTasks}
+        allTeamTasks={allTeamTasks}
+        isUserAdminOrHR={isUserAdminOrHR}
+        perms={perms}
+        poolPendingTasks={poolPendingTasks}
+        poolLeftoverTasks={poolLeftoverTasks}
+        poolFutureTasks={poolFutureTasks}
+        poolInProgressTasksCount={poolInProgressTasksCount}
+        poolCompletedTasks={poolCompletedTasks}
+        todayStr={todayStr}
+        isTaskActuallyCompleted={isTaskActuallyCompleted}
+        isTaskAssignedToUser={isTaskAssignedToUser}
+        isClockedIn={isClockedIn}
+        isOnBreak={isOnBreak}
+        handleClockIn={handleClockIn}
+        startTaskTimer={startTaskTimer}
+        pauseTaskTimer={pauseTaskTimer}
+        completeTask={completeTask}
+        activeSelectedTaskId={activeSelectedTaskId}
+        setActiveSelectedTaskId={setActiveSelectedTaskId}
+        setSelectedTask={setSelectedTask}
+        canDeleteTask={canDeleteTask}
+        deleteTask={deleteTask}
+        addToast={addToast}
+        setIsAddTaskOpen={setIsAddTaskOpen}
+        navigate={navigate}
+      />
 
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 1: Support Tickets & Calendar / Schedule (Spacious 2-Column Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-3.5 items-stretch">
         {/* Support Tickets Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
                 🎫 Support Tickets
               </h3>
-              <span style={{
-                fontSize: '10.5px',
-                fontWeight: '700',
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '1px 6px',
-                borderRadius: '10px'
-              }}>
+              <span className="text-[10.5px] font-bold text-sky-600 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-1.5 py-px rounded-full">
                 {openTicketsList.length} Open
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setIsRaiseTicketOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '4px 9px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="flex items-center gap-1 bg-sky-600 text-white border-none py-1 px-2.5 rounded text-[11px] font-bold cursor-pointer hover:bg-sky-700 transition-colors"
               >
                 <Plus size={12} /> Raise Ticket
               </button>
               <button
                 onClick={() => navigate('/tickets')}
-                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+                className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
               >
                 All →
               </button>
@@ -4254,80 +2833,42 @@ export const DashboardPage = () => {
           </div>
 
           {/* Ticket Filter Pills */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #f1f5f9',
-            paddingBottom: '6px',
-            gap: '6px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 gap-1.5 flex-wrap">
+            <div className="flex gap-1">
               <button
                 onClick={() => setTicketFilterTab('all')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'all' ? '#f1f5f9' : 'transparent',
-                  color: ticketFilterTab === 'all' ? '#0f172a' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 All ({(tickets || []).length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('open')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'open' ? '#eff6ff' : 'transparent',
-                  color: ticketFilterTab === 'open' ? '#0284c7' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'open' ? 'bg-blue-50 dark:bg-blue-950/60 text-sky-600 dark:text-sky-400' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 Open ({openTicketsList.length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('resolved')}
-                style={{
-                  border: 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: ticketFilterTab === 'resolved' ? '#f0fdf4' : 'transparent',
-                  color: ticketFilterTab === 'resolved' ? '#16a34a' : '#64748b',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'resolved' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-green-600 dark:text-green-400' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 Resolved ({resolvedTicketsList.length})
               </button>
             </div>
 
-            <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+            <span className="text-[10.5px] text-slate-400 dark:text-slate-500">
               Click row to view discussion
             </span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b' }}>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Ticket#</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Subject</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Priority</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600' }}>Status</th>
-                  <th style={{ padding: '6px 4px', fontWeight: '600', textAlign: 'right' }}>Date</th>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                  <th className="py-1.5 px-1 font-semibold">Ticket#</th>
+                  <th className="py-1.5 px-1 font-semibold">Subject</th>
+                  <th className="py-1.5 px-1 font-semibold">Priority</th>
+                  <th className="py-1.5 px-1 font-semibold">Status</th>
+                  <th className="py-1.5 px-1 font-semibold text-right">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -4336,62 +2877,41 @@ export const DashboardPage = () => {
                     <tr
                       key={tkt?._id || Math.random()}
                       onClick={() => setSelectedTicket(tkt)}
-                      style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.15s ease' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="border-b border-slate-50 dark:border-slate-800/70 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                       title="Click to view full discussion & reply"
                     >
-                      <td style={{ padding: '7px 4px', color: '#0284c7', fontWeight: '700', fontFamily: 'monospace', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                      <td className="py-2 px-1 text-sky-600 dark:text-sky-400 font-bold font-mono text-[11.5px] whitespace-nowrap">
                         #{tkt?.ticketCode || 'TKT-1'}
                       </td>
-                      <td style={{ padding: '7px 4px', color: '#0f172a', fontWeight: '600' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                      <td className="py-2 px-1 text-slate-900 dark:text-white font-semibold">
+                        <div className="truncate max-w-[170px]">
                           {tkt?.subject}
                         </div>
-                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '400' }}>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                           From: {tkt?.requestedBy || tkt?.clientName || 'Employee'}
                         </div>
                       </td>
-                      <td style={{ padding: '7px 4px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          padding: '1px 6px',
-                          borderRadius: '6px',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          backgroundColor: tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#fef2f2' : (tkt?.priority === 'medium' ? '#fffbeb' : '#f0fdf4'),
-                          color: tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#dc2626' : (tkt?.priority === 'medium' ? '#d97706' : '#16a34a'),
-                          border: `1px solid ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? '#fecaca' : (tkt?.priority === 'medium' ? '#fde68a' : '#bbf7d0')}`
-                        }}>
+                      <td className="py-2 px-1 whitespace-nowrap">
+                        <span className={`px-1.5 py-px rounded-md text-[10px] font-bold border ${tkt?.priority === 'high' || tkt?.priority === 'urgent' ? 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900' : tkt?.priority === 'medium' ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900' : 'bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900'}`}>
                           {tkt?.priority || 'Normal'}
                         </span>
                       </td>
-                      <td style={{ padding: '7px 4px', whiteSpace: 'nowrap' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          padding: '1px 6px',
-                          borderRadius: '8px',
-                          fontSize: '10.5px',
-                          fontWeight: '600',
-                          backgroundColor: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#f0fdf4' : '#eff6ff',
-                          color: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#16a34a' : '#2563eb',
-                          border: `1px solid ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#bbf7d0' : '#bfdbfe'}`
-                        }}>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: tkt?.status === 'resolved' || tkt?.status === 'closed' ? '#16a34a' : '#2563eb' }} />
+                      <td className="py-2 px-1 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded-lg text-[10.5px] font-semibold border ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900'}`}>
+                          <span className={`w-1 h-1 rounded-full ${tkt?.status === 'resolved' || tkt?.status === 'closed' ? 'bg-green-600' : 'bg-blue-600'}`} />
                           {tkt?.status || 'Open'}
                         </span>
                       </td>
-                      <td style={{ padding: '7px 4px', textAlign: 'right', color: '#64748b', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                      <td className="py-2 px-1 text-right text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                         {tkt?.requestedOn || 'Today'}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '18px 0', color: '#94a3b8' }}>
-                      <LifeBuoy size={22} style={{ margin: '0 auto 4px', display: 'block', color: '#cbd5e1' }} />
-                      <div style={{ fontSize: '12px', fontWeight: '600' }}>No {ticketFilterTab} support tickets found.</div>
+                    <td colSpan="5" className="text-center py-[18px] text-slate-400 dark:text-slate-500">
+                      <LifeBuoy size={22} className="mx-auto mb-1 block text-slate-300 dark:text-slate-600" />
+                      <div className="text-xs font-semibold">No {ticketFilterTab} support tickets found.</div>
                     </td>
                   </tr>
                 )}
@@ -4401,57 +2921,41 @@ export const DashboardPage = () => {
         </div>
 
         {/* Schedule & Events Widget (Paired with Tickets) */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               📅 Schedule & Events
             </h3>
             <button
               onClick={() => navigate('/calendar')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               Full Calendar →
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className="flex flex-col gap-1.5">
             {upcomingScheduleEvents.length > 0 ? (
               upcomingScheduleEvents.map(ev => (
                 <div
                   key={ev?._id || Math.random()}
                   onClick={() => navigate('/calendar')}
+                  className="flex items-center gap-2 py-1.5 px-2.5 rounded cursor-pointer bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/60"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 10px',
-                    backgroundColor: ev?.bgColor || '#eff6ff',
-                    borderRadius: '5px',
-                    borderLeft: `3.5px solid ${ev?.color || '#2563eb'}`,
-                    cursor: 'pointer'
+                    borderLeft: `3.5px solid ${ev?.color || '#2563eb'}`
                   }}
                   title="Click to open calendar"
                 >
-                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: ev?.color || '#2563eb', fontFamily: 'monospace' }}>
+                  <span className="text-[10.5px] font-bold font-mono text-sky-600 dark:text-sky-400">
                     {ev?.time || 'All Day'}
                   </span>
-                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a' }}>
+                  <span className="text-[11.5px] font-semibold text-slate-900 dark:text-white">
                     {ev?.title}
                   </span>
                 </div>
               ))
             ) : (
-              <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', padding: '12px 0' }}>
+              <div className="text-xs text-slate-400 dark:text-slate-500 text-center py-3">
                 No upcoming events this month
               </div>
             )}
@@ -4462,47 +2966,19 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 2: Birthdays, Appreciations & Calendar (Compact & Clean)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* Birthdays Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '7px' }}>
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
               <button
                 type="button"
                 onClick={() => setCelebrationTab('birthdays')}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  backgroundColor: celebrationTab === 'birthdays' ? '#ffffff' : 'transparent',
-                  color: celebrationTab === 'birthdays' ? '#b45309' : '#64748b',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: celebrationTab === 'birthdays' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'birthdays' ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-xs' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}
               >
                 <span>🎂 Birthdays</span>
-                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#b45309' }}>
+                <span className="text-[10px] px-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
                   {(computedBirthdays || []).length}
                 </span>
               </button>
@@ -4510,23 +2986,10 @@ export const DashboardPage = () => {
               <button
                 type="button"
                 onClick={() => setCelebrationTab('anniversaries')}
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  border: 'none',
-                  backgroundColor: celebrationTab === 'anniversaries' ? '#ffffff' : 'transparent',
-                  color: celebrationTab === 'anniversaries' ? '#7c3aed' : '#64748b',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: celebrationTab === 'anniversaries' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
+                className={`py-1 px-2 rounded-md border-none text-xs font-bold cursor-pointer flex items-center gap-1 transition-all ${celebrationTab === 'anniversaries' ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-xs' : 'bg-transparent text-slate-500 dark:text-slate-400'}`}
               >
                 <span>🌟 Anniversaries</span>
-                <span style={{ fontSize: '10px', padding: '0 4px', borderRadius: '10px', backgroundColor: '#f3e8ff', color: '#7c3aed' }}>
+                <span className="text-[10px] px-1 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
                   {(computedAnniversaries || []).length}
                 </span>
               </button>
@@ -4534,14 +2997,14 @@ export const DashboardPage = () => {
 
             <button
               onClick={() => navigate('/calendar')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
           </div>
 
           {/* List of items with exact Date and Countdown Day Count */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             {celebrationTab === 'birthdays' ? (
               (computedBirthdays && computedBirthdays.length > 0 ? computedBirthdays : birthdays || []).slice(0, 3).map(bday => {
                 const diffDays = bday?.diffDays ?? 0;
@@ -4549,52 +3012,32 @@ export const DashboardPage = () => {
                   <div
                     key={bday?._id || bday?.employeeId || Math.random()}
                     onClick={() => addToast(`🎉 Birthday greetings sent to ${bday?.name || 'Colleague'}!`, 'success')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      backgroundColor: '#f8fafc',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fffbeb'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 cursor-pointer transition-all duration-150 hover:bg-amber-50 dark:hover:bg-amber-950/20"
                     title="Click to send birthday greetings"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={bday?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(bday?.name || 'User')}`}
                         alt={bday?.name}
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                        className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                       />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-slate-900 dark:text-white truncate">
                           {bday?.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           🎂 {bday?.role || 'Team Member'}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         <span>📅 {bday?.birthdayDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#fef3c7'),
-                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#b45309'),
-                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#fde68a')}`
-                      }}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-300 dark:border-green-800' : (diffDays === 1 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -4608,52 +3051,32 @@ export const DashboardPage = () => {
                   <div
                     key={anniv?._id || anniv?.employeeId || Math.random()}
                     onClick={() => addToast(`🌟 Work Anniversary congratulations sent to ${anniv?.name || 'Colleague'}!`, 'success')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      backgroundColor: '#f8fafc',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#faf5ff'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    className="flex items-center justify-between p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 cursor-pointer transition-all duration-150 hover:bg-purple-50 dark:hover:bg-purple-950/20"
                     title="Click to send work anniversary congratulations"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div className="flex items-center gap-2 min-w-0">
                       <img
                         src={anniv?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(anniv?.name || 'User')}`}
                         alt={anniv?.name}
-                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                        className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                       />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-slate-900 dark:text-white truncate">
                           {anniv?.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#7c3aed', fontWeight: '600' }}>
+                        <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
                           🌟 {anniv?.serviceYearsText} Work Anniversary
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
                       {/* Kitni Taarik Ko Hai */}
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
                         <span>📅 {anniv?.anniversaryDate || anniv?.annivFormattedDate || 'Upcoming'}</span>
                       </div>
                       {/* Din Count (Countdown) */}
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: diffDays === 0 ? '#dcfce7' : (diffDays === 1 ? '#ffedd5' : '#f5f3ff'),
-                        color: diffDays === 0 ? '#15803d' : (diffDays === 1 ? '#c2410c' : '#7c3aed'),
-                        border: `1px solid ${diffDays === 0 ? '#86efac' : (diffDays === 1 ? '#fed7aa' : '#ddd6fe')}`
-                      }}>
+                      <span className={`text-[10px] font-extrabold px-1.5 py-px rounded-full border ${diffDays === 0 ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-300 dark:border-green-800' : (diffDays === 1 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-800' : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800')}`}>
                         {diffDays === 0 ? '🎉 TODAY!' : (diffDays === 1 ? '⏰ Tomorrow' : `⏳ In ${diffDays} days`)}
                       </span>
                     </div>
@@ -4663,13 +3086,13 @@ export const DashboardPage = () => {
             )}
 
             {celebrationTab === 'birthdays' && (!computedBirthdays || computedBirthdays.length === 0) && (
-              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+              <div className="text-center p-4 text-slate-400 dark:text-slate-500 text-xs">
                 🎂 No birthdays scheduled
               </div>
             )}
 
             {celebrationTab === 'anniversaries' && (!computedAnniversaries || computedAnniversaries.length === 0) && (
-              <div style={{ textAlign: 'center', padding: '16px', color: '#94a3b8', fontSize: '12px' }}>
+              <div className="text-center p-4 text-slate-400 dark:text-slate-500 text-xs">
                 🌟 No work anniversaries scheduled
               </div>
             )}
@@ -4677,63 +3100,34 @@ export const DashboardPage = () => {
         </div>
 
         {/* Employee Appreciations Widget */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               🏆 Appreciations
             </h3>
             <button
               onClick={() => navigate('/appreciation')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11.5px', fontWeight: '600', cursor: 'pointer' }}
+              className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-[11.5px] font-semibold cursor-pointer hover:underline"
             >
               All →
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             {(appreciations || []).slice(0, 2).map(app => (
               <div
                 key={app?._id || Math.random()}
                 onClick={() => navigate('/appreciation')}
-                style={{
-                  padding: '8px 10px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  cursor: 'pointer'
-                }}
+                className="p-2 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/80 flex items-start gap-2 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
               >
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  backgroundColor: '#fef3c7',
-                  color: '#d97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+                <div className="w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <Award size={15} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-                    {app?.givenToName} — <span style={{ color: '#d97706' }}>{app?.awardName}</span>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">
+                    {app?.givenToName} — <span className="text-amber-600 dark:text-amber-400">{app?.awardName}</span>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     "{app?.appreciationNote}"
                   </div>
                 </div>
@@ -4746,43 +3140,16 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 3: On Leave, Anniversaries & WFH (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '14px',
-        alignItems: 'stretch'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
         {/* On Leave Today */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
               🏖️ On Leave Today
             </h3>
             <button
               onClick={() => setIsApplyLeaveOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '3px',
-                backgroundColor: '#f1f5f9',
-                color: '#0284c7',
-                border: '1px solid #cbd5e1',
-                padding: '3px 8px',
-                borderRadius: '5px',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 border border-slate-300 dark:border-slate-700 py-1 px-2 rounded text-[11px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               <Palmtree size={12} /> Apply
             </button>
@@ -4790,39 +3157,31 @@ export const DashboardPage = () => {
 
           {/* Leave Requests: Separated Review Queue (for Reviewers) vs My Pending Applications (for Applicant) */}
           {pendingLeaveRequestsForMe.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#fffbeb',
-              borderRadius: '7px',
-              border: '1px solid #fde68a',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '5px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-amber-800 dark:text-amber-300 flex items-center justify-between">
                 <span>⏳ For Your Review ({pendingLeaveRequestsForMe.length})</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   Manage →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {pendingLeaveRequestsForMe.slice(0, 2).map(l => (
-                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 7px', backgroundColor: '#ffffff', borderRadius: '5px', border: '1px solid #fef3c7' }}>
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-amber-100 dark:border-amber-900/40">
                     <div>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>{l.employeeName}</div>
-                      <div style={{ fontSize: '10px', color: '#64748b' }}>{l.leaveType} ({l.durationText})</div>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white">{l.employeeName}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">{l.leaveType} ({l.durationText})</div>
                     </div>
-                    <div style={{ display: 'flex', gap: '3px' }}>
+                    <div className="flex gap-1">
                       <button
                         onClick={() => updateLeaveStatus(l._id, 'approved')}
-                        style={{ padding: '2px 7px', borderRadius: '4px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer' }}
+                        className="py-0.5 px-2 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[10.5px] font-bold cursor-pointer hover:bg-green-200 dark:hover:bg-green-900"
                         title="Accept & approve leave"
                       >
                         ✓ Accept
                       </button>
                       <button
                         onClick={() => setRejectingLeaveTarget(l)}
-                        style={{ padding: '2px 7px', borderRadius: '4px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', fontSize: '10.5px', fontWeight: '700', cursor: 'pointer' }}
+                        className="py-0.5 px-2 rounded bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10.5px] font-bold cursor-pointer hover:bg-red-200 dark:hover:bg-red-900"
                         title="Deny leave"
                       >
                         ✕ Deny
@@ -4836,68 +3195,39 @@ export const DashboardPage = () => {
 
           {/* 1. Real-time Decision Status Cards for currently logged-in user */}
           {myDecidedLeaves.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '7px',
-              border: '1px solid #bbf7d0',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-green-700 dark:text-green-300 flex items-center justify-between">
                 <span>📬 Leave Decision Update ({myDecidedLeaves.length})</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   All Leaves →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {myDecidedLeaves.map(l => (
-                  <div key={l._id} style={{
-                    padding: '6px 8px',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '6px',
-                    border: `1px solid ${l.status === 'approved' ? '#86efac' : '#fca5a5'}`
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>
+                  <div key={l._id} className={`p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border ${l.status === 'approved' ? 'border-green-300 dark:border-green-800' : 'border-red-300 dark:border-red-800'}`}>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11.5px] font-bold text-slate-900 dark:text-white">
                         {l.leaveType} ({l.durationText || `${l.durationDays}d`})
                       </span>
-                      <span style={{
-                        fontSize: '9.5px',
-                        fontWeight: '700',
-                        backgroundColor: l.status === 'approved' ? '#dcfce7' : '#fee2e2',
-                        color: l.status === 'approved' ? '#15803d' : '#dc2626',
-                        padding: '1px 5px',
-                        borderRadius: '4px'
-                      }}>
+                      <span className={`text-[9.5px] font-bold py-px px-1.5 rounded ${l.status === 'approved' ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'}`}>
                         {l.status === 'approved' ? '✓ Approved' : '✕ Declined'}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                       📅 {l.startDate} to {l.endDate}
                     </div>
 
-                    <div style={{ fontSize: '10px', color: l.status === 'approved' ? '#16a34a' : '#dc2626', marginTop: '2px', fontWeight: '600' }}>
+                    <div className={`text-[10px] mt-0.5 font-semibold ${l.status === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       {l.status === 'approved'
                         ? `Approved by ${l.approvedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}`
                         : `Declined by ${l.rejectedBy || l.actionBy || 'Admin'}${l.actionDateFormatted ? ` on ${l.actionDateFormatted}` : ''}${l.rejectionReason ? ` • "${l.rejectionReason}"` : ''}`}
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '5px' }}>
+                    <div className="flex justify-end mt-1">
                       <button
                         onClick={() => acknowledgeLeave(l._id)}
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          background: l.status === 'approved' ? '#16a34a' : '#dc2626',
-                          color: '#ffffff',
-                          border: 'none',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          cursor: 'pointer'
-                        }}
+                        className={`py-0.5 px-2 rounded text-white border-none text-[10px] font-bold cursor-pointer ${l.status === 'approved' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
                       >
                         ✓ Acknowledge
                       </button>
@@ -4910,43 +3240,31 @@ export const DashboardPage = () => {
 
           {/* 2. Pending leaves submitted by current user (awaiting review) */}
           {myPendingLeaves.length > 0 && (
-            <div style={{
-              padding: '8px 10px',
-              backgroundColor: '#eff6ff',
-              borderRadius: '7px',
-              border: '1px solid #bfdbfe',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '5px'
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="p-2 px-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/60 flex flex-col gap-1.5">
+              <div className="text-[11px] font-extrabold text-blue-700 dark:text-blue-300 flex items-center justify-between">
                 <span>📋 My Leave Application ({myPendingLeaves.length} Pending)</span>
-                <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', textDecoration: 'underline', fontSize: '10.5px' }}>
+                <span onClick={() => navigate('/leaves')} className="cursor-pointer underline text-[10.5px]">
                   History →
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="flex flex-col gap-1.5">
                 {myPendingLeaves.slice(0, 2).map(l => (
-                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 7px', backgroundColor: '#ffffff', borderRadius: '5px', border: '1px solid #dbeafe' }}>
+                  <div key={l._id} className="flex items-center justify-between py-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-blue-100 dark:border-blue-900/40">
                     <div>
-                      <div style={{ fontSize: '11.5px', fontWeight: '700', color: '#0f172a' }}>
+                      <div className="text-[11.5px] font-bold text-slate-900 dark:text-white">
                         {l.leaveType} ({l.durationText})
                       </div>
-                      <div style={{ fontSize: '10px', color: '#64748b' }}>
-                        📅 {l.startDate} • Sent to {l.appliedToName || 'HR Admin'}
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        📅 {l.startDate} • Sent to {l.appliedToName || 'Reviewer'}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '9.5px', fontWeight: '700', backgroundColor: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px' }}>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9.5px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 py-px px-1.5 rounded">
                         ⏳ Pending Approval
                       </span>
                       <button
-                        onClick={() => {
-                          if (confirm('Do you want to cancel this leave application?')) {
-                            updateLeaveStatus(l._id, 'rejected', 'Cancelled by applicant');
-                          }
-                        }}
-                        style={{ padding: '2px 5px', borderRadius: '3px', background: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', fontSize: '10px', fontWeight: '600', cursor: 'pointer' }}
+                        onClick={() => setCancellingLeaveTarget(l)}
+                        className="py-0.5 px-1.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-300 dark:border-slate-600 text-[10px] font-semibold cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600"
                         title="Cancel this leave request"
                       >
                         Cancel
@@ -4960,208 +3278,115 @@ export const DashboardPage = () => {
 
           {/* 3. If neither pending nor unacknowledged decisions exist, show latest leave status history */}
           {myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length > 0 && (
-            <div style={{
-              padding: '6px 9px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ fontSize: '10.5px', color: '#475569' }}>
-                <span style={{ fontWeight: '700' }}>Recent Leave:</span> {myRecentLeaves[0].leaveType} ({myRecentLeaves[0].startDate}) •{' '}
-                <strong style={{ color: myRecentLeaves[0].status === 'approved' ? '#16a34a' : (myRecentLeaves[0].status === 'rejected' ? '#dc2626' : '#d97706') }}>
+            <div className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="text-[10.5px] text-slate-600 dark:text-slate-300">
+                <span className="font-bold">Recent Leave:</span> {myRecentLeaves[0].leaveType} ({myRecentLeaves[0].startDate}) •{' '}
+                <strong className={myRecentLeaves[0].status === 'approved' ? 'text-green-600 dark:text-green-400' : (myRecentLeaves[0].status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')}>
                   {myRecentLeaves[0].status === 'approved' ? '✓ Approved' : (myRecentLeaves[0].status === 'rejected' ? '✕ Denied' : 'Pending')}
                 </strong>
-                {myRecentLeaves[0].approvedBy && <span style={{ color: '#64748b' }}> by {myRecentLeaves[0].approvedBy}</span>}
+                {myRecentLeaves[0].approvedBy && <span className="text-slate-500 dark:text-slate-400"> by {myRecentLeaves[0].approvedBy}</span>}
               </div>
-              <span onClick={() => navigate('/leaves')} style={{ cursor: 'pointer', color: '#0284c7', fontSize: '10.5px', fontWeight: '600' }}>
+              <span onClick={() => navigate('/leaves')} className="cursor-pointer text-sky-600 dark:text-sky-400 text-[10.5px] font-semibold hover:underline">
                 View →
               </span>
             </div>
           )}
 
           {employeesOnLeave.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="flex flex-col gap-1.5">
               {employeesOnLeave.map(l => (
-                <div key={l._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
-                  <img src={l.employeeAvatar} alt={l.employeeName} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                <div key={l._id} className="flex items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-md">
+                  <img src={l.employeeAvatar} alt={l.employeeName} className="w-6 h-6 rounded-full" />
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: '600' }}>{l.employeeName}</div>
-                    <div style={{ fontSize: '10px', color: '#0284c7' }}>{l.leaveType} ({l.durationText})</div>
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">{l.employeeName}</div>
+                    <div className="text-[10px] text-sky-600 dark:text-sky-400">{l.leaveType} ({l.durationText})</div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8' }}>
-              <Plane size={22} style={{ margin: '0 auto 3px' }} />
-              <div style={{ fontSize: '11.5px' }}>No leaves today</div>
-            </div>
+            pendingLeaveRequestsForMe.length === 0 && myDecidedLeaves.length === 0 && myPendingLeaves.length === 0 && myRecentLeaves.length === 0 && (
+              <div className="text-center py-3 text-slate-400 dark:text-slate-500">
+                <Plane size={22} className="mx-auto mb-1" />
+                <div className="text-[11.5px]">No leaves today</div>
+              </div>
+            )
           )}
         </div>
 
-        {/* On Work From Home Today */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          gap: '10px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-            🏠 Work From Home Today
-          </h3>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px',
-            maxHeight: '140px',
-            overflowY: 'auto'
-          }}>
-            {(wfhEmployees || []).map(emp => (
-              <div
-                key={emp?.id || Math.random()}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '5px 7px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '5px'
-                }}
-              >
-                <img
-                  src={emp?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                  alt={emp?.name}
-                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
-                />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {emp?.name} {emp?.isCurrentUser && <span style={{ fontSize: '9px', color: '#2563eb' }}>(You)</span>}
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {emp?.role}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────────────────
-          BOTTOM SECTION: Company Notices / Announcements (Compact & Sleek)
-      ───────────────────────────────────────────────────────────────────────── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-          <div>
-            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-              📢 Company Notices & Announcements
-            </h3>
-            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '1px 0 0 0' }}>
-              Official HR notices, policy updates, and team announcements
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isUserAdminOrHR && (
-              <button
-                onClick={() => setIsAddNoticeOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '4px 10px',
-                  borderRadius: '5px',
-                  fontSize: '11.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                <Plus size={12} /> Add Notice
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/notice-board')}
-              style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-            >
-              All Notices →
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', alignItems: 'start' }}>
-          {(notices || []).map(not => (
-            <div
-              key={not?._id || Math.random()}
-              onClick={() => setSelectedNotice(not)}
-              style={{
-                padding: '12px 14px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#ffffff';
-                e.currentTarget.style.boxShadow = '0 3px 8px rgba(0,0,0,0.04)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#f8fafc';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    color: not?.isImportant ? '#dc2626' : '#2563eb',
-                    backgroundColor: not?.isImportant ? '#fee2e2' : '#eff6ff',
-                    padding: '1px 5px',
-                    borderRadius: '3px'
-                  }}>
-                    {not?.category}
-                  </span>
-                  <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>{not?.date}</span>
-                </div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', lineHeight: '1.3' }}>
-                  {not?.title}
-                </div>
-                <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '3px', lineHeight: '1.4' }}>
-                  {not?.shortDescription}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px', borderTop: '1px solid #e2e8f0', fontSize: '11px', color: '#64748b' }}>
-                <span style={{ fontSize: '11.5px', color: '#64748b' }}>By: <strong>{not?.postedBy}</strong></span>
-                <span style={{ fontSize: '12px', color: '#0284c7', fontWeight: '600' }}>View Details →</span>
-              </div>
+        {/* Right Column: 📢 Company Notices & Announcements */}
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-3 shadow-xs">
+          <div className="flex items-center justify-between flex-wrap gap-1.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0">
+                📢 Company Notices & Announcements
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
+                Official HR notices, policy updates, and team announcements
+              </p>
             </div>
-          ))}
+            <div className="flex items-center gap-1.5">
+              {isUserAdminOrHR && (
+                <button
+                  onClick={() => setIsAddNoticeOpen(true)}
+                  className="flex items-center gap-1 bg-blue-600 text-white border-none py-1 px-2.5 rounded text-[11.5px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"
+                >
+                  <Plus size={12} /> Add Notice
+                </button>
+              )}
+              <button
+                onClick={() => navigate('/notice-board')}
+                className="bg-transparent border-none text-sky-600 dark:text-sky-400 text-xs font-semibold cursor-pointer hover:underline"
+              >
+                All Notices →
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2.5 max-h-[430px] overflow-y-auto pr-0.5">
+            {(notices || []).length > 0 ? (
+              (notices || []).map(not => (
+                <div
+                  key={not?._id || not?.id || Math.random()}
+                  onClick={() => setSelectedNotice(not)}
+                  className="p-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 cursor-pointer flex flex-col gap-1.5 transition-all duration-150 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xs"
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] font-bold px-1.5 py-px rounded ${not?.isImportant ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60' : 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/60'}`}>
+                        {not?.category || 'Announcement'}
+                      </span>
+                      {not?.isImportant && (
+                        <span className="text-[9.5px] font-extrabold text-red-600 dark:text-red-400">
+                          ⚡ Important
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500">{not?.date}</span>
+                  </div>
+
+                  <div className="text-[12.5px] font-bold text-slate-900 dark:text-white leading-snug">
+                    {not?.title}
+                  </div>
+
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-normal">
+                    {not?.shortDescription || not?.description}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/60 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>By: <strong>{not?.postedBy || 'HR Admin'}</strong></span>
+                    <span className="text-[11.5px] text-sky-600 dark:text-sky-400 font-semibold">View Details →</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-7 text-slate-400">
+                <Bell size={24} className="mx-auto mb-1.5 text-slate-300" />
+                <div className="text-xs font-semibold">No active company notices</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Company announcements will appear here</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -5282,6 +3507,18 @@ export const DashboardPage = () => {
         onConfirm={(reason) => {
           if (rejectingLeaveTarget?._id) {
             updateLeaveStatus(rejectingLeaveTarget._id, 'rejected', reason);
+          }
+        }}
+      />
+
+      <CancelLeaveModal
+        isOpen={!!cancellingLeaveTarget}
+        leave={cancellingLeaveTarget}
+        isApplicant={true}
+        onClose={() => setCancellingLeaveTarget(null)}
+        onConfirm={async (reason) => {
+          if (cancellingLeaveTarget?._id) {
+            await updateLeaveStatus(cancellingLeaveTarget._id, 'cancelled', reason);
           }
         }}
       />

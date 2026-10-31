@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { isHRorAdmin, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../../shared/utils/permissionUtils';
 
 export const LogTimeModal = ({ isOpen, onClose }) => {
   const {
@@ -32,11 +33,23 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
   } = useWork();
   const { addToast } = useToast();
 
-  const [mode, setMode] = useState(projects.length > 0 && tasks.length > 0 ? 'existing' : 'custom');
+  const isPrivileged = isHRorAdmin(currentUser);
+
+  const scopedProjects = React.useMemo(() => {
+    if (isPrivileged) return projects || [];
+    return (projects || []).filter(p => isProjectVisibleToUser(p, currentUser));
+  }, [projects, isPrivileged, currentUser]);
+
+  const scopedTasks = React.useMemo(() => {
+    if (isPrivileged) return tasks || [];
+    return (tasks || []).filter(t => isTaskVisibleToUser(t, currentUser));
+  }, [tasks, isPrivileged, currentUser]);
+
+  const [mode, setMode] = useState(scopedProjects.length > 0 && scopedTasks.length > 0 ? 'existing' : 'custom');
 
   const [formData, setFormData] = useState({
-    projectId: projects[0]?._id || '',
-    taskId: tasks[0]?._id || '',
+    projectId: scopedProjects[0]?._id || '',
+    taskId: scopedTasks[0]?._id || '',
     customTaskName: '',
     customProjectName: 'General Work',
     employeeId: currentUser?._id || employees[0]?._id || '',
@@ -140,114 +153,52 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const inputClass = "w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500";
+  const selectClass = "w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-xs sm:text-sm outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-sky-500 focus:ring-1 focus:ring-sky-500";
+
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '20px',
-        width: '100%',
-        maxWidth: '640px',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[5px] flex items-center justify-center z-[1000] p-4 sm:p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[640px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '20px',
-          borderTopRightRadius: '20px'
-        }}>
+        <div className="p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white m-0">
               Log Time (Manual Entry)
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '4px 0 0 0' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-1 mb-0">
               Record offline work duration for completed tasks or general work
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Mode Toggle Switcher */}
-        <div style={{ padding: '16px 24px 0 24px' }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '8px',
-            backgroundColor: '#f1f5f9',
-            padding: '4px',
-            borderRadius: '10px'
-          }}>
+        <div className="pt-4 px-6">
+          <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
             <button
               type="button"
               onClick={() => setMode('custom')}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: mode === 'custom' ? '#ffffff' : 'transparent',
-                color: mode === 'custom' ? '#2563eb' : '#64748b',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: 'pointer',
-                boxShadow: mode === 'custom' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s'
-              }}
+              className={`py-2 px-3 rounded-lg border-none text-[13px] font-bold cursor-pointer transition-all ${
+                mode === 'custom'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700'
+              }`}
             >
               📌 Custom / Basic Task
             </button>
             <button
               type="button"
               onClick={() => setMode('existing')}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: mode === 'existing' ? '#ffffff' : 'transparent',
-                color: mode === 'existing' ? '#2563eb' : '#64748b',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: 'pointer',
-                boxShadow: mode === 'existing' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s'
-              }}
+              className={`py-2 px-3 rounded-lg border-none text-[13px] font-bold cursor-pointer transition-all ${
+                mode === 'existing'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700'
+              }`}
             >
               🏢 Existing Project & Task
             </button>
@@ -255,13 +206,13 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSubmit} className="p-5 sm:px-6 flex flex-col gap-4">
           
           {/* Custom Task Entry */}
           {mode === 'custom' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr] gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Custom Task Title *
                 </label>
                 <input
@@ -270,19 +221,12 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                   value={formData.customTaskName}
                   onChange={e => handleChange('customTaskName', e.target.value)}
                   placeholder="e.g. Client Call or Bug Fixing..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '13.5px',
-                    outline: 'none'
-                  }}
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Project / Tag Name
                 </label>
                 <input
@@ -290,14 +234,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                   value={formData.customProjectName}
                   onChange={e => handleChange('customProjectName', e.target.value)}
                   placeholder="e.g. General Work, SEO..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '13.5px',
-                    outline: 'none'
-                  }}
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -305,48 +242,32 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
 
           {/* Existing Project & Task Selection */}
           {mode === 'existing' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Project *
                 </label>
                 <select
                   value={formData.projectId}
                   onChange={e => handleChange('projectId', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className={selectClass}
                 >
-                  {projects.map(p => (
+                  {scopedProjects.map(p => (
                     <option key={p._id} value={p._id}>[{p.projectCode}] {p.name}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Task *
                 </label>
                 <select
                   value={formData.taskId}
                   onChange={e => handleChange('taskId', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className={selectClass}
                 >
-                  {tasks.map(t => (
+                  {scopedTasks.map(t => (
                     <option key={t._id} value={t._id}>[{t.taskCode}] {t.title}</option>
                   ))}
                 </select>
@@ -355,34 +276,33 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
           )}
 
           {/* Employee & Date */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Employee (CRM Team) *
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Employee *
               </label>
               <select
                 value={formData.employeeId}
                 onChange={e => handleChange('employeeId', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                disabled={!isPrivileged}
+                className={`${selectClass} ${!isPrivileged ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-90' : ''}`}
               >
-                {employees.map(e => (
-                  <option key={e._id} value={e._id}>
-                    {e.name} ({e.role || 'Member'}) {e._id === currentUser?._id ? '— You' : ''}
+                {isPrivileged ? (
+                  employees.map(e => (
+                    <option key={e._id} value={e._id}>
+                      {e.name} ({e.role || 'Member'}) {e._id === currentUser?._id ? '— You' : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value={currentUser?._id || ''}>
+                    {currentUser?.name || 'You'} ({currentUser?.role || 'Team Member'}) — You
                   </option>
-                ))}
+                )}
               </select>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Date *
               </label>
               <input
@@ -390,48 +310,28 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                 required
                 value={formData.date}
                 onChange={e => handleChange('date', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Quick Duration Buttons */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '600', color: '#475569' }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[12.5px] font-semibold text-slate-600 dark:text-slate-400">
                 Quick Set Duration:
               </label>
-              <span style={{ fontSize: '11.5px', color: '#2563eb', fontWeight: '700' }}>
+              <span className="text-[11.5px] text-blue-600 dark:text-blue-400 font-bold">
                 Total: {Math.floor(calculateDurationSeconds() / 3600)}h {Math.floor((calculateDurationSeconds() % 3600) / 60)}m
               </span>
             </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div className="flex gap-1.5">
               {[0.5, 1, 2, 4, 6, 8].map(hrs => (
                 <button
                   key={hrs}
                   type="button"
                   onClick={() => setDurationHours(hrs)}
-                  style={{
-                    flex: 1,
-                    padding: '6px 4px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#f8fafc',
-                    color: '#334155',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.12s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                  className="flex-1 py-1.5 px-1 rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-300 dark:hover:border-blue-800 transition-colors"
                 >
                   {hrs < 1 ? '30m' : `${hrs}h`}
                 </button>
@@ -440,9 +340,9 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Start Time & End Time */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start Time *
               </label>
               <input
@@ -451,19 +351,12 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                 required
                 value={formData.startTime}
                 onChange={e => handleChange('startTime', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 End Time *
               </label>
               <input
@@ -472,21 +365,14 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
                 required
                 value={formData.endTime}
                 onChange={e => handleChange('endTime', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Memo / Notes */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Work Memo / Description
             </label>
             <textarea
@@ -494,54 +380,27 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
               placeholder="What did you work on during this session?"
               value={formData.memo}
               onChange={e => handleChange('memo', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none resize-y font-sans bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
             />
           </div>
 
           {/* Billable Checkbox */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#475569', cursor: 'pointer' }}>
+          <label className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-slate-400 cursor-pointer">
             <input
               type="checkbox"
               checked={formData.isBillable}
               onChange={e => handleChange('isBillable', e.target.checked)}
+              className="accent-blue-600 rounded"
             />
             Billable Work Session
           </label>
 
           {/* Action Buttons */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            paddingTop: '14px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 22px',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)'
-              }}
+              className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white border-none px-5 py-2.5 rounded-lg text-[13.5px] font-semibold cursor-pointer shadow-md shadow-sky-600/30 transition-colors disabled:opacity-50"
             >
               <Check size={16} />
               {submitting ? 'Logging...' : 'Log Time'}
@@ -549,16 +408,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              style={{
-                backgroundColor: '#ffffff',
-                color: '#64748b',
-                border: '1px solid #cbd5e1',
-                padding: '10px 18px',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
+              className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2.5 rounded-lg text-[13.5px] font-medium cursor-pointer transition-colors"
             >
               Cancel
             </button>

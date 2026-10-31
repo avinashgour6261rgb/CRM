@@ -214,6 +214,14 @@ const TaskSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    activeUserId: {
+      type: String,
+      default: null
+    },
+    activeUserName: {
+      type: String,
+      default: null
+    },
     snoozed: {
       type: Boolean,
       default: false
@@ -233,7 +241,8 @@ const TaskSchema = new mongoose.Schema(
     reminderAlerted: {
       type: Boolean,
       default: false
-    }
+    },
+    history: [mongoose.Schema.Types.Mixed]
   },
   {
     timestamps: true

@@ -145,141 +145,66 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1200,
-      padding: '16px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '14px',
-        width: '100%',
-        maxWidth: '440px',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[1200] p-4 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[440px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <HelpCircle size={17} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+              <h3 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
                 Forgot Your Password?
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+              <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
                 Account recovery and password reset assistance.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+            className="bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '20px' }}>
+        <div className="p-5">
           {status === 'success' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'center', alignItems: 'center' }}>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                backgroundColor: '#dcfce7',
-                color: '#16a34a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+            <div className="flex flex-col gap-3.5 text-center items-center">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-950/60 text-green-600 dark:text-green-400 flex items-center justify-center">
                 <CheckCircle2 size={24} />
               </div>
               <div>
-                <h4 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                <h4 className="m-0 mb-1.5 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
                   Reset Request Logged
                 </h4>
-                <p style={{ margin: 0, fontSize: '12.5px', color: '#475569', lineHeight: '1.5' }}>
+                <p className="m-0 text-[12.5px] text-slate-600 dark:text-slate-300 leading-normal">
                   We found your account for <strong>{matchedEmp?.name}</strong> ({matchedEmp?.employeeCode}).
                 </p>
-                <div style={{
-                  marginTop: '12px',
-                  padding: '10px 14px',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '8px',
-                  border: '1px solid #bae6fd',
-                  fontSize: '12px',
-                  color: '#0369a1',
-                  textAlign: 'left',
-                  lineHeight: '1.5'
-                }}>
+                <div className="mt-3 p-2.5 px-3.5 bg-sky-50 dark:bg-sky-950/40 rounded-lg border border-sky-200 dark:border-sky-800 text-xs text-sky-800 dark:text-sky-300 text-left leading-relaxed">
                   ℹ️ An urgent account request ticket has been dispatched to your Workspace Admin & HR team. Your Admin can reset your password directly from the <strong>Employee Directory</strong>.
                 </div>
               </div>
 
               <button
                 onClick={onClose}
-                style={{
-                  width: '100%',
-                  padding: '9px',
-                  borderRadius: '7px',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  marginTop: '6px'
-                }}
+                className="w-full py-2.5 rounded-[7px] bg-blue-600 hover:bg-blue-700 text-white border-0 text-[13px] font-bold cursor-pointer mt-1.5 shadow-sm transition-colors"
               >
                 Back to Sign In
               </button>
             </div>
           ) : status === 'admin_reset' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{
-                padding: '12px 14px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                fontSize: '12.5px',
-                color: '#1e40af',
-                lineHeight: '1.5'
-              }}>
+            <div className="flex flex-col gap-3.5">
+              <div className="p-3 px-3.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-[12.5px] text-blue-800 dark:text-blue-200 leading-relaxed">
                 👑 <strong>Master Administrator Account Detected</strong>
-                <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: '#1d4ed8' }}>
+                <p className="m-0 mt-1 text-[11.5px] text-blue-700 dark:text-blue-300">
                   Please enter your new secure password below to reset your Administrator credentials.
                 </p>
-                <div style={{ marginTop: '12px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#1e3a8a', marginBottom: '4px' }}>
+                <div className="mt-3">
+                  <label className="block text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">
                     New Admin Password:
                   </label>
                   <input
@@ -287,82 +212,44 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
                     placeholder="Enter new secure password (e.g. Admin@2026)"
                     value={newAdminPass}
                     onChange={e => setNewAdminPass(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #93c5fd',
-                      backgroundColor: '#ffffff',
-                      fontSize: '13px',
-                      color: '#0f172a',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
+                    className="w-full p-2 px-3 rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-600 box-border"
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
+              <div className="flex gap-2 justify-end mt-1.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '7px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3.5 py-2 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleSetAdminPassword}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-4 py-2 rounded-[7px] border-0 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors"
                 >
                   Set New Password & Apply
                 </button>
               </div>
             </div>
           ) : (
-            <form onSubmit={handleResetRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b', lineHeight: '1.4' }}>
-                Enter your registered <strong>Work Email</strong> or <strong>Employee ID</strong> (e.g. <code>EMP-001</code>). We will verify your profile and notify Admin to issue a new temporary password.
+            <form onSubmit={handleResetRequest} className="flex flex-col gap-3.5">
+              <p className="m-0 text-[12.5px] text-slate-500 dark:text-slate-400 leading-normal">
+                Enter your registered <strong>Work Email</strong> or <strong>Employee ID</strong> (e.g. <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">EMP-001</code>). We will verify your profile and notify Admin to issue a new temporary password.
               </p>
 
               {status === 'not_found' && (
-                <div style={{
-                  padding: '9px 12px',
-                  borderRadius: '7px',
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <div className="p-2.5 px-3 rounded-[7px] bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-center gap-1.5">
+                  <AlertCircle size={15} className="shrink-0" />
                   <span>No employee found with that email or ID. Please double-check with HR.</span>
                 </div>
               )}
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>
-                  Work Email or Employee ID <span style={{ color: '#ef4444' }}>*</span>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Work Email or Employee ID <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -373,48 +260,22 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
                   }}
                   placeholder="e.g. rahul@company.com or EMP-001"
                   required
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '7px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  className="w-full py-2 px-3 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600 box-border transition-all"
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <div className="flex items-center justify-end gap-2 mt-1.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '7px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3.5 py-2 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '7px',
-                    border: 'none',
-                    backgroundColor: '#0284c7',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-4 py-2 rounded-[7px] border-0 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors disabled:opacity-70"
                 >
                   {isSubmitting ? 'Verifying...' : 'Request Reset'}
                 </button>

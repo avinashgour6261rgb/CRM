@@ -19,11 +19,13 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
 
 export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   const { updateExpenseStatus, deleteExpense } = useCRM();
   const { currentUser } = useAuth();
+  const { confirm } = useConfirm();
 
   if (!isOpen || !expense) return null;
 
@@ -37,117 +39,60 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
     onClose();
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete expense "${expense.itemName}"?`)) {
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete Expense',
+      message: `Are you sure you want to delete expense "${expense.itemName}"? This action cannot be undone.`,
+      confirmText: 'Delete Expense',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteExpense(expense._id);
       onClose();
     }
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '560px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              backgroundColor: '#eff6ff',
-              color: '#2563eb'
-            }}>
+            <span className="text-[11px] font-bold px-2 py-[3px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
               {expense.expenseCode || 'EXP-101'}
             </span>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '6px 0 0' }}>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1.5 m-0">
               {expense.itemName}
             </h2>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div className="p-6 flex flex-col gap-[18px]">
           
           {/* Price Banner */}
-          <div style={{
-            padding: '16px 20px',
-            borderRadius: '12px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
+          <div className="p-4 px-5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
             <div>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Total Amount</span>
-              <div style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a', marginTop: '2px' }}>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Amount</span>
+              <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-0.5">
                 ₹{(expense.price || expense.amount || 0).toLocaleString('en-IN')}
               </div>
             </div>
 
             <div>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '12.5px',
-                fontWeight: '700',
-                backgroundColor: expense.status === 'approved' ? '#dcfce7' : expense.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                color: expense.status === 'approved' ? '#15803d' : expense.status === 'pending' ? '#b45309' : '#b91c1c'
-              }}>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-bold ${
+                expense.status === 'approved'
+                  ? 'bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-400 border border-green-200 dark:border-emerald-800'
+                  : expense.status === 'pending'
+                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                  : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+              }`}>
                 {expense.status === 'approved' && <CheckCircle2 size={15} />}
                 {expense.status === 'pending' && <Clock size={15} />}
                 {expense.status === 'rejected' && <XCircle size={15} />}
@@ -157,38 +102,38 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           </div>
 
           {/* Details Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Category</span>
-              <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Category</span>
+              <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                 {expense.category || 'Utilities & Office'}
               </div>
             </div>
 
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Purchased From</span>
-              <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Purchased From</span>
+              <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                 {expense.purchasedFrom || 'Vendor'}
               </div>
             </div>
 
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Employee / Paid By</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Employee / Paid By</span>
+              <div className="flex items-center gap-2 mt-1">
                 <img
                   src={expense.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                   alt={expense.employeeName || 'Employee'}
-                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }}
+                  className="w-6 h-6 rounded-full object-cover"
                 />
-                <span style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
                   {expense.employeeName || expense.paidBy || 'Employee'}
                 </span>
               </div>
             </div>
 
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Purchase Date</span>
-              <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', marginTop: '2px' }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Purchase Date</span>
+              <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                 {expense.purchaseDate || expense.date || '25-09-2026'}
               </div>
             </div>
@@ -197,17 +142,8 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           {/* Description */}
           {expense.description && (
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Description</span>
-              <p style={{
-                fontSize: '13px',
-                color: '#334155',
-                lineHeight: '1.6',
-                marginTop: '4px',
-                backgroundColor: '#f8fafc',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #f1f5f9'
-              }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Description</span>
+              <p className="text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mt-1 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                 {expense.description}
               </p>
             </div>
@@ -216,20 +152,11 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           {/* Bill Attachment */}
           {expense.billAttachment && (
             <div>
-              <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: '600' }}>Attachment / Invoice Proof</span>
-              <div style={{
-                marginTop: '6px',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: '#ffffff'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FileText size={18} color="#2563eb" />
-                  <span style={{ fontSize: '13px', color: '#0f172a', fontWeight: '500' }}>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Attachment / Invoice Proof</span>
+              <div className="mt-1.5 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800">
+                <div className="flex items-center gap-2">
+                  <FileText size={18} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-[13px] text-slate-900 dark:text-slate-100 font-medium">
                     Invoice_Receipt_{expense.expenseCode || '101'}.pdf
                   </span>
                 </div>
@@ -237,15 +164,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
                   href={expense.billAttachment}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#2563eb',
-                    textDecoration: 'none'
-                  }}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 no-underline transition-colors"
                 >
                   <ExternalLink size={14} />
                   View Bill
@@ -255,39 +174,20 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           )}
 
           {/* Admin Status Actions */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: canDelete ? 'space-between' : 'flex-end',
-            paddingTop: '16px',
-            borderTop: '1px solid #f1f5f9',
-            marginTop: '8px'
-          }}>
+          <div className={`flex items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-2 ${canDelete ? 'justify-between' : 'justify-end'}`}>
             {canDelete && (
               <button
                 onClick={handleDelete}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid #fee2e2',
-                  backgroundColor: '#fef2f2',
-                  color: '#dc2626',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-[12.5px] font-semibold cursor-pointer transition-colors"
               >
                 <Trash2 size={14} />
                 {isClaimant ? 'Cancel Claim' : 'Delete'}
               </button>
             )}
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="flex gap-2 items-center">
               {isClaimant && expense.status === 'pending' && (
-                <span style={{ fontSize: '11.5px', color: '#d97706', background: '#fef3c7', padding: '4px 10px', borderRadius: '6px', fontWeight: '700' }}>
+                <span className="text-[11.5px] text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-md font-bold">
                   ⏳ Awaiting HR / Finance Approval
                 </span>
               )}
@@ -297,19 +197,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
                   {expense.status !== 'approved' && (
                     <button
                       onClick={() => handleStatusChange('approved')}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        backgroundColor: '#16a34a',
-                        color: '#ffffff',
-                        fontSize: '12.5px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 bg-green-600 hover:bg-green-700 text-white text-[12.5px] font-bold cursor-pointer shadow-xs transition-colors"
                     >
                       <CheckCircle2 size={14} />
                       Approve Expense
@@ -319,19 +207,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
                   {expense.status !== 'rejected' && (
                     <button
                       onClick={() => handleStatusChange('rejected')}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        backgroundColor: '#dc2626',
-                        color: '#ffffff',
-                        fontSize: '12.5px',
-                        fontWeight: '700',
-                        cursor: 'pointer'
-                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-0 bg-red-600 hover:bg-red-700 text-white text-[12.5px] font-bold cursor-pointer shadow-xs transition-colors"
                     >
                       <XCircle size={14} />
                       Reject Expense

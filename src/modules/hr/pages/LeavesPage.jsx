@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Check,
   X,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -25,7 +26,10 @@ import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
-import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
+import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
+import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -37,13 +41,18 @@ export const LeavesPage = () => {
     setSearchQuery,
     updateLeaveStatus,
     acknowledgeLeave,
-    deleteLeave
+    deleteLeave,
+    resignations
   } = useHR();
   const currentUser = authUser || hrUser;
+
+  const [pageTab, setPageTab] = useState('leaves'); // 'leaves' | 'resignations'
+  const pendingResignationsCount = (resignations || []).filter(r => r.status === 'pending').length;
 
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [rejectingLeave, setRejectingLeave] = useState(null);
+  const [cancellingLeave, setCancellingLeave] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list', 'calendar', 'card'
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,7 +90,8 @@ export const LeavesPage = () => {
       (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
       (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
       (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
-      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+      isLeaveDesignatedApprover(l, currentUser)
     );
   }, [leaves, currentUser, isPrivileged]);
 
@@ -117,7 +127,11 @@ export const LeavesPage = () => {
   // Selected Employee / Current user leave balance
   const activeEmployeeObj = (isPrivileged && filterEmployee !== 'all')
     ? employees.find(e => e._id === filterEmployee)
-    : (currentUser || employees[0]);
+    : ((employees || []).find(e =>
+        (currentUser?._id && String(e._id) === String(currentUser._id)) ||
+        (currentUser?.employeeCode && String(e.employeeCode) === String(currentUser.employeeCode)) ||
+        (currentUser?.email && e.email?.toLowerCase() === currentUser.email.toLowerCase())
+      ) || currentUser || employees[0]);
 
   const activeBalance = activeEmployeeObj?.leaveBalance || { casual: 8, sick: 6, earned: 12, maternity: 0 };
   const totalBalanceDays = Object.values(activeBalance).reduce((a, b) => (Number(a) || 0) + (Number(b) || 0), 0);
@@ -125,16 +139,24 @@ export const LeavesPage = () => {
   // Filtered leaves
   const filteredLeaves = useMemo(() => {
     return scopedLeaves.filter(leave => {
-      if (isPrivileged && filterEmployee !== 'all' && leave.employeeId !== filterEmployee) return false;
-      if (filterType !== 'all' && leave.leaveType !== filterType) return false;
-      if (filterStatus !== 'all' && leave.status !== filterStatus) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchName = leave.employeeName?.toLowerCase().includes(q);
-        const matchRole = leave.employeeRole?.toLowerCase().includes(q);
-        const matchType = leave.leaveType?.toLowerCase().includes(q);
-        const matchReason = leave.reason?.toLowerCase().includes(q);
-        if (!matchName && !matchRole && !matchType && !matchReason) return false;
+      if (isPrivileged && filterEmployee !== 'all') {
+        const matchEmp =
+          matchesFilter(leave.employeeId, filterEmployee) ||
+          matchesFilter(leave.employee, filterEmployee) ||
+          matchesFilter(leave.employeeCode, filterEmployee) ||
+          matchesFilter(leave.employeeName, filterEmployee);
+        if (!matchEmp) return false;
+      }
+      if (filterType !== 'all') {
+        if (!matchesFilter(leave.leaveType, filterType)) return false;
+      }
+      if (filterStatus !== 'all') {
+        if (!matchesFilter(leave.status, filterStatus)) return false;
+      }
+      if (searchQuery && searchQuery.trim()) {
+        if (!matchesSearch(leave, searchQuery, ['employeeName', 'employeeRole', 'leaveType', 'reason', 'employeeCode'])) {
+          return false;
+        }
       }
       return true;
     });
@@ -193,65 +215,27 @@ export const LeavesPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#ecfdf5',
-            color: '#059669',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Palmtree size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Leave Management & Approvals
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
               Apply for leaves, track approval workflows, and view leave balances.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsNewLeaveOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#059669',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(5,150,105,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-emerald-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-emerald-700 transition-colors"
             title="Apply for a new leave"
           >
             <Plus size={13} />
@@ -260,46 +244,65 @@ export const LeavesPage = () => {
         </div>
       </div>
 
-      {/* ── 🔔 REAL-TIME LEAVE STATUS DECISION NOTIFICATION BADGE / CARD ── */}
+      {/* Tab Switcher: Leaves & Time-off vs Resignations & Offboarding */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setPageTab('leaves')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+            pageTab === 'leaves'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Palmtree size={14} />
+          <span>Leaves & Time-Off</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPageTab('resignations')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+            pageTab === 'resignations'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+          }`}
+        >
+          <FileText size={14} />
+          <span>Resignations & Offboarding</span>
+          {pendingResignationsCount > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-black">
+              {pendingResignationsCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {pageTab === 'resignations' ? (
+        <ResignationsListPanel />
+      ) : (
+        <>
+          {/* ── 🔔 REAL-TIME LEAVE STATUS DECISION NOTIFICATION BADGE / CARD ── */}
       {myRecentDecisions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+        <div className="flex flex-col gap-2.5 mb-[18px]">
           {myRecentDecisions.map(dec => (
             <div
               key={dec._id}
-              style={{
-                backgroundColor: dec.status === 'approved' ? '#ecfdf5' : '#fff1f2',
-                border: `1.5px solid ${dec.status === 'approved' ? '#6ee7b7' : '#fca5a5'}`,
-                borderRadius: '10px',
-                padding: '14px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                boxShadow: dec.status === 'approved' ? '0 4px 14px rgba(16, 185, 129, 0.12)' : '0 4px 14px rgba(239, 68, 68, 0.12)'
-              }}
+              className={`rounded-[10px] p-[14px_18px] flex items-center justify-between flex-wrap gap-3 border-[1.5px] ${dec.status === 'approved' ? 'bg-emerald-50 border-emerald-300 shadow-[0_4px_14px_rgba(16,185,129,0.12)]' : 'bg-rose-50 border-red-300 shadow-[0_4px_14px_rgba(239,68,68,0.12)]'}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '10px',
-                  backgroundColor: dec.status === 'approved' ? '#10b981' : '#ef4444',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-[38px] h-[38px] rounded-[10px] text-white flex items-center justify-center shrink-0 ${dec.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'}`}
+                >
                   {dec.status === 'approved' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: dec.status === 'approved' ? '#065f46' : '#991b1b' }}>
+                  <div className={`text-sm font-extrabold ${dec.status === 'approved' ? 'text-emerald-900' : 'text-red-900'}`}>
                     {dec.status === 'approved' ? '🎉 Your Leave Request Has Been Approved!' : '⚠️ Your Leave Request Has Been Declined'}
                   </div>
-                  <div style={{ fontSize: '12px', color: dec.status === 'approved' ? '#047857' : '#b91c1c', marginTop: '3px' }}>
+                  <div className={`text-xs mt-0.5 ${dec.status === 'approved' ? 'text-emerald-700' : 'text-red-700'}`}>
                     <strong>{dec.leaveType} ({dec.durationText})</strong> • 📅 {dec.startDate} to {dec.endDate}
-                    <span style={{ margin: '0 6px', opacity: 0.6 }}>•</span>
+                    <span className="mx-1.5 opacity-60">•</span>
                     <span>
                       {dec.status === 'approved'
                         ? `Approved by ${dec.approvedBy || dec.actionBy || 'Admin'}${dec.actionDateFormatted ? ` on ${dec.actionDateFormatted}` : ''}`
@@ -310,17 +313,7 @@ export const LeavesPage = () => {
               </div>
               <button
                 onClick={() => acknowledgeLeave(dec._id)}
-                style={{
-                  backgroundColor: dec.status === 'approved' ? '#059669' : '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '7px 16px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
-                }}
+                className={`text-white border-none py-[7px] px-4 rounded-lg text-xs font-bold cursor-pointer shadow-sm hover:opacity-95 transition-opacity ${dec.status === 'approved' ? 'bg-emerald-600' : 'bg-red-600'}`}
               >
                 ✓ Acknowledge & Dismiss
               </button>
@@ -335,42 +328,42 @@ export const LeavesPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Leaves Taken</span>
-            <div className="kpi-icon-wrap" style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className="kpi-icon-wrap bg-blue-50 text-blue-600">
               <Palmtree size={18} />
             </div>
           </div>
-          <div className="kpi-value">{totalDaysTaken} <span style={{ fontSize: '15px', fontWeight: '500', color: '#64748b' }}>Days</span></div>
-          <div className="kpi-subtext" style={{ color: '#64748b' }}>
+          <div className="kpi-value">{totalDaysTaken} <span className="text-[15px] font-medium text-slate-500">Days</span></div>
+          <div className="kpi-subtext text-slate-500">
             <span>Across all departments</span>
           </div>
         </div>
 
         {/* 2. Currently on Leave */}
-        <div className="kpi-card" style={{ borderLeft: '4px solid #0284c7' }}>
+        <div className="kpi-card border-l-4 border-sky-600">
           <div className="kpi-header">
             <span className="kpi-title">On Leave Today</span>
-            <div className="kpi-icon-wrap" style={{ background: '#e0f2fe', color: '#0284c7' }}>
+            <div className="kpi-icon-wrap bg-sky-100 text-sky-600">
               <User size={18} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#0284c7' }}>{employeesCurrentlyOnLeave.length}</div>
-          <div className="kpi-subtext" style={{ color: '#0284c7' }}>
+          <div className="kpi-value text-sky-600">{employeesCurrentlyOnLeave.length}</div>
+          <div className="kpi-subtext text-sky-600">
             <span>{employeesCurrentlyOnLeave.length > 0 ? employeesCurrentlyOnLeave.map(e => e.employeeName).join(', ') : '0 employees on leave today'}</span>
           </div>
         </div>
 
         {/* 3. Leave Balance */}
-        <div className="kpi-card" style={{ background: 'linear-gradient(135deg, #f8fafc, #ffffff)' }}>
+        <div className="kpi-card bg-gradient-to-br from-slate-50 to-white">
           <div className="kpi-header">
             <span className="kpi-title">Your Leave Balance</span>
-            <div className="kpi-icon-wrap" style={{ background: '#f1f5f9', color: '#334155' }}>
+            <div className="kpi-icon-wrap bg-slate-100 text-slate-700">
               <Clock size={18} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#2563eb' }}>
-            {totalBalanceDays} <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>Days Left</span>
+          <div className="kpi-value text-blue-600">
+            {totalBalanceDays} <span className="text-sm font-semibold text-slate-500">Days Left</span>
           </div>
-          <div className="kpi-subtext" style={{ fontSize: '11px', color: '#475569' }}>
+          <div className="kpi-subtext text-[11px] text-slate-600">
             <span>CL: {activeBalance.casual} • SL: {activeBalance.sick} • EL: {activeBalance.earned}</span>
           </div>
         </div>
@@ -378,17 +371,16 @@ export const LeavesPage = () => {
         {/* 4. Pending Leaves */}
         <div
           onClick={() => setFilterStatus('pending')}
-          className="kpi-card"
-          style={{ cursor: 'pointer', borderLeft: filterStatus === 'pending' ? '4px solid #d97706' : undefined }}
+          className={`kpi-card cursor-pointer ${filterStatus === 'pending' ? 'border-l-4 border-amber-600' : ''}`}
         >
           <div className="kpi-header">
             <span className="kpi-title">Pending Leaves</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
               <Clock size={18} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#d97706' }}>{pendingLeaves.length}</div>
-          <div className="kpi-subtext" style={{ color: '#d97706' }}>
+          <div className="kpi-value text-amber-600">{pendingLeaves.length}</div>
+          <div className="kpi-subtext text-amber-600">
             <span>Awaiting HR approval</span>
           </div>
         </div>
@@ -396,17 +388,16 @@ export const LeavesPage = () => {
         {/* 5. Approved Leaves */}
         <div
           onClick={() => setFilterStatus('approved')}
-          className="kpi-card"
-          style={{ cursor: 'pointer', borderLeft: filterStatus === 'approved' ? '4px solid #16a34a' : undefined }}
+          className={`kpi-card cursor-pointer ${filterStatus === 'approved' ? 'border-l-4 border-green-600' : ''}`}
         >
           <div className="kpi-header">
             <span className="kpi-title">Approved Leaves</span>
-            <div className="kpi-icon-wrap" style={{ background: '#dcfce7', color: '#16a34a' }}>
+            <div className="kpi-icon-wrap bg-green-100 text-green-600">
               <CheckCircle2 size={18} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#16a34a' }}>{approvedLeaves.length}</div>
-          <div className="kpi-subtext" style={{ color: '#16a34a' }}>
+          <div className="kpi-value text-green-600">{approvedLeaves.length}</div>
+          <div className="kpi-subtext text-green-600">
             <span>Sanctioned & logged</span>
           </div>
         </div>
@@ -414,17 +405,16 @@ export const LeavesPage = () => {
         {/* 6. Rejected Leaves */}
         <div
           onClick={() => setFilterStatus('rejected')}
-          className="kpi-card"
-          style={{ cursor: 'pointer', borderLeft: filterStatus === 'rejected' ? '4px solid #dc2626' : undefined }}
+          className={`kpi-card cursor-pointer ${filterStatus === 'rejected' ? 'border-l-4 border-red-600' : ''}`}
         >
           <div className="kpi-header">
             <span className="kpi-title">Rejected Leaves</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            <div className="kpi-icon-wrap bg-red-100 text-red-600">
               <XCircle size={18} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#dc2626' }}>{rejectedLeaves.length}</div>
-          <div className="kpi-subtext" style={{ color: '#dc2626' }}>
+          <div className="kpi-value text-red-600">{rejectedLeaves.length}</div>
+          <div className="kpi-subtext text-red-600">
             <span>Declined applications</span>
           </div>
         </div>
@@ -433,18 +423,18 @@ export const LeavesPage = () => {
       {/* Currently On Leave Active Pill Widget */}
       {employeesCurrentlyOnLeave.length > 0 && (
         <div className="currently-on-leave-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '20px' }}>🏖️</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🏖️</span>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '13.5px', color: '#0369a1' }}>
+              <div className="font-bold text-[13.5px] text-sky-700">
                 Employees Currently On Leave (Today):
               </div>
-              <div style={{ fontSize: '12px', color: '#0284c7' }}>
+              <div className="text-xs text-sky-600">
                 {employeesCurrentlyOnLeave.map(l => `${l.employeeName} (${l.leaveType} until ${l.endDate})`).join(' • ')}
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             {employeesCurrentlyOnLeave.map(l => (
               <div key={l._id} className="employee-avatar" title={`${l.employeeName} - ${l.leaveType}`}>
                 {l.employeeAvatar ? <img src={l.employeeAvatar} alt={l.employeeName} /> : l.employeeName.charAt(0)}
@@ -459,7 +449,7 @@ export const LeavesPage = () => {
         <div className="filter-left-group">
           {/* Duration Date Range */}
           <div className="filter-item">
-            <span style={{ fontWeight: '500', color: '#64748b' }}>Duration</span>
+            <span className="font-medium text-slate-500">Duration</span>
             <DateRangePicker />
           </div>
 
@@ -468,19 +458,17 @@ export const LeavesPage = () => {
             <Search size={15} className="filter-input-icon" />
             <input
               type="text"
-              className="filter-input"
+              className="filter-input min-w-[240px]"
               placeholder="Search employee, reason, type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ minWidth: '240px' }}
             />
           </div>
 
           {/* Filters Toggle Button */}
           <button
             onClick={() => setShowFilterDrawer(!showFilterDrawer)}
-            className={`btn ${showFilterDrawer ? 'btn-primary' : 'btn-outline'}`}
-            style={{ height: '36px', padding: '0 12px' }}
+            className={`btn ${showFilterDrawer ? 'btn-primary' : 'btn-outline'} h-9 px-3`}
           >
             <Filter size={15} />
             <span>Filters</span>
@@ -535,26 +523,15 @@ export const LeavesPage = () => {
 
       {/* Filter Drawer */}
       {showFilterDrawer && (
-        <div style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '16px 20px',
-          marginBottom: '20px',
-          display: 'flex',
-          gap: '16px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 px-5 mb-5 flex gap-4 items-center flex-wrap shadow-sm">
           <div>
-            <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Employee
             </label>
             <select
               value={filterEmployee}
               onChange={(e) => setFilterEmployee(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -564,13 +541,13 @@ export const LeavesPage = () => {
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Leave Type
             </label>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Types</option>
               <option value="Casual Leave">Casual Leave</option>
@@ -582,13 +559,13 @@ export const LeavesPage = () => {
           </div>
 
           <div>
-            <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               Status
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="filter-select"
+              className="filter-select dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
             >
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
@@ -604,8 +581,7 @@ export const LeavesPage = () => {
               setFilterStatus('all');
               setSearchQuery('');
             }}
-            className="btn btn-outline"
-            style={{ alignSelf: 'flex-end', height: '36px' }}
+            className="btn btn-outline self-end h-9"
           >
             Reset Filters
           </button>
@@ -619,7 +595,7 @@ export const LeavesPage = () => {
             <table className="crm-table">
               <thead>
                 <tr>
-                  <th style={{ width: '40px' }}>
+                  <th className="w-10">
                     <input
                       type="checkbox"
                       checked={selectedRows.length === paginatedLeaves.length && paginatedLeaves.length > 0}
@@ -634,7 +610,7 @@ export const LeavesPage = () => {
                   <th>Reviewer / Approver</th>
                   <th>Paid</th>
                   <th>Reason</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -643,7 +619,7 @@ export const LeavesPage = () => {
                     <tr
                       key={leave._id}
                       onClick={() => setSelectedLeave(leave)}
-                      style={{ cursor: 'pointer' }}
+                      className="cursor-pointer hover:bg-slate-50 transition-colors"
                     >
                       <td onClick={(e) => e.stopPropagation()}>
                         <input
@@ -676,21 +652,14 @@ export const LeavesPage = () => {
                       </td>
 
                       {/* Leave Dates */}
-                      <td style={{ fontWeight: '600', color: '#1e293b' }}>
+                      <td className="font-semibold text-slate-800">
                         {leave.startDate}
                         {leave.endDate !== leave.startDate && ` to ${leave.endDate}`}
                       </td>
 
                       {/* Duration */}
                       <td>
-                        <span style={{
-                          fontSize: '12px',
-                          color: '#475569',
-                          background: '#f1f5f9',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontWeight: '600'
-                        }}>
+                        <span className="text-xs text-slate-600 bg-slate-100 py-[3px] px-2 rounded-md font-semibold">
                           {leave.durationText}
                         </span>
                       </td>
@@ -703,29 +672,29 @@ export const LeavesPage = () => {
                       </td>
 
                       {/* Leave Type */}
-                      <td style={{ fontWeight: '500', color: '#334155' }}>
+                      <td className="font-medium text-slate-700">
                         {leave.leaveType}
                       </td>
 
                       {/* Reviewer / Approver & Audit Trail */}
                       <td>
-                        <div style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '600' }}>
+                        <div className="text-[12.5px] text-slate-900 font-semibold">
                           {leave.appliedToName || leave.approvedBy || leave.rejectedBy || leave.actionBy || 'HR Admin'}
                         </div>
                         {leave.status === 'approved' && (
-                          <span style={{ fontSize: '11px', color: '#16a34a', display: 'block', marginTop: '2px' }}>
+                          <span className="text-[11px] text-green-600 block mt-0.5">
                             ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}
-                            {leave.actionDateFormatted && <span style={{ color: '#64748b' }}> • {leave.actionDateFormatted}</span>}
+                            {leave.actionDateFormatted && <span className="text-slate-500"> • {leave.actionDateFormatted}</span>}
                           </span>
                         )}
                         {leave.status === 'rejected' && (
-                          <div style={{ marginTop: '2px' }}>
-                            <span style={{ fontSize: '11px', color: '#dc2626', display: 'block' }}>
+                          <div className="mt-0.5">
+                            <span className="text-[11px] text-red-600 block">
                               ✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}
-                              {leave.actionDateFormatted && <span style={{ color: '#64748b' }}> • {leave.actionDateFormatted}</span>}
+                              {leave.actionDateFormatted && <span className="text-slate-500"> • {leave.actionDateFormatted}</span>}
                             </span>
                             {leave.rejectionReason && (
-                              <span style={{ fontSize: '10.5px', color: '#991b1b', display: 'block', fontStyle: 'italic' }}>
+                              <span className="text-[10.5px] text-red-800 block italic">
                                 "{leave.rejectionReason}"
                               </span>
                             )}
@@ -735,68 +704,37 @@ export const LeavesPage = () => {
 
                       {/* Paid */}
                       <td>
-                        <span style={{
-                          fontWeight: '600',
-                          fontSize: '12px',
-                          color: leave.isPaid ? '#16a34a' : '#64748b'
-                        }}>
+                        <span className={`font-semibold text-xs ${leave.isPaid ? 'text-green-600' : 'text-slate-500'}`}>
                           {leave.isPaid ? 'Yes' : 'No'}
                         </span>
                       </td>
 
                       {/* Reason */}
-                      <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#64748b', fontSize: '12.5px' }} title={leave.reason}>
+                      <td className="max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap text-slate-500 text-[12.5px]" title={leave.reason}>
                         {leave.reason || '—'}
                       </td>
 
                       {/* Actions */}
-                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center gap-1.5">
                           {(() => {
-                            const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-                              (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-                            const canReview = !isApplicant && (
-                              isHRorAdmin(currentUser) ||
-                              (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-                            );
+                            const isApplicant = isLeaveApplicant(leave, currentUser);
+                            const canReview = canReviewLeave(leave, currentUser);
+                            const canCancel = canCancelLeave(leave, currentUser);
 
                             if (leave.status === 'pending' && canReview) {
                               return (
-                                <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                <div className="inline-flex gap-1">
                                   <button
                                     onClick={() => updateLeaveStatus(leave._id, 'approved')}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '3px',
-                                      padding: '4px 8px',
-                                      borderRadius: '6px',
-                                      background: '#dcfce7',
-                                      color: '#15803d',
-                                      border: '1px solid #bbf7d0',
-                                      fontSize: '11.5px',
-                                      fontWeight: '700',
-                                      cursor: 'pointer'
-                                    }}
+                                    className="inline-flex items-center gap-0.5 py-1 px-2 rounded-md bg-green-100 text-green-700 border border-green-200 text-[11.5px] font-bold cursor-pointer hover:bg-green-200 transition-colors"
                                     title="Accept / Approve Leave"
                                   >
                                     <Check size={13} /> Accept
                                   </button>
                                   <button
                                     onClick={() => setRejectingLeave(leave)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '3px',
-                                      padding: '4px 8px',
-                                      borderRadius: '6px',
-                                      background: '#fee2e2',
-                                      color: '#dc2626',
-                                      border: '1px solid #fecaca',
-                                      fontSize: '11.5px',
-                                      fontWeight: '700',
-                                      cursor: 'pointer'
-                                    }}
+                                    className="inline-flex items-center gap-0.5 py-1 px-2 rounded-md bg-red-100 text-red-600 border border-red-200 text-[11.5px] font-bold cursor-pointer hover:bg-red-200 transition-colors"
                                     title="Deny / Reject Leave"
                                   >
                                     <X size={13} /> Deny
@@ -807,37 +745,13 @@ export const LeavesPage = () => {
 
                             if (leave.status === 'pending' && isApplicant) {
                               return (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                  <span style={{
-                                    fontSize: '11px',
-                                    color: '#d97706',
-                                    background: '#fef3c7',
-                                    border: '1px solid #fde68a',
-                                    padding: '2px 7px',
-                                    borderRadius: '5px',
-                                    fontWeight: '700'
-                                  }}>
+                                <div className="inline-flex items-center gap-1.5">
+                                  <span className="text-[11px] text-amber-600 bg-amber-100 border border-amber-200 py-0.5 px-[7px] rounded-[5px] font-bold">
                                     ⏳ Awaiting Review
                                   </span>
                                   <button
-                                    onClick={async () => {
-                                      if (confirm('Cancel your pending leave request?')) {
-                                        await deleteLeave(leave._id);
-                                      }
-                                    }}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '3px',
-                                      padding: '3px 7px',
-                                      borderRadius: '5px',
-                                      background: '#fee2e2',
-                                      color: '#dc2626',
-                                      border: '1px solid #fecaca',
-                                      fontSize: '11px',
-                                      fontWeight: '700',
-                                      cursor: 'pointer'
-                                    }}
+                                    onClick={() => setCancellingLeave(leave)}
+                                    className="inline-flex items-center gap-0.5 py-[3px] px-[7px] rounded-[5px] bg-red-100 text-red-600 border border-red-200 text-[11px] font-bold cursor-pointer hover:bg-red-200 transition-colors"
                                     title="Cancel Leave Request"
                                   >
                                     <Trash2 size={12} /> Cancel
@@ -846,12 +760,23 @@ export const LeavesPage = () => {
                               );
                             }
 
+                            if (leave.status === 'approved' && canCancel) {
+                              return (
+                                <button
+                                  onClick={() => setCancellingLeave(leave)}
+                                  className="inline-flex items-center gap-0.5 py-1 px-2 rounded-md bg-red-100 text-red-600 border border-red-200 text-[11px] font-bold cursor-pointer hover:bg-red-200 transition-colors"
+                                  title="Cancel / Revoke Approved Leave"
+                                >
+                                  <XCircle size={12} /> Cancel Leave
+                                </button>
+                              );
+                            }
+
                             return null;
                           })()}
                           <button
                             onClick={() => setSelectedLeave(leave)}
-                            className="btn-icon-only"
-                            style={{ width: '28px', height: '28px' }}
+                            className="btn-icon-only w-7 h-7"
                             title="View Full Details"
                           >
                             <Eye size={14} />
@@ -865,10 +790,10 @@ export const LeavesPage = () => {
                     <td colSpan="9">
                       <div className="table-empty-state">
                         <FileSpreadsheet className="table-empty-icon" />
-                        <div style={{ fontWeight: '600', fontSize: '15px', color: '#1e293b' }}>
+                        <div className="font-semibold text-[15px] text-slate-800">
                           No leave applications found
                         </div>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                        <p className="text-[13px] text-slate-500 mt-1">
                           Click on "+ New Leave" button above to submit a leave request.
                         </p>
                       </div>
@@ -881,7 +806,7 @@ export const LeavesPage = () => {
 
           {/* Pagination Footer (Matching Screenshot 1) */}
           <div className="table-pagination-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="flex items-center gap-2">
               <span>Show</span>
               <select
                 value={pageSize}
@@ -889,8 +814,7 @@ export const LeavesPage = () => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="filter-select"
-                style={{ height: '30px', padding: '0 24px 0 8px', fontSize: '12px' }}
+                className="filter-select h-[30px] pr-6 pl-2 text-xs"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -935,22 +859,14 @@ export const LeavesPage = () => {
 
       {/* Card Grid View */}
       {viewMode === 'card' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', alignItems: 'start', marginBottom: '24px' }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4 items-start mb-6">
           {filteredLeaves.map(leave => (
             <div
               key={leave._id}
               onClick={() => setSelectedLeave(leave)}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '12px',
-                padding: '18px',
-                boxShadow: 'var(--shadow-sm)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-[18px] shadow-sm cursor-pointer transition-all hover:shadow-md"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <div className="flex justify-between items-start mb-3">
                 <div className="employee-cell">
                   <div className="employee-avatar">
                     {leave.employeeAvatar ? <img src={leave.employeeAvatar} alt={leave.employeeName} /> : leave.employeeName.charAt(0)}
@@ -963,38 +879,27 @@ export const LeavesPage = () => {
                 <span className={`badge badge-${leave.status}`}>{leave.status}</span>
               </div>
 
-              <div style={{ fontSize: '13px', color: '#334155', fontWeight: '600', marginBottom: '6px' }}>
-                {leave.leaveType} ({leave.durationText})
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '10px' }}>
-                📅 {leave.startDate} to {leave.endDate}
-              </div>
-              <p style={{ fontSize: '12px', color: '#475569', background: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
-                "{leave.reason}"
-              </p>
+              <div className="text-[13px] text-slate-700 dark:text-slate-200 font-semibold mb-1.5">{leave.leaveType} ({leave.durationText})</div>
+              <div className="text-[12.5px] text-slate-500 dark:text-slate-400 mb-2.5">📅 {leave.startDate} to {leave.endDate}</div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2 px-2.5 rounded-md">"{leave.reason}"</p>
 
               {(() => {
-                const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-                  (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-                const canReview = !isApplicant && (
-                  isHRorAdmin(currentUser) ||
-                  (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-                );
+                const isApplicant = isLeaveApplicant(leave, currentUser);
+                const canReview = canReviewLeave(leave, currentUser);
+                const canCancel = canCancelLeave(leave, currentUser);
 
                 if (leave.status === 'pending' && canReview) {
                   return (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => updateLeaveStatus(leave._id, 'rejected')}
-                        className="btn btn-outline"
-                        style={{ height: '28px', padding: '0 10px', fontSize: '11.5px', color: '#ef4444' }}
+                        onClick={() => setRejectingLeave(leave)}
+                        className="btn btn-outline h-7 px-2.5 text-[11.5px] text-red-500 border-red-200 hover:bg-red-50"
                       >
                         Reject
                       </button>
                       <button
                         onClick={() => updateLeaveStatus(leave._id, 'approved')}
-                        className="btn btn-primary"
-                        style={{ height: '28px', padding: '0 12px', fontSize: '11.5px', background: '#16a34a', borderColor: '#16a34a' }}
+                        className="btn btn-primary h-7 px-3 text-[11.5px] bg-green-600 border-green-600 hover:bg-green-700"
                       >
                         Approve
                       </button>
@@ -1004,18 +909,13 @@ export const LeavesPage = () => {
 
                 if (leave.status === 'pending' && isApplicant) {
                   return (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }} onClick={(e) => e.stopPropagation()}>
-                      <span style={{ fontSize: '11px', color: '#d97706', fontWeight: '700' }}>
+                    <div className="flex justify-between items-center mt-3 border-t border-slate-100 pt-2" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-[11px] text-amber-600 font-bold">
                         ⏳ Pending Approval
                       </span>
                       <button
-                        onClick={async () => {
-                          if (confirm('Cancel your pending leave request?')) {
-                            await deleteLeave(leave._id);
-                          }
-                        }}
-                        className="btn btn-outline"
-                        style={{ height: '26px', padding: '0 10px', fontSize: '11px', color: '#dc2626', borderColor: '#fca5a5', background: '#fff5f5' }}
+                        onClick={() => setCancellingLeave(leave)}
+                        className="btn btn-outline h-[26px] px-2.5 text-[11px] text-red-600 border-red-300 bg-red-50 hover:bg-red-100"
                       >
                         Cancel Request
                       </button>
@@ -1025,17 +925,28 @@ export const LeavesPage = () => {
 
                 if (leave.status === 'approved') {
                   return (
-                    <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', fontSize: '11.5px', color: '#16a34a', fontWeight: '600' }}>
-                      ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}
+                    <div className="flex items-center justify-between mt-3 border-t border-slate-100 pt-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-[11.5px] text-green-600 font-semibold">
+                        ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}
+                      </div>
+                      {canCancel && (
+                        <button
+                          onClick={() => setCancellingLeave(leave)}
+                          className="inline-flex items-center gap-0.5 py-[3px] px-2 rounded-[5px] bg-red-100 text-red-600 border border-red-200 text-[11px] font-bold cursor-pointer hover:bg-red-200 transition-colors"
+                          title="Cancel this approved leave"
+                        >
+                          <XCircle size={12} /> Cancel
+                        </button>
+                      )}
                     </div>
                   );
                 }
 
                 if (leave.status === 'rejected') {
                   return (
-                    <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', fontSize: '11.5px', color: '#dc2626' }}>
-                      <div style={{ fontWeight: '600' }}>✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</div>
-                      {leave.rejectionReason && <div style={{ color: '#991b1b', fontStyle: 'italic', marginTop: '2px', fontSize: '11px' }}>"{leave.rejectionReason}"</div>}
+                    <div className="mt-3 border-t border-slate-100 pt-2 text-[11.5px] text-red-600">
+                      <div className="font-semibold">✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</div>
+                      {leave.rejectionReason && <div className="text-red-800 italic mt-0.5 text-[11px]">"{leave.rejectionReason}"</div>}
                     </div>
                   );
                 }
@@ -1049,45 +960,25 @@ export const LeavesPage = () => {
 
       {/* Calendar Schedule View */}
       {viewMode === 'calendar' && (
-        <div className="table-card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>{currentMonthCalendar.monthTitle} Leaves Calendar</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+        <div className="table-card p-6">
+          <h3 className="text-base font-bold mb-4">{currentMonthCalendar.monthTitle} Leaves Calendar</h3>
+          <div className="grid grid-cols-7 gap-2">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-              <div key={day} style={{ textAlign: 'center', fontWeight: '600', color: '#64748b', fontSize: '12px', paddingBottom: '8px' }}>
-                {day}
-              </div>
+              <div key={day} className="text-center font-semibold text-slate-500 text-xs pb-2">{day}</div>
             ))}
             {currentMonthCalendar.days.map(({ dayNum, dayStr }) => {
               const dayLeaves = leaves.filter(l => l.startDate <= dayStr && l.endDate >= dayStr);
               return (
                 <div
                   key={dayNum}
-                  style={{
-                    minHeight: '80px',
-                    border: '1px solid #f1f5f9',
-                    borderRadius: '8px',
-                    padding: '6px',
-                    background: dayLeaves.length > 0 ? '#eff6ff' : '#ffffff'
-                  }}
+                  className={`min-h-[80px] border border-slate-100 dark:border-slate-800 rounded-lg p-1.5 ${dayLeaves.length > 0 ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-slate-900'}`}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{dayNum}</div>
+                  <div className="text-[11px] font-bold text-slate-500">{dayNum}</div>
                   {dayLeaves.map(dl => (
                     <div
                       key={dl._id}
                       onClick={() => setSelectedLeave(dl)}
-                      style={{
-                        fontSize: '10.5px',
-                        fontWeight: '600',
-                        color: dl.status === 'approved' ? '#0369a1' : '#b45309',
-                        background: dl.status === 'approved' ? '#e0f2fe' : '#fef3c7',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
+                      className={`text-[10.5px] font-semibold py-0.5 px-1 rounded mt-1 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${dl.status === 'approved' ? 'text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60' : 'text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60'}`}
                       title={`${dl.employeeName} - ${dl.leaveType} (${dl.status})`}
                     >
                       {dl.employeeName} ({dl.leaveType})
@@ -1098,6 +989,8 @@ export const LeavesPage = () => {
             })}
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Modals */}
@@ -1119,6 +1012,19 @@ export const LeavesPage = () => {
         onConfirm={(reason) => {
           if (rejectingLeave?._id) {
             updateLeaveStatus(rejectingLeave._id, 'rejected', reason);
+          }
+        }}
+      />
+
+      <CancelLeaveModal
+        isOpen={!!cancellingLeave}
+        leave={cancellingLeave}
+        isApplicant={(cancellingLeave?.employeeId && currentUser?._id && cancellingLeave.employeeId === currentUser._id) ||
+          (cancellingLeave?.employeeName && currentUser?.name && cancellingLeave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())}
+        onClose={() => setCancellingLeave(null)}
+        onConfirm={async (reason) => {
+          if (cancellingLeave?._id) {
+            await updateLeaveStatus(cancellingLeave._id, 'cancelled', reason);
           }
         }}
       />

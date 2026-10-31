@@ -8,10 +8,19 @@ const LeaveSchema = new mongoose.Schema(
       required: [true, 'Employee reference is required']
     },
     // Denormalized for fast table rendering without populate
+    employeeId: { type: String },
     employeeName: { type: String, required: true },
     employeeAvatar: { type: String, default: '' },
     employeeRole: { type: String, required: true },
     employeeCode: { type: String },
+
+    // Reviewer/Approver fields
+    appliedToId: { type: String, default: '' },
+    appliedToCode: { type: String, default: '' },
+    appliedToEmail: { type: String, default: '' },
+    appliedToName: { type: String, default: '' },
+    appliedToRole: { type: String, default: '' },
+    appliedToAvatar: { type: String, default: '' },
 
     leaveType: {
       type: String,
@@ -40,7 +49,7 @@ const LeaveSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: [true, 'Reason for leave is required'],
-      minlength: [5, 'Please provide a proper reason (min 5 characters)'],
+      minlength: [2, 'Please provide a proper reason (min 2 characters)'],
       maxlength: [500, 'Reason too long (max 500 characters)']
     },
     isPaid: {
@@ -59,6 +68,30 @@ const LeaveSchema = new mongoose.Schema(
     approverRemarks: {
       type: String,
       default: ''
+    },
+    cancelledBy: {
+      type: String,
+      default: null
+    },
+    cancellationReason: {
+      type: String,
+      default: ''
+    },
+    rejectedBy: {
+      type: String,
+      default: null
+    },
+    rejectionReason: {
+      type: String,
+      default: ''
+    },
+    actionBy: {
+      type: String,
+      default: null
+    },
+    actionDate: {
+      type: Date,
+      default: null
     },
     isAcknowledged: {
       type: Boolean,

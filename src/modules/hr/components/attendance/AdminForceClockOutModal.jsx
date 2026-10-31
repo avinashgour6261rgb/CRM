@@ -41,21 +41,11 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
       title="Admin Force Clock-Out & Override"
       subtitle="Immediately terminate active shift session with full regulatory audit logging."
     >
-      <form onSubmit={handleForceClockOut} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleForceClockOut} className="flex flex-col gap-4">
         
         {/* Warning Banner */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '10px',
-          padding: '12px 14px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '8px',
-          fontSize: '12px',
-          color: '#991b1b'
-        }}>
-          <ShieldAlert size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div className="flex items-start gap-2.5 p-3 px-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 rounded-lg text-xs text-red-800 dark:text-red-300">
+          <ShieldAlert size={20} className="shrink-0 mt-0.5 text-red-600" />
           <div>
             <strong>Administrative Action Required:</strong> This action will immediately clock out the employee's live shift, pause their task timers, and stamp this event into both the employee's time log and the system audit log under Administrator ID <code>#{adminIdentifier}</code>.
           </div>
@@ -63,35 +53,26 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
 
         {/* Target Employee Selection */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
             Target Employee
           </label>
           {targetEmployee ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px'
-            }}>
+            <div className="flex items-center gap-2.5 p-2.5 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-md">
               <img
                 src={targetEmployee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                 alt={targetEmployee.name}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                className="w-7 h-7 rounded-full object-cover"
               />
               <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{targetEmployee.name}</div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>{targetEmployee.role} • ID: {targetEmployee.employeeCode || targetEmployee._id}</div>
+                <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{targetEmployee.name}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">{targetEmployee.role} • ID: {targetEmployee.employeeCode || targetEmployee._id}</div>
               </div>
             </div>
           ) : (
             <select
               value={selectedEmpId}
               onChange={(e) => setSelectedEmpId(e.target.value)}
-              className="filter-select"
-              style={{ width: '100%', height: '40px' }}
+              className="filter-select w-full h-10"
             >
               {employees.map(e => (
                 <option key={e._id} value={e._id}>
@@ -103,67 +84,47 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
         </div>
 
         {/* Current Time Stamp Callout */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '10px',
-          padding: '12px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          fontSize: '12px'
-        }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">
           <div>
-            <span style={{ color: '#64748b' }}>Closing Time Stamp:</span>
-            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
+            <span className="text-slate-500 dark:text-slate-400">Closing Time Stamp:</span>
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-[13px]">
               {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} (Immediate)
             </div>
           </div>
           <div>
-            <span style={{ color: '#64748b' }}>Authorized By:</span>
-            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>
-              {adminName} <span style={{ color: '#2563eb', fontSize: '11px' }}>[#{adminIdentifier}]</span>
+            <span className="text-slate-500 dark:text-slate-400">Authorized By:</span>
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-[13px]">
+              {adminName} <span className="text-blue-600 text-[11px]">[#{adminIdentifier}]</span>
             </div>
           </div>
         </div>
 
         {/* Mandatory Reason for Override */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
-            Audit Note & Reason for Force Clock-Out <span style={{ color: '#dc2626' }}>*</span>
+          <label className="block text-[13px] font-bold text-slate-900 dark:text-slate-100 mb-1.5">
+            Audit Note & Reason for Force Clock-Out <span className="text-red-600">*</span>
           </label>
           <textarea
             value={auditNote}
             onChange={(e) => setAuditNote(e.target.value)}
             placeholder="e.g. Employee left premises at 06:30 PM without clocking out; verified via security logs / client off-site transition."
-            style={{
-              width: '100%',
-              minHeight: '75px',
-              padding: '10px 12px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '12.5px',
-              outline: 'none',
-              fontFamily: 'inherit'
-            }}
+            className="w-full min-h-[75px] p-2.5 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12.5px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none font-sans focus:border-red-500 transition-colors"
             required
           />
-          <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
             This note will be permanently etched in the employee's audit log and daily timecard.
           </span>
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+        <div className="flex justify-end gap-2.5 mt-2">
           <button type="button" onClick={onClose} className="btn btn-outline">
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="btn btn-primary"
-            style={{ backgroundColor: '#dc2626', borderColor: '#dc2626' }}
+            className="btn btn-primary bg-red-600 border-red-600 hover:bg-red-700 hover:border-red-700 disabled:opacity-50"
           >
             <LogOut size={14} />
             <span>{submitting ? 'Executing Override...' : 'Confirm Force Clock-Out'}</span>

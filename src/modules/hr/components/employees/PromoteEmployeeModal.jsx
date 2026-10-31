@@ -45,7 +45,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   useEffect(() => {
     if (employee) {
       setSelectedRole(employee.role || '');
-      setSelectedDepartment(employee.department || 'Engineering');
+      setSelectedDepartment(employee.department || 'IT & Software Development');
       setCustomRoleTitle('');
     }
     setAvailableRoles(getRoles());
@@ -115,162 +115,93 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '680px',
-        maxHeight: '92vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
         {/* Modal Header */}
-        <div style={{
-          padding: '16px 24px',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: '#fef3c7',
-              color: '#d97706',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+        <div className="py-4 px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
               <Award size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+              <h3 className="text-[15px] font-extrabold text-slate-900 m-0">
                 Designation Change & Promotion Engine
               </h3>
-              <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b' }}>
+              <p className="m-0 text-[11.5px] text-slate-500">
                 Upgrade employee post (Junior ➔ Senior, Executive ➔ Lead) with official promotion letters.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+            className="bg-transparent border-0 text-slate-500 cursor-pointer p-1 hover:text-slate-700"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Current Employee Header Card */}
-        <div style={{
-          padding: '14px 24px',
-          backgroundColor: '#eff6ff',
-          borderBottom: '1px solid #dbeafe',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="py-3.5 px-6 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <img
               src={employee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
               alt={employee.name}
-              style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #3b82f6' }}
+              className="w-[42px] h-[42px] rounded-full object-cover border-2 border-blue-500"
             />
             <div>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#1e3a8a' }}>{employee.name}</div>
-              <div style={{ fontSize: '12px', color: '#3b82f6' }}>
+              <div className="text-sm font-extrabold text-blue-900">{employee.name}</div>
+              <div className="text-xs text-blue-600">
                 Current Role: <strong>{employee.role}</strong> • {employee.employeeCode}
               </div>
             </div>
           </div>
-          <span style={{
-            padding: '4px 10px',
-            borderRadius: '6px',
-            backgroundColor: '#dbeafe',
-            color: '#1e40af',
-            fontSize: '11px',
-            fontWeight: '700'
-          }}>
+          <span className="py-1 px-2.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">
             {employee.department}
           </span>
         </div>
 
         {!showLetterPreview ? (
           /* Form Body */
-          <form onSubmit={handlePromote} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handlePromote} className="p-6 flex flex-col gap-[18px]">
             
             {isTargetPrimaryAdmin && (
-              <div style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                border: '1.5px solid #93c5fd',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-              }}>
+              <div className="p-3 px-4 rounded-lg bg-blue-50 border border-blue-300 flex items-center gap-2.5">
                 <Lock size={18} color="#1d4ed8" />
-                <div style={{ fontSize: '12.5px', color: '#1e40af', fontWeight: '600' }}>
+                <div className="text-[12.5px] text-blue-800 font-semibold">
                   <strong>🔒 Primary Administrator Protected:</strong> This account ({employee.employeeCode}) is the root system administrator. Administrative authority cannot be revoked or demoted to prevent complete lockout from the EMS workspace.
                 </div>
               </div>
             )}
 
             {/* Live Role Transition Visualizer */}
-            <div style={{
-              padding: '16px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
               <div>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                <span className="text-[11px] font-bold text-slate-500 uppercase">
                   Current Designation
                 </span>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#334155' }}>
+                <div className="text-[15px] font-bold text-slate-700">
                   {employee.role}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb' }}>
+              <div className="flex items-center gap-2 text-blue-600">
                 <ArrowRight size={22} />
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#16a34a', textTransform: 'uppercase' }}>
+              <div className="text-right">
+                <span className="text-[11px] font-bold text-green-600 uppercase">
                   Promoted / New Designation
                 </span>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: '#16a34a' }}>
+                <div className="text-base font-extrabold text-green-600">
                   {targetRoleTitle || 'Select New Role'}
                 </div>
               </div>
             </div>
 
             {/* Select Role Preset or Custom Input */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div className="grid grid-cols-2 gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Choose From Preset Roles
                 </label>
                 <select
@@ -279,15 +210,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                     setSelectedRole(e.target.value);
                     setCustomRoleTitle('');
                   }}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
                   <option value="">-- Choose Role Preset --</option>
                   <optgroup label="System Roles">
@@ -311,7 +234,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Or Type Custom Designation / Post
                 </label>
                 <input
@@ -319,85 +242,56 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                   placeholder="e.g. Principal Architect / Vice President"
                   value={customRoleTitle}
                   onChange={e => setCustomRoleTitle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #3b82f6',
-                    fontSize: '13px',
-                    outline: 'none',
-                    fontWeight: '600'
-                  }}
+                  className="w-full py-[9px] px-3 rounded-lg border border-blue-500 text-[13px] outline-none font-semibold"
                 />
               </div>
             </div>
 
             {/* Department & Effective Date */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div className="grid grid-cols-2 gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Assigned Department
                 </label>
                 <select
                   value={selectedDepartment}
                   onChange={e => setSelectedDepartment(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
-                  <option value="Engineering">Engineering</option>
-                  <option value="Product Design">Product Design</option>
-                  <option value="Marketing & Growth">Marketing & Growth</option>
+                  <option value="IT & Software Development">IT & Software Development</option>
+                  <option value="Digital Marketing">Digital Marketing & Growth</option>
+                  <option value="UI/UX & Creative Design">UI/UX & Creative Design</option>
+                  <option value="Content & SEO">Content & SEO</option>
+                  <option value="Sales & Client Servicing">Sales & Client Servicing</option>
                   <option value="Human Resources">Human Resources</option>
-                  <option value="Infrastructure">Infrastructure & Cloud</option>
-                  <option value="Finance & Operations">Finance & Operations</option>
+                  <option value="Finance & Accounts">Finance & Accounts</option>
+                  <option value="Operations & Support">Operations & Support</option>
+                  <option value="Management & Administration">Management & Administration</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                   Effective Promotion Date
                 </label>
                 <input
                   type="date"
                   value={effectiveDate}
                   onChange={e => setEffectiveDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 />
               </div>
             </div>
 
             {/* Promotion Reason */}
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                 Promotion Reason & Criteria
               </label>
               <select
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-[9px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="Merit-based Performance & Leadership">Merit-based Performance & Leadership</option>
                 <option value="Annual Performance Review & Seniority">Annual Performance Review & Seniority</option>
@@ -408,7 +302,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
 
             {/* Remarks / Citations */}
             <div>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[12.5px] font-bold text-slate-700 mb-1.5">
                 Management Citation / Recommendation Notes
               </label>
               <textarea
@@ -416,30 +310,12 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                 value={remarks}
                 onChange={e => setRemarks(e.target.value)}
                 rows={2}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                  resize: 'none'
-                }}
+                className="w-full py-[9px] px-3 rounded-lg border border-slate-300 text-[13px] outline-none resize-none"
               />
             </div>
 
             {/* Security Notice */}
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: '8px',
-              backgroundColor: '#fef3c7',
-              border: '1px solid #fde68a',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '11.5px',
-              color: '#92400e'
-            }}>
+            <div className="py-2.5 px-3.5 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2 text-[11.5px] text-amber-800">
               <ShieldCheck size={16} />
               <span>
                 <strong>RBAC Policy:</strong> Super Admin can assign all roles. HR can promote to Team Leads, Seniors & Custom Roles, but cannot create Super Admins.
@@ -447,68 +323,28 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
             </div>
 
             {/* Bottom Actions */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid #e2e8f0',
-              paddingTop: '16px'
-            }}>
+            <div className="flex justify-between items-center border-t border-slate-200 pt-4">
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '9px 14px',
-                  borderRadius: '8px',
-                  backgroundColor: '#f1f5f9',
-                  color: '#2563eb',
-                  border: '1px solid #bfdbfe',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="inline-flex items-center gap-1.5 py-[9px] px-3.5 rounded-lg bg-slate-100 text-blue-600 border border-blue-200 text-[12.5px] font-bold cursor-pointer hover:bg-slate-200"
               >
                 <FileText size={16} />
                 Preview Promotion Letter
               </button>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{
-                    padding: '9px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#475569',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="py-[9px] px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '9px 20px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
-                  }}
+                  className="inline-flex items-center gap-1.5 py-[9px] px-5 rounded-lg border-0 bg-green-600 text-white text-[13px] font-bold cursor-pointer shadow-[0_2px_6px_rgba(22,163,74,0.3)] hover:bg-green-700"
                 >
                   <CheckCircle2 size={16} />
                   {isSubmitting ? 'Promoting...' : 'Confirm Promotion'}
@@ -518,124 +354,77 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
           </form>
         ) : (
           /* Official Promotion Letter Preview */
-          <div style={{ padding: '28px 36px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{
-              border: '2px solid #2563eb',
-              borderRadius: '12px',
-              padding: '24px 30px',
-              backgroundColor: '#ffffff',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.04)'
-            }}>
+          <div className="py-7 px-9 flex flex-col gap-4">
+            <div className="border-2 border-blue-600 dark:border-blue-500 rounded-xl py-6 px-[30px] bg-white dark:bg-slate-900 shadow-sm">
               {/* Header */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderBottom: '2px solid #2563eb',
-                paddingBottom: '14px',
-                marginBottom: '18px'
-              }}>
+              <div className="flex justify-between border-b-2 border-blue-600 pb-3.5 mb-[18px]">
                 <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', margin: 0, textTransform: 'uppercase' }}>
+                  <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
                     {companyInfo.companyName}
                   </h2>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                  <p className="text-[11px] text-slate-500 mt-0.5 m-0">
                     {companyInfo.address} • {companyInfo.hrEmail || companyInfo.email}
                   </p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Date: {new Date().toLocaleDateString()}</span>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#2563eb' }}>Ref: PROM/{employee.employeeCode}/{new Date().getFullYear()}</div>
+                <div className="text-right">
+                  <span className="text-[11px] text-slate-500">Date: {new Date().toLocaleDateString()}</span>
+                  <div className="text-xs font-bold text-blue-600">Ref: PROM/{employee.employeeCode}/{new Date().getFullYear()}</div>
                 </div>
               </div>
 
               {/* Salutation */}
-              <p style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: '0 0 10px 0' }}>
+              <p className="text-[13px] font-bold text-slate-900 mb-2.5 m-0">
                 Dear {employee.name},
               </p>
 
-              <p style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+              <p className="text-[12.5px] text-slate-700 leading-relaxed mb-3 m-0">
                 On behalf of the Management and Human Resources of <strong>{companyInfo.companyName}</strong>, we are thrilled to formally congratulate you on your promotion to the position of:
               </p>
 
               {/* Position Highlight Box */}
-              <div style={{
-                backgroundColor: '#eff6ff',
-                border: '1.5px solid #bfdbfe',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center',
-                margin: '16px 0'
-              }}>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', textTransform: 'uppercase' }}>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center my-4">
+                <span className="text-[11px] font-bold text-blue-600 uppercase">
                   New Official Designation
                 </span>
-                <div style={{ fontSize: '18px', fontWeight: '800', color: '#1e3a8a', marginTop: '2px' }}>
+                <div className="text-lg font-extrabold text-blue-900 mt-0.5">
                   {targetRoleTitle}
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                <div className="text-xs text-slate-500 mt-1">
                   Department: {selectedDepartment} • Effective Date: {effectiveDate}
                 </div>
               </div>
 
-              <p style={{ fontSize: '12.5px', color: '#334155', lineHeight: '1.6', margin: '0 0 12px 0' }}>
+              <p className="text-[12.5px] text-slate-700 leading-relaxed mb-3 m-0">
                 {remarks || 'This elevation reflects your consistent dedication, problem-solving capability, and the high standards of leadership you bring to our organization.'}
               </p>
 
               {/* Signatures */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '20px', borderTop: '1px solid #e2e8f0', marginTop: '16px' }}>
+              <div className="flex justify-between items-end pt-5 border-t border-slate-200 mt-4">
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{companyInfo.signatoryTitle}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{companyInfo.companyName}</div>
+                  <div className="text-xs font-bold text-slate-900">{companyInfo.signatoryTitle}</div>
+                  <div className="text-[11px] text-slate-500">{companyInfo.companyName}</div>
                 </div>
-                <div style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  backgroundColor: '#dcfce7',
-                  color: '#15803d',
-                  fontSize: '11px',
-                  fontWeight: '700'
-                }}>
+                <div className="py-1 px-2.5 rounded bg-green-100 text-green-700 text-[11px] font-bold">
                   ✅ Formally Ratified & Registered
                 </div>
               </div>
             </div>
 
             {/* Letter Actions */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="flex justify-between items-center">
               <button
                 type="button"
                 onClick={() => setShowLetterPreview(false)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="py-2 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 ← Back to Config
               </button>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handlePrintLetter}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #bfdbfe',
-                    backgroundColor: '#eff6ff',
-                    color: '#2563eb',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-600 text-[12.5px] font-semibold cursor-pointer hover:bg-blue-100"
                 >
                   <Printer size={15} /> Print Promotion Letter
                 </button>
@@ -643,19 +432,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
                   type="button"
                   onClick={handlePromote}
                   disabled={isSubmitting}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#16a34a',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="inline-flex items-center gap-1.5 py-2 px-[18px] rounded-lg border-0 bg-green-600 text-white text-[12.5px] font-bold cursor-pointer hover:bg-green-700"
                 >
                   <CheckCircle2 size={15} /> Confirm & Apply Promotion
                 </button>

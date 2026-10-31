@@ -17,12 +17,14 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { AddAppreciationModal } from '../components/appreciation/AddAppreciationModal';
 
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
   const { appreciations, employees, currentUser: hrUser, searchQuery, setSearchQuery, deleteAppreciation } = useHR();
+  const { confirm, alert } = useConfirm();
   const currentUser = authUser || hrUser;
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -101,7 +103,11 @@ export const AppreciationPage = () => {
 
   const handleExportCSV = () => {
     if (filteredAppreciations.length === 0) {
-      alert('No appreciation records to export.');
+      alert({
+        title: 'Export Appreciations',
+        message: 'No appreciation records to export.',
+        variant: 'primary'
+      });
       return;
     }
     const headers = ['Employee Name', 'Role', 'Award / Reason', 'Given On', 'Given By', 'Reward', 'Appreciation Message'];
@@ -125,87 +131,37 @@ export const AppreciationPage = () => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="animate-fade-in flex flex-col gap-3">
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#fef3c7',
-            color: '#d97706',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
             <Trophy size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Employee Appreciation & Awards</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: '700' }}>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">Employee Appreciation & Awards</h1>
+              <span className="text-[10.5px] py-px px-1.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold">
                 {totalAppreciationsCount} Total Awards
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Recognize top performers, peer milestones, rewards & spot awards
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={handleExportCSV}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#2563eb',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             Export CSV
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
           >
             <Plus size={14} />
             Give Award
@@ -219,14 +175,14 @@ export const AppreciationPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Total Awards</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <div className="kpi-icon-wrap bg-amber-100 text-amber-600">
               <Trophy size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#d97706' }}>
-            {totalAppreciationsCount} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Awards</span>
+          <div className="kpi-value text-amber-600">
+            {totalAppreciationsCount} <span className="text-xs font-semibold text-slate-500">Awards</span>
           </div>
-          <div className="kpi-subtext" style={{ color: '#d97706' }}>
+          <div className="kpi-subtext text-amber-600">
             <span>Peer & leadership recognitions</span>
           </div>
         </div>
@@ -235,14 +191,14 @@ export const AppreciationPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Awarded This Month</span>
-            <div className="kpi-icon-wrap" style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className="kpi-icon-wrap bg-blue-50 text-blue-600">
               <Award size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#2563eb' }}>
-            {thisMonthAppreciations.length} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Badges</span>
+          <div className="kpi-value text-blue-600">
+            {thisMonthAppreciations.length} <span className="text-xs font-semibold text-slate-500">Badges</span>
           </div>
-          <div className="kpi-subtext" style={{ color: '#2563eb' }}>
+          <div className="kpi-subtext text-blue-600">
             <span>{currentMonthName} cycle</span>
           </div>
         </div>
@@ -251,14 +207,14 @@ export const AppreciationPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Star Performer</span>
-            <div className="kpi-icon-wrap" style={{ background: '#fdf4ff', color: '#c026d3' }}>
+            <div className="kpi-icon-wrap bg-fuchsia-50 text-fuchsia-600">
               <Star size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#0f172a', fontSize: '17px' }}>
+          <div className="kpi-value text-slate-900 dark:text-slate-100 text-[17px]">
             {topPerformerName}
           </div>
-          <div className="kpi-subtext" style={{ color: '#c026d3' }}>
+          <div className="kpi-subtext text-fuchsia-600">
             <span>{topPerformerAwardsCount > 0 ? `${topPerformerAwardsCount} appreciation award${topPerformerAwardsCount > 1 ? 's' : ''}` : 'Top recognized member'}</span>
           </div>
         </div>
@@ -267,50 +223,29 @@ export const AppreciationPage = () => {
         <div className="kpi-card">
           <div className="kpi-header">
             <span className="kpi-title">Rewards Distributed</span>
-            <div className="kpi-icon-wrap" style={{ background: '#dcfce7', color: '#16a34a' }}>
+            <div className="kpi-icon-wrap bg-green-100 text-green-600">
               <Gift size={16} />
             </div>
           </div>
-          <div className="kpi-value" style={{ color: '#16a34a' }}>
-            ₹{totalRewardValue.toLocaleString('en-IN')} <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Value</span>
+          <div className="kpi-value text-green-600">
+            ₹{totalRewardValue.toLocaleString('en-IN')} <span className="text-xs font-semibold text-slate-500">Value</span>
           </div>
-          <div className="kpi-subtext" style={{ color: '#16a34a' }}>
+          <div className="kpi-subtext text-green-600">
             <span>{totalRewardsCount} rewarded bonus perks</span>
           </div>
         </div>
       </div>
 
       {/* Action Bar (Search & Filters) */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Employee Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Employee:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Employee:</span>
             <select
               value={selectedEmployeeFilter}
               onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-              style={{
-                height: '30px',
-                padding: '0 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                fontSize: '12px',
-                color: '#0f172a',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -320,54 +255,23 @@ export const AppreciationPage = () => {
           </div>
 
           {/* Search Bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 10px',
-            height: '30px',
-            borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#f8fafc',
-            minWidth: '240px'
-          }}>
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 min-w-[240px]">
             <Search size={13} color="#94a3b8" />
             <input
               type="text"
               placeholder="Search recipient, reason, citation..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                color: '#0f172a'
-              }}
+              className="border-none bg-transparent outline-none text-xs w-full text-slate-900 dark:text-slate-100"
             />
           </div>
         </div>
 
         {/* View Switcher Icons (Table / Cards Showcase) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '6px' }}>
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md">
           <button
             onClick={() => setViewMode('table')}
-            style={{
-              height: '26px',
-              padding: '0 10px',
-              borderRadius: '4px',
-              border: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              backgroundColor: viewMode === 'table' ? '#ffffff' : 'transparent',
-              color: viewMode === 'table' ? '#2563eb' : '#64748b',
-              boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-            }}
+            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             title="Table View"
           >
             <Award size={13} />
@@ -375,21 +279,7 @@ export const AppreciationPage = () => {
           </button>
           <button
             onClick={() => setViewMode('cards')}
-            style={{
-              height: '26px',
-              padding: '0 10px',
-              borderRadius: '4px',
-              border: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              backgroundColor: viewMode === 'cards' ? '#ffffff' : 'transparent',
-              color: viewMode === 'cards' ? '#2563eb' : '#64748b',
-              boxShadow: viewMode === 'cards' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-            }}
+            className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             title="Awards Showcase Gallery"
           >
             <Trophy size={13} />
@@ -405,7 +295,7 @@ export const AppreciationPage = () => {
             <table className="crm-table">
               <thead>
                 <tr>
-                  <th style={{ width: '40px' }}>
+                  <th className="w-10">
                     <input
                       type="checkbox"
                       checked={selectedRows.length === paginatedList.length && paginatedList.length > 0}
@@ -418,7 +308,7 @@ export const AppreciationPage = () => {
                   <th>Given By</th>
                   <th>Date</th>
                   <th>Reward</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -457,68 +347,57 @@ export const AppreciationPage = () => {
 
                       {/* Award Name & Reason */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            background: '#fef3c7',
-                            color: '#d97706'
-                          }}>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 text-amber-600">
                             <Trophy size={14} />
                           </span>
-                          <span style={{ fontWeight: '700', color: '#0f172a' }}>
+                          <span className="font-bold text-slate-900">
                             {item.awardName}
                           </span>
                         </div>
                       </td>
 
                       {/* Appreciation Message */}
-                      <td style={{ maxWidth: '280px', color: '#475569', fontSize: '12.5px', lineHeight: '1.4' }}>
+                      <td className="max-w-[280px] text-slate-600 text-[12.5px] leading-relaxed">
                         "{item.appreciationNote}"
                       </td>
 
                       {/* Given By */}
-                      <td style={{ fontWeight: '500', color: '#334155' }}>
+                      <td className="font-medium text-slate-700">
                         {item.givenByName}
                       </td>
 
                       {/* Given On Date */}
-                      <td style={{ fontWeight: '600', color: '#64748b' }}>
+                      <td className="font-semibold text-slate-500">
                         {item.givenOn}
                       </td>
 
                       {/* Reward */}
                       <td>
                         {item.rewardPointsOrCash ? (
-                          <span style={{
-                            fontSize: '11.5px',
-                            fontWeight: '700',
-                            color: '#16a34a',
-                            background: '#dcfce7',
-                            padding: '3px 8px',
-                            borderRadius: '6px'
-                          }}>
+                          <span className="text-[11.5px] font-bold text-green-600 bg-green-100 py-[3px] px-2 rounded-md">
                             {item.rewardPointsOrCash}
                           </span>
                         ) : (
-                          <span style={{ color: '#94a3b8' }}>—</span>
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
 
                       {/* Action */}
-                      <td style={{ textAlign: 'right' }}>
+                      <td className="text-right">
                         <button
-                          onClick={() => {
-                            if (confirm(`Remove appreciation for ${item.givenToName}?`)) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Delete Appreciation',
+                              message: `Are you sure you want to remove appreciation award for "${item.givenToName}"?`,
+                              confirmText: 'Remove Award',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               deleteAppreciation(item._id);
                             }
                           }}
-                          className="btn-icon-only"
-                          style={{ width: '28px', height: '28px', color: '#ef4444' }}
+                          className="btn-icon-only w-7 h-7 text-red-500"
                           title="Delete Appreciation"
                         >
                           <Trash2 size={13} />
@@ -531,10 +410,10 @@ export const AppreciationPage = () => {
                     <td colSpan="8">
                       <div className="table-empty-state">
                         <HeartHandshake className="table-empty-icon" />
-                        <div style={{ fontWeight: '600', fontSize: '15px', color: '#1e293b' }}>
+                        <div className="font-semibold text-[15px] text-slate-800">
                           No appreciation records found
                         </div>
-                        <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                        <p className="text-[13px] text-slate-500 mt-1">
                           Click on "+ Give Award" button above to appreciate team members.
                         </p>
                       </div>
@@ -547,7 +426,7 @@ export const AppreciationPage = () => {
 
           {/* Pagination Footer (Matching Screenshot 4) */}
           <div className="table-pagination-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="flex items-center gap-2">
               <span>Show</span>
               <select
                 value={pageSize}
@@ -555,8 +434,7 @@ export const AppreciationPage = () => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="filter-select"
-                style={{ height: '30px', padding: '0 24px 0 8px', fontSize: '12px' }}
+                className="filter-select h-[30px] pr-6 pl-2 text-xs"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -601,90 +479,43 @@ export const AppreciationPage = () => {
 
       {/* Cards Gallery Showcase View */}
       {viewMode === 'cards' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', alignItems: 'start', marginBottom: '24px' }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5 items-start mb-6">
           {filteredAppreciations.map(item => (
             <div
               key={item._id}
-              style={{
-                background: 'linear-gradient(145deg, #ffffff, #fbfcfe)',
-                border: '1px solid #e2e8f0',
-                borderRadius: '16px',
-                padding: '22px',
-                boxShadow: 'var(--shadow-md)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
+              className="bg-gradient-to-br from-white to-[#fbfcfe] border border-slate-200 rounded-2xl p-[22px] shadow-md relative overflow-hidden"
             >
-              <div style={{
-                position: 'absolute',
-                top: '-15px',
-                right: '-15px',
-                width: '80px',
-                height: '80px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 179, 8, 0.05))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              <div className="absolute -top-3.5 -right-3.5 w-20 h-20 rounded-full bg-gradient-to-br from-amber-500/15 to-yellow-500/5 flex items-center justify-center">
                 <Star size={24} color="#d97706" />
               </div>
 
-              <div className="employee-cell" style={{ marginBottom: '16px' }}>
-                <div className="employee-avatar" style={{ width: '44px', height: '44px' }}>
+              <div className="employee-cell mb-4">
+                <div className="employee-avatar w-11 h-11">
                   {item.givenToAvatar ? <img src={item.givenToAvatar} alt={item.givenToName} /> : item.givenToName.charAt(0)}
                 </div>
                 <div className="employee-name-group">
-                  <span className="employee-name" style={{ fontSize: '15px' }}>{item.givenToName}</span>
+                  <span className="employee-name text-[15px]">{item.givenToName}</span>
                   <span className="employee-role">{item.givenToRole}</span>
                 </div>
               </div>
 
-              <div style={{
-                background: '#fef3c7',
-                border: '1px solid #fde68a',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                color: '#92400e',
-                fontWeight: '700',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '12px'
-              }}>
+              <div className="bg-amber-100 border border-amber-200 p-2 px-3 rounded-lg text-amber-900 font-bold text-[13px] flex items-center gap-2 mb-3">
                 <Trophy size={16} />
                 <span>{item.awardName}</span>
               </div>
 
-              <p style={{ fontSize: '12.5px', color: '#475569', fontStyle: 'italic', lineHeight: '1.5', marginBottom: '14px' }}>
+              <p className="text-[12.5px] text-slate-600 italic leading-relaxed mb-3.5">
                 "{item.appreciationNote}"
               </p>
 
               {item.rewardPointsOrCash && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#16a34a',
-                  marginBottom: '14px'
-                }}>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-green-600 mb-3.5">
                   <Gift size={15} />
                   <span>Reward: {item.rewardPointsOrCash}</span>
                 </div>
               )}
 
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderTop: '1px solid #f1f5f9',
-                paddingTop: '12px',
-                fontSize: '11px',
-                color: '#94a3b8'
-              }}>
+              <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
                 <span>Awarded on: {item.givenOn}</span>
                 <span>By: {item.givenByName}</span>
               </div>

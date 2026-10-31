@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { Check, X, Trash2, Calendar, Clock, User, ShieldCheck, ShieldAlert, UserCheck } from 'lucide-react';
-import { canApproveLeaves, isHRorAdmin, isAdmin } from '../../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../../shared/utils/permissionUtils';
+import { CancelLeaveModal } from '../../../../shared/components/modals/CancelLeaveModal';
 
 export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   const { updateLeaveStatus, deleteLeave, currentUser } = useHR();
+  const { confirm } = useConfirm();
   const [rejectionNote, setRejectionNote] = useState('');
   const [showDenyInput, setShowDenyInput] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   if (!leave) return null;
 
-  const isApplicant = (leave.employeeId && currentUser?._id && leave.employeeId === currentUser._id) ||
-    (leave.employeeName && currentUser?.name && leave.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-  const canApprove = !isApplicant && (
-    isHRorAdmin(currentUser) ||
-    (canApproveLeaves(currentUser) && (leave.appliedToId === currentUser?._id || leave.appliedToName === currentUser?.name))
-  );
+  const isApplicant = isLeaveApplicant(leave, currentUser);
+  const isDesignatedApprover = isLeaveDesignatedApprover(leave, currentUser);
+  const canApprove = canReviewLeave(leave, currentUser);
+  const canCancel = canCancelLeave(leave, currentUser);
   const canDelete = isAdmin(currentUser);
 
   const handleApprove = async () => {
@@ -30,7 +32,13 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
   };
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this leave record?')) {
+    const ok = await confirm({
+      title: 'Delete Leave Record',
+      message: 'Are you sure you want to delete this leave record? This action cannot be undone.',
+      confirmText: 'Delete Record',
+      variant: 'danger'
+    });
+    if (ok) {
       await deleteLeave(leave._id);
       onClose();
     }
@@ -43,20 +51,12 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
       title="Leave Application Details"
       subtitle={`Reference ID: ${leave._id}`}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <div className="flex flex-col gap-4">
         {/* Employee & Reviewer Banners */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           {/* Applicant Employee Banner */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '12px 14px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div className="employee-avatar" style={{ width: '40px', height: '40px', fontSize: '14px' }}>
+          <div className="flex items-center gap-3 p-3 px-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="employee-avatar w-10 h-10 text-sm">
               {leave.employeeAvatar ? (
                 <img src={leave.employeeAvatar} alt={leave.employeeName} />
               ) : (
@@ -64,29 +64,21 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
               )}
             </div>
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+              <span className="text-[11px] text-slate-500 font-bold uppercase">
                 Applicant
               </span>
-              <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+              <div className="font-bold text-sm text-slate-900">
                 {leave.employeeName}
               </div>
-              <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+              <div className="text-[11.5px] text-slate-500">
                 {leave.employeeRole}
               </div>
             </div>
           </div>
 
           {/* Requested Approver Banner */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '12px 14px',
-            backgroundColor: '#eff6ff',
-            borderRadius: '10px',
-            border: '1px solid #bfdbfe'
-          }}>
-            <div className="employee-avatar" style={{ width: '40px', height: '40px', fontSize: '14px', background: '#dbeafe', color: '#1d4ed8' }}>
+          <div className="flex items-center gap-3 p-3 px-3.5 bg-blue-50 rounded-xl border border-blue-200">
+            <div className="employee-avatar w-10 h-10 text-sm bg-blue-100 text-blue-700">
               {leave.appliedToAvatar ? (
                 <img src={leave.appliedToAvatar} alt={leave.appliedToName} />
               ) : (
@@ -94,13 +86,13 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
               )}
             </div>
             <div>
-              <span style={{ fontSize: '11px', color: '#1d4ed8', fontWeight: '700', textTransform: 'uppercase' }}>
+              <span className="text-[11px] text-blue-700 font-bold uppercase">
                 Requested Reviewer
               </span>
-              <div style={{ fontWeight: '700', fontSize: '14px', color: '#1e3a8a' }}>
+              <div className="font-bold text-sm text-blue-900">
                 {leave.appliedToName || 'HR Admin'}
               </div>
-              <div style={{ fontSize: '11.5px', color: '#3b82f6' }}>
+              <div className="text-[11.5px] text-blue-500">
                 {leave.appliedToRole || 'Administrator'}
               </div>
             </div>
@@ -108,39 +100,39 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         </div>
 
         {/* Info Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-          <div style={{ padding: '10px 12px', border: '1px solid #f1f5f9', borderRadius: '8px', background: '#fafbfc' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+        <div className="grid grid-cols-4 gap-2.5">
+          <div className="py-2.5 px-3 border border-slate-100 rounded-lg bg-slate-50/70">
+            <div className="text-[11px] text-slate-500 font-semibold uppercase">
               Leave Type
             </div>
-            <div style={{ fontWeight: '700', color: '#1e293b', marginTop: '2px', fontSize: '13px' }}>
+            <div className="font-bold text-slate-800 mt-0.5 text-[13px]">
               {leave.leaveType}
             </div>
           </div>
 
-          <div style={{ padding: '10px 12px', border: '1px solid #f1f5f9', borderRadius: '8px', background: '#fafbfc' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+          <div className="py-2.5 px-3 border border-slate-100 rounded-lg bg-slate-50/70">
+            <div className="text-[11px] text-slate-500 font-semibold uppercase">
               Duration
             </div>
-            <div style={{ fontWeight: '700', color: '#1e293b', marginTop: '2px', fontSize: '13px' }}>
+            <div className="font-bold text-slate-800 mt-0.5 text-[13px]">
               {leave.durationText}
             </div>
           </div>
 
-          <div style={{ padding: '10px 12px', border: '1px solid #f1f5f9', borderRadius: '8px', background: '#fafbfc' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+          <div className="py-2.5 px-3 border border-slate-100 rounded-lg bg-slate-50/70">
+            <div className="text-[11px] text-slate-500 font-semibold uppercase">
               Paid Leave
             </div>
-            <div style={{ fontWeight: '700', color: leave.isPaid ? '#16a34a' : '#64748b', marginTop: '2px', fontSize: '13px' }}>
+            <div className={`font-bold mt-0.5 text-[13px] ${leave.isPaid ? 'text-green-600' : 'text-slate-500'}`}>
               {leave.isPaid ? 'Yes (Paid)' : 'No (Unpaid)'}
             </div>
           </div>
 
-          <div style={{ padding: '10px 12px', border: '1px solid #f1f5f9', borderRadius: '8px', background: '#fafbfc' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+          <div className="py-2.5 px-3 border border-slate-100 rounded-lg bg-slate-50/70">
+            <div className="text-[11px] text-slate-500 font-semibold uppercase">
               Status
             </div>
-            <div style={{ marginTop: '2px' }}>
+            <div className="mt-0.5">
               <span className={`badge badge-${leave.status}`}>
                 {leave.status === 'approved' ? '✓ Approved' : (leave.status === 'rejected' ? '✕ Denied' : '⏳ Pending')}
               </span>
@@ -149,44 +141,24 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         </div>
 
         {/* Date Details */}
-        <div style={{
-          padding: '10px 14px',
-          backgroundColor: '#f8fafc',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '13px',
-          color: '#334155'
-        }}>
+        <div className="py-2.5 px-3.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2 text-[13px] text-slate-700">
           <Calendar size={16} color="#2563eb" />
           <span>Leave Dates: <strong>{leave.startDate}</strong> {leave.endDate !== leave.startDate ? `to ${leave.endDate}` : ''}</span>
         </div>
 
         {/* Reason Box */}
-        <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>
+        <div className="p-3 px-3.5 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="text-[11px] text-slate-500 font-bold uppercase mb-1">
             Applicant's Reason
           </div>
-          <p style={{ fontSize: '13px', color: '#334155', lineHeight: '1.5', margin: 0 }}>
+          <p className="text-[13px] text-slate-700 leading-normal m-0">
             {leave.reason || 'No specific reason provided.'}
           </p>
         </div>
 
         {/* Approved Status Banner */}
         {leave.status === 'approved' && (leave.approvedBy || leave.actionBy) && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            fontSize: '13px',
-            color: '#15803d'
-          }}>
+          <div className="flex items-center gap-2 py-2.5 px-3.5 rounded-lg bg-green-50 border border-green-200 text-[13px] text-green-700">
             <ShieldCheck size={18} />
             <span>This leave request was <strong>Approved</strong> by <strong>{leave.approvedBy || leave.actionBy}</strong>{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</span>
           </div>
@@ -194,23 +166,13 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
 
         {/* Rejected Status Banner */}
         {leave.status === 'rejected' && (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            fontSize: '13px',
-            color: '#dc2626'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}>
+          <div className="flex flex-col gap-1 py-2.5 px-3.5 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-600">
+            <div className="flex items-center gap-2 font-bold">
               <ShieldAlert size={18} />
               <span>Leave Request Denied by {leave.rejectedBy || leave.actionBy || 'Reviewer'}{leave.actionDateFormatted ? ` on ${leave.actionDateFormatted}` : ''}</span>
             </div>
             {leave.rejectionReason && (
-              <span style={{ fontSize: '12px', color: '#991b1b', marginLeft: '26px' }}>
+              <span className="text-xs text-red-800 ml-[26px]">
                 Reason: "{leave.rejectionReason}"
               </span>
             )}
@@ -219,16 +181,8 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
 
         {/* Deny note input field (if opened) */}
         {showDenyInput && leave.status === 'pending' && (
-          <div style={{
-            padding: '12px',
-            backgroundColor: '#fff1f2',
-            borderRadius: '8px',
-            border: '1px solid #fecdd3',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <label style={{ fontSize: '12px', fontWeight: '700', color: '#9f1239' }}>
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-lg border border-rose-200 dark:border-rose-900/50 flex flex-col gap-2">
+            <label className="text-xs font-bold text-rose-800 dark:text-rose-300">
               Reason for Denying this Request (will be shown to employee):
             </label>
             <input
@@ -236,45 +190,20 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
               value={rejectionNote}
               onChange={e => setRejectionNote(e.target.value)}
               placeholder="e.g., Important sprint deliverable, insufficient coverage..."
-              style={{
-                padding: '8px 10px',
-                borderRadius: '6px',
-                border: '1px solid #fda4af',
-                fontSize: '13px',
-                outline: 'none',
-                background: '#ffffff'
-              }}
+              className="py-2 px-2.5 rounded-md border border-rose-300 dark:border-rose-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowDenyInput(false)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="py-1 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleReject}
-                style={{
-                  padding: '5px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#dc2626',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="py-1 px-3.5 rounded-md border-0 bg-red-600 text-white text-xs font-bold cursor-pointer hover:bg-red-700"
               >
                 Confirm Deny
               </button>
@@ -283,50 +212,23 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         )}
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: canDelete ? 'space-between' : 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+        <div className={`flex items-center ${canDelete ? 'justify-between' : 'justify-end'} border-t border-slate-200 pt-4`}>
           {canDelete && (
             <button
               onClick={handleDelete}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#ef4444',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600'
-              }}
+              className="flex items-center gap-1.5 text-red-500 bg-transparent border-0 cursor-pointer text-[13px] font-semibold hover:text-red-700"
             >
               <Trash2 size={16} />
               <span>Delete</span>
             </button>
           )}
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="flex gap-2">
             {leave.status === 'pending' && isApplicant && (
               <button
                 type="button"
-                onClick={async () => {
-                  if (confirm('Are you sure you want to cancel your leave application?')) {
-                    await deleteLeave(leave._id);
-                    onClose();
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  background: '#fee2e2',
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
+                onClick={() => setIsCancelModalOpen(true)}
+                className="flex items-center gap-1.5 py-2 px-4 rounded-lg bg-red-100 text-red-600 border border-red-200 cursor-pointer text-[13px] font-semibold hover:bg-red-200"
               >
                 <Trash2 size={15} />
                 <span>Cancel Application</span>
@@ -338,19 +240,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setShowDenyInput(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    background: '#fee2e2',
-                    color: '#dc2626',
-                    border: '1px solid #fecaca',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '700'
-                  }}
+                  className="flex items-center gap-1.5 py-2 px-4 rounded-lg bg-red-100 text-red-600 border border-red-200 cursor-pointer text-[13px] font-bold hover:bg-red-200"
                 >
                   <X size={15} />
                   <span>Deny Request</span>
@@ -358,32 +248,44 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={handleApprove}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 18px',
-                    borderRadius: '8px',
-                    background: '#16a34a',
-                    color: '#ffffff',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)'
-                  }}
+                  className="flex items-center gap-1.5 py-2 px-[18px] rounded-lg bg-green-600 text-white border-0 cursor-pointer text-[13px] font-bold shadow-[0_2px_6px_rgba(22,163,74,0.3)] hover:bg-green-700"
                 >
                   <Check size={15} />
                   <span>Accept Leave</span>
                 </button>
               </>
             )}
+            {leave.status === 'approved' && canCancel && (
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(true)}
+                className="flex items-center gap-1.5 py-2 px-4 rounded-lg bg-red-100 text-red-600 border border-red-200 cursor-pointer text-[13px] font-bold hover:bg-red-200"
+                title="Cancel / Revoke Approved Leave"
+              >
+                <X size={15} />
+                <span>Cancel Approved Leave</span>
+              </button>
+            )}
+
             <button onClick={onClose} className="btn btn-outline">
               Close
             </button>
           </div>
         </div>
       </div>
+
+      {/* Modern Cancel Leave Modal */}
+      <CancelLeaveModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        leave={leave}
+        isApplicant={isApplicant}
+        onConfirm={async (reason) => {
+          await updateLeaveStatus(leave._id, 'cancelled', reason);
+          setIsCancelModalOpen(false);
+          onClose();
+        }}
+      />
     </Modal>
   );
 };

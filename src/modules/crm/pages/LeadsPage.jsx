@@ -31,7 +31,9 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { confirmDialog } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 
 // Components
 import { LeadsKPIOverview } from '../components/leads/LeadsKPIOverview';
@@ -122,51 +124,49 @@ export const LeadsPage = () => {
   const filteredLeads = useMemo(() => {
     return scopedLeads.filter(lead => {
       // Search across name, company, email, phone, code, contact person
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchSearch =
-          (lead.name && lead.name.toLowerCase().includes(q)) ||
-          (lead.contactPerson && lead.contactPerson.toLowerCase().includes(q)) ||
-          (lead.companyName && lead.companyName.toLowerCase().includes(q)) ||
-          (lead.client && lead.client.toLowerCase().includes(q)) ||
-          (lead.email && lead.email.toLowerCase().includes(q)) ||
-          (lead.phone && lead.phone.toLowerCase().includes(q)) ||
-          (lead.leadCode && lead.leadCode.toLowerCase().includes(q)) ||
-          (lead.leadOwnerName && lead.leadOwnerName.toLowerCase().includes(q));
-
+      if (searchQuery && searchQuery.trim()) {
+        const matchSearch = matchesSearch(lead, searchQuery, [
+          'name', 'contactPerson', 'companyName', 'client', 'email', 'phone', 'leadCode', 'leadOwnerName', 'leadType'
+        ]);
         if (!matchSearch) return false;
       }
 
       // Lead Type
-      if (typeFilter !== 'all' && lead.leadType !== typeFilter) {
+      if (typeFilter !== 'all' && !matchesFilter(lead.leadType, typeFilter)) {
         return false;
       }
 
       // Status
-      if (statusFilter !== 'all' && lead.status !== statusFilter) {
+      if (statusFilter !== 'all' && !matchesFilter(lead.status, statusFilter)) {
         return false;
       }
 
-      // Owner
-      if (ownerFilter !== 'all' && lead.leadOwnerId !== ownerFilter) {
-        return false;
+      // Owner (matches by ID, code, name, or assigned ID)
+      if (ownerFilter !== 'all') {
+        const matchOwner =
+          matchesFilter(lead.leadOwnerId, ownerFilter) ||
+          matchesFilter(lead.ownerId, ownerFilter) ||
+          matchesFilter(lead.assignedToId, ownerFilter) ||
+          matchesFilter(lead.leadOwnerName, ownerFilter) ||
+          matchesFilter(lead.owner, ownerFilter);
+        if (!matchOwner) return false;
       }
 
       // Priority
-      if (priorityFilter !== 'all' && lead.priority !== priorityFilter) {
+      if (priorityFilter !== 'all' && !matchesFilter(lead.priority, priorityFilter)) {
         return false;
       }
 
-      // Client
-      if (clientFilter !== 'all' && lead.companyName !== clientFilter && lead.client !== clientFilter) {
-        return false;
+      // Client / Company
+      if (clientFilter !== 'all') {
+        const matchClient =
+          matchesFilter(lead.companyName, clientFilter) ||
+          matchesFilter(lead.client, clientFilter);
+        if (!matchClient) return false;
       }
 
       // Date Range
-      if (startDateFilter && lead.startDate && lead.startDate < startDateFilter) {
-        return false;
-      }
-      if (endDateFilter && lead.endDate && lead.endDate > endDateFilter) {
+      if (!matchesDateRange(lead.startDate || lead.createdAt, startDateFilter, endDateFilter)) {
         return false;
       }
 
@@ -211,11 +211,18 @@ export const LeadsPage = () => {
     endDateFilter !== '';
 
   // Batch actions
-  const handleBatchDelete = () => {
-    if (window.confirm(`Are you sure you want to delete ${selectedIds.length} selected leads?`)) {
+  const handleBatchDelete = async () => {
+    const ok = await confirmDialog({
+      title: 'Delete Selected Leads',
+      message: `Are you sure you want to permanently delete ${selectedIds.length} selected lead(s)? This action cannot be reversed.`,
+      confirmText: `Delete ${selectedIds.length} Lead(s)`,
+      variant: 'danger'
+    });
+    if (ok) {
       selectedIds.forEach(id => deleteLead(id));
+      const count = selectedIds.length;
       setSelectedIds([]);
-      addToast(`Deleted ${selectedIds.length} leads`, 'info');
+      addToast(`Deleted ${count} leads`, 'info');
     }
   };
 
@@ -292,95 +299,47 @@ export const LeadsPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '30px' }}>
+    <div className="flex flex-col gap-3 pb-8">
       
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#e0f2fe',
-            color: '#0284c7',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
             <Building size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Lead Contacts & Deals</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700' }}>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">Lead Contacts & Deals</h1>
+              <span className="text-[10.5px] py-px px-1.5 rounded bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold">
                 {filteredLeads.length} Leads
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="m-0 mt-px text-[11.5px] text-slate-500 dark:text-slate-400">
               Manage prospective sales leads, pipeline stages, deals value & owners
             </p>
           </div>
         </div>
 
         {/* View Switcher: Table vs Kanban */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: '#f1f5f9',
-          borderRadius: '7px',
-          padding: '2px',
-          border: '1px solid #e2e8f0'
-        }}>
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-[7px] p-0.5 border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setViewMode('table')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 10px',
-              borderRadius: '5px',
-              border: 'none',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              backgroundColor: viewMode === 'table' ? '#ffffff' : 'transparent',
-              color: viewMode === 'table' ? '#0284c7' : '#64748b',
-              boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-            }}
+            className={`flex items-center gap-1 py-1 px-2.5 rounded-[5px] border-none text-[11.5px] font-bold cursor-pointer transition-all ${
+              viewMode === 'table'
+                ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
             <TableIcon size={13} />
             Table
           </button>
           <button
             onClick={() => setViewMode('kanban')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 10px',
-              borderRadius: '5px',
-              border: 'none',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              backgroundColor: viewMode === 'kanban' ? '#ffffff' : 'transparent',
-              color: viewMode === 'kanban' ? '#0284c7' : '#64748b',
-              boxShadow: viewMode === 'kanban' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
-            }}
+            className={`flex items-center gap-1 py-1 px-2.5 rounded-[5px] border-none text-[11.5px] font-bold cursor-pointer transition-all ${
+              viewMode === 'kanban'
+                ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
           >
             <KanbanIcon size={13} />
             Pipeline Kanban
@@ -392,44 +351,15 @@ export const LeadsPage = () => {
       <LeadsKPIOverview leads={scopedLeads} />
 
       {/* Main Filter & Action Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px'
-      }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2 px-3 shadow-xs flex flex-col gap-2.5">
         {/* Top Control Bar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
+        <div className="flex items-center justify-between flex-wrap gap-2.5">
           
           {/* Left Action Buttons: + Add Lead Contact, Import, Export */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setIsAddModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(2, 132, 199, 0.2)'
-              }}
+              className="flex items-center gap-[5px] px-3 h-[30px] bg-sky-600 hover:bg-sky-700 text-white border-none rounded-md text-xs font-bold cursor-pointer shadow-sm transition-colors"
             >
               <Plus size={14} strokeWidth={2.5} />
               Add Lead
@@ -437,129 +367,54 @@ export const LeadsPage = () => {
 
             <button
               onClick={() => setIsImportModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                backgroundColor: '#ffffff',
-                color: '#334155',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
-              <Upload size={13} color="#0284c7" />
+              <Upload size={13} className="text-sky-600" />
               Import
             </button>
 
             <button
               onClick={() => handleExportCSV(false)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '0 12px',
-                height: '30px',
-                backgroundColor: '#ffffff',
-                color: '#334155',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
-              <Download size={13} color="#0284c7" />
+              <Download size={13} className="text-sky-600" />
               Export CSV
             </button>
           </div>
 
           {/* Right Filters Bar: Duration, Type, Search Input, Filter Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-2 flex-wrap">
             
             {/* Duration / Date Range Selector */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '12px',
-              color: '#64748b',
-              fontWeight: '500'
-            }}>
+            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Duration:</span>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                padding: '0 8px',
-                height: '30px',
-                backgroundColor: '#f8fafc'
-              }}>
-                <Calendar size={13} color="#94a3b8" />
+              <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-600 rounded-md px-2 h-[30px] bg-slate-50 dark:bg-slate-800">
+                <Calendar size={13} className="text-slate-400" />
                 <input
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => setStartDateFilter(e.target.value)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    fontSize: '11.5px',
-                    color: '#334155',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    maxWidth: '105px'
-                  }}
+                  className="border-none bg-transparent text-[11.5px] text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[105px]"
                   title="Start Date"
                 />
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>To</span>
+                <span className="text-[11px] text-slate-400">To</span>
                 <input
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => setEndDateFilter(e.target.value)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    fontSize: '11.5px',
-                    color: '#334155',
-                    outline: 'none',
-                    cursor: 'pointer',
-                    maxWidth: '105px'
-                  }}
+                  className="border-none bg-transparent text-[11.5px] text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[105px]"
                   title="End Date"
                 />
               </div>
             </div>
 
             {/* Type Filter dropdown */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12.5px',
-              color: '#64748b',
-              fontWeight: '500'
-            }}>
+            <div className="flex items-center gap-1.5 text-[12.5px] text-slate-500 dark:text-slate-400 font-medium">
               <span>Type</span>
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
-                  backgroundColor: '#f8fafc',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
+                className="py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none cursor-pointer font-semibold"
               >
                 <option value="all">All</option>
                 {uniqueTypes.map(t => (
@@ -569,61 +424,22 @@ export const LeadsPage = () => {
             </div>
 
             {/* Live Search Input */}
-            <div style={{
-              position: 'relative',
-              minWidth: '220px',
-              display: 'flex',
-              alignItems: 'center'
-            }}>
+            <div className="relative min-w-[220px] flex items-center">
               <Search
                 size={14}
-                style={{
-                  position: 'absolute',
-                  left: '10px',
-                  color: '#94a3b8',
-                  pointerEvents: 'none'
-                }}
+                className="absolute left-2.5 text-slate-400 pointer-events-none"
               />
               <input
                 type="text"
                 placeholder="Start typing to search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '7px 10px 7px 32px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12.5px',
-                  color: '#0f172a',
-                  backgroundColor: '#f8fafc',
-                  outline: 'none',
-                  transition: 'all 0.15s ease'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#0284c7';
-                  e.target.style.backgroundColor = '#ffffff';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(2, 132, 199, 0.1)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e2e8f0';
-                  e.target.style.backgroundColor = '#f8fafc';
-                  e.target.style.boxShadow = 'none';
-                }}
+                className="w-full py-[7px] pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 outline-none focus:border-sky-600 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    background: 'none',
-                    border: 'none',
-                    color: '#94a3b8',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    display: 'flex'
-                  }}
+                  className="absolute right-2 bg-transparent border-none text-slate-400 hover:text-slate-600 cursor-pointer p-0.5 flex"
                 >
                   <X size={12} />
                 </button>
@@ -633,30 +449,16 @@ export const LeadsPage = () => {
             {/* Filters Toggle Button */}
             <button
               onClick={() => setShowAdvancedFilters(prev => !prev)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '7px 12px',
-                backgroundColor: showAdvancedFilters || hasActiveFilters ? '#eff6ff' : '#f8fafc',
-                color: showAdvancedFilters || hasActiveFilters ? '#0284c7' : '#64748b',
-                border: `1px solid ${showAdvancedFilters || hasActiveFilters ? '#bfdbfe' : '#e2e8f0'}`,
-                borderRadius: '8px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
+              className={`flex items-center gap-[5px] py-[7px] px-3 rounded-lg border text-[12.5px] font-semibold cursor-pointer transition-all ${
+                showAdvancedFilters || hasActiveFilters
+                  ? 'bg-blue-50 dark:bg-blue-900/40 text-sky-600 dark:text-sky-400 border-blue-200 dark:border-blue-800'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
             >
               <Filter size={13} />
               Filters
               {hasActiveFilters && (
-                <span style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: '#0284c7'
-                }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-600" />
               )}
             </button>
           </div>
@@ -664,33 +466,16 @@ export const LeadsPage = () => {
 
         {/* Expandable Advanced Filters Row */}
         {showAdvancedFilters && (
-          <div style={{
-            paddingTop: '12px',
-            borderTop: '1px solid #f1f5f9',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-            gap: '12px',
-            alignItems: 'flex-end',
-            backgroundColor: '#fafafa',
-            padding: '12px 14px',
-            borderRadius: '10px'
-          }}>
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3 items-end bg-slate-50/80 dark:bg-slate-800/50 p-3 px-3.5 rounded-[10px]">
             {/* Status Filter */}
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '600', color: '#64748b', marginBottom: '4px' }}>
+              <label className="block text-[11.5px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 Lead Status
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
               >
                 <option value="all">All Statuses</option>
                 <option value="new">New Inquiry</option>
@@ -704,22 +489,16 @@ export const LeadsPage = () => {
 
             {/* Lead Owner Filter */}
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '600', color: '#64748b', marginBottom: '4px' }}>
+              <label className="block text-[11.5px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 Lead Owner
               </label>
               <select
                 value={ownerFilter}
                 onChange={(e) => setOwnerFilter(e.target.value)}
                 disabled={!canViewAllLeads}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  backgroundColor: !canViewAllLeads ? '#f1f5f9' : '#ffffff',
-                  cursor: !canViewAllLeads ? 'not-allowed' : 'pointer'
-                }}
+                className={`w-full py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs text-slate-800 dark:text-slate-200 ${
+                  !canViewAllLeads ? 'bg-slate-100 dark:bg-slate-700 cursor-not-allowed' : 'bg-white dark:bg-slate-800 cursor-pointer'
+                }`}
               >
                 {canViewAllLeads ? (
                   <>
@@ -736,20 +515,13 @@ export const LeadsPage = () => {
 
             {/* Client Filter */}
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '600', color: '#64748b', marginBottom: '4px' }}>
+              <label className="block text-[11.5px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 Client / Company
               </label>
               <select
                 value={clientFilter}
                 onChange={(e) => setClientFilter(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
               >
                 <option value="all">All Clients</option>
                 {uniqueClients.map(c => (
@@ -760,20 +532,13 @@ export const LeadsPage = () => {
 
             {/* Priority Filter */}
             <div>
-              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '600', color: '#64748b', marginBottom: '4px' }}>
+              <label className="block text-[11.5px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 Priority
               </label>
               <select
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-600 text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
               >
                 <option value="all">All Priorities</option>
                 <option value="urgent">Urgent</option>
@@ -788,21 +553,9 @@ export const LeadsPage = () => {
               <button
                 onClick={handleClearFilters}
                 disabled={!hasActiveFilters}
-                style={{
-                  width: '100%',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: hasActiveFilters ? '#dc2626' : '#94a3b8',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: hasActiveFilters ? 'pointer' : 'not-allowed',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px'
-                }}
+                className={`w-full py-1.5 px-3 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
+                  hasActiveFilters ? 'text-red-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30' : 'text-slate-400 cursor-not-allowed'
+                }`}
               >
                 <RefreshCw size={12} />
                 Reset Filters
@@ -814,49 +567,20 @@ export const LeadsPage = () => {
 
       {/* Bulk Action Bar (when rows are selected) */}
       {selectedIds.length > 0 && (
-        <div style={{
-          backgroundColor: '#0f172a',
-          color: '#ffffff',
-          borderRadius: '12px',
-          padding: '12px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.3)',
-          animation: 'slideDown 0.2s ease-out'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              padding: '2px 8px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: '700'
-            }}>
+        <div className="bg-slate-900 text-white rounded-xl p-3 px-5 flex items-center justify-between shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-sky-600 text-white py-0.5 px-2 rounded-md text-xs font-bold">
               {selectedIds.length} Selected
             </div>
-            <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+            <span className="text-[13px] text-slate-300">
               Perform bulk operations across selected lead contacts
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="flex items-center gap-2">
             <button
               onClick={handleBatchConvert}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                backgroundColor: '#16a34a',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-1.5 py-1.5 px-3 bg-green-600 hover:bg-green-700 text-white border-none rounded-md text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               <CheckCircle2 size={14} />
               Mark Converted
@@ -864,19 +588,7 @@ export const LeadsPage = () => {
 
             <button
               onClick={() => handleExportCSV(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                backgroundColor: '#334155',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-1.5 py-1.5 px-3 bg-slate-700 hover:bg-slate-600 text-white border-none rounded-md text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               <Download size={14} />
               Export Selected
@@ -884,19 +596,7 @@ export const LeadsPage = () => {
 
             <button
               onClick={handleBatchDelete}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="flex items-center gap-1.5 py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white border-none rounded-md text-[12.5px] font-semibold cursor-pointer transition-colors"
             >
               <Trash2 size={14} />
               Delete Selected
@@ -904,14 +604,7 @@ export const LeadsPage = () => {
 
             <button
               onClick={() => setSelectedIds([])}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                fontSize: '12px'
-              }}
+              className="bg-transparent border-none text-slate-400 hover:text-white cursor-pointer py-1 px-2 text-xs"
             >
               Clear
             </button>

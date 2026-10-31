@@ -24,7 +24,9 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 
@@ -32,6 +34,7 @@ export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
@@ -69,33 +72,33 @@ export const TicketsPage = () => {
     });
   }, [tickets, canViewAllTickets, currentUser]);
 
-  // KPIs
+  // KPIs with case-insensitive status matching
   const totalCount = scopedTickets.length;
-  const closedCount = scopedTickets.filter(t => t.status === 'closed').length;
-  const openCount = scopedTickets.filter(t => t.status === 'open').length;
-  const pendingCount = scopedTickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
-  const resolvedCount = scopedTickets.filter(t => t.status === 'resolved').length;
+  const closedCount = scopedTickets.filter(t => matchesFilter(t.status, 'closed')).length;
+  const openCount = scopedTickets.filter(t => matchesFilter(t.status, 'open')).length;
+  const pendingCount = scopedTickets.filter(t => matchesFilter(t.status, 'pending') || matchesFilter(t.status, 'in_progress')).length;
+  const resolvedCount = scopedTickets.filter(t => matchesFilter(t.status, 'resolved')).length;
 
   const filteredTickets = useMemo(() => {
     return scopedTickets.filter(t => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (t.subject || '').toLowerCase().includes(q) ||
-        (t.ticketCode || '').toLowerCase().includes(q) ||
-        (t.category || '').toLowerCase().includes(q) ||
-        (t.requestedByName || '').toLowerCase().includes(q);
+      const matchSearch = matchesSearch(t, search, [
+        'subject', 'ticketCode', 'category', 'requestedByName', 'assignedToName', 'priority'
+      ]);
 
       let matchesStatus = true;
-      if (statusFilter === 'open') matchesStatus = t.status === 'open';
-      else if (statusFilter === 'closed') matchesStatus = t.status === 'closed';
-      else if (statusFilter === 'pending') matchesStatus = t.status === 'pending' || t.status === 'in_progress';
-      else if (statusFilter === 'resolved') matchesStatus = t.status === 'resolved';
+      if (statusFilter === 'open') {
+        matchesStatus = matchesFilter(t.status, 'open');
+      } else if (statusFilter === 'closed') {
+        matchesStatus = matchesFilter(t.status, 'closed');
+      } else if (statusFilter === 'pending') {
+        matchesStatus = matchesFilter(t.status, 'pending') || matchesFilter(t.status, 'in_progress');
+      } else if (statusFilter === 'resolved') {
+        matchesStatus = matchesFilter(t.status, 'resolved');
+      }
 
-      let matchesDate = true;
-      if (startDateFilter && t.requestedOn && t.requestedOn < startDateFilter) matchesDate = false;
-      if (endDateFilter && t.requestedOn && t.requestedOn > endDateFilter) matchesDate = false;
+      const matchDate = matchesDateRange(t.requestedOn || t.createdAt, startDateFilter, endDateFilter);
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchSearch && matchesStatus && matchDate;
     });
   }, [scopedTickets, search, statusFilter, startDateFilter, endDateFilter]);
 
@@ -135,67 +138,96 @@ export const TicketsPage = () => {
     addToast('Tickets exported successfully to CSV!', 'success');
   };
 
+  const canDeleteTicket = (ticket) => {
+    if (!currentUser || !ticket) return false;
+    if (isPrivileged) return true;
+    const uId = String(currentUser._id || '');
+    const uCode = String(currentUser.employeeCode || '');
+    const uName = (currentUser.name || '').toLowerCase().trim();
+
+    const isRequester =
+      (uId && String(ticket.requestedById) === uId) ||
+      (uCode && String(ticket.requestedById) === uCode) ||
+      (uId && String(ticket.createdBy) === uId) ||
+      (uCode && String(ticket.createdBy) === uCode) ||
+      (uName && ticket.requestedByName && ticket.requestedByName.toLowerCase().trim() === uName) ||
+      (uName && ticket.createdByName && ticket.createdByName.toLowerCase().trim() === uName);
+
+    return isRequester;
+  };
+
+  const handleDeleteTicket = async (ticket, e) => {
+    if (e) e.stopPropagation();
+    if (!canDeleteTicket(ticket)) {
+      addToast('You do not have permission to delete this ticket.', 'warning');
+      return;
+    }
+
+    const ok = await confirm({
+      title: 'Delete Support Ticket?',
+      message: `Are you sure you want to permanently delete "${ticket.ticketCode}: ${ticket.subject}"? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Ticket',
+      cancelText: 'Keep Ticket',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteTicket(ticket._id || ticket.ticketCode);
+      setSelectedIds(prev => prev.filter(id => id !== ticket._id));
+      if (selectedTicket && (selectedTicket._id === ticket._id || selectedTicket.ticketCode === ticket.ticketCode)) {
+        setSelectedTicket(null);
+      }
+    } catch {
+      addToast('Failed to delete ticket.', 'error');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const deletableTickets = filteredTickets.filter(t => selectedIds.includes(t._id) && canDeleteTicket(t));
+    if (deletableTickets.length === 0) {
+      addToast('You do not have permission to delete the selected tickets.', 'warning');
+      return;
+    }
+
+    const ok = await confirm({
+      title: `Delete ${deletableTickets.length} Selected Tickets?`,
+      message: `Are you sure you want to permanently delete ${deletableTickets.length} selected support ticket(s)? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Tickets',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    for (const t of deletableTickets) {
+      await deleteTicket(t._id || t.ticketCode);
+    }
+    setSelectedIds([]);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minHeight: '100%', paddingBottom: '24px' }}>
+    <div className="flex flex-col gap-3.5 min-h-full pb-6">
       
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#f0f9ff',
-            color: '#0284c7',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
             <LifeBuoy size={17} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
               Helpdesk & Support Tickets
             </h1>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Track employee issues, IT requests, and resolution workflows.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsRaiseModalOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2,132,199,0.2)'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-sky-600 hover:bg-sky-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.2)] transition-colors"
           >
             <Plus size={14} />
             <span>Create Ticket</span>
@@ -203,20 +235,7 @@ export const TicketsPage = () => {
 
           <button
             onClick={handleExport}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 11px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#2563eb',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             <span>Export</span>
@@ -225,108 +244,83 @@ export const TicketsPage = () => {
       </div>
 
       {/* KPI Cards Row (Compact 5-grid) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: '10px'
-      }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
         {/* Total Tickets */}
-        <div style={kpiBoxStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Total Tickets</span>
-            <TicketIcon size={14} color="#3b82f6" />
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Tickets</span>
+            <TicketIcon size={14} className="text-blue-500" />
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7', marginTop: '4px', lineHeight: '1.1' }}>
+          <div className="text-lg font-extrabold text-sky-600 dark:text-sky-400 mt-1 leading-tight">
             {totalCount}
           </div>
         </div>
 
         {/* Closed Tickets */}
-        <div style={kpiBoxStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Closed</span>
-            <TicketIcon size={14} color="#64748b" />
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Closed</span>
+            <TicketIcon size={14} className="text-slate-500" />
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#64748b', marginTop: '4px', lineHeight: '1.1' }}>
+          <div className="text-lg font-extrabold text-slate-600 dark:text-slate-400 mt-1 leading-tight">
             {closedCount}
           </div>
         </div>
 
         {/* Open Tickets */}
-        <div style={kpiBoxStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Open</span>
-            <TicketIcon size={14} color="#0284c7" />
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Open</span>
+            <TicketIcon size={14} className="text-sky-600" />
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0284c7', marginTop: '4px', lineHeight: '1.1' }}>
+          <div className="text-lg font-extrabold text-sky-600 dark:text-sky-400 mt-1 leading-tight">
             {openCount}
           </div>
         </div>
 
         {/* Pending Tickets */}
-        <div style={kpiBoxStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Pending</span>
-            <TicketIcon size={14} color="#f59e0b" />
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Pending</span>
+            <TicketIcon size={14} className="text-amber-500" />
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#d97706', marginTop: '4px', lineHeight: '1.1' }}>
+          <div className="text-lg font-extrabold text-amber-600 dark:text-amber-400 mt-1 leading-tight">
             {pendingCount}
           </div>
         </div>
 
         {/* Resolved Tickets */}
-        <div style={kpiBoxStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>Resolved</span>
-            <TicketIcon size={14} color="#10b981" />
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Resolved</span>
+            <TicketIcon size={14} className="text-emerald-500" />
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a', marginTop: '4px', lineHeight: '1.1' }}>
+          <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 leading-tight">
             {resolvedCount}
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar (Compact) */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '10px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex items-center justify-between flex-wrap gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2 flex-wrap">
           
           {/* Duration */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Duration:</span>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              fontSize: '11.5px'
-            }}>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Duration:</span>
+            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
               <input
                 type="date"
                 value={startDateFilter}
                 onChange={e => setStartDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
               />
-              <span>-</span>
+              <span className="text-slate-400">-</span>
               <input
                 type="date"
                 value={endDateFilter}
                 onChange={e => setEndDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
               />
             </div>
           </div>
@@ -335,18 +329,7 @@ export const TicketsPage = () => {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            style={{
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '12px',
-              color: '#0f172a',
-              fontWeight: '500',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
+            className="px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-medium outline-none cursor-pointer"
           >
             <option value="all">All Tickets</option>
             <option value="open">Open Tickets</option>
@@ -356,188 +339,153 @@ export const TicketsPage = () => {
           </select>
 
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 10px',
-            height: '30px',
-            borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
-            width: '200px'
-          }}>
-            <Search size={14} color="#94a3b8" />
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-[200px]">
+            <Search size={14} className="text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search tickets..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                backgroundColor: 'transparent',
-                color: '#0f172a'
-              }}
+              className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
         </div>
 
-        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-          Showing {filteredTickets.length} of {tickets.length} tickets
+        <div className="flex items-center gap-2.5">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1 px-2.5 h-[26px] rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
+            >
+              <Trash2 size={12} />
+              Delete Selected ({selectedIds.length})
+            </button>
+          )}
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+            Showing {filteredTickets.length} of {tickets.length} tickets
+          </div>
         </div>
       </div>
 
       {/* Tickets Table (Compact Rows) */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
             <thead>
-              <tr style={{
-                backgroundColor: '#f8fafc',
-                borderBottom: '1px solid #e2e8f0',
-                color: '#64748b',
-                fontWeight: '700',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                textAlign: 'left',
-                whiteSpace: 'nowrap'
-              }}>
-                <th style={{ padding: '8px 10px', width: '36px' }}>
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left whitespace-nowrap">
+                <th className="px-2.5 py-2 w-9">
                   <input
                     type="checkbox"
                     checked={filteredTickets.length > 0 && selectedIds.length === filteredTickets.length}
                     onChange={handleSelectAll}
-                    style={{ accentColor: '#2563eb', cursor: 'pointer', width: '13px', height: '13px' }}
+                    className="accent-blue-600 cursor-pointer w-[13px] h-[13px]"
                   />
                 </th>
-                <th style={{ padding: '8px 10px', width: '90px' }}>Ticket #</th>
-                <th style={{ padding: '8px 10px' }}>Ticket Subject</th>
-                <th style={{ padding: '8px 10px' }}>Requester Name</th>
-                <th style={{ padding: '8px 10px' }}>Requested On</th>
-                <th style={{ padding: '8px 10px' }}>Priority & Assigned</th>
-                <th style={{ padding: '8px 10px' }}>Status</th>
-                <th style={{ padding: '8px 10px', textAlign: 'center', width: '80px' }}>Action</th>
+                <th className="px-2.5 py-2 w-[90px]">Ticket #</th>
+                <th className="px-2.5 py-2">Ticket Subject</th>
+                <th className="px-2.5 py-2">Requester Name</th>
+                <th className="px-2.5 py-2">Requested On</th>
+                <th className="px-2.5 py-2">Priority & Assigned</th>
+                <th className="px-2.5 py-2">Status</th>
+                <th className="px-2.5 py-2 text-center w-20">Action</th>
               </tr>
             </thead>
 
             <tbody>
               {filteredTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '500' }}>No tickets found</div>
+                  <td colSpan={8} className="p-[30px] text-center text-slate-500 dark:text-slate-400">
+                    <div className="text-xs font-medium">No tickets found</div>
                   </td>
                 </tr>
               ) : (
                 filteredTickets.map(ticket => (
                   <tr
                     key={ticket._id}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: selectedIds.includes(ticket._id) ? 'rgba(37,99,235,0.04)' : '#ffffff',
-                      transition: 'background-color 0.15s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = selectedIds.includes(ticket._id) ? 'rgba(37,99,235,0.04)' : '#ffffff'}
+                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
+                      selectedIds.includes(ticket._id)
+                        ? 'bg-blue-50/40 dark:bg-blue-950/20'
+                        : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    }`}
                   >
                     {/* Checkbox */}
-                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
+                    <td className="px-2.5 py-[7px] whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(ticket._id)}
                         onChange={() => handleSelectOne(ticket._id)}
-                        style={{ accentColor: '#2563eb', cursor: 'pointer', width: '13px', height: '13px' }}
+                        className="accent-blue-600 cursor-pointer w-[13px] h-[13px]"
                       />
                     </td>
 
                     {/* Ticket # */}
-                    <td style={{ padding: '7px 10px', fontWeight: '700', color: '#0284c7', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                    <td className="px-2.5 py-[7px] font-bold text-sky-600 dark:text-sky-400 text-[11.5px] whitespace-nowrap">
                       {ticket.ticketCode}
                     </td>
 
                     {/* Ticket Subject */}
-                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
+                    <td className="px-2.5 py-[7px] whitespace-nowrap">
                       <div
                         onClick={() => setSelectedTicket(ticket)}
-                        style={{ fontWeight: '700', color: '#0f172a', cursor: 'pointer', fontSize: '12px', lineHeight: '1.2' }}
+                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer text-xs leading-tight"
                       >
                         {ticket.subject}
                       </div>
-                      <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '1px' }}>
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-[1px]">
                         {ticket.category || 'General'} • {ticket.replies?.length || 0} messages
                       </div>
                     </td>
 
                     {/* Requester Name */}
-                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <td className="px-2.5 py-[7px] whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
                         <img
                           src={ticket.requestedByAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                           alt={ticket.requestedByName}
-                          style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                          className="w-[22px] h-[22px] rounded-full object-cover"
                         />
-                        <span style={{ fontWeight: '600', color: '#334155', fontSize: '12px' }}>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
                           {ticket.requestedByName}
                         </span>
                       </div>
                     </td>
 
                     {/* Requested On */}
-                    <td style={{ padding: '7px 10px', color: '#64748b', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                    <td className="px-2.5 py-[7px] text-slate-500 dark:text-slate-400 text-[11.5px] whitespace-nowrap">
                       {ticket.requestedOn}
                     </td>
 
                     {/* Others (Priority & Assigned) */}
-                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span style={{
-                          padding: '1px 6px',
-                          borderRadius: '3px',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          backgroundColor: ticket.priority === 'urgent' ? '#fee2e2' : ticket.priority === 'high' ? '#ffedd5' : '#f1f5f9',
-                          color: ticket.priority === 'urgent' ? '#b91c1c' : ticket.priority === 'high' ? '#c2410c' : '#475569',
-                          textTransform: 'capitalize'
-                        }}>
+                    <td className="px-2.5 py-[7px] whitespace-nowrap">
+                      <div className="flex items-center gap-[5px]">
+                        <span className={`px-1.5 py-[1px] rounded text-[10px] font-bold capitalize ${
+                          ticket.priority === 'urgent'
+                            ? 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400'
+                            : ticket.priority === 'high'
+                            ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}>
                           {ticket.priority}
                         </span>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           • {ticket.assignedToName?.split(' ')[0] || 'Unassigned'}
                         </span>
                       </div>
                     </td>
 
                     {/* Status */}
-                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        padding: '2px 7px',
-                        borderRadius: '12px',
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        backgroundColor:
-                          ticket.status === 'resolved' ? '#dcfce7' :
-                          ticket.status === 'open' ? '#e0f2fe' :
-                          ticket.status === 'in_progress' ? '#ede9fe' :
-                          ticket.status === 'pending' ? '#fef3c7' : '#f1f5f9',
-                        color:
-                          ticket.status === 'resolved' ? '#15803d' :
-                          ticket.status === 'open' ? '#0369a1' :
-                          ticket.status === 'in_progress' ? '#6d28d9' :
-                          ticket.status === 'pending' ? '#b45309' : '#475569',
-                        textTransform: 'capitalize'
-                      }}>
+                    <td className="px-2.5 py-[7px] whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded-full text-[10.5px] font-bold capitalize ${
+                        ticket.status === 'resolved'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                          : ticket.status === 'open'
+                          ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
+                          : ticket.status === 'in_progress'
+                          ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400'
+                          : ticket.status === 'pending'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}>
                         {ticket.status === 'resolved' && <CheckCircle2 size={11} />}
                         {ticket.status === 'open' && <AlertCircle size={11} />}
                         {ticket.status === 'pending' && <Clock size={11} />}
@@ -546,23 +494,26 @@ export const TicketsPage = () => {
                     </td>
 
                     {/* Action */}
-                    <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      <button
-                        onClick={() => setSelectedTicket(ticket)}
-                        style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '4px',
-                          padding: '2px 8px',
-                          cursor: 'pointer',
-                          color: '#0284c7',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          height: '22px'
-                        }}
-                      >
-                        View
-                      </button>
+                    <td className="px-2.5 py-[7px] text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => setSelectedTicket(ticket)}
+                          className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 h-[24px] cursor-pointer text-sky-600 dark:text-sky-400 text-[11px] font-bold hover:bg-sky-50 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1"
+                          title="View details & discussion"
+                        >
+                          <Eye size={12} />
+                          View
+                        </button>
+                        {canDeleteTicket(ticket) && (
+                          <button
+                            onClick={(e) => handleDeleteTicket(ticket, e)}
+                            className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded px-1.5 h-[24px] cursor-pointer text-red-600 dark:text-red-400 text-[11px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors inline-flex items-center"
+                            title="Delete this ticket"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -587,12 +538,4 @@ export const TicketsPage = () => {
       )}
     </div>
   );
-};
-
-const kpiBoxStyle = {
-  backgroundColor: '#ffffff',
-  borderRadius: '10px',
-  border: '1px solid #e2e8f0',
-  padding: '10px 14px',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
 };

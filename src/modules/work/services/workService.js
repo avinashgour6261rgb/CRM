@@ -6,7 +6,8 @@
 
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
-import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesAssignee, matchesProject, matchesSearch, matchesDateRange } from '../../../shared/utils/filterUtils';
 
 let backendOnlineCache = null;
 let lastCheckTime = 0;
@@ -37,6 +38,13 @@ const isBackendAvailable = async () => {
 };
 
 const getLocalDateString = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const formatSecondsSafe = (secs) => {
+  const s = Math.max(0, Number(secs) || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const remSecs = s % 60;
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`;
+};
 
 const getAuthUser = () => {
   try {
@@ -53,7 +61,9 @@ const getAuthHeaders = () => {
   const u = getAuthUser();
   if (u) {
     return {
-      'x-user-id': String(u._id || u.id || u.employeeCode || ''),
+      'x-user-id': String(u._id || u.id || u.employeeCode || u.email || ''),
+      'x-user-email': String(u.email || ''),
+      'x-user-code': String(u.employeeCode || ''),
       'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
     };
   }
@@ -83,6 +93,13 @@ export const workService = {
           if (Array.isArray(json.data)) {
             // Silently persist to local mirror without triggering recursive storage events
             localStorage.setItem(KEYS.PROJECTS, JSON.stringify(json.data));
+            const authUser = getAuthUser();
+            const isPrivileged = authUser && isHRorAdmin(authUser);
+            const perms = getUserModulePermissions(authUser);
+            const canViewAll = isPrivileged || perms?.viewAllProjects;
+            if (!canViewAll && authUser) {
+              return json.data.filter(p => isProjectVisibleToUser(p, authUser));
+            }
             return json.data;
           }
         }
@@ -93,6 +110,15 @@ export const workService = {
 
     // LocalStorage Fallback
     let list = getCollection(KEYS.PROJECTS) || [];
+    const authUser = getAuthUser();
+    const isPrivileged = authUser && isHRorAdmin(authUser);
+    const perms = getUserModulePermissions(authUser);
+    const canViewAll = isPrivileged || perms?.viewAllProjects;
+
+    // Strict tenant isolation: regular employees can ONLY view projects assigned to them, created by them, or public company-wide
+    if (!canViewAll && authUser) {
+      list = list.filter(p => isProjectVisibleToUser(p, authUser));
+    }
     if (filters.status && filters.status !== 'all') {
       list = list.filter(p => p.status === filters.status);
     }
@@ -261,18 +287,61 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.data)) {
-            // Silently persist to local mirror without overwriting unsynced local tasks
+            // Authoritative remoteList from MongoDB Atlas (including deletions and reassignments)
             const localList = getCollection(KEYS.TASKS) || [];
             const remoteList = json.data;
-            const mergedMap = new Map();
-            remoteList.forEach(t => mergedMap.set(String(t._id || t.id), t));
+            const localMap = new Map();
             localList.forEach(lt => {
               const id = String(lt._id || lt.id);
-              if (id && !mergedMap.has(id)) {
-                mergedMap.set(id, lt);
+              if (id) localMap.set(id, lt);
+            });
+
+            // Map authoritative remote tasks, overlaying live ticking timer only if running locally
+            const merged = remoteList.map(rt => {
+              const id = String(rt._id || rt.id);
+              const local = localMap.get(id);
+              if (local) {
+                const localTimerSecs = Number(local.timerSeconds) || 0;
+                const remoteTimerSecs = Number(rt.timerSeconds) || 0;
+                const localAccum = Number(local.accumulatedSeconds) || 0;
+                const remoteAccum = Number(rt.accumulatedSeconds) || 0;
+                const localHoursLogged = Number(local.hoursLogged) || 0;
+                const remoteHoursLogged = Number(rt.hoursLogged) || 0;
+
+                const isRemoteActive = Boolean(rt.timerRunning && rt.startedAt);
+                const localStartedRecently = Boolean(local.timerRunning && local.startedAt && (Date.now() - Number(local.startedAt) < 4000));
+
+                const effectiveRunning = isRemoteActive ? true : (localStartedRecently ? true : false);
+                const effectiveStartedAt = isRemoteActive ? rt.startedAt : (localStartedRecently ? local.startedAt : null);
+                const effectiveSecs = effectiveRunning ? Math.max(localTimerSecs, remoteTimerSecs) : remoteTimerSecs;
+                const effectiveAccum = effectiveRunning ? Math.max(localAccum, remoteAccum) : remoteAccum;
+                const maxHours = Math.max(localHoursLogged, remoteHoursLogged);
+
+                return {
+                  ...local,
+                  ...rt,
+                  timerRunning: effectiveRunning,
+                  startedAt: effectiveStartedAt,
+                  timerSeconds: effectiveSecs,
+                  accumulatedSeconds: effectiveAccum,
+                  hoursLogged: maxHours,
+                  hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
+                  sessionDate: rt.sessionDate || local.sessionDate,
+                  status: rt.status || local.status
+                };
+              }
+              return rt;
+            });
+
+            // Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
+            const remoteIds = new Set(remoteList.map(r => String(r._id || r.id)));
+            localList.forEach(lt => {
+              const id = String(lt._id || lt.id);
+              if (id.startsWith('tsk_') && !remoteIds.has(id)) {
+                merged.push(lt);
               }
             });
-            const merged = Array.from(mergedMap.values());
+
             localStorage.setItem(KEYS.TASKS, JSON.stringify(merged));
             return merged;
           }
@@ -318,38 +387,27 @@ export const workService = {
         return isDirectAssignee || isMultiAssignee || isCreator;
       });
     } else if (filters.assignedTo && filters.assignedTo !== 'all') {
-      const targetFilter = String(filters.assignedTo).toLowerCase();
-      list = list.filter(t =>
-        String(t.assignedToId).toLowerCase() === targetFilter ||
-        String(t.assignedTo).toLowerCase() === targetFilter ||
-        String(t.assignedToCode).toLowerCase() === targetFilter ||
-        (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => String(id).toLowerCase() === targetFilter)) ||
-        (Array.isArray(t.assignees) && t.assignees.some(a => String(a._id).toLowerCase() === targetFilter || String(a.employeeCode).toLowerCase() === targetFilter))
-      );
+      list = list.filter(t => matchesAssignee(t, filters.assignedTo));
     }
 
     if (filters.projectId && filters.projectId !== 'all') {
-      list = list.filter(t => t.projectId === filters.projectId || t.projectCode === filters.projectId);
+      list = list.filter(t => matchesProject(t, filters.projectId));
     }
     if (filters.status && filters.status !== 'all') {
-      list = list.filter(t => t.status === filters.status);
+      list = list.filter(t => matchesFilter(t.status, filters.status));
     } else if (filters.hideCompleted) {
       list = list.filter(t => t.status !== 'completed');
     }
     if (filters.priority && filters.priority !== 'all') {
-      list = list.filter(t => t.priority === filters.priority);
+      list = list.filter(t => matchesFilter(t.priority, filters.priority));
     }
     if (filters.assignedBy && filters.assignedBy !== 'all') {
-      list = list.filter(t => t.assignedById === filters.assignedBy || t.assignedBy === filters.assignedBy);
+      list = list.filter(t => matchesFilter(t.assignedById, filters.assignedBy) || matchesFilter(t.assignedBy, filters.assignedBy));
     }
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(t =>
-        t.title?.toLowerCase().includes(q) ||
-        t.taskCode?.toLowerCase().includes(q) ||
-        t.projectName?.toLowerCase().includes(q) ||
-        t.assignedToName?.toLowerCase().includes(q)
-      );
+      list = list.filter(t => matchesSearch(t, filters.search, [
+        'title', 'taskCode', 'projectName', 'assignedToName', 'assignedBy', 'category', 'description'
+      ]));
     }
 
     const today = getLocalDateString();
@@ -641,11 +699,50 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          if (Array.isArray(json.data) && json.data.length > 0) {
-            // Silently persist to local mirror without triggering recursive storage events
-            localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(json.data));
+          if (Array.isArray(json.data)) {
+            const localTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+            const remoteTimesheets = json.data;
+            const tsMap = new Map();
+            localTimesheets.forEach(lts => {
+              const id = String(lts._id || lts.id);
+              if (id) tsMap.set(id, lts);
+            });
+            remoteTimesheets.forEach(ts => {
+              const id = String(ts._id || ts.id);
+              if (id) tsMap.set(id, ts);
+            });
+            const merged = Array.from(tsMap.values());
+            if (merged.length > 0) {
+              localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+            }
+
+            // Return remote list (already filtered by backend) or apply fallback filters
+            let filteredRemote = remoteTimesheets;
+            if (filters.employeeId && filters.employeeId !== 'all') {
+              filteredRemote = filteredRemote.filter(ts =>
+                matchesFilter(ts.employeeId, filters.employeeId) ||
+                matchesFilter(ts.employee, filters.employeeId) ||
+                matchesFilter(ts.employeeCode, filters.employeeId) ||
+                matchesFilter(ts.employeeName, filters.employeeId)
+              );
+            }
+            if (filters.projectId && filters.projectId !== 'all') {
+              filteredRemote = filteredRemote.filter(ts => matchesProject(ts, filters.projectId));
+            }
+            if (filters.status && filters.status !== 'all') {
+              filteredRemote = filteredRemote.filter(ts => matchesFilter(ts.status, filters.status));
+            }
+            if (filters.date) {
+              filteredRemote = filteredRemote.filter(ts => matchesDateRange(ts.date, filters.date, filters.date));
+            }
+            if (filters.search) {
+              filteredRemote = filteredRemote.filter(ts => matchesSearch(ts, filters.search, [
+                'taskCode', 'taskTitle', 'projectName', 'employeeName', 'memo', 'projectCode'
+              ]));
+            }
+            return filteredRemote;
           }
-          return json.data;
         }
       } catch (err) {
         console.warn('Backend timesheet fetch failed, using local storage:', err);
@@ -653,7 +750,7 @@ export const workService = {
     }
 
     // LocalStorage Fallback
-    let list = getCollection(KEYS.TIMESHEETS);
+    let list = getCollection(KEYS.TIMESHEETS) || [];
     const authUser = getAuthUser();
     const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
 
@@ -667,29 +764,30 @@ export const workService = {
         (ts.employeeName && authUser.name && ts.employeeName.toLowerCase() === authUser.name.toLowerCase())
       );
     } else if (filters.employeeId && filters.employeeId !== 'all') {
-      list = list.filter(ts => ts.employeeId === filters.employeeId || ts.employee === filters.employeeId || ts.employeeCode === filters.employeeId);
+      list = list.filter(ts =>
+        matchesFilter(ts.employeeId, filters.employeeId) ||
+        matchesFilter(ts.employee, filters.employeeId) ||
+        matchesFilter(ts.employeeCode, filters.employeeId) ||
+        matchesFilter(ts.employeeName, filters.employeeId)
+      );
     }
 
     if (filters.projectId && filters.projectId !== 'all') {
-      list = list.filter(ts => ts.projectId === filters.projectId || ts.project === filters.projectId);
+      list = list.filter(ts => matchesProject(ts, filters.projectId));
     }
     if (filters.taskId && filters.taskId !== 'all') {
-      list = list.filter(ts => ts.taskId === filters.taskId || ts.task === filters.taskId);
+      list = list.filter(ts => matchesFilter(ts.taskId, filters.taskId) || matchesFilter(ts.task, filters.taskId) || matchesFilter(ts.taskCode, filters.taskId));
     }
     if (filters.date) {
-      list = list.filter(ts => ts.date === filters.date);
+      list = list.filter(ts => matchesDateRange(ts.date, filters.date, filters.date));
     }
     if (filters.status && filters.status !== 'all') {
-      list = list.filter(ts => ts.status === filters.status);
+      list = list.filter(ts => matchesFilter(ts.status, filters.status));
     }
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(ts =>
-        ts.taskTitle?.toLowerCase().includes(q) ||
-        ts.projectName?.toLowerCase().includes(q) ||
-        ts.employeeName?.toLowerCase().includes(q) ||
-        ts.memo?.toLowerCase().includes(q)
-      );
+      list = list.filter(ts => matchesSearch(ts, filters.search, [
+        'taskTitle', 'projectName', 'employeeName', 'memo', 'taskCode', 'projectCode'
+      ]));
     }
     return list;
   },
@@ -699,6 +797,7 @@ export const workService = {
     const enrichedData = {
       ...entryData,
       employeeId: entryData.employeeId || authUser?._id || authUser?.employeeCode || '',
+      employeeCode: entryData.employeeCode || authUser?.employeeCode || '',
       employeeName: entryData.employeeName || authUser?.name || 'Employee'
     };
 
@@ -724,32 +823,59 @@ export const workService = {
       }
     }
 
-    const timesheets = getCollection(KEYS.TIMESHEETS);
-    const newEntry = {
-      _id: `time_${Date.now()}`,
-      ...entryData,
-      createdAt: new Date().toISOString()
-    };
-    timesheets.unshift(newEntry);
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const targetDate = entryData.date || getLocalDateString();
+    const durationSecs = Number(entryData.totalDurationSeconds) || 0;
+    const targetEmpId = String(enrichedData.employeeId || '');
+
+    // Check if a timesheet for this task on this date already exists
+    const existingIdx = timesheets.findIndex(ts =>
+      ts.date === targetDate &&
+      (String(ts.taskId) === String(entryData.taskId) || (entryData.taskCode && ts.taskCode === entryData.taskCode)) &&
+      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
+    );
+
+    let savedEntry = null;
+    if (existingIdx !== -1) {
+      timesheets[existingIdx] = {
+        ...timesheets[existingIdx],
+        ...entryData,
+        totalDurationSeconds: durationSecs,
+        totalDurationText: entryData.totalDurationText || formatSecondsSafe(durationSecs),
+        updatedAt: new Date().toISOString()
+      };
+      savedEntry = timesheets[existingIdx];
+    } else {
+      savedEntry = {
+        _id: `time_${Date.now()}`,
+        ...enrichedData,
+        totalDurationSeconds: durationSecs,
+        totalDurationText: entryData.totalDurationText || formatSecondsSafe(durationSecs),
+        date: targetDate,
+        createdAt: new Date().toISOString()
+      };
+      timesheets.unshift(savedEntry);
+    }
     saveCollection(KEYS.TIMESHEETS, timesheets);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
 
-    // Update task logged hours
+    // Accurately recalculate task logged hours strictly by summing all timesheets for this task
     if (entryData.taskId) {
-      const tasks = getCollection(KEYS.TASKS);
-      const tIndex = tasks.findIndex(t => t._id === entryData.taskId);
+      const tasks = getCollection(KEYS.TASKS) || [];
+      const tIndex = tasks.findIndex(t => String(t._id || t.id) === String(entryData.taskId) || (entryData.taskCode && t.taskCode === entryData.taskCode));
       if (tIndex !== -1) {
-        const durationHours = (entryData.totalDurationSeconds || 0) / 3600;
-        tasks[tIndex].hoursLogged = Number(((tasks[tIndex].hoursLogged || 0) + durationHours).toFixed(2));
-        const totalSecs = Math.round(tasks[tIndex].hoursLogged * 3600);
+        const allTaskTimesheets = timesheets.filter(ts => String(ts.taskId) === String(tasks[tIndex]._id || tasks[tIndex].id) || (tasks[tIndex].taskCode && ts.taskCode === tasks[tIndex].taskCode));
+        const totalSecs = allTaskTimesheets.reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
         const hrs = Math.floor(totalSecs / 3600);
         const mins = Math.floor((totalSecs % 3600) / 60);
+        tasks[tIndex].hoursLogged = Number((totalSecs / 3600).toFixed(2));
         tasks[tIndex].hoursLoggedText = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
         saveCollection(KEYS.TASKS, tasks);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       }
     }
 
-    return newEntry;
+    return savedEntry;
   },
 
   async stopTimer(stopData) {
@@ -762,8 +888,8 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          const timesheets = getCollection(KEYS.TIMESHEETS);
-          const idx = timesheets.findIndex(t => t._id === json.data._id);
+          const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+          const idx = timesheets.findIndex(t => t._id === json.data._id || (t.date === json.data.date && String(t.taskId) === String(json.data.taskId)));
           if (idx !== -1) timesheets[idx] = json.data;
           else timesheets.unshift(json.data);
           saveCollection(KEYS.TIMESHEETS, timesheets);
@@ -777,21 +903,10 @@ export const workService = {
     }
 
     // Local calculation & saving
-    const { taskId, totalDurationSeconds, memo, startTime, endTime } = stopData;
-    const tasks = getCollection(KEYS.TASKS);
-    const task = tasks.find(t => t._id === taskId);
-    if (task) {
-      task.timerRunning = false;
-      task.timerSeconds = totalDurationSeconds;
-      task.durationSeconds = totalDurationSeconds;
-      const hoursAdded = totalDurationSeconds / 3600;
-      task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
-      const totalSecs = Math.round(task.hoursLogged * 3600);
-      const hrs = Math.floor(totalSecs / 3600);
-      const mins = Math.floor((totalSecs % 3600) / 60);
-      task.hoursLoggedText = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
-      saveCollection(KEYS.TASKS, tasks);
-    }
+    const { taskId, totalDurationSeconds = 0, memo, startTime, endTime } = stopData;
+    const targetDate = stopData.date || getLocalDateString();
+    const tasks = getCollection(KEYS.TASKS) || [];
+    const task = tasks.find(t => String(t._id || t.id) === String(taskId) || (stopData.taskCode && t.taskCode === stopData.taskCode));
 
     const hrs = String(Math.floor(totalDurationSeconds / 3600)).padStart(2, '0');
     const mins = String(Math.floor((totalDurationSeconds % 3600) / 60)).padStart(2, '0');
@@ -799,30 +914,70 @@ export const workService = {
     const durationText = `${hrs}:${mins}:${secs}`;
 
     const authUser = getAuthUser();
-    const timesheets = getCollection(KEYS.TIMESHEETS);
-    const newLog = {
-      _id: `time_${Date.now()}`,
-      taskId: task?._id || taskId,
-      taskCode: task?.taskCode || stopData.taskCode || '',
-      taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
-      projectId: task?.projectId || '',
-      employeeId: stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '',
-      employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
-      employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
-      employeeRole: authUser?.role || task?.assignedToRole || '',
-      date: stopData.date || getLocalDateString(),
-      startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
-      endTime: endTime || new Date().toTimeString().split(' ')[0],
-      totalDurationSeconds,
-      totalDurationText: durationText,
-      memo: memo || 'Work session saved',
-      status: 'stopped',
-      createdAt: new Date().toISOString()
-    };
-    timesheets.unshift(newLog);
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const targetEmpId = String(stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '');
+
+    const existingIdx = timesheets.findIndex(ts =>
+      ts.date === targetDate &&
+      (String(ts.taskId) === String(taskId) || (task?.taskCode && ts.taskCode === task.taskCode) || (stopData.taskCode && ts.taskCode === stopData.taskCode)) &&
+      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
+    );
+
+    let finalLog = null;
+    if (existingIdx !== -1) {
+      timesheets[existingIdx] = {
+        ...timesheets[existingIdx],
+        totalDurationSeconds,
+        totalDurationText: durationText,
+        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        memo: memo || timesheets[existingIdx].memo,
+        status: 'stopped',
+        updatedAt: new Date().toISOString()
+      };
+      finalLog = timesheets[existingIdx];
+    } else {
+      finalLog = {
+        _id: `time_${Date.now()}`,
+        taskId: task?._id || taskId,
+        taskCode: task?.taskCode || stopData.taskCode || '',
+        taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
+        projectId: task?.projectId || '',
+        employeeId: targetEmpId,
+        employeeCode: stopData.employeeCode || authUser?.employeeCode || '',
+        employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
+        employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
+        employeeRole: authUser?.role || task?.assignedToRole || '',
+        date: targetDate,
+        startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
+        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        totalDurationSeconds,
+        totalDurationText: durationText,
+        memo: memo || 'Work session saved',
+        status: 'stopped',
+        createdAt: new Date().toISOString()
+      };
+      timesheets.unshift(finalLog);
+    }
     saveCollection(KEYS.TIMESHEETS, timesheets);
+
+    if (task) {
+      task.timerRunning = false;
+      task.timerSeconds = totalDurationSeconds;
+      task.durationSeconds = totalDurationSeconds;
+      task.accumulatedSeconds = totalDurationSeconds;
+
+      const allTaskTimesheets = timesheets.filter(ts => String(ts.taskId) === String(task._id || task.id) || (task.taskCode && ts.taskCode === task.taskCode));
+      const totalSecs = allTaskTimesheets.reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+      const totalHrs = Math.floor(totalSecs / 3600);
+      const totalMins = Math.floor((totalSecs % 3600) / 60);
+      task.hoursLogged = Number((totalSecs / 3600).toFixed(2));
+      task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+      saveCollection(KEYS.TASKS, tasks);
+    }
+
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
-    return newLog;
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+    return finalLog;
   },
 
   async deleteTimesheet(id) {

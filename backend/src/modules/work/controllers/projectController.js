@@ -35,6 +35,43 @@ exports.getProjects = async (req, res, next) => {
       ];
     }
 
+    const user = req.user;
+    const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+
+    // Role-based tenant isolation: Regular employees can strictly access:
+    // 1. Projects where they are an assigned member (teamIds, visibleToIds, members._id, members.employeeCode)
+    // 2. Projects created by them (createdBy, createdById)
+    // 3. Projects explicitly flagged as company-wide public (isCompanyWide: true, visibility: 'all')
+    if (!isPrivileged && user) {
+      const userAssignedFilter = [
+        { isCompanyWide: true, visibility: 'all' },
+        { createdBy: String(user._id) },
+        { createdById: String(user._id) },
+        { createdBy: String(user.employeeCode) },
+        { visibleToIds: String(user._id) },
+        { visibleToIds: String(user.employeeCode) },
+        { teamIds: String(user._id) },
+        { teamIds: String(user.employeeCode) },
+        { 'members._id': String(user._id) },
+        { 'members.id': String(user._id) },
+        { 'members.employeeCode': String(user.employeeCode) },
+        { 'membersList._id': String(user._id) }
+      ];
+      if (user.name) {
+        const escapedName = String(user.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        userAssignedFilter.push({ creatorName: new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ 'members.name': new RegExp(`^${escapedName}$`, 'i') });
+        userAssignedFilter.push({ 'membersList.name': new RegExp(`^${escapedName}$`, 'i') });
+      }
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: userAssignedFilter }];
+        delete query.$or;
+      } else {
+        query.$or = userAssignedFilter;
+      }
+    }
+
     const projects = await Project.find(query).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,

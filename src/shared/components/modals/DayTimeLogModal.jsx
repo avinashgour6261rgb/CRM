@@ -138,144 +138,79 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
   const getAuditBadge = (type) => {
     switch (type) {
       case 'clock_in':
-        return { icon: <LogIn size={13} color="#16a34a" />, label: 'Clock In', color: '#16a34a', bg: '#dcfce7' };
+        return { icon: <LogIn size={13} className="text-green-600" />, label: 'Clock In', badgeClass: 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' };
       case 'clock_out':
-        return { icon: <LogOut size={13} color="#dc2626" />, label: 'Clock Out', color: '#dc2626', bg: '#fee2e2' };
+        return { icon: <LogOut size={13} className="text-red-600" />, label: 'Clock Out', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300' };
       case 'task_timer_start':
-        return { icon: <Play size={13} color="#0284c7" fill="#0284c7" />, label: 'Task Started', color: '#0284c7', bg: '#e0f2fe' };
+        return { icon: <Play size={13} className="text-sky-600 fill-sky-600" />, label: 'Task Started', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300' };
       case 'task_timer_pause':
-        return { icon: <Pause size={13} color="#ea580c" />, label: 'Task Paused', color: '#ea580c', bg: '#fff7ed' };
+        return { icon: <Pause size={13} className="text-orange-600" />, label: 'Task Paused', badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300' };
       case 'task_completed':
-        return { icon: <CheckCircle2 size={13} color="#16a34a" />, label: 'Task Completed', color: '#16a34a', bg: '#dcfce7' };
+        return { icon: <CheckCircle2 size={13} className="text-green-600" />, label: 'Task Completed', badgeClass: 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-300' };
       case 'tea_break_start':
-        return { icon: <Coffee size={13} color="#d97706" />, label: 'Tea Break Started', color: '#d97706', bg: '#fef3c7' };
+        return { icon: <Coffee size={13} className="text-amber-600" />, label: 'Tea Break Started', badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' };
       case 'tea_break_end':
-        return { icon: <Coffee size={13} color="#b45309" />, label: 'Tea Break Resumed', color: '#b45309', bg: '#fef3c7' };
+        return { icon: <Coffee size={13} className="text-amber-700" />, label: 'Tea Break Resumed', badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' };
       case 'lunch_break_start':
-        return { icon: <Utensils size={13} color="#0284c7" />, label: 'Lunch Break Started', color: '#0284c7', bg: '#e0f2fe' };
+        return { icon: <Utensils size={13} className="text-sky-600" />, label: 'Lunch Break Started', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300' };
       case 'lunch_break_end':
-        return { icon: <Utensils size={13} color="#0369a1" />, label: 'Lunch Break Resumed', color: '#0369a1', bg: '#e0f2fe' };
+        return { icon: <Utensils size={13} className="text-sky-700" />, label: 'Lunch Break Resumed', badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300' };
       case 'leave_approved':
-        return { icon: <Palmtree size={13} color="#059669" />, label: 'Leave Approved', color: '#059669', bg: '#ecfdf5' };
+        return { icon: <Palmtree size={13} className="text-emerald-600" />, label: 'Leave Approved', badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' };
       case 'leave_requested':
-        return { icon: <Palmtree size={13} color="#d97706" />, label: 'Leave Applied', color: '#d97706', bg: '#fffbeb' };
+        return { icon: <Palmtree size={13} className="text-amber-600" />, label: 'Leave Applied', badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' };
       case 'wfh_requested':
-        return { icon: <Home size={13} color="#7c3aed" />, label: 'WFH Requested', color: '#7c3aed', bg: '#f5f3ff' };
+        return { icon: <Home size={13} className="text-purple-600" />, label: 'WFH Requested', badgeClass: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300' };
       case 'admin_force_clock_out':
-        return { icon: <ShieldAlert size={13} color="#991b1b" />, label: 'Admin Force Clock-Out', color: '#991b1b', bg: '#fee2e2' };
+        return { icon: <ShieldAlert size={13} className="text-red-700" />, label: 'Admin Force Clock-Out', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300' };
       case 'admin_shift_adjustment':
-        return { icon: <AlertTriangle size={13} color="#92400e" />, label: 'Admin Shift Adjustment', color: '#92400e', bg: '#fef3c7' };
+        return { icon: <AlertTriangle size={13} className="text-amber-800" />, label: 'Admin Shift Adjustment', badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' };
       default:
-        return { icon: <Clock size={13} color="#64748b" />, label: 'Activity Log', color: '#64748b', bg: '#f1f5f9' };
+        return { icon: <Clock size={13} className="text-slate-500" />, label: 'Activity Log', badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
     }
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '620px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc'
-        }}>
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0">
                 {dayLog.day} Attendance & Audit ({dayLog.date})
               </h2>
               {hasAdminOverrides && (
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  color: '#991b1b',
-                  backgroundColor: '#fee2e2',
-                  border: '1px solid #fecaca',
-                  padding: '1px 6px',
-                  borderRadius: '10px'
-                }}>
+                <span className="text-[10px] font-extrabold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-900 px-1.5 py-[1px] rounded-full">
                   ⚠️ Admin Modified
                 </span>
               )}
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-0">
               Complete punch timestamps, tea/lunch breaks, and administrator adjustments
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="p-5 sm:p-6 flex flex-col gap-4">
           {/* Total Duration Callout */}
-          <div style={{
-            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
+          <div className="bg-gradient-to-r from-sky-600 to-sky-700 rounded-xl p-4 sm:px-5 text-white flex items-center justify-between shadow-md shadow-sky-600/25">
             <div>
-              <div style={{ fontSize: '11px', color: '#e0f2fe', fontWeight: '600', textTransform: 'uppercase' }}>
+              <div className="text-[11px] text-sky-100 font-semibold uppercase tracking-wider">
                 Net Productive Work Duration
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'monospace' }}>
+              <div className="text-2xl font-extrabold font-mono">
                 {dayLog.durationText}
               </div>
             </div>
-            <div style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: '700'
-            }}>
+            <div className="bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold">
               {dayLog.isSunday && dayLog.shortDay !== 'Mo'
                 ? '🏖️ Sunday Off'
                 : (dayLog.isDayOff && dayLog.shortDay !== 'Mo'
@@ -285,67 +220,53 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
           </div>
 
           {/* Shift Details Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-            <div style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>
-                <LogIn size={12} color="#16a34a" /> Clock In
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">
+                <LogIn size={12} className="text-green-600" /> Clock In
               </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-white">
                 {dayLog.loginTime && dayLog.loginTime !== 'Off' ? dayLog.loginTime : (dayLog.isSunday && dayLog.shortDay !== 'Mo' ? 'Sunday Off' : (dayLog.isCurrentDay ? 'Not Clocked In' : '--'))}
               </div>
             </div>
 
-            <div style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>
-                <LogOut size={12} color="#dc2626" /> Clock Out
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">
+                <LogOut size={12} className="text-red-600" /> Clock Out
               </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-white">
                 {dayLog.logoutTime && dayLog.logoutTime !== 'Off' ? dayLog.logoutTime : (dayLog.isSunday && dayLog.shortDay !== 'Mo' ? 'Sunday Off' : (dayLog.isCurrentDay && dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'In Progress' : '--'))}
               </div>
             </div>
 
-            <div style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>
-                <Coffee size={12} color="#d97706" /> Breaks
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">
+                <Coffee size={12} className="text-amber-600" /> Breaks
               </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-white">
                 {dayLog.breakDuration || '0m'}
               </div>
             </div>
 
-            <div style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#64748b', marginBottom: '2px' }}>
-                <Zap size={12} color="#2563eb" /> Status
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 mb-0.5">
+                <Zap size={12} className="text-blue-600" /> Status
               </div>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: (dayLog.isSunday && dayLog.shortDay !== 'Mo') ? '#d97706' : '#2563eb' }}>
+              <div className={`text-xs font-bold ${(dayLog.isSunday && dayLog.shortDay !== 'Mo') ? 'text-amber-600 dark:text-amber-400' : 'text-blue-600 dark:text-blue-400'}`}>
                 {(dayLog.isSunday && dayLog.shortDay !== 'Mo') ? 'Sunday Off' : (dayLog.isCurrentDay ? (dayLog.loginTime && dayLog.loginTime !== '--' && dayLog.loginTime !== 'Not Clocked In' ? 'Active Shift' : 'Not Started') : 'Working Day')}
               </div>
             </div>
           </div>
 
           {/* Tab Selector */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            borderBottom: '1px solid #e2e8f0',
-            paddingBottom: '8px'
-          }}>
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
             <button
               onClick={() => setActiveTab('audit')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: activeTab === 'audit' ? '1px solid #0284c7' : '1px solid #e2e8f0',
-                backgroundColor: activeTab === 'audit' ? '#f0f9ff' : '#ffffff',
-                color: activeTab === 'audit' ? '#0369a1' : '#64748b',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className={`flex items-center gap-1.5 py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
+                activeTab === 'audit'
+                  ? 'border border-sky-500 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300'
+                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700'
+              }`}
             >
               <History size={13} />
               <span>Punch & Break Audit Trail ({effectiveAudits.length})</span>
@@ -353,19 +274,11 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
 
             <button
               onClick={() => setActiveTab('tasks')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: activeTab === 'tasks' ? '1px solid #0284c7' : '1px solid #e2e8f0',
-                backgroundColor: activeTab === 'tasks' ? '#f0f9ff' : '#ffffff',
-                color: activeTab === 'tasks' ? '#0369a1' : '#64748b',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className={`flex items-center gap-1.5 py-1.5 px-3.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
+                activeTab === 'tasks'
+                  ? 'border border-sky-500 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300'
+                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700'
+              }`}
             >
               <ListTodo size={13} />
               <span>Tasks Worked ({tasksWorked.length})</span>
@@ -376,7 +289,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
           {activeTab === 'audit' && (
             <div>
               {effectiveAudits.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+                <div className="flex flex-col gap-2 max-h-[250px] overflow-y-auto">
                   {effectiveAudits.map((audit, idx) => {
                     const badge = getAuditBadge(audit.type);
                     const isOverride = audit.isAdminOverride || audit.type.startsWith('admin_');
@@ -384,77 +297,47 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                     return (
                       <div
                         key={audit._id || idx}
-                        style={{
-                          padding: '10px 12px',
-                          backgroundColor: isOverride ? '#fffaf5' : '#f8fafc',
-                          border: isOverride ? '1px solid #fed7aa' : '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px'
-                        }}
+                        className={`p-2.5 px-3 rounded-lg flex flex-col gap-1 border ${
+                          isOverride
+                            ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-900/60'
+                            : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+                        }`}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 7px',
-                              borderRadius: '12px',
-                              fontSize: '10.5px',
-                              fontWeight: '700',
-                              backgroundColor: badge.bg,
-                              color: badge.color
-                            }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold ${badge.badgeClass}`}>
                               {badge.icon}
                               <span>{badge.label}</span>
                             </span>
-                            <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                            <span className="text-[12.5px] font-bold text-slate-900 dark:text-white">
                               {audit.timeFormatted}
                             </span>
                           </div>
 
                           {audit.durationText && (
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              color: '#0369a1',
-                              backgroundColor: '#e0f2fe',
-                              padding: '1px 6px',
-                              borderRadius: '4px'
-                            }}>
+                            <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-1.5 py-[1px] rounded">
                               ⏱️ {audit.durationText}
                             </span>
                           )}
                         </div>
 
-                        <div style={{ fontSize: '11.5px', color: '#475569' }}>
+                        <div className="text-[11.5px] text-slate-600 dark:text-slate-300">
                           {audit.details || audit.action || audit.note}
                         </div>
 
                         {/* Actor Callout */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+                        <div className="flex items-center justify-between text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
                           <span>
                             Triggered by: <strong>{audit.actorName || audit.employeeName}</strong> {isOverride ? `[Admin ID: #${audit.adminId}]` : '(Self)'}
                           </span>
-                          <span style={{ color: '#94a3b8' }}>
+                          <span className="text-slate-400">
                             {new Date(audit.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           </span>
                         </div>
 
                         {/* Admin Override Reason */}
                         {audit.auditNote && (
-                          <div style={{
-                            marginTop: '3px',
-                            padding: '4px 8px',
-                            backgroundColor: '#fee2e2',
-                            borderLeft: '3px solid #dc2626',
-                            borderRadius: '2px 4px 4px 2px',
-                            fontSize: '11px',
-                            color: '#991b1b',
-                            fontWeight: '600'
-                          }}>
+                          <div className="mt-1 p-1 px-2 bg-red-100 dark:bg-red-950/60 border-l-3 border-red-600 rounded text-[11px] text-red-800 dark:text-red-300 font-semibold">
                             <strong>Administrator Explanation:</strong> "{audit.auditNote}"
                           </div>
                         )}
@@ -463,15 +346,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                   })}
                 </div>
               ) : (
-                <div style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px dashed #cbd5e1',
-                  color: '#64748b',
-                  fontSize: '12.5px'
-                }}>
+                <div className="p-5 text-center bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[12.5px]">
                   No granular punch audit logs recorded for this date yet. Live punches (Clock-in, Tea Break, Lunch Break, Clock-out) are automatically captured as they happen.
                 </div>
               )}
@@ -482,72 +357,49 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
           {activeTab === 'tasks' && (
             <div>
               {tasksWorked.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto' }}>
+                <div className="flex flex-col gap-2 max-h-[250px] overflow-y-auto">
                   {tasksWorked.map((t, idx) => (
                     <div
                       key={idx}
-                      style={{
-                        padding: '12px 14px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px'
-                      }}
+                      className="p-3 px-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col gap-1"
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: '#eff6ff',
-                            color: '#2563eb',
-                            border: '1px solid #bfdbfe'
-                          }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold px-1.5 py-[1px] rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                             #{t.taskCode || 'TSK'}
                           </span>
-                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                          <span className="text-[13px] font-bold text-slate-900 dark:text-white">
                             {t.taskTitle}
                           </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div className="flex items-center gap-1.5">
                           {/* Task Status Badge */}
-                          <span style={{
-                            fontSize: '10.5px',
-                            fontWeight: '700',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            backgroundColor: (t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#ecfdf5' : ((t.isCompleted || t.status === 'completed') ? '#dcfce7' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#fef3c7' : '#f1f5f9')),
-                            color: (t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#059669' : ((t.isCompleted || t.status === 'completed') ? '#16a34a' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#b45309' : '#64748b')),
-                            border: `1px solid ${(t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '#a7f3d0' : ((t.isCompleted || t.status === 'completed') ? '#bbf7d0' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '#fde68a' : '#e2e8f0'))}`
-                          }}>
+                          <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${
+                            (t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running')))
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                              : ((t.isCompleted || t.status === 'completed')
+                                ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-950/60 dark:text-green-300 dark:border-green-800'
+                                : (t.status === 'on_hold' || t.durationSeconds > 0
+                                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'))
+                          }`}>
                             {(t.timerRunning || (t.status === 'in_progress' && t.endTime?.includes('Running'))) ? '⚡ Working Now (Live)' : ((t.isCompleted || t.status === 'completed') ? '✅ Completed' : (t.status === 'on_hold' || t.durationSeconds > 0 ? '⏸️ Paused (Last Session)' : '⏳ Pending'))}
                           </span>
-                          <span style={{
-                            fontSize: '12px',
-                            fontWeight: '800',
-                            color: '#0284c7',
-                            backgroundColor: '#e0f2fe',
-                            padding: '2px 8px',
-                            borderRadius: '6px'
-                          }}>
+                          <span className="text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-2 py-0.5 rounded">
                             ⏱️ {t.durationText}
                           </span>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', color: '#64748b' }}>
-                        <span>Project: <strong>{t.projectName || 'General'}</strong></span>
+                      <div className="flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400">
+                        <span>Project: <strong className="text-slate-700 dark:text-slate-300">{t.projectName || 'General'}</strong></span>
                         <span>
                           {t.timerRunning ? '🟢 Currently Active' : (t.startTime && t.endTime ? `${t.startTime} - ${t.endTime}` : (t.memo || t.status || 'Tracked Session'))}
                         </span>
                       </div>
 
                       {t.memo && (
-                        <div style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400 italic mt-0.5">
                           "{t.memo}"
                         </div>
                       )}
@@ -555,15 +407,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                   ))}
                 </div>
               ) : (
-                <div style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px dashed #cbd5e1',
-                  color: '#64748b',
-                  fontSize: '12.5px'
-                }}>
+                <div className="p-5 text-center bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[12.5px]">
                   No individual task sessions logged on this day. Total logged shift duration is <strong>{dayLog.durationText}</strong>.
                 </div>
               )}
@@ -572,25 +416,10 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div style={{
-          padding: '14px 24px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          backgroundColor: '#f8fafc'
-        }}>
+        <div className="p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-800/50">
           <button
             onClick={onClose}
-            style={{
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              padding: '8px 20px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="bg-sky-600 hover:bg-sky-700 text-white border-none py-2 px-5 rounded-lg text-[13px] font-semibold cursor-pointer shadow-sm transition-colors"
           >
             Close
           </button>

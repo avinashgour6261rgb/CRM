@@ -92,28 +92,95 @@ exports.createTimesheet = async (req, res, next) => {
     const payload = { ...req.body };
     const user = req.user;
 
-    if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
-      payload.employee = user._id;
-    }
+    // Enrich with authenticated user details if missing
     if (!payload.employeeId && user) {
-      payload.employeeId = user._id;
+      payload.employeeId = user._id ? user._id.toString() : (user.employeeCode || '');
     }
     if (!payload.employeeName && user) {
-      payload.employeeName = user.name;
+      payload.employeeName = user.name || 'Employee';
+    }
+    // Preserve employeeCode for cross-referencing
+    if (!payload.employeeCode && user) {
+      payload.employeeCode = user.employeeCode || '';
     }
 
-    if (!payload.task || !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
-    if (!payload.project || !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
-    if (!payload.employee || !mongoose.Types.ObjectId.isValid(payload.employee)) delete payload.employee;
+    // Set the employee ObjectId ref only when it's a valid ObjectId
+    // — keep employeeId (string) field for code-based lookups regardless
+    if (payload.employee && !mongoose.Types.ObjectId.isValid(payload.employee)) {
+      delete payload.employee; // Don't set invalid ObjectId
+    } else if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
+      payload.employee = user._id;
+    }
 
-    const timesheet = await Timesheet.create(payload);
+    // Clean ObjectId-typed refs — remove invalid ones so Mongoose doesn't throw CastError
+    if (payload.task && !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
+    if (payload.project && !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
 
-    // If linked to a task, increment task logged hours safely
-    if (req.body.taskId && mongoose.Types.ObjectId.isValid(req.body.taskId)) {
-      const durationHours = (req.body.totalDurationSeconds || 0) / 3600;
-      await Task.findByIdAndUpdate(req.body.taskId, {
-        $inc: { hoursLogged: durationHours }
+    const targetDate = payload.date || new Date().toISOString().split('T')[0];
+    payload.date = targetDate;
+    const durationSecs = Number(payload.totalDurationSeconds) || 0;
+
+    // Deduplication check: If auto-save or shift clock-out for a task today, check if timesheet already exists
+    let timesheet = null;
+    if (payload.taskId) {
+      const matchConditions = [
+        { taskId: String(payload.taskId) }
+      ];
+      if (mongoose.Types.ObjectId.isValid(payload.taskId)) {
+        matchConditions.push({ task: payload.taskId });
+      }
+      if (payload.taskCode) {
+        matchConditions.push({ taskCode: payload.taskCode });
+      }
+
+      const empConditions = [];
+      if (payload.employeeId) empConditions.push({ employeeId: String(payload.employeeId) });
+      if (payload.employeeCode) empConditions.push({ employeeCode: String(payload.employeeCode) });
+      if (payload.employee && mongoose.Types.ObjectId.isValid(payload.employee)) empConditions.push({ employee: payload.employee });
+
+      const existingTs = await Timesheet.findOne({
+        date: targetDate,
+        $or: matchConditions,
+        ...(empConditions.length > 0 ? { $and: [{ $or: empConditions }] } : {})
       });
+
+      if (existingTs) {
+        // Update existing record rather than stacking duplicate rows
+        existingTs.totalDurationSeconds = durationSecs;
+        if (payload.totalDurationText) existingTs.totalDurationText = payload.totalDurationText;
+        if (payload.endTime) existingTs.endTime = payload.endTime;
+        if (payload.memo) existingTs.memo = payload.memo;
+        if (payload.status) existingTs.status = payload.status;
+        timesheet = await existingTs.save();
+      }
+    }
+
+    if (!timesheet) {
+      timesheet = await Timesheet.create(payload);
+    }
+
+    // Recalculate task hoursLogged accurately from all timesheets (prevents double-counting)
+    if (payload.taskId) {
+      const taskQuery = mongoose.Types.ObjectId.isValid(payload.taskId)
+        ? { _id: payload.taskId }
+        : { $or: [{ taskCode: payload.taskId }, { _id: payload.taskId }] };
+      const task = await Task.findOne(taskQuery);
+
+      if (task) {
+        const allTaskTimesheets = await Timesheet.find({
+          $or: [
+            { task: task._id },
+            { taskId: task._id.toString() },
+            ...(task.taskCode ? [{ taskCode: task.taskCode }] : [])
+          ]
+        });
+        const totalTaskSecs = allTaskTimesheets.reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+        task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
+        const totalHrs = Math.floor(totalTaskSecs / 3600);
+        const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
+        task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+        await task.save();
+      }
     }
 
     res.status(201).json({
@@ -130,7 +197,9 @@ exports.createTimesheet = async (req, res, next) => {
 // @route   POST /api/timesheet/stop
 exports.stopTimer = async (req, res, next) => {
   try {
-    const { taskId, totalDurationSeconds, endTime, memo } = req.body;
+    const { taskId, totalDurationSeconds = 0, endTime, memo } = req.body;
+    const targetDate = req.body.date || new Date().toISOString().split('T')[0];
+    const user = req.user;
     
     // Update task safely
     let task = null;
@@ -139,18 +208,6 @@ exports.stopTimer = async (req, res, next) => {
     } else {
       task = await Task.findOne({ $or: [{ taskCode: taskId }, { _id: taskId }] });
     }
-    if (task) {
-      task.timerRunning = false;
-      task.timerSeconds = totalDurationSeconds;
-      task.durationSeconds = totalDurationSeconds;
-      const hoursAdded = totalDurationSeconds / 3600;
-      task.hoursLogged = Number(((task.hoursLogged || 0) + hoursAdded).toFixed(2));
-      const totalSecs = Math.round(task.hoursLogged * 3600);
-      const totalHrs = Math.floor(totalSecs / 3600);
-      const totalMins = Math.floor((totalSecs % 3600) / 60);
-      task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
-      await task.save();
-    }
 
     // Format duration text
     const hrs = String(Math.floor(totalDurationSeconds / 3600)).padStart(2, '0');
@@ -158,33 +215,88 @@ exports.stopTimer = async (req, res, next) => {
     const secs = String(totalDurationSeconds % 60).padStart(2, '0');
     const durationText = `${hrs}:${mins}:${secs}`;
 
-    const user = req.user;
-    const newLog = await Timesheet.create({
-      task: task?._id || null,
-      taskId: task?._id?.toString() || taskId,
-      taskCode: task?.taskCode || '',
-      taskTitle: task?.title || 'Tracked Session',
-      project: task?.project || null,
-      projectId: task?.projectId || '',
-      projectName: task?.projectName || 'General Work',
-      employee: task?.assignedTo || (user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null),
-      employeeId: task?.assignedToId || user?._id || user?.employeeCode || '',
-      employeeName: task?.assignedToName || user?.name || 'Current User',
-      employeeAvatar: task?.assignedToAvatar || user?.avatar || '',
-      employeeRole: task?.assignedToRole || user?.role || '',
-      date: req.body.date || new Date().toISOString().split('T')[0],
-      startTime: req.body.startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
-      endTime: endTime || new Date().toTimeString().split(' ')[0],
-      totalDurationSeconds,
-      totalDurationText: durationText,
-      memo: memo || 'Live work session completed',
-      status: 'stopped'
+    const empId = task?.assignedToId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
+    const empCode = user?.employeeCode || task?.assignedToCode || '';
+
+    // Check if a timesheet for this task on this date already exists for this employee
+    const matchConditions = [
+      { taskId: String(taskId) }
+    ];
+    if (task?._id) matchConditions.push({ task: task._id });
+    if (task?.taskCode) matchConditions.push({ taskCode: task.taskCode });
+
+    const empConditions = [];
+    if (empId) empConditions.push({ employeeId: String(empId) });
+    if (empCode) empConditions.push({ employeeCode: String(empCode) });
+    if (user && mongoose.Types.ObjectId.isValid(user._id)) empConditions.push({ employee: user._id });
+
+    let existingLog = await Timesheet.findOne({
+      date: targetDate,
+      $or: matchConditions,
+      ...(empConditions.length > 0 ? { $and: [{ $or: empConditions }] } : {})
     });
+
+    let timesheetLog = null;
+    if (existingLog) {
+      existingLog.totalDurationSeconds = totalDurationSeconds;
+      existingLog.totalDurationText = durationText;
+      existingLog.endTime = endTime || new Date().toTimeString().split(' ')[0];
+      if (memo) existingLog.memo = memo;
+      existingLog.status = 'stopped';
+      timesheetLog = await existingLog.save();
+    } else {
+      timesheetLog = await Timesheet.create({
+        task: task?._id || null,
+        taskId: task?._id?.toString() || taskId,
+        taskCode: task?.taskCode || '',
+        taskTitle: task?.title || 'Tracked Session',
+        project: task?.project || null,
+        projectId: task?.projectId || '',
+        projectName: task?.projectName || 'General Work',
+        employee: task?.assignedTo || (user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null),
+        employeeId: empId,
+        employeeCode: empCode,
+        employeeName: task?.assignedToName || user?.name || 'Current User',
+        employeeAvatar: task?.assignedToAvatar || user?.avatar || '',
+        employeeRole: task?.assignedToRole || user?.role || '',
+        date: targetDate,
+        startTime: req.body.startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
+        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        totalDurationSeconds,
+        totalDurationText: durationText,
+        memo: memo || 'Live work session completed',
+        status: 'stopped'
+      });
+    }
+
+    // Accurately recalculate task accumulated and hoursLogged from all timesheets (prevents double-counting)
+    if (task) {
+      task.timerRunning = false;
+      task.startedAt = null;
+      task.timerSeconds = totalDurationSeconds;
+      task.durationSeconds = totalDurationSeconds;
+      task.accumulatedSeconds = totalDurationSeconds;
+
+      const allTaskTimesheets = await Timesheet.find({
+        $or: [
+          { task: task._id },
+          { taskId: task._id.toString() },
+          ...(task.taskCode ? [{ taskCode: task.taskCode }] : [])
+        ]
+      });
+
+      const totalTaskSecs = allTaskTimesheets.reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+      task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
+      const totalHrs = Math.floor(totalTaskSecs / 3600);
+      const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
+      task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+      await task.save();
+    }
 
     res.status(200).json({
       success: true,
       message: 'Timer stopped and duration logged to timesheet!',
-      data: newLog
+      data: timesheetLog
     });
   } catch (error) {
     next(error);

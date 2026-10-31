@@ -49,6 +49,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     email: '',
     phone: '',
     dob: '',
+    joiningDate: '',
     avatar: '',
     bio: '',
     workingMode: 'Office',
@@ -121,10 +122,11 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
       setFormData({
         name: targetEmp.name || 'Employee',
         role: targetEmp.role || 'Senior Specialist',
-        department: targetEmp.department || 'Engineering',
+        department: targetEmp.department || 'IT & Software Development',
         email: targetEmp.email || 'employee@company.com',
         phone: targetEmp.phone || '+91 98765 43210',
         dob: targetEmp.dob || '1998-10-15',
+        joiningDate: targetEmp.joiningDate || '',
         avatar: targetEmp.avatar || PRESET_AVATARS[0],
         bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
         workingMode: targetEmp.workingMode || localStorage.getItem('ems_working_mode') || 'Office',
@@ -184,7 +186,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
     // Security Check: HR cannot promote/assign Admin
     if (canEditRole && !isActorAdmin && formData.role.toLowerCase().includes('admin')) {
-      alert('🔒 Security Restriction: HR Managers cannot create or assign Admin accounts. Only Super Admin has this privilege.');
+      addToast('Security Restriction: HR Managers cannot create or assign Admin accounts. Only Super Admin has this privilege.', 'error');
       return;
     }
 
@@ -238,172 +240,81 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '560px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5 animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 m-0">
               Edit Employee Profile
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0 mt-1">
               Update your photo, designation, and bio — updates immediately across all screens!
             </p>
           </div>
           <button
             onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-[18px]">
           {/* Avatar selection */}
-          <div style={{
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '16px'
-          }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '10px' }}>
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
+            <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200 mb-2.5">
               📸 Profile Picture & Avatar
             </label>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative' }}>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="relative">
                 <img
                   src={formData.avatar || PRESET_AVATARS[0]}
                   alt="Selected Avatar"
-                  style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '14px',
-                    objectFit: 'cover',
-                    border: '3px solid #2563eb',
-                    boxShadow: '0 4px 10px rgba(37,99,235,0.2)'
-                  }}
+                  className="w-16 h-16 rounded-[14px] object-cover border-[3px] border-blue-600 shadow-md shadow-blue-600/20"
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '200px' }}>
+              <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
                 {/* File Upload Button */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <label style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '7px 12px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '7px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                  }}>
-                    <Camera size={14} color="#2563eb" />
+                <div className="flex gap-2 items-center">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[7px] text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer shadow-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    <Camera size={14} className="text-blue-600 dark:text-blue-400" />
                     Upload from Device
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleFileUpload}
-                      style={{ display: 'none' }}
+                      className="hidden"
                     />
                   </label>
 
                   <button
                     type="button"
                     onClick={() => setShowUrlInput(!showUrlInput)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#2563eb',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-xs font-semibold cursor-pointer hover:underline"
                   >
                     {showUrlInput ? 'Hide URL' : 'Paste URL'}
                   </button>
                 </div>
 
                 {showUrlInput && (
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div className="flex gap-1.5">
                     <input
                       type="url"
                       placeholder="https://example.com/photo.jpg"
                       value={customAvatarUrl}
                       onChange={(e) => setCustomAvatarUrl(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '12px'
-                      }}
+                      className="flex-1 px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => {
                         if (customAvatarUrl) handleChange('avatar', customAvatarUrl);
                       }}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#2563eb',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 rounded-md text-xs font-semibold cursor-pointer transition-colors"
                     >
                       Apply
                     </button>
@@ -411,26 +322,20 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 )}
 
                 {/* Preset Avatars */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Presets:</span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Presets:</span>
+                  <div className="flex gap-1.5">
                     {PRESET_AVATARS.map((av, idx) => (
                       <img
                         key={idx}
                         src={av}
                         alt={`Avatar ${idx}`}
                         onClick={() => handleChange('avatar', av)}
-                        style={{
-                          width: '30px',
-                          height: '30px',
-                          borderRadius: '8px',
-                          objectFit: 'cover',
-                          cursor: 'pointer',
-                          border: formData.avatar === av ? '2px solid #2563eb' : '1.5px solid transparent',
-                          opacity: formData.avatar === av ? 1 : 0.65,
-                          transform: formData.avatar === av ? 'scale(1.1)' : 'scale(1)',
-                          transition: 'all 0.15s'
-                        }}
+                        className={`w-[30px] h-[30px] rounded-lg object-cover cursor-pointer transition-all ${
+                          formData.avatar === av
+                            ? 'border-2 border-blue-600 opacity-100 scale-110'
+                            : 'border border-transparent opacity-65 scale-100 hover:opacity-100'
+                        }`}
                       />
                     ))}
                   </div>
@@ -440,14 +345,14 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           </div>
 
           {/* Name & Designation */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                   Full Name *
                 </label>
                 {isActorAdmin ? (
-                  <span style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', backgroundColor: '#dbeafe', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-100 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
                     👑 Admin Direct Edit
                   </span>
                 ) : (
@@ -459,15 +364,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                       setRequestReason('');
                       setShowRequestModal(true);
                     }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#2563eb',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
+                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11px] font-bold cursor-pointer p-0 hover:underline"
                   >
                     ✏️ Request Change
                   </button>
@@ -479,38 +376,29 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 disabled={!isActorAdmin}
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
-                  color: isActorAdmin ? '#0f172a' : '#64748b',
-                  fontWeight: '600'
-                }}
+                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
+                  isActorAdmin
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                }`}
               />
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                   Designation / Role *
                 </label>
                 {canEditRole ? (
-                  <span style={{
-                    fontSize: '10.5px',
-                    color: isActorAdmin ? '#1e40af' : '#047857',
-                    fontWeight: '700',
-                    backgroundColor: isActorAdmin ? '#dbeafe' : '#dcfce7',
-                    padding: '2px 7px',
-                    borderRadius: '5px'
-                  }}>
+                  <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded ${
+                    isActorAdmin
+                      ? 'text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/60'
+                      : 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60'
+                  }`}>
                     {isActorAdmin ? '👑 Admin (Full Access)' : '💼 HR Access'}
                   </span>
                 ) : (
-                  <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
+                  <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
                     🔒 Read-only
                   </span>
                 )}
@@ -525,15 +413,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                     value={formData.role}
                     onChange={e => handleChange('role', e.target.value)}
                     placeholder="e.g. Senior Specialist / Team Leader"
-                    style={{
-                      width: '100%',
-                      padding: '9px 12px',
-                      borderRadius: '8px',
-                      border: '1.5px solid #3b82f6',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      fontWeight: '600'
-                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-blue-500 bg-white dark:bg-slate-800 text-[13.5px] outline-none font-semibold text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-500"
                   />
                   <datalist id="edit-profile-role-options">
                     {(() => {
@@ -563,49 +443,33 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   type="text"
                   disabled
                   value={formData.role}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13.5px',
-                    backgroundColor: '#f1f5f9',
-                    color: '#64748b',
-                    fontWeight: '600'
-                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold cursor-not-allowed"
                 />
               )}
             </div>
           </div>
 
           {/* Department & Email */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Department
               </label>
               <input
                 type="text"
                 value={formData.department}
                 onChange={e => handleChange('department', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                   Email Address *
                 </label>
                 {isActorAdmin ? (
-                  <span style={{ fontSize: '10px', color: '#1e40af', fontWeight: '700', backgroundColor: '#dbeafe', padding: '2px 6px', borderRadius: '4px' }}>
+                  <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold bg-blue-100 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
                     👑 Admin Direct Edit
                   </span>
                 ) : (
@@ -617,15 +481,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                       setRequestReason('');
                       setShowRequestModal(true);
                     }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#2563eb',
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
+                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11px] font-bold cursor-pointer p-0 hover:underline"
                   >
                     ✏️ Request Change
                   </button>
@@ -636,25 +492,19 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 disabled={!isActorAdmin}
                 value={formData.email}
                 onChange={e => handleChange('email', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
-                  color: isActorAdmin ? '#0f172a' : '#64748b',
-                  fontWeight: '600'
-                }}
+                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
+                  isActorAdmin
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                }`}
               />
             </div>
           </div>
 
           {/* Phone Number & Date of Birth (Auto Birthday Events Engine) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Phone Number
               </label>
               <input
@@ -662,137 +512,99 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 value={formData.phone}
                 onChange={e => handleChange('phone', e.target.value)}
                 placeholder="+91 98765 43210"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 🎂 Date of Birth (Auto-creates Birthday Event)
               </label>
               <input
                 type="date"
                 value={formData.dob}
                 onChange={e => handleChange('dob', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none'
-                }}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
               />
             </div>
           </div>
 
-          {/* Working Mode (Office / Remote / Hybrid) & Employee ID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                🏢 Working Mode
+          {/* Work Anniversary / Joining Date */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                ⭐ Joining Date (Automatic Work Anniversary Celebration)
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
-                {['Office', 'Remote', 'Hybrid'].map(mode => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => handleChange('workingMode', mode)}
-                    style={{
-                      padding: '7px 4px',
-                      borderRadius: '8px',
-                      border: formData.workingMode === mode ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                      background: formData.workingMode === mode ? '#eff6ff' : '#ffffff',
-                      color: formData.workingMode === mode ? '#1d4ed8' : '#475569',
-                      fontWeight: formData.workingMode === mode ? '700' : '500',
-                      fontSize: '11.5px',
-                      cursor: 'pointer',
-                      textAlign: 'center'
-                    }}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
+              {canEditRole ? (
+                <span className="text-[10px] text-purple-700 dark:text-purple-300 font-bold bg-purple-100 dark:bg-purple-950/60 px-1.5 py-0.5 rounded">
+                  👑 Admin/HR Direct Edit
+                </span>
+              ) : (
+                <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
+                  🔒 Company Record
+                </span>
+              )}
             </div>
+            <input
+              type="date"
+              disabled={!canEditRole}
+              value={formData.joiningDate || ''}
+              onChange={e => handleChange('joiningDate', e.target.value)}
+              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
+                canEditRole
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-purple-600'
+                  : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+              }`}
+            />
+          </div>
 
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-                  🆔 Employee ID / Code
-                </label>
-                {!isActorAdmin && (
-                  <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600' }}>
-                    🔒 Fixed
-                  </span>
-                )}
-              </div>
-              <input
-                type="text"
-                disabled={!isActorAdmin}
-                value={formData.employeeCode}
-                onChange={e => handleChange('employeeCode', e.target.value)}
-                placeholder="EMP-001"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  outline: 'none',
-                  fontWeight: '600',
-                  backgroundColor: isActorAdmin ? '#ffffff' : '#f8fafc',
-                  color: isActorAdmin ? '#0f172a' : '#64748b'
-                }}
-              />
+          {/* Employee ID / Code */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                🆔 Employee ID / Code
+              </label>
+              {!isActorAdmin && (
+                <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold">
+                  🔒 Fixed
+                </span>
+              )}
             </div>
+            <input
+              type="text"
+              disabled={!isActorAdmin}
+              value={formData.employeeCode}
+              onChange={e => handleChange('employeeCode', e.target.value)}
+              placeholder="EMP-001"
+              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
+                isActorAdmin
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
+                  : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+              }`}
+            />
           </div>
 
           {/* Bio */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               About / Bio
             </label>
             <textarea
               rows={3}
               value={formData.bio}
               onChange={e => handleChange('bio', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
+              className="w-full p-2.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none resize-y font-inherit focus:border-blue-600"
             />
           </div>
 
           {/* Custom Fields & Dynamic Attributes */}
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1.5px solid #e2e8f0',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 p-3.5 px-4 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
               <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                <label className="text-[13px] font-bold text-slate-900 dark:text-slate-100 m-0">
                   ⚙️ Custom Employee Fields & Attributes
                 </label>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
                   Industry-specific fields (e.g. Blood Group, Location, Emergency Contact, License, Skills).
                 </p>
               </div>
@@ -800,19 +612,11 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 <button
                   type="button"
                   onClick={() => setShowAddField(!showAddField)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: showAddField ? '#f1f5f9' : '#eff6ff',
-                    color: '#2563eb',
-                    border: '1px solid #bfdbfe',
-                    fontSize: '11.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
+                    showAddField
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 border border-slate-300 dark:border-slate-700'
+                      : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
+                  }`}
                 >
                   <Plus size={13} />
                   <span>{showAddField ? 'Cancel' : 'Add Field'}</span>
@@ -822,55 +626,25 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
             {/* Add New Field Form */}
             {showAddField && (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr auto',
-                gap: '8px',
-                padding: '10px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #bfdbfe',
-                borderRadius: '8px',
-                alignItems: 'center'
-              }}>
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 p-2.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-lg items-center">
                 <input
                   type="text"
                   placeholder="Field Name (e.g. Blood Group)"
                   value={newFieldKey}
                   onChange={e => setNewFieldKey(e.target.value)}
-                  style={{
-                    padding: '7px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12px',
-                    outline: 'none'
-                  }}
+                  className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
                 />
                 <input
                   type="text"
                   placeholder="Value (e.g. O+)"
                   value={newFieldValue}
                   onChange={e => setNewFieldValue(e.target.value)}
-                  style={{
-                    padding: '7px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12px',
-                    outline: 'none'
-                  }}
+                  className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleAddCustomField}
-                  style={{
-                    padding: '7px 14px',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white border-0 rounded-md text-xs font-bold cursor-pointer transition-colors"
                 >
                   Save Field
                 </button>
@@ -879,23 +653,14 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
             {/* Rendered Custom Fields */}
             {(formData.customFields || []).length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
                 {(formData.customFields || []).map((field, idx) => (
                   <div
                     key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      gap: '8px'
-                    }}
+                    className="flex items-center justify-between p-2 px-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg gap-2"
                   >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 font-bold uppercase">
                         {field.key}
                       </div>
                       {canEditRole ? (
@@ -903,20 +668,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                           type="text"
                           value={field.value}
                           onChange={e => handleCustomFieldChange(idx, e.target.value)}
-                          style={{
-                            width: '100%',
-                            border: 'none',
-                            borderBottom: '1px dashed #cbd5e1',
-                            fontSize: '12.5px',
-                            fontWeight: '600',
-                            color: '#0f172a',
-                            outline: 'none',
-                            padding: '2px 0',
-                            background: 'transparent'
-                          }}
+                          className="w-full border-0 border-b border-dashed border-slate-300 dark:border-slate-600 text-[12.5px] font-semibold text-slate-900 dark:text-slate-100 outline-none py-0.5 bg-transparent"
                         />
                       ) : (
-                        <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#0f172a' }}>
+                        <div className="text-[12.5px] font-semibold text-slate-900 dark:text-slate-100">
                           {field.value || '—'}
                         </div>
                       )}
@@ -925,13 +680,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                       <button
                         type="button"
                         onClick={() => handleRemoveCustomField(idx)}
-                        style={{
-                          border: 'none',
-                          background: 'none',
-                          color: '#94a3b8',
-                          cursor: 'pointer',
-                          padding: '4px'
-                        }}
+                        className="border-0 bg-transparent text-slate-400 hover:text-red-500 cursor-pointer p-1 transition-colors"
                         title="Remove field"
                       >
                         <Trash2 size={13} />
@@ -941,43 +690,23 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: '11.5px', color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
+              <div className="text-[11.5px] text-slate-400 italic py-1">
                 No custom fields defined yet for this employee.
               </div>
             )}
           </div>
 
           {/* Account Security & Password Section */}
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            padding: '12px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-[10px] border border-slate-200 dark:border-slate-700/80 p-3 px-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                 <Lock size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
                   Account Password & Security
                 </div>
-                <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
                   {isEditingOther ? 'Admin override: Set a new password for this employee.' : 'Update your login password (current password required).'}
                 </div>
               </div>
@@ -986,20 +715,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             <button
               type="button"
               onClick={() => setIsChangePassOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '7px',
-                backgroundColor: '#ffffff',
-                color: '#2563eb',
-                border: '1px solid #bfdbfe',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-xs font-bold cursor-pointer shadow-xs hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
             >
               <Key size={13} />
               <span>Change Password</span>
@@ -1007,30 +723,11 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           </div>
 
           {/* Action buttons */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            paddingTop: '14px',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
             <button
               type="submit"
               disabled={submitting}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 22px',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)'
-              }}
+              className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white border-0 py-2.5 px-[22px] rounded-lg text-[13.5px] font-semibold cursor-pointer shadow-sm shadow-sky-600/30 transition-all disabled:opacity-70"
             >
               <Check size={16} />
               {submitting ? 'Saving...' : 'Save Profile'}
@@ -1038,16 +735,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             <button
               type="button"
               onClick={onClose}
-              style={{
-                backgroundColor: '#ffffff',
-                color: '#64748b',
-                border: '1px solid #cbd5e1',
-                padding: '10px 18px',
-                borderRadius: '8px',
-                fontSize: '13.5px',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
+              className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 py-2.5 px-[18px] rounded-lg text-[13.5px] font-medium cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
@@ -1063,86 +751,53 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
 
       {/* Official Credential Change Request Modal (Employee -> Admin Approval) */}
       {showRequestModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.7)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '14px',
-            width: '100%',
-            maxWidth: '460px',
-            padding: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={20} color="#2563eb" />
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-[1100] p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[460px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={20} className="text-blue-600 dark:text-blue-400" />
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Request Credential Update
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRequestModal(false)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                className="bg-transparent border-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 leading-relaxed m-0 mb-4">
               Official identifiers (Full Name, Work Email) require Super Admin review and approval before updating across system records.
             </p>
 
-            <form onSubmit={handleSendCredentialRequest} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleSendCredentialRequest} className="flex flex-col gap-3.5">
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Field to Update
                 </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setRequestField('name')}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      borderRadius: '6px',
-                      border: requestField === 'name' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                      backgroundColor: requestField === 'name' ? '#eff6ff' : '#ffffff',
-                      color: requestField === 'name' ? '#1d4ed8' : '#475569',
-                      fontWeight: '700',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
+                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${
+                      requestField === 'name'
+                        ? 'border-2 border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                        : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
                   >
                     Full Name
                   </button>
                   <button
                     type="button"
                     onClick={() => setRequestField('email')}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      borderRadius: '6px',
-                      border: requestField === 'email' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                      backgroundColor: requestField === 'email' ? '#eff6ff' : '#ffffff',
-                      color: requestField === 'email' ? '#1d4ed8' : '#475569',
-                      fontWeight: '700',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
+                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${
+                      requestField === 'email'
+                        ? 'border-2 border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                        : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
                   >
                     Work Email
                   </button>
@@ -1150,16 +805,16 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Current Value
                 </label>
-                <div style={{ padding: '8px 10px', backgroundColor: '#f1f5f9', borderRadius: '6px', fontSize: '12.5px', color: '#475569', fontWeight: '600' }}>
+                <div className="p-2 px-2.5 bg-slate-100 dark:bg-slate-800 rounded-md text-[12.5px] text-slate-700 dark:text-slate-300 font-semibold">
                   {requestField === 'email' ? (targetEmp?.email || currentUser?.email) : (targetEmp?.name || currentUser?.name)}
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Requested New Value *
                 </label>
                 <input
@@ -1168,22 +823,13 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   placeholder={requestField === 'email' ? 'e.g. new.email@company.com' : 'e.g. Corrected Full Name'}
                   value={requestedValue}
                   onChange={e => setRequestedValue(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    padding: '0 10px',
-                    borderRadius: '6px',
-                    border: '1.5px solid #2563eb',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full h-[38px] px-2.5 rounded-md border border-blue-600 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-600 box-border"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Reason for Request *
                 </label>
                 <textarea
@@ -1192,50 +838,22 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   placeholder="Explain why this credential should be changed (e.g. Name spelling correction, New email domain)..."
                   value={requestReason}
                   onChange={e => setRequestReason(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12px',
-                    outline: 'none',
-                    resize: 'none',
-                    fontFamily: 'inherit'
-                  }}
+                  className="w-full p-2 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none resize-none font-inherit box-border focus:border-blue-600"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+              <div className="flex justify-end gap-2 mt-1.5">
                 <button
                   type="button"
                   onClick={() => setShowRequestModal(false)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: '#ffffff',
-                    color: '#64748b',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-3.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingRequest}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: '#2563eb',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(37,99,235,0.25)'
-                  }}
+                  className="px-[18px] py-2 rounded-md border-0 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors disabled:opacity-70"
                 >
                   {isSubmittingRequest ? 'Submitting...' : 'Submit Request to Admin'}
                 </button>

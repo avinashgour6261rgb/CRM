@@ -21,11 +21,14 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
+import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice } = useCRM();
   const { addToast } = useToast();
+  const { confirm, alert } = useConfirm();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
@@ -40,18 +43,13 @@ export const NoticeBoardPage = () => {
 
   const filteredNotices = useMemo(() => {
     return notices.filter(n => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (n.title || '').toLowerCase().includes(q) ||
-        (n.description || '').toLowerCase().includes(q) ||
-        (n.shortDescription || '').toLowerCase().includes(q) ||
-        (n.to || '').toLowerCase().includes(q);
+      const matchSearch = matchesSearch(n, search, [
+        'title', 'description', 'shortDescription', 'to', 'targetAudience', 'priority', 'postedBy', 'createdBy'
+      ]);
 
-      let matchesDate = true;
-      if (startDateFilter && n.date && n.date < startDateFilter) matchesDate = false;
-      if (endDateFilter && n.date && n.date > endDateFilter) matchesDate = false;
+      const matchDate = matchesDateRange(n.date || n.createdAt, startDateFilter, endDateFilter);
 
-      return matchesSearch && matchesDate;
+      return matchSearch && matchDate;
     });
   }, [notices, search, startDateFilter, endDateFilter]);
 
@@ -71,7 +69,11 @@ export const NoticeBoardPage = () => {
 
   const handleExport = () => {
     if (filteredNotices.length === 0) {
-      alert('No notices available to export');
+      alert({
+        title: 'Export Notices',
+        message: 'No notices are available to export for the current filter.',
+        variant: 'info'
+      });
       return;
     }
 
@@ -92,88 +94,38 @@ export const NoticeBoardPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="flex flex-col gap-3">
       
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <BellRing size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Company Notice Board</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: '700' }}>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Company Notice Board</h1>
+              <span className="text-[10.5px] px-1.5 py-[1px] rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
                 {filteredNotices.length} Active Notices
               </span>
             </div>
-            <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Official circulars, company policies & urgent announcements
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#2563eb',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             <span>Export CSV</span>
           </button>
           <button
             onClick={() => setIsAddOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
           >
             <Plus size={14} />
             <span>Publish Notice</span>
@@ -182,208 +134,132 @@ export const NoticeBoardPage = () => {
       </div>
 
       {/* Filter and Top Navigation Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2.5 flex-wrap">
           
           {/* Duration */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Duration:</span>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              fontSize: '11.5px'
-            }}>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Duration:</span>
+            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
               <input
                 type="date"
                 value={startDateFilter}
                 onChange={e => setStartDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
               />
-              <span style={{ color: '#94a3b8' }}>to</span>
+              <span className="text-slate-400">to</span>
               <input
                 type="date"
                 value={endDateFilter}
                 onChange={e => setEndDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
               />
             </div>
           </div>
 
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 10px',
-            height: '30px',
-            borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
-            minWidth: '220px'
-          }}>
-            <Search size={13} color="#94a3b8" />
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px]">
+            <Search size={13} className="text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search notice topic, audience..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                backgroundColor: 'transparent',
-                color: '#0f172a'
-              }}
+              className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
         </div>
 
         {selectedIds.length > 0 && (
-          <span style={{ fontSize: '11.5px', color: '#2563eb', fontWeight: '700' }}>
+          <span className="text-[11.5px] text-blue-600 dark:text-blue-400 font-bold">
             {selectedIds.length} notices selected
           </span>
         )}
       </div>
 
       {/* Notice Board Table */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-xs">
             <thead>
-              <tr style={{
-                backgroundColor: '#f8fafc',
-                borderBottom: '1px solid #e2e8f0',
-                color: '#64748b',
-                fontWeight: '700',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                textAlign: 'left'
-              }}>
-                <th style={{ padding: '8px 12px', width: '36px', whiteSpace: 'nowrap' }}>
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left">
+                <th className="px-3 py-2 w-9 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={filteredNotices.length > 0 && selectedIds.length === filteredNotices.length}
                     onChange={handleSelectAll}
-                    style={{ accentColor: '#2563eb', cursor: 'pointer' }}
+                    className="accent-blue-600 cursor-pointer"
                   />
                 </th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Notice Title & Content</th>
-                <th style={{ padding: '8px 12px', width: '120px', whiteSpace: 'nowrap' }}>Date</th>
-                <th style={{ padding: '8px 12px', width: '150px', whiteSpace: 'nowrap' }}>Target Audience</th>
-                <th style={{ padding: '8px 12px', textAlign: 'center', width: '90px', whiteSpace: 'nowrap' }}>Action</th>
+                <th className="px-3 py-2 whitespace-nowrap">Notice Title & Content</th>
+                <th className="px-3 py-2 w-[120px] whitespace-nowrap">Date</th>
+                <th className="px-3 py-2 w-[150px] whitespace-nowrap">Target Audience</th>
+                <th className="px-3 py-2 text-center w-[90px] whitespace-nowrap">Action</th>
               </tr>
             </thead>
 
             <tbody>
               {filteredNotices.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '500' }}>No notices found</div>
+                  <td colSpan={5} className="p-9 text-center text-slate-500 dark:text-slate-400">
+                    <div className="text-[13px] font-medium">No notices found</div>
                   </td>
                 </tr>
               ) : (
                 filteredNotices.map(notice => (
                   <tr
                     key={notice._id}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: selectedIds.includes(notice._id) ? 'rgba(37,99,235,0.04)' : '#ffffff',
-                      transition: 'background-color 0.15s'
-                    }}
+                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
+                      selectedIds.includes(notice._id)
+                        ? 'bg-blue-50/40 dark:bg-blue-950/20'
+                        : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    }`}
                   >
                     {/* Checkbox */}
-                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
+                    <td className="px-3 py-[7px] whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(notice._id)}
                         onChange={() => handleSelectOne(notice._id)}
-                        style={{ accentColor: '#2563eb', cursor: 'pointer' }}
+                        className="accent-blue-600 cursor-pointer"
                       />
                     </td>
 
                     {/* Notice Subject & Preview */}
-                    <td style={{ padding: '7px 12px' }}>
+                    <td className="px-3 py-[7px]">
                       <div
                         onClick={() => setSelectedNotice(notice)}
-                        style={{ fontWeight: '700', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer flex items-center gap-1.5"
                       >
                         {notice.title}
                         {notice.isImportant && (
-                          <span style={{
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            backgroundColor: '#fee2e2',
-                            color: '#b91c1c'
-                          }}>
+                          <span className="px-[5px] py-[1px] rounded text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400">
                             URGENT
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px', maxWidth: '600px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-[600px] overflow-hidden text-ellipsis whitespace-nowrap">
                         {notice.description || notice.shortDescription || notice.fullContent}
                       </div>
                     </td>
 
                     {/* Date */}
-                    <td style={{ padding: '7px 12px', color: '#64748b', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                    <td className="px-3 py-[7px] text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
                       {notice.date}
                     </td>
 
                     {/* To */}
-                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                      <span style={{
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        backgroundColor: '#f1f5f9',
-                        color: '#334155',
-                        fontSize: '11px',
-                        fontWeight: '600'
-                      }}>
+                    <td className="px-3 py-[7px] whitespace-nowrap">
+                      <span className="px-[7px] py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
                         {notice.to || notice.targetAudience || 'All Employees'}
                       </span>
                     </td>
 
                     {/* Action */}
-                    <td style={{ padding: '7px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <td className="px-3 py-[7px] text-center whitespace-nowrap">
                       <button
                         onClick={() => setSelectedNotice(notice)}
-                        style={{
-                          background: '#eff6ff',
-                          border: '1px solid #bfdbfe',
-                          borderRadius: '5px',
-                          padding: '3px 8px',
-                          cursor: 'pointer',
-                          color: '#2563eb',
-                          fontSize: '11.5px',
-                          fontWeight: '700'
-                        }}
+                        className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-400 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
                       >
                         View Notice
                       </button>
@@ -396,26 +272,10 @@ export const NoticeBoardPage = () => {
         </div>
 
         {/* Footer Pagination */}
-        <div style={{
-          padding: '8px 12px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '11.5px',
-          color: '#64748b',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+          <div className="flex items-center gap-1">
             <span>Show</span>
-            <select style={{
-              padding: '2px 6px',
-              borderRadius: '4px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '11.5px'
-            }}>
+            <select className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11.5px] text-slate-700 dark:text-slate-300 outline-none">
               <option value="25">25</option>
               <option value="50">50</option>
               <option value="100">100</option>
@@ -427,46 +287,21 @@ export const NoticeBoardPage = () => {
             Showing 1 to {filteredNotices.length} of {notices.length} entries
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="flex items-center gap-1">
             <button
               disabled
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '11.5px',
-                cursor: 'not-allowed'
-              }}
+              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
             >
               Prev
             </button>
             <button
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #2563eb',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
+              className="px-2 py-[3px] rounded border border-blue-600 bg-blue-600 text-white text-[11.5px] font-bold cursor-pointer"
             >
               1
             </button>
             <button
               disabled
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '11.5px',
-                cursor: 'not-allowed'
-              }}
+              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
             >
               Next
             </button>
@@ -482,87 +317,49 @@ export const NoticeBoardPage = () => {
 
       {/* Notice Detail Modal */}
       {selectedNotice && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '560px',
-            padding: '24px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb'
-                }}>
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md text-[11.5px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
                   {selectedNotice.category || 'Company Notice'}
                 </span>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   Posted on {selectedNotice.date}
                 </span>
               </div>
               <button
                 onClick={() => setSelectedNotice(null)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                className="bg-transparent border-0 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer p-0"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-0 mb-3">
               {selectedNotice.title}
             </h3>
 
-            <div style={{
-              padding: '16px',
-              borderRadius: '10px',
-              backgroundColor: '#f8fafc',
-              fontSize: '13.5px',
-              color: '#1e293b',
-              lineHeight: '1.6',
-              border: '1px solid #e2e8f0',
-              marginBottom: '18px',
-              whiteSpace: 'pre-wrap'
-            }}>
+            <div className="p-4 rounded-[10px] bg-slate-50 dark:bg-slate-800/60 text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed border border-slate-200 dark:border-slate-700/60 mb-[18px] whitespace-pre-wrap">
               {selectedNotice.description || selectedNotice.fullContent || selectedNotice.shortDescription}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-              <span>Target: <strong>{selectedNotice.to || 'All Employees'}</strong></span>
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <span>Target: <strong className="text-slate-800 dark:text-slate-200">{selectedNotice.to || 'All Employees'}</strong></span>
               <button
-                onClick={() => {
-                  deleteNotice(selectedNotice._id);
-                  setSelectedNotice(null);
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Delete Company Notice',
+                    message: `Are you sure you want to permanently delete notice "${selectedNotice.title}"? This cannot be undone.`,
+                    confirmText: 'Delete Notice',
+                    variant: 'danger'
+                  });
+                  if (ok) {
+                    deleteNotice(selectedNotice._id);
+                    setSelectedNotice(null);
+                  }
                 }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #fee2e2',
-                  backgroundColor: '#fef2f2',
-                  color: '#dc2626',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 cursor-pointer font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
               >
                 <Trash2 size={13} />
                 Delete Notice

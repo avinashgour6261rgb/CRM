@@ -1,6 +1,7 @@
 /**
  * @file CalendarPage.jsx
- * @description Interactive Company Events & Calendar page matching Screenshot 3 with automatic birthday generation.
+ * @description Interactive Company Events & Calendar page with Google Calendar festivals,
+ * Admin holiday approval, and user-isolated private date memories.
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,20 +22,29 @@ import {
   Repeat,
   Bell,
   Heart,
-  Award
+  Award,
+  Lock,
+  Check
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddEventModal } from '../../../shared/components/modals/AddEventModal';
+import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
+import { dateMemoryService } from '../services/dateMemoryService';
+import { holidaySyncService } from '../../hr/services/holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const CalendarPage = () => {
   const { addToast } = useToast();
-  const { events, deleteEvent, computedBirthdays, computedAnniversaries } = useCRM();
+  const { confirm } = useConfirm();
+  const { events, deleteEvent, computedBirthdays, computedAnniversaries, darkMode } = useCRM();
+  const isDark = !!darkMode;
   const { holidays, currentUser, employees, leaves } = useHR();
   const { tasks, projects } = useWork();
 
@@ -45,18 +55,25 @@ export const CalendarPage = () => {
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
+  // Private Date Memory Modal State
+  const [isDateMemoryOpen, setIsDateMemoryOpen] = useState(false);
+  const [selectedMemoryDate, setSelectedMemoryDate] = useState('');
+  const [userMemories, setUserMemories] = useState([]);
+  const [suggestedHolidays, setSuggestedHolidays] = useState([]);
+
   // Category and View Filters
-  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'project' | 'holiday' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
+  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all' | 'project' | 'holiday' | 'festival' | 'memory' | 'birthday' | 'anniversary' | 'leave' | 'task' | 'meeting'
   const [showShifts, setShowShifts] = useState(false);
 
   // Filters
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(currentUser?._id || 'emp_001');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => currentUser?._id || '');
 
   useEffect(() => {
-    if (!isPrivileged && currentUser?._id) {
+    if (currentUser?._id && (!selectedEmployeeId || !isPrivileged)) {
       setSelectedEmployeeId(currentUser._id);
     }
-  }, [isPrivileged, currentUser?._id]);
+  }, [isPrivileged, currentUser?._id, selectedEmployeeId]);
+
   const [clientFilter, setClientFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -68,8 +85,67 @@ export const CalendarPage = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  // Load User's Private Memories (strictly isolated) & Suggested Festivals
+  const loadUserMemories = () => {
+    if (currentUser) {
+      setUserMemories(dateMemoryService.getUserMemories(currentUser));
+    }
+  };
+
+  const loadFestivals = async () => {
+    try {
+      const list = await holidaySyncService.getSuggestedHolidays(year);
+      setSuggestedHolidays(list);
+    } catch {
+      // Graceful fallback
+    }
+  };
+
+  useEffect(() => {
+    loadUserMemories();
+    loadFestivals();
+
+    const handleSync = () => {
+      loadUserMemories();
+      loadFestivals();
+    };
+
+    window.addEventListener('ems_user_memories_updated', handleSync);
+    window.addEventListener('ems_holidays_updated', handleSync);
+    window.addEventListener('hrms_storage_change', handleSync);
+    return () => {
+      window.removeEventListener('ems_user_memories_updated', handleSync);
+      window.removeEventListener('ems_holidays_updated', handleSync);
+      window.removeEventListener('hrms_storage_change', handleSync);
+    };
+  }, [currentUser?._id, year]);
+
+  // ── Safe Holiday Cancellation from Calendar Modal ──
+  const handleCancelSelectedHoliday = async () => {
+    if (!selectedEvent) return;
+    const holTitle = selectedEvent.title.replace(/^[🏖️🪔📌🕒🚀🌟🎂🏢]+\s*/u, '').trim();
+    const ok = await confirm({
+      title: 'Cancel Company Holiday?',
+      message: `Are you sure you want to cancel "${holTitle}" on ${selectedEvent.date}? This will immediately restore regular working day status for all employees across the company.`,
+      confirmText: 'Yes, Cancel Holiday',
+      cancelText: 'Keep Holiday',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      const delId = selectedEvent._id?.replace('hol_cal_', '') || selectedEvent.date;
+      await holidaySyncService.cancelOrDeleteHoliday(delId, currentUser);
+      addToast(`Cancelled "${holTitle}". Restored regular working day.`, 'info');
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error('Failed to cancel holiday:', err);
+      addToast('Failed to cancel holiday.', 'error');
+    }
+  };
+
   // =========================================================================
-  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + PROJECT DEADLINES
+  // COMBINE ALL EVENTS + DYNAMIC LEAVES + SHIFT SCHEDULES + BIRTHDAYS + HOLIDAYS + TASKS + MEMORIES + FESTIVALS
   // =========================================================================
   const allEvents = useMemo(() => {
     // 1. Base User & Company Events (Scoped: Personal Reminders visible only to creator!)
@@ -155,14 +231,14 @@ export const CalendarPage = () => {
 
     // 5. Dynamic Approved Leaves from Database
     const approvedLeaveEvents = [];
-    const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+    const isPrivilegedUser = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
     (leaves || []).filter(l => l.status === 'approved').forEach(l => {
       const isMine = (l.employeeId && currentUser?._id && String(l.employeeId) === String(currentUser._id)) ||
                      (l.employee && currentUser?._id && String(l.employee) === String(currentUser._id)) ||
                      (l.employeeCode && currentUser?.employeeCode && String(l.employeeCode) === String(currentUser.employeeCode)) ||
                      (l.employeeName && currentUser?.name && l.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
 
-      if (!isPrivileged && !isMine) return;
+      if (!isPrivilegedUser && !isMine) return;
 
       const start = new Date(l.startDate);
       const end = new Date(l.endDate);
@@ -194,19 +270,7 @@ export const CalendarPage = () => {
     // 6. Dynamic Tasks Due Dates (Scoped by user role & personal task isolation)
     const todayStr = new Date().toISOString().split('T')[0];
     const taskEvents = (tasks || [])
-      .filter(t => t?.dueDate)
-      .filter(t => {
-        // Personal tasks should ONLY appear on the creator/assigned employee's calendar
-        if (t.isPersonal) {
-          return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
-                  t.assignedById === currentUser?._id ||
-                  (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
-        }
-        if (isPrivileged) return true;
-        return (t.assignedToId === currentUser?._id || t.assignedTo === currentUser?._id ||
-                t.assignedToId === currentUser?.employeeCode || t.assignedTo === currentUser?.employeeCode ||
-                (t.assignedToName && currentUser?.name && t.assignedToName.toLowerCase() === currentUser.name.toLowerCase()));
-      })
+      .filter(t => t?.dueDate && isTaskVisibleToUser(t, currentUser))
       .map(t => {
         const isOverdue = t.isOverdue || (t.dueDate < todayStr && t.status !== 'completed');
         return {
@@ -217,15 +281,16 @@ export const CalendarPage = () => {
           time: '06:00 PM',
           type: isOverdue ? 'Overdue Task' : 'Task Deadline',
           location: t.projectName || 'Work Module',
-          description: `Task assigned to ${t.assignedToName || 'team'}. Status: ${t.status || 'Active'}. ${isOverdue ? '⚠️ Deadline Expired!' : ''}`,
-          color: isOverdue ? '#dc2626' : '#0891b2',
-          bgColor: isOverdue ? '#fee2e2' : '#ecfeff'
+          description: `Task: ${t.title}. Priority: ${t.priority || 'Medium'}. Status: ${t.status || 'Pending'}. Assigned to: ${t.assignedToName || 'Team'}.`,
+          isTask: true,
+          color: isOverdue ? '#dc2626' : '#2563eb',
+          bgColor: isOverdue ? '#fee2e2' : '#eff6ff'
         };
       });
 
-    // 7. Dynamic Project Deadlines (Shared so any employee can see project deadlines and contribute)
+    // 7. Dynamic Project Delivery Deadlines (Scoped to assigned members / public projects)
     const projectDeadlineEvents = (projects || [])
-      .filter(p => p?.deadline && p.status !== 'completed' && p.status !== 'cancelled')
+      .filter(p => p?.deadline && isProjectVisibleToUser(p, currentUser))
       .map(p => {
         const isOverdue = p.deadline < todayStr;
         return {
@@ -237,7 +302,7 @@ export const CalendarPage = () => {
           type: 'Project Deadline',
           isProject: true,
           location: p.client ? `Client: ${p.client}` : (p.department ? `Dept: ${p.department}` : 'All Teams'),
-          description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}. Open to all team members to view and contribute.`,
+          description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}.`,
           color: isOverdue ? '#dc2626' : '#7c3aed',
           bgColor: isOverdue ? '#fee2e2' : '#f5f3ff'
         };
@@ -276,17 +341,52 @@ export const CalendarPage = () => {
       }
     }
 
+    // 9. Personal Date Memories & Daily Notes (Strictly isolated to currentUser)
+    const privateMemoryEvents = (userMemories || []).map(m => ({
+      _id: m._id,
+      title: `${m.isCompleted ? '✅' : '📌'} ${m.time && m.time !== 'All Day' ? `[${m.time}] ` : ''}${m.title}`,
+      rawTitle: m.title,
+      date: m.date,
+      endDate: m.date,
+      time: m.time || 'All Day',
+      type: 'Private Memory',
+      tag: m.tag,
+      isCompleted: m.isCompleted,
+      isPrivateMemory: true,
+      description: m.description || 'Personal date memory & note.',
+      color: m.isCompleted ? '#64748b' : '#7c3aed',
+      bgColor: m.isCompleted ? '#f1f5f9' : '#f5f3ff'
+    }));
+
+    // 10. Major Indian Cultural Festivals & Observances (Google Calendar / Master List)
+    const festivalEvents = (suggestedHolidays || [])
+      .filter(s => !s.isConfirmed)
+      .map(s => ({
+        _id: `fest_${s.code}`,
+        title: `${s.icon || '🪔'} ${s.name}`,
+        date: s.date,
+        endDate: s.date,
+        time: 'All Day',
+        type: 'Major Festival',
+        isFestival: true,
+        description: s.description || 'Major cultural celebration.',
+        color: '#d97706',
+        bgColor: '#fef3c7'
+      }));
+
     return [
-      ...baseEvents,
+      ...holidayEvents,
+      ...festivalEvents,
+      ...privateMemoryEvents,
       ...dynamicBirthdayEvents,
       ...dynamicAnniversaryEvents,
-      ...holidayEvents,
+      ...baseEvents,
       ...approvedLeaveEvents,
       ...taskEvents,
       ...projectDeadlineEvents,
       ...shiftEvents
     ];
-  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate]);
+  }, [events, computedBirthdays, computedAnniversaries, holidays, leaves, tasks, projects, currentUser, currentDate, userMemories, suggestedHolidays]);
 
   // 30-Day Upcoming Birthdays & Anniversaries Advance Alerts
   const upcomingCelebrations = useMemo(() => {
@@ -339,6 +439,31 @@ export const CalendarPage = () => {
     return celebrations.sort((a, b) => a.diffDays - b.diffDays);
   }, [computedBirthdays, computedAnniversaries]);
 
+  // Next Upcoming Major Festival or Holiday Countdown
+  const todayStr = new Date().toISOString().split('T')[0];
+  const nextFestivalOrHoliday = useMemo(() => {
+    const combined = [
+      ...(suggestedHolidays || []),
+      ...(holidays || []).map(h => ({
+        code: h._id,
+        name: h.name,
+        date: h.date,
+        icon: h.icon || '🏖️',
+        isConfirmed: true,
+        dayOfWeek: h.dayOfWeek
+      }))
+    ];
+
+    const upcoming = combined
+      .filter(item => item.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (upcoming.length === 0) return null;
+    const next = upcoming[0];
+    const diffDays = Math.max(0, Math.ceil((new Date(next.date + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / (1000 * 60 * 60 * 24)));
+    return { ...next, diffDays };
+  }, [suggestedHolidays, holidays, todayStr]);
+
   // Filter events by search, category pill, and shift visibility
   const filteredEvents = useMemo(() => {
     return allEvents.filter(ev => {
@@ -351,6 +476,10 @@ export const CalendarPage = () => {
       if (eventTypeFilter === 'holiday') {
         const isHol = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
         if (!isHol) return false;
+      } else if (eventTypeFilter === 'festival') {
+        if (!ev.isFestival && !ev.isHoliday) return false;
+      } else if (eventTypeFilter === 'memory') {
+        if (!ev.isPrivateMemory) return false;
       } else if (eventTypeFilter === 'birthday') {
         if (ev.type !== 'Birthday') return false;
       } else if (eventTypeFilter === 'anniversary') {
@@ -366,6 +495,8 @@ export const CalendarPage = () => {
           ev.type === 'Birthday' ||
           ev.type === 'Work Anniversary' ||
           ev.isHoliday ||
+          ev.isFestival ||
+          ev.isPrivateMemory ||
           ev.type === 'Approved Leave' ||
           ev.type?.toLowerCase().includes('task') ||
           ev.type === 'Project Deadline' ||
@@ -397,6 +528,12 @@ export const CalendarPage = () => {
     setCurrentDate(new Date());
   };
 
+  // Open Date Memory Modal on Date Click
+  const handleOpenDateMemory = (dateString) => {
+    setSelectedMemoryDate(dateString);
+    setIsDateMemoryOpen(true);
+  };
+
   // Calendar days generation
   const calendarDays = useMemo(() => {
     const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sun
@@ -410,25 +547,29 @@ export const CalendarPage = () => {
     // Prev month overflow
     for (let i = adjustedFirstDay - 1; i >= 0; i--) {
       const dayNum = daysInPrevMonth - i;
-      const prevDate = new Date(year, month - 1, dayNum);
-      const dateStr = prevDate.toISOString().split('T')[0];
+      const prevM = month === 0 ? 12 : month;
+      const prevY = month === 0 ? year - 1 : year;
+      const dateStr = `${prevY}-${String(prevM).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum,
         dateStr,
         isCurrentMonth: false,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
     }
 
     // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
-      const curDate = new Date(year, month, i);
       const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum: i,
         dateStr,
         isCurrentMonth: true,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
     }
 
@@ -436,13 +577,16 @@ export const CalendarPage = () => {
     const totalSlots = Math.ceil(days.length / 7) * 7;
     let nextDay = 1;
     while (days.length < totalSlots) {
-      const nextDate = new Date(year, month + 1, nextDay);
-      const dateStr = nextDate.toISOString().split('T')[0];
+      const nextM = month === 11 ? 1 : month + 2;
+      const nextY = month === 11 ? year + 1 : year;
+      const dateStr = `${nextY}-${String(nextM).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+      const dayEvs = filteredEvents.filter(e => e.date === dateStr);
+      dayEvs.sort((a, b) => (b.isHoliday || b.isFestival ? 1 : 0) - (a.isHoliday || a.isFestival ? 1 : 0));
       days.push({
         dayNum: nextDay,
         dateStr,
         isCurrentMonth: false,
-        events: filteredEvents.filter(e => e.date === dateStr)
+        events: dayEvs
       });
       nextDay++;
     }
@@ -453,120 +597,103 @@ export const CalendarPage = () => {
   const selectedEmployee = employees.find(e => e._id === selectedEmployeeId) || currentUser;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="flex flex-col gap-3 animate-fade-in">
       
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-md min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-800 text-sky-500 dark:text-sky-400 flex items-center justify-center shrink-0">
             <CalendarIcon size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Company Calendar & Schedules</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#2563eb', fontWeight: '700' }}>
-                {filteredEvents.length} Events & Birthdays
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Company Calendar & Daily Planner</h1>
+              <span className="text-[10.5px] px-1.5 py-[1px] rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 font-bold">
+                {filteredEvents.length} Items & Milestones
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
-              Synchronized view of meetings, birthdays, work anniversaries & holiday schedule
+            <p className="mt-[1px] mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
+              National festivals, gazetted holidays, team milestones & your private daily notes
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsAddEventOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 12px',
-            height: '30px',
-            borderRadius: '6px',
-            backgroundColor: '#2563eb',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-          }}
-        >
-          <Plus size={14} />
-          Add Event / Reminder
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Quick Add Private Note Button */}
+          <button
+            onClick={() => handleOpenDateMemory(todayStr)}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-purple-600 hover:bg-purple-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-colors"
+            title="Add a private memory or task for today or any date"
+          >
+            <Lock size={12} />
+            <span>+ Private Note</span>
+          </button>
+
+          {/* Add Public Event Button */}
+          <button
+            onClick={() => setIsAddEventOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
+          >
+            <Plus size={14} />
+            <span>Add Event</span>
+          </button>
+        </div>
       </div>
 
+      {/* Upcoming Festive Celebration Countdown Ribbon */}
+      {nextFestivalOrHoliday && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300/80 dark:border-amber-800/60 rounded-[10px] p-2.5 px-4 flex items-center justify-between flex-wrap gap-2 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">{nextFestivalOrHoliday.icon || '🪔'}</span>
+            <div>
+              <span className="font-extrabold text-amber-950 dark:text-amber-200 text-xs">
+                Next Celebration: {nextFestivalOrHoliday.name}
+              </span>
+              <span className="text-slate-600 dark:text-slate-400 font-medium ml-1.5">
+                • {nextFestivalOrHoliday.date} ({nextFestivalOrHoliday.dayOfWeek || ''})
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-700 text-[11px]">
+              {nextFestivalOrHoliday.diffDays === 0 ? 'Today! 🎉' : nextFestivalOrHoliday.diffDays === 1 ? 'Tomorrow 🌟' : `In ${nextFestivalOrHoliday.diffDays} days`}
+            </span>
+            {isPrivileged && !nextFestivalOrHoliday.isConfirmed && (
+              <button
+                onClick={() => {
+                  holidaySyncService.confirmHolidayAsCompanyOff(nextFestivalOrHoliday, currentUser);
+                  addToast(`Confirmed "${nextFestivalOrHoliday.name}" as official paid company holiday!`, 'success');
+                }}
+                className="text-[11px] font-bold text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1 rounded cursor-pointer transition-colors shadow-xs"
+              >
+                Confirm as Off
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filter and Top Navigation Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-md">
+        <div className="flex items-center gap-2.5 flex-wrap">
           
           {/* Employee Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Employee:</span>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc'
-            }}>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Employee:</span>
+            <div className="flex items-center gap-1.5 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
               <img
                 src={selectedEmployee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                 alt={selectedEmployee?.name}
-                style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }}
+                className="w-[18px] h-[18px] rounded-full object-cover"
               />
               <select
                 value={selectedEmployeeId}
                 onChange={e => setSelectedEmployeeId(e.target.value)}
                 disabled={!isPrivileged}
                 title={!isPrivileged ? "Calendar schedule is scoped to your personal profile" : "Select employee schedule"}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: !isPrivileged ? '#64748b' : '#0f172a',
-                  cursor: !isPrivileged ? 'not-allowed' : 'pointer'
-                }}
+                className={`border-0 bg-transparent outline-none text-xs font-semibold ${
+                  !isPrivileged ? 'text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'text-slate-900 dark:text-slate-100 cursor-pointer'
+                }`}
               >
                 {isPrivileged ? (
                   employees.map(emp => (
@@ -584,22 +711,12 @@ export const CalendarPage = () => {
           </div>
 
           {/* Client Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Client:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Client:</span>
             <select
               value={clientFilter}
               onChange={e => setClientFilter(e.target.value)}
-              style={{
-                height: '30px',
-                padding: '0 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                fontSize: '12px',
-                color: '#0f172a',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
             >
               <option value="all">All Clients</option>
               <option value="enterprise">Enterprise Clients</option>
@@ -608,31 +725,14 @@ export const CalendarPage = () => {
           </div>
 
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 10px',
-            height: '30px',
-            borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
-            minWidth: '220px'
-          }}>
-            <Search size={13} color="#94a3b8" />
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px]">
+            <Search size={13} className="text-slate-400 dark:text-sky-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search event, milestone, birthday..."
+              placeholder="Search event, milestone, note, festival..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                backgroundColor: 'transparent',
-                color: '#0f172a'
-              }}
+              className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
         </div>
@@ -640,82 +740,48 @@ export const CalendarPage = () => {
 
       {/* 30-Day Celebrations Advance Alerts Banner */}
       {upcomingCelebrations.length > 0 && (
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #fed7aa',
-          padding: '12px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          background: 'linear-gradient(135deg, #fffaf5 0%, #ffffff 100%)',
-          boxShadow: '0 1px 3px rgba(249, 115, 22, 0.08)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🎉</span>
-              <span style={{ fontSize: '13px', fontWeight: '800', color: '#9a3412' }}>
+        <div className="rounded-[10px] border border-orange-200 dark:border-orange-950/80 p-3 px-4 flex flex-col gap-2.5 bg-gradient-to-br from-orange-50/60 to-white dark:from-orange-950/20 dark:to-slate-900 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎉</span>
+              <span className="text-[13px] font-extrabold text-orange-900 dark:text-orange-400">
                 Upcoming Celebrations (Next 30 Days)
               </span>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                backgroundColor: '#ffedd5',
-                color: '#c2410c'
-              }}>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300">
                 {upcomingCelebrations.length} upcoming
               </span>
             </div>
-            <span style={{ fontSize: '11.5px', color: '#9a3412', fontWeight: '500' }}>
+            <span className="text-[11.5px] text-orange-800 dark:text-orange-300 font-medium">
               Advance notification to plan wishes & team greetings
             </span>
           </div>
 
-          <div style={{
-            display: 'flex',
-            gap: '10px',
-            overflowX: 'auto',
-            paddingBottom: '4px'
-          }}>
+          <div className="flex gap-2.5 overflow-x-auto pb-1">
             {upcomingCelebrations.map(c => (
               <div
                 key={c.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '7px 12px',
-                  borderRadius: '8px',
-                  backgroundColor: c.type === 'birthday' ? '#fff7ed' : '#f5f3ff',
-                  border: `1px solid ${c.type === 'birthday' ? '#fed7aa' : '#ddd6fe'}`,
-                  minWidth: '220px',
-                  flexShrink: 0
-                }}
+                className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg border min-w-[220px] shrink-0 ${
+                  c.type === 'birthday'
+                    ? 'bg-orange-50/70 border-orange-200 dark:bg-slate-800 dark:border-slate-700'
+                    : 'bg-purple-50/70 border-purple-200 dark:bg-slate-800 dark:border-slate-700'
+                }`}
               >
                 <img
                   src={c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.name)}`}
                   alt={c.name}
-                  style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }}
+                  className="w-[30px] h-[30px] rounded-full object-cover"
                 />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap overflow-hidden text-ellipsis">
                     {c.type === 'birthday' ? '🎂' : '🌟'} {c.name}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     {c.type === 'birthday' ? 'Birthday' : `${c.yearsText} Anniversary`} • {c.date}
                   </div>
                 </div>
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: '800',
-                  padding: '2px 7px',
-                  borderRadius: '4px',
-                  backgroundColor: c.diffDays === 0 ? '#ef4444' : (c.type === 'birthday' ? '#ea580c' : '#7c3aed'),
-                  color: '#ffffff',
-                  whiteSpace: 'nowrap'
-                }}>
+                <span className={`text-[10.5px] font-extrabold px-[7px] py-0.5 rounded text-white whitespace-nowrap ${
+                  c.diffDays === 0 ? 'bg-red-500' : (c.type === 'birthday' ? 'bg-orange-600' : 'bg-purple-600')
+                }`}>
                   {c.badge}
                 </span>
               </div>
@@ -725,58 +791,38 @@ export const CalendarPage = () => {
       )}
 
       {/* Category Filter Pills Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2 dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'all', label: 'All Items' },
-            { id: 'project', label: '🚀 Project Deadlines', count: (projects || []).filter(p => p.deadline && p.status !== 'completed').length },
+            { id: 'memory', label: '🔒 My Private Notes', count: (userMemories || []).length },
             { id: 'holiday', label: '🏖️ Official Holidays', count: (holidays || []).length },
+            { id: 'festival', label: '🪔 Festivals & Vrats' },
+            { id: 'project', label: '🚀 Projects Due', count: (projects || []).filter(p => p.deadline && p.status !== 'completed').length },
             { id: 'birthday', label: '🎂 Birthdays', count: (computedBirthdays || []).length },
             { id: 'anniversary', label: '🌟 Anniversaries', count: (computedAnniversaries || []).length },
-            { id: 'leave', label: '🌴 Approved Leaves' },
+            { id: 'leave', label: '🌴 Leaves' },
             { id: 'task', label: '📌 Tasks Due' },
-            { id: 'meeting', label: '🏢 Company Events' }
+            { id: 'meeting', label: '🏢 Events' }
           ].map(tab => {
             const isActive = eventTypeFilter === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setEventTypeFilter(tab.id)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: isActive ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                  backgroundColor: isActive ? '#eff6ff' : '#ffffff',
-                  color: isActive ? '#1d4ed8' : '#475569',
-                  fontSize: '12px',
-                  fontWeight: isActive ? '700' : '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`py-1.5 px-3 rounded-md text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isActive
+                    ? 'border border-blue-600 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold'
+                    : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700/60'
+                }`}
               >
                 <span>{tab.label}</span>
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: '700',
-                    padding: '1px 5px',
-                    borderRadius: '10px',
-                    backgroundColor: isActive ? '#2563eb' : '#f1f5f9',
-                    color: isActive ? '#ffffff' : '#64748b'
-                  }}>
+                  <span className={`text-[10px] font-bold py-0.5 px-1.5 rounded-full ${
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
+                  }`}>
                     {tab.count}
                   </span>
                 )}
@@ -786,70 +832,61 @@ export const CalendarPage = () => {
         </div>
 
         {/* Shift visibility toggle */}
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '12px',
-          color: '#475569',
-          cursor: 'pointer',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          backgroundColor: showShifts ? '#f1f5f9' : 'transparent'
-        }}>
+        <label className={`flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer py-1 px-2 rounded-md ${
+          showShifts ? 'bg-slate-100 dark:bg-slate-800' : 'bg-transparent'
+        }`}>
           <input
             type="checkbox"
             checked={showShifts}
             onChange={e => setShowShifts(e.target.checked)}
-            style={{ cursor: 'pointer' }}
+            className="cursor-pointer"
           />
-          <span style={{ fontWeight: '600' }}>Show Daily Shifts</span>
+          <span className="font-semibold">Show Daily Shifts</span>
         </label>
       </div>
 
-      {/* Calendar Viewport Matching Screenshot 3 */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        padding: '18px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
+      {/* Quick Visual Legend Strip */}
+      <div className="flex items-center gap-4 px-3.5 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-800 text-[11.5px] flex-wrap shadow-2xs">
+        <span className="font-extrabold text-slate-400 dark:text-slate-500 uppercase text-[9.5px] tracking-wider">Legend:</span>
+        <div className="flex items-center gap-1.5 font-bold text-red-700 dark:text-red-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
+          <span>🏖️ Official Holiday (Off)</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+          <span>🪔 Cultural Festival</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+          <span>🏢 Company Event</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-purple-700 dark:text-purple-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
+          <span>🔒 Private Note</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-semibold text-orange-700 dark:text-orange-400">
+          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block"></span>
+          <span>🎂 Milestone Celebration</span>
+        </div>
+      </div>
+
+      {/* Calendar Viewport */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-[18px] shadow-sm dark:shadow-md">
         
         {/* Calendar Nav Bar (< > today, Month Year, month/week/day/list switcher) */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           {/* Navigation Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', borderRadius: '8px', border: '1px solid #cbd5e1', overflow: 'hidden' }}>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden">
               <button
                 onClick={handlePrevMonth}
-                style={{
-                  padding: '6px 12px',
-                  background: '#ffffff',
-                  border: 'none',
-                  borderRight: '1px solid #cbd5e1',
-                  cursor: 'pointer',
-                  color: '#475569'
-                }}
+                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={handleNextMonth}
-                style={{
-                  padding: '6px 12px',
-                  background: '#ffffff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: '#475569'
-                }}
+                className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -857,50 +894,28 @@ export const CalendarPage = () => {
 
             <button
               onClick={handleToday}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                color: '#475569',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="py-1.5 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               today
             </button>
           </div>
 
           {/* Current Month & Year Display */}
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+          <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
             {monthNames[month]} {year}
           </div>
 
           {/* View Switcher (month, week, day, list) */}
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0'
-          }}>
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
             {['month', 'week', 'day', 'list'].map(view => (
               <button
                 key={view}
                 onClick={() => setCurrentView(view)}
-                style={{
-                  padding: '5px 14px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  backgroundColor: currentView === view ? '#0f172a' : 'transparent',
-                  color: currentView === view ? '#ffffff' : '#64748b',
-                  transition: 'all 0.15s ease',
-                  textTransform: 'capitalize'
-                }}
+                className={`py-1 px-3.5 rounded-md border-none text-[12.5px] font-bold cursor-pointer transition-all capitalize ${
+                  currentView === view
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
               >
                 {view}
               </button>
@@ -909,16 +924,7 @@ export const CalendarPage = () => {
         </div>
 
         {/* Days of Week Header */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          borderBottom: '1px solid #e2e8f0',
-          paddingBottom: '8px',
-          textAlign: 'center',
-          fontSize: '13px',
-          fontWeight: '700',
-          color: '#475569'
-        }}>
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
           {DAYS_OF_WEEK.map(day => (
             <div key={day}>{day}</div>
           ))}
@@ -926,12 +932,7 @@ export const CalendarPage = () => {
 
         {/* Month Calendar Grid */}
         {currentView === 'month' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            borderLeft: '1px solid #f1f5f9',
-            borderTop: '1px solid #f1f5f9'
-          }}>
+          <div className="grid grid-cols-7 border-l border-t border-slate-100 dark:border-slate-800">
             {calendarDays.map((day, idx) => {
               const isHolidayDay = day.events?.some(ev => 
                 ev.isHoliday ||
@@ -939,97 +940,95 @@ export const CalendarPage = () => {
                 ev.title?.toLowerCase().includes('holiday') ||
                 ev._id?.startsWith('hol_')
               );
+              const isToday = day.dateStr === todayStr;
+              const privateNotesCount = day.events.filter(e => e.isPrivateMemory).length;
 
               return (
                 <div
                   key={idx}
-                  style={{
-                    minHeight: '100px',
-                    borderRight: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
-                    borderBottom: isHolidayDay ? '1.5px solid #fca5a5' : '1px solid #f1f5f9',
-                    padding: '6px 8px',
-                    backgroundColor: isHolidayDay 
-                      ? '#fef2f2' 
-                      : (day.isCurrentMonth ? '#ffffff' : '#fafafa'),
-                    position: 'relative',
-                    transition: 'background-color 0.15s ease'
-                  }}
+                  onClick={() => handleOpenDateMemory(day.dateStr)}
+                  className={`min-h-[105px] p-1.5 px-2 relative transition-all cursor-pointer group hover:bg-blue-50/25 dark:hover:bg-blue-900/10 ${
+                    isHolidayDay
+                      ? 'border-r-[1.5px] border-b-[1.5px] border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20'
+                      : `border-r border-b border-slate-100 dark:border-slate-800 ${
+                          day.isCurrentMonth
+                            ? 'bg-white dark:bg-slate-900'
+                            : 'bg-slate-50/60 dark:bg-slate-950/60'
+                        }`
+                  }`}
+                  title="Click on any date to write private memory / view daily schedule"
                 >
-                  {/* Day Number, Today & Holiday Tag */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '4px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* Day Number, Tags & Quick Add Pin */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       {isHolidayDay && (
-                        <span style={{
-                          fontSize: '9px',
-                          fontWeight: '800',
-                          color: '#dc2626',
-                          backgroundColor: '#fee2e2',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          letterSpacing: '0.2px'
-                        }}>
-                          🏖️ HOLIDAY
+                        <span className="text-[9px] font-extrabold text-red-500 bg-red-100 dark:bg-[#451a1a] py-0.5 px-1.5 rounded tracking-wide">
+                          🏖️ OFF
                         </span>
                       )}
-                      {day.dateStr === new Date().toISOString().split('T')[0] && (
-                        <span style={{
-                          fontSize: '9px',
-                          fontWeight: '800',
-                          color: '#1d4ed8',
-                          backgroundColor: '#dbeafe',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          letterSpacing: '0.2px'
-                        }}>
+                      {isToday && (
+                        <span className="text-[9px] font-extrabold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/60 py-0.5 px-1.5 rounded tracking-wide">
                           TODAY
                         </span>
                       )}
+                      {privateNotesCount > 0 && (
+                        <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/50 py-0.5 px-1.5 rounded tracking-wide flex items-center gap-0.5">
+                          📌 {privateNotesCount}
+                        </span>
+                      )}
                     </div>
-                    <span style={{
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      color: isHolidayDay ? '#dc2626' : (day.dateStr === new Date().toISOString().split('T')[0] ? '#2563eb' : (day.isCurrentMonth ? '#0f172a' : '#cbd5e1')),
-                      width: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
-                      height: day.dateStr === new Date().toISOString().split('T')[0] ? '22px' : 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      backgroundColor: day.dateStr === new Date().toISOString().split('T')[0] ? '#eff6ff' : 'transparent',
-                      border: day.dateStr === new Date().toISOString().split('T')[0] ? '1px solid #93c5fd' : 'none'
-                    }}>
-                      {day.dayNum}
-                    </span>
+
+                    <div className="flex items-center gap-1">
+                      {/* Hover Quick Add Indicator */}
+                      <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-slate-800 px-1 rounded transition-opacity">
+                        +Note
+                      </span>
+                      <span className={`text-[12.5px] font-bold flex items-center justify-center rounded-full ${
+                        isToday
+                          ? 'w-[22px] h-[22px] text-blue-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-500'
+                          : isHolidayDay
+                          ? 'text-red-400'
+                          : day.isCurrentMonth
+                          ? 'text-slate-900 dark:text-slate-50'
+                          : 'text-slate-300 dark:text-slate-600'
+                      }`}>
+                        {day.dayNum}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Event Pills */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {/* Event & Note Pills */}
+                  <div className="flex flex-col gap-0.5">
                     {day.events.slice(0, 3).map(ev => {
                       const isEvHoliday = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev.title?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
+                      const isEvPrivate = ev.isPrivateMemory;
+
                       return (
                         <div
                           key={ev._id}
-                          onClick={() => setSelectedEvent(ev)}
-                          style={{
-                            padding: '3px 6px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            backgroundColor: isEvHoliday ? '#fee2e2' : (ev.bgColor || '#eff6ff'),
-                            color: isEvHoliday ? '#b91c1c' : (ev.color || '#2563eb'),
-                            borderLeft: `3px solid ${isEvHoliday ? '#ef4444' : (ev.color || '#2563eb')}`,
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isEvPrivate) {
+                              handleOpenDateMemory(ev.date);
+                            } else {
+                              setSelectedEvent(ev);
+                            }
                           }}
-                          title={`${ev.title} (${ev.time})`}
+                          className={`py-0.5 px-1.5 rounded text-[11px] font-bold cursor-pointer truncate shadow-2xs dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all ${
+                            isEvHoliday
+                              ? 'bg-red-100/90 dark:bg-[#451a1a] text-red-700 dark:text-red-300 border-l-[3px] border-red-600 font-extrabold'
+                              : ev.isFestival
+                              ? 'bg-amber-100/90 dark:bg-[#45301a] text-amber-800 dark:text-amber-200 border-l-[3px] border-amber-600 font-extrabold'
+                              : isEvPrivate
+                              ? 'bg-purple-100/80 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-l-[3px] border-purple-500'
+                              : 'dark:bg-slate-800 dark:text-slate-100'
+                          }`}
+                          style={(!isEvHoliday && !ev.isFestival && !isEvPrivate) ? {
+                            backgroundColor: isDark ? undefined : (ev.bgColor || '#eff6ff'),
+                            color: isDark ? undefined : (ev.color || '#2563eb'),
+                            borderLeft: `3px solid ${ev.color || '#2563eb'}`
+                          } : undefined}
+                          title={`${ev.title} (${ev.time || 'All Day'})`}
                         >
                           {ev.title}
                         </div>
@@ -1037,20 +1036,12 @@ export const CalendarPage = () => {
                     })}
                     {day.events.length > 3 && (
                       <div
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setCurrentDate(new Date(day.dateStr));
                           setCurrentView('day');
                         }}
-                        style={{
-                          fontSize: '10px',
-                          color: '#2563eb',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          padding: '2px 4px',
-                          borderRadius: '4px',
-                          backgroundColor: '#eff6ff',
-                          textAlign: 'center'
-                        }}
+                        className="text-[10px] text-blue-600 dark:text-blue-400 font-bold cursor-pointer py-0.5 px-1 rounded bg-blue-50 dark:bg-blue-950/60 text-center hover:bg-blue-100 dark:hover:bg-blue-900/40"
                         title="Click to view all events for this day"
                       >
                         +{day.events.length - 3} more...
@@ -1065,46 +1056,44 @@ export const CalendarPage = () => {
 
         {/* Week View */}
         {currentView === 'week' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            borderLeft: '1px solid #f1f5f9',
-            borderTop: '1px solid #f1f5f9',
-            marginTop: '12px'
-          }}>
+          <div className="grid grid-cols-7 border-l border-t border-slate-100 dark:border-slate-800 mt-3">
             {calendarDays.slice(0, 7).map((day, idx) => (
               <div
                 key={idx}
-                style={{
-                  minHeight: '260px',
-                  borderRight: '1px solid #f1f5f9',
-                  borderBottom: '1px solid #f1f5f9',
-                  padding: '10px',
-                  backgroundColor: '#ffffff'
-                }}
+                onClick={() => handleOpenDateMemory(day.dateStr)}
+                className="min-h-[260px] border-r border-b border-slate-100 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors"
               >
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>
-                  {DAYS_OF_WEEK[idx]} ({day.dateStr})
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100">
+                    {DAYS_OF_WEEK[idx]} ({day.dateStr})
+                  </div>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-slate-800 px-1 rounded">
+                    +Note
+                  </span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="flex flex-col gap-1.5">
                   {day.events.map(ev => (
                     <div
                       key={ev._id}
-                      onClick={() => setSelectedEvent(ev)}
-                      style={{
-                        padding: '6px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11.5px',
-                        fontWeight: '700',
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (ev.isPrivateMemory) {
+                          handleOpenDateMemory(ev.date);
+                        } else {
+                          setSelectedEvent(ev);
+                        }
+                      }}
+                      className="p-1.5 px-2 rounded-md text-[11.5px] font-bold cursor-pointer shadow-xs dark:bg-slate-800 dark:text-slate-100"
+                      style={isDark ? {
+                        borderLeft: `3px solid ${ev.color || '#3b82f6'}`
+                      } : {
                         backgroundColor: ev.bgColor,
                         color: ev.color,
-                        borderLeft: `3px solid ${ev.color}`,
-                        cursor: 'pointer',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        borderLeft: `3px solid ${ev.color}`
                       }}
                     >
                       <div>{ev.title}</div>
-                      <div style={{ fontSize: '10.5px', opacity: 0.8, marginTop: '2px' }}>{ev.time}</div>
+                      <div className="text-[10.5px] opacity-80 mt-0.5">{ev.time}</div>
                     </div>
                   ))}
                 </div>
@@ -1115,68 +1104,70 @@ export const CalendarPage = () => {
 
         {/* Day View */}
         {currentView === 'day' && (
-          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{
-              padding: '14px 18px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              fontWeight: '700',
-              fontSize: '14px',
-              color: '#0f172a'
-            }}>
-              Events for {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          <div className="mt-4 flex flex-col gap-3">
+            <div className="p-3.5 px-[18px] bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+              <div className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                Events for {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </div>
+              <button
+                onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-purple-600 text-white text-xs font-bold cursor-pointer hover:bg-purple-700 transition-colors"
+              >
+                <Lock size={11} />
+                <span>+ Add Note for this Day</span>
+              </button>
             </div>
             {filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).length > 0 ? (
               filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).map(ev => (
                 <div
                   key={ev._id}
-                  onClick={() => setSelectedEvent(ev)}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer'
+                  onClick={() => {
+                    if (ev.isPrivateMemory) {
+                      handleOpenDateMemory(ev.date);
+                    } else {
+                      setSelectedEvent(ev);
+                    }
                   }}
+                  className="p-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: ev.bgColor,
-                      color: ev.color,
-                      fontWeight: '800',
-                      fontSize: '13px'
-                    }}>
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className="py-2 px-3 rounded-lg font-extrabold text-[13px] dark:bg-slate-800 dark:text-slate-100"
+                      style={!isDark ? {
+                        backgroundColor: ev.bgColor,
+                        color: ev.color
+                      } : undefined}
+                    >
                       {ev.time}
                     </div>
                     <div>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>{ev.title}</div>
-                      <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '2px' }}>
-                        {ev.type} • {ev.location}
+                      <div className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{ev.title}</div>
+                      <div className="text-[12.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {ev.type} • {ev.location || 'Personal Planner'}
                       </div>
                     </div>
                   </div>
-                  <span style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    backgroundColor: ev.bgColor,
-                    color: ev.color
-                  }}>
+                  <span
+                    className="py-1 px-2.5 rounded-md text-xs font-bold dark:bg-slate-800 dark:text-slate-200"
+                    style={!isDark ? {
+                      backgroundColor: ev.bgColor,
+                      color: ev.color
+                    } : undefined}
+                  >
                     {ev.type}
                   </span>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
-                <CalendarIcon size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                <div style={{ fontSize: '13.5px' }}>No events scheduled for this day</div>
+              <div className="text-center py-10 text-slate-400">
+                <CalendarIcon size={32} className="mx-auto mb-2 opacity-50" />
+                <div className="text-[13.5px]">No events scheduled for this day</div>
+                <button
+                  onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700"
+                >
+                  + Add First Note / Task
+                </button>
               </div>
             )}
           </div>
@@ -1184,52 +1175,46 @@ export const CalendarPage = () => {
 
         {/* List View */}
         {currentView === 'list' && (
-          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="mt-4 flex flex-col gap-2.5">
             {filteredEvents.map(ev => (
               <div
                 key={ev._id}
-                onClick={() => setSelectedEvent(ev)}
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  cursor: 'pointer'
+                onClick={() => {
+                  if (ev.isPrivateMemory) {
+                    handleOpenDateMemory(ev.date);
+                  } else {
+                    setSelectedEvent(ev);
+                  }
                 }}
+                className="py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: ev.bgColor,
-                    color: ev.color,
-                    fontWeight: '800',
-                    fontSize: '12px',
-                    textAlign: 'center'
-                  }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="py-2 px-3 rounded-lg font-extrabold text-xs text-center min-w-[90px] dark:bg-slate-800 dark:text-slate-100"
+                    style={!isDark ? {
+                      backgroundColor: ev.bgColor,
+                      color: ev.color
+                    } : undefined}
+                  >
                     {ev.date}
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
                       {ev.title}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                      {ev.time} • {ev.type} • {ev.location}
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {ev.time} • {ev.type} • {ev.location || 'Calendar Record'}
                     </div>
                   </div>
                 </div>
 
-                <span style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  backgroundColor: ev.bgColor,
-                  color: ev.color
-                }}>
+                <span
+                  className="py-1 px-2.5 rounded-md text-[11.5px] font-bold dark:bg-slate-800 dark:text-slate-200"
+                  style={!isDark ? {
+                    backgroundColor: ev.bgColor,
+                    color: ev.color
+                  } : undefined}
+                >
                   {ev.type}
                 </span>
               </div>
@@ -1238,111 +1223,94 @@ export const CalendarPage = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Add Public Event Modal */}
       <AddEventModal
         isOpen={isAddEventOpen}
         onClose={() => setIsAddEventOpen(false)}
       />
 
+      {/* Private Date Memory Modal (User Isolated) */}
+      <DateMemoryModal
+        isOpen={isDateMemoryOpen}
+        onClose={() => setIsDateMemoryOpen(false)}
+        selectedDate={selectedMemoryDate}
+        currentUser={currentUser}
+        dayEvents={filteredEvents.filter(e => e.date === selectedMemoryDate)}
+      />
+
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '480px',
-            padding: '24px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <span style={{
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '700',
-                backgroundColor: selectedEvent.bgColor,
-                color: selectedEvent.color
-              }}>
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] p-6 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-4">
+              <span
+                className="py-1 px-2.5 rounded-md text-xs font-bold"
+                style={{
+                  backgroundColor: isDark ? '#1e293b' : selectedEvent.bgColor,
+                  color: isDark ? '#38bdf8' : selectedEvent.color
+                }}
+              >
                 {selectedEvent.type}
               </span>
               <button
                 onClick={() => setSelectedEvent(null)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                className="bg-transparent border-none text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mb-3">
               {selectedEvent.title}
             </h3>
 
             {/* Employee Profile Preview for Birthdays & Anniversaries */}
             {(selectedEvent.type === 'Birthday' || selectedEvent.type === 'Work Anniversary') && selectedEvent.employeeName && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                backgroundColor: selectedEvent.bgColor,
-                borderRadius: '10px',
-                border: `1px solid ${selectedEvent.color}30`,
-                marginBottom: '16px'
-              }}>
+              <div
+                className="flex items-center gap-3 p-3 px-3.5 rounded-[10px] mb-4 border border-slate-200 dark:border-slate-700"
+                style={{
+                  backgroundColor: isDark ? '#1e293b' : selectedEvent.bgColor,
+                  borderColor: isDark ? '#334155' : `${selectedEvent.color}30`
+                }}
+              >
                 <img
                   src={selectedEvent.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                   alt={selectedEvent.employeeName}
-                  style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${selectedEvent.color}` }}
+                  className="w-[42px] h-[42px] rounded-full object-cover"
+                  style={{ border: `2px solid ${selectedEvent.color}` }}
                 />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     {selectedEvent.employeeName}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
                     {selectedEvent.employeeRole || 'Colleague'}
                   </div>
                 </div>
-                <span style={{
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  color: selectedEvent.color,
-                  backgroundColor: '#ffffff',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                }}>
+                <span
+                  className="text-[11.5px] font-bold bg-white dark:bg-slate-900 py-1 px-2 rounded-md shadow-xs"
+                  style={{ color: isDark ? '#38bdf8' : selectedEvent.color }}
+                >
                   {selectedEvent.type === 'Work Anniversary' ? `${selectedEvent.serviceYearsText || '1st'} Year Milestone` : 'Birthday'}
                 </span>
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#475569', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarIcon size={16} color="#2563eb" />
-                <span>Date: <strong>{selectedEvent.date}</strong></span>
+            <div className="flex flex-col gap-2 text-[13px] text-slate-600 dark:text-slate-300 mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarIcon size={16} className="text-sky-400" />
+                <span>Date: <strong className="text-slate-900 dark:text-white">{selectedEvent.date}</strong></span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={16} color="#2563eb" />
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-sky-400" />
                 <span>Time: {selectedEvent.time}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={16} color="#2563eb" />
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-sky-400" />
                 <span>Location: {selectedEvent.location}</span>
               </div>
               {selectedEvent.isRecurring && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', fontWeight: '600' }}>
+                <div className="flex items-center gap-2 text-green-400 font-semibold">
                   <Repeat size={15} />
                   <span>Annual Recurring Event (Automatically repeats every year)</span>
                 </div>
@@ -1350,39 +1318,27 @@ export const CalendarPage = () => {
             </div>
 
             {selectedEvent.description && (
-              <div style={{
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: '#f8fafc',
-                fontSize: '13px',
-                color: '#334155',
-                lineHeight: '1.5',
-                marginBottom: '18px'
-              }}>
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed mb-[18px]">
                 {selectedEvent.description}
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div className="flex justify-end gap-2 flex-wrap">
+              {isPrivileged && (selectedEvent.isHoliday || selectedEvent.type?.toLowerCase().includes('holiday')) && (
+                <button
+                  onClick={handleCancelSelectedHoliday}
+                  className="py-2 px-3.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-300 text-[12.5px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 size={14} /> Cancel Holiday (Revert Off)
+                </button>
+              )}
               {selectedEvent.type === 'Work Anniversary' && (
                 <button
                   onClick={() => {
                     addToast(`🎉 Work Anniversary congratulations sent to ${selectedEvent.employeeName || 'Colleague'}!`, 'success');
                     setSelectedEvent(null);
                   }}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#7c3aed',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
+                  className="py-2 px-4 rounded-lg border-none bg-purple-600 hover:bg-purple-700 text-white text-[12.5px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
                   <Award size={14} /> Send Congratulations 🌟
                 </button>
@@ -1393,35 +1349,14 @@ export const CalendarPage = () => {
                     addToast(`🎂 Birthday wishes sent to ${selectedEvent.employeeName || 'Colleague'}!`, 'success');
                     setSelectedEvent(null);
                   }}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#d97706',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
+                  className="py-2 px-4 rounded-lg border-none bg-amber-600 hover:bg-amber-700 text-white text-[12.5px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
                   <Heart size={14} /> Send Birthday Wishes 🎉
                 </button>
               )}
               <button
                 onClick={() => setSelectedEvent(null)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[12.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Close
               </button>

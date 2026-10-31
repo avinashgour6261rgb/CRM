@@ -97,55 +97,34 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
   ];
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-      gap: '10px',
-      marginBottom: '12px'
-    }}>
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 mb-3">
       {kpis.map((kpi, idx) => {
         const Icon = kpi.icon;
         return (
           <div
             key={idx}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: '6px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
+            className="bg-white dark:bg-slate-900 rounded-[10px] p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-1.5 relative overflow-hidden"
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }}>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 {kpi.title}
               </span>
-              <div style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '6px',
-                backgroundColor: kpi.bgColor,
-                color: kpi.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
+              <div
+                className="w-[26px] h-[26px] rounded-md flex items-center justify-center shrink-0 dark:bg-slate-800"
+                style={{
+                  backgroundColor: kpi.bgColor,
+                  color: kpi.color
+                }}
+              >
                 <Icon size={14} />
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
                 {kpi.value}
               </div>
-              <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '3px', fontWeight: '500' }}>
+              <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                 {kpi.subtext}
               </div>
             </div>

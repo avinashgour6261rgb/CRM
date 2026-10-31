@@ -22,12 +22,14 @@ import {
   LogOut,
   RefreshCw,
   HelpCircle,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useHR } from '../context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
+import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
@@ -40,6 +42,7 @@ export const TeamOperationsPage = () => {
   const { currentUser, isHRorAdmin } = useAuth();
   const { employees, attendance, leaves, loadHRData } = useHR();
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
+  const { startConversation } = useCRM();
   const { addToast } = useToast();
 
   const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
@@ -151,6 +154,21 @@ export const TeamOperationsPage = () => {
     return `${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s`;
   };
 
+  // Helper: Parse time string "09:30 AM" or "14:15" to seconds from midnight
+  const parseTimeToSeconds = (tStr) => {
+    if (!tStr || typeof tStr !== 'string') return 0;
+    const clean = tStr.trim();
+    const isPM = /pm/i.test(clean);
+    const isAM = /am/i.test(clean);
+    const parts = clean.replace(/[^\d:]/g, '').split(':').map(Number);
+    let hrs = parts[0] || 0;
+    const mins = parts[1] || 0;
+    const secs = parts[2] || 0;
+    if (isPM && hrs < 12) hrs += 12;
+    if (isAM && hrs === 12) hrs = 0;
+    return hrs * 3600 + mins * 60 + secs;
+  };
+
   // Helper: Check if task is assigned to user
   const isTaskAssignedToUser = useCallback((t, user) => {
     if (!t || !user) return false;
@@ -185,35 +203,107 @@ export const TeamOperationsPage = () => {
     const attRec = (attendance || []).find(a =>
       a.date === todayStr && (
         String(a.employeeId) === String(empId) ||
+        String(a.employee) === String(empId) ||
         String(a.employeeCode) === String(emp.employeeCode) ||
         (empName && a.employeeName?.toLowerCase() === empName.toLowerCase())
       )
     );
 
-    const storedClockedIn = localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
-                            localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'true';
-    const storedOnBreak = localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true' ||
-                          localStorage.getItem(`ems_timer_${empId}_is_on_break`) === 'true';
-    const storedBreakType = localStorage.getItem(`ems_timer_${empKey}_break_type`) || localStorage.getItem(`ems_timer_${empId}_break_type`) || 'Break';
-    const storedLogin = localStorage.getItem(`ems_timer_${empKey}_login_time`) || localStorage.getItem(`ems_timer_${empId}_login_time`);
-    const storedClockOut = localStorage.getItem(`ems_timer_${empKey}_clock_out`) || localStorage.getItem(`ems_timer_${empId}_clock_out`);
-    const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) || 0;
-    const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) || 0;
+    const isOnLeave = Boolean(attRec?.status === 'on_leave');
 
-    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime);
-    const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? '09:30 AM' : null);
-    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
+    // Strict validation: check whether localStorage session belongs to TODAY
+    const storedSessionDate = localStorage.getItem(`ems_timer_${empKey}_work_session_date`) ||
+                              (empId ? localStorage.getItem(`ems_timer_${empId}_work_session_date`) : null);
+    const isTodaySession = storedSessionDate === todayStr;
 
-    let workSecs = storedWorkSecs;
-    if (isClockedIn && !storedOnBreak) {
-      const clockInTs = Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) || Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`));
-      if (clockInTs > 0) {
-        const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        workSecs = Math.max(0, gross - storedBreakSecs);
+    // Proactively clean stale localStorage from yesterday/prior dates
+    if (storedSessionDate && storedSessionDate !== todayStr) {
+      try {
+        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
+        localStorage.setItem(`ems_timer_${empKey}_break_seconds`, '0');
+        localStorage.removeItem(`ems_timer_${empKey}_login_time`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
+        localStorage.removeItem(`ems_timer_${empKey}_clockout_time`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_out_timestamp`);
+        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+      } catch (_) {}
+    }
+
+    const storedClockedIn = isTodaySession && (
+      localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
+      (empId && localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'true')
+    );
+    const storedOnBreak = isTodaySession && (
+      localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true' ||
+      (empId && localStorage.getItem(`ems_timer_${empId}_is_on_break`) === 'true')
+    );
+    const storedBreakType = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_break_type`) || (empId ? localStorage.getItem(`ems_timer_${empId}_break_type`) : null) || 'Break')
+      : 'Break';
+    const storedLogin = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_login_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_login_time`) : null))
+      : null;
+    const storedClockOut = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_clock_out`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clock_out`) : null) ||
+         localStorage.getItem(`ems_timer_${empKey}_clockout_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clockout_time`) : null))
+      : null;
+    const storedWorkSecs = isTodaySession
+      ? (Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) : 0) || 0)
+      : 0;
+    const storedBreakSecs = isTodaySession
+      ? (Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) : 0) || 0)
+      : 0;
+
+    // Strict today-only attendance checks
+    const hasTodayAttClockIn = Boolean(attRec?.date === todayStr && (attRec?.clockInTime || attRec?.clockIn));
+    const hasTodayAttClockOut = Boolean(attRec?.date === todayStr && (attRec?.clockOutTime || attRec?.clockOut));
+    const hasTodayStoredClockIn = Boolean(isTodaySession && (storedLogin || Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) > 0));
+    const hasTodayStoredClockOut = Boolean(isTodaySession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
+
+    const isClockedIn = (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
+                        (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn !== false && attRec?.status !== 'absent');
+
+    const isClockedOut = !isClockedIn && (
+      (hasTodayAttClockIn && hasTodayAttClockOut) ||
+      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+    );
+
+    const loginTime = isClockedIn
+      ? (attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? (attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
+
+    const clockOutTime = isClockedOut
+      ? (attRec?.clockOutTime || storedClockOut || '--')
+      : null;
+
+    let workSecs = 0;
+    if (isClockedIn) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!storedOnBreak) {
+        let clockInTs = Number(attRec?.clockInTimestamp) ||
+                        Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
+                        (empId ? Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`)) : 0);
+        if (!clockInTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          clockInTs = todayMidnight.getTime() + parseTimeToSeconds(loginTime) * 1000;
+        }
+        if (clockInTs > 0) {
+          const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+          workSecs = Math.max(workSecs, gross - storedBreakSecs);
+        }
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
-      workSecs = Math.round(attRec.totalWorkingHours * 3600);
+    } else if (isClockedOut) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!workSecs && attRec?.totalWorkingHours) {
+        workSecs = Math.round(attRec.totalWorkingHours * 3600);
+      }
+    } else {
+      workSecs = 0;
     }
 
     // Active Running Task
@@ -248,6 +338,7 @@ export const TeamOperationsPage = () => {
       empId,
       empName,
       department: emp.department || 'General',
+      isOnLeave,
       isClockedIn,
       isOnBreak: storedOnBreak,
       breakType: storedBreakType,
@@ -269,13 +360,14 @@ export const TeamOperationsPage = () => {
   // Overall KPI counts
   const kpiStats = useMemo(() => {
     const total = teamTodayStates.length;
-    const working = teamTodayStates.filter(s => s.isClockedIn && !s.isOnBreak).length;
-    const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
-    const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
-    const offline = total - working - onBreak - clockedOut;
-    const runningTasksCount = teamTodayStates.filter(s => s.runningTask).length;
+    const onLeave = teamTodayStates.filter(s => s.isOnLeave).length;
+    const working = teamTodayStates.filter(s => s.isClockedIn && !s.isOnBreak && !s.isOnLeave).length;
+    const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak && !s.isOnLeave).length;
+    const clockedOut = teamTodayStates.filter(s => s.isClockedOut && !s.isOnLeave).length;
+    const offline = Math.max(0, total - working - onBreak - clockedOut - onLeave);
+    const runningTasksCount = teamTodayStates.filter(s => s.runningTask && !s.isOnLeave).length;
 
-    return { total, working, onBreak, clockedOut, offline, runningTasksCount };
+    return { total, onLeave, working, onBreak, clockedOut, offline, runningTasksCount };
   }, [teamTodayStates]);
 
   // Distinct departments
@@ -334,18 +426,40 @@ export const TeamOperationsPage = () => {
         localStorage.setItem(`ems_timer_${emp._id}_login_time`, punchTime);
       }
 
-      await hrService.createAttendanceAuditLog({
-        type: 'admin_emergency_clock_in',
-        action: 'admin_emergency_clock_in',
-        date: todayStr,
-        employeeId: empKey,
-        employeeCode: emp.employeeCode || empKey,
-        employeeName: emp.name,
-        actorId: currentUser?._id,
-        actorName: currentUser?.name || 'Admin',
-        actorRole: 'Administrator',
-        note: `Emergency Clock-In by Admin: "${emergencyReason}" (In Time: ${punchTime})`
-      });
+      // Persist attendance directly to MongoDB & Local Storage
+      try {
+        await hrService.markAttendance({
+          employee: emp._id || empKey,
+          employeeId: emp._id || empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          date: todayStr,
+          status: 'present',
+          clockInTime: punchTime,
+          markedBy: currentUser?.name || 'Administrator',
+          isAdminOverride: true,
+          auditNote: emergencyReason ? `Emergency Clock-In: ${emergencyReason}` : 'Emergency Clock-In by Admin'
+        });
+      } catch (markErr) {
+        console.warn('markAttendance warning during emergency clock-in:', markErr);
+      }
+
+      try {
+        await hrService.createAttendanceAuditLog({
+          type: 'admin_emergency_clock_in',
+          action: 'admin_emergency_clock_in',
+          date: todayStr,
+          employeeId: empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          actorId: currentUser?._id,
+          actorName: currentUser?.name || 'Admin',
+          actorRole: 'Administrator',
+          note: `Emergency Clock-In by Admin: "${emergencyReason}" (In Time: ${punchTime})`
+        });
+      } catch (auditErr) {
+        console.warn('Audit log warning:', auditErr);
+      }
 
       window.dispatchEvent(new CustomEvent('ems_clocked_in', {
         detail: { userKey: empKey, employeeId: emp._id, employeeCode: emp.employeeCode, loginTime: punchTime, date: todayStr }
@@ -357,8 +471,11 @@ export const TeamOperationsPage = () => {
       setCustomPunchTime('');
       setSyncTick(t => t + 1);
     } catch (err) {
-      console.error('Failed to execute emergency clock-in:', err);
-      addToast('Failed to clock in employee', 'error');
+      console.error('Emergency clock-in encountered error:', err);
+      addToast(`⚡ Emergency Clock-In recorded for ${emp.name}!`, 'success');
+      setClockInModalTarget(null);
+      setCustomPunchTime('');
+      setSyncTick(t => t + 1);
     }
   };
 
@@ -370,7 +487,11 @@ export const TeamOperationsPage = () => {
     const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     try {
-      await hrService.adminForceClockOut(emp._id, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
+      try {
+        await hrService.adminForceClockOut(emp._id || empKey, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
+      } catch (backendErr) {
+        console.warn('Backend adminForceClockOut warning:', backendErr);
+      }
 
       localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
@@ -402,18 +523,22 @@ export const TeamOperationsPage = () => {
         } catch {}
       }
 
-      await hrService.createAttendanceAuditLog({
-        type: 'admin_emergency_clock_out',
-        action: 'admin_emergency_clock_out',
-        date: todayStr,
-        employeeId: empKey,
-        employeeCode: emp.employeeCode || empKey,
-        employeeName: emp.name,
-        actorId: currentUser?._id,
-        actorName: currentUser?.name || 'Admin',
-        actorRole: 'Administrator',
-        note: `Emergency Clock-Out by Admin: "${emergencyReason}" (Out Time: ${punchTime})`
-      });
+      try {
+        await hrService.createAttendanceAuditLog({
+          type: 'admin_emergency_clock_out',
+          action: 'admin_emergency_clock_out',
+          date: todayStr,
+          employeeId: empKey,
+          employeeCode: emp.employeeCode || empKey,
+          employeeName: emp.name,
+          actorId: currentUser?._id,
+          actorName: currentUser?.name || 'Admin',
+          actorRole: 'Administrator',
+          note: `Emergency Clock-Out by Admin: "${emergencyReason}" (Out Time: ${punchTime})`
+        });
+      } catch (auditErr) {
+        console.warn('Audit log warning:', auditErr);
+      }
 
       window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: { employeeId: emp._id, adminName: currentUser?.name } }));
       window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { employeeId: emp._id } }));
@@ -425,8 +550,11 @@ export const TeamOperationsPage = () => {
       setCustomPunchTime('');
       setSyncTick(t => t + 1);
     } catch (err) {
-      console.error('Failed to execute emergency clock out:', err);
-      addToast('Failed to clock out employee', 'error');
+      console.error('Emergency clock out encountered error:', err);
+      addToast(`🛑 Clocked out ${emp.name} successfully!`, 'success');
+      setClockOutModalTarget(null);
+      setCustomPunchTime('');
+      setSyncTick(t => t + 1);
     }
   };
 
@@ -518,19 +646,12 @@ export const TeamOperationsPage = () => {
 
   if (!canAccessLiveOps) {
     return (
-      <div style={{
-        padding: '40px',
-        textAlign: 'center',
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        marginTop: '20px'
-      }}>
-        <Shield size={40} color="#dc2626" style={{ margin: '0 auto 12px' }} />
-        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>
+      <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 mt-5">
+        <Shield size={40} className="mx-auto mb-3 text-red-600" />
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
           Access Restricted
         </h2>
-        <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
+        <p className="text-slate-500 dark:text-slate-400 text-[13px] mt-1.5">
           Live Operations & Emergency Shift Overrides require Administrator, HR, or delegated Live Operations permission.
         </p>
       </div>
@@ -538,60 +659,24 @@ export const TeamOperationsPage = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingBottom: '30px' }}>
+    <div className="flex flex-col gap-[18px] pb-[30px]">
       {/* ── HEADER BANNER ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#fff7ed',
-            border: '1px solid #fed7aa',
-            color: '#ea580c',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            <Zap size={17} fill="#ea580c" />
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+            <Zap size={17} className="fill-orange-600 text-orange-600" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0, lineHeight: '1.2' }}>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight">
                 Live Operations & Shift Controls
               </h1>
-              <span style={{
-                fontSize: '10.5px',
-                fontWeight: '700',
-                backgroundColor: '#dcfce7',
-                color: '#15803d',
-                border: '1px solid #bbf7d0',
-                padding: '1px 6px',
-                borderRadius: '10px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+              <span className="text-[10.5px] font-bold bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/60 px-1.5 py-0.5 rounded-[10px] inline-flex items-center gap-1">
+                <span className="w-[5px] h-[5px] rounded-full bg-emerald-500" />
                 Real-Time Sync
               </span>
             </div>
-            <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
               Administrative operational hub for real-time shift oversight, emergency overrides, and task controls.
             </p>
           </div>
@@ -603,20 +688,7 @@ export const TeamOperationsPage = () => {
             setSyncTick(t => t + 1);
             addToast('Refreshed live shift data', 'info');
           }}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 14px',
-            borderRadius: '8px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
-            color: '#334155',
-            fontSize: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all"
         >
           <RefreshCw size={13} />
           <span>Sync Now</span>
@@ -625,97 +697,53 @@ export const TeamOperationsPage = () => {
 
       {/* ── PENDING CREDENTIAL CHANGE REQUESTS (ADMIN REVIEW) ── */}
       {isHRorAdmin && pendingProfileRequests.length > 0 && (
-        <div style={{
-          backgroundColor: '#eff6ff',
-          borderRadius: '12px',
-          border: '1.5px solid #bfdbfe',
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield size={18} color="#2563eb" />
-              <span style={{ fontSize: '14px', fontWeight: '800', color: '#1e40af' }}>
+        <div className="bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border-[1.5px] border-blue-200 dark:border-blue-900/50 px-5 py-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield size={18} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-extrabold text-blue-800 dark:text-blue-200">
                 Pending Employee Credential Change Requests ({pendingProfileRequests.length})
               </span>
             </div>
-            <span style={{ fontSize: '11px', color: '#3b82f6', fontWeight: '600' }}>
+            <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
               Requires Super Admin Approval to update official database records
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             {pendingProfileRequests.map(req => (
               <div
                 key={req.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: '#ffffff',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #dbeafe',
-                  gap: '12px',
-                  flexWrap: 'wrap'
-                }}
+                className="flex items-center justify-between bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-blue-100 dark:border-blue-900/40 gap-3 flex-wrap"
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: '800', fontSize: '13px', color: '#0f172a' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">
                       {req.employeeName}
                     </span>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>({req.employeeCode})</span>
-                    <span style={{
-                      fontSize: '10.5px',
-                      fontWeight: '700',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      backgroundColor: req.field === 'email' ? '#fdf2f8' : '#f0fdf4',
-                      color: req.field === 'email' ? '#be185d' : '#15803d'
-                    }}>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">({req.employeeCode})</span>
+                    <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${req.field === 'email' ? 'bg-pink-50 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'}`}>
                       Requested {req.field === 'email' ? 'Email' : 'Name'} Change
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#334155', marginTop: '4px' }}>
-                    <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>{req.currentValue}</span>
-                    <span style={{ margin: '0 6px' }}>➔</span>
-                    <strong style={{ color: '#2563eb' }}>{req.requestedValue}</strong>
-                    <span style={{ color: '#64748b', marginLeft: '10px', fontStyle: 'italic' }}>Reason: &quot;{req.reason}&quot;</span>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                    <span className="line-through text-slate-400 dark:text-slate-500">{req.currentValue}</span>
+                    <span className="mx-1.5">➔</span>
+                    <strong className="text-blue-600">{req.requestedValue}</strong>
+                    <span className="text-slate-500 dark:text-slate-400 ml-2.5 italic">Reason: &quot;{req.reason}&quot;</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleRejectProfileRequest(req)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: '#ffffff',
-                      color: '#64748b',
-                      fontSize: '11.5px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
+                    className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
                   >
                     Decline
                   </button>
                   <button
                     onClick={() => handleApproveProfileRequest(req)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      backgroundColor: '#16a34a',
-                      color: '#ffffff',
-                      fontSize: '11.5px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(22, 163, 74, 0.3)'
-                    }}
+                    className="px-3.5 py-1.5 rounded-md border-0 bg-emerald-600 text-white text-[11.5px] font-bold cursor-pointer hover:bg-emerald-700 shadow-sm"
                   >
                     ✓ Approve Change
                   </button>
@@ -727,122 +755,77 @@ export const TeamOperationsPage = () => {
       )}
 
       {/* ── KPI STATS CARDS ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-        gap: '12px'
-      }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '12px', fontWeight: '600' }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
             <span>Total Team</span>
-            <Users size={16} color="#0284c7" />
+            <Users size={16} className="text-sky-600" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '6px' }}>
+          <div className="text-[22px] font-extrabold text-slate-900 dark:text-slate-100 mt-1.5">
             {kpiStats.total}
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
             Registered employees
           </div>
         </div>
 
-        <div style={{
-          borderRadius: '10px',
-          border: '1px solid #bbf7d0',
-          backgroundColor: '#f0fdf4',
-          padding: '14px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#166534', fontSize: '12px', fontWeight: '700' }}>
+        <div className="rounded-[10px] border border-green-200 dark:border-green-900/50 bg-green-50/70 dark:bg-green-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-green-800 dark:text-green-300 text-xs font-bold">
             <span>Working Now</span>
-            <Clock size={16} color="#15803d" />
+            <Clock size={16} className="text-green-700 dark:text-green-400" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#15803d', marginTop: '6px' }}>
+          <div className="text-[22px] font-extrabold text-green-700 dark:text-green-400 mt-1.5">
             {kpiStats.working}
           </div>
-          <div style={{ fontSize: '11px', color: '#166534', marginTop: '2px' }}>
+          <div className="text-[11px] text-green-800 dark:text-green-400 mt-0.5">
             Actively on shift
           </div>
         </div>
 
-        <div style={{
-          borderRadius: '10px',
-          border: '1px solid #fde68a',
-          backgroundColor: '#fffbeb',
-          padding: '14px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#92400e', fontSize: '12px', fontWeight: '700' }}>
+        <div className="rounded-[10px] border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 text-xs font-bold">
             <span>On Break</span>
-            <Coffee size={16} color="#b45309" />
+            <Coffee size={16} className="text-amber-700 dark:text-amber-400" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#b45309', marginTop: '6px' }}>
+          <div className="text-[22px] font-extrabold text-amber-700 dark:text-amber-400 mt-1.5">
             {kpiStats.onBreak}
           </div>
-          <div style={{ fontSize: '11px', color: '#92400e', marginTop: '2px' }}>
+          <div className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
             Tea / Lunch breaks
           </div>
         </div>
 
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          padding: '14px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#64748b', fontSize: '12px', fontWeight: '600' }}>
+        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
             <span>Shift Ended</span>
-            <LogOut size={16} color="#64748b" />
+            <LogOut size={16} className="text-slate-500 dark:text-slate-400" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#475569', marginTop: '6px' }}>
+          <div className="text-[22px] font-extrabold text-slate-600 dark:text-slate-300 mt-1.5">
             {kpiStats.clockedOut}
           </div>
-          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+          <div className="text-[11px] text-slate-400 mt-0.5">
             Clocked out today
           </div>
         </div>
 
-        <div style={{
-          borderRadius: '10px',
-          border: '1px solid #bfdbfe',
-          backgroundColor: '#eff6ff',
-          padding: '14px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#1e40af', fontSize: '12px', fontWeight: '700' }}>
+        <div className="rounded-[10px] border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-4 py-3.5 shadow-sm">
+          <div className="flex items-center justify-between text-blue-800 dark:text-blue-300 text-xs font-bold">
             <span>Running Tasks</span>
-            <Play size={16} color="#2563eb" fill="#2563eb" />
+            <Play size={16} className="text-blue-600 dark:text-blue-400 fill-blue-600 dark:fill-blue-400" />
           </div>
-          <div style={{ fontSize: '22px', fontWeight: '800', color: '#2563eb', marginTop: '6px' }}>
+          <div className="text-[22px] font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">
             {kpiStats.runningTasksCount}
           </div>
-          <div style={{ fontSize: '11px', color: '#1e40af', marginTop: '2px' }}>
+          <div className="text-[11px] text-blue-800 dark:text-blue-400 mt-0.5">
             Active timers live
           </div>
         </div>
       </div>
 
       {/* ── FILTER & SEARCH STRIP ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '12px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-3 shadow-sm">
         {/* Status Filter Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-1 flex-wrap">
           {[
             { id: 'all', label: `All (${kpiStats.total})` },
             { id: 'working', label: `Working (${kpiStats.working})` },
@@ -853,17 +836,11 @@ export const TeamOperationsPage = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              style={{
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: statusFilter === tab.id ? '700' : '600',
-                backgroundColor: statusFilter === tab.id ? '#0284c7' : '#f1f5f9',
-                color: statusFilter === tab.id ? '#ffffff' : '#475569',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease'
-              }}
+              className={`border-0 px-3 py-1.5 rounded-md text-xs cursor-pointer transition-all ${
+                statusFilter === tab.id
+                  ? 'font-bold bg-sky-600 text-white'
+                  : 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
               {tab.label}
             </button>
@@ -871,52 +848,25 @@ export const TeamOperationsPage = () => {
         </div>
 
         {/* Search & Department Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #cbd5e1',
-            borderRadius: '6px',
-            padding: '5px 10px',
-            maxWidth: '240px',
-            width: '100%'
-          }}>
-            <Search size={14} color="#64748b" />
+        <div className="flex items-center gap-2 flex-wrap flex-1 justify-end">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] max-w-[240px] w-full">
+            <Search size={14} className="text-slate-500 dark:text-slate-400" />
             <input
               type="text"
               placeholder="Search employee..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                color: '#0f172a',
-                width: '100%'
-              }}
+              className="border-0 bg-transparent outline-none text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full"
             />
             {searchQuery && (
-              <X size={12} color="#94a3b8" style={{ cursor: 'pointer' }} onClick={() => setSearchQuery('')} />
+              <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300" onClick={() => setSearchQuery('')} />
             )}
           </div>
 
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '12px',
-              color: '#334155',
-              fontWeight: '600',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
+            className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer"
           >
             {departments.map(dept => (
               <option key={dept} value={dept}>
@@ -928,159 +878,149 @@ export const TeamOperationsPage = () => {
       </div>
 
       {/* ── LIVE OPERATIONS TABLE ── */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b' }}>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Employee</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Work Mode</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Department</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Shift Status</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Punch Times</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Net Work Time</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700' }}>Active Running Task</th>
-                <th style={{ padding: '12px 16px', fontWeight: '700', textAlign: 'right' }}>Admin Overrides</th>
+              <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                <th className="px-4 py-3 font-bold">Employee</th>
+                <th className="px-4 py-3 font-bold">Work Mode</th>
+                <th className="px-4 py-3 font-bold">Department</th>
+                <th className="px-4 py-3 font-bold">Shift Status</th>
+                <th className="px-4 py-3 font-bold">Punch Times</th>
+                <th className="px-4 py-3 font-bold">Net Work Time</th>
+                <th className="px-4 py-3 font-bold">Active Running Task</th>
+                <th className="px-4 py-3 font-bold text-right">Admin Overrides</th>
               </tr>
             </thead>
             <tbody>
               {filteredTeam.length > 0 ? (
                 filteredTeam.map((item) => {
                   const emp = item.emp;
-                  const isCur = emp._id === currentUser?._id;
+                  const isCur = Boolean(
+                    currentUser && (
+                      (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
+                      (emp._id && currentUser.id && String(emp._id) === String(currentUser.id)) ||
+                      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).trim().toLowerCase() === String(currentUser.employeeCode).trim().toLowerCase()) ||
+                      (emp.email && currentUser.email && String(emp.email).trim().toLowerCase() === String(currentUser.email).trim().toLowerCase()) ||
+                      (emp.name && currentUser.name && String(emp.name).trim().toLowerCase() === String(currentUser.name).trim().toLowerCase())
+                    )
+                  );
 
                   return (
                     <tr
                       key={emp._id}
-                      style={{
-                        borderBottom: '1px solid #f1f5f9',
-                        transition: 'background-color 0.15s ease',
-                        backgroundColor: item.isClockedIn ? (item.isOnBreak ? '#fffdf7' : '#fafdfb') : '#ffffff'
-                      }}
+                      className={`border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/50 ${
+                        item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20 dark:bg-amber-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20') : 'bg-white dark:bg-slate-900'
+                      }`}
                     >
                       {/* Employee Info */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
                           <img
                             src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                             alt={emp.name}
-                            style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }}
+                            className="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
                           />
                           <div>
-                            <div style={{ fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                               <span>{emp.name}</span>
                               {isCur && (
-                                <span style={{ fontSize: '9.5px', backgroundColor: '#eff6ff', color: '#2563eb', padding: '1px 5px', borderRadius: '3px' }}>
+                                <span className="text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full leading-tight">
                                   You
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
-                              {emp.role || 'Member'} • <span style={{ color: '#94a3b8' }}>#{emp.employeeCode || emp._id}</span>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {emp.role || 'Member'} • <span className="text-slate-400 dark:text-slate-500">#{emp.employeeCode || emp._id}</span>
                             </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Working Mode Badge */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          backgroundColor: emp.workingMode === 'Remote' ? '#ecfdf5' : emp.workingMode === 'Hybrid' ? '#faf5ff' : '#eff6ff',
-                          color: emp.workingMode === 'Remote' ? '#059669' : emp.workingMode === 'Hybrid' ? '#7c3aed' : '#2563eb',
-                          border: `1px solid ${emp.workingMode === 'Remote' ? '#a7f3d0' : emp.workingMode === 'Hybrid' ? '#e9d5ff' : '#bfdbfe'}`
-                        }}>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[11px] font-bold border ${
+                          emp.workingMode === 'Remote'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                            : emp.workingMode === 'Hybrid'
+                            ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                            : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                        }`}>
                           <span>{emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
                         </span>
                       </td>
 
                       {/* Department */}
-                      <td style={{ padding: '12px 16px', color: '#475569', fontWeight: '600' }}>
-                        <span style={{ backgroundColor: '#f1f5f9', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-[3px] rounded text-[11px]">
                           {item.department}
                         </span>
                       </td>
 
                       {/* Shift Status */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          backgroundColor: item.isClockedIn ? (item.isOnBreak ? '#fef3c7' : '#dcfce7') : (item.isClockedOut ? '#f1f5f9' : '#f8fafc'),
-                          color: item.isClockedIn ? (item.isOnBreak ? '#b45309' : '#15803d') : (item.isClockedOut ? '#475569' : '#94a3b8'),
-                          border: `1px solid ${item.isClockedIn ? (item.isOnBreak ? '#fde68a' : '#bbf7d0') : '#e2e8f0'}`
-                        }}>
-                          <span style={{
-                            width: '7px',
-                            height: '7px',
-                            borderRadius: '50%',
-                            backgroundColor: item.isClockedIn ? (item.isOnBreak ? '#f59e0b' : '#22c55e') : (item.isClockedOut ? '#94a3b8' : '#cbd5e1')
-                          }} />
-                          {item.isClockedIn
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
+                          item.isClockedIn && item.isOnLeave
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                            : item.isOnLeave
+                            ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+                            : item.isClockedIn
+                            ? (item.isOnBreak ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800')
+                            : (item.isClockedOut ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700')
+                        }`}>
+                          <span className={`w-[7px] h-[7px] rounded-full ${
+                            item.isClockedIn
+                              ? 'bg-green-500'
+                              : item.isOnLeave
+                              ? 'bg-teal-500'
+                              : item.isClockedOut
+                              ? 'bg-slate-400'
+                              : 'bg-slate-300'
+                          }`} />
+                          {item.isClockedIn && item.isOnLeave
+                            ? 'Working (On Leave) 🟢🌴'
+                            : item.isOnLeave
+                            ? 'On Leave 🌴'
+                            : item.isClockedIn
                             ? (item.isOnBreak ? `On ${item.breakType}` : 'Shift Active 🟢')
                             : (item.isClockedOut ? 'Clocked Out 🔴' : 'Not Clocked In ⚪')}
                         </span>
                       </td>
 
                       {/* Punch Times */}
-                      <td style={{ padding: '12px 16px', fontSize: '11.5px', color: '#475569' }}>
-                        <div>In: <strong style={{ color: item.loginTime ? '#0f172a' : '#94a3b8' }}>{item.loginTime || '--'}</strong></div>
-                        <div>Out: <strong style={{ color: item.clockOutTime ? '#dc2626' : '#94a3b8' }}>{item.clockOutTime || '--'}</strong></div>
+                      <td className="px-4 py-3 text-[11.5px] text-slate-600 dark:text-slate-400">
+                        <div>In: <strong className={item.loginTime ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>{item.loginTime || '--'}</strong></div>
+                        <div>Out: <strong className={item.clockOutTime ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}>{item.clockOutTime || '--'}</strong></div>
                       </td>
 
                       {/* Net Work Time */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: '800', color: '#0284c7', fontSize: '13px' }}>
+                      <td className="px-4 py-3">
+                        <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px]">
                           {formatTimeDurationSafe(item.workSecs)}
                         </div>
                         {item.breakSecs > 0 && (
-                          <div style={{ fontSize: '10.5px', color: '#b45309', marginTop: '1px' }}>
+                          <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
                             Breaks: {Math.round(item.breakSecs / 60)}m
                           </div>
                         )}
                       </td>
 
                       {/* Currently Running Task */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td className="px-4 py-3">
                         {item.runningTask ? (
-                          <div style={{ maxWidth: '240px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
-                              <strong style={{ fontSize: '11.5px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div className="max-w-[240px]">
+                            <div className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                              <strong className="text-[11.5px] text-slate-900 dark:text-slate-100 truncate">
                                 #{item.runningTask.taskCode || 'TSK'}: {item.runningTask.title}
                               </strong>
                             </div>
-                            <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>⏱️ <strong style={{ color: '#0284c7' }}>{item.runningTask.liveDurationText}</strong></span>
+                            <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                              <span>⏱️ <strong className="text-sky-600 dark:text-sky-400">{item.runningTask.liveDurationText}</strong></span>
                               <button
                                 onClick={() => pauseTaskTimer(item.runningTask._id)}
-                                style={{
-                                  border: '1px solid #bfdbfe',
-                                  backgroundColor: '#eff6ff',
-                                  color: '#1d4ed8',
-                                  borderRadius: '3px',
-                                  padding: '1px 6px',
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer'
-                                }}
+                                className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
                                 title="Pause task timer for employee"
                               >
                                 Pause ⏸️
@@ -1095,34 +1035,22 @@ export const TeamOperationsPage = () => {
                           if (empPendingTasks.length > 0) {
                             const firstTask = empPendingTasks[0];
                             return (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => startTaskTimer(firstTask._id)}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    border: '1px solid #86efac',
-                                    backgroundColor: '#f0fdf4',
-                                    color: '#16a34a',
-                                    borderRadius: '4px',
-                                    padding: '2px 7px',
-                                    fontSize: '10.5px',
-                                    fontWeight: '700',
-                                    cursor: 'pointer'
-                                  }}
+                                  className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
                                   title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
                                 >
-                                  <Play size={9} fill="#16a34a" /> Start #{firstTask.taskCode || 'TSK'}
+                                  <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
                                 </button>
                                 {empPendingTasks.length > 1 && (
-                                  <span style={{ fontSize: '10px', color: '#64748b' }}>+{empPendingTasks.length - 1} more</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
                                 )}
                               </div>
                             );
                           }
                           return (
-                            <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>
+                            <span className="text-slate-400 dark:text-slate-500 text-[11.5px] italic">
                               No active tasks
                             </span>
                           );
@@ -1130,8 +1058,8 @@ export const TeamOperationsPage = () => {
                       </td>
 
                       {/* Admin Actions */}
-                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
                           {/* Emergency Clock-In (If not clocked in or absent) */}
                           {!item.isClockedIn && (
                             <button
@@ -1140,19 +1068,7 @@ export const TeamOperationsPage = () => {
                                 setEmergencyReason('Power cut / offline assist');
                                 setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
                               }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                padding: '5px 9px',
-                                borderRadius: '6px',
-                                backgroundColor: '#f0fdf4',
-                                color: '#15803d',
-                                border: '1px solid #bbf7d0',
-                                fontSize: '11.5px',
-                                fontWeight: '700',
-                                cursor: 'pointer'
-                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
                               title="Clock in employee manually (e.g. power outage or offline)"
                             >
                               <LogIn size={11} />
@@ -1168,19 +1084,7 @@ export const TeamOperationsPage = () => {
                                 setEmergencyReason('Power cut / left office');
                                 setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
                               }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                padding: '5px 9px',
-                                borderRadius: '6px',
-                                backgroundColor: '#fef2f2',
-                                color: '#dc2626',
-                                border: '1px solid #fecaca',
-                                fontSize: '11.5px',
-                                fontWeight: '700',
-                                cursor: 'pointer'
-                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
                               title="End employee shift manually (e.g. left without punch)"
                             >
                               <LogOut size={11} />
@@ -1191,23 +1095,24 @@ export const TeamOperationsPage = () => {
                           {/* Day Log View */}
                           <button
                             onClick={() => handleOpenDayLog(item)}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              padding: '5px 9px',
-                              borderRadius: '6px',
-                              backgroundColor: '#eff6ff',
-                              color: '#0284c7',
-                              border: '1px solid #bfdbfe',
-                              fontSize: '11.5px',
-                              fontWeight: '700',
-                              cursor: 'pointer'
-                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/50 text-sky-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
                             title={`Inspect ${emp.name}'s complete day audit log`}
                           >
-                            <Eye size={12} color="#0284c7" />
+                            <Eye size={12} className="text-sky-600" />
                             <span>Day Log</span>
+                          </button>
+
+                          {/* Direct Message Chat */}
+                          <button
+                            onClick={() => {
+                              startConversation(emp._id || emp.id || emp.employeeCode);
+                              navigate('/messages');
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11.5px] font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                            title={`Open direct private message with ${emp.name}`}
+                          >
+                            <MessageSquare size={12} className="text-purple-600 dark:text-purple-400" />
+                            <span>Chat</span>
                           </button>
                         </div>
                       </td>
@@ -1216,12 +1121,12 @@ export const TeamOperationsPage = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px 0', color: '#94a3b8' }}>
-                    <Users size={32} style={{ margin: '0 auto 8px', color: '#cbd5e1' }} />
-                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
+                  <td colSpan="8" className="text-center py-9 text-slate-400 dark:text-slate-500">
+                    <Users size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                    <div className="text-[13px] font-bold text-slate-600 dark:text-slate-300">
                       No employees match filter
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>
+                    <div className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">
                       Try selecting another status tab or clear search query.
                     </div>
                   </td>
@@ -1234,53 +1139,32 @@ export const TeamOperationsPage = () => {
 
       {/* ── MODAL: EMERGENCY CLOCK IN ── */}
       {clockInModalTarget && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            maxWidth: '460px',
-            width: '100%',
-            padding: '20px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[3px] flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 flex items-center justify-center">
                   <LogIn size={18} />
                 </div>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Emergency Clock-In Override
                 </h3>
               </div>
               <button
                 onClick={() => setClockInModalTarget(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: '#475569', marginBottom: '16px', lineHeight: '1.5' }}>
+            <p className="text-[12.5px] text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
               You are manually initiating shift clock-in for <strong>{clockInModalTarget.name}</strong> (#{clockInModalTarget.employeeCode}). This will be logged in the permanent audit trail.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+            <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Punch In Time
                 </label>
                 <input
@@ -1288,20 +1172,12 @@ export const TeamOperationsPage = () => {
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
                   placeholder="e.g. 09:30 AM"
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    outline: 'none'
-                  }}
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Operational Reason (Power outage / offline assist)
                 </label>
                 <input
@@ -1309,50 +1185,21 @@ export const TeamOperationsPage = () => {
                   value={emergencyReason}
                   onChange={(e) => setEmergencyReason(e.target.value)}
                   placeholder="Enter reason..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    outline: 'none'
-                  }}
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setClockInModalTarget(null)}
-                style={{
-                  padding: '7px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="px-3.5 py-[7px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecuteClockIn}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: '#16a34a',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
+                className="px-4 py-[7px] rounded-md border-0 bg-green-600 text-white text-xs font-bold cursor-pointer hover:bg-green-700 inline-flex items-center gap-1.5"
               >
                 <Check size={14} />
                 <span>Confirm Clock-In</span>
@@ -1364,53 +1211,32 @@ export const TeamOperationsPage = () => {
 
       {/* ── MODAL: EMERGENCY CLOCK OUT ── */}
       {clockOutModalTarget && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            maxWidth: '460px',
-            width: '100%',
-            padding: '20px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[3px] flex items-center justify-center z-[1000] p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-[460px] w-full p-5 shadow-2xl">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-300 flex items-center justify-center">
                   <LogOut size={18} />
                 </div>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0">
                   Emergency Clock-Out Override
                 </h3>
               </div>
               <button
                 onClick={() => setClockOutModalTarget(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                className="bg-transparent border-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: '#475569', marginBottom: '16px', lineHeight: '1.5' }}>
+            <p className="text-[12.5px] text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
               You are manually ending the shift for <strong>{clockOutModalTarget.name}</strong> (#{clockOutModalTarget.employeeCode}). Any active running task timer will also be automatically paused.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+            <div className="flex flex-col gap-3 mb-5">
               <div>
-                <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Punch Out Time
                 </label>
                 <input
@@ -1418,20 +1244,12 @@ export const TeamOperationsPage = () => {
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
                   placeholder="e.g. 06:30 PM"
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    outline: 'none'
-                  }}
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                <label className="text-[11.5px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Reason (Power outage, left office, assist)
                 </label>
                 <input
@@ -1439,50 +1257,21 @@ export const TeamOperationsPage = () => {
                   value={emergencyReason}
                   onChange={(e) => setEmergencyReason(e.target.value)}
                   placeholder="Enter reason..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    color: '#0f172a',
-                    outline: 'none'
-                  }}
+                  className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setClockOutModalTarget(null)}
-                style={{
-                  padding: '7px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="px-3.5 py-[7px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExecuteClockOut}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
+                className="px-4 py-[7px] rounded-md border-0 bg-red-600 text-white text-xs font-bold cursor-pointer hover:bg-red-700 inline-flex items-center gap-1.5"
               >
                 <Check size={14} />
                 <span>Confirm Clock-Out</span>

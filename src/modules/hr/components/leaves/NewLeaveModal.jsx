@@ -48,16 +48,24 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     ) || list[0];
   };
 
-  const [formData, setFormData] = useState({
-    employeeId: currentApplicantId,
-    appliedToId: '',
-    leaveType: 'Casual Leave',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-    durationType: 'full', // 'full', 'first_half', 'second_half'
-    reason: '',
-    isPaid: true
-  });
+  const getInitialFormData = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const myId = activeUser?._id || (employees && employees[0]?._id) || '';
+    const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
+    const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));
+    return {
+      employeeId: myId,
+      appliedToId: best?._id || '',
+      leaveType: 'Casual Leave',
+      startDate: today,
+      endDate: today,
+      durationType: 'full', // 'full', 'first_half', 'second_half'
+      reason: '',
+      isPaid: true
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
 
   // 2. Strict Approvers Filter: ONLY employees with actual leave approval authority
   const potentialApprovers = useMemo(() => {
@@ -83,25 +91,21 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     return approvers;
   }, [employees, formData.employeeId, activeUser]);
 
-  // Always auto-fill current logged in applicant & valid approver when modal opens
+  // Always completely fresh form reset whenever modal is opened
   useEffect(() => {
-    if (isOpen && activeUser?._id) {
-      const myId = activeUser._id;
-      const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
-      const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));
-
-      setFormData(prev => ({
-        ...prev,
-        employeeId: myId,
-        appliedToId: best?._id || ''
-      }));
+    if (isOpen) {
+      setFormData(getInitialFormData());
     }
   }, [isOpen, activeUser, employees]);
 
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedEmp = (employees || []).find(e => e._id === formData.employeeId) || activeUser || employees[0];
-  const selectedApprover = potentialApprovers.find(e => e._id === formData.appliedToId) || potentialApprovers[0];
+  const selectedEmp = (employees || []).find(e => String(e._id) === String(formData.employeeId)) || activeUser || employees[0];
+  const selectedApprover = potentialApprovers.find(e =>
+    (e._id && String(e._id) === String(formData.appliedToId)) ||
+    (e.id && String(e.id) === String(formData.appliedToId)) ||
+    (e.employeeCode && String(e.employeeCode) === String(formData.appliedToId))
+  ) || potentialApprovers[0];
 
   // Robust calendar-based date calculation
   const getDurationDays = () => {
@@ -169,13 +173,18 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
       const finalEndDate = formData.durationType !== 'full' ? formData.startDate : formData.endDate;
 
       await applyLeave({
+        employee: selectedEmp._id,
         employeeId: selectedEmp._id,
+        employeeCode: selectedEmp.employeeCode || '',
+        employeeEmail: selectedEmp.email || '',
         employeeName: selectedEmp.name,
         employeeAvatar: selectedEmp.avatar || '',
         employeeRole: selectedEmp.role || 'Member',
         appliedToId: selectedApprover?._id || '',
-        appliedToName: selectedApprover?.name || 'HR Admin',
-        appliedToRole: selectedApprover?.role || 'Administrator',
+        appliedToCode: selectedApprover?.employeeCode || '',
+        appliedToEmail: selectedApprover?.email || '',
+        appliedToName: selectedApprover?.name || 'Reviewer',
+        appliedToRole: selectedApprover?.role || 'Approver',
         appliedToAvatar: selectedApprover?.avatar || '',
         leaveType: formData.leaveType,
         startDate: formData.startDate,
@@ -187,6 +196,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         status: 'pending'
       });
 
+      setFormData(getInitialFormData());
       onClose();
     } catch (err) {
       console.error(err);
@@ -196,36 +206,29 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    setFormData(getInitialFormData());
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Apply For Leave"
       subtitle="Submit a new leave request. Your selected reviewer will receive a notification to accept or deny."
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         
         {/* Applicant Employee & Approver Grid (2-Column) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div className="grid grid-cols-2 gap-3.5">
           {/* Employee Applying */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Applying Employee *
             </label>
             {!isPrivileged ? (
-              <div style={{
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                backgroundColor: '#f1f5f9',
-                border: '1px solid #cbd5e1',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '13px',
-                fontWeight: '700',
-                color: '#0f172a'
-              }}>
+              <div className="h-[42px] px-3 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center gap-2 text-[13px] font-bold text-slate-900 dark:text-slate-100">
                 <span>👤 {selectedEmp?.name || activeUser?.name || 'You'} ({selectedEmp?.role || activeUser?.role || 'Member'})</span>
               </div>
             ) : (
@@ -241,11 +244,10 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
                     appliedToId: nextApprover?._id || ''
                   });
                 }}
-                className="filter-select"
-                style={{ width: '100%', height: '42px', borderRadius: '8px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+                className="filter-select w-full h-[42px] rounded-lg"
               >
                 {employees.map(emp => (
-                  <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+                  <option key={emp._id} value={emp._id}>
                     {emp.name} ({emp.role}) {emp._id === activeUser?._id ? "— You" : ''}
                   </option>
                 ))}
@@ -255,20 +257,19 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
           {/* Send Request To (Approver / Manager) */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1e40af', marginBottom: '6px' }}>
-              Send Request To (Approver / HR) *
+            <label className="block text-[13px] font-bold text-blue-800 dark:text-blue-300 mb-1.5">
+              Send Request To (Select Approver / Manager / HR) *
             </label>
             <select
               value={formData.appliedToId}
               onChange={(e) => setFormData({ ...formData, appliedToId: e.target.value })}
-              className="filter-select"
-              style={{ width: '100%', height: '42px', borderRadius: '8px', border: '1.5px solid #3b82f6', background: '#eff6ff', colorScheme: 'light', color: '#0f172a' }}
+              className="filter-select w-full h-[42px] rounded-lg border border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-slate-900 dark:text-slate-100"
             >
               {potentialApprovers.length === 0 ? (
                 <option value="">No authorized approvers found</option>
               ) : (
                 potentialApprovers.map(emp => (
-                  <option key={emp._id} value={emp._id} style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
+                  <option key={emp._id} value={emp._id}>
                     {emp.name} — {emp.role || 'Reviewer'}
                   </option>
                 ))
@@ -279,48 +280,45 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
         {/* Leave Type */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Leave Type *
           </label>
           <select
             value={formData.leaveType}
             onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-            className="filter-select"
-            style={{ width: '100%', height: '40px', borderRadius: '8px', colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+            className="filter-select w-full h-10 rounded-lg"
           >
-            <option value="Casual Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Casual Leave (CL)</option>
-            <option value="Sick Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Sick Leave (SL)</option>
-            <option value="Earned Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Earned Leave (EL)</option>
-            <option value="Maternity/Paternity" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Maternity / Paternity Leave</option>
-            <option value="Unpaid Leave" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>Unpaid Leave</option>
+            <option value="Casual Leave">Casual Leave (CL)</option>
+            <option value="Sick Leave">Sick Leave (SL)</option>
+            <option value="Earned Leave">Earned Leave (EL)</option>
+            <option value="Maternity/Paternity">Maternity / Paternity Leave</option>
+            <option value="Unpaid Leave">Unpaid Leave</option>
           </select>
         </div>
 
         {/* Date Selection Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               From Date *
             </label>
             <input
               type="date"
               value={formData.startDate}
               onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px', borderRadius: '8px' }}
+              className="filter-input w-full h-10 pl-3 rounded-lg"
               required
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               To Date *
             </label>
             <input
               type="date"
               value={formData.endDate}
               onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              className="filter-input"
-              style={{ width: '100%', height: '40px', paddingLeft: '12px', borderRadius: '8px' }}
+              className="filter-input w-full h-10 pl-3 rounded-lg"
               required
             />
           </div>
@@ -328,11 +326,11 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
 
         {/* Duration Type (Full Day / Half Day) */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Duration Mode
           </label>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
+          <div className="flex gap-3">
+            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer font-medium">
               <input
                 type="radio"
                 name="durationType"
@@ -341,7 +339,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
               />
               Full Day(s)
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
+            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer font-medium">
               <input
                 type="radio"
                 name="durationType"
@@ -350,7 +348,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
               />
               First Half
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: '500' }}>
+            <label className="flex items-center gap-1.5 text-[13px] cursor-pointer font-medium">
               <input
                 type="radio"
                 name="durationType"
@@ -363,38 +361,29 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Live Calculation Preview Strip */}
-        <div style={{
-          background: isBalanceExceeded ? '#fef2f2' : '#f0fdf4',
-          border: `1px solid ${isBalanceExceeded ? '#fecaca' : '#bbf7d0'}`,
-          borderRadius: '8px',
-          padding: '10px 14px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '12.5px'
-        }}>
+        <div className={`border rounded-lg py-2.5 px-3.5 flex justify-between items-center text-[12.5px] ${isBalanceExceeded ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50' : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900/50'}`}>
           <div>
-            <span style={{ color: '#475569', fontWeight: '500' }}>Calculated Duration: </span>
-            <strong style={{ color: isBalanceExceeded ? '#dc2626' : '#16a34a', fontSize: '13px' }}>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">Calculated Duration: </span>
+            <strong className={`text-[13px] font-bold ${isBalanceExceeded ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
               {isEndBeforeStart ? 'Invalid Date Range' : `${calculatedDays} Day${calculatedDays > 1 ? 's' : ''}`}
             </strong>
           </div>
           {availableBalance !== null && (
-            <div style={{ fontSize: '12px', color: isBalanceExceeded ? '#dc2626' : '#166534' }}>
+            <div className={`text-xs ${isBalanceExceeded ? 'text-red-600 dark:text-red-400' : 'text-green-800 dark:text-green-300'}`}>
               Available Balance: <strong>{availableBalance} Days</strong>
             </div>
           )}
         </div>
 
         {isBalanceExceeded && (
-          <div style={{ fontSize: '11.5px', color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: '6px' }}>
+          <div className="text-[11.5px] text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/50 py-1.5 px-2.5 rounded-md">
             ⚠️ Notice: Requested duration ({calculatedDays} days) exceeds available quota ({availableBalance} days).
           </div>
         )}
 
         {/* Reason Text */}
         <div>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+          <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Reason for Leave *
           </label>
           <textarea
@@ -402,39 +391,30 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
             value={formData.reason}
             onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
             placeholder="Please specify the reason for your leave request..."
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1.5px solid #cbd5e1',
-              borderRadius: '8px',
-              fontSize: '13px',
-              outline: 'none',
-              resize: 'vertical',
-              fontFamily: 'inherit'
-            }}
+            className="w-full py-2.5 px-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-[13px] outline-none resize-y font-inherit"
             required
           />
         </div>
 
         {/* Paid / Unpaid toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="isPaidCheck"
             checked={formData.isPaid}
             onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })}
           />
-          <label htmlFor="isPaidCheck" style={{ fontSize: '13px', color: '#334155', cursor: 'pointer', fontWeight: '500' }}>
+          <label htmlFor="isPaidCheck" className="text-[13px] text-slate-700 cursor-pointer font-medium">
             Paid Leave (Leave balance will be deducted upon approval)
           </label>
         </div>
 
         {/* Modal Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-          <button type="button" onClick={onClose} className="btn btn-outline" style={{ padding: '9px 18px', borderRadius: '8px' }}>
+        <div className="flex justify-end gap-2.5 mt-3">
+          <button type="button" onClick={onClose} className="btn btn-outline py-[9px] px-[18px] rounded-lg">
             Cancel
           </button>
-          <button type="submit" disabled={submitting} className="btn btn-primary" style={{ padding: '9px 22px', borderRadius: '8px', fontWeight: '700' }}>
+          <button type="submit" disabled={submitting} className="btn btn-primary py-[9px] px-[22px] rounded-lg font-bold">
             {submitting ? 'Submitting...' : 'Submit Request'}
           </button>
         </div>

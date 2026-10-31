@@ -21,7 +21,11 @@ import {
   Palmtree,
   CheckCircle2,
   AlertCircle,
-  Key
+  Key,
+  Sun,
+  Moon,
+  MessageSquare,
+  LayoutDashboard
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimer } from '../../context/TimerContext';
@@ -39,8 +43,10 @@ import { AddProjectModal } from '../../../modules/work/components/projects/AddPr
 import { RaiseTicketModal } from '../modals/RaiseTicketModal';
 import { NewLeaveModal } from '../../../modules/hr/components/leaves/NewLeaveModal';
 import { AddLeadModal } from '../../../modules/crm/components/leads/AddLeadModal';
+import { SubmitResignationModal } from '../../../modules/hr/components/resignations/SubmitResignationModal';
 import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 import { LogoutConfirmModal } from '../modals/LogoutConfirmModal';
+import { DashboardOverviewModal } from '../modals/DashboardOverviewModal';
 
 export const TopNavbar = () => {
   const location = useLocation();
@@ -68,7 +74,8 @@ export const TopNavbar = () => {
     ? 'admin'
     : (currentUser?.systemRole === 'hr' || currentUser?.role?.toLowerCase().includes('hr') ? 'hr' : 'employee');
 
-  const { tickets, computedBirthdays, computedAnniversaries } = useCRM();
+  const { darkMode, toggleDarkMode, tickets, computedBirthdays, computedAnniversaries, totalUnreadMessagesCount = 0 } = useCRM();
+  const theme = darkMode ? 'dark' : 'light';
   const { tasks, projects } = useWork();
 
   // Dropdown States
@@ -85,6 +92,8 @@ export const TopNavbar = () => {
   const [isRaiseTicketOpen, setIsRaiseTicketOpen] = useState(false);
   const [isApplyLeaveOpen, setIsApplyLeaveOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [isOverviewOpen, setIsOverviewOpen] = useState(false);
+  const [isResignationOpen, setIsResignationOpen] = useState(false);
 
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -225,85 +234,29 @@ export const TopNavbar = () => {
   };
 
   return (
-    <header style={{
-      height: '64px',
-      minHeight: '64px',
-      maxHeight: '64px',
-      flexShrink: 0,
-      boxSizing: 'border-box',
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e2e8f0',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 24px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 90,
-      boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-    }}>
+    <header className="top-navbar-container h-16 min-h-16 max-h-16 shrink-0 box-border bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-[90] shadow-xs dark:shadow-md transition-colors duration-200">
       {/* ── LEFT: Clean Page Title ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        <h1 style={{
-          fontSize: '16px',
-          fontWeight: '700',
-          color: '#1e293b',
-          margin: 0,
-          lineHeight: '1',
-          letterSpacing: '-0.01em'
-        }}>
+      <div className="flex items-center gap-2 shrink-0">
+        <h1 className="text-base font-bold text-slate-800 dark:text-slate-100 m-0 leading-none tracking-tight transition-colors duration-200">
           {pageTitle}
         </h1>
       </div>
 
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      <div className="flex items-center gap-3 shrink-0">
 
         {/* ── Working Timer Widget (e.g. 02:16:05 with blue/red controls) ── */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          padding: '4px 10px',
-          height: '34px'
-        }}>
-          <span style={{
-            fontFamily: 'monospace',
-            fontSize: '13.5px',
-            fontWeight: '700',
-            color: '#1e293b',
-            letterSpacing: '0.02em'
-          }}>
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2.5 h-[34px] transition-colors duration-200">
+          <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
             {timeString || '00:00:00'}
           </span>
 
-          <span style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: isRunning ? '#3b82f6' : '#94a3b8',
-            boxShadow: isRunning ? '0 0 6px #3b82f6' : 'none'
-          }} />
+          <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-blue-500 shadow-[0_0_6px_#3b82f6]' : 'bg-slate-400'}`} />
 
           {/* Pause / Resume Button */}
           <button
             onClick={togglePauseResume}
-            style={{
-              width: '18px',
-              height: '18px',
-              borderRadius: '50%',
-              border: 'none',
-              backgroundColor: isRunning ? '#3b82f6' : '#10b981',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: 0
-            }}
+            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center cursor-pointer p-0 ${isRunning ? 'bg-blue-500 hover:bg-blue-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
             title={isRunning ? 'Pause Timer' : 'Resume Timer'}
           >
             {isRunning ? <Pause size={9} fill="#fff" /> : <Play size={9} fill="#fff" />}
@@ -312,19 +265,7 @@ export const TopNavbar = () => {
           {/* Stop / Clock-out Button */}
           <button
             onClick={handleClockOut}
-            style={{
-              width: '18px',
-              height: '18px',
-              borderRadius: '50%',
-              border: 'none',
-              backgroundColor: '#ef4444',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              padding: 0
-            }}
+            className="w-[18px] h-[18px] rounded-full border-none bg-red-500 text-white flex items-center justify-center cursor-pointer p-0 hover:bg-red-600"
             title="Stop Timer / Clock Out"
           >
             <Square size={8} fill="#fff" />
@@ -335,32 +276,11 @@ export const TopNavbar = () => {
         {nextCelebration && (
           <div
             onClick={() => navigate('/calendar')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: nextCelebration.diffDays === 0 ? '#fdf2f8' : (nextCelebration.diffDays === 1 ? '#fff7ed' : '#f8fafc'),
-              border: `1px solid ${nextCelebration.diffDays === 0 ? '#fbcfe8' : (nextCelebration.diffDays === 1 ? '#fed7aa' : '#e2e8f0')}`,
-              padding: '4px 10px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: nextCelebration.diffDays === 0 ? '#be185d' : (nextCelebration.diffDays === 1 ? '#c2410c' : '#334155'),
-              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-              transition: 'all 0.15s ease'
-            }}
+            className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg cursor-pointer text-xs font-semibold shadow-xs transition-all duration-150 border ${nextCelebration.diffDays === 0 ? 'bg-pink-50 border-pink-200 text-pink-700' : (nextCelebration.diffDays === 1 ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-slate-50 border-slate-200 text-slate-700')}`}
             title={`View on Calendar • Date: ${nextCelebration.dateFormatted}`}
           >
             <span>{nextCelebration.icon} {nextCelebration.celeText}</span>
-            <span style={{
-              fontSize: '10px',
-              fontWeight: '800',
-              padding: '1px 6px',
-              borderRadius: '10px',
-              backgroundColor: nextCelebration.diffDays === 0 ? '#db2777' : (nextCelebration.diffDays === 1 ? '#ea580c' : '#2563eb'),
-              color: '#ffffff'
-            }}>
+            <span className={`text-[10px] font-extrabold py-px px-1.5 rounded-full text-white ${nextCelebration.diffDays === 0 ? 'bg-pink-600' : (nextCelebration.diffDays === 1 ? 'bg-orange-600' : 'bg-blue-600')}`}>
               {nextCelebration.diffDays === 0 ? '🎉 TODAY!' : (nextCelebration.diffDays === 1 ? `⏰ Tomorrow (${nextCelebration.dateFormatted})` : `⏳ In ${nextCelebration.diffDays}d (${nextCelebration.dateFormatted})`)}
             </span>
           </div>
@@ -369,53 +289,61 @@ export const TopNavbar = () => {
         {/* ── 🔍 Quick Search Icon ── */}
         <button
           onClick={() => setShowSearchModal(true)}
-          style={iconButtonStyle}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
           title="Quick Search (Ctrl+K)"
         >
-          <Search size={18} color="#64748b" />
+          <Search size={18} />
         </button>
 
         {/* ── 📅 Calendar / Events Icon ── */}
         <button
           onClick={() => navigate('/events')}
-          style={iconButtonStyle}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
           title="Events & Calendar"
         >
-          <Calendar size={18} color="#64748b" />
+          <Calendar size={18} />
+        </button>
+
+        {/* ── 📊 Workspace Quick Overview HUD ── */}
+        <button
+          onClick={() => setIsOverviewOpen(true)}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          title="Quick Overview & Module Switcher"
+        >
+          <LayoutDashboard size={18} />
+        </button>
+
+        {/* ── 💬 Team Chat / Messages Quick Launch Icon with Badge ── */}
+        <button
+          onClick={() => navigate('/messages')}
+          className={`w-8 h-8 rounded-md border-none flex items-center justify-center cursor-pointer transition-colors relative ${
+            location.pathname === '/messages'
+              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400'
+              : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Team Chat & Messages"
+        >
+          <MessageSquare size={18} />
+          {totalUnreadMessagesCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-extrabold rounded-full min-w-4 h-4 flex items-center justify-center px-1 border-2 border-white dark:border-slate-900 animate-pulse shadow-xs">
+              {totalUnreadMessagesCount > 99 ? '99+' : totalUnreadMessagesCount}
+            </span>
+          )}
         </button>
 
         {/* ── 🔔 Notification Bell Icon with Badge ── */}
-        <div style={{ position: 'relative' }} ref={notifRef}>
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowProfileMenu(false);
             }}
-            style={{
-              ...iconButtonStyle,
-              backgroundColor: showNotifications ? '#eff6ff' : 'transparent'
-            }}
+            className={`w-8 h-8 rounded-md border-none flex items-center justify-center cursor-pointer transition-colors relative ${showNotifications ? 'bg-blue-50 text-blue-600' : 'bg-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             title="Notifications"
           >
-            <Bell size={18} color={showNotifications ? '#2563eb' : '#64748b'} />
+            <Bell size={18} />
             {totalNotifications > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-2px',
-                right: '-2px',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '10px',
-                fontWeight: '700',
-                borderRadius: '10px',
-                minWidth: '16px',
-                height: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 4px',
-                border: '2px solid #ffffff'
-              }}>
+              <span className="absolute -top-0.5 -right-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 border-2 border-white">
                 {totalNotifications}
               </span>
             )}
@@ -423,47 +351,27 @@ export const TopNavbar = () => {
 
           {/* Notifications Dropdown */}
           {showNotifications && (
-            <div style={{
-              position: 'absolute',
-              top: '42px',
-              right: 0,
-              width: '320px',
-              backgroundColor: '#ffffff',
-              borderRadius: '10px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden',
-              zIndex: 300
-            }}>
-              <div style={{
-                padding: '12px 16px',
-                borderBottom: '1px solid #f1f5f9',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: '#f8fafc'
-              }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+            <div className="absolute top-[42px] right-0 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300]">
+              <div className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                   Notifications
                 </span>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
                   {totalNotifications} New
                 </span>
               </div>
 
-              <div style={{ maxHeight: '280px', overflowY: 'auto', padding: '6px' }}>
+              <div className="max-h-[280px] overflow-y-auto p-1.5">
                 {myPendingTasks.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', marginBottom: '4px' }}>
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[11px] font-bold text-sky-500 mb-1">
                       ASSIGNED TASKS ({myPendingTasks.length})
                     </div>
                     {myPendingTasks.slice(0, 2).map(task => (
                       <div
                         key={task._id}
                         onClick={() => { setShowNotifications(false); navigate('/tasks'); }}
-                        style={{ padding: '6px', fontSize: '12px', color: '#334155', cursor: 'pointer', borderRadius: '6px' }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       >
                         📌 {task.title}
                       </div>
@@ -472,12 +380,12 @@ export const TopNavbar = () => {
                 )}
 
                 {todayBirthdaysList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#db2777', marginBottom: '4px' }}>
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[11px] font-bold text-pink-500 mb-1">
                       🎂 TODAY'S BIRTHDAYS
                     </div>
                     {todayBirthdaysList.map(b => (
-                      <div key={b.name} style={{ fontSize: '12px', color: '#334155', padding: '4px' }}>
+                      <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1">
                         🎉 Wish {b.name} a Happy Birthday!
                       </div>
                     ))}
@@ -485,59 +393,57 @@ export const TopNavbar = () => {
                 )}
 
                 {upcomingBirthdaysList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#ea580c', marginBottom: '4px' }}>
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[11px] font-bold text-orange-500 mb-1">
                       🎂 UPCOMING BIRTHDAYS (30-DAY ADVANCE)
                     </div>
                     {upcomingBirthdaysList.slice(0, 3).map(b => (
-                      <div key={b.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
                         <span>🎂 {b.name}</span>
-                        <span style={{ fontSize: '10.5px', color: '#ea580c', fontWeight: '600' }}>📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
+                        <span className="text-[10.5px] text-orange-500 font-semibold">📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {todayAnnivList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#7c3aed', marginBottom: '4px' }}>
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[11px] font-bold text-purple-400 mb-1">
                       🌟 TODAY'S WORK ANNIVERSARIES
                     </div>
                     {todayAnnivList.map(a => (
-                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
                         <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span style={{ fontSize: '10.5px', color: '#7c3aed', fontWeight: '700' }}>🎉 TODAY!</span>
+                        <span className="text-[10.5px] text-purple-400 font-bold">🎉 TODAY!</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {upcomingAnnivList.length > 0 && (
-                  <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#6d28d9', marginBottom: '4px' }}>
+                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[11px] font-bold text-purple-400 mb-1">
                       🌟 UPCOMING ANNIVERSARIES (30-DAY ADVANCE)
                     </div>
                     {upcomingAnnivList.slice(0, 3).map(a => (
-                      <div key={a._id || a.name} style={{ fontSize: '12px', color: '#334155', padding: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
                         <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span style={{ fontSize: '10.5px', color: '#6d28d9', fontWeight: '600' }}>📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
+                        <span className="text-[10.5px] text-purple-400 font-semibold">📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {openTicketsList.length > 0 && (
-                  <div style={{ padding: '8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', marginBottom: '4px' }}>
+                  <div className="p-2">
+                    <div className="text-[11px] font-bold text-amber-600 mb-1">
                       OPEN TICKETS ({openTicketsList.length})
                     </div>
                     {openTicketsList.slice(0, 2).map(t => (
                       <div
                         key={t._id}
                         onClick={() => { setShowNotifications(false); navigate('/tickets'); }}
-                        style={{ padding: '6px', fontSize: '12px', color: '#334155', cursor: 'pointer', borderRadius: '6px' }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       >
                         🎫 #{t.ticketCode || 'TCK'}: {t.subject}
                       </div>
@@ -546,7 +452,7 @@ export const TopNavbar = () => {
                 )}
 
                 {totalNotifications === 0 && (
-                  <div style={{ padding: '24px', textAlign: 'center', fontSize: '12.5px', color: '#94a3b8' }}>
+                  <div className="p-6 text-center text-xs text-slate-400">
                     No new notifications
                   </div>
                 )}
@@ -555,161 +461,121 @@ export const TopNavbar = () => {
           )}
         </div>
 
+        {/* ── ☕ Break Status or Take Break Controls in Header ── */}
+        {isOnBreak ? (
+          <button
+            onClick={() => setIsBreakModalOpen(true)}
+            className="h-8 px-2.5 rounded-md text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs"
+            title={`Currently on ${breakType || 'Break'}. Click to manage or resume work.`}
+          >
+            <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>☕ On {breakType || 'Break'}</span>
+          </button>
+        ) : (
+          isClockedIn && (
+            <button
+              onClick={() => setIsBreakModalOpen(true)}
+              className="h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs"
+              title="Take a break (Tea/Coffee, Lunch, etc.)"
+            >
+              <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
+              <span>Break</span>
+            </button>
+          )
+        )}
+
         {/* ── ⏱️ Clock-in / Clock-out Shift Button ── */}
+        {!isOnBreak && (
+          <button
+            onClick={isClockedIn ? handleClockOut : handleClockIn}
+            className={`h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
+            title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
+          >
+            <Clock size={14} className={isClockedIn ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
+            <span>{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
+          </button>
+        )}
+
+        {/* ── ☀️ / 🌙 Dark/Light Theme Toggle ── */}
         <button
-          onClick={isClockedIn ? handleClockOut : handleClockIn}
-          style={{
-            height: '32px',
-            padding: '0 10px',
-            borderRadius: '7px',
-            border: 'none',
-            backgroundColor: isClockedIn ? '#f0fdf4' : '#eff6ff',
-            color: isClockedIn ? '#16a34a' : '#2563eb',
-            fontSize: '12px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.15s ease'
-          }}
-          title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
+          onClick={toggleDarkMode}
+          className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition-colors relative bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-amber-400 shadow-xs"
+          title={darkMode ? 'Switch to Light Mode ☀️' : 'Switch to Dark Mode 🌙'}
         >
-          <Clock size={14} />
-          <span>{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
+          {darkMode ? (
+            <Sun size={17} className="transition-transform duration-200" />
+          ) : (
+            <Moon size={17} className="transition-transform duration-200" />
+          )}
         </button>
 
         {/* ── ⚙️ Settings Icon ── */}
         <button
           onClick={() => navigate('/settings')}
-          style={iconButtonStyle}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
           title="Settings"
         >
-          <Settings size={18} color="#64748b" />
+          <Settings size={18} />
         </button>
 
         {/* ── 👤 User Avatar Pill (Matching 'A Work' in Novainfinity Screenshot) ── */}
-        <div style={{ position: 'relative' }} ref={profileRef}>
+        <div className="relative" ref={profileRef}>
           <div
             onClick={() => {
               setShowProfileMenu(!showProfileMenu);
               setShowNotifications(false);
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-              userSelect: 'none',
-              padding: '2px 4px',
-              borderRadius: '20px'
-            }}
+            className="flex items-center gap-1.5 cursor-pointer select-none py-0.5 px-1 rounded-full"
             title="Profile details & Working mode"
           >
             {currentUser?.avatar ? (
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '1.5px solid #e2e8f0'
-                }}
+                className="w-8 h-8 rounded-full object-cover border border-slate-200"
               />
             ) : (
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                backgroundColor: '#d97706',
-                color: '#ffffff',
-                fontSize: '14px',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              <div className="w-8 h-8 rounded-full bg-amber-600 text-white text-sm font-bold flex items-center justify-center">
                 {currentUser?.name?.charAt(0) || 'A'}
               </div>
             )}
-            <span style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
               {currentUser?.name?.split(' ')[0] || 'User'}
             </span>
           </div>
 
           {/* Profile Dropdown */}
           {showProfileMenu && (
-            <div style={{
-              position: 'absolute',
-              top: '42px',
-              right: 0,
-              width: '260px',
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden',
-              zIndex: 300,
-              padding: '12px'
-            }}>
+            <div className="absolute top-[42px] right-0 w-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300] p-3">
               {/* Profile Card Header */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                paddingBottom: '12px',
-                borderBottom: '1px solid #f1f5f9'
-              }}>
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  backgroundColor: '#d97706',
-                  color: '#ffffff',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}>
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="w-10 h-10 rounded-lg bg-amber-600 text-white text-base font-bold flex items-center justify-center shrink-0">
                   {currentUser?.name?.charAt(0) || 'A'}
                 </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100 truncate">
                     {currentUser?.name || 'Avinash'}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
                     {currentUser?.role || 'UI/UX Designer'}
                   </div>
-                  <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '1px' }}>
+                  <div className="text-[10.5px] text-slate-400 dark:text-slate-500 mt-0.5">
                     ID: #{currentUser?.employeeCode || 'EMP-001'}
                   </div>
                 </div>
               </div>
 
               {/* Working Mode Selector */}
-              <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+              <div className="py-2.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
                   WORKING MODE
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+                <div className="grid grid-cols-3 gap-1">
                   {['Office', 'Remote', 'Hybrid'].map(mode => (
                     <button
                       key={mode}
                       onClick={() => handleWorkingModeChange(mode)}
-                      style={{
-                        padding: '5px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        borderRadius: '6px',
-                        border: workingMode === mode ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                        backgroundColor: workingMode === mode ? '#eff6ff' : '#ffffff',
-                        color: workingMode === mode ? '#1d4ed8' : '#475569',
-                        cursor: 'pointer'
-                      }}
+                      className={`p-1.5 text-xs font-semibold rounded-md border cursor-pointer transition-colors ${workingMode === mode ? 'border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50'}`}
                     >
                       {mode}
                     </button>
@@ -718,30 +584,15 @@ export const TopNavbar = () => {
               </div>
 
               {/* Menu Actions */}
-              <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div className="pt-2 flex flex-col gap-1">
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
                     setIsEditProfileOpen(true);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: '#334155',
-                    fontSize: '12.5px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <Edit3 size={14} color="#64748b" />
+                  <Edit3 size={14} className="text-slate-500" />
                   <span>Edit Profile</span>
                 </button>
 
@@ -750,24 +601,9 @@ export const TopNavbar = () => {
                     setShowProfileMenu(false);
                     setIsChangePassOpen(true);
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: '#334155',
-                    fontSize: '12.5px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <Key size={14} color="#2563eb" />
+                  <Key size={14} className="text-sky-400" />
                   <span>Change Password</span>
                 </button>
 
@@ -776,25 +612,21 @@ export const TopNavbar = () => {
                     setShowProfileMenu(false);
                     navigate('/attendance');
                   }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: '#334155',
-                    fontSize: '12.5px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-slate-700 dark:text-slate-300 text-xs font-medium cursor-pointer text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <Clock size={14} color="#64748b" />
+                  <Clock size={14} className="text-slate-500" />
                   <span>My Attendance</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    setIsResignationOpen(true);
+                  }}
+                  className="flex items-center gap-2 py-2 px-2.5 rounded-md border-none bg-transparent text-rose-600 dark:text-rose-400 text-xs font-medium cursor-pointer text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                >
+                  <FileText size={14} className="text-rose-500" />
+                  <span>Submit Resignation</span>
                 </button>
               </div>
             </div>
@@ -804,12 +636,7 @@ export const TopNavbar = () => {
         {/* ── ⏻ Power / Logout Icon (Matching Red Power button in Screenshot) ── */}
         <button
           onClick={handleLogout}
-          style={{
-            ...iconButtonStyle,
-            color: '#64748b'
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-          onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
           title="Log Out Account"
         >
           <Power size={18} />
@@ -818,97 +645,61 @@ export const TopNavbar = () => {
 
       {/* ── Quick Search Modal (Ctrl+K) ── */}
       {showSearchModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.5)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          paddingTop: '80px',
-          zIndex: 1000
-        }}
-        onClick={() => setShowSearchModal(false)}
+        <div
+          className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-start justify-center pt-20 z-[1000] p-4 animate-fade-in"
+          onClick={() => setShowSearchModal(false)}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              width: '100%',
-              maxWidth: '540px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-              border: '1px solid #e2e8f0',
-              overflow: 'hidden'
-            }}
+            className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-[540px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '14px 16px',
-              borderBottom: '1px solid #e2e8f0',
-              gap: '10px'
-            }}>
-              <Search size={18} color="#94a3b8" />
+            <div className="flex items-center px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 gap-2.5">
+              <Search size={18} className="text-slate-400 dark:text-sky-400 shrink-0" />
               <input
                 autoFocus
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search tasks, projects, employees, tickets..."
-                style={{
-                  border: 'none',
-                  outline: 'none',
-                  width: '100%',
-                  fontSize: '14px',
-                  color: '#1e293b'
-                }}
+                className="border-none outline-none w-full text-sm bg-transparent text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
               />
-              <span style={{ fontSize: '11px', color: '#94a3b8', backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+              <span className="text-[11px] text-slate-400 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 px-1.5 py-0.5 rounded font-mono">
                 ESC
               </span>
             </div>
 
-            <div style={{ maxHeight: '340px', overflowY: 'auto', padding: '8px' }}>
+            <div className="max-h-[340px] overflow-y-auto p-2">
               {filteredTasks.length > 0 && (
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                <div className="mb-2">
+                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1">
                     TASKS
                   </div>
                   {filteredTasks.map(t => (
                     <div
                       key={t._id}
                       onClick={() => { setShowSearchModal(false); navigate('/tasks'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="px-2.5 py-2 rounded-md cursor-pointer text-[13px] flex items-center gap-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <ListTodo size={14} color="#2563eb" />
-                      <span>{t.title}</span>
+                      <ListTodo size={14} className="text-sky-500 shrink-0" />
+                      <span className="truncate">{t.title}</span>
                     </div>
                   ))}
                 </div>
               )}
 
               {filteredProjects.length > 0 && (
-                <div style={{ marginBottom: '8px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                <div className="mb-2">
+                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1">
                     PROJECTS
                   </div>
                   {filteredProjects.map(p => (
                     <div
                       key={p._id}
                       onClick={() => { setShowSearchModal(false); navigate('/projects'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="px-2.5 py-2 rounded-md cursor-pointer text-[13px] flex items-center gap-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <FolderGit2 size={14} color="#0284c7" />
-                      <span>{p.name}</span>
+                      <FolderGit2 size={14} className="text-sky-500 shrink-0" />
+                      <span className="truncate">{p.name}</span>
                     </div>
                   ))}
                 </div>
@@ -916,19 +707,17 @@ export const TopNavbar = () => {
 
               {filteredEmployees.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', padding: '4px 8px' }}>
+                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 py-1">
                     TEAMMATES
                   </div>
                   {filteredEmployees.map(e => (
                     <div
                       key={e._id}
                       onClick={() => { setShowSearchModal(false); navigate('/employees'); }}
-                      style={{ padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      className="px-2.5 py-2 rounded-md cursor-pointer text-[13px] flex items-center gap-2 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <Users2 size={14} color="#16a34a" />
-                      <span>{e.name} ({e.role})</span>
+                      <Users2 size={14} className="text-green-500 shrink-0" />
+                      <span className="truncate">{e.name} ({e.role})</span>
                     </div>
                   ))}
                 </div>
@@ -985,6 +774,16 @@ export const TopNavbar = () => {
         onConfirm={handleConfirmLogout}
         user={currentUser}
         isShiftActive={isClockedIn}
+      />
+
+      <DashboardOverviewModal
+        isOpen={isOverviewOpen}
+        onClose={() => setIsOverviewOpen(false)}
+      />
+
+      <SubmitResignationModal
+        isOpen={isResignationOpen}
+        onClose={() => setIsResignationOpen(false)}
       />
     </header>
   );

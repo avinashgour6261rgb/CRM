@@ -24,7 +24,10 @@ import {
   Check
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
 import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
@@ -32,7 +35,12 @@ import { ImportExpensesModal } from '../components/ImportExpensesModal';
 
 export const ExpensesPage = () => {
   const { expenses, updateExpenseStatus, deleteExpense } = useCRM();
+  const { currentUser } = useAuth();
   const { addToast } = useToast();
+
+  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
+  const canViewAllExpenses = isPrivileged || perms?.accessFinance || perms?.viewAllExpenses;
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -50,27 +58,34 @@ export const ExpensesPage = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
+  // Scoped expenses based on role (Regular employees only see their own expense claims)
+  const scopedExpenses = useMemo(() => {
+    if (canViewAllExpenses) return expenses || [];
+    if (!currentUser) return expenses || [];
+    const uId = String(currentUser._id || currentUser.id || '').toLowerCase();
+    const uCode = String(currentUser.employeeCode || '').toLowerCase();
+    const uName = (currentUser.name || '').toLowerCase().trim();
+    return (expenses || []).filter(exp => {
+      const eId = String(exp.employeeId || exp.employee || '').toLowerCase();
+      const eCode = String(exp.employeeCode || '').toLowerCase();
+      const eName = (exp.employeeName || '').toLowerCase().trim();
+      return (uId && eId === uId) || (uCode && (eId === uCode || eCode === uCode)) || (uName && eName === uName);
+    });
+  }, [expenses, canViewAllExpenses, currentUser]);
+
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(exp => {
-      const q = search.toLowerCase();
-      const matchesSearch = !search ||
-        (exp.itemName || '').toLowerCase().includes(q) ||
-        (exp.purchasedFrom || '').toLowerCase().includes(q) ||
-        (exp.employeeName || '').toLowerCase().includes(q) ||
-        (exp.category || '').toLowerCase().includes(q) ||
-        (exp.expenseCode || '').toLowerCase().includes(q);
+    return scopedExpenses.filter(exp => {
+      const matchSearch = matchesSearch(exp, search, [
+        'itemName', 'purchasedFrom', 'employeeName', 'category', 'expenseCode', 'description'
+      ]);
 
-      const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
+      const matchStatus = statusFilter === 'all' || matchesFilter(exp.status, statusFilter);
+      const matchDate = matchesDateRange(exp.purchaseDate || exp.date || exp.createdAt, startDateFilter, endDateFilter);
 
-      let matchesDate = true;
-      const expDate = exp.purchaseDate || exp.date;
-      if (startDateFilter && expDate && expDate < startDateFilter) matchesDate = false;
-      if (endDateFilter && expDate && expDate > endDateFilter) matchesDate = false;
-
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchSearch && matchStatus && matchDate;
     });
-  }, [expenses, search, statusFilter, startDateFilter, endDateFilter]);
+  }, [scopedExpenses, search, statusFilter, startDateFilter, endDateFilter]);
 
   // Select all checkbox
   const handleSelectAll = (e) => {
@@ -111,108 +126,45 @@ export const ExpensesPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      
+    <div className="flex flex-col gap-3">
+
       {/* Header Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        backgroundColor: '#ffffff',
-        padding: '12px 16px',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-        minHeight: '68px',
-        boxSizing: 'border-box',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <DollarSign size={17} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a', lineHeight: '1.2' }}>Finance & Expense Management</h1>
-              <span style={{ fontSize: '10.5px', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#16a34a', fontWeight: '700' }}>
+            <div className="flex items-center gap-1.5">
+              <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Finance & Expense Management</h1>
+              <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 font-bold">
                 {filteredExpenses.length} Records
               </span>
             </div>
-            <p style={{ margin: '1px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+            <p className="mt-0.5 m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
               Track vouchers, claims, bills, vendor payouts & reimbursement statuses
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsImportOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors"
           >
             <Upload size={13} />
             Import
           </button>
           <button
             onClick={handleExport}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              color: '#2563eb',
-              border: '1px solid #cbd5e1',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-700/60 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors"
           >
             <Download size={13} />
             Export CSV
           </button>
           <button
             onClick={() => setIsAddOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0 12px',
-              height: '30px',
-              borderRadius: '6px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
-            }}
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors"
           >
             <Plus size={14} />
             Add Expense
@@ -221,70 +173,39 @@ export const ExpensesPage = () => {
       </div>
 
       {/* KPI Overview Cards */}
-      <ExpenseKPIOverview expenses={expenses} />
+      <ExpenseKPIOverview expenses={scopedExpenses} />
 
       {/* Filter and Search Bar */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        padding: '8px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5 flex-wrap">
+
           {/* Duration */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Duration:</span>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '0 8px',
-              height: '30px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#f8fafc',
-              fontSize: '11.5px'
-            }}>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Duration:</span>
+            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
               <input
                 type="date"
                 value={startDateFilter}
                 onChange={e => setStartDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200 cursor-pointer"
               />
-              <span style={{ color: '#94a3b8' }}>to</span>
+              <span className="text-slate-400">to</span>
               <input
                 type="date"
                 value={endDateFilter}
                 onChange={e => setEndDateFilter(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '11.5px', color: '#334155' }}
+                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200 cursor-pointer"
               />
             </div>
           </div>
 
           {/* Status Dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <span style={{ fontWeight: '600' }}>Status:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-semibold">Status:</span>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              style={{
-                height: '30px',
-                padding: '0 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                fontSize: '12px',
-                color: '#0f172a',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500 transition-colors"
             >
               <option value="all">All Statuses</option>
               <option value="approved">Approved</option>
@@ -294,170 +215,131 @@ export const ExpensesPage = () => {
           </div>
 
           {/* Search Input */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0 10px',
-            height: '30px',
-            borderRadius: '6px',
-            border: '1px solid #cbd5e1',
-            backgroundColor: '#ffffff',
-            minWidth: '220px'
-          }}>
-            <Search size={13} color="#94a3b8" />
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px] focus-within:border-blue-500 transition-colors">
+            <Search size={13} className="text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search item, vendor, employee..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '12px',
-                width: '100%',
-                backgroundColor: 'transparent',
-                color: '#0f172a'
-              }}
+              className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
             />
           </div>
         </div>
 
         {selectedIds.length > 0 && (
-          <span style={{ fontSize: '11.5px', color: '#2563eb', fontWeight: '700' }}>
+          <span className="text-[11.5px] text-blue-600 dark:text-blue-400 font-bold">
             {selectedIds.length} expenses selected
           </span>
         )}
       </div>
 
       {/* Expenses Table */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '10px',
-        border: '1px solid #e2e8f0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-      }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-xs">
             <thead>
-              <tr style={{
-                backgroundColor: '#f8fafc',
-                borderBottom: '1px solid #e2e8f0',
-                color: '#64748b',
-                fontWeight: '700',
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                textAlign: 'left'
-              }}>
-                <th style={{ padding: '8px 12px', width: '36px', whiteSpace: 'nowrap' }}>
+              <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left">
+                <th className="p-2 px-3 w-9 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={filteredExpenses.length > 0 && selectedIds.length === filteredExpenses.length}
                     onChange={handleSelectAll}
-                    style={{ accentColor: '#2563eb', cursor: 'pointer' }}
+                    className="accent-blue-600 cursor-pointer"
                   />
                 </th>
-                <th style={{ padding: '8px 12px', width: '60px', whiteSpace: 'nowrap' }}>Id</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Item & Category</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Amount</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Claimed By</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Vendor / Merchant</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Purchase Date</th>
-                <th style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>Status</th>
-                <th style={{ padding: '8px 12px', textAlign: 'center', width: '80px', whiteSpace: 'nowrap' }}>Action</th>
+                <th className="p-2 px-3 w-[60px] whitespace-nowrap">Id</th>
+                <th className="p-2 px-3 whitespace-nowrap">Item & Category</th>
+                <th className="p-2 px-3 whitespace-nowrap">Amount</th>
+                <th className="p-2 px-3 whitespace-nowrap">Claimed By</th>
+                <th className="p-2 px-3 whitespace-nowrap">Vendor / Merchant</th>
+                <th className="p-2 px-3 whitespace-nowrap">Purchase Date</th>
+                <th className="p-2 px-3 whitespace-nowrap">Status</th>
+                <th className="p-2 px-3 text-center w-20 whitespace-nowrap">Action</th>
               </tr>
             </thead>
 
             <tbody>
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '500' }}>No expense records found</div>
+                  <td colSpan={9} className="p-9 text-center text-slate-500 dark:text-slate-400">
+                    <div className="text-[13px] font-medium">No expense records found</div>
                   </td>
                 </tr>
               ) : (
                 filteredExpenses.map((exp, idx) => (
                   <tr
                     key={exp._id}
-                    style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      backgroundColor: selectedIds.includes(exp._id) ? 'rgba(37,99,235,0.04)' : '#ffffff',
-                      transition: 'background-color 0.15s'
-                    }}
+                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${selectedIds.includes(exp._id)
+                        ? 'bg-blue-600/10 dark:bg-blue-900/30'
+                        : 'bg-white dark:bg-slate-900 hover:bg-slate-50/70 dark:hover:bg-slate-800/50'
+                      }`}
                   >
                     {/* Checkbox */}
-                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(exp._id)}
                         onChange={() => handleSelectOne(exp._id)}
-                        style={{ accentColor: '#2563eb', cursor: 'pointer' }}
+                        className="accent-blue-600 cursor-pointer"
                       />
                     </td>
 
                     {/* Id */}
-                    <td style={{ padding: '7px 12px', fontWeight: '600', color: '#64748b', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {exp.idNumber || idx + 1}
                     </td>
 
                     {/* Item Name */}
-                    <td style={{ padding: '7px 12px' }}>
+                    <td className="py-[7px] px-3">
                       <div
                         onClick={() => setSelectedExpense(exp)}
-                        style={{ fontWeight: '700', color: '#0f172a', cursor: 'pointer' }}
+                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
                         {exp.itemName}
                       </div>
-                      <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '1px' }}>
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-[1px]">
                         {exp.category || 'Utilities & Office'}
                       </div>
                     </td>
 
                     {/* Price */}
-                    <td style={{ padding: '7px 12px', fontWeight: '800', color: '#0f172a', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 font-extrabold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       ₹{(exp.price || exp.amount || 0).toLocaleString('en-IN')}
                     </td>
 
                     {/* Employees / Paid By */}
-                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <td className="py-[7px] px-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
                         <img
                           src={exp.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                           alt={exp.employeeName || 'Employee'}
-                          style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                          className="w-[22px] h-[22px] rounded-full object-cover"
                         />
-                        <span style={{ fontWeight: '600', color: '#334155' }}>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
                           {exp.employeeName || exp.paidBy || 'Employee'}
                         </span>
                       </div>
                     </td>
 
                     {/* Purchased From */}
-                    <td style={{ padding: '7px 12px', color: '#475569', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                       {exp.purchasedFrom || '—'}
                     </td>
 
                     {/* Purchase Date */}
-                    <td style={{ padding: '7px 12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {exp.purchaseDate || exp.date || '25-09-2026'}
                     </td>
 
                     {/* Status */}
-                    <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        backgroundColor: exp.status === 'approved' ? '#dcfce7' : exp.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                        color: exp.status === 'approved' ? '#15803d' : exp.status === 'pending' ? '#b45309' : '#b91c1c',
-                        textTransform: 'capitalize'
-                      }}>
+                    <td className="py-[7px] px-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded text-[11px] font-bold capitalize ${exp.status === 'approved'
+                          ? 'bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-400 border border-green-200 dark:border-emerald-800'
+                          : exp.status === 'pending'
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                            : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                        }`}>
                         {exp.status === 'approved' && <CheckCircle2 size={12} />}
                         {exp.status === 'pending' && <Clock size={12} />}
                         {exp.status === 'rejected' && <XCircle size={12} />}
@@ -466,19 +348,10 @@ export const ExpensesPage = () => {
                     </td>
 
                     {/* Actions */}
-                    <td style={{ padding: '7px 12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <td className="py-[7px] px-3 text-center whitespace-nowrap">
                       <button
                         onClick={() => setSelectedExpense(exp)}
-                        style={{
-                          background: '#eff6ff',
-                          border: '1px solid #bfdbfe',
-                          borderRadius: '5px',
-                          padding: '3px 8px',
-                          cursor: 'pointer',
-                          color: '#2563eb',
-                          fontSize: '11.5px',
-                          fontWeight: '700'
-                        }}
+                        className="bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-300 text-[11.5px] font-bold transition-colors"
                       >
                         View
                       </button>
@@ -491,26 +364,10 @@ export const ExpensesPage = () => {
         </div>
 
         {/* Table Footer / Pagination */}
-        <div style={{
-          padding: '8px 12px',
-          borderTop: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '11.5px',
-          color: '#64748b',
-          flexWrap: 'wrap',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="p-2 px-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+          <div className="flex items-center gap-1">
             <span>Show</span>
-            <select style={{
-              padding: '2px 6px',
-              borderRadius: '4px',
-              border: '1px solid #cbd5e1',
-              backgroundColor: '#ffffff',
-              fontSize: '11.5px'
-            }}>
+            <select className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[11.5px] outline-none">
               <option value="25">25</option>
               <option value="50">50</option>
               <option value="100">100</option>
@@ -522,46 +379,19 @@ export const ExpensesPage = () => {
             Showing 1 to {filteredExpenses.length} of {expenses.length} entries
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="flex items-center gap-1">
             <button
               disabled
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '11.5px',
-                cursor: 'not-allowed'
-              }}
+              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
             >
               Prev
             </button>
-            <button
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #2563eb',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                cursor: 'pointer'
-              }}
-            >
+            <button className="px-2 py-[3px] rounded border border-blue-600 bg-blue-600 text-white text-[11.5px] font-bold cursor-pointer">
               1
             </button>
             <button
               disabled
-              style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc',
-                color: '#94a3b8',
-                fontSize: '11.5px',
-                cursor: 'not-allowed'
-              }}
+              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
             >
               Next
             </button>

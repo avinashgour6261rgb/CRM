@@ -154,84 +154,40 @@ export const SecuritySettingsTab = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px 0' }}>
+    <div className="flex flex-col gap-6 py-6">
       
       {/* ── Tab Header (Matching Screenshot 7) ── */}
-      <div style={{ borderBottom: '2px solid #2563eb', display: 'inline-flex', alignItems: 'center', gap: '8px', paddingBottom: '8px', width: 'fit-content' }}>
-        <span style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Two-Factor Authentication</span>
-        <span style={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          backgroundColor: (email2FA || google2FA) ? '#10b981' : '#ef4444'
-        }} />
+      <div className="border-b-2 border-blue-600 inline-flex items-center gap-2 pb-2 w-fit">
+        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Two-Factor Authentication</span>
+        <span className={`w-2 h-2 rounded-full ${email2FA || google2FA ? 'bg-emerald-500' : 'bg-red-500'}`} />
       </div>
 
       {/* ── Alert Banners (Matching Screenshot 7) ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className="flex flex-col gap-2.5">
         {/* Info Banner */}
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          color: '#1d4ed8',
-          fontSize: '13px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ fontWeight: '700' }}>ℹ</span>
+        <div className="p-3 px-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-[13px] flex items-center gap-2">
+          <span className="font-bold">ℹ</span>
           <span>Increase your account's security by enabling Two-Factor Authentication (2FA)</span>
         </div>
 
         {/* Warning Banner */}
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: '8px',
-          backgroundColor: '#fdf2f8',
-          border: '1px solid #fbcfe8',
-          color: '#be185d',
-          fontSize: '13px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          <span style={{ fontWeight: '700' }}>ℹ</span>
+        <div className="p-3 px-4 rounded-lg bg-pink-50 dark:bg-pink-950/40 border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 text-[13px] flex items-center gap-2">
+          <span className="font-bold">ℹ</span>
           <span>Email SMTP settings not configured.</span>
         </div>
       </div>
 
       {/* ── Section 1: Setup Using Email (Matching Screenshot 7) ── */}
-      <div style={{
-        padding: '20px',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        backgroundColor: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: '#f1f5f9',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#64748b'
-          }}>
+      <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
             <Mail size={20} />
           </div>
           <div>
-            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
               Setup Using Email
             </h4>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: '1.4' }}>
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0 leading-snug">
               Enabling this feature will send code on your email account <strong>{currentUser?.email || 'user@company.com'}</strong> for log in.
             </p>
           </div>
@@ -239,51 +195,27 @@ export const SecuritySettingsTab = () => {
 
         <button
           onClick={handleToggleEmail2FA}
-          style={{
-            padding: '7px 18px',
-            borderRadius: '8px',
-            border: email2FA ? '1px solid #cbd5e1' : 'none',
-            backgroundColor: email2FA ? '#ffffff' : '#0284c7',
-            color: email2FA ? '#475569' : '#ffffff',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer'
-          }}
+          className={`px-[18px] py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors ${
+            email2FA
+              ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white'
+          }`}
         >
           {email2FA ? 'Disable' : 'Enable'}
         </button>
       </div>
 
       {/* ── Section 2: Setup Using Google Authenticator (Matching Screenshot 7) ── */}
-      <div style={{
-        padding: '20px',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        backgroundColor: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: '#eff6ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#2563eb'
-          }}>
+      <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Smartphone size={20} />
           </div>
           <div>
-            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
               Setup Using Google Authenticator
             </h4>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: '1.4' }}>
+            <p className="text-[12.5px] text-slate-500 m-0 leading-snug">
               Use the Authenticator app to get free verification codes, even when your phone is offline. Available for Android and iPhone.
             </p>
           </div>
@@ -291,38 +223,28 @@ export const SecuritySettingsTab = () => {
 
         <button
           onClick={handleGoogle2FAToggle}
-          style={{
-            padding: '7px 18px',
-            borderRadius: '8px',
-            border: google2FA ? '1px solid #cbd5e1' : 'none',
-            backgroundColor: google2FA ? '#ffffff' : '#0284c7',
-            color: google2FA ? '#475569' : '#ffffff',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer'
-          }}
+          className={`px-[18px] py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors ${
+            google2FA
+              ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white'
+          }`}
         >
           {google2FA ? 'Disable' : 'Enable'}
         </button>
       </div>
 
       {/* ── Section 3: Change Password ── */}
-      <div style={{
-        padding: '22px',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        backgroundColor: '#ffffff'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <KeyRound size={18} color="#2563eb" />
-          <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+      <div className="p-[22px] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="flex items-center gap-2.5 mb-4">
+          <KeyRound size={18} className="text-blue-600" />
+          <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 m-0">
             Change Password
           </h4>
         </div>
 
-        <form onSubmit={handleUpdatePassword} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', alignItems: 'flex-end' }}>
+        <form onSubmit={handleUpdatePassword} className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 items-end">
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
               Current Password *
             </label>
             <input
@@ -331,19 +253,12 @@ export const SecuritySettingsTab = () => {
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
               placeholder="••••••••"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
               New Password *
             </label>
             <input
@@ -352,19 +267,12 @@ export const SecuritySettingsTab = () => {
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               placeholder="Min. 8 characters"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#475569', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
               Confirm Password *
             </label>
             <input
@@ -373,14 +281,7 @@ export const SecuritySettingsTab = () => {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               placeholder="Repeat new password"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                outline: 'none'
-              }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -388,17 +289,7 @@ export const SecuritySettingsTab = () => {
             <button
               type="submit"
               disabled={passwordUpdating}
-              style={{
-                padding: '9px 18px',
-                borderRadius: '8px',
-                backgroundColor: '#0f172a',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                width: '100%'
-              }}
+              className="w-full px-[18px] py-[9px] rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-0 text-[13px] font-bold cursor-pointer disabled:opacity-50 transition-colors"
             >
               {passwordUpdating ? 'Updating...' : 'Update Password'}
             </button>
@@ -406,18 +297,9 @@ export const SecuritySettingsTab = () => {
         </form>
 
         {/* Master Admin Anti-Lockout Safeguard Notice */}
-        <div style={{
-          marginTop: '14px',
-          padding: '12px 14px',
-          borderRadius: '8px',
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '10px'
-        }}>
-          <ShieldCheck size={18} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div style={{ fontSize: '12px', color: '#1e40af', lineHeight: '1.5' }}>
+        <div className="mt-3.5 p-3 px-3.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
+          <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
             <strong>🛡️ Secure Enterprise Authentication:</strong><br />
             Your account password is encrypted and securely stored. When you change your password, only your newly configured password can be used to log in. Keep your credentials confidential.
           </div>
@@ -425,67 +307,39 @@ export const SecuritySettingsTab = () => {
       </div>
 
       {/* ── Section 4: Active Sessions & Device Management ── */}
-      <div style={{
-        padding: '22px',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        backgroundColor: '#ffffff',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '14px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+      <div className="p-[22px] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-3.5">
+        <div className="flex items-center justify-between flex-wrap gap-2.5">
           <div>
-            <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px' }}>
+            <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-1">
               Active Sessions & Device Management
             </h4>
-            <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+            <p className="text-[12.5px] text-slate-500 m-0">
               Manage devices currently logged into your CRM account.
             </p>
           </div>
 
           <button
             onClick={handleLogoutOtherDevices}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 14px',
-              borderRadius: '8px',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              color: '#dc2626',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-[12.5px] font-semibold cursor-pointer transition-colors"
           >
             <LogOut size={14} />
             Logout from Other Devices
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="flex flex-col gap-2.5">
           {sessions.map(s => (
             <div
               key={s.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #f1f5f9'
-              }}
+              className="flex items-center justify-between px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Laptop size={18} color="#64748b" />
+              <div className="flex items-center gap-3">
+                <Laptop size={18} className="text-slate-500" />
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                    {s.device} {s.isCurrent && <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600', backgroundColor: '#f0fdf4', padding: '1px 6px', borderRadius: '4px' }}>Current Device</span>}
+                  <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
+                    {s.device} {s.isCurrent && <span className="text-[11px] text-green-600 dark:text-green-400 font-semibold bg-green-50 dark:bg-green-950/60 px-1.5 py-0.5 rounded">Current Device</span>}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>
+                  <div className="text-[11.5px] text-slate-500 mt-0.5">
                     IP: {s.ip} • {s.lastActive}
                   </div>
                 </div>
@@ -497,64 +351,34 @@ export const SecuritySettingsTab = () => {
 
       {/* ── 2FA QR Code Setup Modal ── */}
       {showQRModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '440px',
-            padding: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            border: '1px solid #e2e8f0',
-            textAlign: 'center'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[440px] p-6 shadow-xl border border-slate-200 dark:border-slate-800 text-center">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">
                 Setup Google Authenticator
               </h3>
               <button
                 onClick={() => setShowQRModal(false)}
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                className="bg-transparent border-0 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: '#64748b', marginBottom: '16px' }}>
+            <p className="text-[12.5px] text-slate-500 mb-4">
               Scan this QR code with Google Authenticator or Microsoft Authenticator app on your phone:
             </p>
 
-            <div style={{
-              width: '160px',
-              height: '160px',
-              margin: '0 auto 16px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
-            }}>
-              <QrCode size={120} color="#0f172a" />
+            <div className="w-40 h-40 mx-auto mb-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center shadow-inner">
+              <QrCode size={120} className="text-slate-900 dark:text-slate-100" />
             </div>
 
-            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
-              Secret Key: <code style={{ backgroundColor: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>EMS-NOVAI-9842-SEC</code>
+            <div className="text-xs text-slate-500 mb-3">
+              Secret Key: <code className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 px-1.5 py-0.5 rounded font-bold">EMS-NOVAI-9842-SEC</code>
             </div>
 
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <div className="mb-[18px]">
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Enter 6-digit Code from Authenticator:
               </label>
               <input
@@ -563,50 +387,22 @@ export const SecuritySettingsTab = () => {
                 placeholder="123456"
                 value={verificationCode}
                 onChange={e => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                style={{
-                  width: '180px',
-                  padding: '9px',
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  textAlign: 'center',
-                  letterSpacing: '4px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #2563eb',
-                  outline: 'none'
-                }}
+                className="w-44 p-[9px] text-lg font-bold text-center tracking-[4px] rounded-lg border-[1.5px] border-blue-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+            <div className="flex justify-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setShowQRModal(false)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  color: '#475569',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={verifyAndEnableGoogle2FA}
-                style={{
-                  padding: '8px 20px',
-                  borderRadius: '8px',
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer'
-                }}
+                className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-0 text-[13px] font-bold cursor-pointer transition-colors"
               >
                 Verify & Activate
               </button>

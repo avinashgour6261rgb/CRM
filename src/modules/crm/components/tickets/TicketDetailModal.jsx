@@ -17,14 +17,17 @@ import {
   MessageSquare,
   FileText,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  Trash2
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
+import { useConfirm } from '../../../../shared/context/ConfirmContext';
 
 export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
   const { replyToTicket, updateTicketStatus, addTicketInternalNote, assignTicket, deleteTicket } = useCRM();
   const { currentUser, employees } = useHR();
+  const { confirm } = useConfirm();
 
   const [replyText, setReplyText] = useState('');
   const [internalNoteText, setInternalNoteText] = useState('');
@@ -54,115 +57,99 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
     assignTicket(ticket._id, empId);
   };
 
+  const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr';
+  const uId = String(currentUser?._id || '');
+  const uCode = String(currentUser?.employeeCode || '');
+  const uName = (currentUser?.name || '').toLowerCase().trim();
+
+  const isRequester =
+    (uId && String(ticket.requestedById) === uId) ||
+    (uCode && String(ticket.requestedById) === uCode) ||
+    (uId && String(ticket.createdBy) === uId) ||
+    (uCode && String(ticket.createdBy) === uCode) ||
+    (uName && ticket.requestedByName && ticket.requestedByName.toLowerCase().trim() === uName) ||
+    (uName && ticket.createdByName && ticket.createdByName.toLowerCase().trim() === uName);
+
+  const canDelete = isPrivileged || isRequester;
+
+  const handleDeleteClick = async () => {
+    const ok = await confirm({
+      title: 'Delete Support Ticket?',
+      message: `Are you sure you want to permanently delete "${ticket.ticketCode}: ${ticket.subject}"? This action cannot be undone.`,
+      confirmText: 'Yes, Delete Ticket',
+      cancelText: 'Keep Ticket',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteTicket(ticket._id || ticket.ticketCode);
+      onClose();
+    } catch {
+      // Handled
+    }
+  };
+
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '740px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        border: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid #f1f5f9',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: '#f8fafc',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px'
-        }}>
+        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb'
-              }}>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold py-[3px] px-2 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">
                 {ticket.ticketCode}
               </span>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '700',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                backgroundColor: ticket.priority === 'urgent' ? '#fee2e2' : ticket.priority === 'high' ? '#ffedd5' : '#f1f5f9',
-                color: ticket.priority === 'urgent' ? '#b91c1c' : ticket.priority === 'high' ? '#c2410c' : '#475569',
-                textTransform: 'uppercase'
-              }}>
+              <span className={`text-[11px] font-bold py-[3px] px-2 rounded-md uppercase ${
+                ticket.priority === 'urgent'
+                  ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300'
+                  : ticket.priority === 'high'
+                  ? 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}>
                 {ticket.priority}
               </span>
             </div>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '6px 0 0' }}>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-50 m-0 mt-1.5">
               {ticket.subject}
             </h2>
           </div>
 
-          <button
-            onClick={onClose}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#64748b',
-              cursor: 'pointer'
-            }}
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {canDelete && (
+              <button
+                onClick={handleDeleteClick}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 transition-colors cursor-pointer"
+                title="Delete this ticket permanently"
+              >
+                <Trash2 size={13} />
+                <span>Delete Ticket</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="p-6 flex flex-col gap-5">
           
           {/* Metadata Grid */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: '12px',
-            backgroundColor: '#f8fafc',
-            padding: '14px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
             {/* Requester */}
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Requester</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Requester</span>
+              <div className="flex items-center gap-1.5 mt-1">
                 <img
                   src={ticket.requestedByAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                   alt={ticket.requestedByName}
-                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+                  className="w-[22px] h-[22px] rounded-full object-cover"
                 />
-                <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0f172a' }}>
+                <span className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100">
                   {ticket.requestedByName}
                 </span>
               </div>
@@ -170,38 +157,29 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
             {/* Requested On */}
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Requested On</span>
-              <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', marginTop: '4px' }}>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Requested On</span>
+              <div className="text-[12.5px] font-semibold text-slate-700 dark:text-slate-200 mt-1">
                 {ticket.requestedOn}
               </div>
             </div>
 
             {/* Category */}
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Category</span>
-              <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', marginTop: '4px' }}>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Category</span>
+              <div className="text-[12.5px] font-semibold text-slate-700 dark:text-slate-200 mt-1">
                 {ticket.category || 'General Support'}
               </div>
             </div>
 
             {/* Status Switcher */}
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Status</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Status</span>
               <select
                 value={ticket.status}
                 onChange={e => handleStatusChange(e.target.value)}
-                style={{
-                  marginTop: '4px',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  color: ticket.status === 'resolved' || ticket.status === 'closed' ? '#16a34a' : '#2563eb',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
+                className={`block mt-1 py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold outline-none cursor-pointer ${
+                  ticket.status === 'resolved' || ticket.status === 'closed' ? 'text-green-600' : 'text-blue-600'
+                }`}
               >
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
@@ -213,22 +191,11 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
             {/* Assigned To */}
             <div>
-              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Assigned Support</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Assigned Support</span>
               <select
                 value={ticket.assignedToId || 'emp_005'}
                 onChange={e => handleAssign(e.target.value)}
-                style={{
-                  marginTop: '4px',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  fontSize: '12px',
-                  color: '#0f172a',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  maxWidth: '160px'
-                }}
+                className="block mt-1 py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer max-w-[160px]"
               >
                 {employees.map(emp => (
                   <option key={emp._id} value={emp._id}>
@@ -241,40 +208,23 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
           {/* Description Card */}
           <div>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Ticket Problem Description</span>
-            <div style={{
-              marginTop: '6px',
-              padding: '14px 16px',
-              borderRadius: '10px',
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              fontSize: '13px',
-              color: '#1e293b',
-              lineHeight: '1.6'
-            }}>
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Ticket Problem Description</span>
+            <div className="mt-1.5 p-3.5 px-4 rounded-[10px] bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[13px] text-slate-800 dark:text-slate-200 leading-relaxed">
               {ticket.description || 'No detailed description provided.'}
             </div>
           </div>
 
           {/* Discussion Tabs (Discussion Thread vs Admin Internal Notes) */}
           <div>
-            <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+            <div className="flex gap-3 border-b border-slate-200 dark:border-slate-700 pb-2">
               <button
                 type="button"
                 onClick={() => setActiveTab('conversation')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '6px 12px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: activeTab === 'conversation' ? '#2563eb' : '#64748b',
-                  borderBottom: activeTab === 'conversation' ? '2px solid #2563eb' : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
+                className={`bg-transparent border-none py-1.5 px-3 text-[13px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors ${
+                  activeTab === 'conversation'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
               >
                 <MessageSquare size={15} />
                 Conversation Stream ({ticket.replies?.length || 0})
@@ -283,19 +233,11 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
               <button
                 type="button"
                 onClick={() => setActiveTab('internal_notes')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '6px 12px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  color: activeTab === 'internal_notes' ? '#2563eb' : '#64748b',
-                  borderBottom: activeTab === 'internal_notes' ? '2px solid #2563eb' : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
+                className={`bg-transparent border-none py-1.5 px-3 text-[13px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors ${
+                  activeTab === 'internal_notes'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
               >
                 <Lock size={14} />
                 Admin Internal Notes ({ticket.internalNotes?.length || 0})
@@ -304,63 +246,37 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
             {/* Conversation Tab Body */}
             {activeTab === 'conversation' && (
-              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{
-                  maxHeight: '260px',
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  padding: '12px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '10px',
-                  border: '1px solid #e2e8f0'
-                }}>
+              <div className="mt-3.5 flex flex-col gap-3">
+                <div className="max-h-[260px] overflow-y-auto flex flex-col gap-2.5 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-700">
                   {(!ticket.replies || ticket.replies.length === 0) ? (
-                    <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>
+                    <div className="text-center py-6 text-slate-400 text-[13px]">
                       No replies yet. Admin can reply below to initiate conversation with employee.
                     </div>
                   ) : (
                     ticket.replies.map(rep => (
                       <div
                         key={rep.id}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignSelf: rep.isAdminReply ? 'flex-end' : 'flex-start',
-                          maxWidth: '85%'
-                        }}
+                        className={`flex flex-col max-w-[85%] ${rep.isAdminReply ? 'self-end' : 'self-start'}`}
                       >
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          marginBottom: '3px',
-                          alignSelf: rep.isAdminReply ? 'flex-end' : 'flex-start'
-                        }}>
+                        <div className={`flex items-center gap-1.5 mb-1 ${rep.isAdminReply ? 'self-end' : 'self-start'}`}>
                           <img
                             src={rep.senderAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                             alt={rep.senderName}
-                            style={{ width: '18px', height: '18px', borderRadius: '50%' }}
+                            className="w-[18px] h-[18px] rounded-full"
                           />
-                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
                             {rep.senderName}
                           </span>
-                          <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                          <span className="text-[10.5px] text-slate-400">
                             {new Date(rep.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
 
-                        <div style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          backgroundColor: rep.isAdminReply ? '#2563eb' : '#ffffff',
-                          color: rep.isAdminReply ? '#ffffff' : '#0f172a',
-                          border: rep.isAdminReply ? 'none' : '1px solid #e2e8f0',
-                          fontSize: '13px',
-                          lineHeight: '1.5',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}>
+                        <div className={`p-2.5 px-3.5 rounded-[10px] text-[13px] leading-relaxed shadow-xs ${
+                          rep.isAdminReply
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-50 border border-slate-200 dark:border-slate-700'
+                        }`}>
                           {rep.message}
                         </div>
                       </div>
@@ -369,36 +285,17 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                 </div>
 
                 {/* Reply Input Bar */}
-                <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '8px' }}>
+                <form onSubmit={handleSendReply} className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Type your response to the employee / admin..."
                     value={replyText}
                     onChange={e => setReplyText(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
+                    className="flex-1 py-2.5 px-3.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500"
                   />
                   <button
                     type="submit"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '10px 18px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      backgroundColor: '#2563eb',
-                      color: '#ffffff',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="inline-flex items-center gap-1.5 py-2.5 px-[18px] rounded-lg border-none bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer transition-colors"
                   >
                     <Send size={15} />
                     Send Reply
@@ -409,69 +306,36 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
             {/* Internal Notes Tab Body */}
             {activeTab === 'internal_notes' && (
-              <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  padding: '12px',
-                  backgroundColor: '#fffbeb',
-                  borderRadius: '10px',
-                  border: '1px solid #fef3c7'
-                }}>
+              <div className="mt-3.5 flex flex-col gap-3">
+                <div className="max-h-[220px] overflow-y-auto flex flex-col gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-[10px] border border-amber-200 dark:border-amber-900/50">
                   {(!ticket.internalNotes || ticket.internalNotes.length === 0) ? (
-                    <div style={{ textAlign: 'center', padding: '18px', color: '#b45309', fontSize: '12.5px' }}>
+                    <div className="text-center py-[18px] text-amber-700 dark:text-amber-400 text-[12.5px]">
                       No internal notes recorded. Internal notes are only visible to Admins/Managers.
                     </div>
                   ) : (
                     ticket.internalNotes.map(n => (
-                      <div key={n.id} style={{
-                        backgroundColor: '#ffffff',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #fde68a'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#b45309', fontWeight: '700' }}>
+                      <div key={n.id} className="bg-white dark:bg-slate-800 p-2.5 px-3 rounded-md border border-amber-200 dark:border-amber-900/40">
+                        <div className="flex justify-between text-[11px] text-amber-700 dark:text-amber-400 font-bold">
                           <span>🔒 Note by {n.author}</span>
                           <span>{new Date(n.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
-                        <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#78350f' }}>{n.text}</p>
+                        <p className="m-0 mt-1 text-[12.5px] text-amber-950 dark:text-amber-200">{n.text}</p>
                       </div>
                     ))
                   )}
                 </div>
 
-                <form onSubmit={handleAddNote} style={{ display: 'flex', gap: '8px' }}>
+                <form onSubmit={handleAddNote} className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Add private internal admin note..."
                     value={internalNoteText}
                     onChange={e => setInternalNoteText(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      border: '1px solid #fde68a',
-                      backgroundColor: '#fffbeb',
-                      fontSize: '13px',
-                      outline: 'none',
-                      color: '#78350f'
-                    }}
+                    className="flex-1 py-2.5 px-3.5 rounded-lg border border-amber-300 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/40 text-[13px] text-amber-900 dark:text-amber-200 outline-none focus:border-amber-500"
                   />
                   <button
                     type="submit"
-                    style={{
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      backgroundColor: '#d97706',
-                      color: '#ffffff',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      cursor: 'pointer'
-                    }}
+                    className="py-2.5 px-4 rounded-lg border-none bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-bold cursor-pointer transition-colors"
                   >
                     Attach Note
                   </button>

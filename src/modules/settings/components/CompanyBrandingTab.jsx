@@ -13,7 +13,7 @@ import {
   Edit3,
   Clock
 } from 'lucide-react';
-import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
+import { getCompanySettings, saveCompanySettings, fetchCompanySettingsFromDB } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
 
 export const CompanyBrandingTab = () => {
@@ -22,6 +22,9 @@ export const CompanyBrandingTab = () => {
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
+    fetchCompanySettingsFromDB().then(data => {
+      if (data) setFormData(data);
+    });
     const handleUpdate = () => setFormData(getCompanySettings());
     window.addEventListener('company-settings-updated', handleUpdate);
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
@@ -44,56 +47,44 @@ export const CompanyBrandingTab = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px 0' }}>
+    <div className="flex flex-col gap-6 py-4">
       {/* Header Description */}
       <div>
-        <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0' }}>
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mb-1">
           Company & Payslip Settings (Admin Control)
         </h2>
-        <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+        <p className="text-[13px] text-slate-500 dark:text-slate-400 m-0">
           Customize company legal name, corporate address, branding logos, and authorized signatories for official documents.
         </p>
       </div>
 
       {/* Form and Live Preview Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
         
         {/* Left Side: Admin Form */}
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSave} className="flex flex-col gap-4">
           
           {/* Company Legal Name */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Company Legal Name (Printed on Payslips) *
             </label>
-            <div style={{ position: 'relative' }}>
-              <Building2 size={16} color="#64748b" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+            <div className="relative">
+              <Building2 size={16} className="absolute left-3 top-3 text-slate-500" />
               <input
                 type="text"
                 value={formData.companyName}
                 onChange={e => handleChange('companyName', e.target.value)}
                 placeholder="e.g. My Company Pvt. Ltd. (Optional — Leave blank for default workspace)"
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  paddingLeft: '36px',
-                  paddingRight: '12px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '13.5px',
-                  fontWeight: '700',
-                  color: '#0f172a',
-                  outline: 'none',
-                  backgroundColor: '#ffffff'
-                }}
+                className="w-full h-10 pl-9 pr-3 rounded-lg border-[1.5px] border-slate-300 dark:border-slate-700 text-[13.5px] font-bold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Short Name & Tagline */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Brand Display Name
               </label>
               <input
@@ -101,20 +92,12 @@ export const CompanyBrandingTab = () => {
                 value={formData.shortName}
                 onChange={e => handleChange('shortName', e.target.value)}
                 placeholder="e.g. My Company (Optional)"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Corporate Tagline / Subtitle
               </label>
               <input
@@ -122,102 +105,67 @@ export const CompanyBrandingTab = () => {
                 value={formData.tagline}
                 onChange={e => handleChange('tagline', e.target.value)}
                 placeholder="e.g. Enterprise Solutions"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Corporate Address */}
           <div>
-            <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Registered Corporate Address
             </label>
-            <div style={{ position: 'relative' }}>
-              <MapPin size={16} color="#64748b" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+            <div className="relative">
+              <MapPin size={16} className="absolute left-3 top-3 text-slate-500" />
               <input
                 type="text"
                 value={formData.address}
                 onChange={e => handleChange('address', e.target.value)}
                 placeholder="e.g. Enterprise Tech Towers, Sector 24, New Delhi"
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  paddingLeft: '36px',
-                  paddingRight: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none'
-                }}
+                className="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Official Email & Phone */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 HR Official Email (From Address)
               </label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '11px' }} />
+              <div className="relative">
+                <Mail size={15} className="absolute left-2.5 top-[11px] text-slate-500" />
                 <input
                   type="email"
                   value={formData.hrEmail || formData.email}
                   onChange={e => handleChange('hrEmail', e.target.value)}
                   placeholder="hr@inforagtechnology.com"
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    paddingLeft: '32px',
-                    paddingRight: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    outline: 'none'
-                  }}
+                  className="w-full h-[38px] pl-8 pr-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Helpline / Phone
               </label>
-              <div style={{ position: 'relative' }}>
-                <Phone size={15} color="#64748b" style={{ position: 'absolute', left: '10px', top: '11px' }} />
+              <div className="relative">
+                <Phone size={15} className="absolute left-2.5 top-[11px] text-slate-500" />
                 <input
                   type="text"
                   value={formData.phone}
                   onChange={e => handleChange('phone', e.target.value)}
                   placeholder="+91 98765 43210"
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    paddingLeft: '32px',
-                    paddingRight: '10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    outline: 'none'
-                  }}
+                  className="w-full h-[38px] pl-8 pr-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* Corporate Identification & Tax Registration (Printed on Payslips) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Corporate ID (CIN)
               </label>
               <input
@@ -225,19 +173,11 @@ export const CompanyBrandingTab = () => {
                 value={formData.cin || ''}
                 onChange={e => handleChange('cin', e.target.value)}
                 placeholder="e.g. U72200MH2021PTC123456"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  outline: 'none'
-                }}
+                className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs outline-none focus:border-blue-500 transition-colors"
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 GSTIN / Tax ID
               </label>
               <input
@@ -245,19 +185,11 @@ export const CompanyBrandingTab = () => {
                 value={formData.gstin || ''}
                 onChange={e => handleChange('gstin', e.target.value)}
                 placeholder="e.g. 07AAAAA0000A1Z5"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  outline: 'none'
-                }}
+                className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs outline-none focus:border-blue-500 transition-colors"
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Company PAN
               </label>
               <input
@@ -265,90 +197,74 @@ export const CompanyBrandingTab = () => {
                 value={formData.pan || ''}
                 onChange={e => handleChange('pan', e.target.value)}
                 placeholder="e.g. ABCDE1234F"
-                style={{
-                  width: '100%',
-                  height: '38px',
-                  padding: '0 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '12px',
-                  outline: 'none'
-                }}
+                className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* 🏢 Company Foundation Day & Anniversary (Admin Configurable) */}
+          <div className="p-3.5 px-4 bg-purple-50 dark:bg-purple-950/40 border-[1.5px] border-purple-200 dark:border-purple-900/60 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-[13px] font-bold text-purple-900 dark:text-purple-200 flex items-center gap-2">
+                <span>🎉 Company Foundation Day & Anniversary</span>
+              </div>
+              <div className="text-[11.5px] text-purple-700 dark:text-purple-300 mt-0.5">
+                Official establishment date of the organization. Displayed on Dashboard & Events calendar for all employees.
+              </div>
+            </div>
+            <div className="shrink-0 w-full sm:w-auto">
+              <input
+                type="date"
+                value={formData.foundationDate || '2020-04-15'}
+                onChange={e => handleChange('foundationDate', e.target.value)}
+                className="h-9 px-3 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-purple-500"
               />
             </div>
           </div>
 
           {/* ⏱️ Work Shift Timings & Working Hours Configuration (Admin/HR Setting) */}
-          <div style={{
-            padding: '16px',
-            backgroundColor: '#f8fafc',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: '10px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={16} color="#2563eb" />
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-[1.5px] border-slate-200 dark:border-slate-800 rounded-xl flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-blue-600" />
               <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
-                  Work Shift Timing & Hours Configuration
+                <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
+                  Work Shift Timing & Hours Configuration (Universal Company Policy)
                 </div>
-                <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                  Define company default work shift hours. Applied to Calendar, Attendance, and Employee shift trackers.
+                <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
+                  Define company default work shift hours. Late check-ins, half-days, and overtime across all employees are calculated against these times.
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Shift Start Time
                 </label>
                 <input
                   type="text"
-                  value={formData.shiftStartTime || '10:00 AM'}
+                  value={formData.shiftStartTime || '09:30 AM'}
                   onChange={e => handleChange('shiftStartTime', e.target.value)}
-                  placeholder="e.g. 10:00 AM or 09:30 AM"
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  placeholder="e.g. 09:30 AM"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Shift End Time
                 </label>
                 <input
                   type="text"
-                  value={formData.shiftEndTime || '07:00 PM'}
+                  value={formData.shiftEndTime || '06:30 PM'}
                   onChange={e => handleChange('shiftEndTime', e.target.value)}
-                  placeholder="e.g. 07:00 PM or 06:30 PM"
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  placeholder="e.g. 06:30 PM"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Standard Hours / Day
                 </label>
                 <input
@@ -358,131 +274,108 @@ export const CompanyBrandingTab = () => {
                   value={formData.standardWorkHours || 9}
                   onChange={e => handleChange('standardWorkHours', Number(e.target.value) || 9)}
                   placeholder="9"
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '12.5px',
-                    fontWeight: '600',
-                    outline: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Late Arrival Grace Period (Minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={formData.gracePeriodMinutes ?? 15}
+                  onChange={e => handleChange('gracePeriodMinutes', Number(e.target.value) || 0)}
+                  placeholder="15"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
+                />
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Clock-ins after start time + grace (e.g. after 09:45 AM) are auto-marked Late.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Half-Day Threshold (Hours)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="2"
+                  max="8"
+                  value={formData.halfDayThresholdHours ?? 4.5}
+                  onChange={e => handleChange('halfDayThresholdHours', Number(e.target.value) || 4.5)}
+                  placeholder="4.5"
+                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
+                />
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Total work hours completed below this will be recorded as Half Day.</p>
               </div>
             </div>
           </div>
 
           {/* 🔐 Login Page Privacy & Company Name Visibility Toggle */}
-          <div style={{
-            padding: '14px 16px',
-            backgroundColor: '#eff6ff',
-            border: '1.5px solid #bfdbfe',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px'
-          }}>
+          <div className="p-3.5 px-4 bg-blue-50 dark:bg-blue-950/30 border-[1.5px] border-blue-200 dark:border-blue-900/50 rounded-xl flex items-center justify-between gap-3">
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e40af' }}>
+              <div className="text-[13px] font-bold text-blue-900 dark:text-blue-200">
                 🏢 Show Company Name on Login Screen
               </div>
-              <div style={{ fontSize: '11.5px', color: '#3b82f6', marginTop: '2px' }}>
+              <div className="text-[11.5px] text-blue-600 dark:text-blue-400 mt-0.5">
                 When disabled (default), the sign-in page displays generic &quot;Enterprise Workspace&quot;. Enable this if you want your actual company name shown publicly.
               </div>
             </div>
-            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+            <label className="relative inline-block w-11 h-6 shrink-0 cursor-pointer">
               <input
                 type="checkbox"
                 checked={!!formData.showCompanyNameOnLogin}
                 onChange={e => handleChange('showCompanyNameOnLogin', e.target.checked)}
-                style={{ opacity: 0, width: 0, height: 0 }}
+                className="sr-only"
               />
-              <span style={{
-                position: 'absolute',
-                cursor: 'pointer',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: formData.showCompanyNameOnLogin ? '#2563eb' : '#cbd5e1',
-                transition: '0.3s',
-                borderRadius: '24px'
-              }}>
-                <span style={{
-                  position: 'absolute',
-                  content: '""',
-                  height: '18px',
-                  width: '18px',
-                  left: formData.showCompanyNameOnLogin ? '23px' : '3px',
-                  bottom: '3px',
-                  backgroundColor: '#ffffff',
-                  transition: '0.3s',
-                  borderRadius: '50%',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                }} />
+              <span className={`block w-full h-full rounded-full transition-colors ${
+                formData.showCompanyNameOnLogin ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}>
+                <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
+                  formData.showCompanyNameOnLogin ? 'left-[23px]' : 'left-[3px]'
+                }`} />
               </span>
             </label>
           </div>
 
           {/* Authorized Signatory Info */}
-          <div style={{
-            padding: '14px',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '10px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col gap-3">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               ✍️ Authorized Signatory on Payslips & Appraisal Letters:
             </span>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>Signatory Title</label>
+                <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Signatory Title</label>
                 <input
                   type="text"
                   value={formData.signatoryTitle}
                   onChange={e => handleChange('signatoryTitle', e.target.value)}
                   placeholder="e.g. Authorized HR Directorate"
-                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                  className="w-full h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>Signatory Name</label>
+                <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Signatory Name</label>
                 <input
                   type="text"
                   value={formData.signatoryName}
                   onChange={e => handleChange('signatoryName', e.target.value)}
                   placeholder="e.g. Sneha Patel"
-                  style={{ width: '100%', height: '36px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                  className="w-full h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* Submit Button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+          <div className="flex justify-end gap-2.5 mt-1">
             <button
               type="submit"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 24px',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(37,99,235,0.3)',
-                transition: 'all 0.15s ease'
-              }}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-colors"
             >
               <CheckCircle2 size={16} />
               Save Company Settings
@@ -491,107 +384,57 @@ export const CompanyBrandingTab = () => {
         </form>
 
         {/* Right Side: Live Payslip Header Preview */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', color: '#334155' }}>
-            <FileText size={16} color="#2563eb" />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+            <FileText size={16} className="text-blue-600" />
             <span>Live Payslip Header Preview</span>
           </div>
 
-          <div style={{
-            border: '2px dashed #93c5fd',
-            borderRadius: '12px',
-            padding: '20px',
-            backgroundColor: '#ffffff',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
-          }}>
+          <div className="border-2 border-dashed border-blue-300 dark:border-blue-800/80 rounded-xl p-5 bg-white dark:bg-slate-900 shadow-xs">
             {/* Live Header Render */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              borderBottom: '2px solid #2563eb',
-              paddingBottom: '12px',
-              marginBottom: '16px'
-            }}>
+            <div className="flex justify-between items-start border-b-2 border-blue-600 dark:border-blue-500 pb-3 mb-4">
               <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#1e3a8a', margin: 0 }}>
+                <h3 className="text-base font-extrabold text-blue-950 dark:text-blue-200 m-0">
                   {formData.companyName || 'YOUR COMPANY NAME'}
                 </h3>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '3px 0 0 0', lineHeight: '1.4' }}>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-[3px] m-0 leading-snug">
                   {formData.address}
                 </p>
-                <p style={{ fontSize: '11px', color: '#2563eb', margin: '2px 0 0 0' }}>
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 m-0">
                   {formData.hrEmail || formData.email} • {formData.phone}
                 </p>
               </div>
-              <div style={{
-                padding: '3px 8px',
-                borderRadius: '4px',
-                backgroundColor: '#dbeafe',
-                color: '#1e40af',
-                fontSize: '10.5px',
-                fontWeight: '700',
-                whiteSpace: 'nowrap'
-              }}>
+              <div className="px-2 py-[3px] rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[10.5px] font-bold whitespace-nowrap">
                 SAMPLE PAYSLIP
               </div>
             </div>
 
             {/* Dummy Mock Table */}
-            <div style={{
-              backgroundColor: '#f8fafc',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0',
-              padding: '12px',
-              fontSize: '11.5px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              color: '#475569'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="bg-slate-50 dark:bg-slate-800/70 rounded-md border border-slate-200 dark:border-slate-700 p-3 text-[11.5px] flex flex-col gap-1.5 text-slate-600 dark:text-slate-300">
+              <div className="flex justify-between">
                 <span>Employee Name: <strong>Rahul Verma</strong></span>
                 <span>Designation: <strong>Senior Full Stack Developer</strong></span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: '6px', fontWeight: '700', color: '#15803d' }}>
+              <div className="flex justify-between border-t border-dashed border-slate-300 dark:border-slate-700 pt-1.5 font-bold text-green-700 dark:text-green-400">
                 <span>Net Monthly Take-Home:</span>
                 <span>₹83,740 / month</span>
               </div>
             </div>
 
             {/* Live Signatory Render */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-              marginTop: '20px',
-              paddingTop: '12px',
-              borderTop: '1px solid #e2e8f0',
-              fontSize: '10.5px',
-              color: '#64748b'
-            }}>
+            <div className="flex justify-between items-end mt-5 pt-3 border-t border-slate-200 dark:border-slate-800 text-[10.5px] text-slate-500 dark:text-slate-400">
               <div>
                 <span>{formData.footerNote}</span>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ width: '100px', borderBottom: '1px solid #94a3b8', marginBottom: '3px' }}></div>
-                <strong style={{ color: '#1e293b' }}>{formData.signatoryTitle}</strong>
-                <div style={{ fontSize: '9.5px', color: '#64748b' }}>({formData.signatoryName})</div>
+              <div className="text-center">
+                <div className="w-[100px] border-b border-slate-400 dark:border-slate-600 mb-[3px] mx-auto"></div>
+                <strong className="text-slate-800 dark:text-slate-200">{formData.signatoryTitle}</strong>
+                <div className="text-[9.5px] text-slate-500 dark:text-slate-400">({formData.signatoryName})</div>
               </div>
             </div>
           </div>
 
-          <div style={{
-            padding: '12px',
-            borderRadius: '8px',
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            fontSize: '12px',
-            color: '#166534',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
             <Sparkles size={16} />
             <span>Changes take effect immediately on all printouts, PDF exports, and emails!</span>
           </div>
