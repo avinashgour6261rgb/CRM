@@ -38,3 +38,4 @@ const CompanySettingsSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('CompanySettings', CompanySettingsSchema);
+

@@ -533,14 +533,35 @@ export const DashboardPage = () => {
       } catch (_) {}
     }
 
-    const isClockedIn = !isStaleFromPreviousDay && (storedClockedIn || (attRec?.isClockedIn === true && !!attRec?.clockInTime && !attRec?.clockOutTime && attRec?.date === todayStr));
-    const isClockedOut = !isClockedIn && (!!storedClockOut || (!!attRec?.clockOutTime && attRec?.date === todayStr));
-    const loginTime = !isStaleFromPreviousDay ? (attRec?.clockInTime || storedLogin || null) : null;
-    const clockOutTime = !isStaleFromPreviousDay ? (attRec?.clockOutTime || storedClockOut || null) : null;
+    // Strict today-only attendance validation: employee is ONLY clocked in/out if they actively punched today!
+    const hasTodayAttClockIn = Boolean(attRec?.date === todayStr && (attRec?.clockInTime || attRec?.clockIn));
+    const hasTodayAttClockOut = Boolean(attRec?.date === todayStr && (attRec?.clockOutTime || attRec?.clockOut));
+    const hasTodayStoredSession = !isStaleFromPreviousDay && (storedSessionDate === todayStr);
+    const hasTodayStoredClockIn = Boolean(hasTodayStoredSession && (storedLogin || rawClockInTs > 0));
+    const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
 
-    // Calculate dynamic live work seconds
-    let workSecs = !isStaleFromPreviousDay ? (storedWorkSecs || Number(attRec?.workSeconds) || 0) : 0;
+    const isClockedIn = !isStaleFromPreviousDay && (
+      (hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn) ||
+      (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn !== false && attRec?.status !== 'absent')
+    );
+
+    const isClockedOut = !isClockedIn && !isStaleFromPreviousDay && (
+      (hasTodayAttClockIn && hasTodayAttClockOut) ||
+      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+    );
+
+    const loginTime = isClockedIn
+      ? (attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? (attRec?.clockInTime || storedLogin || null) : null);
+
+    const clockOutTime = isClockedOut
+      ? (attRec?.clockOutTime || storedClockOut || null)
+      : null;
+
+    // Calculate dynamic live work seconds strictly for today
+    let workSecs = 0;
     if (isClockedIn && !storedOnBreak && !isStaleFromPreviousDay) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
       const clockInTs = rawClockInTs;
       if (clockInTs > 0) {
         const rawGross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
@@ -553,8 +574,13 @@ export const DashboardPage = () => {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
         workSecs = Math.max(workSecs, localGross);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours && !isStaleFromPreviousDay) {
-      workSecs = Math.round(attRec.totalWorkingHours * 3600);
+    } else if (isClockedOut && !isStaleFromPreviousDay) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!workSecs && attRec?.totalWorkingHours) {
+        workSecs = Math.round(attRec.totalWorkingHours * 3600);
+      }
+    } else {
+      workSecs = 0;
     }
 
     // Active running task with live ticking calculation

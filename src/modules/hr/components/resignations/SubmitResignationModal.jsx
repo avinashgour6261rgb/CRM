@@ -229,3 +229,4 @@ export const SubmitResignationModal = ({ isOpen, onClose }) => {
     </div>
   );
 };
+

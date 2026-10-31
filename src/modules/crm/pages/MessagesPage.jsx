@@ -28,8 +28,11 @@ import {
   Image as ImageIcon,
   Archive,
   FileCode,
-  Maximize2
+  Maximize2,
+  Lock,
+  Pin
 } from 'lucide-react';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { NewConversationModal } from '../components/messages/NewConversationModal';
@@ -41,12 +44,27 @@ import { useToast } from '../../../shared/context/ToastContext';
 export const MessagesPage = () => {
   const {
     visibleConversations,
+    conversations,
     activeConversationId,
     setActiveConversationId,
     sendMessage,
     markConversationAsRead
   } = useCRM();
-  const { currentUser, employees } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { currentUser: hrUser, employees } = useHR();
+
+  const currentUser = useMemo(() => {
+    const base = authUser || hrUser;
+    if (!base) return null;
+    const localEmps = employees || [];
+    const matched = localEmps.find(e =>
+      (base._id && (String(e._id) === String(base._id) || String(e.id) === String(base._id))) ||
+      (base.id && (String(e._id) === String(base.id) || String(e.id) === String(base.id))) ||
+      (base.employeeCode && (String(e.employeeCode).toUpperCase() === String(base.employeeCode).toUpperCase())) ||
+      (base.email && e.email && String(e.email).toLowerCase() === String(base.email).toLowerCase())
+    );
+    return matched ? { ...base, ...matched } : base;
+  }, [authUser, hrUser, employees]);
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'channels' | 'dms'
@@ -63,8 +81,48 @@ export const MessagesPage = () => {
   const inputRef = useRef(null);
 
   const activeConv = useMemo(() => {
-    return (visibleConversations || []).find(c => c.id === activeConversationId) || visibleConversations?.[0] || null;
-  }, [visibleConversations, activeConversationId]);
+    // 1. Try finding in visibleConversations
+    const foundVisible = (visibleConversations || []).find(c => c.id === activeConversationId);
+    if (foundVisible) return foundVisible;
+
+    // 2. Try finding in all conversations (in case visibility is re-evaluating)
+    const foundAll = (conversations || []).find(c => c.id === activeConversationId);
+    if (foundAll) return foundAll;
+
+    // 3. If tab is 'dms', pick the first DM instead of falling back to channel_general!
+    if (activeTab === 'dms') {
+      const firstDm = (visibleConversations || []).find(c => c.type !== 'channel');
+      if (firstDm) return firstDm;
+    }
+
+    // 4. If tab is 'channels', pick the first channel
+    if (activeTab === 'channels') {
+      const firstChannel = (visibleConversations || []).find(c => c.type === 'channel');
+      if (firstChannel) return firstChannel;
+    }
+
+    // 5. Default fallback
+    return visibleConversations?.[0] || null;
+  }, [visibleConversations, conversations, activeConversationId, activeTab]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (newTab === 'dms') {
+      if (!activeConv || activeConv.type === 'channel') {
+        const firstDm = (visibleConversations || []).find(c => c.type !== 'channel');
+        if (firstDm) {
+          setActiveConversationId(firstDm.id);
+        }
+      }
+    } else if (newTab === 'channels') {
+      if (!activeConv || activeConv.type !== 'channel') {
+        const firstChannel = (visibleConversations || []).find(c => c.type === 'channel');
+        if (firstChannel) {
+          setActiveConversationId(firstChannel.id);
+        }
+      }
+    }
+  };
 
   // Auto-mark conversation as read when active or new message arrives
   useEffect(() => {
@@ -224,7 +282,7 @@ export const MessagesPage = () => {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex-1 py-1 px-2 rounded-md font-bold text-[11px] transition-all border-0 cursor-pointer text-center ${
                   activeTab === tab.id
                     ? 'bg-white dark:bg-[#1a2744] text-blue-600 dark:text-sky-300 shadow-xs'
@@ -557,6 +615,32 @@ export const MessagesPage = () => {
                   </div>
                 )}
 
+                {/* Privacy & Recipient Confirmation Indicator */}
+                <div className={`px-4 py-2 border-t text-xs flex items-center justify-between select-none ${
+                  activeIsChannel
+                    ? 'bg-slate-50 dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+                }`}>
+                  <div className="flex items-center gap-1.5 font-bold truncate">
+                    {activeIsChannel ? (
+                      <>
+                        <Hash size={14} className="text-blue-600 dark:text-sky-400 shrink-0" />
+                        <span>Channel Broadcast: Posting to <strong>{headerTitle}</strong> (All channel members will receive this)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>Private Direct Message: Sharing strictly with <strong>{headerTitle}</strong> (Never visible in General)</span>
+                      </>
+                    )}
+                  </div>
+                  {!activeIsChannel && (
+                    <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 font-extrabold border border-emerald-300 dark:border-emerald-700 shrink-0">
+                      Private DM
+                    </span>
+                  )}
+                </div>
+
                 {/* ── Chat Input Bar ── */}
                 <form
                   onSubmit={handleSend}
@@ -575,7 +659,7 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#1a2744] hover:bg-slate-200 dark:hover:bg-[#23355d] border border-slate-200 dark:border-slate-700/80 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 cursor-pointer transition-all shadow-xs shrink-0"
+                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 cursor-pointer transition-all shadow-xs shrink-0"
                     title="Attach Photo, Video, Document or Code file"
                   >
                     <Paperclip size={19} className="rotate-45" />
@@ -586,10 +670,10 @@ export const MessagesPage = () => {
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                     className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all border shadow-xs shrink-0 ${
                       showEmojiPicker
-                        ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 ring-2 ring-amber-400/30'
-                        : 'bg-slate-100 dark:bg-[#1a2744] hover:bg-slate-200 dark:hover:bg-[#23355d] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:text-amber-500 dark:hover:text-amber-400'
+                        ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/40'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400'
                     }`}
-                    title="Quick Reactions & Stickers"
+                    title="Quick Reactions, Stickers & Emojis"
                   >
                     <Smile size={19} />
                   </button>
@@ -597,10 +681,16 @@ export const MessagesPage = () => {
                   <input
                     ref={inputRef}
                     type="text"
-                    placeholder={pendingAttachments.length > 0 ? "Add an optional caption and press Send..." : "Type a message..."}
+                    placeholder={
+                      pendingAttachments.length > 0
+                        ? `Add caption for ${activeIsChannel ? headerTitle : `${headerTitle} (Private DM)`} and press Send...`
+                        : activeIsChannel
+                        ? `Message ${headerTitle}...`
+                        : `Private Direct Message to ${headerTitle}...`
+                    }
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
-                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300/80 dark:border-slate-700/80 text-[13px] outline-none bg-slate-50 dark:bg-[#0c1427] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-blue-600 dark:focus:border-sky-500 transition-colors"
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-slate-50 dark:bg-[#0c1427] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:border-blue-600 dark:focus:border-sky-400 focus:ring-1 focus:ring-blue-500/20 transition-all font-medium"
                   />
 
                   <button

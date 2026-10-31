@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { getCollection, saveCollection, KEYS } from '../services/storageService';
 import { useToast } from './ToastContext';
+import { useAuth } from './AuthContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
 import { API_BASE } from '../config/apiConfig';
@@ -32,7 +33,22 @@ const CRMContext = createContext();
 
 export const CRMProvider = ({ children }) => {
   const { addToast } = useToast();
-  const { currentUser, updateEmployee, employees } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { currentUser: hrUser, updateEmployee, employees } = useHR();
+
+  // Resolve canonical user profile across Auth and HR contexts
+  const currentUser = useMemo(() => {
+    const base = authUser || hrUser;
+    if (!base) return null;
+    const localEmps = getCollection(KEYS.EMPLOYEES) || employees || [];
+    const matched = localEmps.find(e =>
+      (base._id && (String(e._id) === String(base._id) || String(e.id) === String(base._id))) ||
+      (base.id && (String(e._id) === String(base.id) || String(e.id) === String(base.id))) ||
+      (base.employeeCode && (String(e.employeeCode).toUpperCase() === String(base.employeeCode).toUpperCase())) ||
+      (base.email && e.email && String(e.email).toLowerCase() === String(base.email).toLowerCase())
+    );
+    return matched ? { ...base, ...matched } : base;
+  }, [authUser, hrUser, employees]);
 
   // Helper to normalize event objects so undefined values never leak to UI
   const normalizeEvent = (e) => ({
@@ -192,7 +208,21 @@ export const CRMProvider = ({ children }) => {
   const [notices, setNotices] = useState(() => getCollection(KEYS.NOTICES));
   const [events, setEvents] = useState(() => (getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
   const [conversations, setConversations] = useState(() => ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
-  const [activeConversationId, setActiveConversationId] = useState('channel_general');
+  const [activeConversationId, setActiveConversationIdState] = useState(() => {
+    try {
+      return localStorage.getItem('ems_active_chat_conv_id') || 'channel_general';
+    } catch {
+      return 'channel_general';
+    }
+  });
+
+  const setActiveConversationId = (id) => {
+    if (!id) return;
+    setActiveConversationIdState(id);
+    try {
+      localStorage.setItem('ems_active_chat_conv_id', id);
+    } catch (_) {}
+  };
 
   // Strict Scoped Conversations & Global Unread Badges
   const visibleConversations = useMemo(() => {
@@ -1468,31 +1498,44 @@ export const CRMProvider = ({ children }) => {
   };
 
   const startConversation = (employeeId) => {
-    const emp = (employees || []).find(e => e._id === employeeId || e.employeeCode === employeeId);
+    const emp = (employees || []).find(e =>
+      String(e._id) === String(employeeId) ||
+      String(e.id) === String(employeeId) ||
+      String(e.employeeCode).toUpperCase() === String(employeeId).toUpperCase()
+    );
     if (!emp) return null;
 
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
-    const currentId = currentUser?._id || currentUser?.employeeCode || 'EMP-001';
-    const targetId = emp._id || emp.employeeCode;
+    const currentId = currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'EMP-001';
+    const targetId = emp._id || emp.id || emp.employeeCode;
 
-    const myIdStr = String(currentUser?._id || '').toLowerCase();
-    const myCodeStr = String(currentUser?.employeeCode || '').toLowerCase();
-    const targetIdStr = String(emp._id || '').toLowerCase();
-    const targetCodeStr = String(emp.employeeCode || '').toLowerCase();
+    const myIdentifiers = [
+      currentUser?._id,
+      currentUser?.id,
+      currentUser?.employeeCode,
+      currentUser?.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+    const targetIdentifiers = [
+      emp._id,
+      emp.id,
+      emp.employeeCode,
+      emp.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
 
     // Check if DM exists strictly between current user and this target
     const existing = currentConvs.find(c => {
       if (c.type !== 'dm') return false;
       if (Array.isArray(c.participants) && c.participants.length > 0) {
-        const parts = c.participants.map(p => String(p).toLowerCase());
-        const hasMe = (myIdStr && parts.includes(myIdStr)) || (myCodeStr && parts.includes(myCodeStr));
-        const hasTarget = (targetIdStr && parts.includes(targetIdStr)) || (targetCodeStr && parts.includes(targetCodeStr));
+        const parts = c.participants.map(p => String(p).toLowerCase().trim());
+        const hasMe = parts.some(p => myIdentifiers.includes(p));
+        const hasTarget = parts.some(p => targetIdentifiers.includes(p));
         return hasMe && hasTarget;
       }
-      const c1 = String(c.createdBy || '').toLowerCase();
-      const p1 = String(c.participantId || c.participantCode || '').toLowerCase();
-      const match1 = ((c1 === myIdStr || c1 === myCodeStr) && (p1 === targetIdStr || p1 === targetCodeStr));
-      const match2 = ((c1 === targetIdStr || c1 === targetCodeStr) && (p1 === myIdStr || p1 === myCodeStr));
+      const c1 = String(c.createdBy || '').toLowerCase().trim();
+      const p1 = String(c.participantId || c.participantCode || '').toLowerCase().trim();
+      const match1 = (myIdentifiers.includes(c1) && targetIdentifiers.includes(p1));
+      const match2 = (targetIdentifiers.includes(c1) && myIdentifiers.includes(p1));
       return match1 || match2;
     });
 
@@ -1503,16 +1546,22 @@ export const CRMProvider = ({ children }) => {
     }
 
     const dmId = 'dm_' + [String(currentUser?.employeeCode || currentId), String(emp.employeeCode || targetId)].sort().join('_');
+    const allParticipants = Array.from(new Set([
+      String(currentUser?._id || ''),
+      String(currentUser?.id || ''),
+      String(currentUser?.employeeCode || ''),
+      String(currentUser?.email || ''),
+      String(emp._id || ''),
+      String(emp.id || ''),
+      String(emp.employeeCode || ''),
+      String(emp.email || '')
+    ])).filter(Boolean);
+
     const newConv = {
       id: dmId,
       type: 'dm',
-      participants: [
-        String(currentUser?._id || ''),
-        String(currentUser?.employeeCode || ''),
-        String(emp._id || ''),
-        String(emp.employeeCode || '')
-      ].filter(Boolean),
-      participantId: emp._id,
+      participants: allParticipants,
+      participantId: emp._id || emp.id,
       participantCode: emp.employeeCode,
       participantName: emp.name,
       participantRole: emp.role || 'Team Member',

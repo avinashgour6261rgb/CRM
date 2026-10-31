@@ -15,11 +15,14 @@ import {
   Building2,
   Sparkles
 } from 'lucide-react';
+import { useAuth } from '../../../../shared/context/AuthContext';
 import { useHR } from '../../../hr/context/HRContext';
 import { useCRM } from '../../../../shared/context/CRMContext';
 
 export const NewConversationModal = ({ isOpen, onClose }) => {
-  const { employees, currentUser } = useHR();
+  const { currentUser: authUser } = useAuth();
+  const { employees, currentUser: hrUser } = useHR();
+  const currentUser = authUser || hrUser;
   const { startConversation, createChannel } = useCRM();
 
   const [activeTab, setActiveTab] = useState('dm'); // 'dm' | 'channel'
@@ -147,8 +150,8 @@ export const NewConversationModal = ({ isOpen, onClose }) => {
               ) : (
                 availableEmployees.map(emp => (
                   <div
-                    key={emp._id}
-                    onClick={() => handleSelectEmployee(emp._id)}
+                    key={emp._id || emp.id || emp.employeeCode}
+                    onClick={() => handleSelectEmployee(emp._id || emp.id || emp.employeeCode)}
                     className="flex items-center justify-between p-2.5 px-3 rounded-xl cursor-pointer transition-colors bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/70 border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                   >
                     <div className="flex items-center gap-3 min-w-0">

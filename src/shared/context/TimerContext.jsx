@@ -201,6 +201,7 @@ export const TimerProvider = ({ children }) => {
       // Stale session from previous day/weekend! Wipe stale timer storage immediately
       localStorage.removeItem(`ems_timer_${userKey}_login_time`);
       localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_out`);
       localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
       localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
       localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
@@ -423,6 +424,7 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
       localStorage.removeItem(`ems_timer_${userKey}_login_time`);
       localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
+      localStorage.removeItem(`ems_timer_${userKey}_clock_out`);
       localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
       localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
       localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);

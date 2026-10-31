@@ -14,3 +14,4 @@ router.get('/', getCompanySettings);
 router.put('/', updateCompanySettings);
 
 module.exports = router;
+

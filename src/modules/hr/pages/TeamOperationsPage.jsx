@@ -22,12 +22,14 @@ import {
   LogOut,
   RefreshCw,
   HelpCircle,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useHR } from '../context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
+import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
@@ -40,6 +42,7 @@ export const TeamOperationsPage = () => {
   const { currentUser, isHRorAdmin } = useAuth();
   const { employees, attendance, leaves, loadHRData } = useHR();
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
+  const { startConversation } = useCRM();
   const { addToast } = useToast();
 
   const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
@@ -207,37 +210,100 @@ export const TeamOperationsPage = () => {
     );
 
     const isOnLeave = Boolean(attRec?.status === 'on_leave');
-    const storedClockedIn = localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
-                            localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'true';
-    const storedOnBreak = localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true' ||
-                          localStorage.getItem(`ems_timer_${empId}_is_on_break`) === 'true';
-    const storedBreakType = localStorage.getItem(`ems_timer_${empKey}_break_type`) || localStorage.getItem(`ems_timer_${empId}_break_type`) || 'Break';
-    const storedLogin = localStorage.getItem(`ems_timer_${empKey}_login_time`) || localStorage.getItem(`ems_timer_${empId}_login_time`);
-    const storedClockOut = localStorage.getItem(`ems_timer_${empKey}_clock_out`) || localStorage.getItem(`ems_timer_${empId}_clock_out`);
-    const storedWorkSecs = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) || 0;
-    const storedBreakSecs = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) || 0;
 
-    const isClockedIn = storedClockedIn || (!!attRec?.clockInTime && !attRec?.clockOutTime && attRec?.isClockedIn !== false);
-    const isClockedOut = !isClockedIn && (!!storedClockOut || !!attRec?.clockOutTime);
-    const loginTime = attRec?.clockInTime || storedLogin || (isClockedIn ? 'Active' : (isOnLeave ? 'On Leave' : '--'));
-    const clockOutTime = attRec?.clockOutTime || storedClockOut || null;
+    // Strict validation: check whether localStorage session belongs to TODAY
+    const storedSessionDate = localStorage.getItem(`ems_timer_${empKey}_work_session_date`) ||
+                              (empId ? localStorage.getItem(`ems_timer_${empId}_work_session_date`) : null);
+    const isTodaySession = storedSessionDate === todayStr;
 
-    let workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
-    if (isClockedIn && !storedOnBreak) {
-      let clockInTs = Number(attRec?.clockInTimestamp) ||
-                      Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
-                      Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`));
-      if (!clockInTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
-        clockInTs = todayMidnight.getTime() + parseTimeToSeconds(loginTime) * 1000;
+    // Proactively clean stale localStorage from yesterday/prior dates
+    if (storedSessionDate && storedSessionDate !== todayStr) {
+      try {
+        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
+        localStorage.setItem(`ems_timer_${empKey}_break_seconds`, '0');
+        localStorage.removeItem(`ems_timer_${empKey}_login_time`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
+        localStorage.removeItem(`ems_timer_${empKey}_clockout_time`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${empKey}_clock_out_timestamp`);
+        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+      } catch (_) {}
+    }
+
+    const storedClockedIn = isTodaySession && (
+      localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
+      (empId && localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'true')
+    );
+    const storedOnBreak = isTodaySession && (
+      localStorage.getItem(`ems_timer_${empKey}_is_on_break`) === 'true' ||
+      (empId && localStorage.getItem(`ems_timer_${empId}_is_on_break`) === 'true')
+    );
+    const storedBreakType = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_break_type`) || (empId ? localStorage.getItem(`ems_timer_${empId}_break_type`) : null) || 'Break')
+      : 'Break';
+    const storedLogin = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_login_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_login_time`) : null))
+      : null;
+    const storedClockOut = isTodaySession
+      ? (localStorage.getItem(`ems_timer_${empKey}_clock_out`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clock_out`) : null) ||
+         localStorage.getItem(`ems_timer_${empKey}_clockout_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clockout_time`) : null))
+      : null;
+    const storedWorkSecs = isTodaySession
+      ? (Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) : 0) || 0)
+      : 0;
+    const storedBreakSecs = isTodaySession
+      ? (Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_break_seconds`)) : 0) || 0)
+      : 0;
+
+    // Strict today-only attendance checks
+    const hasTodayAttClockIn = Boolean(attRec?.date === todayStr && (attRec?.clockInTime || attRec?.clockIn));
+    const hasTodayAttClockOut = Boolean(attRec?.date === todayStr && (attRec?.clockOutTime || attRec?.clockOut));
+    const hasTodayStoredClockIn = Boolean(isTodaySession && (storedLogin || Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) > 0));
+    const hasTodayStoredClockOut = Boolean(isTodaySession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
+
+    const isClockedIn = (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
+                        (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn !== false && attRec?.status !== 'absent');
+
+    const isClockedOut = !isClockedIn && (
+      (hasTodayAttClockIn && hasTodayAttClockOut) ||
+      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+    );
+
+    const loginTime = isClockedIn
+      ? (attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? (attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
+
+    const clockOutTime = isClockedOut
+      ? (attRec?.clockOutTime || storedClockOut || '--')
+      : null;
+
+    let workSecs = 0;
+    if (isClockedIn) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!storedOnBreak) {
+        let clockInTs = Number(attRec?.clockInTimestamp) ||
+                        Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
+                        (empId ? Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`)) : 0);
+        if (!clockInTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+          const todayMidnight = new Date();
+          todayMidnight.setHours(0, 0, 0, 0);
+          clockInTs = todayMidnight.getTime() + parseTimeToSeconds(loginTime) * 1000;
+        }
+        if (clockInTs > 0) {
+          const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
+          workSecs = Math.max(workSecs, gross - storedBreakSecs);
+        }
       }
-      if (clockInTs > 0) {
-        const gross = Math.max(0, Math.floor((Date.now() - clockInTs) / 1000));
-        workSecs = Math.max(workSecs, gross - storedBreakSecs);
+    } else if (isClockedOut) {
+      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
+      if (!workSecs && attRec?.totalWorkingHours) {
+        workSecs = Math.round(attRec.totalWorkingHours * 3600);
       }
-    } else if (isClockedOut && !workSecs && attRec?.totalWorkingHours) {
-      workSecs = Math.round(attRec.totalWorkingHours * 3600);
+    } else {
+      workSecs = 0;
     }
 
     // Active Running Task
@@ -1034,6 +1100,19 @@ export const TeamOperationsPage = () => {
                           >
                             <Eye size={12} className="text-sky-600" />
                             <span>Day Log</span>
+                          </button>
+
+                          {/* Direct Message Chat */}
+                          <button
+                            onClick={() => {
+                              startConversation(emp._id || emp.id || emp.employeeCode);
+                              navigate('/messages');
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11.5px] font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                            title={`Open direct private message with ${emp.name}`}
+                          >
+                            <MessageSquare size={12} className="text-purple-600 dark:text-purple-400" />
+                            <span>Chat</span>
                           </button>
                         </div>
                       </td>

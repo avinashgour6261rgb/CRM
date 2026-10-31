@@ -130,18 +130,29 @@ exports.getConversations = async (req, res) => {
     }
 
     const userId = req.headers['x-user-id'] || req.user?.id;
-    if (userId) {
-      const uStr = String(userId).toLowerCase();
+    const userCode = req.headers['x-user-code'];
+    const userEmail = req.headers['x-user-email'];
+
+    const userIdentifiers = [userId, userCode, userEmail]
+      .filter(Boolean)
+      .map(id => String(id).toLowerCase().trim());
+
+    if (userIdentifiers.length > 0) {
       convs = convs.filter(c => {
         if (c.type === 'channel') return true;
         if (Array.isArray(c.participants) && c.participants.length > 0) {
-          return c.participants.some(p => String(p).toLowerCase() === uStr);
+          return c.participants.some(p => {
+            const pStr = String(p).toLowerCase().trim();
+            return userIdentifiers.includes(pStr);
+          });
         }
-        return (
-          String(c.participantId || '').toLowerCase() === uStr ||
-          String(c.participantCode || '').toLowerCase() === uStr ||
-          String(c.createdBy || '').toLowerCase() === uStr
-        );
+        const pId = String(c.participantId || '').toLowerCase().trim();
+        const pCode = String(c.participantCode || '').toLowerCase().trim();
+        const pEmail = String(c.participantEmail || '').toLowerCase().trim();
+        const cId = String(c.createdBy || '').toLowerCase().trim();
+        const cCode = String(c.creatorCode || '').toLowerCase().trim();
+
+        return userIdentifiers.some(u => [pId, pCode, pEmail, cId, cCode].includes(u));
       });
     }
 

@@ -16,9 +16,13 @@ import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
 export const isConversationVisibleToUser = (conv, user) => {
   if (!conv || !user) return false;
 
-  const myId = String(user._id || '').toLowerCase();
-  const myCode = String(user.employeeCode || '').toLowerCase();
-  const myEmail = String(user.email || '').toLowerCase();
+  const myIdentifiers = [
+    user._id,
+    user.id,
+    user.employeeCode,
+    user.email
+  ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
   const myDept = (user.department || '').toLowerCase();
   const isPrivileged = isHRorAdmin(user);
 
@@ -50,9 +54,9 @@ export const isConversationVisibleToUser = (conv, user) => {
 
     // Custom channels
     if (Array.isArray(conv.members)) {
-      if (conv.members.includes('all') || conv.members.includes(myId) || conv.members.includes(myCode)) return true;
+      if (conv.members.includes('all') || conv.members.some(m => myIdentifiers.includes(String(m).toLowerCase().trim()))) return true;
     }
-    if (conv.createdBy && (String(conv.createdBy).toLowerCase() === myId || String(conv.createdBy).toLowerCase() === myCode)) {
+    if (conv.createdBy && myIdentifiers.includes(String(conv.createdBy).toLowerCase().trim())) {
       return true;
     }
     return isPrivileged;
@@ -63,29 +67,28 @@ export const isConversationVisibleToUser = (conv, user) => {
   // If participants array is present, check strictly against participants
   if (Array.isArray(conv.participants) && conv.participants.length > 0) {
     return conv.participants.some(p => {
-      const s = String(p).toLowerCase();
-      return (myId && s === myId) || (myCode && s === myCode) || (myEmail && s === myEmail);
+      const s = String(p).toLowerCase().trim();
+      return myIdentifiers.includes(s);
     });
   }
 
   // Fallback for legacy conversations without participants array
-  const pId = String(conv.participantId || '').toLowerCase();
-  const pCode = String(conv.participantCode || '').toLowerCase();
-  const pEmail = String(conv.participantEmail || '').toLowerCase();
+  const pId = String(conv.participantId || '').toLowerCase().trim();
+  const pCode = String(conv.participantCode || '').toLowerCase().trim();
+  const pEmail = String(conv.participantEmail || '').toLowerCase().trim();
 
-  const cId = String(conv.createdBy || '').toLowerCase();
-  const cCode = String(conv.creatorCode || '').toLowerCase();
+  const cId = String(conv.createdBy || '').toLowerCase().trim();
+  const cCode = String(conv.creatorCode || '').toLowerCase().trim();
 
-  if ((myId && pId === myId) || (myCode && pCode === myCode) || (myEmail && pEmail === myEmail)) return true;
-  if ((myId && cId === myId) || (myCode && cCode === myCode)) return true;
+  if (myIdentifiers.some(id => [pId, pCode, pEmail, cId, cCode].includes(id))) return true;
 
   // Check if current user sent any message in this conversation
   if (Array.isArray(conv.messages) && conv.messages.length > 0) {
     const sentByMe = conv.messages.some(m => {
-      const sId = String(m.senderId || '').toLowerCase();
-      const sCode = String(m.senderCode || '').toLowerCase();
-      const sEmail = String(m.senderEmail || '').toLowerCase();
-      return (myId && sId === myId) || (myCode && sCode === myCode) || (myEmail && sEmail === myEmail);
+      const sId = String(m.senderId || '').toLowerCase().trim();
+      const sCode = String(m.senderCode || '').toLowerCase().trim();
+      const sEmail = String(m.senderEmail || '').toLowerCase().trim();
+      return myIdentifiers.some(id => [sId, sCode, sEmail].includes(id));
     });
     if (sentByMe) return true;
   }
@@ -100,28 +103,31 @@ export const isConversationVisibleToUser = (conv, user) => {
 export const getDmPartner = (conv, currentUser, employees = []) => {
   if (!conv || conv.type === 'channel') return null;
 
-  const myId = String(currentUser?._id || '').toLowerCase();
-  const myCode = String(currentUser?.employeeCode || '').toLowerCase();
-  const myEmail = String(currentUser?.email || '').toLowerCase();
-  const myName = String(currentUser?.name || '').toLowerCase();
+  const myIdentifiers = [
+    currentUser?._id,
+    currentUser?.id,
+    currentUser?.employeeCode,
+    currentUser?.email
+  ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+  const myName = String(currentUser?.name || '').toLowerCase().trim();
 
   // 1. Identify target's identifier from participants
   let partnerId = null;
   if (Array.isArray(conv.participants)) {
     partnerId = conv.participants.find(p => {
-      const s = String(p).toLowerCase();
-      return s && s !== myId && s !== myCode && s !== myEmail;
+      const s = String(p).toLowerCase().trim();
+      return s && !myIdentifiers.includes(s);
     });
   }
 
   // 2. If not found, check participant vs creator
   if (!partnerId) {
-    const pId = String(conv.participantId || '').toLowerCase();
-    const pCode = String(conv.participantCode || '').toLowerCase();
-    const cId = String(conv.createdBy || '').toLowerCase();
-    const cCode = String(conv.creatorCode || '').toLowerCase();
+    const pId = String(conv.participantId || '').toLowerCase().trim();
+    const pCode = String(conv.participantCode || '').toLowerCase().trim();
+    const cId = String(conv.createdBy || '').toLowerCase().trim();
+    const cCode = String(conv.creatorCode || '').toLowerCase().trim();
 
-    const isParticipantMe = (myId && pId === myId) || (myCode && pCode === myCode);
+    const isParticipantMe = myIdentifiers.some(id => id === pId || id === pCode);
     if (!isParticipantMe && (pId || pCode)) {
       partnerId = conv.participantId || conv.participantCode;
     } else if (cId || cCode) {
@@ -129,8 +135,8 @@ export const getDmPartner = (conv, currentUser, employees = []) => {
     } else {
       // Find from messages
       const otherMsg = (conv.messages || []).find(m => {
-        const sId = String(m.senderId || m.senderCode || '').toLowerCase();
-        return sId && sId !== myId && sId !== myCode;
+        const sId = String(m.senderId || m.senderCode || '').toLowerCase().trim();
+        return sId && !myIdentifiers.includes(sId);
       });
       if (otherMsg) partnerId = otherMsg.senderId || otherMsg.senderCode;
     }
@@ -138,18 +144,19 @@ export const getDmPartner = (conv, currentUser, employees = []) => {
 
   // 3. Look up in employees list
   if (partnerId) {
-    const pStr = String(partnerId).toLowerCase();
+    const pStr = String(partnerId).toLowerCase().trim();
     const partnerEmp = (employees || []).find(e => {
       return (
-        String(e._id || '').toLowerCase() === pStr ||
-        String(e.employeeCode || '').toLowerCase() === pStr ||
-        (e.email && String(e.email).toLowerCase() === pStr)
+        String(e._id || '').toLowerCase().trim() === pStr ||
+        String(e.id || '').toLowerCase().trim() === pStr ||
+        String(e.employeeCode || '').toLowerCase().trim() === pStr ||
+        (e.email && String(e.email).toLowerCase().trim() === pStr)
       );
     });
 
     if (partnerEmp) {
       return {
-        _id: partnerEmp._id,
+        _id: partnerEmp._id || partnerEmp.id,
         employeeCode: partnerEmp.employeeCode,
         name: partnerEmp.name,
         avatar: partnerEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
@@ -163,10 +170,10 @@ export const getDmPartner = (conv, currentUser, employees = []) => {
 
   // 4. Fallback: If conv.participant is not me, use conv.participant metadata
   const isParticipantMe =
-    (myId && String(conv.participantId || '').toLowerCase() === myId) ||
-    (myCode && String(conv.participantCode || '').toLowerCase() === myCode) ||
-    (myEmail && String(conv.participantEmail || '').toLowerCase() === myEmail) ||
-    (myName && String(conv.participantName || '').toLowerCase() === myName);
+    myIdentifiers.includes(String(conv.participantId || '').toLowerCase().trim()) ||
+    myIdentifiers.includes(String(conv.participantCode || '').toLowerCase().trim()) ||
+    myIdentifiers.includes(String(conv.participantEmail || '').toLowerCase().trim()) ||
+    (myName && String(conv.participantName || '').toLowerCase().trim() === myName);
 
   if (!isParticipantMe && conv.participantName) {
     return {

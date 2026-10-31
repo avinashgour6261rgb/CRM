@@ -86,3 +86,4 @@ const ResignationSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('Resignation', ResignationSchema);
+

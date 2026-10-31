@@ -16,3 +16,4 @@ router.post('/', submitResignation);
 router.put('/:id/review', reviewResignation);
 
 module.exports = router;
+
