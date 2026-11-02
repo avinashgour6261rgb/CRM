@@ -212,6 +212,22 @@ const deleteEmployee = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
 
+  // Security Policy: Never allow deletion of any Administrator account
+  const isTargetAdmin = employee.isAdmin === true ||
+                        employee.isSuperAdmin === true ||
+                        String(employee.systemRole || '').toLowerCase() === 'admin' ||
+                        String(employee.role || '').toLowerCase() === 'admin' ||
+                        String(employee.role || '').toLowerCase().includes('administrator') ||
+                        String(employee.employeeCode || '').toUpperCase() === 'ADM-001' ||
+                        String(employee.email || '').toLowerCase() === 'avinash@inforag.com';
+
+  if (isTargetAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Security Protection: Administrator accounts are permanently protected and cannot be deleted.'
+    });
+  }
+
   // Prevent deleting your own active account if user is attached to request
   if (req.user && String(req.user._id) === String(employee._id)) {
     return res.status(400).json({

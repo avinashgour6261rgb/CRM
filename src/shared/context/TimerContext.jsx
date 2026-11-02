@@ -926,13 +926,21 @@ export const TimerProvider = ({ children }) => {
       const todayMidnightMs = todayMidnight.getTime();
       const maxPossibleGrossSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
 
-      // Guard: clockInTs must strictly be from today! If from earlier day, auto-clear!
-      if (clockInTs && clockInTs < todayMidnightMs) {
+      // Guard: Check if active timer belongs to a prior calendar day (midnight rollover / forgotten clock-out)
+      const storedSessionDate = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
+      const isPastDaySession = Boolean(
+        (storedSessionDate && storedSessionDate !== today) ||
+        (clockInTs && clockInTs < todayMidnightMs)
+      );
+
+      if (isPastDaySession) {
         // Auto-close yesterday's attendance record in background
         try {
-          const inDate = new Date(clockInTs).toISOString().split('T')[0];
+          const inDate = (clockInTs && clockInTs < todayMidnightMs)
+            ? new Date(clockInTs).toISOString().split('T')[0]
+            : (storedSessionDate || '');
           const rawAtt = localStorage.getItem('hrms_attendance');
-          if (rawAtt) {
+          if (rawAtt && inDate) {
             const list = JSON.parse(rawAtt);
             if (Array.isArray(list)) {
               let changed = false;
@@ -968,13 +976,30 @@ export const TimerProvider = ({ children }) => {
         } catch (_) {}
 
         clockInTs = null;
-        localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
-        localStorage.removeItem(`ems_timer_${userKey}_login_time`);
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
+        const mirrorKeys = [userKey, targetEmpId, targetEmpCode].filter(Boolean);
+        for (const uk of mirrorKeys) {
+          localStorage.removeItem(`ems_timer_${uk}_clock_in_timestamp`);
+          localStorage.removeItem(`ems_timer_${uk}_clock_out_timestamp`);
+          localStorage.removeItem(`ems_timer_${uk}_login_time`);
+          localStorage.removeItem(`ems_timer_${uk}_clock_out`);
+          localStorage.removeItem(`ems_timer_${uk}_clockout_time`);
+          localStorage.removeItem(`ems_timer_${uk}_current_session_start_timestamp`);
+          localStorage.removeItem(`ems_timer_${uk}_break_start_time`);
+          localStorage.removeItem(`ems_timer_${uk}_break_start_timestamp`);
+          localStorage.removeItem(`ems_timer_${uk}_punch_sessions`);
+          localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${uk}_is_running`, 'false');
+          localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
+          localStorage.setItem(`ems_timer_${uk}_had_clocked_out`, 'false');
+          localStorage.setItem(`ems_timer_${uk}_work_seconds`, '0');
+          localStorage.setItem(`ems_timer_${uk}_break_seconds`, '0');
+          localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
+          localStorage.setItem(`ems_timer_${uk}_work_session_date`, today);
+        }
         setIsClockedIn(false);
         setIsRunning(false);
+        setIsOnBreak(false);
+        setHadClockedOutToday(false);
         setWorkSeconds(0);
         return;
       }

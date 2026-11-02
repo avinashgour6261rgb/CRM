@@ -217,20 +217,25 @@ export const TeamOperationsPage = () => {
                               (empId ? localStorage.getItem(`ems_timer_${empId}_work_session_date`) : null);
     const isTodaySession = storedSessionDate === todayStr;
 
-    // Proactively clean stale localStorage from yesterday/prior dates
+    // Proactively clean stale localStorage from yesterday/prior dates across both empKey & empId
     if (storedSessionDate && storedSessionDate !== todayStr) {
       try {
-        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
-        localStorage.setItem(`ems_timer_${empKey}_break_seconds`, '0');
-        localStorage.removeItem(`ems_timer_${empKey}_login_time`);
-        localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
-        localStorage.removeItem(`ems_timer_${empKey}_clockout_time`);
-        localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
-        localStorage.removeItem(`ems_timer_${empKey}_clock_out_timestamp`);
-        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+        const wipeKeys = [empKey, empId].filter(Boolean);
+        wipeKeys.forEach(k => {
+          localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+          localStorage.setItem(`ems_timer_${k}_work_seconds`, '0');
+          localStorage.setItem(`ems_timer_${k}_break_seconds`, '0');
+          localStorage.removeItem(`ems_timer_${k}_login_time`);
+          localStorage.removeItem(`ems_timer_${k}_clock_out`);
+          localStorage.removeItem(`ems_timer_${k}_clockout_time`);
+          localStorage.removeItem(`ems_timer_${k}_clock_in_timestamp`);
+          localStorage.removeItem(`ems_timer_${k}_clock_out_timestamp`);
+          localStorage.removeItem(`ems_timer_${k}_current_session_start_timestamp`);
+          localStorage.removeItem(`ems_timer_${k}_punch_sessions`);
+          localStorage.setItem(`ems_timer_${k}_work_session_date`, todayStr);
+        });
       } catch (_) {}
     }
 
@@ -282,6 +287,11 @@ export const TeamOperationsPage = () => {
       ? (attRec?.clockOutTime || storedClockOut || '--')
       : null;
 
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    const maxPossibleGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
+
     let workSecs = 0;
     if (isClockedIn) {
       workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
@@ -296,42 +306,39 @@ export const TeamOperationsPage = () => {
         }
         const pastSessionsSecs = punchSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
 
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
-        const todayMidnightMs = todayMidnight.getTime();
-        const maxDayPhysicalSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
-
         let sessStartTs = Number(localStorage.getItem(`ems_timer_${empKey}_current_session_start_timestamp`)) ||
                           (empId ? Number(localStorage.getItem(`ems_timer_${empId}_current_session_start_timestamp`)) : 0) ||
                           Number(attRec?.clockInTimestamp) ||
                           Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
                           (empId ? Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`)) : 0);
 
-        // STALENESS GUARD: If sessStartTs is before today's midnight, it belongs to a past unclosed shift!
-        if (sessStartTs > 0 && sessStartTs < todayMidnightMs) {
-          sessStartTs = 0;
+        // Sanitize sessStartTs against midnight - cannot be earlier than today 00:00:00
+        if (!sessStartTs || sessStartTs < todayMidnightMs) {
+          if (loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+            sessStartTs = todayMidnightMs + parseTimeToSeconds(loginTime) * 1000;
+          } else {
+            sessStartTs = todayMidnightMs;
+          }
         }
-
-        if (!sessStartTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
-          sessStartTs = todayMidnightMs + parseTimeToSeconds(loginTime) * 1000;
-        }
+        sessStartTs = Math.max(sessStartTs, todayMidnightMs);
 
         if (sessStartTs > 0) {
-          const curSessionGross = Math.min(maxDayPhysicalSecs, Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000)));
+          const rawSessionGross = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
+          const curSessionGross = Math.min(maxPossibleGrossToday, rawSessionGross);
           const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${empKey}_session_break_baseline`)) || 0;
           const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
           const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
-          workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, liveSecs));
-        } else {
-          workSecs = Math.min(maxDayPhysicalSecs, workSecs);
+          workSecs = Math.max(workSecs, liveSecs);
         }
       }
+      // Strict upper bound: can never exceed physical elapsed time since today's midnight, or 14h
+      workSecs = Math.min(workSecs, maxPossibleGrossToday, 14 * 3600);
     } else if (isClockedOut) {
       workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
       if (!workSecs && attRec?.totalWorkingHours) {
         workSecs = Math.round(attRec.totalWorkingHours * 3600);
       }
-      workSecs = Math.min(86400, workSecs);
+      workSecs = Math.min(workSecs, 14 * 3600);
     } else {
       workSecs = 0;
     }

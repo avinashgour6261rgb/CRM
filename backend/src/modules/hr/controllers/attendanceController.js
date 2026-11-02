@@ -3,37 +3,30 @@ const AttendanceAudit = require('../models/AttendanceAudit');
 const Task = require('../../work/models/Task');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
-// ─── Automated Daily Midnight Clock-Out for Stale Past Records ─────────────
-const autoCloseStalePastAttendanceRecords = async () => {
+// ⏱️ Auto-close past-day unclosed shifts (runs daily at midnight or upon request)
+const autoClosePastDayShifts = async () => {
   try {
     const todayStr = new Date().toISOString().split('T')[0];
-    const staleQuery = {
-      date: { $lt: todayStr },
-      $or: [
-        { isClockedIn: true },
-        { clockOutTime: null },
-        { clockOut: null }
-      ],
-      clockInTime: { $exists: true, $ne: null }
-    };
-    const staleList = await Attendance.find(staleQuery);
-    if (staleList && staleList.length > 0) {
-      for (const rec of staleList) {
-        const standardCapSecs = 32400; // Standard 9 hours physical limit
-        const finalSecs = Math.min(Number(rec.workSeconds) || standardCapSecs, standardCapSecs);
-        rec.isClockedIn = false;
-        rec.isOnBreak = false;
-        rec.clockOutTime = rec.clockOutTime || '07:00 PM';
-        rec.clockOut = rec.clockOut || '07:00 PM';
-        rec.workSeconds = finalSecs;
-        rec.totalWorkingHours = +(finalSecs / 3600).toFixed(2);
-        rec.status = rec.status === 'absent' ? 'present' : rec.status;
-        rec.notes = (rec.notes ? rec.notes + ' • ' : '') + 'Daily Auto Clock-out at Midnight';
-        await rec.save();
+    await Attendance.updateMany(
+      {
+        date: { $lt: todayStr },
+        isClockedIn: true,
+        clockOutTime: null
+      },
+      {
+        $set: {
+          isClockedIn: false,
+          isOnBreak: false,
+          clockOutTime: '07:00 PM',
+          clockOut: '07:00 PM',
+          workSeconds: 32400, // Standard 9 hrs
+          totalWorkingHours: 9.0,
+          notes: 'Auto-closed at midnight (daily shift reset)'
+        }
       }
-    }
+    );
   } catch (err) {
-    console.warn('[attendanceController] autoCloseStalePastAttendanceRecords notice:', err.message);
+    console.warn('[attendanceController] Auto-close past day shifts error:', err.message);
   }
 };
 
@@ -45,8 +38,8 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
     return res.status(503).json({ success: false, message: 'Database connecting, standby', data: [] });
   }
 
-  // Auto-close any unclosed records from earlier dates so they never bleed into today
-  await autoCloseStalePastAttendanceRecords();
+  // Auto-close any unclosed shifts from previous calendar days
+  await autoClosePastDayShifts();
 
   const { month, year, employeeId } = req.query;
 
@@ -726,7 +719,7 @@ const updateOvertimeStatus = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  autoCloseStalePastAttendanceRecords,
+  autoClosePastDayShifts,
   getMonthlyAttendance,
   getAttendanceSummary,
   getAttendanceByDate,

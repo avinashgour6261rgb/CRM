@@ -271,6 +271,25 @@ export const HRProvider = ({ children }) => {
 
   const deleteEmployee = async (employeeId) => {
     try {
+      const target = (employees || []).find(e =>
+        String(e._id) === String(employeeId) ||
+        String(e.id) === String(employeeId) ||
+        String(e.employeeCode) === String(employeeId)
+      );
+
+      const isTargetAdmin = target?.isAdmin === true ||
+                            target?.isSuperAdmin === true ||
+                            String(target?.systemRole || '').toLowerCase() === 'admin' ||
+                            String(target?.role || '').toLowerCase() === 'admin' ||
+                            String(target?.role || '').toLowerCase().includes('administrator') ||
+                            String(target?.employeeCode || '').toUpperCase() === 'ADM-001' ||
+                            String(target?.email || '').toLowerCase() === 'avinash@inforag.com';
+
+      if (isTargetAdmin) {
+        addToast('🛡️ Security Protection: Administrator accounts are permanently protected and cannot be deleted.', 'error');
+        return;
+      }
+
       if (currentUser && (String(currentUser._id) === String(employeeId) || String(currentUser.id) === String(employeeId))) {
         addToast('You cannot delete your own active administrator account!', 'warning');
         return;

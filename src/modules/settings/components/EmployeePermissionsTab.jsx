@@ -1,31 +1,33 @@
 /**
  * @file EmployeePermissionsTab.jsx
- * @description Clean, Intuitive Role-Based Access Control (RBAC) Management.
- * Redesigned for zero layout jitter, 1-click role presets, and a clean collapsible superpower drawer.
+ * @description Modern, Clean & Simplified RBAC UI for Admin & HR.
+ * Features:
+ *  1. 1-Click Base Role Selection (Team Member, Team Lead, HR Specialist).
+ *  2. 6 Modular Extra Access Cards (Live Operations, Project Lead, Employee Roster, Payroll, Leaves, CRM Leads).
+ *  3. Fixed-height, static layout (Zero layout jitter/jumping on toggle).
+ *  4. Co-Admin Delegation with optional expiry date.
+ *  5. Optional Collapsible Advanced Controls (granular delete/export switches).
+ *  6. Full DB persistence (MongoDB Atlas + localStorage cache sync).
+ *  7. Administrator permanent account protection.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Check,
   RotateCcw,
+  UserCheck,
+  Users2,
+  Lock,
   Sparkles,
   Crown,
-  Zap,
-  CreditCard,
-  Building2,
-  Users2,
-  FolderGit2,
+  Briefcase,
   Clock,
   ChevronDown,
   ChevronUp,
-  Lock,
-  Layers,
-  CheckSquare,
-  CalendarCheck,
-  Palmtree,
-  LifeBuoy,
-  FolderLock
+  AlertCircle,
+  Shield,
+  Layers
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { broadcastSyncEvent } from '../../../shared/services/realtimeSyncService';
@@ -38,181 +40,97 @@ import {
   DEFAULT_MODULE_PERMISSIONS
 } from '../../../shared/utils/permissionUtils';
 
-// 4 Standard Enterprise Role Presets
-const ROLE_PRESETS = [
+const BASE_ROLES = [
   {
     id: 'team_member',
-    name: 'Team Member',
-    badge: '👤 Standard',
-    color: 'emerald',
-    icon: Users2,
-    tagline: 'Standard team workflow: Assigned tasks, shift tracking & personal leaves',
-    description: 'Sees personal dashboard, assigned sprint tasks, daily attendance clock, applies for personal leaves & submits support tickets. (No management or delete rights)',
-    modules: ['dashboard', 'tasks', 'attendance', 'leaves', 'tickets', 'events', 'documentation'],
-    extraFlags: {
-      tasksScope: 'own',
-      projectsScope: 'own',
-      leadsScope: 'own',
-      viewAllTasks: false,
-      viewAllProjects: false,
-      viewAllLeads: false,
-      viewAllAttendance: false,
-      viewAllLeaves: false,
-      manageProjects: false,
-      manageEmployees: false,
-      manageSalaries: false,
-      manageExpenses: false,
-      editAttendance: false,
-      liveOperations: false,
-      payroll: false,
-      deleteTasks: false,
-      deleteProjects: false,
-      deleteEmployees: false,
-      deleteLeads: false
-    }
+    roleKey: ROLES.TEAM_MEMBER,
+    emoji: '👤',
+    title: 'Team Member',
+    subtitle: 'Standard Employee (Default)',
+    desc: 'Self-service dashboard: own tasks, shift clock-in/out, personal leaves & support tickets.',
+    badgeColor: 'blue'
   },
   {
-    id: 'project_lead',
-    name: 'Project Lead / PM',
-    badge: '🚀 Sprint Lead',
-    color: 'purple',
-    icon: FolderGit2,
-    tagline: 'Sprint planning, project creation & team task delegation',
-    description: 'Full project workspace management, assigns tasks to team members, views team sprint backlog, and reviews project deliverable progress.',
-    modules: ['dashboard', 'projects', 'tasks', 'attendance', 'leaves', 'tickets', 'events', 'documentation'],
-    extraFlags: {
-      tasksScope: 'team',
-      projectsScope: 'team',
-      leadsScope: 'own',
-      viewAllTasks: true,
-      viewAllProjects: true,
-      manageProjects: true,
-      approveLeaves: true,
-      deleteTasks: true,
-      deleteProjects: false,
-      manageEmployees: false,
-      manageSalaries: false,
-      editAttendance: false,
-      liveOperations: false,
-      payroll: false
-    }
+    id: 'team_lead',
+    roleKey: ROLES.TEAM_LEAD,
+    emoji: '📋',
+    title: 'Team / Project Lead',
+    subtitle: 'Squad & Sprint Lead',
+    desc: 'Create sprint projects, delegate tasks to teammates, view squad work & review team leaves.',
+    badgeColor: 'purple'
   },
   {
     id: 'hr_specialist',
-    name: 'HR Operations',
-    badge: '💼 Workforce HR',
-    color: 'sky',
-    icon: Building2,
-    tagline: 'Workforce directory, attendance oversight & leave approvals',
-    description: 'Universal leave review & approvals, complete employee directory, monthly attendance matrix, company announcements & holiday notices.',
-    modules: ['dashboard', 'employees', 'attendance', 'leaves', 'payroll', 'events', 'documentation'],
-    extraFlags: {
-      tasksScope: 'own',
-      projectsScope: 'own',
-      leadsScope: 'own',
-      viewAllAttendance: true,
-      viewAllLeaves: true,
-      approveLeaves: true,
-      manageEmployees: true,
-      editAttendance: true,
-      postNotices: true,
-      export_attendance: true,
-      export_payroll: true,
-      manageSalaries: true,
-      manageExpenses: true,
-      manageProjects: false,
-      deleteTasks: false
-    }
-  },
-  {
-    id: 'admin',
-    name: 'Administrator',
-    badge: '👑 Master Admin',
-    color: 'blue',
-    icon: Crown,
-    tagline: 'Unrestricted master enterprise authority across all modules & settings',
-    description: 'Full unrestricted power: Live operations, shift overrides, financial hubs, payroll, security delegation, and permanent delete authority.',
-    modules: [
-      'dashboard', 'liveOperations', 'projects', 'tasks', 'leads', 'attendance',
-      'leaves', 'tickets', 'events', 'employees', 'payroll', 'finance', 'reports', 'documentation'
-    ],
-    extraFlags: {
-      allAccess: true,
-      isDelegatedAdmin: true,
-      tasksScope: 'all',
-      projectsScope: 'all',
-      leadsScope: 'all',
-      viewAllTasks: true,
-      viewAllProjects: true,
-      viewAllLeads: true,
-      viewAllAttendance: true,
-      viewAllLeaves: true,
-      viewAllTickets: true,
-      manageProjects: true,
-      manageEmployees: true,
-      manageSalaries: true,
-      manageExpenses: true,
-      editAttendance: true,
-      liveOperations: true,
-      payroll: true,
-      finance: true,
-      postNotices: true,
-      deleteTasks: true,
-      deleteProjects: true,
-      deleteEmployees: true,
-      deleteLeads: true,
-      deleteTickets: true,
-      deleteNotices: true,
-      export_leads: true,
-      export_payroll: true,
-      export_attendance: true,
-      grantPermissions: true
-    }
+    roleKey: ROLES.HR,
+    emoji: '💼',
+    title: 'HR Specialist',
+    subtitle: 'Workforce & Operations',
+    desc: 'Full workforce directory, attendance punch matrix, leave approvals & payroll summaries.',
+    badgeColor: 'amber'
   }
 ];
 
-// 5 High-Impact Granular Superpowers (Collapsible Drawer)
-const SUPERPOWER_LIST = [
+const EXTRA_ACCESS_CARDS = [
   {
-    key: 'liveOperations',
-    name: 'Live Operations & Shift Monitor',
-    icon: Zap,
-    color: 'amber',
-    description: 'Monitor live active timers, view clock punches, and perform shift overrides or force clock-out.',
-    syncKeys: ['editAttendance', 'viewAllAttendance']
+    id: 'liveOperations',
+    emoji: '🚀',
+    title: 'Live Shift Operations',
+    subtitle: 'Floor Monitor & Overrides',
+    desc: 'Monitor team live shifts, active breaks, and force clock-out overrides.',
+    keys: ['liveOperations', 'editAttendance', 'viewAllAttendance']
   },
   {
-    key: 'payroll',
-    name: 'Payroll & Compensation Hub',
-    icon: CreditCard,
-    color: 'emerald',
-    description: 'Access employee compensation structures, salary history, and export monthly payroll records.',
-    syncKeys: ['manageSalaries', 'export_payroll']
+    id: 'projectLead',
+    emoji: '📋',
+    title: 'Project & Task Leadership',
+    subtitle: 'Delegation & Workspaces',
+    desc: 'Create projects, manage sprints, and assign tasks to any team member.',
+    keys: ['projects', 'manageProjects', 'viewAllProjects', 'viewAllTasks']
   },
   {
-    key: 'employees',
-    name: 'Employee Directory Management',
-    icon: Building2,
-    color: 'indigo',
-    description: 'Onboard new team members, edit personnel profiles, and manage the company directory.',
-    syncKeys: ['manageEmployees']
+    id: 'employeeDirectory',
+    emoji: '👥',
+    title: 'Employee Directory Management',
+    subtitle: 'Workforce Records',
+    desc: 'View team directory, onboard new employees, and manage profiles.',
+    keys: ['employees', 'manageEmployees']
   },
   {
-    key: 'leads',
-    name: 'CRM Leads & Sales Pipeline',
-    icon: Users2,
-    color: 'cyan',
-    description: 'Access company sales leads, client CRM pipelines, deals conversion and leads export.',
-    syncKeys: ['viewAllLeads', 'accessCRM', 'export_leads']
+    id: 'payrollAccess',
+    emoji: '💰',
+    title: 'Salary & Payroll Access',
+    subtitle: 'Compensation & Payslips',
+    desc: 'View salary structures, monthly payslips, and compensation reports.',
+    keys: ['payroll', 'manageSalaries', 'export_payroll']
   },
   {
-    key: 'isDelegatedAdmin',
-    name: 'Master Admin Delegation',
-    icon: Crown,
-    color: 'blue',
-    description: 'Grant identical master administrator authority across all company systems & security settings.',
-    syncKeys: ['allAccess']
+    id: 'leaveApprovals',
+    emoji: '🌴',
+    title: 'Leave Approval Authority',
+    subtitle: 'Absence Decisions',
+    desc: 'Review, approve, or reject team leave applications.',
+    keys: ['approveLeaves', 'viewAllLeaves']
+  },
+  {
+    id: 'crmLeads',
+    emoji: '🎯',
+    title: 'CRM Sales & Leads Pipeline',
+    subtitle: 'Client Deals & Outreach',
+    desc: 'Access sales pipeline, manage customer prospects and sales deals.',
+    keys: ['leads', 'accessCRM', 'viewAllLeads']
   }
+];
+
+const ADVANCED_DELETE_EXPORT_LIST = [
+  { key: 'deleteTasks', emoji: '🗑️', label: 'Delete Sprint Tasks', desc: 'Permanently delete tasks created by any employee' },
+  { key: 'deleteProjects', emoji: '🗂️', label: 'Delete Workspaces & Projects', desc: 'Permanently remove projects and their task backlogs' },
+  { key: 'deleteEmployees', emoji: '👥', label: 'Remove Employee Accounts', desc: 'Archive or permanently delete non-admin employee records' },
+  { key: 'deleteLeads', emoji: '💼', label: 'Delete CRM Sales Leads', desc: 'Permanently remove client records from CRM pipeline' },
+  { key: 'deleteTickets', emoji: '🎫', label: 'Delete Helpdesk Tickets', desc: 'Permanently remove support tickets' },
+  { key: 'postNotices', emoji: '📢', label: 'Publish & Delete Board Notices', desc: 'Broadcast notices to the entire company notice board' },
+  { key: 'export_leads', emoji: '📤', label: 'Export CRM Leads (CSV/Excel)', desc: 'Download client lead contacts and pipeline data' },
+  { key: 'export_payroll', emoji: '📊', label: 'Export Payroll & Salary Data', desc: 'Download salary registers and compensation summaries' },
+  { key: 'export_attendance', emoji: '📑', label: 'Export Monthly Attendance', desc: 'Download monthly employee clock in/out timesheet sheets' }
 ];
 
 export const EmployeePermissionsTab = () => {
@@ -220,7 +138,7 @@ export const EmployeePermissionsTab = () => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  // Admin's own permissions — can only grant what they hold
+  // Admin's own permissions — can only grant what they have
   const adminPerms = getUserModulePermissions(currentUser);
 
   const [selectedEmpId, setSelectedEmpId] = useState(() => {
@@ -228,35 +146,30 @@ export const EmployeePermissionsTab = () => {
     return nonAdmin?._id || employees[0]?._id || 'ENG-001';
   });
 
-  const selectedEmp = (employees || []).find(
-    e => e._id === selectedEmpId || e.employeeCode === selectedEmpId
-  ) || employees[0];
-
+  const selectedEmp = (employees || []).find(e => e._id === selectedEmpId || e.employeeCode === selectedEmpId) || employees[0];
   const selectedRole = selectedEmp ? getUserRole(selectedEmp) : ROLES.TEAM_MEMBER;
 
-  const isSelectedEmpPrimaryAdmin =
-    selectedEmp?.employeeCode === 'ADM-001' ||
+  const isSelectedEmpPrimaryAdmin = selectedEmp?.employeeCode === 'ADM-001' ||
     selectedEmp?.isSuperAdmin ||
+    selectedEmp?.email === 'avinash@inforag.com' ||
     selectedEmp?.email === 'admin@inforag.com' ||
     (selectedEmp?.isAdmin && (selectedEmp?.role || '').toLowerCase() === 'admin');
 
-  // Permissions state
-  const [permissions, setPermissions] = useState(() => getUserModulePermissions(selectedEmp));
+  const [permissions, setPermissions] = useState(() => {
+    return getUserModulePermissions(selectedEmp);
+  });
   const [isDelegatedAdmin, setIsDelegatedAdmin] = useState(false);
   const [delegationExpiresAt, setDelegationExpiresAt] = useState('');
-  const [showSuperpowers, setShowSuperpowers] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Sync state when selected employee changes
   useEffect(() => {
     if (selectedEmp) {
       setPermissions(getUserModulePermissions(selectedEmp));
-      setIsDelegatedAdmin(
-        !!selectedEmp?.isDelegatedAdmin ||
-        selectedEmp?.isAdmin ||
-        selectedEmp?.role?.toLowerCase() === 'admin'
-      );
+      setIsDelegatedAdmin(Boolean(selectedEmp?.isDelegatedAdmin || selectedEmp?.isAdmin || selectedEmp?.role?.toLowerCase() === 'admin'));
+
       let exp = selectedEmp?.delegationExpiresAt || '';
       try {
         const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
@@ -273,66 +186,220 @@ export const EmployeePermissionsTab = () => {
     }
   }, [selectedEmpId, selectedEmp]);
 
-  // Determine which Role Preset best matches the current state
-  const activePresetId = useMemo(() => {
-    if (isDelegatedAdmin || permissions.allAccess) return 'admin';
-    if (permissions.manageEmployees || (permissions.employees && permissions.leaves)) return 'hr_specialist';
-    if (permissions.manageProjects || permissions.projects) return 'project_lead';
-    return 'team_member';
-  }, [isDelegatedAdmin, permissions]);
-
-  // Count active superpowers beyond the base role
-  const activeSuperpowersCount = useMemo(() => {
-    let count = 0;
-    if (permissions.liveOperations || permissions.editAttendance) count++;
-    if (permissions.payroll || permissions.manageSalaries) count++;
-    if (permissions.employees || permissions.manageEmployees) count++;
-    if (permissions.leads || permissions.viewAllLeads) count++;
-    if (isDelegatedAdmin) count++;
-    return count;
-  }, [permissions, isDelegatedAdmin]);
-
-  // Apply a clean 1-click Role Preset
-  const handleSelectRolePreset = (presetId) => {
+  // Master Authority Toggle: Full Admin Superpowers
+  const handleToggleDelegatedAdmin = () => {
     if (isSelectedEmpPrimaryAdmin) {
-      addToast('🔒 Primary Administrator authority is protected and cannot be altered.', 'warning');
+      addToast('🔒 Primary Administrator authority is protected and cannot be revoked.', 'warning');
       return;
     }
+    const nextVal = !isDelegatedAdmin;
+    setIsDelegatedAdmin(nextVal);
+    setIsSaved(false);
 
-    const preset = ROLE_PRESETS.find(p => p.id === presetId);
-    if (!preset) return;
-
-    const newPerms = {};
-    // Turn on modules in preset
-    preset.modules.forEach(m => {
-      newPerms[m] = true;
-    });
-    // Merge extra flags
-    Object.assign(newPerms, preset.extraFlags);
-
-    if (presetId === 'admin') {
-      setIsDelegatedAdmin(true);
-      newPerms.isDelegatedAdmin = true;
-      newPerms.allAccess = true;
+    if (nextVal) {
+      const allTrue = { ...permissions, allAccess: true, isDelegatedAdmin: true };
+      const allKeys = [
+        'dashboard', 'liveOperations', 'projects', 'tasks', 'leads', 'attendance', 'leaves',
+        'tickets', 'events', 'employees', 'payroll', 'finance', 'reports', 'documentation',
+        'manageProjects', 'viewAllProjects', 'approveLeaves', 'viewAllLeads', 'viewAllTasks',
+        'viewAllTickets', 'viewAllAttendance', 'viewAllLeaves', 'manageEmployees', 'accessFinance',
+        'manageSalaries', 'manageExpenses', 'editAttendance', 'postNotices', 'grantPermissions',
+        'deleteTasks', 'deleteProjects', 'deleteEmployees', 'deleteLeads', 'deleteTickets',
+        'export_leads', 'export_payroll', 'export_attendance'
+      ];
+      allKeys.forEach(k => {
+        if (adminPerms[k] !== false) allTrue[k] = true;
+      });
+      allTrue.leadsScope = 'all';
+      allTrue.tasksScope = 'all';
+      allTrue.projectsScope = 'all';
+      setPermissions(allTrue);
+      addToast(`👑 Full Admin access granted for ${selectedEmp?.name}! Click 'Save' to apply.`, 'info');
     } else {
-      setIsDelegatedAdmin(false);
-      delete newPerms.isDelegatedAdmin;
-      delete newPerms.allAccess;
+      handleApplyBaseRole('team_member');
+    }
+  };
+
+  // 1-Click Base Role Application
+  const handleApplyBaseRole = (baseRoleId) => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator authority is protected.', 'warning');
+      return;
+    }
+    setIsDelegatedAdmin(false);
+
+    let nextPerms = {};
+    if (baseRoleId === 'team_member') {
+      nextPerms = {
+        dashboard: true,
+        tasks: true,
+        attendance: true,
+        leaves: true,
+        tickets: true,
+        events: true,
+        documentation: true,
+        projects: false,
+        leads: false,
+        employees: false,
+        payroll: false,
+        finance: false,
+        liveOperations: false,
+        reports: false,
+        manageProjects: false,
+        viewAllProjects: false,
+        viewAllTasks: false,
+        viewAllAttendance: false,
+        viewAllLeaves: false,
+        approveLeaves: false,
+        manageEmployees: false,
+        manageSalaries: false,
+        manageExpenses: false,
+        editAttendance: false,
+        deleteTasks: false,
+        deleteProjects: false,
+        deleteEmployees: false,
+        deleteLeads: false,
+        deleteTickets: false,
+        export_leads: false,
+        export_payroll: false,
+        export_attendance: false,
+        tasksScope: 'own',
+        projectsScope: 'own',
+        leadsScope: 'own'
+      };
+      addToast('👤 Applied Standard Team Member baseline', 'info');
+    } else if (baseRoleId === 'team_lead') {
+      nextPerms = {
+        dashboard: true,
+        tasks: true,
+        projects: true,
+        attendance: true,
+        leaves: true,
+        tickets: true,
+        events: true,
+        documentation: true,
+        leads: false,
+        employees: false,
+        payroll: false,
+        finance: false,
+        liveOperations: false,
+        reports: false,
+        manageProjects: true,
+        viewAllProjects: true,
+        viewAllTasks: true,
+        approveLeaves: true,
+        deleteTasks: true,
+        deleteProjects: false,
+        manageEmployees: false,
+        manageSalaries: false,
+        manageExpenses: false,
+        editAttendance: false,
+        tasksScope: 'team',
+        projectsScope: 'team',
+        leadsScope: 'own'
+      };
+      addToast('📋 Applied Team / Project Lead preset', 'info');
+    } else if (baseRoleId === 'hr_specialist') {
+      nextPerms = {
+        dashboard: true,
+        tasks: true,
+        projects: false,
+        employees: true,
+        attendance: true,
+        leaves: true,
+        payroll: true,
+        finance: true,
+        events: true,
+        documentation: true,
+        liveOperations: true,
+        manageEmployees: true,
+        viewAllAttendance: true,
+        viewAllLeaves: true,
+        approveLeaves: true,
+        manageSalaries: true,
+        manageExpenses: true,
+        editAttendance: true,
+        postNotices: true,
+        export_attendance: true,
+        export_payroll: true,
+        tasksScope: 'own',
+        projectsScope: 'own',
+        leadsScope: 'own'
+      };
+      addToast('💼 Applied HR Specialist preset', 'info');
     }
 
-    // Safety clamp — cannot grant what admin does not hold
+    // Clamp to admin permissions
     const clamped = {};
-    Object.keys(newPerms).forEach(k => {
-      clamped[k] = adminPerms[k] === false ? false : newPerms[k];
+    Object.keys(nextPerms).forEach(k => {
+      clamped[k] = adminPerms[k] === false ? false : nextPerms[k];
     });
 
     setPermissions(clamped);
     setIsSaved(false);
-    addToast(`✨ Configured "${preset.name}" preset for ${selectedEmp?.name}. Click Save to apply.`, 'info');
   };
 
-  // Toggle a single Superpower with fixed layout height
-  const handleToggleSuperpower = (key, syncKeys = []) => {
+  // Check if an extra access card is currently active
+  const isExtraAccessActive = (card) => {
+    if (isDelegatedAdmin) return true;
+    return card.keys.some(k => Boolean(permissions[k]));
+  };
+
+  // Toggle an extra access card bundle
+  const handleToggleExtraAccess = (card) => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
+      return;
+    }
+    const currentActive = isExtraAccessActive(card);
+    const nextVal = !currentActive;
+
+    setPermissions(prev => {
+      const updated = { ...prev };
+      card.keys.forEach(k => {
+        if (adminPerms[k] !== false) {
+          updated[k] = nextVal;
+        }
+      });
+
+      if (card.id === 'liveOperations') {
+        updated.liveOperations = nextVal;
+        updated.editAttendance = nextVal;
+        updated.viewAllAttendance = nextVal;
+      } else if (card.id === 'projectLead') {
+        updated.projects = nextVal;
+        updated.manageProjects = nextVal;
+        updated.viewAllProjects = nextVal;
+        updated.viewAllTasks = nextVal;
+        if (nextVal) {
+          updated.tasksScope = 'team';
+          updated.projectsScope = 'team';
+        }
+      } else if (card.id === 'employeeDirectory') {
+        updated.employees = nextVal;
+        updated.manageEmployees = nextVal;
+      } else if (card.id === 'payrollAccess') {
+        updated.payroll = nextVal;
+        updated.manageSalaries = nextVal;
+        updated.export_payroll = nextVal;
+      } else if (card.id === 'leaveApprovals') {
+        updated.approveLeaves = nextVal;
+        updated.viewAllLeaves = nextVal;
+      } else if (card.id === 'crmLeads') {
+        updated.leads = nextVal;
+        updated.accessCRM = nextVal;
+        updated.viewAllLeads = nextVal;
+        if (nextVal) updated.leadsScope = 'all';
+      }
+
+      return updated;
+    });
+
+    setIsSaved(false);
+  };
+
+  // Toggle single advanced switch
+  const handleToggleSingle = (key) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
       return;
@@ -341,54 +408,21 @@ export const EmployeePermissionsTab = () => {
       addToast('⚠️ You cannot grant a permission you do not have yourself.', 'warning');
       return;
     }
-
-    if (key === 'isDelegatedAdmin') {
-      const nextVal = !isDelegatedAdmin;
-      setIsDelegatedAdmin(nextVal);
-      setPermissions(prev => ({
-        ...prev,
-        allAccess: nextVal,
-        isDelegatedAdmin: nextVal
-      }));
-      setIsSaved(false);
-      return;
-    }
-
-    const currentVal = !!permissions[key];
-    const nextVal = !currentVal;
-
-    setPermissions(prev => {
-      const updated = { ...prev, [key]: nextVal };
-      syncKeys.forEach(sk => {
-        updated[sk] = nextVal;
-      });
-      return updated;
-    });
+    const currentVal = Boolean(permissions[key] || isDelegatedAdmin);
+    setPermissions(prev => ({
+      ...prev,
+      [key]: !currentVal
+    }));
     setIsSaved(false);
   };
 
-  // Reset to default role configuration
-  const handleResetToRoleDefault = () => {
-    const defaultPerms = DEFAULT_MODULE_PERMISSIONS[selectedRole] || DEFAULT_MODULE_PERMISSIONS.team_member;
-    const clamped = {};
-    Object.keys(defaultPerms).forEach(k => {
-      clamped[k] = adminPerms[k] === false ? false : defaultPerms[k];
-    });
-    setPermissions(clamped);
-    setIsDelegatedAdmin(false);
-    setDelegationExpiresAt('');
-    setIsSaved(false);
-    addToast(`Reset to default ${selectedRole} permissions`, 'info');
-  };
-
-  // Persist directly to MongoDB Atlas
+  // Save to DB and sync local cache
   const handleSave = async () => {
     if (!selectedEmp?._id) return;
     setIsSaving(true);
     try {
       const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
 
-      // Final safety clamp
       const safePerms = {};
       Object.keys(permissions).forEach(k => {
         safePerms[k] = adminPerms[k] === false ? false : permissions[k];
@@ -408,13 +442,13 @@ export const EmployeePermissionsTab = () => {
         delete safePerms.delegationExpiresAt;
       }
 
-      // 1. Authoritative Save to MongoDB Atlas via HR Service
+      // 1. Authoritative Save to MongoDB Atlas
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(selectedEmp._id, {
           permissions: safePerms,
           isDelegatedAdmin: Boolean(isDelegatedAdmin),
           delegationExpiresAt: delegationExpiresAt || null,
-          systemRole: selectedEmp.systemRole
+          systemRole: selectedEmp.systemRole || (isDelegatedAdmin ? 'admin' : 'team_member')
         });
       } else if (updateEmployee) {
         await updateEmployee(selectedEmp._id, {
@@ -424,7 +458,7 @@ export const EmployeePermissionsTab = () => {
         });
       }
 
-      // 2. Sync Local Storage Cache
+      // 2. Local Cache Update
       const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
       const map = rawMap ? JSON.parse(rawMap) : {};
       map[userKey] = safePerms;
@@ -433,7 +467,7 @@ export const EmployeePermissionsTab = () => {
       if (selectedEmp.email) map[String(selectedEmp.email).toLowerCase()] = safePerms;
       localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
-      // 3. Dispatch Reactive Events
+      // 3. Realtime Cross-tab Sync
       window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
       broadcastSyncEvent('PERMISSIONS_UPDATED', {
         userKey,
@@ -445,7 +479,7 @@ export const EmployeePermissionsTab = () => {
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
 
       setIsSaved(true);
-      addToast(`✅ Saved permissions directly to database for ${selectedEmp?.name || 'Employee'}!`, 'success');
+      addToast(`✅ Permissions & Access saved to database for ${selectedEmp?.name || 'Employee'}!`, 'success');
     } catch (e) {
       console.error('Failed to save permissions to database:', e);
       addToast(`Failed to save permissions: ${e?.message || 'Network error'}`, 'error');
@@ -455,49 +489,45 @@ export const EmployeePermissionsTab = () => {
   };
 
   return (
-    <div className="flex flex-col gap-5 py-4 max-w-6xl mx-auto">
-      {/* ── HEADER BAR ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+    <div className="flex flex-col gap-5 py-3">
+
+      {/* ── TOP HEADER & ACTIONS ── */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-900/50 shadow-xs">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-900/50 shrink-0">
             <ShieldCheck size={24} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">
-                Employee Access & Role Presets
-              </h2>
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                MongoDB Synced
-              </span>
-            </div>
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0">
+              Employee Role & Access Control (RBAC)
+            </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">
-              Select an employee, pick their role tier in 1-click, or grant extra superpowers without layout clutter.
+              Standard base roles with 1-click modular extra privileges. Changes are securely saved to the database.
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={handleResetToRoleDefault}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-all shadow-xs"
+            onClick={() => handleApplyBaseRole('team_member')}
+            disabled={isSelectedEmpPrimaryAdmin}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw size={13} />
-            <span>Reset to Default</span>
+            <span>Reset to Standard</span>
           </button>
 
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
-            className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl border-0 text-white text-xs font-bold cursor-pointer shadow-md transition-all ${
+            disabled={isSaving || isSelectedEmpPrimaryAdmin}
+            className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl border-0 text-white text-xs font-bold cursor-pointer shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
               isSaving
                 ? 'bg-blue-400 cursor-wait'
                 : isSaved
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25 ring-2 ring-blue-500/20 animate-pulse'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
             }`}
           >
             {isSaving ? (
@@ -507,114 +537,207 @@ export const EmployeePermissionsTab = () => {
               </>
             ) : (
               <>
-                <Check size={15} />
-                <span>{isSaved ? 'Saved in Database' : 'Save Changes *'}</span>
+                <Check size={14} />
+                <span>{isSaved ? 'Saved in DB' : 'Save Changes'}</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* ── EMPLOYEE SELECTOR ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4 shadow-sm">
+      {/* ── EMPLOYEE SELECTOR BAR ── */}
+      <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 sm:px-5 flex items-center justify-between flex-wrap gap-3.5">
         <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-            Target Employee:
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+            Select Employee:
           </span>
           <select
             value={selectedEmpId}
             onChange={(e) => setSelectedEmpId(e.target.value)}
-            className="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs text-slate-900 dark:text-slate-100 font-bold cursor-pointer flex-1 max-w-[400px] outline-none focus:border-blue-500 focus:bg-white transition-all shadow-xs"
+            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-semibold cursor-pointer flex-1 max-w-[380px] outline-none focus:border-blue-500 transition-colors shadow-xs"
           >
             {(employees || []).map(emp => (
               <option key={emp._id} value={emp._id}>
-                {emp.name} ({emp.employeeCode || 'EMP'}) — {emp.role || 'Team Member'}
+                {emp.name} ({emp.employeeCode || 'EMP'}) — {emp.role || 'Member'}
               </option>
             ))}
           </select>
         </div>
 
         {selectedEmp && (
-          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
             <img
               src={selectedEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
               alt={selectedEmp.name}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-slate-700"
+              className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
             />
-            <div>
-              <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                {selectedEmp.name}
+            <div className="leading-tight">
+              <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <span>{selectedEmp.name}</span>
+                {isSelectedEmpPrimaryAdmin && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-1.5 py-0.2 bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded border border-amber-300 dark:border-amber-800">
+                    <Shield size={10} /> Protected Admin
+                  </span>
+                )}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                ID: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedEmp.employeeCode || 'EMP-001'}</span> • Role: <span className="font-bold text-blue-600 dark:text-blue-400">{selectedEmp.role || 'Member'}</span>
+                Code: #{selectedEmp.employeeCode || 'EMP'} • System Role: <span className="font-bold text-blue-600 dark:text-blue-400">{selectedEmp.role || 'Team Member'}</span>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── STEP 1: 4 ROLE PRESET CARDS (CLEAN & SIMPLE) ── */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between px-1">
+      {/* ── ADMIN PROTECTED NOTICE (IF PRIMARY ADMIN) ── */}
+      {isSelectedEmpPrimaryAdmin && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/80 rounded-2xl p-4 flex items-center gap-3 text-amber-900 dark:text-amber-200 text-xs">
+          <Shield className="text-amber-600 shrink-0" size={20} />
+          <div>
+            <span className="font-bold">Permanent Administrator Account:</span> This account is the primary system administrator. All module permissions, operational controls, and administrative powers are permanently active and protected from deletion or lockout.
+          </div>
+        </div>
+      )}
+
+      {/* ── 1️⃣ BASE ROLE BASELINE CARDS (1-CLICK ASSIGNMENT) ── */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-amber-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Step 1: Choose Employee Role Preset
+            <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+              1. Base Role Baseline
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              (Choose the primary default role for this employee)
             </span>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium">
-            1-click automatically configures standard permissions for normal employees
-          </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {ROLE_PRESETS.map((preset) => {
-            const Icon = preset.icon;
-            const isCurrent = activePresetId === preset.id;
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {BASE_ROLES.map(role => {
+            const isMemberBase = role.id === 'team_member' && !permissions.manageProjects && !permissions.manageEmployees && !isDelegatedAdmin;
+            const isLeadBase = role.id === 'team_lead' && permissions.manageProjects && !permissions.manageEmployees && !isDelegatedAdmin;
+            const isHRBase = role.id === 'hr_specialist' && permissions.manageEmployees && !isDelegatedAdmin;
+            const isCurrentBase = isMemberBase || isLeadBase || isHRBase;
+
             return (
               <div
-                key={preset.id}
-                onClick={() => handleSelectRolePreset(preset.id)}
-                className={`relative rounded-2xl p-4 flex flex-col justify-between cursor-pointer border-[1.5px] transition-all min-h-[160px] select-none ${
-                  isCurrent
-                    ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-600 dark:border-blue-500 shadow-md shadow-blue-500/10'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm'
+                key={role.id}
+                className={`rounded-2xl p-4 border transition-all flex flex-col justify-between gap-3 ${
+                  isCurrentBase
+                    ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700 shadow-xs ring-1 ring-blue-400/30'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                      isCurrent
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}>
-                      <Icon size={18} />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{role.emoji}</span>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 m-0">
+                          {role.title}
+                        </h4>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                          {role.subtitle}
+                        </span>
+                      </div>
                     </div>
-                    {isCurrent ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
-                        <Check size={11} /> Active Preset
-                      </span>
-                    ) : (
-                      <span className="text-[10.5px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        {preset.badge}
+                    {isCurrentBase && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
+                        ACTIVE BASE
                       </span>
                     )}
                   </div>
-
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 m-0">
-                    {preset.name}
-                  </h3>
-                  <p className="text-[11.5px] font-medium text-slate-500 dark:text-slate-400 mt-1 m-0 line-clamp-2">
-                    {preset.tagline}
+                  <p className="text-[11.5px] text-slate-600 dark:text-slate-300 mt-2 m-0 leading-relaxed min-h-[38px]">
+                    {role.desc}
                   </p>
                 </div>
 
-                <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400 dark:text-slate-500">
-                    {preset.modules.length} Standard Modules
-                  </span>
-                  <span className={`font-bold ${isCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {isCurrent ? 'Selected' : 'Click to Apply'}
+                <button
+                  type="button"
+                  onClick={() => handleApplyBaseRole(role.id)}
+                  disabled={isSelectedEmpPrimaryAdmin}
+                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                    isCurrentBase
+                      ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {isCurrentBase ? '✓ Active Baseline' : `Apply ${role.title}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 2️⃣ MODULAR EXTRA ACCESS CARDS (ZERO LAYOUT JITTER) ── */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+              2. Extra Access & Special Powers
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              (Enable specific superpowers on top of the base role without cluttered toggles)
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {EXTRA_ACCESS_CARDS.map(card => {
+            const isActive = isExtraAccessActive(card);
+            const canToggle = !isSelectedEmpPrimaryAdmin;
+
+            return (
+              <div
+                key={card.id}
+                className={`rounded-2xl p-4 border transition-colors flex flex-col justify-between gap-3 h-[148px] ${
+                  isActive
+                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/80 shadow-xs'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg shrink-0">{card.emoji}</span>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 m-0 truncate">
+                          {card.title}
+                        </h4>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block truncate">
+                          {card.subtitle}
+                        </span>
+                      </div>
+                    </div>
+
+                    <label className={`relative inline-block w-[40px] h-[22px] shrink-0 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        disabled={!canToggle}
+                        onChange={() => handleToggleExtraAccess(card)}
+                        className="sr-only"
+                      />
+                      <span className={`block w-full h-full rounded-full transition-colors ${
+                        isActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}>
+                        <span className={`absolute top-[3px] h-4 w-4 bg-white rounded-full transition-all shadow-xs ${
+                          isActive ? 'left-[21px]' : 'left-[3px]'
+                        }`} />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Fixed Static Description (Prevents Layout Shifts) */}
+                  <p className="text-[11.5px] text-slate-600 dark:text-slate-300 mt-2 m-0 leading-relaxed line-clamp-2">
+                    {card.desc}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px]">
+                  <span className="text-slate-400 dark:text-slate-500">Status:</span>
+                  <span className={`font-bold ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                    {isActive ? '● Granted (Active)' : '○ Standard (Locked)'}
                   </span>
                 </div>
               </div>
@@ -623,201 +746,161 @@ export const EmployeePermissionsTab = () => {
         </div>
       </div>
 
-      {/* ── STEP 2: ACTIVE ACCESS SUMMARY STRIP ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:px-5 flex flex-col gap-2.5 shadow-xs">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Layers size={15} className="text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              Active Access Summary for {selectedEmp?.name || 'Employee'}:
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">
-            Visible in user dashboard navigation
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {[
-            { id: 'dashboard', label: 'Dashboard' },
-            { id: 'tasks', label: 'Tasks' },
-            { id: 'attendance', label: 'Attendance' },
-            { id: 'leaves', label: 'Leaves' },
-            { id: 'projects', label: 'Projects' },
-            { id: 'liveOperations', label: 'Live Operations' },
-            { id: 'leads', label: 'CRM Leads' },
-            { id: 'tickets', label: 'Tickets' },
-            { id: 'employees', label: 'Directory' },
-            { id: 'payroll', label: 'Payroll' },
-            { id: 'events', label: 'Calendar' },
-            { id: 'documentation', label: 'Documents' }
-          ].map(mod => {
-            const isAccessible = !!permissions[mod.id] || isDelegatedAdmin;
-            return (
-              <span
-                key={mod.id}
-                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${
-                  isAccessible
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
-                    : 'bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/40 opacity-60'
-                }`}
-              >
-                {isAccessible ? <Check size={11} className="text-emerald-600" /> : <Lock size={10} />}
-                <span>{mod.label}</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── STEP 3: GRANT EXTRA ACCESS / SUPERPOWERS (COLLAPSIBLE DRAWER) ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-        {/* Accordion Trigger */}
-        <button
-          type="button"
-          onClick={() => setShowSuperpowers(prev => !prev)}
-          className="w-full px-5 py-4 flex items-center justify-between text-left bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors border-0 cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-200 dark:border-amber-900/50">
-              <Zap size={16} />
+      {/* ── 3️⃣ EXECUTIVE CO-ADMIN SUPERPOWERS CARD ── */}
+      <div className={`rounded-2xl p-4 sm:p-5 flex flex-col gap-3 transition-all ${
+        isDelegatedAdmin
+          ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border border-blue-400 dark:border-blue-700 shadow-sm'
+          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+      }`}>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3.5">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ${
+              isDelegatedAdmin ? 'bg-blue-600 shadow-md shadow-blue-600/30' : 'bg-slate-400 dark:bg-slate-700'
+            }`}>
+              <Crown size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-                  Grant Extra Superpowers & Custom Access (Optional)
+                <span className={`text-xs font-extrabold ${isDelegatedAdmin ? 'text-blue-950 dark:text-blue-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                  Full Administrator Superpowers (Co-Admin Delegation)
                 </span>
-                {activeSuperpowersCount > 0 && (
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white">
-                    {activeSuperpowersCount} Extra Active
+                {isDelegatedAdmin && (
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
+                    CO-ADMIN ACTIVE
                   </span>
                 )}
               </div>
-              <p className="text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
-                Normal users don't need changes. Open only if you need to grant specific administrative superpowers.
+              <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 m-0">
+                Grant this user master privileges identical to Primary Admin (all employees, financial approvals, audit logs, and settings).
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <span>{showSuperpowers ? 'Hide Superpowers' : 'Configure Extra Access'}</span>
-            {showSuperpowers ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          <label className={`relative inline-block w-[46px] h-6 ${!isSelectedEmpPrimaryAdmin ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+            <input
+              type="checkbox"
+              checked={isDelegatedAdmin}
+              disabled={isSelectedEmpPrimaryAdmin}
+              onChange={handleToggleDelegatedAdmin}
+              className="sr-only"
+            />
+            <span className={`block w-full h-full rounded-full transition-colors ${
+              isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300 dark:bg-slate-700'
+            }`}>
+              <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
+                isDelegatedAdmin ? 'left-[25px]' : 'left-[3px]'
+              }`} />
+            </span>
+          </label>
+        </div>
+
+        {isDelegatedAdmin && (
+          <div className="pt-3 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-2 text-blue-950 dark:text-blue-200 font-bold">
+              <Clock size={14} className="text-blue-600" />
+              <span>Optional Temporary Delegation Expiry:</span>
+              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-normal">
+                (Leave blank for permanent delegation)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={delegationExpiresAt}
+                onChange={(e) => {
+                  setDelegationExpiresAt(e.target.value);
+                  setIsSaved(false);
+                }}
+                className="px-2.5 py-1 text-xs rounded-lg border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-500 shadow-xs"
+              />
+              {delegationExpiresAt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDelegationExpiresAt('');
+                    setIsSaved(false);
+                  }}
+                  className="px-2 py-1 text-[11px] rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 font-semibold cursor-pointer"
+                >
+                  Clear Expiry
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 4️⃣ OPTIONAL ADVANCED GRANULAR OVERRIDES (COLLAPSIBLE ACCORDION) ── */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(prev => !prev)}
+          className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-left cursor-pointer border-0 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <Layers size={16} className="text-slate-500 dark:text-slate-400" />
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                Advanced Granular Authority & Export Rights
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-2 hidden sm:inline">
+                (Optional: fine-tune specific delete privileges and spreadsheet exports)
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span>{showAdvanced ? 'Hide' : 'Show'}</span>
+            {showAdvanced ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </div>
         </button>
 
-        {/* Collapsible Content: 5 Fixed-Height Cards — ZERO JITTER / LAYOUT SHIFT */}
-        {showSuperpowers && (
+        {showAdvanced && (
           <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {SUPERPOWER_LIST.map((sp) => {
-                const Icon = sp.icon;
-                const isEnabled = sp.key === 'isDelegatedAdmin'
-                  ? Boolean(isDelegatedAdmin)
-                  : Boolean(permissions[sp.key] || isDelegatedAdmin);
-                const adminHas = sp.key === 'isDelegatedAdmin' ? true : adminPerms[sp.key] !== false;
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ADVANCED_DELETE_EXPORT_LIST.map(item => {
+                const isEnabled = Boolean(permissions[item.key] || isDelegatedAdmin);
+                const adminHas = adminPerms[item.key] !== false;
 
                 return (
                   <div
-                    key={sp.key}
-                    className={`h-[78px] px-4 rounded-xl border flex items-center justify-between gap-3.5 transition-colors overflow-hidden ${
-                      !adminHas
-                        ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 opacity-70'
-                        : isEnabled
-                          ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/80'
-                          : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60'
-                    }`}
+                    key={item.key}
+                    className="p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 h-[64px]"
                   >
-                    {/* Left: Icon & Constant 1-Line Description (Fixed Height - Never Jumps!) */}
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isEnabled
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                      }`}>
-                        <Icon size={17} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 truncate">
+                        <span>{item.emoji}</span>
+                        <span className="truncate">{item.label}</span>
+                        {!adminHas && <Lock size={10} className="text-red-500 shrink-0" />}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
-                          <span>{sp.name}</span>
-                          {!adminHas && <Lock size={11} className="text-rose-500 shrink-0" />}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                          {sp.description}
-                        </div>
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                        {item.desc}
                       </div>
                     </div>
 
-                    {/* Right: Fixed-Size Toggle Switch (Never Causes Reflow) */}
-                    <div className="shrink-0 flex items-center gap-2">
-                      <span className={`text-[11px] font-bold min-w-[32px] text-right ${
-                        isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
+                    <label className={`relative inline-block w-[36px] h-5 shrink-0 ${adminHas && !isSelectedEmpPrimaryAdmin ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        disabled={!adminHas || isSelectedEmpPrimaryAdmin}
+                        onChange={() => handleToggleSingle(item.key)}
+                        className="sr-only"
+                      />
+                      <span className={`block w-full h-full rounded-full transition-colors ${
+                        !adminHas ? 'bg-slate-200 dark:bg-slate-800' : isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                       }`}>
-                        {isEnabled ? 'ON' : 'OFF'}
+                        <span className={`absolute top-[3px] h-3.5 w-3.5 bg-white rounded-full transition-all shadow-xs ${
+                          isEnabled ? 'left-[19px]' : 'left-[3px]'
+                        }`} />
                       </span>
-                      <label className={`relative inline-block w-11 h-6 shrink-0 ${adminHas ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                        <input
-                          type="checkbox"
-                          checked={isEnabled}
-                          disabled={!adminHas}
-                          onChange={() => handleToggleSuperpower(sp.key, sp.syncKeys)}
-                          className="sr-only"
-                        />
-                        <span className={`block w-full h-full rounded-full transition-colors ${
-                          !adminHas
-                            ? 'bg-slate-200 dark:bg-slate-800'
-                            : isEnabled
-                              ? 'bg-blue-600'
-                              : 'bg-slate-300 dark:bg-slate-700'
-                        }`}>
-                          <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-transform shadow-xs ${
-                            isEnabled ? 'translate-x-[22px]' : 'translate-x-[3px]'
-                          }`} />
-                        </span>
-                      </label>
-                    </div>
+                    </label>
                   </div>
                 );
               })}
             </div>
-
-            {/* Optional Expiry for Delegated Admin */}
-            {isDelegatedAdmin && (
-              <div className="mt-2 p-3.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900/50 flex items-center justify-between flex-wrap gap-2 text-xs">
-                <div className="flex items-center gap-2 text-blue-950 dark:text-blue-200 font-bold">
-                  <Clock size={15} className="text-blue-600" />
-                  <span>Temporary Admin Expiry (Optional):</span>
-                  <span className="text-slate-500 text-[11px] font-normal">
-                    (Leave empty for permanent delegation)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={delegationExpiresAt}
-                    onChange={(e) => {
-                      setDelegationExpiresAt(e.target.value);
-                      setIsSaved(false);
-                    }}
-                    className="px-2.5 py-1 text-xs rounded-lg border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-500"
-                  />
-                  {delegationExpiresAt && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDelegationExpiresAt('');
-                        setIsSaved(false);
-                      }}
-                      className="px-2.5 py-1 text-[11px] rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 font-semibold cursor-pointer border-0"
-                    >
-                      Clear Expiry
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
+
     </div>
   );
 };

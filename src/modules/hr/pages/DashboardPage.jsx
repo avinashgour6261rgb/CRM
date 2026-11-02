@@ -582,6 +582,11 @@ export const DashboardPage = () => {
       ? (attRec?.clockOutTime || storedClockOut || null)
       : null;
 
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    const maxPossibleGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
+
     // Calculate dynamic live work seconds strictly for today
     let workSecs = 0;
     if (isClockedIn && !storedOnBreak && !isStaleFromPreviousDay) {
@@ -597,30 +602,47 @@ export const DashboardPage = () => {
       }
       const pastSessionsSecs = punchSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
 
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      const todayMidnightMs = todayMidnight.getTime();
-      const maxDayPhysicalSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
-
       let sessStartTs = Number(readTimerKey('current_session_start_timestamp')) || rawClockInTs;
-      if (sessStartTs > 0 && sessStartTs < todayMidnightMs) {
-        sessStartTs = 0;
+      if (!sessStartTs || sessStartTs < todayMidnightMs) {
+        if (loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+          let pSecs = 0;
+          try {
+            const clean = String(loginTime).trim();
+            const isPM = /pm/i.test(clean);
+            const isAM = /am/i.test(clean);
+            const parts = clean.replace(/[^0-9:]/g, '').split(':').map(Number);
+            let h = parts[0] || 0;
+            const m = parts[1] || 0;
+            if (isPM && h < 12) h += 12;
+            if (isAM && h === 12) h = 0;
+            pSecs = h * 3600 + m * 60;
+          } catch (_) {}
+          sessStartTs = todayMidnightMs + pSecs * 1000;
+        } else {
+          sessStartTs = todayMidnightMs;
+        }
       }
+      sessStartTs = Math.max(sessStartTs, todayMidnightMs);
+
       if (sessStartTs > 0) {
-        const curSessionGross = Math.min(maxDayPhysicalSecs, Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000)));
+        const rawSessionGross = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
+        const curSessionGross = Math.min(maxPossibleGrossToday, rawSessionGross);
         const sessionBreakBaseline = Number(readTimerKey('session_break_baseline')) || 0;
         const curSessionBreaks = Math.max(0, (storedBreakSecs || Number(attRec?.breakSeconds) || 0) - sessionBreakBaseline);
         const liveWorkSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
-        workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, liveWorkSecs));
+        workSecs = Math.max(workSecs, liveWorkSecs);
       } else if (empId === currentUser?._id) {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
-        workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, localGross));
+        workSecs = Math.max(workSecs, localGross);
       }
+      // Strict upper bound: can never exceed physical elapsed time since today's midnight, or 14h
+      workSecs = Math.min(workSecs, maxPossibleGrossToday, 14 * 3600);
     } else if (isClockedOut && !isStaleFromPreviousDay) {
       workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
       if (!workSecs && attRec?.totalWorkingHours) {
         workSecs = Math.round(attRec.totalWorkingHours * 3600);
       }
+      workSecs = Math.min(workSecs, 14 * 3600);
     } else {
       workSecs = 0;
     }

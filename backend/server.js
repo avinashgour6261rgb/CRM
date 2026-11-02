@@ -17,6 +17,13 @@ dotenv.config();
 // Connect to MongoDB
 connectDB();
 
+// Midnight & daily shift auto-close worker (cleans past unclosed shifts from MongoDB Atlas)
+const { autoClosePastDayShifts } = require('./src/modules/hr/controllers/attendanceController');
+mongoose.connection.once('open', () => {
+  autoClosePastDayShifts();
+  setInterval(autoClosePastDayShifts, 30 * 60 * 1000);
+});
+
 const app = express();
 
 const allowedOrigins = [
@@ -112,15 +119,6 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-
-// Automated Midnight & Stale Shift Auto-Closer (Daily Auto Clock-Out at 12:00 AM)
-try {
-  const { autoCloseStalePastAttendanceRecords } = require('./src/modules/hr/controllers/attendanceController');
-  setTimeout(autoCloseStalePastAttendanceRecords, 5000);
-  setInterval(autoCloseStalePastAttendanceRecords, 15 * 60 * 1000);
-} catch (err) {
-  console.warn('[Server] Auto-close background service notice:', err.message);
-}
 
 app.listen(PORT, () => {
   console.log(`🚀 Enterprise Management System (EMS) Backend Server running on port ${PORT}`);

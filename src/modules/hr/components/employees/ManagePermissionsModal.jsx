@@ -33,7 +33,17 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
 
   if (!isOpen || !employee) return null;
 
+  const isPrimaryAdmin = employee?.employeeCode === 'ADM-001' ||
+    employee?.isSuperAdmin ||
+    employee?.email === 'avinash@inforag.com' ||
+    employee?.email === 'admin@inforag.com' ||
+    (employee?.isAdmin && (employee?.role || '').toLowerCase() === 'admin');
+
   const handleToggle = (key) => {
+    if (isPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active and cannot be altered.', 'warning');
+      return;
+    }
     if (!canEdit) {
       addToast('Only Admin or authorized managers can alter permissions', 'error');
       return;
@@ -45,6 +55,10 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
   };
 
   const handleSelectAll = (grantAll) => {
+    if (isPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active and cannot be altered.', 'warning');
+      return;
+    }
     if (!canEdit) return;
     const updated = {};
     GRANULAR_PERMISSIONS_LIST.forEach(p => {

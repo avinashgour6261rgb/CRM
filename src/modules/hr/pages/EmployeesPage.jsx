@@ -6,6 +6,7 @@ import {
   Award,
   User,
   ShieldCheck,
+  Shield,
   Building,
   Mail,
   Calendar,
@@ -418,25 +419,47 @@ export const EmployeesPage = () => {
                                                                 <span>Edit</span>
                                                               </button>
 
-                                                              {!isEmployeeSelf(emp) && (
-                                                                <button
-                                                                  onClick={async () => {
-                                                                    const ok = await confirm({
-                                                                      title: 'Remove Employee',
-                                                                      message: `Are you sure you want to remove employee "${emp.name}" (${emp.employeeCode || emp.designation})? This will deactivate their account.`,
-                                                                      confirmText: 'Remove Employee',
-                                                                      variant: 'danger'
-                                                                    });
-                                                                    if (ok) {
-                                                                      deleteEmployee(emp._id);
-                                                                    }
-                                                                  }}
-                                                                  className="w-6 h-6 rounded-[5px] border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 inline-flex items-center justify-center cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                                                                  title="Delete Employee"
-                                                                >
-                                                                  <Trash2 size={12} />
-                                                                </button>
-                                                              )}
+                                                              {(() => {
+                                                                const isEmpAdmin = emp.isAdmin === true ||
+                                                                                   emp.isSuperAdmin === true ||
+                                                                                   String(emp.systemRole || '').toLowerCase() === 'admin' ||
+                                                                                   String(emp.role || '').toLowerCase() === 'admin' ||
+                                                                                   String(emp.role || '').toLowerCase().includes('administrator') ||
+                                                                                   String(emp.employeeCode || '').toUpperCase() === 'ADM-001' ||
+                                                                                   String(emp.email || '').toLowerCase() === 'avinash@inforag.com';
+                                                                if (isEmpAdmin) {
+                                                                  return (
+                                                                    <span
+                                                                      className="w-6 h-6 rounded-[5px] border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 inline-flex items-center justify-center cursor-default"
+                                                                      title="🛡️ Administrator Account Protected (Cannot be deleted)"
+                                                                    >
+                                                                      <Shield size={12} />
+                                                                    </span>
+                                                                  );
+                                                                }
+                                                                if (!isEmployeeSelf(emp)) {
+                                                                  return (
+                                                                    <button
+                                                                      onClick={async () => {
+                                                                        const ok = await confirm({
+                                                                          title: 'Remove Employee',
+                                                                          message: `Are you sure you want to remove employee "${emp.name}" (${emp.employeeCode || emp.designation})? This will deactivate their account.`,
+                                                                          confirmText: 'Remove Employee',
+                                                                          variant: 'danger'
+                                                                        });
+                                                                        if (ok) {
+                                                                          deleteEmployee(emp._id);
+                                                                        }
+                                                                      }}
+                                                                      className="w-6 h-6 rounded-[5px] border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 inline-flex items-center justify-center cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                                                      title="Delete Employee"
+                                                                    >
+                                                                      <Trash2 size={12} />
+                                                                    </button>
+                                                                  );
+                                                                }
+                                                                return null;
+                                                              })()}
                                                             </div>
                                                           </td>
                                                         </tr>
