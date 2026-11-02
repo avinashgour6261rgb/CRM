@@ -1,7 +1,8 @@
 /**
  * @file authMiddleware.js
  * @description Authentication and User Scoping Middleware for EMS/CRM Backend.
- * Strictly scopes data to authenticated user (req.user) while permitting admin oversight.
+ * Strictly scopes data to authenticated user (req.user) while permitting admin oversight
+ * and dynamic action-level delegation.
  */
 
 const mongoose = require('mongoose');
@@ -51,7 +52,15 @@ exports.authenticateUser = async (req, res, next) => {
     }
 
     if (user) {
-      const isSystemAdmin = !!(user.isAdmin || user.role === 'Administrator' || user.employeeCode === 'ADM-001' || userRoleHeader === 'admin');
+      let isDelegatedAdmin = !!user.isDelegatedAdmin;
+      if (isDelegatedAdmin && user.delegationExpiresAt) {
+        const expTime = new Date(user.delegationExpiresAt).getTime();
+        if (!isNaN(expTime) && expTime < Date.now()) {
+          isDelegatedAdmin = false;
+        }
+      }
+
+      const isSystemAdmin = !!(user.isAdmin || user.role === 'Administrator' || user.employeeCode === 'ADM-001' || userRoleHeader === 'admin' || isDelegatedAdmin);
       const isSystemHR = !!(user.department === 'Human Resources' || user.role?.toLowerCase().includes('hr') || userRoleHeader === 'hr');
 
       req.user = {
@@ -63,7 +72,9 @@ exports.authenticateUser = async (req, res, next) => {
         role: user.role,
         department: user.department,
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
-        isAdmin: isSystemAdmin
+        isAdmin: isSystemAdmin,
+        isDelegatedAdmin,
+        permissions: user.permissions || {}
       };
     } else if (userIdHeader || userEmailHeader || userCodeHeader) {
       // Ephemeral authenticated user (e.g. from client session or newly created account)
@@ -79,7 +90,8 @@ exports.authenticateUser = async (req, res, next) => {
         role: isSystemAdmin ? 'Administrator' : (isSystemHR ? 'HR Manager' : 'Team Member'),
         department: isSystemHR ? 'Human Resources' : 'General',
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
-        isAdmin: isSystemAdmin
+        isAdmin: isSystemAdmin,
+        permissions: {}
       };
     } else {
       req.user = {
@@ -88,7 +100,8 @@ exports.authenticateUser = async (req, res, next) => {
         employeeCode: 'ADM-001',
         name: 'Administrator',
         systemRole: 'admin',
-        isAdmin: true
+        isAdmin: true,
+        permissions: {}
       };
     }
 
@@ -96,4 +109,28 @@ exports.authenticateUser = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * Require specific permission or role to access an endpoint
+ */
+exports.requirePermission = (permissionKey) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    if (req.user.isAdmin || req.user.systemRole === 'admin') {
+      return next();
+    }
+
+    const perms = req.user.permissions || {};
+    if (perms[permissionKey] || perms.allAccess) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      message: `Access denied: missing '${permissionKey}' authority.`
+    });
+  };
 };

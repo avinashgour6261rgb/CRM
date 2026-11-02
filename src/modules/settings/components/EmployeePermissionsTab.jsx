@@ -27,7 +27,11 @@ import {
   FolderGit2,
   Zap,
   CreditCard,
-  Landmark
+  Landmark,
+  FileSpreadsheet,
+  Layers,
+  Briefcase,
+  Clock
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -83,6 +87,7 @@ export const EmployeePermissionsTab = () => {
     return getUserModulePermissions(selectedEmp);
   });
   const [isDelegatedAdmin, setIsDelegatedAdmin] = useState(false);
+  const [delegationExpiresAt, setDelegationExpiresAt] = useState('');
   const [isSaved, setIsSaved] = useState(true);
 
   // When selected employee changes, load their saved permissions & delegated status
@@ -90,6 +95,19 @@ export const EmployeePermissionsTab = () => {
     if (selectedEmp) {
       setPermissions(getUserModulePermissions(selectedEmp));
       setIsDelegatedAdmin(!!selectedEmp?.isDelegatedAdmin || selectedEmp?.isAdmin || selectedEmp?.role?.toLowerCase() === 'admin');
+      
+      let exp = selectedEmp?.delegationExpiresAt || '';
+      try {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        if (rawMap) {
+          const parsed = JSON.parse(rawMap);
+          const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
+          if (userKey && parsed[userKey]?.delegationExpiresAt) {
+            exp = parsed[userKey].delegationExpiresAt;
+          }
+        }
+      } catch (_) {}
+      setDelegationExpiresAt(exp);
       setIsSaved(true);
     }
   }, [selectedEmpId, selectedEmp]);
@@ -131,11 +149,110 @@ export const EmployeePermissionsTab = () => {
       allTrue.editAttendance = true;
       allTrue.postNotices = true;
       allTrue.grantPermissions = true;
+      allTrue.export_leads = true;
+      allTrue.export_payroll = true;
+      allTrue.export_attendance = true;
+      allTrue.leadsScope = 'all';
+      allTrue.tasksScope = 'all';
+      allTrue.projectsScope = 'all';
       setPermissions(prev => ({ ...prev, ...allTrue }));
       addToast(`👑 Full Admin access granted for ${selectedEmp?.name}! Click Save to apply.`, 'info');
     } else {
       handleResetToRoleDefault();
     }
+  };
+
+  // 1-Click Role Presets
+  const applyPreset = (presetType) => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator authority is protected.', 'warning');
+      return;
+    }
+
+    let preset = {};
+    if (presetType === 'viewer') {
+      MODULE_LIST.forEach(m => {
+        preset[m.id] = ['dashboard', 'projects', 'tasks', 'leads', 'events', 'documentation'].includes(m.id);
+      });
+      preset.viewAllProjects = false;
+      preset.viewAllTasks = false;
+      preset.viewAllLeads = false;
+      preset.manageProjects = false;
+      preset.deleteTasks = false;
+      preset.deleteProjects = false;
+      preset.deleteLeads = false;
+      preset.deleteTickets = false;
+      preset.deleteEmployees = false;
+      preset.approveLeaves = false;
+      preset.manageSalaries = false;
+      preset.manageExpenses = false;
+      preset.editAttendance = false;
+      preset.export_leads = false;
+      preset.export_payroll = false;
+      preset.export_attendance = false;
+      preset.leadsScope = 'own';
+      preset.tasksScope = 'own';
+      preset.projectsScope = 'own';
+      setIsDelegatedAdmin(false);
+      addToast('👁️ Applied "Read-Only Viewer" preset', 'info');
+    } else if (presetType === 'sales') {
+      MODULE_LIST.forEach(m => {
+        preset[m.id] = ['dashboard', 'leads', 'tasks', 'tickets', 'events'].includes(m.id);
+      });
+      preset.viewAllLeads = true;
+      preset.leadsScope = 'all';
+      preset.tasksScope = 'own';
+      preset.deleteLeads = false;
+      preset.export_leads = true;
+      preset.deleteTasks = false;
+      preset.approveLeaves = false;
+      preset.manageSalaries = false;
+      setIsDelegatedAdmin(false);
+      addToast('💼 Applied "Sales & CRM Specialist" preset', 'info');
+    } else if (presetType === 'project_lead') {
+      MODULE_LIST.forEach(m => {
+        preset[m.id] = ['dashboard', 'projects', 'tasks', 'leaves', 'attendance', 'events', 'tickets'].includes(m.id);
+      });
+      preset.manageProjects = true;
+      preset.viewAllProjects = true;
+      preset.viewAllTasks = true;
+      preset.approveLeaves = true;
+      preset.deleteTasks = true;
+      preset.tasksScope = 'team';
+      preset.projectsScope = 'team';
+      preset.manageSalaries = false;
+      preset.deleteProjects = false;
+      setIsDelegatedAdmin(false);
+      addToast('🚀 Applied "Sprint Lead / Project Manager" preset', 'info');
+    } else if (presetType === 'hr_specialist') {
+      MODULE_LIST.forEach(m => {
+        preset[m.id] = ['dashboard', 'employees', 'attendance', 'leaves', 'payroll', 'finance', 'events', 'documentation'].includes(m.id);
+      });
+      preset.manageEmployees = true;
+      preset.viewAllAttendance = true;
+      preset.viewAllLeaves = true;
+      preset.approveLeaves = true;
+      preset.manageSalaries = true;
+      preset.manageExpenses = true;
+      preset.editAttendance = true;
+      preset.postNotices = true;
+      preset.export_attendance = true;
+      preset.export_payroll = true;
+      setIsDelegatedAdmin(false);
+      addToast('👥 Applied "HR Operations" preset', 'info');
+    }
+
+    const clamped = {};
+    Object.keys(preset).forEach(k => {
+      clamped[k] = adminPerms[k] === false ? false : preset[k];
+    });
+    setPermissions(prev => ({ ...prev, ...clamped }));
+    setIsSaved(false);
+  };
+
+  const handleScopeChange = (key, value) => {
+    setPermissions(prev => ({ ...prev, [key]: value }));
+    setIsSaved(false);
   };
 
   // Admin can only toggle permissions he himself has
@@ -205,6 +322,11 @@ export const EmployeePermissionsTab = () => {
           safePerms.allAccess = true;
           safePerms.isDelegatedAdmin = true;
         }
+        if (delegationExpiresAt) {
+          safePerms.delegationExpiresAt = delegationExpiresAt;
+        } else {
+          delete safePerms.delegationExpiresAt;
+        }
         map[userKey] = safePerms;
         localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
@@ -212,6 +334,7 @@ export const EmployeePermissionsTab = () => {
           updateEmployee(selectedEmp._id, {
             ...selectedEmp,
             isDelegatedAdmin,
+            delegationExpiresAt: delegationExpiresAt || null,
             permissions: safePerms
           });
         }
@@ -312,80 +435,159 @@ export const EmployeePermissionsTab = () => {
       </div>
 
       {/* ── MASTER ADMIN AUTHORITY DELEGATION CARD ── */}
-      <div className={`rounded-2xl p-4 sm:px-5 flex items-center justify-between transition-all flex-wrap gap-3.5 ${
+      <div className={`rounded-2xl p-4 sm:px-5 flex flex-col gap-3 transition-all ${
         isDelegatedAdmin
           ? 'bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 border-[1.5px] border-blue-500 dark:border-blue-600 shadow-md shadow-blue-500/10'
           : 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
       }`}>
-        <div className="flex items-center gap-3.5">
-          <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white shrink-0 ${
-            isDelegatedAdmin ? 'bg-blue-600 shadow-md shadow-blue-600/30' : 'bg-slate-400'
-          }`}>
-            <Crown size={22} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-extrabold ${isDelegatedAdmin ? 'text-blue-900 dark:text-blue-200' : 'text-slate-800 dark:text-slate-100'}`}>
-                Full Admin Authority Delegation
-              </span>
-              {isDelegatedAdmin && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
-                  FULL ACCESS ACTIVE
+        <div className="flex items-center justify-between flex-wrap gap-3.5">
+          <div className="flex items-center gap-3.5">
+            <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white shrink-0 ${
+              isDelegatedAdmin ? 'bg-blue-600 shadow-md shadow-blue-600/30' : 'bg-slate-400'
+            }`}>
+              <Crown size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-extrabold ${isDelegatedAdmin ? 'text-blue-900 dark:text-blue-200' : 'text-slate-800 dark:text-slate-100'}`}>
+                  Full Admin Authority Delegation
                 </span>
+                {isDelegatedAdmin && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
+                    FULL ACCESS ACTIVE
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 m-0">
+                Grant this user identical superpowers to Master Admin (all employees, reports, documentation, approvals, and system controls).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <label className="relative inline-block w-[46px] h-6 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isDelegatedAdmin}
+                onChange={handleToggleDelegatedAdmin}
+                className="sr-only"
+              />
+              <span className={`block w-full h-full rounded-full transition-colors ${
+                isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300'
+              }`}>
+                <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
+                  isDelegatedAdmin ? 'left-[24px]' : 'left-[3px]'
+                }`} />
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Temporary Delegation Expiry (Optional) */}
+        {isDelegatedAdmin && (
+          <div className="pt-3 mt-1 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-2 text-blue-950 dark:text-blue-200 font-bold">
+              <Clock size={15} className="text-blue-600" />
+              <span>Temporary Delegation Expiry (Optional):</span>
+              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-normal">
+                (Leave blank for permanent delegation)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={delegationExpiresAt}
+                onChange={(e) => {
+                  setDelegationExpiresAt(e.target.value);
+                  setIsSaved(false);
+                }}
+                className="px-2.5 py-1 text-xs rounded-lg border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold outline-none focus:border-blue-500"
+              />
+              {delegationExpiresAt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDelegationExpiresAt('');
+                    setIsSaved(false);
+                  }}
+                  className="px-2 py-1 text-[11px] rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 font-semibold cursor-pointer"
+                >
+                  Clear Expiry
+                </button>
               )}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 m-0">
-              Grant this user identical superpowers to Master Admin (all employees, reports, documentation, approvals, and system controls).
-            </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <label className="relative inline-block w-[46px] h-6 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isDelegatedAdmin}
-              onChange={handleToggleDelegatedAdmin}
-              className="sr-only"
-            />
-            <span className={`block w-full h-full rounded-full transition-colors ${
-              isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300'
-            }`}>
-              <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
-                isDelegatedAdmin ? 'left-[24px]' : 'left-[3px]'
-              }`} />
-            </span>
-          </label>
-        </div>
+        )}
       </div>
 
-      {/* ── ⚡ 1-CLICK ACTION CONTROLS & SAVE BAR ── */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 p-3 px-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80">
-        <div className="flex items-center gap-2">
+      {/* ── ⚡ 1-CLICK ROLE PRESETS BAR ── */}
+      <div className="flex flex-col gap-2.5 p-3.5 px-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-500" />
+            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              Enterprise Role Presets (1-Click Assignment)
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            Quickly configure standard permission sets for roles
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => applyPreset('viewer')}
+            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+            title="Read-only access across core modules (No delete/edit rights)"
+          >
+            <span>👁️</span> Read-Only Viewer
+          </button>
+
+          <button
+            type="button"
+            onClick={() => applyPreset('sales')}
+            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+            title="Full Leads pipeline access and customer outreach (No HR or Finance access)"
+          >
+            <span>💼</span> Sales & Leads Specialist
+          </button>
+
+          <button
+            type="button"
+            onClick={() => applyPreset('project_lead')}
+            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+            title="Project Sprints, Task delegation, and team leave approvals"
+          >
+            <span>🚀</span> Sprint Lead / PM
+          </button>
+
+          <button
+            type="button"
+            onClick={() => applyPreset('hr_specialist')}
+            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+            title="Workforce management, attendance, leave approvals and payroll summaries"
+          >
+            <span>👥</span> HR Operations
+          </button>
+
           <button
             type="button"
             onClick={handleGrantAll}
-            className="py-1.5 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+            className="py-1.5 px-3.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
             title="1-Click: Grant All Module & Delete Permissions to this employee"
           >
-            <span>⚡</span> Grant All Permissions (1-Click)
+            <span>⚡</span> Full Access
           </button>
+
           <button
             type="button"
             onClick={handleResetToRoleDefault}
-            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 font-semibold text-xs cursor-pointer transition-colors flex items-center gap-1"
+            className="py-1.5 px-3 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 font-semibold text-xs cursor-pointer transition-colors flex items-center gap-1"
           >
-            <RotateCcw size={13} /> Reset to Role Default
+            <RotateCcw size={12} /> Reset Default
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={handleSave}
-          className="py-1.5 px-4 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
-        >
-          <Check size={14} /> Save Permissions
-        </button>
       </div>
 
       {/* ── 🗑️ CRITICAL ADMINISTRATIVE ACTIONS & DELETE PERMISSIONS (GRANULAR) ── */}
@@ -416,6 +618,9 @@ export const EmployeePermissionsTab = () => {
             { key: 'manageExpenses',   emoji: '💳', label: 'Approve Reimbursements',     onDesc: 'Can review, approve and settle employee expense claims',           offDesc: 'Can only submit personal expense claims' },
             { key: 'editAttendance',   emoji: '⏱️', label: 'Shift & Clock Overrides',     onDesc: 'Can override attendance logs, force clock-out, adjust timers',    offDesc: 'Cannot manage live team shifts' },
             { key: 'postNotices',      emoji: '📢', label: 'Publish & Delete Notices',    onDesc: 'Can publish company announcements and delete board notices',       offDesc: 'Can only read company notices' },
+            { key: 'export_leads',     emoji: '📤', label: 'Export CRM Leads (CSV/Excel)', onDesc: 'Allowed to download client lead contacts and pipeline data',    offDesc: 'Restricted: Cannot export leads data (data leak protection)' },
+            { key: 'export_payroll',   emoji: '📊', label: 'Export Payroll & Salary Data', onDesc: 'Can download salary registers and compensation summaries',       offDesc: 'Cannot export salary spreadsheets' },
+            { key: 'export_attendance', emoji: '📑', label: 'Export Monthly Attendance',   onDesc: 'Can export monthly employee clock in/out timesheet sheets',       offDesc: 'Cannot export attendance records' },
             { key: 'grantPermissions', emoji: '🛡️', label: 'Role & Permission Delegation', onDesc: 'Can manage access rights and permissions of other employees',      offDesc: 'Cannot modify permissions' }
           ].map(({ key, emoji, label, onDesc, offDesc }) => {
             const isEnabled = !!permissions[key] || isDelegatedAdmin;
@@ -543,13 +748,72 @@ export const EmployeePermissionsTab = () => {
         <div className="flex items-center gap-2">
           <Eye size={16} className="text-sky-600" />
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 m-0">
-            Data Visibility Scope (Item 17)
+            Data Visibility & Record Ownership Scope
           </h3>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
-          By default, employees only see their own data. Toggle below to grant wider company visibility.
-          {' '}<span className="text-red-600 dark:text-red-400 font-semibold">🔒 Locked toggles</span>{' '}mean you do not have that permission yourself and cannot grant it.
+          Control record visibility: choose whether this user sees only their personally assigned records, their squad/team records, or entire enterprise records.
         </p>
+
+        {/* 3 Record-Level Ownership & Visibility Dropdowns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 mt-1">
+          <div>
+            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+              💼 CRM Leads Scope
+            </label>
+            <select
+              value={permissions.leadsScope || (permissions.viewAllLeads ? 'all' : 'own')}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleScopeChange('leadsScope', val);
+                handleScopeChange('viewAllLeads', val === 'all');
+              }}
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500"
+            >
+              <option value="own">Own Assigned Leads Only</option>
+              <option value="team">Assigned Team Leads</option>
+              <option value="all">All Company Leads (Global)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+              ✅ Sprint Tasks Scope
+            </label>
+            <select
+              value={permissions.tasksScope || (permissions.viewAllTasks ? 'all' : 'own')}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleScopeChange('tasksScope', val);
+                handleScopeChange('viewAllTasks', val === 'all');
+              }}
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500"
+            >
+              <option value="own">Personally Assigned Tasks Only</option>
+              <option value="team">Team Sprints & Tasks</option>
+              <option value="all">All Enterprise Tasks (Global)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
+              📁 Projects Scope
+            </label>
+            <select
+              value={permissions.projectsScope || (permissions.viewAllProjects ? 'all' : 'own')}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleScopeChange('projectsScope', val);
+                handleScopeChange('viewAllProjects', val === 'all');
+              }}
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500"
+            >
+              <option value="own">Assigned Projects Only</option>
+              <option value="team">Department Projects</option>
+              <option value="all">All Company Projects (Global)</option>
+            </select>
+          </div>
+        </div>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3 mt-1.5">
           {[

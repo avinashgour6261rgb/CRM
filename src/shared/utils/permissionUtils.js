@@ -339,7 +339,7 @@ export const canPostNotices = (user) => {
 };
 export const canDeleteTask = (user, task = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess || perms?.deleteTasks || perms?.manageTasks) return true;
   if (task) {
@@ -355,7 +355,7 @@ export const canDeleteTask = (user, task = null) => {
 
 export const canDeleteProject = (user, project = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess || perms?.deleteProjects || perms?.manageProjects) return true;
   if (project) {
@@ -371,14 +371,14 @@ export const canDeleteProject = (user, project = null) => {
 
 export const canDeleteEmployee = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   return !!(perms?.allAccess || perms?.deleteEmployees || perms?.manageEmployees);
 };
 
 export const canDeleteLead = (user, lead = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess || perms?.deleteLeads || perms?.manageLeads) return true;
   if (lead) {
@@ -394,7 +394,7 @@ export const canDeleteLead = (user, lead = null) => {
 
 export const canDeleteNotice = (user, notice = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess || perms?.deleteNotices || perms?.postNotices) return true;
   if (notice) {
@@ -410,7 +410,7 @@ export const canDeleteNotice = (user, notice = null) => {
 
 export const canDeleteTicket = (user, ticket = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess || perms?.deleteTickets || perms?.manageTickets) return true;
   if (ticket) {
@@ -751,7 +751,36 @@ export const GRANULAR_PERMISSIONS_LIST = [
 ];
 
 /**
- * Get active module permissions for an employee with user-specific override support
+ * Check if an employee's temporary delegation is currently active (or expired)
+ */
+export const isDelegationActive = (user) => {
+  if (!user) return false;
+  if (user.isAdmin || user.isSuperAdmin || user.employeeCode === 'ADM-001' || user.email === 'admin@inforag.com') return true;
+  
+  let expiresAt = user.delegationExpiresAt;
+  let isDelegated = user.isDelegatedAdmin || user.allAccess;
+
+  try {
+    const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+    if (rawMap) {
+      const parsed = JSON.parse(rawMap);
+      const userKey = user._id || user.employeeCode || user.email;
+      if (userKey && parsed[userKey]) {
+        if (parsed[userKey].delegationExpiresAt) expiresAt = parsed[userKey].delegationExpiresAt;
+        if (parsed[userKey].isDelegatedAdmin || parsed[userKey].allAccess) isDelegated = true;
+      }
+    }
+  } catch (_) {}
+
+  if (!isDelegated) return false;
+  if (!expiresAt) return true; // Permanent delegation
+
+  const expTime = new Date(expiresAt).getTime();
+  return !isNaN(expTime) && expTime > Date.now();
+};
+
+/**
+ * Get active module permissions for an employee with user-specific override support and expiry handling
  */
 export const getUserModulePermissions = (user) => {
   if (!user) return DEFAULT_MODULE_PERMISSIONS.team_member;
@@ -759,8 +788,9 @@ export const getUserModulePermissions = (user) => {
   if (role === ROLES.ADMIN) return DEFAULT_MODULE_PERMISSIONS.admin;
 
   const basePerms = { ...(DEFAULT_MODULE_PERMISSIONS[role] || DEFAULT_MODULE_PERMISSIONS.team_member) };
+  const delegationValid = isDelegationActive(user);
 
-  if (user.isDelegatedAdmin || user.allAccess) {
+  if (delegationValid) {
     return { ...DEFAULT_MODULE_PERMISSIONS.admin, allAccess: true, isDelegatedAdmin: true };
   }
 
@@ -787,10 +817,57 @@ export const getUserModulePermissions = (user) => {
   }
 
   if (basePerms.allAccess || basePerms.isDelegatedAdmin) {
-    return { ...DEFAULT_MODULE_PERMISSIONS.admin, allAccess: true, isDelegatedAdmin: true, ...basePerms };
+    if (delegationValid) {
+      return { ...DEFAULT_MODULE_PERMISSIONS.admin, allAccess: true, isDelegatedAdmin: true, ...basePerms };
+    }
+    // Expired delegation: clean out admin flags
+    delete basePerms.allAccess;
+    delete basePerms.isDelegatedAdmin;
   }
 
   return basePerms;
+};
+
+/**
+ * Granular Action Gates: Delete, Export, and Scope
+ */
+export const canDeleteRecord = (user, module = 'tasks') => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  const modKey = String(module).toLowerCase();
+  
+  if (modKey === 'tasks' || modKey === 'task') return !!(perms.deleteTasks || perms.canDeleteTasks || perms.allAccess);
+  if (modKey === 'projects' || modKey === 'project') return !!(perms.deleteProjects || perms.canDeleteProjects || perms.allAccess);
+  if (modKey === 'leads' || modKey === 'lead') return !!(perms.deleteLeads || perms.canDeleteLeads || perms.allAccess);
+  if (modKey === 'tickets' || modKey === 'ticket') return !!(perms.deleteTickets || perms.canDeleteTickets || perms.allAccess);
+  if (modKey === 'employees' || modKey === 'employee') return !!(perms.deleteEmployees || perms.canDeleteEmployees || perms.allAccess);
+  if (modKey === 'notices' || modKey === 'notice') return !!(perms.deleteNotices || perms.postNotices || perms.allAccess);
+  return !!perms.allAccess;
+};
+
+export const canExportData = (user, module = 'general') => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const r = getUserRole(user);
+  if (r === ROLES.HR) return true;
+  const perms = getUserModulePermissions(user);
+  const modKey = String(module).toLowerCase();
+  return !!(perms[`export_${modKey}`] || perms.exportData || perms.canExport || perms.allAccess);
+};
+
+export const getDataScope = (user, module = 'tasks') => {
+  if (!user) return 'own';
+  if (isAdmin(user) || isDelegationActive(user)) return 'all';
+  const perms = getUserModulePermissions(user);
+  const modKey = String(module).toLowerCase();
+  if (perms[`${modKey}Scope`]) return perms[`${modKey}Scope`];
+  if (perms.dataScope) return perms.dataScope;
+  
+  const r = getUserRole(user);
+  if (r === ROLES.HR) return 'all';
+  if (r === ROLES.TEAM_LEADER) return 'team';
+  return 'own';
 };
 
 /**
