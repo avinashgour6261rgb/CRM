@@ -34,7 +34,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
-import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
 
 export const TeamOperationsPage = () => {

@@ -348,6 +348,9 @@ export const TimerProvider = ({ children }) => {
   // Active productive work seconds (starts strictly from 0 on a fresh day)
   const [workSeconds, setWorkSeconds] = useState(() => {
     if (!isTodaySession) return 0;
+    const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
+    const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
+    if (!inVal && !hadOutVal) return 0;
     const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
     if (saved) return Math.min(24 * 3600, Math.max(0, parseInt(saved, 10)));
     return 0;
@@ -519,13 +522,6 @@ export const TimerProvider = ({ children }) => {
       const brkType = readTimerStorage(currentUser, 'break_type');
       setBreakType(brkType || attRec?.breakType || null);
 
-      const secVal = readTimerStorage(currentUser, 'work_seconds');
-      const resolvedWorkSecs = secVal ? Math.min(24 * 3600, Math.max(0, parseInt(secVal, 10))) : (Number(attRec?.workSeconds) || 0);
-      setWorkSeconds(resolvedWorkSecs);
-
-      const brkSec = readTimerStorage(currentUser, 'break_seconds');
-      setBreakSeconds(brkSec ? parseInt(brkSec, 10) : (Number(attRec?.breakSeconds) || 0));
-
       const lTime = readTimerStorage(currentUser, 'login_time') || attRec?.clockInTime || attRec?.clockIn || null;
       setLoginTime(lTime);
 
@@ -533,7 +529,22 @@ export const TimerProvider = ({ children }) => {
       setClockOutTime(cTime);
 
       const hadOut = readTimerStorage(currentUser, 'had_clocked_out');
-      setHadClockedOutToday(hadOut !== null ? (hadOut === 'true' || hadOut === true) : Boolean(cTime || hasAttClockOut));
+      const resolvedHadClockedOut = hadOut !== null ? (hadOut === 'true' || hadOut === true) : Boolean(cTime || hasAttClockOut);
+      setHadClockedOutToday(resolvedHadClockedOut);
+
+      const secVal = readTimerStorage(currentUser, 'work_seconds');
+      let resolvedWorkSecs = 0;
+      if (resolvedIsClockedIn || resolvedHadClockedOut) {
+        resolvedWorkSecs = secVal ? Math.min(24 * 3600, Math.max(0, parseInt(secVal, 10))) : (Number(attRec?.workSeconds) || 0);
+      } else {
+        // Not clocked in and not clocked out yet today: must be strictly 0!
+        resolvedWorkSecs = 0;
+        writeTimerStorage(currentUser, 'work_seconds', '0');
+      }
+      setWorkSeconds(resolvedWorkSecs);
+
+      const brkSec = readTimerStorage(currentUser, 'break_seconds');
+      setBreakSeconds(brkSec ? parseInt(brkSec, 10) : (Number(attRec?.breakSeconds) || 0));
 
       const rStatus = readTimerStorage(currentUser, 'reclock_status') || 'none';
       setReclockStatus(rStatus);
@@ -1131,8 +1142,9 @@ export const TimerProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${userKey}_reclock_session_seconds`, rSecs.toString());
         }
       } else if (!hadOutVal) {
-        // Not clocked in
+        // Not clocked in and haven't clocked out today
         setWorkSeconds(0);
+        writeTimerStorage(currentUser, 'work_seconds', '0');
       }
     };
 
@@ -2173,7 +2185,7 @@ export const TimerProvider = ({ children }) => {
       timeString: formatSeconds(workSeconds),
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),
-      workDurationText: formatHoursMinutes(workSeconds),
+      workDurationText: (!isClockedIn && !hadClockedOutToday) ? '00h 00m' : formatHoursMinutes(workSeconds),
       breakDurationText: formatHoursMinutes(breakSeconds),
       grossDurationText: formatHoursMinutes(grossSeconds),
       togglePauseResume,

@@ -628,7 +628,7 @@ export const DashboardPage = () => {
           } catch (_) {}
           sessStartTs = todayMidnightMs + pSecs * 1000;
         } else {
-          sessStartTs = todayMidnightMs;
+          sessStartTs = Date.now();
         }
       }
       sessStartTs = Math.max(sessStartTs, todayMidnightMs);
@@ -1339,7 +1339,9 @@ export const DashboardPage = () => {
   const displayedBreakType = isViewingOtherEmployee ? (activeEmpState?.breakType || 'Break') : breakType;
   const displayedLoginTime = isViewingOtherEmployee ? activeEmpState?.loginTime : loginTime;
   const displayedClockOutTime = isViewingOtherEmployee ? activeEmpState?.clockOutTime : clockOutTime;
-  const displayedWorkDuration = isViewingOtherEmployee ? formatTimeDurationSafe(activeEmpState?.workSecs || 0) : workDurationText;
+  const displayedWorkDuration = isViewingOtherEmployee
+    ? formatTimeDurationSafe(activeEmpState?.workSecs || 0)
+    : ((!displayedIsClockedIn && !displayedHadClockedOut) ? '00h 00m' : workDurationText);
   const displayedHadClockedOut = isViewingOtherEmployee ? activeEmpState?.isClockedOut : hadClockedOutToday;
   const displayedBreakDuration = isViewingOtherEmployee ? formatTimeDurationSafe(activeEmpState?.breakSecs || 0) : (breakDurationText || '0s');
 
