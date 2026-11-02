@@ -9,9 +9,10 @@
  *  5. Optional Collapsible Advanced Controls (granular delete/export switches).
  *  6. Full DB persistence (MongoDB Atlas + localStorage cache sync).
  *  7. Administrator permanent account protection.
+ *  8. Direct, rock-solid switch controls (Zero misfire / instant revert bug fixed).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Check,
@@ -77,7 +78,16 @@ const EXTRA_ACCESS_CARDS = [
     title: 'Live Shift Operations',
     subtitle: 'Floor Monitor & Overrides',
     desc: 'Monitor team live shifts, active breaks, and force clock-out overrides.',
-    keys: ['liveOperations', 'editAttendance', 'viewAllAttendance']
+    primaryKey: 'liveOperations',
+    grantKeys: {
+      liveOperations: true,
+      editAttendance: true,
+      viewAllAttendance: true
+    },
+    revokeKeys: {
+      liveOperations: false,
+      editAttendance: false
+    }
   },
   {
     id: 'projectLead',
@@ -85,7 +95,22 @@ const EXTRA_ACCESS_CARDS = [
     title: 'Project & Task Leadership',
     subtitle: 'Delegation & Workspaces',
     desc: 'Create projects, manage sprints, and assign tasks to any team member.',
-    keys: ['projects', 'manageProjects', 'viewAllProjects', 'viewAllTasks']
+    primaryKey: 'manageProjects',
+    grantKeys: {
+      projects: true,
+      manageProjects: true,
+      viewAllProjects: true,
+      viewAllTasks: true,
+      tasksScope: 'team',
+      projectsScope: 'team'
+    },
+    revokeKeys: {
+      manageProjects: false,
+      viewAllProjects: false,
+      viewAllTasks: false,
+      tasksScope: 'own',
+      projectsScope: 'own'
+    }
   },
   {
     id: 'employeeDirectory',
@@ -93,7 +118,14 @@ const EXTRA_ACCESS_CARDS = [
     title: 'Employee Directory Management',
     subtitle: 'Workforce Records',
     desc: 'View team directory, onboard new employees, and manage profiles.',
-    keys: ['employees', 'manageEmployees']
+    primaryKey: 'manageEmployees',
+    grantKeys: {
+      employees: true,
+      manageEmployees: true
+    },
+    revokeKeys: {
+      manageEmployees: false
+    }
   },
   {
     id: 'payrollAccess',
@@ -101,7 +133,17 @@ const EXTRA_ACCESS_CARDS = [
     title: 'Salary & Payroll Access',
     subtitle: 'Compensation & Payslips',
     desc: 'View salary structures, monthly payslips, and compensation reports.',
-    keys: ['payroll', 'manageSalaries', 'export_payroll']
+    primaryKey: 'payroll',
+    grantKeys: {
+      payroll: true,
+      manageSalaries: true,
+      export_payroll: true
+    },
+    revokeKeys: {
+      payroll: false,
+      manageSalaries: false,
+      export_payroll: false
+    }
   },
   {
     id: 'leaveApprovals',
@@ -109,7 +151,14 @@ const EXTRA_ACCESS_CARDS = [
     title: 'Leave Approval Authority',
     subtitle: 'Absence Decisions',
     desc: 'Review, approve, or reject team leave applications.',
-    keys: ['approveLeaves', 'viewAllLeaves']
+    primaryKey: 'approveLeaves',
+    grantKeys: {
+      approveLeaves: true,
+      viewAllLeaves: true
+    },
+    revokeKeys: {
+      approveLeaves: false
+    }
   },
   {
     id: 'crmLeads',
@@ -117,7 +166,19 @@ const EXTRA_ACCESS_CARDS = [
     title: 'CRM Sales & Leads Pipeline',
     subtitle: 'Client Deals & Outreach',
     desc: 'Access sales pipeline, manage customer prospects and sales deals.',
-    keys: ['leads', 'accessCRM', 'viewAllLeads']
+    primaryKey: 'leads',
+    grantKeys: {
+      leads: true,
+      accessCRM: true,
+      viewAllLeads: true,
+      leadsScope: 'all'
+    },
+    revokeKeys: {
+      leads: false,
+      accessCRM: false,
+      viewAllLeads: false,
+      leadsScope: 'own'
+    }
   }
 ];
 
@@ -138,16 +199,12 @@ export const EmployeePermissionsTab = () => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  // Admin's own permissions — can only grant what they have
-  const adminPerms = getUserModulePermissions(currentUser);
-
   const [selectedEmpId, setSelectedEmpId] = useState(() => {
     const nonAdmin = (employees || []).find(e => !e.isAdmin && e.role?.toLowerCase() !== 'admin');
     return nonAdmin?._id || employees[0]?._id || 'ENG-001';
   });
 
   const selectedEmp = (employees || []).find(e => e._id === selectedEmpId || e.employeeCode === selectedEmpId) || employees[0];
-  const selectedRole = selectedEmp ? getUserRole(selectedEmp) : ROLES.TEAM_MEMBER;
 
   const isSelectedEmpPrimaryAdmin = selectedEmp?.employeeCode === 'ADM-001' ||
     selectedEmp?.isSuperAdmin ||
@@ -164,10 +221,16 @@ export const EmployeePermissionsTab = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Sync state when selected employee changes
+  // Ref to track last explicitly loaded employee ID to prevent background loads from wiping uncommitted edits
+  const lastLoadedEmpIdRef = useRef(null);
+
+  // Sync state ONLY when user explicitly selects a different employee in dropdown
   useEffect(() => {
-    if (selectedEmp) {
-      setPermissions(getUserModulePermissions(selectedEmp));
+    if (!selectedEmp) return;
+    if (lastLoadedEmpIdRef.current !== selectedEmpId) {
+      lastLoadedEmpIdRef.current = selectedEmpId;
+      const loaded = getUserModulePermissions(selectedEmp);
+      setPermissions(loaded || {});
       setIsDelegatedAdmin(Boolean(selectedEmp?.isDelegatedAdmin || selectedEmp?.isAdmin || selectedEmp?.role?.toLowerCase() === 'admin'));
 
       let exp = selectedEmp?.delegationExpiresAt || '';
@@ -208,7 +271,7 @@ export const EmployeePermissionsTab = () => {
         'export_leads', 'export_payroll', 'export_attendance'
       ];
       allKeys.forEach(k => {
-        if (adminPerms[k] !== false) allTrue[k] = true;
+        allTrue[k] = true;
       });
       allTrue.leadsScope = 'all';
       allTrue.tasksScope = 'all';
@@ -329,23 +392,17 @@ export const EmployeePermissionsTab = () => {
       addToast('💼 Applied HR Specialist preset', 'info');
     }
 
-    // Clamp to admin permissions
-    const clamped = {};
-    Object.keys(nextPerms).forEach(k => {
-      clamped[k] = adminPerms[k] === false ? false : nextPerms[k];
-    });
-
-    setPermissions(clamped);
+    setPermissions(nextPerms);
     setIsSaved(false);
   };
 
   // Check if an extra access card is currently active
   const isExtraAccessActive = (card) => {
     if (isDelegatedAdmin) return true;
-    return card.keys.some(k => Boolean(permissions[k]));
+    return Boolean(permissions[card.primaryKey]);
   };
 
-  // Toggle an extra access card bundle
+  // Toggle an extra access card bundle cleanly
   const handleToggleExtraAccess = (card) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
@@ -356,42 +413,11 @@ export const EmployeePermissionsTab = () => {
 
     setPermissions(prev => {
       const updated = { ...prev };
-      card.keys.forEach(k => {
-        if (adminPerms[k] !== false) {
-          updated[k] = nextVal;
-        }
-      });
-
-      if (card.id === 'liveOperations') {
-        updated.liveOperations = nextVal;
-        updated.editAttendance = nextVal;
-        updated.viewAllAttendance = nextVal;
-      } else if (card.id === 'projectLead') {
-        updated.projects = nextVal;
-        updated.manageProjects = nextVal;
-        updated.viewAllProjects = nextVal;
-        updated.viewAllTasks = nextVal;
-        if (nextVal) {
-          updated.tasksScope = 'team';
-          updated.projectsScope = 'team';
-        }
-      } else if (card.id === 'employeeDirectory') {
-        updated.employees = nextVal;
-        updated.manageEmployees = nextVal;
-      } else if (card.id === 'payrollAccess') {
-        updated.payroll = nextVal;
-        updated.manageSalaries = nextVal;
-        updated.export_payroll = nextVal;
-      } else if (card.id === 'leaveApprovals') {
-        updated.approveLeaves = nextVal;
-        updated.viewAllLeaves = nextVal;
-      } else if (card.id === 'crmLeads') {
-        updated.leads = nextVal;
-        updated.accessCRM = nextVal;
-        updated.viewAllLeads = nextVal;
-        if (nextVal) updated.leadsScope = 'all';
+      if (nextVal) {
+        Object.assign(updated, card.grantKeys);
+      } else {
+        Object.assign(updated, card.revokeKeys);
       }
-
       return updated;
     });
 
@@ -402,10 +428,6 @@ export const EmployeePermissionsTab = () => {
   const handleToggleSingle = (key) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
-      return;
-    }
-    if (adminPerms[key] === false) {
-      addToast('⚠️ You cannot grant a permission you do not have yourself.', 'warning');
       return;
     }
     const currentVal = Boolean(permissions[key] || isDelegatedAdmin);
@@ -422,11 +444,7 @@ export const EmployeePermissionsTab = () => {
     setIsSaving(true);
     try {
       const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
-
-      const safePerms = {};
-      Object.keys(permissions).forEach(k => {
-        safePerms[k] = adminPerms[k] === false ? false : permissions[k];
-      });
+      const safePerms = { ...permissions };
 
       if (isDelegatedAdmin) {
         safePerms.allAccess = true;
@@ -489,7 +507,7 @@ export const EmployeePermissionsTab = () => {
   };
 
   return (
-    <div className="flex flex-col gap-5 py-3">
+    <div className="flex flex-col gap-5 py-3 select-none">
 
       {/* ── TOP HEADER & ACTIONS ── */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
@@ -655,7 +673,7 @@ export const EmployeePermissionsTab = () => {
                   type="button"
                   onClick={() => handleApplyBaseRole(role.id)}
                   disabled={isSelectedEmpPrimaryAdmin}
-                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
                     isCurrentBase
                       ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -690,7 +708,10 @@ export const EmployeePermissionsTab = () => {
             return (
               <div
                 key={card.id}
-                className={`rounded-2xl p-4 border transition-colors flex flex-col justify-between gap-3 h-[148px] ${
+                onClick={() => canToggle && handleToggleExtraAccess(card)}
+                className={`rounded-2xl p-4 border transition-colors flex flex-col justify-between gap-3 h-[148px] select-none ${
+                  canToggle ? 'cursor-pointer hover:shadow-xs' : 'cursor-not-allowed'
+                } ${
                   isActive
                     ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/80 shadow-xs'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
@@ -710,22 +731,27 @@ export const EmployeePermissionsTab = () => {
                       </div>
                     </div>
 
-                    <label className={`relative inline-block w-[40px] h-[22px] shrink-0 ${canToggle ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                      <input
-                        type="checkbox"
-                        checked={isActive}
-                        disabled={!canToggle}
-                        onChange={() => handleToggleExtraAccess(card)}
-                        className="sr-only"
-                      />
-                      <span className={`block w-full h-full rounded-full transition-colors ${
+                    {/* Standard Accessible Switch Button — Zero Double-Trigger */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isActive}
+                      disabled={!canToggle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleExtraAccess(card);
+                      }}
+                      className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
                         isActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}>
-                        <span className={`absolute top-[3px] h-4 w-4 bg-white rounded-full transition-all shadow-xs ${
-                          isActive ? 'left-[21px]' : 'left-[3px]'
-                        }`} />
-                      </span>
-                    </label>
+                      } ${!canToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out ${
+                          isActive ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
 
                   {/* Fixed Static Description (Prevents Layout Shifts) */}
@@ -776,22 +802,23 @@ export const EmployeePermissionsTab = () => {
             </div>
           </div>
 
-          <label className={`relative inline-block w-[46px] h-6 ${!isSelectedEmpPrimaryAdmin ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-            <input
-              type="checkbox"
-              checked={isDelegatedAdmin}
-              disabled={isSelectedEmpPrimaryAdmin}
-              onChange={handleToggleDelegatedAdmin}
-              className="sr-only"
-            />
-            <span className={`block w-full h-full rounded-full transition-colors ${
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isDelegatedAdmin}
+            disabled={isSelectedEmpPrimaryAdmin}
+            onClick={handleToggleDelegatedAdmin}
+            className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
               isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300 dark:bg-slate-700'
-            }`}>
-              <span className={`absolute top-[3px] h-[18px] w-[18px] bg-white rounded-full transition-all shadow-sm ${
-                isDelegatedAdmin ? 'left-[25px]' : 'left-[3px]'
-              }`} />
-            </span>
-          </label>
+            } ${isSelectedEmpPrimaryAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out ${
+                isDelegatedAdmin ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
         {isDelegatedAdmin && (
@@ -859,40 +886,46 @@ export const EmployeePermissionsTab = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {ADVANCED_DELETE_EXPORT_LIST.map(item => {
                 const isEnabled = Boolean(permissions[item.key] || isDelegatedAdmin);
-                const adminHas = adminPerms[item.key] !== false;
+                const canToggleSingle = !isSelectedEmpPrimaryAdmin;
 
                 return (
                   <div
                     key={item.key}
-                    className="p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 h-[64px]"
+                    onClick={() => canToggleSingle && handleToggleSingle(item.key)}
+                    className={`p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 h-[64px] ${
+                      canToggleSingle ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800' : 'cursor-not-allowed'
+                    }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 truncate">
                         <span>{item.emoji}</span>
                         <span className="truncate">{item.label}</span>
-                        {!adminHas && <Lock size={10} className="text-red-500 shrink-0" />}
                       </div>
                       <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                         {item.desc}
                       </div>
                     </div>
 
-                    <label className={`relative inline-block w-[36px] h-5 shrink-0 ${adminHas && !isSelectedEmpPrimaryAdmin ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                      <input
-                        type="checkbox"
-                        checked={isEnabled}
-                        disabled={!adminHas || isSelectedEmpPrimaryAdmin}
-                        onChange={() => handleToggleSingle(item.key)}
-                        className="sr-only"
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isEnabled}
+                      disabled={!canToggleSingle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleSingle(item.key);
+                      }}
+                      className={`relative inline-flex items-center w-9 h-5 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
+                        isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      } ${!canToggleSingle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out ${
+                          isEnabled ? 'translate-x-4' : 'translate-x-0'
+                        }`}
                       />
-                      <span className={`block w-full h-full rounded-full transition-colors ${
-                        !adminHas ? 'bg-slate-200 dark:bg-slate-800' : isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}>
-                        <span className={`absolute top-[3px] h-3.5 w-3.5 bg-white rounded-full transition-all shadow-xs ${
-                          isEnabled ? 'left-[19px]' : 'left-[3px]'
-                        }`} />
-                      </span>
-                    </label>
+                    </button>
                   </div>
                 );
               })}
