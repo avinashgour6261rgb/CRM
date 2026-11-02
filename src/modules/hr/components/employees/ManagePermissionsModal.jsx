@@ -13,7 +13,7 @@ import { ChangePasswordModal } from '../../../../shared/components/modals/Change
 
 export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
   const { addToast } = useToast();
-  const { updateEmployee = () => {}, currentUser = null } = useHR() || {};
+  const { updateEmployee = () => {}, updateEmployeePermissions, currentUser = null } = useHR() || {};
 
   const [permissions, setPermissions] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -93,11 +93,20 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       if (employee._id) setUserPermissions(employee._id, permissions);
       if (employee.email) setUserPermissions(employee.email, permissions);
 
-      // 2. Persist directly onto the employee profile
-      await updateEmployee(employee._id, {
-        ...employee,
-        permissions
-      });
+      // 2. Persist directly onto the employee profile in database
+      if (updateEmployeePermissions) {
+        await updateEmployeePermissions(employee._id, {
+          permissions,
+          isDelegatedAdmin: employee.isDelegatedAdmin,
+          delegationExpiresAt: employee.delegationExpiresAt,
+          systemRole: employee.systemRole
+        });
+      } else {
+        await updateEmployee(employee._id, {
+          ...employee,
+          permissions
+        });
+      }
 
       addToast(`Access permissions updated for ${employee.name}!`, 'success');
       onClose();

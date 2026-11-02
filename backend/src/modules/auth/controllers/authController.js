@@ -44,7 +44,15 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  const isSystemAdmin = !!(employee.isAdmin || employee.role === 'Administrator' || employee.employeeCode === 'ADM-001');
+  let isDelegatedAdmin = !!employee.isDelegatedAdmin;
+  if (isDelegatedAdmin && employee.delegationExpiresAt) {
+    const exp = new Date(employee.delegationExpiresAt).getTime();
+    if (!isNaN(exp) && exp < Date.now()) {
+      isDelegatedAdmin = false;
+    }
+  }
+
+  const isSystemAdmin = !!(employee.isAdmin || employee.role === 'Administrator' || employee.employeeCode === 'ADM-001' || isDelegatedAdmin);
   const isSystemHR = !!(employee.department === 'Human Resources' || employee.role?.toLowerCase().includes('hr'));
 
   const userObj = {
@@ -59,10 +67,12 @@ exports.login = asyncHandler(async (req, res) => {
     systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
     isAdmin: isSystemAdmin,
     isSuperAdmin: isSystemAdmin,
+    isDelegatedAdmin: isDelegatedAdmin,
+    delegationExpiresAt: employee.delegationExpiresAt || null,
     status: employee.status || 'active',
     joiningDate: employee.joiningDate,
     leaveBalance: employee.leaveBalance,
-    permissions: employee.permissions
+    permissions: employee.permissions || {}
   };
 
   res.status(200).json({
@@ -93,7 +103,15 @@ exports.getMe = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'User not found' });
   }
 
-  const isSystemAdmin = !!(employee.isAdmin || employee.role === 'Administrator' || employee.employeeCode === 'ADM-001');
+  let isDelegatedAdmin = !!employee.isDelegatedAdmin;
+  if (isDelegatedAdmin && employee.delegationExpiresAt) {
+    const exp = new Date(employee.delegationExpiresAt).getTime();
+    if (!isNaN(exp) && exp < Date.now()) {
+      isDelegatedAdmin = false;
+    }
+  }
+
+  const isSystemAdmin = !!(employee.isAdmin || employee.role === 'Administrator' || employee.employeeCode === 'ADM-001' || isDelegatedAdmin);
   const isSystemHR = !!(employee.department === 'Human Resources' || employee.role?.toLowerCase().includes('hr'));
 
   res.json({
@@ -110,10 +128,12 @@ exports.getMe = asyncHandler(async (req, res) => {
       systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
       isAdmin: isSystemAdmin,
       isSuperAdmin: isSystemAdmin,
+      isDelegatedAdmin: isDelegatedAdmin,
+      delegationExpiresAt: employee.delegationExpiresAt || null,
       status: employee.status || 'active',
       joiningDate: employee.joiningDate,
       leaveBalance: employee.leaveBalance,
-      permissions: employee.permissions
+      permissions: employee.permissions || {}
     }
   });
 });

@@ -61,7 +61,7 @@ const MODULE_LIST = [
 ];
 
 export const EmployeePermissionsTab = () => {
-  const { employees, updateEmployee } = useHR();
+  const { employees, updateEmployee, updateEmployeePermissions } = useHR();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
@@ -89,6 +89,7 @@ export const EmployeePermissionsTab = () => {
   const [isDelegatedAdmin, setIsDelegatedAdmin] = useState(false);
   const [delegationExpiresAt, setDelegationExpiresAt] = useState('');
   const [isSaved, setIsSaved] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // When selected employee changes, load their saved permissions & delegated status
   useEffect(() => {
@@ -306,47 +307,64 @@ export const EmployeePermissionsTab = () => {
     addToast(`Reset to default ${selectedRole} permissions`, 'info');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedEmp?._id) return;
+    setIsSaving(true);
     try {
+      const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
+
+      // Final safety clamp — ensure no permission exceeds adminPerms
+      const safePerms = {};
+      Object.keys(permissions).forEach(k => {
+        safePerms[k] = adminPerms[k] === false ? false : permissions[k];
+      });
+      if (isDelegatedAdmin) {
+        safePerms.allAccess = true;
+        safePerms.isDelegatedAdmin = true;
+      } else {
+        delete safePerms.allAccess;
+        delete safePerms.isDelegatedAdmin;
+      }
+      if (delegationExpiresAt) {
+        safePerms.delegationExpiresAt = delegationExpiresAt;
+      } else {
+        delete safePerms.delegationExpiresAt;
+      }
+
+      // Persist directly to authoritative database (MongoDB Atlas)
+      if (updateEmployeePermissions) {
+        await updateEmployeePermissions(selectedEmp._id, {
+          permissions: safePerms,
+          isDelegatedAdmin: Boolean(isDelegatedAdmin),
+          delegationExpiresAt: delegationExpiresAt || null,
+          systemRole: selectedEmp.systemRole
+        });
+      } else if (updateEmployee) {
+        await updateEmployee(selectedEmp._id, {
+          isDelegatedAdmin: Boolean(isDelegatedAdmin),
+          delegationExpiresAt: delegationExpiresAt || null,
+          permissions: safePerms
+        });
+      }
+
+      // Local storage cache sync
       const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
       const map = rawMap ? JSON.parse(rawMap) : {};
-      const userKey = selectedEmp?._id || selectedEmp?.employeeCode || selectedEmp?.email;
+      map[userKey] = safePerms;
+      if (selectedEmp._id) map[String(selectedEmp._id)] = safePerms;
+      if (selectedEmp.employeeCode) map[String(selectedEmp.employeeCode)] = safePerms;
+      if (selectedEmp.email) map[String(selectedEmp.email).toLowerCase()] = safePerms;
+      localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
-      if (userKey) {
-        // Final safety clamp — ensure no permission exceeds adminPerms
-        const safePerms = {};
-        Object.keys(permissions).forEach(k => {
-          safePerms[k] = adminPerms[k] === false ? false : permissions[k];
-        });
-        if (isDelegatedAdmin) {
-          safePerms.allAccess = true;
-          safePerms.isDelegatedAdmin = true;
-        }
-        if (delegationExpiresAt) {
-          safePerms.delegationExpiresAt = delegationExpiresAt;
-        } else {
-          delete safePerms.delegationExpiresAt;
-        }
-        map[userKey] = safePerms;
-        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
-
-        if (selectedEmp?._id && updateEmployee) {
-          updateEmployee(selectedEmp._id, {
-            ...selectedEmp,
-            isDelegatedAdmin,
-            delegationExpiresAt: delegationExpiresAt || null,
-            permissions: safePerms
-          });
-        }
-
-        window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
-        setIsSaved(true);
-        addToast(`✅ Permissions & Admin Access updated for ${selectedEmp?.name || 'Employee'}!`, 'success');
-      }
+      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+      setIsSaved(true);
+      addToast(`✅ Permissions & Access saved to database for ${selectedEmp?.name || 'Employee'}!`, 'success');
     } catch (e) {
-      console.error('Failed to save permissions:', e);
-      addToast('Error saving permissions', 'error');
+      console.error('Failed to save permissions to database:', e);
+      addToast(`Failed to save permissions: ${e?.message || 'Network error'}`, 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -383,14 +401,26 @@ export const EmployeePermissionsTab = () => {
           <button
             type="button"
             onClick={handleSave}
+            disabled={isSaving}
             className={`inline-flex items-center gap-1.5 px-[18px] py-[7px] rounded-lg border-0 text-white text-[12.5px] font-bold cursor-pointer shadow-sm transition-all ${
-              isSaved
-                ? 'bg-green-600 hover:bg-green-700 shadow-green-600/25'
-                : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25'
+              isSaving
+                ? 'bg-blue-400 cursor-wait'
+                : isSaved
+                  ? 'bg-green-600 hover:bg-green-700 shadow-green-600/25'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/25'
             }`}
           >
-            <Check size={14} />
-            <span>{isSaved ? 'Saved' : 'Save Permissions'}</span>
+            {isSaving ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Saving to DB...</span>
+              </>
+            ) : (
+              <>
+                <Check size={14} />
+                <span>{isSaved ? 'Saved in DB' : 'Save Permissions'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

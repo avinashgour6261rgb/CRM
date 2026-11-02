@@ -26,6 +26,7 @@ const defaultHRContext = {
   loadData: async () => {},
   addEmployee: async () => {},
   updateEmployee: async () => {},
+  updateEmployeePermissions: async () => {},
   deleteEmployee: async () => {},
   applyLeave: async () => {},
   updateLeaveStatus: async () => {},
@@ -245,6 +246,24 @@ export const HRProvider = ({ children }) => {
       return updated;
     } catch (err) {
       addToast(err?.message || 'Failed to update employee', 'error');
+      throw err;
+    }
+  };
+
+  const updateEmployeePermissions = async (employeeId, payload) => {
+    try {
+      const updated = await hrService.updateEmployeePermissions(employeeId, payload);
+      setCurrentUser(prev => {
+        if (!prev) return updated;
+        if (prev._id === employeeId || prev.employeeCode === employeeId || prev.isCurrentUser) {
+          return { ...prev, ...updated };
+        }
+        return prev;
+      });
+      setEmployees(prev => prev.map(e => (e._id === employeeId || e.employeeCode === employeeId ? { ...e, ...updated } : e)));
+      return updated;
+    } catch (err) {
+      console.error('Failed to update employee permissions:', err);
       throw err;
     }
   };
@@ -511,6 +530,7 @@ export const HRProvider = ({ children }) => {
     loadData,
     addEmployee,
     updateEmployee,
+    updateEmployeePermissions,
     deleteEmployee,
     applyLeave,
     updateLeaveStatus,
@@ -532,7 +552,7 @@ export const HRProvider = ({ children }) => {
     loading, employees, currentUser, leaves, attendance, auditLogs,
     holidays, appreciations, selectedMonth, selectedYear,
     selectedEmployeeId, searchQuery, dateRange, loadData,
-    addEmployee, updateEmployee, deleteEmployee, applyLeave,
+    addEmployee, updateEmployee, updateEmployeePermissions, deleteEmployee, applyLeave,
     updateLeaveStatus, acknowledgeLeave, deleteLeave,
     markAttendanceRecord, adminForceClockOut, addHoliday,
     deleteHoliday, toggleHolidayConfirmation, bulkConfirmGazetted, resetHolidayConfirmations, addAppreciation, deleteAppreciation,

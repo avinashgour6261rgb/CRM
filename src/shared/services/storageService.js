@@ -249,8 +249,22 @@ export const syncDatabaseToStorage = async () => {
           if (res.ok && ct.includes('application/json')) {
             const json = await res.json();
             const data = json.data !== undefined ? json.data : json;
-            if (Array.isArray(data)) {
+                        if (Array.isArray(data)) {
               localStorage.setItem(key, JSON.stringify(data));
+              if (key === KEYS.EMPLOYEES) {
+                try {
+                  const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+                  const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+                  data.forEach(emp => {
+                    if (emp.permissions && typeof emp.permissions === 'object') {
+                      if (emp._id) parsedMap[String(emp._id)] = emp.permissions;
+                      if (emp.employeeCode) parsedMap[String(emp.employeeCode)] = emp.permissions;
+                      if (emp.email) parsedMap[String(emp.email).toLowerCase()] = emp.permissions;
+                    }
+                  });
+                  localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+                } catch (_) {}
+              }
             }
           }
         } catch (_) {}

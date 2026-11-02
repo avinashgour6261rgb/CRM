@@ -139,9 +139,26 @@ export const AuthProvider = ({ children }) => {
                   (parsed.email && e.email?.toLowerCase() === parsed.email.toLowerCase()) ||
                   (parsed.employeeCode && e.employeeCode?.toUpperCase() === parsed.employeeCode.toUpperCase())
                 );
-                if (matched && isMounted) {
-                  setCurrentUser(prev => ({ ...prev, ...matched }));
-                  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...parsed, ...matched }));
+                                if (matched && isMounted) {
+                  const mergedUser = {
+                    ...parsed,
+                    ...matched,
+                    permissions: (matched.permissions && typeof matched.permissions === 'object') ? matched.permissions : (parsed.permissions || {}),
+                    isDelegatedAdmin: matched.isDelegatedAdmin !== undefined ? matched.isDelegatedAdmin : parsed.isDelegatedAdmin,
+                    delegationExpiresAt: matched.delegationExpiresAt !== undefined ? matched.delegationExpiresAt : parsed.delegationExpiresAt
+                  };
+                  setCurrentUser(mergedUser);
+                  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mergedUser));
+                  if (matched.permissions && typeof matched.permissions === 'object') {
+                    try {
+                      const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+                      const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+                      if (matched._id) parsedMap[String(matched._id)] = matched.permissions;
+                      if (matched.employeeCode) parsedMap[String(matched.employeeCode)] = matched.permissions;
+                      if (matched.email) parsedMap[String(matched.email).toLowerCase()] = matched.permissions;
+                      localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+                    } catch (_) {}
+                  }
                   return;
                 }
               }
@@ -357,20 +374,22 @@ export const AuthProvider = ({ children }) => {
       (e._id && String(e._id).toLowerCase().trim() === inputId)
     );
 
-    // 3. Fallback to API lookup if not in storage
-    if (!matchedUser) {
-      try {
-        const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(inputId)}`);
-        if (res.ok) {
-          const json = await res.json();
-          const list = json.data || [];
-          matchedUser = list.find(e =>
-            (e.email && e.email.toLowerCase() === inputId) ||
-            (e.employeeCode && e.employeeCode.toLowerCase() === inputId)
-          );
+        // 3. Guaranteed fresh database lookup (overrides stale local cache on any device)
+    try {
+      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(inputId)}`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json.data || [];
+        const freshUser = list.find(e =>
+          (e.email && e.email.toLowerCase().trim() === inputId) ||
+          (e.employeeCode && e.employeeCode.toLowerCase().trim() === inputId) ||
+          (e._id && String(e._id) === inputId)
+        );
+        if (freshUser) {
+          matchedUser = { ...(matchedUser || {}), ...freshUser };
         }
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
 
     // 4. Check Presets
     if (!matchedUser) {
@@ -393,14 +412,28 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    const isMatchedAdmin = matchedUser.systemRole === 'admin' || matchedUser.isAdmin || matchedUser.role?.toLowerCase().includes('admin');
+        const isMatchedAdmin = matchedUser.systemRole === 'admin' || matchedUser.isAdmin || matchedUser.role?.toLowerCase().includes('admin');
     const finalizedUser = {
       ...matchedUser,
       isCurrentUser: true,
       isAdmin: isMatchedAdmin ? true : !!matchedUser.isAdmin,
       isSuperAdmin: isMatchedAdmin ? true : !!matchedUser.isSuperAdmin,
+      isDelegatedAdmin: !!matchedUser.isDelegatedAdmin,
+      delegationExpiresAt: matchedUser.delegationExpiresAt || null,
+      permissions: (matchedUser.permissions && typeof matchedUser.permissions === 'object') ? matchedUser.permissions : {},
       systemRole: matchedUser.systemRole || (isMatchedAdmin ? ROLES.ADMIN : (matchedUser.role?.toLowerCase().includes('hr') ? ROLES.HR : ROLES.TEAM_MEMBER))
     };
+
+    if (matchedUser.permissions && typeof matchedUser.permissions === 'object') {
+      try {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+        if (matchedUser._id) parsedMap[String(matchedUser._id)] = matchedUser.permissions;
+        if (matchedUser.employeeCode) parsedMap[String(matchedUser.employeeCode)] = matchedUser.permissions;
+        if (matchedUser.email) parsedMap[String(matchedUser.email).toLowerCase()] = matchedUser.permissions;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+      } catch (_) {}
+    }
 
     setCurrentUser(finalizedUser);
     setIsAuthenticated(true);

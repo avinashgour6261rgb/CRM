@@ -87,6 +87,14 @@ const EmployeeSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    isDelegatedAdmin: {
+      type: Boolean,
+      default: false
+    },
+    delegationExpiresAt: {
+      type: String,
+      default: null
+    },
     permissions: {
       type: mongoose.Schema.Types.Mixed,
       default: {}

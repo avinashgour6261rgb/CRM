@@ -794,18 +794,19 @@ export const getUserModulePermissions = (user) => {
     return { ...DEFAULT_MODULE_PERMISSIONS.admin, allAccess: true, isDelegatedAdmin: true };
   }
 
-  // 1. Direct permissions embedded on the user object
-  if (user.permissions && typeof user.permissions === 'object') {
-    Object.assign(basePerms, user.permissions);
-  }
-
-  // 2. Global stored permissions map
+  // 1. Local storage cached permissions map
   try {
     const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
     if (rawMap) {
       const parsed = JSON.parse(rawMap);
       const userKey = user._id || user.employeeCode || user.email;
-      if (userKey && parsed[userKey]) {
+      if (user._id && parsed[String(user._id)]) {
+        Object.assign(basePerms, parsed[String(user._id)]);
+      } else if (user.employeeCode && parsed[String(user.employeeCode)]) {
+        Object.assign(basePerms, parsed[String(user.employeeCode)]);
+      } else if (user.email && parsed[String(user.email).toLowerCase()]) {
+        Object.assign(basePerms, parsed[String(user.email).toLowerCase()]);
+      } else if (userKey && parsed[userKey]) {
         Object.assign(basePerms, parsed[userKey]);
       }
       if (parsed[role]) {
@@ -814,6 +815,12 @@ export const getUserModulePermissions = (user) => {
     }
   } catch (e) {
     console.warn('Error reading module permissions:', e);
+  }
+
+  // 2. Authoritative Database Permissions directly from the user record in MongoDB Atlas
+  // Database truth ALWAYS overrides local machine cache
+  if (user.permissions && typeof user.permissions === 'object' && Object.keys(user.permissions).length > 0) {
+    Object.assign(basePerms, user.permissions);
   }
 
   if (basePerms.allAccess || basePerms.isDelegatedAdmin) {

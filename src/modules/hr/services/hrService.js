@@ -158,6 +158,17 @@ export const hrService = {
     if (backendList.length > 0) {
       try {
         localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(backendList));
+        // Hydrate EMS_USER_PERMISSIONS cache from authoritative database records
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+        backendList.forEach(emp => {
+          if (emp.permissions && typeof emp.permissions === 'object') {
+            if (emp._id) parsedMap[String(emp._id)] = emp.permissions;
+            if (emp.employeeCode) parsedMap[String(emp.employeeCode)] = emp.permissions;
+            if (emp.email) parsedMap[String(emp.email).toLowerCase()] = emp.permissions;
+          }
+        });
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
       } catch (_) {}
     }
 
@@ -343,6 +354,63 @@ export const hrService = {
     } catch (e) {}
 
     return result;
+  },
+
+  async updateEmployeePermissions(employeeId, { permissions, isDelegatedAdmin, delegationExpiresAt, systemRole }) {
+    const payload = { permissions, isDelegatedAdmin, delegationExpiresAt, systemRole };
+    const result = await fetchWithFallback(API_BASE + '/employees/' + employeeId + '/permissions', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }, async () => {
+      const employees = getCollection(KEYS.EMPLOYEES) || [];
+      let index = employees.findIndex(e => 
+        e._id === employeeId || 
+        e.employeeCode === employeeId
+      );
+      if (index !== -1) {
+        employees[index] = { 
+          ...employees[index], 
+          ...(permissions !== undefined ? { permissions } : {}),
+          ...(isDelegatedAdmin !== undefined ? { isDelegatedAdmin: Boolean(isDelegatedAdmin) } : {}),
+          ...(delegationExpiresAt !== undefined ? { delegationExpiresAt } : {}),
+          ...(systemRole ? { systemRole } : {}),
+          updatedAt: new Date().toISOString() 
+        };
+        saveCollection(KEYS.EMPLOYEES, employees);
+        return employees[index];
+      }
+      return null;
+    });
+
+    const updatedEmp = result?.data || result?.employee || result;
+
+    try {
+      const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+      const idx = localEmps.findIndex(e => 
+        e._id === employeeId || 
+        e.employeeCode === employeeId
+      );
+      if (idx >= 0 && updatedEmp) {
+        localEmps[idx] = { ...localEmps[idx], ...updatedEmp };
+        saveCollection(KEYS.EMPLOYEES, localEmps);
+      }
+      if (permissions) {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsed = rawMap ? JSON.parse(rawMap) : {};
+        if (employeeId) parsed[String(employeeId)] = permissions;
+        if (updatedEmp?.employeeCode) parsed[String(updatedEmp.employeeCode)] = permissions;
+        if (updatedEmp?._id) parsed[String(updatedEmp._id)] = permissions;
+        if (updatedEmp?.email) parsed[String(updatedEmp.email).toLowerCase()] = permissions;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsed));
+      }
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { employeeId, permissions } }));
+    } catch (e) {
+      console.warn('Error caching updated employee permissions:', e);
+    }
+
+    return updatedEmp;
   },
 
   async deleteEmployee(employeeId) {

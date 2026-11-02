@@ -144,8 +144,17 @@ const updateEmployee = asyncHandler(async (req, res) => {
     : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
 
   const payload = { ...req.body };
-  if (payload._id && !mongoose.Types.ObjectId.isValid(payload._id)) {
-    delete payload._id;
+  delete payload._id; // Prevent modifying immutable _id
+
+  // Explicitly ensure permissions object and delegation flags are preserved
+  if (payload.permissions !== undefined) {
+    payload.permissions = typeof payload.permissions === 'object' ? payload.permissions : {};
+  }
+  if (payload.isDelegatedAdmin !== undefined) {
+    payload.isDelegatedAdmin = Boolean(payload.isDelegatedAdmin);
+  }
+  if (payload.delegationExpiresAt !== undefined) {
+    payload.delegationExpiresAt = payload.delegationExpiresAt || null;
   }
 
   const employee = await Employee.findOneAndUpdate(
@@ -157,6 +166,38 @@ const updateEmployee = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
   res.json({ success: true, data: employee });
+});
+
+// ─── PUT /api/employees/:id/permissions ─────────────────────────────────────
+const updateEmployeePermissions = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
+
+  const { permissions, isDelegatedAdmin, delegationExpiresAt, systemRole } = req.body;
+
+  const updateFields = {};
+  if (permissions !== undefined) updateFields.permissions = permissions;
+  if (isDelegatedAdmin !== undefined) updateFields.isDelegatedAdmin = Boolean(isDelegatedAdmin);
+  if (delegationExpiresAt !== undefined) updateFields.delegationExpiresAt = delegationExpiresAt || null;
+  if (systemRole) updateFields.systemRole = systemRole;
+
+  const employee = await Employee.findOneAndUpdate(
+    query,
+    { $set: updateFields },
+    { new: true, runValidators: false }
+  );
+
+  if (!employee) {
+    return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  res.json({
+    success: true,
+    message: 'Permissions updated successfully in database',
+    data: employee
+  });
 });
 
 // ─── DELETE /api/employees/:id ───────────────────────────────────────────────
@@ -190,6 +231,7 @@ module.exports = {
   getEmployeeById,
   createEmployee,
   updateEmployee,
+  updateEmployeePermissions,
   deleteEmployee
 };
 
