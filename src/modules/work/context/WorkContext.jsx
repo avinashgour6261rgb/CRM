@@ -686,6 +686,9 @@ export const WorkProvider = ({ children }) => {
       setTasks((prevTasks) => {
         let changed = false;
         const now = Date.now();
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
 
         const updated = prevTasks.map((t) => {
           const tId = String(t._id || t.id);
