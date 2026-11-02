@@ -823,11 +823,15 @@ export const getUserModulePermissions = (user) => {
     Object.assign(basePerms, user.permissions);
   }
 
-  // Auto-sync related capability aliases directly on basePerms so any check passes
-  if (basePerms.liveOperations || basePerms.editAttendance) {
+  // Auto-sync related capability aliases directly on basePerms
+  if (basePerms.liveOperations === false) {
+    basePerms.liveOperations = false;
+    basePerms.teamoperations = false;
+    basePerms.editAttendance = false;
+  } else if (basePerms.liveOperations === true) {
     basePerms.liveOperations = true;
+    basePerms.teamoperations = true;
     basePerms.editAttendance = true;
-    basePerms.viewAllAttendance = true;
   }
   if (basePerms.manageSalaries) {
     basePerms.payroll = true;
@@ -967,13 +971,16 @@ export const canAccessModule = (user, moduleId) => {
 
   const permKey = keyMap[normalizedKey] || moduleId;
 
-  // 1. Direct explicit true on module key or normalized key
-  if (perms && (perms[permKey] === true || perms[moduleId] === true)) {
-    return true;
+  // 1. Strict explicit rule for liveOperations
+  if (permKey === 'liveOperations') {
+    if (perms?.liveOperations === false || user?.permissions?.liveOperations === false) {
+      return false;
+    }
+    return Boolean(isAdmin(user) || isHR(user) || isDelegationActive(user) || perms?.liveOperations === true || perms?.teamoperations === true);
   }
 
-  // 2. Capability & alias fallbacks (e.g. editAttendance / viewAllAttendance grants liveOperations)
-  if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations || perms?.viewAllAttendance || perms?.editAttendance)) {
+  // 2. Direct explicit true on module key or normalized key
+  if (perms && (perms[permKey] === true || perms[moduleId] === true)) {
     return true;
   }
   if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance || perms?.manageSalaries || perms?.manageExpenses || perms?.export_payroll)) {

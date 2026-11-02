@@ -302,8 +302,8 @@ export const Sidebar = () => {
           </NavLink>
         )}
 
-        {/* Live Operations & Emergency Controls (Admin/HR) */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'liveOperations')) && (
+        {/* Live Operations & Emergency Controls (Admin/HR/Delegated) */}
+        {canAccessModule(currentUser, 'liveOperations') && (
           <NavLink
             to="/team-operations"
             className={({ isActive }) =>

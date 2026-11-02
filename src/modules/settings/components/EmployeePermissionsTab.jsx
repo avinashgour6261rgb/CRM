@@ -81,12 +81,15 @@ const EXTRA_ACCESS_CARDS = [
     primaryKey: 'liveOperations',
     grantKeys: {
       liveOperations: true,
+      teamoperations: true,
       editAttendance: true,
       viewAllAttendance: true
     },
     revokeKeys: {
       liveOperations: false,
-      editAttendance: false
+      teamoperations: false,
+      editAttendance: false,
+      viewAllAttendance: false
     }
   },
   {
@@ -418,6 +421,20 @@ export const EmployeePermissionsTab = () => {
       } else {
         Object.assign(updated, card.revokeKeys);
       }
+
+      // Sync immediately to local cache so reactive components see the change right away
+      try {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
+        if (userKey) map[userKey] = updated;
+        if (selectedEmp._id) map[String(selectedEmp._id)] = updated;
+        if (selectedEmp.employeeCode) map[String(selectedEmp.employeeCode)] = updated;
+        if (selectedEmp.email) map[String(selectedEmp.email).toLowerCase()] = updated;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+      } catch (_) {}
+
       return updated;
     });
 

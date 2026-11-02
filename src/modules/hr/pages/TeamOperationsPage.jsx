@@ -698,7 +698,7 @@ export const TeamOperationsPage = () => {
   };
 
   const perms = getUserModulePermissions(currentUser);
-  const canAccessLiveOps = isHRorAdmin || perms?.liveOperations || perms?.viewAllAttendance || perms?.editAttendance || canAccessModule(currentUser, 'liveOperations');
+  const canAccessLiveOps = canAccessModule(currentUser, 'liveOperations');
 
   if (!canAccessLiveOps) {
     return (
