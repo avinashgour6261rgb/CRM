@@ -246,8 +246,87 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-    // Terminal-scoped role switcher with authoritative DB record pull
+  // Helper: cleanly pauses running task timer for an outgoing user to prevent runaway background ticking
+  const pauseUserTasks = useCallback((user) => {
+    if (!user) return;
+    const uKey = user.employeeCode || user._id || user.id || '';
+    const mirrorKeys = [
+      uKey,
+      user.employeeCode,
+      user._id,
+      user.id
+    ].filter(Boolean);
+
+    const today = new Date().toISOString().split('T')[0];
+    const nowTs = Date.now();
+
+    try {
+      const timerKeys = mirrorKeys.map(k => `ems_active_task_timer_${k}`).concat(['ems_active_task_timer']);
+      let pausedTaskInfo = null;
+
+      for (const tk of timerKeys) {
+        const raw = localStorage.getItem(tk);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.timerRunning) {
+            const startTs = parsed.startedAt ? Number(parsed.startedAt) : nowTs;
+            const elapsed = Math.max(0, Math.floor((nowTs - startTs) / 1000));
+            const totalSecs = (Number(parsed.accumulatedSeconds) || 0) + elapsed;
+
+            parsed.timerRunning = false;
+            parsed.startedAt = null;
+            parsed.accumulatedSeconds = totalSecs;
+            parsed.timerSeconds = totalSecs;
+            parsed.wasPausedForClockOut = true;
+            parsed.date = today;
+            localStorage.setItem(tk, JSON.stringify(parsed));
+            pausedTaskInfo = parsed;
+          }
+        }
+      }
+
+      const rawTasks = localStorage.getItem('ems_tasks');
+      if (rawTasks) {
+        const taskList = JSON.parse(rawTasks) || [];
+        let taskChanged = false;
+        const updated = taskList.map(t => {
+          const isAssigned = (t.assignedToId && mirrorKeys.includes(String(t.assignedToId))) ||
+            (t.assignedTo && mirrorKeys.includes(String(t.assignedTo._id || t.assignedTo))) ||
+            (t.assignedToCode && mirrorKeys.includes(String(t.assignedToCode))) ||
+            (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => mirrorKeys.includes(String(id)))) ||
+            (pausedTaskInfo?.taskId && String(t._id || t.id) === String(pausedTaskInfo.taskId));
+
+          if (isAssigned && t.timerRunning) {
+            taskChanged = true;
+            const startTs = t.startedAt ? Number(t.startedAt) : nowTs;
+            const elapsed = Math.max(0, Math.floor((nowTs - startTs) / 1000));
+            const totalSecs = (pausedTaskInfo?.accumulatedSeconds && String(t._id || t.id) === String(pausedTaskInfo.taskId))
+              ? pausedTaskInfo.accumulatedSeconds
+              : ((Number(t.accumulatedSeconds) || Number(t.timerSeconds) || 0) + elapsed);
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              timerSeconds: totalSecs,
+              accumulatedSeconds: totalSecs,
+              wasPausedForClockOut: true
+            };
+          }
+          return t;
+        });
+        if (taskChanged) {
+          localStorage.setItem('ems_tasks', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_tasks' } }));
+        }
+      }
+    } catch (_) {}
+  }, []);
+
+  // Terminal-scoped role switcher with authoritative DB record pull
   const switchRole = useCallback(async (roleId) => {
+    if (currentUser) {
+      pauseUserTasks(currentUser);
+    }
     let targetUser = PRESET_USERS[roleId] || PRESET_USERS.admin;
     const employees = getCollection(KEYS.EMPLOYEES) || [];
     let query = '';
@@ -293,7 +372,7 @@ export const AuthProvider = ({ children }) => {
     }
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
     return targetUser;
-  }, []);
+  }, [currentUser, pauseUserTasks]);
 
   // Quick switch to any specific employee or user object
   const switchUser = useCallback(async (userOrId) => {
@@ -327,13 +406,16 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (targetUser) {
+      if (currentUser) {
+        pauseUserTasks(currentUser);
+      }
       setCurrentUser(targetUser);
       setIsAuthenticated(true);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(targetUser));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
     }
     return targetUser;
-  }, []);
+  }, [currentUser, pauseUserTasks]);
 
   // Login handler with real credential verification (Email or Employee Code + Password)
   const login = useCallback(async ({ email, employeeCode, identifier, password, role }) => {
@@ -493,20 +575,100 @@ export const AuthProvider = ({ children }) => {
       } catch (_) {}
     }
 
+    if (currentUser) {
+      pauseUserTasks(currentUser);
+    }
+
     setCurrentUser(finalizedUser);
     setIsAuthenticated(true);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedUser));
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
     return finalizedUser;
-  }, []);
+  }, [currentUser, pauseUserTasks]);
 
-  // Logout handler
+  // Logout handler: cleanly pauses running task timer, stops shift clock, and logs out
   const logout = useCallback(() => {
+    if (currentUser) {
+      const uKey = currentUser.employeeCode || currentUser._id || currentUser.id || '';
+      const mirrorKeys = [
+        uKey,
+        currentUser.employeeCode,
+        currentUser._id,
+        currentUser.id
+      ].filter(Boolean);
+
+      const today = new Date().toISOString().split('T')[0];
+      const nowTs = Date.now();
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      // 1. Auto-pause any running task timer for this user
+      pauseUserTasks(currentUser);
+
+      // 2. Safely clock out shift timer so it doesn't leak
+      try {
+        for (const k of mirrorKeys) {
+          const isClocked = localStorage.getItem(`ems_timer_${k}_is_clocked_in`) === 'true';
+          if (isClocked) {
+            localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+            localStorage.setItem(`ems_timer_${k}_clockout_time`, nowStr);
+            localStorage.setItem(`ems_timer_${k}_clock_out`, nowStr);
+            localStorage.setItem(`ems_timer_${k}_clock_out_timestamp`, nowTs.toString());
+            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'true');
+            localStorage.removeItem(`ems_timer_${k}_current_session_start_timestamp`);
+          }
+        }
+
+        // Also update attendance record
+        const rawAtt = localStorage.getItem('hrms_attendance');
+        if (rawAtt) {
+          const attList = JSON.parse(rawAtt) || [];
+          let attChanged = false;
+          const updatedAtt = attList.map(a => {
+            if (a.date === today && (
+              mirrorKeys.includes(a.employeeId) ||
+              mirrorKeys.includes(a.employeeCode) ||
+              (a.employeeName && currentUser.name && a.employeeName.toLowerCase() === currentUser.name.toLowerCase())
+            ) && !a.clockOutTime) {
+              attChanged = true;
+              return {
+                ...a,
+                clockOutTime: nowStr,
+                clockOut: nowStr,
+                clockOutTimestamp: nowTs,
+                isClockedIn: false,
+                isOnBreak: false
+              };
+            }
+            return a;
+          });
+          if (attChanged) {
+            localStorage.setItem('hrms_attendance', JSON.stringify(updatedAtt));
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+          }
+        }
+      } catch (_) {}
+
+      window.dispatchEvent(new CustomEvent('ems_clocked_out', {
+        detail: {
+          userKey: uKey,
+          employeeId: currentUser._id,
+          employeeCode: currentUser.employeeCode,
+          logoutTime: nowStr,
+          date: today
+        }
+      }));
+      window.dispatchEvent(new CustomEvent('ems_task_timer_paused', {
+        detail: { userKey: uKey }
+      }));
+    }
+
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-  }, []);
+  }, [currentUser, pauseUserTasks]);
 
   const role = getUserRole(currentUser);
   const roleConfig = getRoleConfig(currentUser);

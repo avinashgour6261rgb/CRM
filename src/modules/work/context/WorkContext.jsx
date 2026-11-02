@@ -507,8 +507,13 @@ export const WorkProvider = ({ children }) => {
   // Derived reactive active running task strictly scoped to current logged-in user
   const activeRunningTask = useMemo(() => {
     if (!currentUser) return null;
+    const isShiftClockedIn = readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
+      readTimerStorage(currentUser, 'is_clocked_in') === true ||
+      localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
+      (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
+    if (!isShiftClockedIn) return null;
     return tasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t)) || null;
-  }, [tasks, currentUser, isTaskAssignedToMe]);
+  }, [tasks, currentUser, isTaskAssignedToMe, userKey]);
 
   useEffect(() => {
     loadWorkData(false);
@@ -583,13 +588,33 @@ export const WorkProvider = ({ children }) => {
       const isShiftOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
         (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
 
-      const isShiftClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
+      let isShiftClockedIn = readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
+        readTimerStorage(currentUser, 'is_clocked_in') === true ||
+        localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
         (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true') ||
-        (currentUser?._id && localStorage.getItem(`ems_timer_${currentUser._id}_is_clocked_in`) === 'true') ||
-        Boolean(activeTimer?.timerRunning);
+        (currentUser?._id && localStorage.getItem(`ems_timer_${currentUser._id}_is_clocked_in`) === 'true');
 
-      // Auto-pause task timer strictly when employee is on break
-      if (isShiftOnBreak && activeTimer?.timerRunning) {
+      if (!isShiftClockedIn) {
+        try {
+          const attRaw = localStorage.getItem('hrms_attendance');
+          if (attRaw) {
+            const list = JSON.parse(attRaw) || [];
+            const today = getTodayStr();
+            const rec = list.find(a => a.date === today && (
+              String(a.employeeId) === String(userKey) ||
+              String(a.employee) === String(userKey) ||
+              (currentUser?.employeeCode && String(a.employeeCode) === String(currentUser.employeeCode)) ||
+              (currentUser?._id && String(a.employeeId) === String(currentUser._id))
+            ));
+            if (rec && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false) {
+              isShiftClockedIn = true;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Auto-pause task timer strictly when employee is on break OR not clocked in!
+      if ((isShiftOnBreak || !isShiftClockedIn) && activeTimer?.timerRunning) {
         const currentSecs = getElapsedSeconds(activeTimer);
         const today = getTodayStr();
         const pausedTimerState = {
@@ -598,8 +623,8 @@ export const WorkProvider = ({ children }) => {
           startedAt: null,
           accumulatedSeconds: currentSecs,
           date: today,
-          wasPausedForBreak: true,
-          wasPausedForClockOut: false
+          wasPausedForBreak: Boolean(isShiftOnBreak),
+          wasPausedForClockOut: Boolean(!isShiftClockedIn)
         };
         saveActiveTimerSnapshot(pausedTimerState);
 
@@ -614,8 +639,8 @@ export const WorkProvider = ({ children }) => {
               timerSeconds: currentSecs,
               liveDurationText: formatSeconds(currentSecs),
               hoursLoggedText: formatSeconds(currentSecs),
-              wasPausedForBreak: isShiftOnBreak,
-              wasPausedForClockOut: !isShiftClockedIn
+              wasPausedForBreak: Boolean(isShiftOnBreak),
+              wasPausedForClockOut: Boolean(!isShiftClockedIn)
             };
           }
           return t;
@@ -632,8 +657,8 @@ export const WorkProvider = ({ children }) => {
               timerSeconds: currentSecs,
               liveDurationText: formatSeconds(currentSecs),
               hoursLoggedText: formatSeconds(currentSecs),
-              wasPausedForBreak: isShiftOnBreak,
-              wasPausedForClockOut: !isShiftClockedIn
+              wasPausedForBreak: Boolean(isShiftOnBreak),
+              wasPausedForClockOut: Boolean(!isShiftClockedIn)
             };
           }
           return t;
@@ -677,17 +702,12 @@ export const WorkProvider = ({ children }) => {
           const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
 
-          if (isAssignedToMe && (!isMyActive || !isShiftClockedIn) && t.timerRunning) {
+          if (isAssignedToMe && (!isMyActive || !isShiftClockedIn || isShiftOnBreak) && t.timerRunning) {
             changed = true;
             return { ...t, timerRunning: false, startedAt: null };
           }
 
-          const todayMidnight = new Date();
-          todayMidnight.setHours(0, 0, 0, 0);
-          const todayMidnightMs = todayMidnight.getTime();
-          const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
-
-          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive && isShiftClockedIn) : Boolean(t.timerRunning && isStartedToday);
+          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive && isShiftClockedIn && !isShiftOnBreak) : false;
 
           if (isTaskRunning) {
             changed = true;

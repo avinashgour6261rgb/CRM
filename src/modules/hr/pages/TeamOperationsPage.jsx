@@ -352,10 +352,12 @@ export const TeamOperationsPage = () => {
     } catch {}
 
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-    const baseRunningTask = empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null);
+    const baseRunningTask = isClockedIn
+      ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
+      : null;
     let runningTask = null;
 
-    if (baseRunningTask) {
+    if (baseRunningTask && isClockedIn) {
       let liveTaskSecs = Number(baseRunningTask.timerSeconds) || Number(baseRunningTask.accumulatedSeconds) || 0;
       const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? Number(baseRunningTask.startedAt) : 0);
       if (baseRunningTask.timerRunning && startEpoch > 0) {

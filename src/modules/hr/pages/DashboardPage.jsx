@@ -679,11 +679,13 @@ export const DashboardPage = () => {
       if (!empTaskMap.has(k)) empTaskMap.set(k, t);
     });
     const empTasks = Array.from(empTaskMap.values());
-    const baseRunningTask = empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
-      (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null);
+    const baseRunningTask = isClockedIn
+      ? (empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
+         (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null))
+      : null;
     let runningTask = null;
 
-    if (baseRunningTask && !isTaskActuallyCompleted(baseRunningTask)) {
+    if (baseRunningTask && isClockedIn && !isTaskActuallyCompleted(baseRunningTask)) {
       const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? (typeof baseRunningTask.startedAt === 'number' ? baseRunningTask.startedAt : new Date(baseRunningTask.startedAt).getTime()) : 0);
       const accumulated = (baseRunningTask.accumulatedSeconds !== undefined && baseRunningTask.accumulatedSeconds !== null)
         ? Number(baseRunningTask.accumulatedSeconds)
@@ -1407,14 +1409,14 @@ export const DashboardPage = () => {
 
   // Active Task for "Active Timer" card (strictly bound to target user's direct assigned tasks)
   const displayActiveTask = React.useMemo(() => {
+    let task = null;
     if (!isViewingOtherEmployee && activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
-      return activeRunningTask;
-    }
-    if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
+      task = activeRunningTask;
+    } else if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
       const match = cleanTasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
         const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.timerSeconds) || 0;
-        return {
+        task = {
           ...(match || {}),
           ...activeEmpState.runningTask,
           timerRunning: true,
@@ -1422,16 +1424,23 @@ export const DashboardPage = () => {
           liveDurationText: formatSeconds(liveSecs)
         };
       }
-    }
-    if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
-      return activeRunningTask;
-    }
-    if (activeSelectedTaskId) {
+    } else if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+      task = activeRunningTask;
+    } else if (activeSelectedTaskId) {
       const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId) && !isTaskActuallyCompleted(t));
-      if (found) return found;
+      if (found) task = found;
+    } else {
+      task = myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
     }
-    return myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
-  }, [isViewingOtherEmployee, activeEmpState?.runningTask, tasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds]);
+
+    if (task && !displayedIsClockedIn) {
+      return {
+        ...task,
+        timerRunning: false
+      };
+    }
+    return task;
+  }, [isViewingOtherEmployee, activeEmpState?.runningTask, cleanTasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds, displayedIsClockedIn]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks
@@ -1480,8 +1489,8 @@ export const DashboardPage = () => {
     if (isTaskActuallyCompleted(t)) return acc;
 
     // Check if task was worked today:
-    // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr)
-    const isRunningNow = Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
+    // Strictly must be currently running today (AND clocked in!), or explicitly worked/paused today (sessionDate === todayStr)
+    const isRunningNow = Boolean(displayedIsClockedIn) && (Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId));
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const wasStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnight.getTime();
@@ -1509,8 +1518,8 @@ export const DashboardPage = () => {
       todayPortion = Math.min(rawSecs, 12 * 3600);
     }
 
-    // Add running timer elapsed seconds for today (only time that ticked today)
-    if (isRunningNow) {
+    // Add running timer elapsed seconds for today (only time that ticked today while CLOCKED IN)
+    if (isRunningNow && displayedIsClockedIn) {
       const runningStart = t.startedAt ? Number(t.startedAt) : (activeRunningTask?.startedAt ? Number(activeRunningTask.startedAt) : Date.now());
       const effectiveStart = Math.max(runningStart, todayMidnight.getTime());
       const liveElapsed = Math.max(0, Math.floor((Date.now() - effectiveStart) / 1000));
@@ -2810,6 +2819,7 @@ export const DashboardPage = () => {
             tasks={tasks}
             activeRunningTask={activeRunningTask}
             formatSeconds={formatSeconds}
+            isClockedIn={displayedIsClockedIn}
           />
         </div>
       </div>

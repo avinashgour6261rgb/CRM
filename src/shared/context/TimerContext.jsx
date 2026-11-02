@@ -1820,6 +1820,9 @@ export const TimerProvider = ({ children }) => {
         'ems_active_task_timer'
       ].filter(Boolean);
 
+      let pausedTaskId = null;
+      let finalPausedSecs = 0;
+
       for (const k of activeKeys) {
         const raw = localStorage.getItem(k);
         if (raw) {
@@ -1831,9 +1834,49 @@ export const TimerProvider = ({ children }) => {
             parsed.timerRunning = false;
             parsed.startedAt = null;
             parsed.accumulatedSeconds = totalSecs;
+            parsed.timerSeconds = totalSecs;
             parsed.wasPausedForClockOut = true;
             localStorage.setItem(k, JSON.stringify(parsed));
+            pausedTaskId = parsed.taskId || parsed._id;
+            finalPausedSecs = totalSecs;
           }
+        }
+      }
+
+      // Also ensure ems_tasks collection has timerRunning: false for this user's tasks
+      const rawTasks = localStorage.getItem('ems_tasks');
+      if (rawTasks) {
+        const taskList = JSON.parse(rawTasks) || [];
+        const userIdentifiers = [userKey, targetEmpId, targetEmpCode].filter(Boolean).map(String);
+        let taskChanged = false;
+        const updatedTasks = taskList.map(t => {
+          const isAssigned = (t.assignedToId && userIdentifiers.includes(String(t.assignedToId))) ||
+            (t.assignedTo && userIdentifiers.includes(String(t.assignedTo._id || t.assignedTo))) ||
+            (t.assignedToCode && userIdentifiers.includes(String(t.assignedToCode))) ||
+            (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => userIdentifiers.includes(String(id)))) ||
+            (pausedTaskId && String(t._id || t.id) === String(pausedTaskId));
+
+          if (isAssigned && t.timerRunning) {
+            taskChanged = true;
+            const startTs = t.startedAt ? Number(t.startedAt) : Date.now();
+            const elapsed = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
+            const totalSecs = finalPausedSecs || ((Number(t.accumulatedSeconds) || Number(t.timerSeconds) || 0) + elapsed);
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              timerSeconds: totalSecs,
+              accumulatedSeconds: totalSecs,
+              wasPausedForClockOut: true
+            };
+          }
+          return t;
+        });
+
+        if (taskChanged) {
+          localStorage.setItem('ems_tasks', JSON.stringify(updatedTasks));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_tasks' } }));
+          window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId: pausedTaskId, userKey } }));
         }
       }
     } catch (_) {}

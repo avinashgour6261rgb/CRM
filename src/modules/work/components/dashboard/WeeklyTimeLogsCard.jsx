@@ -13,12 +13,20 @@ export const WeeklyTimeLogsCard = ({
     timesheets = [],
     tasks = [],
     activeRunningTask = null,
+    isClockedIn = undefined,
     formatSeconds = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
 }) => {
     const effectiveUser = effectiveTargetUser || currentUser;
     const uId = effectiveUser?._id ? String(effectiveUser._id).toLowerCase() : '';
     const uCode = effectiveUser?.employeeCode ? String(effectiveUser.employeeCode).toLowerCase() : '';
     const uName = effectiveUser?.name ? effectiveUser.name.toLowerCase().trim() : '';
+
+    const empKey = effectiveUser?.employeeCode || effectiveUser?._id || '';
+    const storedClockedIn = Boolean(
+        localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'true' ||
+        localStorage.getItem(`hrms_clocked_in_${empKey}`) === 'true'
+    );
+    const isEffectiveClockedIn = isClockedIn !== undefined ? Boolean(isClockedIn) : storedClockedIn;
 
     // Helper: check if a timesheet record belongs to the effective user
     const isMyTimesheet = (ts) => {
@@ -179,8 +187,8 @@ export const WeeklyTimeLogsCard = ({
 
             // 3. For CURRENT DAY ONLY: include active running / paused tasks worked today
             if (isCurrentDay && dateStr === currentTodayStr) {
-                // Today's active running timer
-                if (activeRunningTask && activeRunningTask.timerRunning && (!activeRunningTask.date || activeRunningTask.date === dateStr)) {
+                // Today's active running timer (strictly only count live ticking if effective user is CLOCKED IN)
+                if (isEffectiveClockedIn && activeRunningTask && activeRunningTask.timerRunning && (!activeRunningTask.date || activeRunningTask.date === dateStr)) {
                     const tId = String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId);
                     const alreadyLoggedToday = dayTs
                         .filter(ts => String(ts.taskId) === tId || (activeRunningTask.taskCode && ts.taskCode === activeRunningTask.taskCode) || (activeRunningTask.title && ts.taskTitle === activeRunningTask.title))
