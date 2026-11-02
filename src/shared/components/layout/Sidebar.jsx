@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -22,7 +22,9 @@ import {
   Clock,
   Layers,
   Users2,
-  UserCheck
+  UserCheck,
+  Edit,
+  Power
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
@@ -35,10 +37,43 @@ export const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser: authUser } = useAuth();
+  const { currentUser: authUser, logout = () => {} } = useAuth();
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
   const { totalUnreadMessagesCount = 0 } = useCRM();
+
+  // Profile Popup State (ported from teammate repo)
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const profileRef = useRef(null);
+  const popupRef = useRef(null);
+
+  const handleProfilePosition = (e) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPosition({
+      x: rect.right,
+      y: rect.top - 10,
+    });
+    setIsOpen((prev) => !prev);
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (
+        profileRef.current?.contains(e.target) ||
+        popupRef.current?.contains(e.target)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
+    document.addEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, []);
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
@@ -101,13 +136,14 @@ export const Sidebar = () => {
   return (
     <aside className={`bg-[#101b33] text-slate-400 flex flex-col h-screen shrink-0 border-r border-slate-800 sticky top-0 z-[100] overflow-hidden transition-[width] duration-250 ease-out ${collapsed ? 'w-[72px]' : 'w-[250px]'}`}>
       {/* Brand & User Top Header */}
-      <div className={`border-b border-white/6 flex items-center justify-between min-h-[70px] ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}>
+      <div
+        ref={profileRef}
+        onClick={handleProfilePosition}
+        className={`border-b border-white/6 flex items-center justify-between min-h-[70px] cursor-pointer hover:bg-white/[0.03] transition-colors select-none ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}
+        title="Click to view profile options"
+      >
         {!collapsed ? (
-          <div
-            onClick={() => navigate('/settings')}
-            className="flex items-center gap-3 overflow-hidden cursor-pointer"
-            title="Click to open Profile Settings"
-          >
+          <div className="flex items-center gap-3 overflow-hidden">
             {currentUser?.avatar ? (
               <img
                 src={currentUser.avatar}
@@ -124,7 +160,7 @@ export const Sidebar = () => {
                 <span className="text-[15px] font-extrabold text-white tracking-tight max-w-[140px] truncate">
                   {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
                 </span>
-                <ChevronDown size={13} className="text-slate-400" />
+                <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
@@ -140,6 +176,94 @@ export const Sidebar = () => {
           </div>
         )}
       </div>
+
+      {/* Profile Popover (Teammate Feature) */}
+      {isOpen && (
+        <div
+          ref={popupRef}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            left: `${position.x}px`,
+            top: `${position.y}px`,
+            transform: 'translate(0.75rem, 0.75rem)',
+            width: '20rem',
+            zIndex: 9999,
+          }}
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xl text-slate-900 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150"
+        >
+          {/* User Info Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              {currentUser?.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name || 'User'}
+                  className="w-11 h-11 rounded-xl object-cover border-2 border-blue-500/60 shadow-md shadow-blue-500/20"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                  <Zap size={22} fill="#ffffff" />
+                </div>
+              )}
+              <div className="flex flex-col">
+                <div className="text-sm font-bold text-slate-900 dark:text-white max-w-[140px] truncate">
+                  {currentUser?.name || 'Employee'}
+                </div>
+                <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-medium max-w-[140px] truncate">
+                  {currentUser?.role || currentUser?.designation || 'Team Member'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/settings');
+              }}
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              title="Edit Profile"
+            >
+              <Edit size={16} />
+            </button>
+          </div>
+
+          {/* Email / ID row */}
+          {currentUser?.email && (
+            <div className="py-2 text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-800 truncate">
+              {currentUser.email}
+            </div>
+          )}
+
+          {/* Action Links */}
+          <div className="pt-2 flex flex-col gap-1">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/settings');
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
+            >
+              <Settings size={15} className="text-slate-400" />
+              <span>Account & Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                logout();
+                navigate('/login');
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 mt-1 rounded-lg text-[13px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50 border border-rose-100 dark:border-rose-900/40 transition-colors text-left"
+            >
+              <span className="flex items-center gap-2">
+                <Power size={15} />
+                <span>Logout</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Links */}
       <div className={`flex-1 overflow-y-auto flex flex-col gap-1 ${collapsed ? 'py-3 px-1.5' : 'py-4 px-3'}`}>

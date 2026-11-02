@@ -14,6 +14,14 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
+    try {
+      localStorage.setItem('ems_last_boundary_error', JSON.stringify({
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        time: new Date().toISOString()
+      }));
+    } catch {}
   }
 
   handleReset = () => {
