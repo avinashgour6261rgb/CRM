@@ -34,6 +34,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
+import { broadcastSyncEvent } from '../../../shared/services/realtimeSyncService';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import {
@@ -256,6 +257,13 @@ export const EmployeePermissionsTab = () => {
     setIsSaved(false);
   };
 
+    const getEffectivePerm = (key) => {
+    if (isDelegatedAdmin) return true;
+    if (typeof permissions[key] === 'boolean') return permissions[key];
+    const defaultPerms = DEFAULT_MODULE_PERMISSIONS[selectedRole] || DEFAULT_MODULE_PERMISSIONS.team_member;
+    return !!defaultPerms[key];
+  };
+
   // Admin can only toggle permissions he himself has
   const handleToggle = (key) => {
     if (isSelectedEmpPrimaryAdmin) {
@@ -266,10 +274,29 @@ export const EmployeePermissionsTab = () => {
       addToast('⚠️ You cannot grant a permission you do not have yourself.', 'warning');
       return;
     }
-    setPermissions(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+    const currentVal = getEffectivePerm(key);
+    const nextVal = !currentVal;
+    setPermissions(prev => {
+      const updated = { ...prev, [key]: nextVal };
+      if (key === 'liveOperations') {
+        updated.editAttendance = nextVal;
+        updated.viewAllAttendance = nextVal;
+      } else if (key === 'editAttendance') {
+        updated.liveOperations = nextVal;
+      }
+      if (key === 'payroll') {
+        updated.manageSalaries = nextVal;
+        updated.export_payroll = nextVal;
+      }
+      if (key === 'employees') {
+        updated.manageEmployees = nextVal;
+      }
+      if (key === 'leads') {
+        updated.accessCRM = nextVal;
+        updated.viewAllLeads = nextVal;
+      }
+      return updated;
+    });
     setIsSaved(false);
   };
 
@@ -357,6 +384,7 @@ export const EmployeePermissionsTab = () => {
       localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
       window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
+      broadcastSyncEvent('PERMISSIONS_UPDATED', { userKey, employeeId: selectedEmp._id, employeeCode: selectedEmp.employeeCode, permissions: safePerms, isDelegatedAdmin: Boolean(isDelegatedAdmin) });
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
       setIsSaved(true);
       addToast(`✅ Permissions & Access saved to database for ${selectedEmp?.name || 'Employee'}!`, 'success');
@@ -704,7 +732,7 @@ export const EmployeePermissionsTab = () => {
         <div className="flex flex-col">
           {MODULE_LIST.map((mod, index) => {
             const Icon = mod.icon;
-            const isEnabled = permissions[mod.id] !== false;
+            const isEnabled = getEffectivePerm(mod.id);
             const adminHasMod = adminPerms[mod.id] !== false;
 
             return (

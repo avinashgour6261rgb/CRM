@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getCollection, saveCollection, KEYS } from '../services/storageService';
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
 import { API_BASE } from '../config/apiConfig';
+import { subscribeToSyncEvents } from '../services/realtimeSyncService';
 
 const AuthContext = createContext();
 
@@ -120,58 +121,86 @@ export const AuthProvider = ({ children }) => {
     return false;
   });
 
-  // 1. Initial Load: Sync profile from backend without overwriting local terminal's user
+    // 1. Initial Load & Active Real-Time Database Synchronizer across devices & tabs
   useEffect(() => {
     let isMounted = true;
-    const fetchDbUser = async () => {
+    const syncCurrentSessionUser = async () => {
       try {
         const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && (parsed.email || parsed.employeeCode)) {
-            // Keep local terminal session; fetch live updates for this specific user
-            try {
-              const query = parsed.email || parsed.employeeCode;
-              const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(2000) });
-              if (res.ok) {
-                const json = await res.json();
-                const matched = (json.data || []).find(e =>
-                  (parsed.email && e.email?.toLowerCase() === parsed.email.toLowerCase()) ||
-                  (parsed.employeeCode && e.employeeCode?.toUpperCase() === parsed.employeeCode.toUpperCase())
-                );
-                                if (matched && isMounted) {
-                  const mergedUser = {
-                    ...parsed,
-                    ...matched,
-                    permissions: (matched.permissions && typeof matched.permissions === 'object') ? matched.permissions : (parsed.permissions || {}),
-                    isDelegatedAdmin: matched.isDelegatedAdmin !== undefined ? matched.isDelegatedAdmin : parsed.isDelegatedAdmin,
-                    delegationExpiresAt: matched.delegationExpiresAt !== undefined ? matched.delegationExpiresAt : parsed.delegationExpiresAt
-                  };
-                  setCurrentUser(mergedUser);
-                  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mergedUser));
-                  if (matched.permissions && typeof matched.permissions === 'object') {
-                    try {
-                      const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
-                      const parsedMap = rawMap ? JSON.parse(rawMap) : {};
-                      if (matched._id) parsedMap[String(matched._id)] = matched.permissions;
-                      if (matched.employeeCode) parsedMap[String(matched.employeeCode)] = matched.permissions;
-                      if (matched.email) parsedMap[String(matched.email).toLowerCase()] = matched.permissions;
-                      localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
-                    } catch (_) {}
-                  }
-                  return;
-                }
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        const query = parsed?.email || parsed?.employeeCode;
+        if (!query) return;
+
+        const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(3500) });
+        if (res.ok && isMounted) {
+          const json = await res.json();
+          const list = json.data || [];
+          const matched = list.find(e =>
+            (parsed.email && e.email?.toLowerCase().trim() === parsed.email.toLowerCase().trim()) ||
+            (parsed.employeeCode && e.employeeCode?.toUpperCase().trim() === parsed.employeeCode.toUpperCase().trim()) ||
+            (parsed._id && String(e._id) === String(parsed._id))
+          );
+          if (matched && isMounted) {
+            const hasPermsChanged = JSON.stringify(matched.permissions || {}) !== JSON.stringify(parsed.permissions || {}) ||
+              Boolean(matched.isDelegatedAdmin) !== Boolean(parsed.isDelegatedAdmin);
+
+            if (hasPermsChanged) {
+              const updatedUser = {
+                ...parsed,
+                ...matched,
+                permissions: matched.permissions || {},
+                isDelegatedAdmin: Boolean(matched.isDelegatedAdmin),
+                delegationExpiresAt: matched.delegationExpiresAt || null
+              };
+              setCurrentUser(updatedUser);
+              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+
+              // Sync EMS_USER_PERMISSIONS cache
+              if (matched.permissions && typeof matched.permissions === 'object') {
+                try {
+                  const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+                  const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+                  if (matched._id) parsedMap[String(matched._id)] = matched.permissions;
+                  if (matched.employeeCode) parsedMap[String(matched.employeeCode)] = matched.permissions;
+                  if (matched.email) parsedMap[String(matched.email).toLowerCase()] = matched.permissions;
+                  localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+                } catch (_) {}
               }
-            } catch {}
+
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+              window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { user: updatedUser } }));
+            }
           }
         }
-      } catch (err) {
-        // Backend offline or timeout
-      }
+      } catch (_) {}
     };
 
-    fetchDbUser();
-    return () => { isMounted = false; };
+    // Initial check on mount
+    syncCurrentSessionUser();
+
+    // Re-verify immediately whenever browser window gains focus
+    const onWindowFocus = () => {
+      syncCurrentSessionUser();
+    };
+    window.addEventListener('focus', onWindowFocus);
+
+    // Periodic check every 10 seconds for cross-device live sync
+    const intervalId = setInterval(syncCurrentSessionUser, 10000);
+
+    // Subscribe to cross-tab broadcast events (0ms latency across tabs)
+    const unsubscribeSync = subscribeToSyncEvents((event) => {
+      if (event?.type === 'PERMISSIONS_UPDATED') {
+        syncCurrentSessionUser();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', onWindowFocus);
+      clearInterval(intervalId);
+      unsubscribeSync();
+    };
   }, []);
 
   // Sync state with localStorage
@@ -217,22 +246,51 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Terminal-scoped role switcher
+    // Terminal-scoped role switcher with authoritative DB record pull
   const switchRole = useCallback(async (roleId) => {
-    // Match target user from local presets or collection
     let targetUser = PRESET_USERS[roleId] || PRESET_USERS.admin;
     const employees = getCollection(KEYS.EMPLOYEES) || [];
+    let query = '';
     if (roleId === 'admin') {
       targetUser = employees.find(e => e.employeeCode === 'ADM-001' || e.role?.toLowerCase().includes('admin') || e.isAdmin) || PRESET_USERS.admin;
+      query = targetUser.email || targetUser.employeeCode || 'admin@inforag.com';
     } else if (roleId === 'hr') {
       targetUser = employees.find(e => e.employeeCode === 'EMP-003' || e.employeeCode === 'HR-001' || e.email === 'janvi@inforag.com' || e.department === 'Human Resources') || PRESET_USERS.janvi || PRESET_USERS.hr;
+      query = targetUser.email || targetUser.employeeCode || 'janvi@inforag.com';
     } else if (roleId === 'employee' || roleId === 'team_member') {
       targetUser = employees.find(e => e.employeeCode === 'EMP-002' || e.email === 'sandeep@inforag.com' || e.employeeCode === 'ENG-001' || e.department === 'IT & Software Development' || e.department === 'Engineering') || PRESET_USERS.sandeep || PRESET_USERS.employee;
+      query = targetUser.email || targetUser.employeeCode || 'sandeep@inforag.com';
     }
+
+    try {
+      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(2500) });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json.data || [];
+        const freshUser = list.find(e =>
+          (targetUser.email && e.email?.toLowerCase().trim() === targetUser.email.toLowerCase().trim()) ||
+          (targetUser.employeeCode && e.employeeCode?.toUpperCase().trim() === targetUser.employeeCode.toUpperCase().trim()) ||
+          (targetUser._id && String(e._id) === String(targetUser._id))
+        );
+        if (freshUser) {
+          targetUser = { ...targetUser, ...freshUser, permissions: freshUser.permissions || targetUser.permissions || {} };
+        }
+      }
+    } catch (_) {}
 
     setCurrentUser(targetUser);
     setIsAuthenticated(true);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(targetUser));
+    if (targetUser.permissions && typeof targetUser.permissions === 'object') {
+      try {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+        if (targetUser._id) parsedMap[String(targetUser._id)] = targetUser.permissions;
+        if (targetUser.employeeCode) parsedMap[String(targetUser.employeeCode)] = targetUser.permissions;
+        if (targetUser.email) parsedMap[String(targetUser.email).toLowerCase()] = targetUser.permissions;
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+      } catch (_) {}
+    }
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
     return targetUser;
   }, []);

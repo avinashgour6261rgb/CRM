@@ -9,6 +9,7 @@ import {
   canUserGrantPermissions
 } from '../../../../shared/utils/permissionUtils';
 import { useHR } from '../../context/HRContext';
+import { broadcastSyncEvent } from '../../../../shared/services/realtimeSyncService';
 import { ChangePasswordModal } from '../../../../shared/components/modals/ChangePasswordModal';
 
 export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
@@ -108,6 +109,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         });
       }
 
+      broadcastSyncEvent('PERMISSIONS_UPDATED', { userKey, employeeId: employee._id, employeeCode: employee.employeeCode, permissions });
       addToast(`Access permissions updated for ${employee.name}!`, 'success');
       onClose();
     } catch (err) {

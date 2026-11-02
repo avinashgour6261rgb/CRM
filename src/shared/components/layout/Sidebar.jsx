@@ -359,7 +359,7 @@ export const Sidebar = () => {
         )}
 
         {/* HR - Dedicated Personnel & Attendance Section */}
-        {(canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance')) && (
+        {(isHRorAdmin || canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance') || canAccessModule(currentUser, 'documentation') || canAccessModule(currentUser, 'employees')) && (
           <div>
             <div
               onClick={() => toggleSection('hr')}
@@ -444,7 +444,7 @@ export const Sidebar = () => {
         )}
 
         {/* Work - Core Daily Work Section */}
-        {canAccessModule(currentUser, 'tasks') && (
+        {(isHRorAdmin || canAccessModule(currentUser, 'tasks') || canAccessModule(currentUser, 'projects')) && (
           <div>
             <div
               onClick={() => toggleSection('work')}
@@ -463,7 +463,7 @@ export const Sidebar = () => {
             {/* Submenu for Work */}
             {workExpanded && (
               <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
-                {(isLeaderOrAbove || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+                {(isLeaderOrAbove(currentUser) || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
                   <NavLink
                     to="/projects"
                     className={({ isActive }) =>
@@ -503,7 +503,7 @@ export const Sidebar = () => {
         )}
 
         {/* Finance - Dedicated Financial Section (Admin / HR full access, employees only personal expenses) */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'expenses')) && (
+        {(isHRorAdmin || canAccessModule(currentUser, 'expenses') || canAccessModule(currentUser, 'finance') || canAccessModule(currentUser, 'payroll')) && (
           <div>
             <div
               onClick={() => toggleSection('finance')}
@@ -533,7 +533,7 @@ export const Sidebar = () => {
                   {!collapsed && <span>Expenses</span>}
                 </NavLink>
 
-                {(isHRorAdmin || canAccessModule(currentUser, 'payroll')) && (
+                {(isHRorAdmin || canAccessModule(currentUser, 'payroll') || canAccessModule(currentUser, 'finance')) && (
                   <NavLink
                     to="/payroll"
                     className={({ isActive }) =>

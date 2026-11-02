@@ -116,7 +116,19 @@ export const DashboardPage = () => {
       (baseUser.employeeCode && String(e.employeeCode) === String(baseUser.employeeCode)) ||
       (baseUser.email && e.email?.toLowerCase() === baseUser.email.toLowerCase())
     );
-    return found ? { ...baseUser, ...found, leaveBalance: found.leaveBalance || baseUser.leaveBalance } : baseUser;
+    if (!found) return baseUser;
+    // CRITICAL: Preserve authoritative permissions and delegation from baseUser (AuthContext)
+    const mergedPerms = {
+      ...(found.permissions || {}),
+      ...(baseUser.permissions || {})
+    };
+    return {
+      ...baseUser,
+      ...found,
+      permissions: mergedPerms,
+      isDelegatedAdmin: baseUser.isDelegatedAdmin !== undefined ? baseUser.isDelegatedAdmin : found.isDelegatedAdmin,
+      leaveBalance: found.leaveBalance || baseUser.leaveBalance
+    };
   }, [baseUser, employees]);
   const {
     projects,
@@ -2465,7 +2477,7 @@ export const DashboardPage = () => {
       )}
 
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
-      {(isUserAdminOrHR || perms?.liveOperations || perms?.viewAllAttendance) && (
+      {(isUserAdminOrHR || canAccessModule(currentUser, 'liveOperations') || perms?.liveOperations || perms?.viewAllAttendance || perms?.editAttendance) && (
         <div className="bg-orange-50 dark:bg-orange-950/40 rounded-[10px] border border-orange-200 dark:border-orange-800 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-[34px] h-[34px] rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">

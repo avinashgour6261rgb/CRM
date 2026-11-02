@@ -796,7 +796,7 @@ export const getUserModulePermissions = (user) => {
 
   // 1. Local storage cached permissions map
   try {
-    const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+    const rawMap = typeof localStorage !== 'undefined' ? localStorage.getItem('EMS_USER_PERMISSIONS') : null;
     if (rawMap) {
       const parsed = JSON.parse(rawMap);
       const userKey = user._id || user.employeeCode || user.email;
@@ -821,6 +821,22 @@ export const getUserModulePermissions = (user) => {
   // Database truth ALWAYS overrides local machine cache
   if (user.permissions && typeof user.permissions === 'object' && Object.keys(user.permissions).length > 0) {
     Object.assign(basePerms, user.permissions);
+  }
+
+  // Auto-sync related capability aliases directly on basePerms so any check passes
+  if (basePerms.liveOperations || basePerms.editAttendance) {
+    basePerms.liveOperations = true;
+    basePerms.editAttendance = true;
+    basePerms.viewAllAttendance = true;
+  }
+  if (basePerms.manageSalaries) {
+    basePerms.payroll = true;
+  }
+  if (basePerms.manageEmployees) {
+    basePerms.employees = true;
+  }
+  if (basePerms.accessCRM) {
+    basePerms.leads = true;
   }
 
   if (basePerms.allAccess || basePerms.isDelegatedAdmin) {
@@ -912,7 +928,7 @@ export const canAccessModule = (user, moduleId) => {
   const role = getUserRole(user);
   const perms = getUserModulePermissions(user);
   const normalizedKey = String(moduleId).toLowerCase().replace(/[-_]/g, '');
-  
+
   const keyMap = {
     dashboard: 'dashboard',
     tasks: 'tasks',
@@ -951,33 +967,53 @@ export const canAccessModule = (user, moduleId) => {
 
   const permKey = keyMap[normalizedKey] || moduleId;
 
-  // 1. Explicit boolean in user's permissions overrides defaults (Admin power)
-  if (perms && typeof perms[permKey] === 'boolean') {
-    return perms[permKey];
-  }
-
-  // Capability & alias fallbacks
-  if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations || perms?.viewAllAttendance)) {
-    return true;
-  }
-  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance)) {
-    return true;
-  }
-  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees)) {
-    return true;
-  }
-  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads)) {
-    return true;
-  }
-  if (permKey === 'projects' && (perms?.projects || perms?.manageProjects || perms?.createProjects || perms?.viewAllProjects)) {
+  // 1. Direct explicit true on module key or normalized key
+  if (perms && (perms[permKey] === true || perms[moduleId] === true)) {
     return true;
   }
 
-  // 2. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted
+  // 2. Capability & alias fallbacks (e.g. editAttendance / viewAllAttendance grants liveOperations)
+  if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations || perms?.viewAllAttendance || perms?.editAttendance)) {
+    return true;
+  }
+  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance || perms?.manageSalaries || perms?.manageExpenses || perms?.export_payroll)) {
+    return true;
+  }
+  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) {
+    return true;
+  }
+  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.deleteLeads || perms?.export_leads)) {
+    return true;
+  }
+  if (permKey === 'projects' && (perms?.projects || perms?.manageProjects || perms?.createProjects || perms?.viewAllProjects || perms?.deleteProjects)) {
+    return true;
+  }
+  if (permKey === 'leaves' && (perms?.leaves || perms?.approveLeaves || perms?.viewAllLeaves)) {
+    return true;
+  }
+  if (permKey === 'attendance' && (perms?.attendance || perms?.viewAllAttendance || perms?.editAttendance || perms?.export_attendance)) {
+    return true;
+  }
+  if (permKey === 'tickets' && (perms?.tickets || perms?.viewAllTickets || perms?.deleteTickets)) {
+    return true;
+  }
+  if (permKey === 'documentation' && (perms?.documentation || perms?.documents)) {
+    return true;
+  }
+  if (permKey === 'reports' && (perms?.reports || perms?.viewReports)) {
+    return true;
+  }
+
+  // 3. Explicit false on user's custom permissions (Admin explicitly revoked it)
+  if (user?.permissions && typeof user.permissions === 'object' && user.permissions[permKey] === false) {
+    return false;
+  }
+
+  // 4. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted above
   if (role === ROLES.TEAM_MEMBER) {
     const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
     if (privilegedModules.includes(permKey)) return false;
-    return true; // allowed modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
+    return true; // allowed default modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
   }
 
   return perms[permKey] !== false;

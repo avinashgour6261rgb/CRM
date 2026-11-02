@@ -40,7 +40,8 @@ import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncServ
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
   const { currentUser, isHRorAdmin } = useAuth();
-  const { employees, attendance, leaves, loadHRData } = useHR();
+  const { employees, attendance, leaves, loadHRData, loadData } = useHR();
+  const refreshData = loadHRData || loadData || (() => {});
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
   const { startConversation } = useCRM();
   const { addToast } = useToast();
@@ -677,7 +678,7 @@ export const TeamOperationsPage = () => {
   };
 
   const perms = getUserModulePermissions(currentUser);
-  const canAccessLiveOps = isHRorAdmin || perms?.liveOperations || perms?.viewAllAttendance;
+  const canAccessLiveOps = isHRorAdmin || perms?.liveOperations || perms?.viewAllAttendance || perms?.editAttendance || canAccessModule(currentUser, 'liveOperations');
 
   if (!canAccessLiveOps) {
     return (
@@ -719,7 +720,7 @@ export const TeamOperationsPage = () => {
 
         <button
           onClick={() => {
-            loadHRData();
+            refreshData();
             setSyncTick(t => t + 1);
             addToast('Refreshed live shift data', 'info');
           }}
