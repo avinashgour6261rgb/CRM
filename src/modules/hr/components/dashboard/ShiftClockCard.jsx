@@ -51,6 +51,22 @@ export const ShiftClockCard = ({
     ? (activeEmpState?.workSecs || 0)
     : (workSeconds || 0);
 
+  const effectiveIsClockedIn = isViewingOtherEmployee
+    ? Boolean(activeEmpState?.isClockedIn)
+    : Boolean(isClockedIn || displayedIsClockedIn);
+
+  const effectiveHadClockedOut = isViewingOtherEmployee
+    ? Boolean(activeEmpState?.isClockedOut)
+    : Boolean(displayedHadClockedOut);
+
+  const effectiveIsOnBreak = isViewingOtherEmployee
+    ? Boolean(activeEmpState?.isOnBreak)
+    : Boolean(isOnBreak || displayedIsOnBreak);
+
+  const effectiveBreakType = isViewingOtherEmployee
+    ? (activeEmpState?.breakType || 'Break')
+    : (breakType || displayedBreakType || 'Break');
+
   const isOvertime = effectiveWorkSecs > standardWorkHours * 3600;
   const overtimeHrs = Math.floor((effectiveWorkSecs - standardWorkHours * 3600) / 3600);
   const overtimeMins = Math.floor(((effectiveWorkSecs - standardWorkHours * 3600) % 3600) / 60);
@@ -74,25 +90,25 @@ export const ShiftClockCard = ({
             </div>
             <span
               className={`text-[10.5px] font-bold py-[3px] px-2 rounded-[5px] inline-flex items-center gap-1.5 border ${
-                displayedIsClockedIn && displayedIsOnLeave
+                effectiveIsClockedIn && displayedIsOnLeave
                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                   : displayedIsOnLeave
                   ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
-                  : displayedIsOnBreak
+                  : effectiveIsOnBreak
                   ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                  : displayedIsClockedIn
+                  : effectiveIsClockedIn
                   ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
-                  : displayedHadClockedOut
+                  : effectiveHadClockedOut
                   ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   : 'bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full inline-block ${
-                  displayedIsClockedIn ? 'bg-green-500' : displayedIsOnLeave ? 'bg-teal-500' : displayedIsOnBreak ? 'bg-amber-500' : displayedHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
+                  effectiveIsClockedIn ? 'bg-green-500' : displayedIsOnLeave ? 'bg-teal-500' : effectiveIsOnBreak ? 'bg-amber-500' : effectiveHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
                 }`}
               />
-              {displayedIsClockedIn && displayedIsOnLeave ? 'Working (On Leave) 🟢🌴' : displayedIsOnLeave ? 'On Approved Leave 🌴' : displayedIsOnBreak ? `On ${displayedBreakType}` : displayedIsClockedIn ? 'Shift Active 🟢' : displayedHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
+              {effectiveIsClockedIn && displayedIsOnLeave ? 'Working (On Leave) 🟢🌴' : displayedIsOnLeave ? 'On Approved Leave 🌴' : effectiveIsOnBreak ? `On ${effectiveBreakType}` : effectiveIsClockedIn ? 'Shift Active 🟢' : effectiveHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
             </span>
           </div>
 
@@ -116,13 +132,13 @@ export const ShiftClockCard = ({
           </div>
 
           {/* When on break: Show active break reminder tag */}
-          {!isViewingOtherEmployee && isOnBreak && (
+          {!isViewingOtherEmployee && effectiveIsOnBreak && (
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               <div
                 className={`flex items-center gap-1.5 rounded-md py-1 px-2.5 text-[11px] font-bold border ${isBreakOverdue ? 'bg-red-50 dark:bg-red-950/60 border-red-500 text-red-600 dark:text-red-400 border-[1.5px]' : 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-800 dark:text-amber-300 border-[1.5px]'}`}
               >
                 <Coffee size={13} color={isBreakOverdue ? '#dc2626' : '#d97706'} />
-                <span>{breakType}: <strong>{currentBreakTimeString}</strong></span>
+                <span>{effectiveBreakType}: <strong>{currentBreakTimeString}</strong></span>
               </div>
 
               <button
@@ -151,17 +167,17 @@ export const ShiftClockCard = ({
               <div className="text-[11px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 py-[3px] px-2.5 rounded-[5px]">
                 Shift View: {effectiveTargetUser?.name} (Read-Only)
               </div>
-              <div className={`text-[12.5px] font-bold ${displayedIsClockedIn ? (displayedIsOnBreak ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400') : 'text-slate-500 dark:text-slate-400'}`}>
-                {displayedIsClockedIn
-                  ? (displayedIsOnBreak ? `☕ On ${displayedBreakType} (${displayedBreakDuration})` : '🟢 On Active Shift')
-                  : (displayedHadClockedOut ? `🔴 Shift Ended (${displayedClockOutTime || '--'})` : '⚪ Not Clocked In')}
+              <div className={`text-[12.5px] font-bold ${effectiveIsClockedIn ? (effectiveIsOnBreak ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400') : 'text-slate-500 dark:text-slate-400'}`}>
+                {effectiveIsClockedIn
+                  ? (effectiveIsOnBreak ? `☕ On ${effectiveBreakType} (${displayedBreakDuration})` : '🟢 On Active Shift')
+                  : (effectiveHadClockedOut ? `🔴 Shift Ended (${displayedClockOutTime || '--'})` : '⚪ Not Clocked In')}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
                 Shift controls are managed by the employee
               </div>
             </div>
           ) : (
-            isOnBreak ? (
+            effectiveIsOnBreak ? (
               <button
                 id="btn-resume-work-dashboard"
                 onClick={resumeFromBreak}
@@ -171,7 +187,7 @@ export const ShiftClockCard = ({
                 <Play size={14} fill="#fff" />
                 <span>Resume Shift 🟢</span>
               </button>
-            ) : isClockedIn ? (
+            ) : effectiveIsClockedIn ? (
               <div className="flex items-center gap-2">
                 {/* ☕ SINGLE BIG BREAK BUTTON WITH OPTIONS */}
                 <div className="relative">
@@ -249,19 +265,19 @@ export const ShiftClockCard = ({
                 className="inline-flex items-center justify-center gap-2 bg-gradient-to-br from-green-500 to-green-600 text-white border-none py-[11px] px-[26px] rounded-lg text-sm font-bold cursor-pointer shadow-[0_4px_14px_rgba(22,163,74,0.35)] hover:brightness-105 transition-all min-w-[160px]"
               >
                 <Play size={13} fill="#fff" />
-                <span>{displayedHadClockedOut ? 'Clock In Again (Resume Shift)' : 'Clock In (Start Shift)'}</span>
+                <span>{effectiveHadClockedOut ? 'Clock In Again (Resume Shift)' : 'Clock In (Start Shift)'}</span>
               </button>
             )
           )}
 
           <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
-            {displayedIsClockedIn ? (
+            {effectiveIsClockedIn ? (
               <>
                 <span>Clock In: <strong className="text-slate-900 dark:text-slate-100">{displayedLoginTime || '--'}</strong></span>
                 <span>•</span>
                 <span className="text-green-600 dark:text-green-400 font-bold">Active ({displayedWorkDuration || '0h 0m'})</span>
               </>
-            ) : displayedHadClockedOut ? (
+            ) : effectiveHadClockedOut ? (
               <>
                 <span>Clock In: <strong className="text-slate-900 dark:text-slate-100">{displayedLoginTime || '--'}</strong></span>
                 <span>•</span>

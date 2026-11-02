@@ -69,6 +69,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
+import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -181,7 +182,8 @@ export const DashboardPage = () => {
     return String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || 'global');
   }, [effectiveTargetUser?._id, effectiveTargetUser?.employeeCode, currentUser?._id, currentUser?.employeeCode]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const todayStr = currentDateStr;
 
   const userAlertKey = React.useMemo(() => {
     return `ems_dismissed_top_alerts_${targetActiveUid}`;
@@ -373,6 +375,16 @@ export const DashboardPage = () => {
       setCurrentDayStr(prev => (prev !== newDay ? newDay : prev));
       const newDateFormatted = now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       setCurrentDateFormatted(prev => (prev !== newDateFormatted ? newDateFormatted : prev));
+
+      // Midnight Rollover Detection (12:00 AM auto-shift reset)
+      const newDateIso = now.toISOString().split('T')[0];
+      setCurrentDateStr(prevIso => {
+        if (prevIso !== newDateIso) {
+          window.dispatchEvent(new CustomEvent('ems_day_rollover', { detail: { newDate: newDateIso, previousDate: prevIso } }));
+          return newDateIso;
+        }
+        return prevIso;
+      });
     };
     const clockInterval = setInterval(checkClock, 10000);
     const tickInterval = setInterval(() => {
@@ -479,20 +491,11 @@ export const DashboardPage = () => {
     );
     const leaveNote = attRec?.notes || 'Approved Leave';
 
-    // Stored live keys (supports both employeeCode and _id scoping)
-    const altEmpKey = (empKey === emp.employeeCode && emp._id) ? String(emp._id) : (emp.employeeCode || '');
-    const readTimerKey = (sub) => {
-      const v = localStorage.getItem(`ems_timer_${empKey}_${sub}`);
-      if (v !== null && v !== undefined) return v;
-      if (altEmpKey) {
-        const altV = localStorage.getItem(`ems_timer_${altEmpKey}_${sub}`);
-        if (altV !== null && altV !== undefined) return altV;
-      }
-      return null;
-    };
+    // Stored live keys using universal canonical reader
+    const readTimerKey = (sub) => readTimerStorage(emp, sub);
 
-    const storedClockedIn = readTimerKey('is_clocked_in') === 'true';
-    const storedOnBreak = readTimerKey('is_on_break') === 'true';
+    const storedClockedIn = readTimerKey('is_clocked_in') === 'true' || readTimerKey('is_clocked_in') === true;
+    const storedOnBreak = readTimerKey('is_on_break') === 'true' || readTimerKey('is_on_break') === true;
     const storedBreakType = readTimerKey('break_type') || 'Break';
     const storedLogin = readTimerKey('login_time');
     const storedClockOut = readTimerKey('clock_out') || readTimerKey('clockout_time');
@@ -520,17 +523,19 @@ export const DashboardPage = () => {
     }
 
     if (isStaleFromPreviousDay) {
-      // Auto-close stale yesterday session in background
+      // Auto-close stale yesterday session across all mirror keys in background
       try {
-        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
-        localStorage.setItem(`ems_timer_${empKey}_work_seconds`, '0');
-        localStorage.removeItem(`ems_timer_${empKey}_clock_in_timestamp`);
-        localStorage.removeItem(`ems_timer_${empKey}_login_time`);
-        localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
-        localStorage.removeItem(`ems_timer_${empKey}_current_session_start_timestamp`);
-        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+        writeTimerStorage(emp, 'is_clocked_in', 'false');
+        writeTimerStorage(emp, 'is_running', 'false');
+        writeTimerStorage(emp, 'is_on_break', 'false');
+        writeTimerStorage(emp, 'work_seconds', '0');
+        writeTimerStorage(emp, 'work_session_date', todayStr);
+        removeTimerStorage(emp, 'clock_in_timestamp');
+        removeTimerStorage(emp, 'login_time');
+        removeTimerStorage(emp, 'clock_out');
+        removeTimerStorage(emp, 'clockout_time');
+        removeTimerStorage(emp, 'current_session_start_timestamp');
+
         const rawAtt = localStorage.getItem('hrms_attendance');
         if (rawAtt) {
           const list = JSON.parse(rawAtt);
@@ -540,17 +545,21 @@ export const DashboardPage = () => {
               changed = true;
               return {
                 ...a,
-                clockOutTime: '07:00 PM',
+                clockOutTime: '11:59 PM',
+                clockOut: '11:59 PM',
                 isClockedIn: false,
+                isOnBreak: false,
+                status: 'present',
                 workSeconds: 32400,
                 totalWorkingHours: 9.0,
-                notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (forgotten clock-out)'
+                notes: (a.notes ? a.notes + ' • ' : '') + 'Auto-closed at midnight (11:59 PM)'
               };
             }
             return a;
           });
           if (changed) {
             localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
           }
         }
       } catch (_) {}
@@ -561,7 +570,7 @@ export const DashboardPage = () => {
     const hasTodayAttClockOut = Boolean(attRec?.date === todayStr && (attRec?.clockOutTime || attRec?.clockOut));
     const hasTodayStoredSession = !isStaleFromPreviousDay && (storedSessionDate === todayStr);
     const hasTodayStoredClockIn = Boolean(hasTodayStoredSession && (storedLogin || rawClockInTs > 0));
-    const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
+    const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || readTimerKey('had_clocked_out') === 'true' || readTimerKey('had_clocked_out') === true));
 
     // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today!
     const isClockedIn = !isStaleFromPreviousDay && (
@@ -751,14 +760,25 @@ export const DashboardPage = () => {
         console.warn('Backend adminForceClockOut warning:', backendErr);
       }
 
-      localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
-      localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
-      localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
-      localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
-      localStorage.setItem(`ems_timer_${empKey}_had_clocked_out`, 'true');
-      localStorage.setItem(`ems_timer_${empKey}_clock_out`, nowStr);
-      localStorage.setItem(`ems_timer_${empKey}_clockout_time`, nowStr);
-      localStorage.setItem(`ems_timer_${empKey}_clock_out_timestamp`, Date.now().toString());
+      if (targetEmp) {
+        writeTimerStorage(targetEmp, 'work_session_date', todayStr);
+        writeTimerStorage(targetEmp, 'is_clocked_in', 'false');
+        writeTimerStorage(targetEmp, 'is_running', 'false');
+        writeTimerStorage(targetEmp, 'is_on_break', 'false');
+        writeTimerStorage(targetEmp, 'had_clocked_out', 'true');
+        writeTimerStorage(targetEmp, 'clock_out', nowStr);
+        writeTimerStorage(targetEmp, 'clockout_time', nowStr);
+        writeTimerStorage(targetEmp, 'clock_out_timestamp', Date.now().toString());
+      } else {
+        localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
+        localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${empKey}_had_clocked_out`, 'true');
+        localStorage.setItem(`ems_timer_${empKey}_clock_out`, nowStr);
+        localStorage.setItem(`ems_timer_${empKey}_clockout_time`, nowStr);
+        localStorage.setItem(`ems_timer_${empKey}_clock_out_timestamp`, Date.now().toString());
+      }
 
       const allTasks = getCollection(KEYS.TASKS) || [];
       let taskChanged = false;

@@ -16,6 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { readTimerStorage } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -1337,16 +1338,40 @@ export const WorkProvider = ({ children }) => {
     // Target user who owns this task
     const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
-    // 0. Shift Clock-In Guard: Task timer cannot run unless employee is clocked in!
-    const isClockedIn = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
+    // 0. Shift Clock-In Guard: Auto clock-in employee for shift when task timer starts
+    let isClockedIn = readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
+      readTimerStorage(currentUser, 'is_clocked_in') === true ||
+      localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
       (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
+
+    if (!isClockedIn) {
+      try {
+        const attRaw = localStorage.getItem('hrms_attendance');
+        if (attRaw) {
+          const list = JSON.parse(attRaw) || [];
+          const today = getTodayStr();
+          const rec = list.find(a => a.date === today && (
+            String(a.employeeId) === String(userKey) ||
+            String(a.employee) === String(userKey) ||
+            (currentUser?.employeeCode && String(a.employeeCode) === String(currentUser.employeeCode)) ||
+            (currentUser?._id && String(a.employeeId) === String(currentUser._id))
+          ));
+          if (rec && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false) {
+            isClockedIn = true;
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!isClockedIn && !options.skipClockInCheck) {
-      addToast('⚠️ Please Clock In for shift before starting task timer!', 'warning');
-      return;
+      window.dispatchEvent(new CustomEvent('ems_request_clock_in', { detail: { taskId, userKey } }));
+      addToast('🟢 Shift started automatically as task timer began!', 'info');
     }
 
     // 1. Break Guard: You cannot track task time while actively on break
-    const isOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
+    const isOnBreak = readTimerStorage(currentUser, 'is_on_break') === 'true' ||
+      readTimerStorage(currentUser, 'is_on_break') === true ||
+      localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
       (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
     if (isOnBreak) {
       addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
