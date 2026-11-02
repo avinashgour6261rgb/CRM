@@ -170,11 +170,21 @@ export const TimerProvider = ({ children }) => {
       let userTodayTs = [];
       if (rawTimesheets) {
         const ts = JSON.parse(rawTimesheets) || [];
-        userTodayTs = ts.filter(t => t.date === today && (
+        const rawUserTs = ts.filter(t => t.date === today && (
           String(t.employeeId) === String(targetEmpId) ||
           String(t.employeeId) === String(targetEmpCode) ||
           String(t.employeeId) === String(userKey)
         ));
+        // Deduplicate timesheets by task for today so multiple auto-saves don't sum cumulatively
+        const taskMap = new Map();
+        rawUserTs.forEach(t => {
+          const key = String(t.taskId || t.taskCode || t.taskTitle || t._id);
+          const dur = Number(t.totalDurationSeconds) || 0;
+          if (!taskMap.has(key) || dur > (Number(taskMap.get(key).totalDurationSeconds) || 0)) {
+            taskMap.set(key, t);
+          }
+        });
+        userTodayTs = Array.from(taskMap.values());
         totalSecs = userTodayTs.reduce((acc, t) => acc + (Number(t.totalDurationSeconds) || 0), 0);
       }
       const rawActiveTimer = localStorage.getItem(`ems_active_task_timer_${userKey}`);
@@ -190,8 +200,8 @@ export const TimerProvider = ({ children }) => {
             atSecs += Math.max(0, Math.floor((Date.now() - effStart) / 1000));
           }
           const loggedForAt = userTodayTs
-            .filter(ts => String(ts.taskId) === String(at.taskId) || (at.taskCode && ts.taskCode === at.taskCode))
-            .reduce((acc, t) => acc + (Number(t.totalDurationSeconds) || 0), 0);
+            .filter(ts => String(ts.taskId) === String(at.taskId) || (at.taskCode && ts.taskCode === at.taskCode) || (at.title && ts.taskTitle === at.title))
+            .reduce((acc, t) => Math.max(acc, Number(t.totalDurationSeconds) || 0), 0);
           const unsubmittedAtSecs = Math.max(0, atSecs - loggedForAt);
           totalSecs += unsubmittedAtSecs;
         }

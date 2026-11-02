@@ -87,7 +87,20 @@ export const TimesheetPage = () => {
       ]));
     }
 
-    return list;
+    // Deduplicate timesheets by date + task + employee so multiple auto-saves or duplicates don't display duplicate rows
+    const dedupeMap = new Map();
+    list.forEach(ts => {
+      const dateStr = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
+      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id || '');
+      const empKey = String(ts.employeeId || ts.employeeCode || ts.employee || '');
+      const key = `${dateStr}_${taskKey}_${empKey}`.toLowerCase();
+      const dur = Number(ts.totalDurationSeconds) || 0;
+      if (!dedupeMap.has(key) || dur > (Number(dedupeMap.get(key).totalDurationSeconds) || 0)) {
+        dedupeMap.set(key, ts);
+      }
+    });
+
+    return Array.from(dedupeMap.values());
   }, [timesheets, isPrivileged, currentUser, timesheetFilter]);
 
   // Statistics calculation strictly scoped to user view

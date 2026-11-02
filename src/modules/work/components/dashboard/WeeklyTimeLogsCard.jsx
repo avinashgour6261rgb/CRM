@@ -113,7 +113,7 @@ export const WeeklyTimeLogsCard = ({
       // Deduplicate timesheets by task (if multiple auto-saves exist today for same task, take latest/consolidated duration)
       const taskMap = new Map();
       rawDayTs.forEach(ts => {
-        const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+        const key = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
         const dur = Number(ts.totalDurationSeconds) || 0;
         if (!taskMap.has(key) || dur > (Number(taskMap.get(key).totalDurationSeconds) || 0)) {
           taskMap.set(key, ts);
@@ -145,7 +145,11 @@ export const WeeklyTimeLogsCard = ({
             (tasks || []).forEach(t => {
                 if (!isMyTask(t)) return;
                 const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
-                const alreadyInTs = dayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode));
+                const alreadyInTs = dayTs.some(ts =>
+                  String(ts.taskId) === String(t._id || t.id) ||
+                  (t.taskCode && ts.taskCode === t.taskCode) ||
+                  (t.title && ts.taskTitle === t.title)
+                );
                 if (isCompletedOnDate && !alreadyInTs) {
                     let tSecs = 0;
                     if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
@@ -179,8 +183,8 @@ export const WeeklyTimeLogsCard = ({
                 if (activeRunningTask && activeRunningTask.timerRunning && (!activeRunningTask.date || activeRunningTask.date === dateStr)) {
                     const tId = String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId);
                     const alreadyLoggedToday = dayTs
-                        .filter(ts => String(ts.taskId) === tId || (activeRunningTask.taskCode && ts.taskCode === activeRunningTask.taskCode))
-                        .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+                        .filter(ts => String(ts.taskId) === tId || (activeRunningTask.taskCode && ts.taskCode === activeRunningTask.taskCode) || (activeRunningTask.title && ts.taskTitle === activeRunningTask.title))
+                        .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
                     const todayMidnight = new Date();
                     todayMidnight.setHours(0, 0, 0, 0);
@@ -220,8 +224,8 @@ export const WeeklyTimeLogsCard = ({
                     // Strictly tasks worked today that are not completed
                     if (t.sessionDate === dateStr && t.status !== 'completed' && !t.completedAt) {
                         const alreadyLoggedToday = dayTs
-                            .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
-                            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+                            .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
+                            .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
                         // Previous days logged to prevent historical leak
                         const prevDaysLogged = (timesheets || [])

@@ -672,7 +672,13 @@ export const DashboardPage = () => {
       activeTimer = null;
     }
 
-    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+    const rawEmpTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+    const empTaskMap = new Map();
+    rawEmpTasks.forEach(t => {
+      const k = (t.taskCode && t.taskCode.trim()) ? `code_${t.taskCode.trim().toLowerCase()}` : `id_${t._id || t.id}`;
+      if (!empTaskMap.has(k)) empTaskMap.set(k, t);
+    });
+    const empTasks = Array.from(empTaskMap.values());
     const baseRunningTask = empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
       (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null);
     let runningTask = null;
@@ -932,7 +938,7 @@ export const DashboardPage = () => {
     const uName = emp?.name ? emp.name.toLowerCase().trim() : '';
 
     // 1. Get all timesheets specifically logged on customDate for this employee
-    const dayTimesheets = (timesheets || []).filter(ts => {
+    const rawDayTimesheets = (timesheets || []).filter(ts => {
       const matchDate = ts.date === customDate || ts.createdAt?.startsWith(customDate);
       if (!matchDate) return false;
       const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
@@ -944,6 +950,17 @@ export const DashboardPage = () => {
       if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
       return false;
     });
+
+    // Deduplicate timesheets by task for customDate to prevent duplicate rows & duration stacking
+    const dayTsMap = new Map();
+    rawDayTimesheets.forEach(ts => {
+      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
+      const dur = Number(ts.totalDurationSeconds) || 0;
+      if (!dayTsMap.has(taskKey) || dur > (Number(dayTsMap.get(taskKey).totalDurationSeconds) || 0)) {
+        dayTsMap.set(taskKey, ts);
+      }
+    });
+    const dayTimesheets = Array.from(dayTsMap.values());
 
     let tasksWorked = dayTimesheets.map(ts => ({
       taskId: ts.taskId,
@@ -1062,17 +1079,43 @@ export const DashboardPage = () => {
     setSelectedDayLog(logData);
   };
 
+  // Canonical task deduplication: guarantees zero duplicate tasks across all dashboard scopes and counters
+  const cleanTasks = React.useMemo(() => {
+    const tMap = new Map();
+    (tasks || []).forEach(t => {
+      if (!t) return;
+      const key = (t.taskCode && t.taskCode.trim())
+        ? `code_${t.taskCode.trim().toLowerCase()}`
+        : `id_${t._id || t.id}`;
+      if (!tMap.has(key)) {
+        tMap.set(key, t);
+      } else {
+        const existing = tMap.get(key);
+        const preferCurrent = !String(t._id || '').startsWith('tsk_') && String(existing._id || '').startsWith('tsk_');
+        const chosen = preferCurrent ? t : existing;
+        tMap.set(key, {
+          ...chosen,
+          timerRunning: existing.timerRunning || t.timerRunning,
+          startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
+          timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
+          accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+        });
+      }
+    });
+    return Array.from(tMap.values());
+  }, [tasks]);
+
   // Direct tasks for currently logged-in user
   const myDirectTasks = React.useMemo(() => {
-    return (tasks || []).filter(t => isTaskAssignedToUser(t, currentUser));
-  }, [tasks, currentUser]);
+    return cleanTasks.filter(t => isTaskAssignedToUser(t, currentUser));
+  }, [cleanTasks, currentUser]);
 
   // Tasks delegated / assigned by this user (Admin / HR / Team Member)
   const delegatedByMeTasks = React.useMemo(() => {
     if (!currentUser) return [];
     const myIds = [currentUser._id, currentUser.id, currentUser.employeeCode].filter(Boolean).map(s => String(s).toLowerCase());
     const myName = (currentUser.name || '').trim().toLowerCase();
-    return (tasks || []).filter(t => {
+    return cleanTasks.filter(t => {
       if (!t) return false;
       const assignerId = String(t.assignedById || t.createdById || '').toLowerCase();
       const assignerCode = String(t.assignedByCode || '').toLowerCase();
@@ -1082,20 +1125,20 @@ export const DashboardPage = () => {
         (assignerName && assignerName === myName);
       return isByMe && !isTaskAssignedToUser(t, currentUser);
     });
-  }, [tasks, currentUser]);
+  }, [cleanTasks, currentUser]);
 
   // All visible team tasks
   const allTeamTasks = React.useMemo(() => {
-    return (tasks || []).filter(t => {
+    return cleanTasks.filter(t => {
       if (!t) return false;
       if (!t.isPersonal) return true;
       return isTaskAssignedToUser(t, currentUser) || String(t.assignedById) === String(currentUser?._id);
     });
-  }, [tasks, currentUser]);
+  }, [cleanTasks, currentUser]);
 
   // Base Scoped Tasks
   const baseScopedTasks = React.useMemo(() => {
-    return (tasks || []).filter(t => {
+    return cleanTasks.filter(t => {
       if (!t) return false;
 
       // Personal task privacy isolation:
@@ -1258,8 +1301,8 @@ export const DashboardPage = () => {
   };
 
   const myTasks = React.useMemo(() => {
-    return (tasks || []).filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
-  }, [tasks, effectiveTargetUser]);
+    return cleanTasks.filter(t => isTaskAssignedToUser(t, effectiveTargetUser));
+  }, [cleanTasks, effectiveTargetUser]);
 
   const myPendingTasks = React.useMemo(() => myTasks.filter(t => !isTaskActuallyCompleted(t)), [myTasks]);
   const myCompletedTasks = React.useMemo(() => myTasks.filter(t => isTaskActuallyCompleted(t)), [myTasks]);
@@ -1323,7 +1366,7 @@ export const DashboardPage = () => {
   }, [poolPendingTasks, todayStr]);
 
   // Company-wide stats for Admin Overview
-  const allTasksList = tasks || [];
+  const allTasksList = cleanTasks;
   const allPendingTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t)).length, [allTasksList]);
   const allInProgressTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && (t.status === 'in_progress' || t.timerRunning)).length, [allTasksList]);
   const allDueTodayTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length, [allTasksList, todayStr]);
@@ -1354,7 +1397,7 @@ export const DashboardPage = () => {
 
 
   // Snoozed / Reminded Tasks (Tasks on hold with CRM reminder — strictly scoped per user)
-  const snoozedTasks = (tasks || []).filter(t =>
+  const snoozedTasks = (cleanTasks || []).filter(t =>
     t?.snoozed && t?.remindAt && !isReminderDismissedForActiveUser(t) && t?.status !== 'completed' &&
     (isTaskAssignedToUser(t, effectiveTargetUser) || isUserAdminOrHR)
   );
@@ -1368,7 +1411,7 @@ export const DashboardPage = () => {
       return activeRunningTask;
     }
     if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
-      const match = tasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
+      const match = cleanTasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
         const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.timerSeconds) || 0;
         return {
@@ -1412,13 +1455,13 @@ export const DashboardPage = () => {
       return isToday && isMine;
     });
 
-    // Deduplicate by timesheet ID / session to preserve distinct sessions and ensure full logged time is counted
+    // Deduplicate timesheets by canonical task identifier for today to prevent multi-save duration inflation
     const dedupeMap = new Map();
     rawList.forEach(ts => {
-      const key = String(ts._id || ts.id || `${ts.taskId}_${ts.createdAt || Math.random()}`);
+      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
       const dur = Number(ts.totalDurationSeconds) || 0;
-      if (!dedupeMap.has(key) || dur > (Number(dedupeMap.get(key).totalDurationSeconds) || 0)) {
-        dedupeMap.set(key, ts);
+      if (!dedupeMap.has(taskKey) || dur > (Number(dedupeMap.get(taskKey).totalDurationSeconds) || 0)) {
+        dedupeMap.set(taskKey, ts);
       }
     });
     return Array.from(dedupeMap.values());
@@ -1427,27 +1470,27 @@ export const DashboardPage = () => {
   const totalLoggedTodaySecs = todayTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
   // Unsubmitted seconds across user's tasks worked today (live ticking timer OR paused today)
-  // Strictly filters for tasks actually worked today (sessionDate === todayStr || t.timerRunning || completed today)
-  // Excludes completed tasks from previous days and historical tasks!
+  // Strictly filters for tasks actually worked today (sessionDate === todayStr || t.timerRunning)
+  // Excludes completed tasks — their time has ALREADY been logged to timesheets!
   const unsubmittedTodayTaskSecs = (myTasks || []).reduce((acc, t) => {
     const tId = String(t._id || t.id);
 
-    // Skip tasks completed on other days
-    const isCompletedToday = t.completedOn === todayStr || (t.completedAt && String(t.completedAt).startsWith(todayStr));
-    if (t.status === 'completed' && !isCompletedToday) return acc;
+    // Completed tasks have ALREADY been permanently logged to timesheets!
+    // Never add unsubmitted time for a completed task to prevent double counting.
+    if (isTaskActuallyCompleted(t)) return acc;
 
     // Check if task was worked today:
-    // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr), or completed today
+    // Strictly must be currently running today, or explicitly worked/paused today (sessionDate === todayStr)
     const isRunningNow = Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId);
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const wasStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnight.getTime();
-    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || wasStartedToday || isCompletedToday;
+    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || wasStartedToday;
     if (!isWorkedToday) return acc;
 
     const loggedForThisTaskToday = todayTimesheets
-      .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
-      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+      .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
+      .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
     // Subtract all time already logged on previous days
     const prevDaysLogged = (timesheets || [])

@@ -336,15 +336,48 @@ export const workService = {
 
             // Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
             const remoteIds = new Set(remoteList.map(r => String(r._id || r.id)));
+            const remoteCodes = new Set(remoteList.map(r => (r.taskCode || '').toLowerCase()).filter(Boolean));
             localList.forEach(lt => {
               const id = String(lt._id || lt.id);
-              if (id.startsWith('tsk_') && !remoteIds.has(id)) {
+              const code = (lt.taskCode || '').toLowerCase();
+              const alreadyHasCode = code && remoteCodes.has(code);
+              const alreadyHasSameTitleAndProject = remoteList.some(rt =>
+                rt.title && lt.title && rt.title.trim().toLowerCase() === lt.title.trim().toLowerCase() &&
+                String(rt.projectId || rt.project || '') === String(lt.projectId || lt.project || '')
+              );
+              if (id.startsWith('tsk_') && !remoteIds.has(id) && !alreadyHasCode && !alreadyHasSameTitleAndProject) {
                 merged.push(lt);
               }
             });
 
-            localStorage.setItem(KEYS.TASKS, JSON.stringify(merged));
-            return merged;
+            // Canonical task deduplication: ensure each task is unique by taskCode or ID
+            const taskDedupeMap = new Map();
+            merged.forEach(t => {
+              const cKey = (t.taskCode && t.taskCode.trim())
+                ? `code_${t.taskCode.trim().toLowerCase()}`
+                : `id_${t._id || t.id}`;
+              if (!taskDedupeMap.has(cKey)) {
+                taskDedupeMap.set(cKey, t);
+              } else {
+                const existing = taskDedupeMap.get(cKey);
+                const isExistingStub = String(existing._id || '').startsWith('tsk_');
+                const isCurrentStub = String(t._id || '').startsWith('tsk_');
+                const base = (!isCurrentStub && isExistingStub) ? t : existing;
+                const other = (!isCurrentStub && isExistingStub) ? existing : t;
+                taskDedupeMap.set(cKey, {
+                  ...other,
+                  ...base,
+                  timerRunning: existing.timerRunning || t.timerRunning,
+                  startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
+                  timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
+                  accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+                });
+              }
+            });
+            const deduplicatedMerged = Array.from(taskDedupeMap.values());
+
+            localStorage.setItem(KEYS.TASKS, JSON.stringify(deduplicatedMerged));
+            return deduplicatedMerged;
           }
         }
       } catch (err) {
@@ -704,27 +737,35 @@ export const workService = {
             const localTimesheets = getCollection(KEYS.TIMESHEETS) || [];
             const remoteTimesheets = json.data;
             const tsMap = new Map();
+
+            const getTsCanonicalKey = (ts) => {
+              const d = ts.date || (ts.createdAt ? String(ts.createdAt).split('T')[0] : '');
+              const t = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id || '');
+              const e = String(ts.employeeId || ts.employeeCode || ts.employee || '');
+              return `${d}_${t}_${e}`.toLowerCase();
+            };
+
             localTimesheets.forEach(lts => {
-              const id = String(lts._id || lts.id);
-              if (id) tsMap.set(id, lts);
+              const cKey = getTsCanonicalKey(lts);
+              if (cKey) tsMap.set(cKey, lts);
             });
             remoteTimesheets.forEach(ts => {
-              const id = String(ts._id || ts.id);
-              if (id) {
-                const existing = tsMap.get(id);
+              const cKey = getTsCanonicalKey(ts);
+              if (cKey) {
+                const existing = tsMap.get(cKey);
                 if (existing) {
                   // Invariant: Timesheet duration can never decrease due to stale remote fetches
                   const localSecs = Number(existing.totalDurationSeconds) || 0;
                   const remoteSecs = Number(ts.totalDurationSeconds) || 0;
                   const maxSecs = Math.max(localSecs, remoteSecs);
-                  tsMap.set(id, {
+                  tsMap.set(cKey, {
                     ...existing,
                     ...ts,
                     totalDurationSeconds: maxSecs,
                     totalDurationText: maxSecs > 0 ? (maxSecs === localSecs ? existing.totalDurationText : ts.totalDurationText) : ts.totalDurationText
                   });
                 } else {
-                  tsMap.set(id, ts);
+                  tsMap.set(cKey, ts);
                 }
               }
             });
@@ -827,8 +868,12 @@ export const workService = {
         });
         if (res.ok) {
           const json = await res.json();
-          const timesheets = getCollection(KEYS.TIMESHEETS);
-          const idx = timesheets.findIndex(t => t._id === json.data._id);
+          const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+          const idx = timesheets.findIndex(t =>
+            t._id === json.data._id ||
+            (t.date === json.data.date &&
+              (String(t.taskId) === String(json.data.taskId) || (json.data.taskCode && t.taskCode === json.data.taskCode)))
+          );
           if (idx !== -1) timesheets[idx] = json.data;
           else timesheets.unshift(json.data);
           saveCollection(KEYS.TIMESHEETS, timesheets);
@@ -846,19 +891,28 @@ export const workService = {
     const targetEmpId = String(enrichedData.employeeId || '');
 
     // Check if a timesheet for this task on this date already exists
-    const existingIdx = timesheets.findIndex(ts =>
-      ts.date === targetDate &&
-      (String(ts.taskId) === String(entryData.taskId) || (entryData.taskCode && ts.taskCode === entryData.taskCode)) &&
-      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
-    );
+    const existingIdx = timesheets.findIndex(ts => {
+      if (ts.date !== targetDate) return false;
+      const isTaskMatch = (entryData.taskId && String(ts.taskId) === String(entryData.taskId)) ||
+        (entryData.taskCode && ts.taskCode === entryData.taskCode) ||
+        (entryData.taskTitle && ts.taskTitle === entryData.taskTitle);
+      if (!isTaskMatch) return false;
+      if (!targetEmpId) return true;
+      const tsEmp = String(ts.employeeId || ts.employeeCode || ts.employee || '');
+      const entEmp = String(enrichedData.employeeId || enrichedData.employeeCode || targetEmpId);
+      if (tsEmp === entEmp) return true;
+      if (ts.employeeName && enrichedData.employeeName && ts.employeeName.toLowerCase().trim() === enrichedData.employeeName.toLowerCase().trim()) return true;
+      return false;
+    });
 
     let savedEntry = null;
     if (existingIdx !== -1) {
+      const effectiveDuration = Math.max(Number(timesheets[existingIdx].totalDurationSeconds) || 0, durationSecs);
       timesheets[existingIdx] = {
         ...timesheets[existingIdx],
         ...entryData,
-        totalDurationSeconds: durationSecs,
-        totalDurationText: entryData.totalDurationText || formatSecondsSafe(durationSecs),
+        totalDurationSeconds: effectiveDuration,
+        totalDurationText: entryData.totalDurationText || formatSecondsSafe(effectiveDuration),
         updatedAt: new Date().toISOString()
       };
       savedEntry = timesheets[existingIdx];
@@ -934,11 +988,20 @@ export const workService = {
     const timesheets = getCollection(KEYS.TIMESHEETS) || [];
     const targetEmpId = String(stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '');
 
-    const existingIdx = timesheets.findIndex(ts =>
-      ts.date === targetDate &&
-      (String(ts.taskId) === String(taskId) || (task?.taskCode && ts.taskCode === task.taskCode) || (stopData.taskCode && ts.taskCode === stopData.taskCode)) &&
-      (!targetEmpId || String(ts.employeeId) === targetEmpId || String(ts.employeeCode) === targetEmpId)
-    );
+    const existingIdx = timesheets.findIndex(ts => {
+      if (ts.date !== targetDate) return false;
+      const isTaskMatch = (String(ts.taskId) === String(taskId)) ||
+        (task?.taskCode && ts.taskCode === task.taskCode) ||
+        (stopData.taskCode && ts.taskCode === stopData.taskCode) ||
+        (task?.title && ts.taskTitle === task.title);
+      if (!isTaskMatch) return false;
+      if (!targetEmpId) return true;
+      const tsEmp = String(ts.employeeId || ts.employeeCode || ts.employee || '');
+      if (tsEmp === targetEmpId) return true;
+      if (stopData.employeeCode && tsEmp === String(stopData.employeeCode)) return true;
+      if (ts.employeeName && stopData.employeeName && ts.employeeName.toLowerCase().trim() === stopData.employeeName.toLowerCase().trim()) return true;
+      return false;
+    });
 
     let finalLog = null;
     if (existingIdx !== -1) {

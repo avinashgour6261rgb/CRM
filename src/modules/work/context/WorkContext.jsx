@@ -342,9 +342,16 @@ export const WorkProvider = ({ children }) => {
 
       // 2. Preserve any pending local-only offline tasks (tsk_ prefix) not yet synced
       const remoteIds = new Set((rawTsks || []).map(r => String(r._id || r.id)));
+      const remoteCodes = new Set((rawTsks || []).map(r => (r.taskCode || '').toLowerCase()).filter(Boolean));
       localTasks.forEach(lt => {
         const id = String(lt._id || lt.id);
-        if (id.startsWith('tsk_') && !remoteIds.has(id) && !isLegacyTask(lt)) {
+        const code = (lt.taskCode || '').toLowerCase();
+        const alreadyHasCode = code && remoteCodes.has(code);
+        const alreadyHasSameTitleAndProject = (rawTsks || []).some(rt =>
+          rt.title && lt.title && rt.title.trim().toLowerCase() === lt.title.trim().toLowerCase() &&
+          String(rt.projectId || rt.project || '') === String(lt.projectId || lt.project || '')
+        );
+        if (id.startsWith('tsk_') && !remoteIds.has(id) && !alreadyHasCode && !alreadyHasSameTitleAndProject && !isLegacyTask(lt)) {
           taskMap.set(id, { ...lt });
         }
       });
@@ -419,11 +426,38 @@ export const WorkProvider = ({ children }) => {
         };
       });
 
+      // 4. Strict Deduplication: ensure each task appears strictly ONCE by taskCode or ID
+      const finalTasksMap = new Map();
+      mergedList.forEach(t => {
+        const canonicalKey = (t.taskCode && t.taskCode.trim())
+          ? `code_${t.taskCode.trim().toLowerCase()}`
+          : `id_${t._id || t.id}`;
+        if (!finalTasksMap.has(canonicalKey)) {
+          finalTasksMap.set(canonicalKey, t);
+        } else {
+          const existing = finalTasksMap.get(canonicalKey);
+          // Prefer MongoDB ObjectId over local tsk_ stub
+          const isExistingStub = String(existing._id || '').startsWith('tsk_');
+          const isCurrentStub = String(t._id || '').startsWith('tsk_');
+          const base = (!isCurrentStub && isExistingStub) ? t : existing;
+          const other = (!isCurrentStub && isExistingStub) ? existing : t;
+          finalTasksMap.set(canonicalKey, {
+            ...other,
+            ...base,
+            timerRunning: existing.timerRunning || t.timerRunning,
+            startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
+            timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
+            accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+          });
+        }
+      });
+      const cleanMergedTasks = Array.from(finalTasksMap.values());
+
       // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
-      localStorage.setItem(KEYS.TASKS, JSON.stringify(mergedList));
+      localStorage.setItem(KEYS.TASKS, JSON.stringify(cleanMergedTasks));
 
       // Synchronize running task timer across devices / laptops
-      const remoteRunningTask = mergedList.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
+      const remoteRunningTask = cleanMergedTasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
       const curSnapshot = getActiveTimerSnapshot();
 
       if (remoteRunningTask) {
@@ -444,7 +478,7 @@ export const WorkProvider = ({ children }) => {
           });
         }
       } else if (curSnapshot?.timerRunning) {
-        const matchTask = mergedList.find(t => String(t._id || t.id) === String(curSnapshot.taskId));
+        const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId));
         if (matchTask && !matchTask.timerRunning) {
           saveActiveTimerSnapshot({
             ...curSnapshot,
@@ -456,7 +490,7 @@ export const WorkProvider = ({ children }) => {
       }
 
       setProjects(prjs || []);
-      setTasks(mergedList);
+      setTasks(cleanMergedTasks);
       setTimesheets(times || []);
       if (Array.isArray(times) && times.length > 0) {
         localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(times));

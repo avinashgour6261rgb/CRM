@@ -174,7 +174,15 @@ exports.createTimesheet = async (req, res, next) => {
             ...(task.taskCode ? [{ taskCode: task.taskCode }] : [])
           ]
         });
-        const totalTaskSecs = allTaskTimesheets.reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+        const dateTaskMap = new Map();
+        allTaskTimesheets.forEach(ts => {
+          const dKey = `${ts.date || ''}_${ts.employeeId || ts.employeeCode || ts.employee || ''}`;
+          const dSecs = Number(ts.totalDurationSeconds) || 0;
+          if (!dateTaskMap.has(dKey) || dSecs > dateTaskMap.get(dKey)) {
+            dateTaskMap.set(dKey, dSecs);
+          }
+        });
+        const totalTaskSecs = Array.from(dateTaskMap.values()).reduce((sum, s) => sum + s, 0);
         task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
         const totalHrs = Math.floor(totalTaskSecs / 3600);
         const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
@@ -292,7 +300,15 @@ exports.stopTimer = async (req, res, next) => {
         ]
       });
 
-      const totalTaskSecs = allTaskTimesheets.reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+      const dateTaskMap = new Map();
+      allTaskTimesheets.forEach(ts => {
+        const dKey = `${ts.date || ''}_${ts.employeeId || ts.employeeCode || ts.employee || ''}`;
+        const dSecs = Number(ts.totalDurationSeconds) || 0;
+        if (!dateTaskMap.has(dKey) || dSecs > dateTaskMap.get(dKey)) {
+          dateTaskMap.set(dKey, dSecs);
+        }
+      });
+      const totalTaskSecs = Array.from(dateTaskMap.values()).reduce((sum, s) => sum + s, 0);
       task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
       const totalHrs = Math.floor(totalTaskSecs / 3600);
       const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
