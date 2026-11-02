@@ -1710,6 +1710,9 @@ export const DashboardPage = () => {
     // Master Administrator has full oversight over pending leaves in the organization
     if (isAdmin(currentUser)) return true;
 
+    // Reviewer with leave approval authority
+    if (canApproveLeaves(currentUser) || perms?.approveLeaves) return true;
+
     // HR Manager has oversight over general or HR directed leaves
     if (isHR(currentUser) && (!l.appliedToRole || l.appliedToRole.toLowerCase().includes('hr') || !l.appliedToId)) return true;
 

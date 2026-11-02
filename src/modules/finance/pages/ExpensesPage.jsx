@@ -376,7 +376,7 @@ export const ExpensesPage = () => {
           </div>
 
           <div>
-            Showing 1 to {filteredExpenses.length} of {expenses.length} entries
+            Showing 1 to {filteredExpenses.length} of {scopedExpenses.length} entries
           </div>
 
           <div className="flex items-center gap-1">

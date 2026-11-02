@@ -389,14 +389,16 @@ export const AttendancePage = () => {
             </button>
           )}
 
-          {/* Mark Attendance Button */}
-          <button
-            onClick={() => setIsMarkModalOpen(true)}
-            className="btn btn-primary"
-          >
-            <Plus size={15} />
-            <span>Mark Attendance</span>
-          </button>
+          {/* Mark Attendance Button (Admin, HR, or editAttendance permission only) */}
+          {(isPrivileged || perms?.editAttendance) && (
+            <button
+              onClick={() => setIsMarkModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <Plus size={15} />
+              <span>Mark Attendance</span>
+            </button>
+          )}
 
           {/* Export Button */}
           <button

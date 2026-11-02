@@ -310,6 +310,8 @@ export const canReviewLeave = (leave, user) => {
   if (isLeaveApplicant(leave, user)) return false;
   if (isHRorAdmin(user)) return true;
   if (isLeaveDesignatedApprover(leave, user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.approveLeaves) return true;
   return false;
 };
 export const canManageCompanyHolidays = (user) => {
@@ -828,19 +830,39 @@ export const getUserModulePermissions = (user) => {
     basePerms.liveOperations = false;
     basePerms.teamoperations = false;
     basePerms.editAttendance = false;
+    basePerms.viewAllAttendance = false;
   } else if (basePerms.liveOperations === true) {
     basePerms.liveOperations = true;
     basePerms.teamoperations = true;
     basePerms.editAttendance = true;
   }
-  if (basePerms.manageSalaries) {
-    basePerms.payroll = true;
-  }
-  if (basePerms.manageEmployees) {
+
+  if (basePerms.employees === false) {
+    basePerms.employees = false;
+    basePerms.manageEmployees = false;
+  } else if (basePerms.manageEmployees) {
     basePerms.employees = true;
   }
-  if (basePerms.accessCRM) {
+
+  if (basePerms.payroll === false) {
+    basePerms.payroll = false;
+    basePerms.manageSalaries = false;
+    basePerms.export_payroll = false;
+  } else if (basePerms.manageSalaries) {
+    basePerms.payroll = true;
+  }
+
+  if (basePerms.leads === false) {
+    basePerms.leads = false;
+    basePerms.accessCRM = false;
+    basePerms.viewAllLeads = false;
+  } else if (basePerms.accessCRM) {
     basePerms.leads = true;
+  }
+
+  if (basePerms.approveLeaves === false) {
+    basePerms.approveLeaves = false;
+    basePerms.viewAllLeaves = false;
   }
 
   if (basePerms.allAccess || basePerms.isDelegatedAdmin) {
@@ -979,11 +1001,28 @@ export const canAccessModule = (user, moduleId) => {
     return Boolean(isAdmin(user) || isHR(user) || isDelegationActive(user) || perms?.liveOperations === true || perms?.teamoperations === true);
   }
 
-  // 2. Direct explicit true on module key or normalized key
+  // 2. Strict explicit false checks (Explicit Revocation MUST override all fallbacks)
+  if (perms?.[permKey] === false || (user?.permissions && user.permissions[permKey] === false)) {
+    return false;
+  }
+  if (permKey === 'payroll' && (perms?.payroll === false || user?.permissions?.payroll === false)) {
+    return false;
+  }
+  if (permKey === 'employees' && (perms?.employees === false || user?.permissions?.employees === false)) {
+    return false;
+  }
+  if (permKey === 'leads' && (perms?.leads === false || user?.permissions?.leads === false)) {
+    return false;
+  }
+  if (permKey === 'documentation' && (perms?.documentation === false || user?.permissions?.documentation === false)) {
+    return false;
+  }
+
+  // 3. Direct explicit true on module key or normalized key
   if (perms && (perms[permKey] === true || perms[moduleId] === true)) {
     return true;
   }
-  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance || perms?.manageSalaries || perms?.manageExpenses || perms?.export_payroll)) {
+  if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance || perms?.manageSalaries || perms?.export_payroll)) {
     return true;
   }
   if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) {
@@ -1011,16 +1050,11 @@ export const canAccessModule = (user, moduleId) => {
     return true;
   }
 
-  // 3. Explicit false on user's custom permissions (Admin explicitly revoked it)
-  if (user?.permissions && typeof user.permissions === 'object' && user.permissions[permKey] === false) {
-    return false;
-  }
-
   // 4. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted above
   if (role === ROLES.TEAM_MEMBER) {
-    const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'projects', 'reports'];
+    const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'reports'];
     if (privilegedModules.includes(permKey)) return false;
-    return true; // allowed default modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses
+    return true; // allowed default modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses, projects
   }
 
   return perms[permKey] !== false;

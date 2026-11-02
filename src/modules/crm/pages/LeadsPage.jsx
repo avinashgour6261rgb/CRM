@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Upload,
@@ -25,14 +26,15 @@ import {
   ChevronDown,
   RefreshCw,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Lock
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { confirmDialog } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canDeleteLead } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canDeleteLead, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 
 // Components
@@ -50,10 +52,34 @@ export const LeadsPage = () => {
   const { currentUser: authUser } = useAuth();
   const currentUser = authUser || hrUser;
   const { addToast } = useToast();
+  const navigate = useNavigate();
 
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllLeads = isPrivileged || perms?.viewAllLeads;
+  const canAccessLeads = canAccessModule(currentUser, 'leads');
+
+  if (!canAccessLeads) {
+    return (
+      <div className="flex flex-col items-center justify-center p-[60px_20px] text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 my-6 mx-auto max-w-[540px]">
+        <div className="w-14 h-14 rounded-[14px] bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-4">
+          <Lock size={28} />
+        </div>
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 m-0 mb-2">
+          CRM & Leads Access Restricted
+        </h3>
+        <p className="text-[13.5px] text-slate-500 dark:text-slate-400 leading-normal m-0 mb-4">
+          Access to customer leads and CRM sales pipeline is restricted. Contact your administrator to request CRM access.
+        </p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="py-2 px-[18px] rounded-lg bg-blue-600 text-white border-none font-bold text-[12.5px] cursor-pointer hover:bg-blue-700 transition-colors"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   // View mode
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'

@@ -102,6 +102,8 @@ const EXTRA_ACCESS_CARDS = [
     grantKeys: {
       projects: true,
       manageProjects: true,
+      createProjects: true,
+      createTasks: true,
       viewAllProjects: true,
       viewAllTasks: true,
       tasksScope: 'team',
@@ -109,6 +111,8 @@ const EXTRA_ACCESS_CARDS = [
     },
     revokeKeys: {
       manageProjects: false,
+      createProjects: false,
+      createTasks: false,
       viewAllProjects: false,
       viewAllTasks: false,
       tasksScope: 'own',
@@ -127,6 +131,7 @@ const EXTRA_ACCESS_CARDS = [
       manageEmployees: true
     },
     revokeKeys: {
+      employees: false,
       manageEmployees: false
     }
   },
@@ -160,7 +165,8 @@ const EXTRA_ACCESS_CARDS = [
       viewAllLeaves: true
     },
     revokeKeys: {
-      approveLeaves: false
+      approveLeaves: false,
+      viewAllLeaves: false
     }
   },
   {
