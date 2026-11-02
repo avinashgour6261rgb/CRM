@@ -544,6 +544,18 @@ export const TimerProvider = ({ children }) => {
           const remoteRec = remoteList.find(a => isRecordForUser(a, today));
           if (remoteRec) {
             rec = remoteRec;
+            try {
+              const attRaw = localStorage.getItem('hrms_attendance');
+              let attList = attRaw ? JSON.parse(attRaw) : [];
+              if (!Array.isArray(attList)) attList = [];
+              const idx = attList.findIndex(a => isRecordForUser(a, today));
+              if (idx !== -1) {
+                attList[idx] = { ...attList[idx], ...remoteRec };
+              } else {
+                attList.unshift(remoteRec);
+              }
+              localStorage.setItem('hrms_attendance', JSON.stringify(attList));
+            } catch (_) {}
           }
         }
       } catch (err) {}
@@ -663,22 +675,28 @@ export const TimerProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${userKey}_break_history`, JSON.stringify(rec.breakHistory));
         }
 
-        localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'true');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, effectiveOnBreak ? 'false' : 'true');
-        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
-        localStorage.setItem(`ems_timer_${userKey}_login_time`, inTime);
-        if (!localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`)) {
-          localStorage.setItem(`ems_timer_${userKey}_clock_in_timestamp`, String(inTs));
+        const mirrorKeys = [userKey, targetEmpId, targetEmpCode].filter(Boolean);
+        for (const uk of mirrorKeys) {
+          localStorage.setItem(`ems_timer_${uk}_work_session_date`, today);
+          localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'true');
+          localStorage.setItem(`ems_timer_${uk}_is_running`, effectiveOnBreak ? 'false' : 'true');
+          localStorage.setItem(`ems_timer_${uk}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
+          localStorage.setItem(`ems_timer_${uk}_login_time`, inTime);
+          if (!localStorage.getItem(`ems_timer_${uk}_clock_in_timestamp`)) {
+            localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(inTs));
+          }
+          if (!localStorage.getItem(`ems_timer_${uk}_current_session_start_timestamp`)) {
+            localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, String(sessStartTs));
+          }
+          localStorage.setItem(`ems_timer_${uk}_had_clocked_out`, 'false');
+          localStorage.setItem(`ems_timer_${uk}_break_seconds`, String(bSecs));
+          const curLocalWorkSecs = Number(localStorage.getItem(`ems_timer_${uk}_work_seconds`)) || 0;
+          if (curLocalWorkSecs === 0 && effectiveWorkSecs > 0) {
+            localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(effectiveWorkSecs));
+          }
+          localStorage.removeItem(`ems_timer_${uk}_clockout_time`);
+          localStorage.removeItem(`ems_timer_${uk}_clock_out_timestamp`);
         }
-        localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_break_seconds`, String(bSecs));
-        const curLocalWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
-        if (curLocalWorkSecs === 0 && effectiveWorkSecs > 0) {
-          localStorage.setItem(`ems_timer_${userKey}_work_seconds`, String(effectiveWorkSecs));
-        }
-        localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
-        localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
       } else if (isActuallyClockedOut) {
         const outTime = rec.clockOutTime || rec.clockOut;
         const inTime = rec.clockInTime || rec.clockIn || loginTime;
@@ -1437,6 +1455,8 @@ export const TimerProvider = ({ children }) => {
     const hasPriorClockInToday = Boolean(
       hasRemoteSessionToday ||
       hasStoredClockIn ||
+      isClockedIn ||
+      localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
       (sessionDate === today && loginTime) ||
       existingSessions.length > 0 ||
       hadClockedOutToday ||

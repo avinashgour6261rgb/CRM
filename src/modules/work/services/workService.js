@@ -998,7 +998,14 @@ export const workService = {
       task.accumulatedSeconds = effectiveTaskSecs;
 
       const allTaskTimesheets = timesheets.filter(ts => String(ts.taskId) === String(task._id || task.id) || (task.taskCode && ts.taskCode === task.taskCode));
-      const totalSecs = Math.max(effectiveTaskSecs, allTaskTimesheets.reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0));
+      const dateMap = {};
+      allTaskTimesheets.forEach(ts => {
+        const d = ts.date || 'default';
+        const s = Number(ts.totalDurationSeconds) || 0;
+        dateMap[d] = Math.max(dateMap[d] || 0, s);
+      });
+      const uniqueDaySecs = Object.values(dateMap).reduce((s, val) => s + val, 0);
+      const totalSecs = Math.max(effectiveTaskSecs, uniqueDaySecs);
       const totalHrs = Math.floor(totalSecs / 3600);
       const totalMins = Math.floor((totalSecs % 3600) / 60);
       task.hoursLogged = Number((totalSecs / 3600).toFixed(2));

@@ -1679,10 +1679,14 @@ export const WorkProvider = ({ children }) => {
       const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMs);
       sessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
     } else if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && !isForOtherEmployee) {
-      sessionElapsed = getElapsedSeconds(activeTimer);
+      const base = Number(activeTimer.accumulatedSeconds) || 0;
+      sessionElapsed = Math.max(0, getElapsedSeconds(activeTimer) - base);
     }
 
-    const currentSecs = (Number(targetTask.accumulatedSeconds) || Number(targetTask.timerSeconds) || 0) + sessionElapsed;
+    const baseAccum = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
+      ? Number(targetTask.accumulatedSeconds)
+      : (activeTimer ? (Number(activeTimer.accumulatedSeconds) || 0) : 0);
+    const currentSecs = baseAccum + sessionElapsed;
 
     // Isolate today session seconds strictly from prior days
     const dailySessionsMap = (targetTask.dailySessions && typeof targetTask.dailySessions === 'object') ? { ...targetTask.dailySessions } : {};
@@ -1820,7 +1824,8 @@ export const WorkProvider = ({ children }) => {
       const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMs);
       sessionElapsed = Math.max(0, Math.floor((Date.now() - effectiveStart) / 1000));
     } else if (activeTimer && String(activeTimer.taskId) === String(taskId)) {
-      sessionElapsed = getElapsedSeconds(activeTimer);
+      const base = Number(activeTimer.accumulatedSeconds) || 0;
+      sessionElapsed = Math.max(0, getElapsedSeconds(activeTimer) - base);
     }
 
     // Calculate today-only seconds using dailySessions as source of truth
@@ -1841,7 +1846,10 @@ export const WorkProvider = ({ children }) => {
       todaySessionSecs = Math.max(0, rawSecs + sessionElapsed - prevDaysLogged);
     }
 
-    const totalSecs = (Number(targetTask?.accumulatedSeconds) || Number(targetTask?.timerSeconds) || 0) + sessionElapsed;
+    const baseAccum = (targetTask?.accumulatedSeconds !== undefined && targetTask?.accumulatedSeconds !== null)
+      ? Number(targetTask.accumulatedSeconds)
+      : (activeTimer ? (Number(activeTimer.accumulatedSeconds) || 0) : 0);
+    const totalSecs = baseAccum + sessionElapsed;
     const durationToLog = todaySessionSecs > 0 ? todaySessionSecs : totalSecs;
     const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
 
@@ -1953,29 +1961,31 @@ export const WorkProvider = ({ children }) => {
         String(assignedEmpId) !== String(currentUser?._id);
       const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
-      // Calculate ALL-TIME duration (for hoursLogged on the task record)
-      let durationSecs = Math.max(
-        Number(targetTask.accumulatedSeconds) || 0,
-        Number(targetTask.timerSeconds) || 0,
-        Number(targetTask.durationSeconds) || 0
-      );
+      // 1. Prior accumulated seconds from closed sessions (baseline before this active run started)
+      const baseAccumulated = (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)))
+        ? (Number(activeTimer.accumulatedSeconds) || 0)
+        : (Number(targetTask.accumulatedSeconds) || 0);
 
-      // Calculate today's elapsed only (capped to today's midnight)
-      const todayMidnightForComplete = new Date();
-      todayMidnightForComplete.setHours(0, 0, 0, 0);
-      const todayMidnightMsForComplete = todayMidnightForComplete.getTime();
-      let todayElapsedSecs = 0;
-
+      // 2. Compute current session elapsed seconds strictly once
+      let liveSessionElapsed = 0;
       if (targetTask.timerRunning && targetTask.startedAt) {
         const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMsForComplete);
-        todayElapsedSecs = Math.max(0, Math.floor((now - effectiveStart) / 1000));
-        durationSecs = durationSecs + todayElapsedSecs;
+        liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
+      } else if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && activeTimer.timerRunning && activeTimer.startedAt) {
+        const effectiveStart = Math.max(Number(activeTimer.startedAt), todayMidnightMsForComplete);
+        liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
       }
-      if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && !isForOtherEmployee) {
-        const activeSecs = getElapsedSeconds(activeTimer);
-        durationSecs = Math.max(durationSecs, activeSecs);
-        todayElapsedSecs = Math.max(todayElapsedSecs, activeSecs - (Number(activeTimer.accumulatedSeconds) || 0));
+
+      // 3. True Total Duration: Base plus Live Session (Guaranteed 1x, Never Doubled)
+      let durationSecs = baseAccumulated + liveSessionElapsed;
+      if (durationSecs === 0) {
+        durationSecs = Math.max(
+          Number(targetTask.accumulatedSeconds) || 0,
+          Number(targetTask.timerSeconds) || 0,
+          Number(targetTask.durationSeconds) || 0
+        );
       }
+      let todayElapsedSecs = liveSessionElapsed;
 
       // Log timesheet for the actual ASSIGNED EMPLOYEE
       if (durationSecs > 0) {
@@ -2079,13 +2089,13 @@ export const WorkProvider = ({ children }) => {
       window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: { taskId, userKey: targetUserKey } }));
       window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId, userKey: targetUserKey } }));
 
-      const finalTaskDuration = Math.max(
-        durationSecs,
-        durationToLogToday,
-        Number(targetTask.accumulatedSeconds) || 0,
-        Number(targetTask.timerSeconds) || 0,
-        Number(targetTask.durationSeconds) || 0
-      );
+      const finalTaskDuration = durationSecs > 0
+        ? durationSecs
+        : Math.max(
+            durationToLogToday,
+            Number(targetTask.accumulatedSeconds) || 0,
+            Number(targetTask.durationSeconds) || 0
+          );
       const hoursLoggedNum = +(finalTaskDuration / 3600).toFixed(2);
       const hoursLoggedFormatted = formatSeconds(finalTaskDuration);
       const completionHistory = {
