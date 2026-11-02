@@ -597,16 +597,24 @@ export const DashboardPage = () => {
       }
       const pastSessionsSecs = punchSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
 
-      const sessStartTs = Number(readTimerKey('current_session_start_timestamp')) || rawClockInTs;
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const todayMidnightMs = todayMidnight.getTime();
+      const maxDayPhysicalSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
+
+      let sessStartTs = Number(readTimerKey('current_session_start_timestamp')) || rawClockInTs;
+      if (sessStartTs > 0 && sessStartTs < todayMidnightMs) {
+        sessStartTs = 0;
+      }
       if (sessStartTs > 0) {
-        const curSessionGross = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
+        const curSessionGross = Math.min(maxDayPhysicalSecs, Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000)));
         const sessionBreakBaseline = Number(readTimerKey('session_break_baseline')) || 0;
         const curSessionBreaks = Math.max(0, (storedBreakSecs || Number(attRec?.breakSeconds) || 0) - sessionBreakBaseline);
         const liveWorkSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
-        workSecs = Math.max(workSecs, liveWorkSecs);
+        workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, liveWorkSecs));
       } else if (empId === currentUser?._id) {
         const localGross = Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || 0;
-        workSecs = Math.max(workSecs, localGross);
+        workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, localGross));
       }
     } else if (isClockedOut && !isStaleFromPreviousDay) {
       workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;

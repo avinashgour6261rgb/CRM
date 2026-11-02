@@ -296,22 +296,34 @@ export const TeamOperationsPage = () => {
         }
         const pastSessionsSecs = punchSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
 
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
+        const maxDayPhysicalSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
+
         let sessStartTs = Number(localStorage.getItem(`ems_timer_${empKey}_current_session_start_timestamp`)) ||
                           (empId ? Number(localStorage.getItem(`ems_timer_${empId}_current_session_start_timestamp`)) : 0) ||
                           Number(attRec?.clockInTimestamp) ||
                           Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
                           (empId ? Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`)) : 0);
-        if (!sessStartTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
-          const todayMidnight = new Date();
-          todayMidnight.setHours(0, 0, 0, 0);
-          sessStartTs = todayMidnight.getTime() + parseTimeToSeconds(loginTime) * 1000;
+
+        // STALENESS GUARD: If sessStartTs is before today's midnight, it belongs to a past unclosed shift!
+        if (sessStartTs > 0 && sessStartTs < todayMidnightMs) {
+          sessStartTs = 0;
         }
+
+        if (!sessStartTs && loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
+          sessStartTs = todayMidnightMs + parseTimeToSeconds(loginTime) * 1000;
+        }
+
         if (sessStartTs > 0) {
-          const curSessionGross = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
+          const curSessionGross = Math.min(maxDayPhysicalSecs, Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000)));
           const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${empKey}_session_break_baseline`)) || 0;
           const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
           const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
-          workSecs = Math.max(workSecs, liveSecs);
+          workSecs = Math.min(maxDayPhysicalSecs, Math.max(workSecs, liveSecs));
+        } else {
+          workSecs = Math.min(maxDayPhysicalSecs, workSecs);
         }
       }
     } else if (isClockedOut) {
@@ -319,6 +331,7 @@ export const TeamOperationsPage = () => {
       if (!workSecs && attRec?.totalWorkingHours) {
         workSecs = Math.round(attRec.totalWorkingHours * 3600);
       }
+      workSecs = Math.min(86400, workSecs);
     } else {
       workSecs = 0;
     }
