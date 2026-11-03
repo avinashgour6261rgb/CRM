@@ -766,7 +766,7 @@ export const TimerProvider = ({ children }) => {
         const localBreakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
         const hasRecentLocalBreak = localIsOnBreak && localBreakStartTs && (Date.now() - localBreakStartTs < 2 * 3600 * 1000);
 
-        const effectiveOnBreak = hasRecentLocalBreak ? true : Boolean(rec.isOnBreak);
+        const effectiveOnBreak = hasRecentLocalBreak ? true : Boolean(rec?.isOnBreak);
 
         setIsClockedIn(true);
         setIsRunning(!effectiveOnBreak);
@@ -779,8 +779,8 @@ export const TimerProvider = ({ children }) => {
         // 🌟 FLICKER PREVENTION: Never overwrite live ticking workSeconds unless stale / out-of-bounds!
         setWorkSeconds(prev => (prev > 0 && prev <= maxGrossSecs ? prev : effectiveWorkSecs));
 
-        if (rec.breakType) setBreakType(rec.breakType);
-        if (Array.isArray(rec.breakHistory) && rec.breakHistory.length > 0) {
+        if (rec?.breakType) setBreakType(rec.breakType);
+        if (Array.isArray(rec?.breakHistory) && rec.breakHistory.length > 0) {
           setBreakHistory(rec.breakHistory);
           localStorage.setItem(`ems_timer_${userKey}_break_history`, JSON.stringify(rec.breakHistory));
         }
@@ -808,11 +808,11 @@ export const TimerProvider = ({ children }) => {
           localStorage.removeItem(`ems_timer_${uk}_clock_out_timestamp`);
         }
       } else if (isActuallyClockedOut) {
-        const outTime = rec.clockOutTime || rec.clockOut;
-        const inTime = rec.clockInTime || rec.clockIn || loginTime;
-        const finalWorkSecs = Number(rec.workSeconds) || Math.round((Number(rec.totalWorkingHours) || 0) * 3600);
+        const outTime = rec?.clockOutTime || rec?.clockOut || localStorage.getItem(`ems_timer_${userKey}_clockout_time`) || null;
+        const inTime = rec?.clockInTime || rec?.clockIn || loginTime || localStorage.getItem(`ems_timer_${userKey}_login_time`) || null;
+        const finalWorkSecs = Number(rec?.workSeconds) || Math.round((Number(rec?.totalWorkingHours) || 0) * 3600) || Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
 
-        if (Array.isArray(rec.punchSessions) && rec.punchSessions.length > 0) {
+        if (Array.isArray(rec?.punchSessions) && rec.punchSessions.length > 0) {
           setPunchSessions(rec.punchSessions);
           localStorage.setItem(`ems_timer_${userKey}_punch_sessions`, JSON.stringify(rec.punchSessions));
         }

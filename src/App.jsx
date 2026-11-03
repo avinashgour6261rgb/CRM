@@ -51,7 +51,7 @@ export function App() {
               <TimerProvider>
                 <WorkProvider>
                   <CRMProvider>
-                  <BrowserRouter>
+                  <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                     <Routes>
                       {/* ── Public Auth Routes ── */}
                       <Route path="/login" element={<LoginPage />} />
