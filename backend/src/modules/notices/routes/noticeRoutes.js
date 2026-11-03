@@ -6,13 +6,14 @@ const {
   updateNotice,
   deleteNotice
 } = require('../controllers/noticeController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getNotices)
-  .post(createNotice);
+  .post(authenticateUser, createNotice);
 
 router.route('/:id')
-  .put(updateNotice)
-  .delete(deleteNotice);
+  .put(authenticateUser, updateNotice)
+  .delete(authenticateUser, deleteNotice);
 
 module.exports = router;

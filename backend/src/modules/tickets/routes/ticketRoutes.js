@@ -7,16 +7,17 @@ const {
   addComment,
   deleteTicket
 } = require('../controllers/ticketController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getTickets)
-  .post(createTicket);
+  .post(authenticateUser, createTicket);
 
 router.route('/:id')
-  .put(updateTicket)
-  .delete(deleteTicket);
+  .put(authenticateUser, updateTicket)
+  .delete(authenticateUser, deleteTicket);
 
 router.route('/:id/comments')
-  .post(addComment);
+  .post(authenticateUser, addComment);
 
 module.exports = router;

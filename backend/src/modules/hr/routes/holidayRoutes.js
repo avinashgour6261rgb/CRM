@@ -7,14 +7,15 @@ const {
   updateHoliday,
   deleteHoliday
 } = require('../controllers/holidayController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getHolidays)
-  .post(createHoliday);
+  .post(authenticateUser, createHoliday);
 
 router.route('/:id')
   .get(getHolidayById)
-  .put(updateHoliday)
-  .delete(deleteHoliday);
+  .put(authenticateUser, updateHoliday)
+  .delete(authenticateUser, deleteHoliday);
 
 module.exports = router;

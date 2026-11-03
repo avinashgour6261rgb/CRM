@@ -330,15 +330,30 @@ export const canManageProjects = (user) => {
   if (!user) return false;
   if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.manageProjects || perms?.createProjects || perms?.projects);
+  return !!(perms?.manageProjects || perms?.createProjects);
 };
 export const canAssignRoles = (user) => isAdmin(user) || user?.isDelegatedAdmin;
 export const canPostNotices = (user) => {
   if (!user) return false;
   if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.notices || perms?.dashboard);
+  return !!(perms?.notices || perms?.postNotices || perms?.allAccess);
 };
+export const canGiveAppreciation = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || isHR(user)) return true;
+  if (isLeaderOrAbove(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.allAccess || perms?.giveAppreciation || perms?.manageAppreciations);
+};
+
+export const canDeleteAppreciation = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return !!(perms?.allAccess || perms?.deleteAppreciations);
+};
+
 export const canDeleteTask = (user, task = null) => {
   if (!user) return false;
   // 1. Administrators have full delete authority
@@ -365,7 +380,7 @@ export const canDeleteEmployee = (user) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.allAccess || perms?.deleteEmployees || perms?.manageEmployees);
+  return !!(perms?.allAccess || perms?.deleteEmployees);
 };
 
 export const canDeleteLead = (user, lead = null) => {
@@ -386,9 +401,9 @@ export const canDeleteLead = (user, lead = null) => {
 
 export const canDeleteNotice = (user, notice = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || isHR(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (perms?.allAccess || perms?.deleteNotices || perms?.postNotices) return true;
+  if (perms?.allAccess || perms?.deleteNotices) return true;
   if (notice) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -602,6 +617,9 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     deleteLeads: true,
     deleteTickets: true,
     deleteNotices: true,
+    deleteAppreciations: true,
+    giveAppreciation: true,
+    appreciation: true,
     manageSalaries: true,
     manageExpenses: true,
     editAttendance: true,
@@ -644,6 +662,9 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     employees: true,
     reports: true,
     documentation: true,
+    appreciation: true,
+    giveAppreciation: true,
+    deleteAppreciations: true,
     projects: true,
     manageProjects: true,
     viewAllLeads: true,
@@ -672,6 +693,9 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     employees: false,
     reports: true,
     documentation: false,
+    appreciation: true,
+    giveAppreciation: true,
+    deleteAppreciations: false,
     projects: true,
     manageProjects: true,
     viewAllLeads: true,
@@ -698,6 +722,9 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     tickets: true,
     events: true,
     expenses: true,
+    appreciation: true,
+    giveAppreciation: false,
+    deleteAppreciations: false,
     leads: false,
     projects: true,
     manageProjects: false,
@@ -728,6 +755,12 @@ export const DEFAULT_MODULE_PERMISSIONS = {
  */
 export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'liveOperations', label: 'Live Operations & Shift Monitor', icon: '⚡', desc: 'Can monitor live employee shifts, see live table & perform shift actions' },
+  { key: 'viewAllTasks', label: 'View All Tasks', icon: '📋', desc: 'Can view tasks of all team members across the company' },
+  { key: 'createTasks', label: 'Create & Assign Tasks', icon: '✍️', desc: 'Can create and delegate tasks to others' },
+  { key: 'manageProjects', label: 'Create & Manage Projects', icon: '📁', desc: 'Can create new projects, assign team leads, and manage project deliverables' },
+  { key: 'giveAppreciation', label: 'Award Appreciations', icon: '🏆', desc: 'Can give recognition awards, rewards and badges to team members' },
+  { key: 'postNotices', label: 'Post Company Notices', icon: '📢', desc: 'Can publish official notices to the company notice board' },
+  { key: 'viewAllAttendance', label: 'View Team Attendance', icon: '🕒', desc: 'Can see live shift status and punch logs of others' },
   { key: 'viewAllTasks', label: 'View All Tasks', icon: '📋', desc: 'Can view tasks of all team members across the company' },
   { key: 'createTasks', label: 'Create & Assign Tasks', icon: '✍️', desc: 'Can create and delegate tasks to others' },
   { key: 'manageProjects', label: 'Create & Manage Projects', icon: '📁', desc: 'Can create new projects, assign team leads, and manage project deliverables' },
@@ -976,6 +1009,10 @@ export const canAccessModule = (user, moduleId) => {
     settings: 'settings',
     projects: 'projects',
     project: 'projects',
+    appreciation: 'appreciation',
+    appreciations: 'appreciation',
+    award: 'appreciation',
+    awards: 'appreciation',
     teamoperations: 'liveOperations',
     liveoperations: 'liveOperations',
     operations: 'liveOperations'
@@ -993,6 +1030,9 @@ export const canAccessModule = (user, moduleId) => {
 
   // 2. Strict explicit false checks (Explicit Revocation MUST override all fallbacks)
   if (perms?.[permKey] === false || (user?.permissions && user.permissions[permKey] === false)) {
+    return false;
+  }
+  if (permKey === 'appreciation' && (perms?.appreciation === false || user?.permissions?.appreciation === false)) {
     return false;
   }
   if (permKey === 'payroll' && (perms?.payroll === false || user?.permissions?.payroll === false)) {

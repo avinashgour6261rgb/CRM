@@ -12,6 +12,15 @@ exports.getNotices = asyncHandler(async (req, res) => {
 // @desc    Create a notice
 // @route   POST /api/notices
 exports.createNotice = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const isLeader = (u.role || '').toLowerCase().includes('lead') || (u.role || '').toLowerCase().includes('manager');
+    const canPost = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || isLeader || u.permissions?.notices || u.permissions?.postNotices || u.permissions?.allAccess;
+    if (!canPost) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to publish notices.' });
+    }
+  }
+
   const count = await Notice.countDocuments();
   const noticeCode = req.body.noticeCode || `NOT-${100 + count + 1}`;
   
@@ -63,14 +72,31 @@ exports.deleteNotice = asyncHandler(async (req, res) => {
   const { id } = req.params;
   let notice = null;
   if (mongoose.Types.ObjectId.isValid(id)) {
-    notice = await Notice.findByIdAndDelete(id);
+    notice = await Notice.findById(id);
   } else {
-    notice = await Notice.findOneAndDelete({ noticeCode: id });
+    notice = await Notice.findOne({ noticeCode: id });
   }
 
   if (!notice) {
     return res.status(404).json({ success: false, message: 'Notice not found' });
   }
+
+  const u = req.user;
+  if (u) {
+    const isAdminOrHR = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.allAccess || u.permissions?.deleteNotices;
+    const isCreator =
+      String(notice.createdById) === String(u._id) ||
+      String(notice.createdById) === String(u.id) ||
+      String(notice.createdById) === String(u.employeeCode) ||
+      (notice.postedBy && u.name && notice.postedBy.toLowerCase().trim() === u.name.toLowerCase().trim()) ||
+      (notice.createdBy && u.name && notice.createdBy.toLowerCase().trim() === u.name.toLowerCase().trim());
+
+    if (!isAdminOrHR && !isCreator) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to delete this notice.' });
+    }
+  }
+
+  await Notice.deleteOne({ _id: notice._id });
   res.json({ success: true, message: 'Notice removed', data: {} });
 });
 

@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { hrService } from '../services/hrService';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
+import {
+  canGiveAppreciation,
+  canDeleteAppreciation,
+  canDeleteEmployee
+} from '../../../shared/utils/permissionUtils';
 
 const defaultHRContext = {
   loading: false,
@@ -271,6 +276,11 @@ export const HRProvider = ({ children }) => {
 
   const deleteEmployee = async (employeeId) => {
     try {
+      if (!canDeleteEmployee(currentUser)) {
+        addToast('Access Denied: Only Administrators can delete employee accounts.', 'error');
+        return;
+      }
+
       const target = (employees || []).find(e =>
         String(e._id) === String(employeeId) ||
         String(e.id) === String(employeeId) ||
@@ -486,6 +496,11 @@ export const HRProvider = ({ children }) => {
   // ================= APPRECIATIONS =================
   const addAppreciation = async (data) => {
     try {
+      if (!canGiveAppreciation(currentUser)) {
+        addToast('Access Denied: You do not have permission to give appreciation awards.', 'error');
+        return;
+      }
+
       await hrService.createAppreciation(data);
       addToast('Appreciation award presented successfully! 🎉', 'success');
       await loadData();
@@ -496,6 +511,11 @@ export const HRProvider = ({ children }) => {
 
   const deleteAppreciation = async (appreciationId) => {
     try {
+      if (!canDeleteAppreciation(currentUser)) {
+        addToast('Access Denied: Only Administrators can delete appreciation records.', 'error');
+        return;
+      }
+
       await hrService.deleteAppreciation(appreciationId);
       addToast('Appreciation record removed', 'info');
       await loadData();

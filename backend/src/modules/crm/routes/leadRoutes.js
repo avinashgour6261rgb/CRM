@@ -12,16 +12,17 @@ const {
   deleteLead,
   importLeads
 } = require('../controllers/leadController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getLeads)
-  .post(createLead);
+  .post(authenticateUser, createLead);
 
 router.route('/import')
-  .post(importLeads);
+  .post(authenticateUser, importLeads);
 
 router.route('/:id')
-  .put(updateLead)
-  .delete(deleteLead);
+  .put(authenticateUser, updateLead)
+  .delete(authenticateUser, deleteLead);
 
 module.exports = router;

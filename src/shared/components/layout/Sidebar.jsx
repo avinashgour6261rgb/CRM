@@ -415,16 +415,18 @@ export const Sidebar = () => {
                   {!collapsed && <span>Holiday</span>}
                 </NavLink>
 
-                <NavLink
-                  to="/appreciation"
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
-                    }`
-                  }
-                >
-                  <Award size={15} />
-                  {!collapsed && <span>Appreciation</span>}
-                </NavLink>
+                {canAccessModule(currentUser, 'appreciation') && (
+                  <NavLink
+                    to="/appreciation"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+                  >
+                    <Award size={15} />
+                    {!collapsed && <span>Appreciation</span>}
+                  </NavLink>
+                )}
 
                 {canAccessModule(currentUser, 'documentation') && (
                   <NavLink

@@ -6,13 +6,14 @@ const {
   createAppreciation,
   deleteAppreciation
 } = require('../controllers/appreciationController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getAppreciations)
-  .post(createAppreciation);
+  .post(authenticateUser, createAppreciation);
 
 router.route('/:id')
   .get(getAppreciationById)
-  .delete(deleteAppreciation);
+  .delete(authenticateUser, deleteAppreciation);
 
 module.exports = router;

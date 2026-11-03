@@ -18,6 +18,11 @@ import {
   getUnreadCountForUser,
   playChatNotificationSound
 } from '../../modules/crm/utils/chatPrivacyUtils';
+import {
+  canDeleteTicket,
+  canDeleteNotice,
+  canDeleteLead
+} from '../utils/permissionUtils';
 
 const DEFAULT_WEEKLY_TIMELOGS = [
   { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
@@ -1419,6 +1424,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteTicket = async (ticketId) => {
+    const currentList = getCollection(KEYS.TICKETS) || [];
+    const targetTicket = currentList.find(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
+
+    if (!canDeleteTicket(currentUser, targetTicket)) {
+      addToast('Access Denied: You do not have permission to delete this support ticket.', 'error');
+      return false;
+    }
+
     try {
       await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'DELETE',
@@ -1427,7 +1440,6 @@ export const CRMProvider = ({ children }) => {
     } catch (e) {
       console.warn('[CRMContext] Ticket deleted offline:', e);
     }
-    const currentList = getCollection(KEYS.TICKETS) || [];
     const filtered = currentList.filter(t => String(t._id) !== String(ticketId) && String(t.ticketCode) !== String(ticketId));
     saveCollection(KEYS.TICKETS, filtered);
     setTickets(filtered);
@@ -1922,6 +1934,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteNotice = async (noticeId) => {
+    const currentList = getCollection(KEYS.NOTICES) || [];
+    const targetNotice = currentList.find(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
+
+    if (!canDeleteNotice(currentUser, targetNotice)) {
+      addToast('Access Denied: You do not have permission to delete this company notice.', 'error');
+      return false;
+    }
+
     try {
       await fetch(`${API_BASE}/notices/${noticeId}`, {
         method: 'DELETE',
@@ -1929,12 +1949,12 @@ export const CRMProvider = ({ children }) => {
       });
     } catch (_) {}
 
-    const currentList = getCollection(KEYS.NOTICES);
     const filtered = currentList.filter(n => n._id !== noticeId && n.id !== noticeId && n.noticeCode !== noticeId);
     saveCollection(KEYS.NOTICES, filtered);
     setNotices(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.NOTICES } }));
     addToast('Notice removed from board', 'info');
+    return true;
   };
 
   // =========================================================================
@@ -2072,6 +2092,14 @@ export const CRMProvider = ({ children }) => {
   };
 
   const deleteLead = async (leadId) => {
+    const currentList = getCollection(KEYS.LEADS) || [];
+    const targetLead = currentList.find(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
+
+    if (!canDeleteLead(currentUser, targetLead)) {
+      addToast('Access Denied: You do not have permission to delete this CRM lead.', 'error');
+      return false;
+    }
+
     try {
       await fetch(`${API_BASE}/leads/${leadId}`, {
         method: 'DELETE',
@@ -2079,12 +2107,12 @@ export const CRMProvider = ({ children }) => {
       });
     } catch (_) {}
 
-    const currentList = getCollection(KEYS.LEADS);
     const filtered = currentList.filter(l => l._id !== leadId && l.id !== leadId && l.leadCode !== leadId);
     saveCollection(KEYS.LEADS, filtered);
     setLeads(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
     addToast('Lead deleted from database', 'info');
+    return true;
   };
 
   const importLeadsBatch = async (importedList) => {

@@ -20,12 +20,24 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { AddAppreciationModal } from '../components/appreciation/AddAppreciationModal';
+import {
+  canGiveAppreciation,
+  canDeleteAppreciation,
+  canExportData,
+  isHRorAdmin,
+  canAccessModule
+} from '../../../shared/utils/permissionUtils';
 
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
   const { appreciations, employees, currentUser: hrUser, searchQuery, setSearchQuery, deleteAppreciation } = useHR();
   const { confirm, alert } = useConfirm();
   const currentUser = authUser || hrUser;
+
+  const canGive = useMemo(() => canGiveAppreciation(currentUser), [currentUser]);
+  const canDelete = useMemo(() => canDeleteAppreciation(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'general') || isHRorAdmin(currentUser), [currentUser]);
+  const canAccess = useMemo(() => canAccessModule(currentUser, 'appreciation'), [currentUser]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState('table'); // 'table', 'cards'
@@ -130,6 +142,20 @@ export const AppreciationPage = () => {
     document.body.removeChild(link);
   };
 
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-6 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 m-4">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+          <Award size={28} />
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
+          You do not currently have access to the Employee Appreciation module. Please contact your system administrator.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in flex flex-col gap-3">
       {/* Header Bar */}
@@ -152,20 +178,24 @@ export const AppreciationPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
-          >
-            <Download size={13} />
-            Export CSV
-          </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={14} />
-            Give Award
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            >
+              <Download size={13} />
+              Export CSV
+            </button>
+          )}
+          {canGive && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={14} />
+              Give Award
+            </button>
+          )}
         </div>
       </div>
 
@@ -385,23 +415,29 @@ export const AppreciationPage = () => {
 
                       {/* Action */}
                       <td className="text-right">
-                        <button
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: 'Delete Appreciation',
-                              message: `Are you sure you want to remove appreciation award for "${item.givenToName}"?`,
-                              confirmText: 'Remove Award',
-                              variant: 'danger'
-                            });
-                            if (ok) {
-                              deleteAppreciation(item._id);
-                            }
-                          }}
-                          className="btn-icon-only w-7 h-7 text-red-500"
-                          title="Delete Appreciation"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {canDelete ? (
+                          <button
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: 'Delete Appreciation',
+                                message: `Are you sure you want to remove appreciation award for "${item.givenToName}"?`,
+                                confirmText: 'Remove Award',
+                                variant: 'danger'
+                              });
+                              if (ok) {
+                                deleteAppreciation(item._id);
+                              }
+                            }}
+                            className="btn-icon-only w-7 h-7 text-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition-colors"
+                            title="Delete Appreciation"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+                            Honored
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -414,7 +450,9 @@ export const AppreciationPage = () => {
                           No appreciation records found
                         </div>
                         <p className="text-[13px] text-slate-500 mt-1">
-                          Click on "+ Give Award" button above to appreciate team members.
+                          {canGive
+                            ? 'Click on "+ Give Award" button above to appreciate team members.'
+                            : 'Celebrate team milestones, top performance & peer achievements.'}
                         </p>
                       </div>
                     </td>

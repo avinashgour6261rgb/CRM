@@ -1,9 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { canGiveAppreciation } from '../../../../shared/utils/permissionUtils';
 
 export const AddAppreciationModal = ({ isOpen, onClose }) => {
   const { employees, currentUser, addAppreciation } = useHR();
+  const canGive = useMemo(() => canGiveAppreciation(currentUser), [currentUser]);
+
+  const recipientOptions = useMemo(() => {
+    return (employees || []).filter(emp => {
+      const isSelf = currentUser && (
+        String(emp._id || emp.id) === String(currentUser._id || currentUser.id) ||
+        (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+        (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase())
+      );
+      return !isSelf;
+    });
+  }, [employees, currentUser]);
 
   const [formData, setFormData] = useState({
     givenToId: '',
@@ -15,10 +28,13 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
   });
 
   useEffect(() => {
-    if (isOpen && employees && employees.length > 0 && !formData.givenToId) {
-      setFormData(prev => ({ ...prev, givenToId: employees[0]._id }));
+    if (isOpen && recipientOptions.length > 0 && (!formData.givenToId || !recipientOptions.some(r => String(r._id) === String(formData.givenToId)))) {
+      setFormData(prev => ({ ...prev, givenToId: recipientOptions[0]._id }));
     }
-  }, [isOpen, employees, formData.givenToId]);
+  }, [isOpen, recipientOptions, formData.givenToId]);
+
+  if (!isOpen) return null;
+  if (!canGive) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,13 +43,23 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const selectedEmp = (employees || []).find(emp => 
+    const selectedEmp = recipientOptions.find(emp => 
       String(emp._id) === String(formData.givenToId) || 
       String(emp.employeeCode) === String(formData.givenToId)
-    ) || employees[0];
+    ) || recipientOptions[0];
 
     if (!selectedEmp) {
       alert('Please select an employee to recognize.');
+      return;
+    }
+
+    const isSelf = currentUser && (
+      String(selectedEmp._id || selectedEmp.id) === String(currentUser._id || currentUser.id) ||
+      (selectedEmp.employeeCode && currentUser.employeeCode && String(selectedEmp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase())
+    );
+
+    if (isSelf) {
+      alert('Self-recognition is not permitted. Please select a colleague to appreciate.');
       return;
     }
 
@@ -73,14 +99,11 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
             onChange={(e) => setFormData({ ...formData, givenToId: e.target.value })}
             className="filter-select w-full h-10"
           >
-            {employees.map(emp => {
-              const isSelf = currentUser && (String(emp._id || emp.id) === String(currentUser._id || currentUser.id) || (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) || (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase()));
-              return (
-                <option key={emp._id} value={emp._id}>
-                  {emp.name} — {emp.role} {isSelf ? "(It's You)" : ''}
-                </option>
-              );
-            })}
+            {recipientOptions.map(emp => (
+              <option key={emp._id} value={emp._id}>
+                {emp.name} — {emp.role || emp.designation || 'Team Member'}
+              </option>
+            ))}
           </select>
         </div>
 

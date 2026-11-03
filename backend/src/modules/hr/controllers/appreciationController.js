@@ -62,6 +62,15 @@ const getAppreciationById = asyncHandler(async (req, res) => {
 // @desc    Create appreciation
 // @route   POST /api/appreciations
 const createAppreciation = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const isLeader = (u.role || '').toLowerCase().includes('lead') || (u.role || '').toLowerCase().includes('manager');
+    const canGive = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || isLeader || u.permissions?.giveAppreciation || u.permissions?.allAccess;
+    if (!canGive) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to give appreciation awards.' });
+    }
+  }
+
   const {
     givenTo,
     givenToId,
@@ -91,6 +100,10 @@ const createAppreciation = asyncHandler(async (req, res) => {
         { name: givenToName || targetId }
       ]
     });
+  }
+
+  if (u && recipientEmp && String(recipientEmp._id) === String(u._id)) {
+    return res.status(400).json({ success: false, message: 'Self-recognition is not permitted. Please select another colleague.' });
   }
 
   let giverEmp = null;
@@ -130,6 +143,14 @@ const createAppreciation = asyncHandler(async (req, res) => {
 // @desc    Delete appreciation
 // @route   DELETE /api/appreciations/:id
 const deleteAppreciation = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canDelete = u.isAdmin || u.systemRole === 'admin' || (u.systemRole === 'hr' && u.permissions?.deleteAppreciations) || u.permissions?.allAccess;
+    if (!canDelete) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can remove appreciation records.' });
+    }
+  }
+
   const appreciation = await Appreciation.findByIdAndDelete(req.params.id);
   if (!appreciation) {
     return res.status(404).json({ success: false, message: 'Appreciation not found' });

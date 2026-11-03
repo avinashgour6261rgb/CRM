@@ -49,6 +49,14 @@ const getHolidayById = asyncHandler(async (req, res) => {
 // @desc    Create new holiday
 // @route   POST /api/holidays
 const createHoliday = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canManage = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.holidays || u.permissions?.allAccess;
+    if (!canManage) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only HR & Administrators can declare company holidays.' });
+    }
+  }
+
   // If exists on same date, update it
   let holiday = await Holiday.findOne({ date: req.body.date });
   if (holiday) {
@@ -64,6 +72,14 @@ const createHoliday = asyncHandler(async (req, res) => {
 // @desc    Update holiday
 // @route   PUT /api/holidays/:id
 const updateHoliday = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canManage = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.holidays || u.permissions?.allAccess;
+    if (!canManage) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only HR & Administrators can update company holidays.' });
+    }
+  }
+
   let holiday = null;
   if (mongoose.isValidObjectId(req.params.id)) {
     holiday = await Holiday.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
@@ -80,6 +96,14 @@ const updateHoliday = asyncHandler(async (req, res) => {
 // @desc    Delete holiday
 // @route   DELETE /api/holidays/:id
 const deleteHoliday = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canManage = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.holidays || u.permissions?.allAccess;
+    if (!canManage) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only HR & Administrators can cancel or delete company holidays.' });
+    }
+  }
+
   let holiday = null;
   if (mongoose.isValidObjectId(req.params.id)) {
     holiday = await Holiday.findByIdAndDelete(req.params.id);

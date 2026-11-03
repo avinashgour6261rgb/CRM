@@ -30,8 +30,7 @@ export const ProjectsPage = () => {
 
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  // Any team member or employee can create projects and select who can see it
-  const canAddProject = true;
+  const canAddProject = React.useMemo(() => canManageProjects(currentUser), [currentUser]);
   const canViewAllProjects = isPrivileged || perms?.viewAllProjects;
 
   const canManageApprovals = React.useMemo(() => {

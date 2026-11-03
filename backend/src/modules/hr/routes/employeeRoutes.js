@@ -10,17 +10,18 @@ const {
   updateEmployeePermissions,
   deleteEmployee
 } = require('../controllers/employeeController');
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
 router.get('/current', getCurrentUser);
 router.post('/switch/:id', switchCurrentUser);
-router.put('/:id/permissions', updateEmployeePermissions);
+router.put('/:id/permissions', authenticateUser, updateEmployeePermissions);
 router.route('/')
   .get(getEmployees)
-  .post(createEmployee);
+  .post(authenticateUser, createEmployee);
 
 router.route('/:id')
   .get(getEmployeeById)
-  .put(updateEmployee)
-  .delete(deleteEmployee);
+  .put(authenticateUser, updateEmployee)
+  .delete(authenticateUser, deleteEmployee);
 
 module.exports = router;

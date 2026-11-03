@@ -30,7 +30,7 @@ import { EditProfileModal } from '../../../shared/components/modals/EditProfileM
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
-import { isAdmin, isHRorAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
+import { isAdmin, isHRorAdmin, canAccessModule, canDeleteEmployee } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 
 export const EmployeesPage = () => {
@@ -437,7 +437,7 @@ export const EmployeesPage = () => {
                                                                     </span>
                                                                   );
                                                                 }
-                                                                if (!isEmployeeSelf(emp)) {
+                                                                if (!isEmployeeSelf(emp) && canDeleteEmployee(currentUser)) {
                                                                   return (
                                                                     <button
                                                                       onClick={async () => {

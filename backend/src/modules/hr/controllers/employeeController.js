@@ -97,6 +97,14 @@ const getEmployeeById = asyncHandler(async (req, res) => {
 
 // ─── POST /api/employees ──────────────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canCreate = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.allAccess;
+    if (!canCreate) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to add employees.' });
+    }
+  }
+
   const { employeeCode, email } = req.body;
   const cleanCode = employeeCode ? employeeCode.trim().toUpperCase() : undefined;
   const cleanEmail = email ? email.trim().toLowerCase() : undefined;
@@ -170,6 +178,14 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
 // ─── PUT /api/employees/:id/permissions ─────────────────────────────────────
 const updateEmployeePermissions = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canGrant = u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.grantPermissions || u.permissions?.allAccess;
+    if (!canGrant) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can modify employee permissions.' });
+    }
+  }
+
   const { id } = req.params;
   const query = mongoose.Types.ObjectId.isValid(id)
     ? { _id: id }
@@ -202,6 +218,14 @@ const updateEmployeePermissions = asyncHandler(async (req, res) => {
 
 // ─── DELETE /api/employees/:id ───────────────────────────────────────────────
 const deleteEmployee = asyncHandler(async (req, res) => {
+  const u = req.user;
+  if (u) {
+    const canDelete = u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.deleteEmployees || u.permissions?.allAccess;
+    if (!canDelete) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can delete employees.' });
+    }
+  }
+
   const { id } = req.params;
   const query = mongoose.Types.ObjectId.isValid(id)
     ? { _id: id }
