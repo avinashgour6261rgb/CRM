@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, getUserRole, ROLES } from '../../../shared/utils/permissionUtils';
 import { matchesFilter } from '../../../shared/utils/filterUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
@@ -51,8 +51,10 @@ export const AttendancePage = () => {
 
   const currentUser = authUser || hrUser;
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const userRole = React.useMemo(() => getUserRole(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance;
+  // Regular employees/Team Members can ONLY view their own attendance
+  const canViewAllAttendance = isPrivileged && userRole !== ROLES.TEAM_MEMBER;
 
   const isEmployeeSelf = React.useCallback((emp) => {
     if (!currentUser || !emp) return false;

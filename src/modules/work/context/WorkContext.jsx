@@ -37,7 +37,6 @@ const defaultWorkContext = {
   completeTask: async () => {},
   completeAndNextTask: async () => {},
   deleteTask: async () => {},
-  purgeAllTasks: async () => {},
   startTaskTimer: () => {},
   pauseTaskTimer: () => {},
   stopTaskTimer: () => {},
@@ -1324,21 +1323,6 @@ export const WorkProvider = ({ children }) => {
     }
   };
 
-  const purgeAllTasks = async () => {
-    try {
-      if (!isAdmin(currentUser) && !currentUser?.isAdmin && !currentUser?.isSuperAdmin) {
-        addToast('⛔ Access Denied: Only Administrators can purge tasks.', 'error');
-        return;
-      }
-      saveActiveTimerSnapshot(null);
-      await workService.purgeAllTasks();
-      addToast('🧹 All legacy tasks purged successfully! System ready for fresh tasks.', 'success');
-      await loadWorkData();
-    } catch (err) {
-      addToast('Failed to purge tasks', 'error');
-    }
-  };
-
   // ── Overdue Task Detection ──
   const isTaskOverdue = useCallback((task) => {
     if (!task || !task.dueDate || task.hasNoDueDate || task.isUntimed || task.status === 'completed') return false;
@@ -2608,7 +2592,6 @@ export const WorkProvider = ({ children }) => {
     completeTask,
     completeAndNextTask,
     deleteTask,
-    purgeAllTasks,
     startTaskTimer,
     resumeTaskTimer: startTaskTimer,
     pauseTaskTimer,
@@ -2635,7 +2618,7 @@ export const WorkProvider = ({ children }) => {
     formatSeconds, createProject, updateProject, deleteProject,
     submitProjectForCompletion, approveProjectCompletion, reopenProject,
     createTask, updateTask, changeTaskStatus, completeTask,
-    completeAndNextTask, deleteTask, purgeAllTasks, startTaskTimer, pauseTaskTimer,
+    completeAndNextTask, deleteTask, startTaskTimer, pauseTaskTimer,
     stopTaskTimer, snoozeTask, resumeSnoozedTask, dismissTaskReminder,
     logTimesheet, deleteTimesheet, employees, currentUser,
     isEmployeeOnLeave, isTaskOverdue, overdueTaskPrompt, extendTaskDeadline, rescheduleTaskForFuture

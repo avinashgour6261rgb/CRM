@@ -22,6 +22,7 @@ import {
   parseTimeToSeconds,
   formatSecondsToDigital,
   formatSecondsToHoursMins,
+  normalizePunchSessions,
   readTimerStorage,
   writeTimerStorage,
   removeTimerStorage,
@@ -1148,23 +1149,33 @@ export const TimerProvider = ({ children }) => {
 
       if (inVal) {
         // ── Option 1: Cumulative Multi-Session Shift Calculation ──
-        // 1. Sum of all previous completed punch sessions strictly for today
+        // 1. Sum of all previous completed punch sessions strictly for today (strictly normalized)
         let storedSessions = [];
         try {
           const rawSess = localStorage.getItem(`ems_timer_${userKey}_punch_sessions`);
           if (rawSess) storedSessions = JSON.parse(rawSess) || [];
         } catch {}
-        storedSessions = storedSessions.filter(s => Number(s.inTimestamp || 0) >= todayMidnightMs);
+        storedSessions = normalizePunchSessions((storedSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnightMs));
         const pastSessionsSecs = storedSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+
+        const lastSessionOut = storedSessions.length > 0
+          ? Math.max(...storedSessions.map(s => Number(s.outTimestamp || s.inTimestamp || 0)))
+          : 0;
 
         // 2. Active session start timestamp (starts freshly from now on each clock in)
         let sessStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`));
         if (!sessStartTs || sessStartTs < todayMidnightMs) {
-          if (clockInTs && clockInTs >= todayMidnightMs) {
+          if (lastSessionOut > 0) {
+            sessStartTs = lastSessionOut;
+          } else if (clockInTs && clockInTs >= todayMidnightMs && storedSessions.length === 0) {
             sessStartTs = clockInTs;
           } else {
             sessStartTs = Date.now();
           }
+          localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, sessStartTs.toString());
+        }
+        if (lastSessionOut > 0 && sessStartTs < lastSessionOut) {
+          sessStartTs = lastSessionOut;
           localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, sessStartTs.toString());
         }
 
@@ -1621,14 +1632,15 @@ export const TimerProvider = ({ children }) => {
       // Check task seconds worked today so preservedWorkSecs is always >= task time
       const todayTaskSecs = getTodayTaskSecondsForUser();
 
-      // Preserve previous completed sessions strictly bounded by time elapsed since clock in
-      const pastSessionsSecs = existingSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+      // Normalize previous completed sessions strictly bounded by time elapsed since clock in
+      const normalizedSessions = normalizePunchSessions(existingSessions);
+      const pastSessionsSecs = normalizedSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
       const curSavedWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
       const maxElapsedSinceIn = Math.max(0, Math.floor((nowMs - clockInTs) / 1000));
-      preservedWorkSecs = Math.min(maxElapsedSinceIn, Math.max(pastSessionsSecs, todayTaskSecs, curSavedWorkSecs <= maxElapsedSinceIn ? curSavedWorkSecs : 0));
+      preservedWorkSecs = Math.min(maxElapsedSinceIn, Math.max(pastSessionsSecs, todayTaskSecs, (curSavedWorkSecs <= maxElapsedSinceIn && curSavedWorkSecs >= pastSessionsSecs) ? curSavedWorkSecs : pastSessionsSecs));
 
       setWorkSeconds(preservedWorkSecs);
-      setPunchSessions(existingSessions);
+      setPunchSessions(normalizedSessions);
 
       const mirrorKeys = getTimerMirrorKeys(currentUser);
       for (const uk of mirrorKeys) {
@@ -1636,9 +1648,10 @@ export const TimerProvider = ({ children }) => {
         localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(clockInTs));
         localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(preservedWorkSecs));
         localStorage.setItem(`ems_timer_${uk}_saved_official_seconds`, String(preservedWorkSecs));
-        localStorage.setItem(`ems_timer_${uk}_punch_sessions`, JSON.stringify(existingSessions));
+        localStorage.setItem(`ems_timer_${uk}_punch_sessions`, JSON.stringify(normalizedSessions));
         localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, nowMs.toString());
         localStorage.setItem(`ems_timer_${uk}_current_session_in`, nowStr);
+        localStorage.setItem(`ems_timer_${uk}_session_break_baseline`, (breakSeconds || 0).toString());
       }
     } else {
       // 🌟 FIRST CLOCK-IN OF THE DAY: Fresh shift start

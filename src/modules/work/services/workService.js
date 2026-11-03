@@ -696,22 +696,6 @@ export const workService = {
     return true;
   },
 
-  async purgeAllTasks() {
-    if (await isBackendAvailable()) {
-      try {
-        await fetch(`${API_BASE_URL}/tasks/purge/all`, {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        });
-      } catch (err) {
-        console.warn('Backend purge failed, clearing local:', err);
-      }
-    }
-    saveCollection(KEYS.TASKS, []);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
-    return true;
-  },
-
   // ==========================================
   // ⏱️ TIMESHEET & TRACKING
   // ==========================================

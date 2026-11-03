@@ -69,7 +69,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds } from '../../../shared/utils/timerUtils';
+import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -940,41 +940,45 @@ export const DashboardPage = () => {
         rawStoredSessions = attRec.punchSessions;
       }
 
-      // Filter to today's sessions only
-      const validTodaySessions = (rawStoredSessions || []).filter(s => {
+      // Filter to today's sessions only and normalize non-overlapping intervals
+      const rawToday = (rawStoredSessions || []).filter(s => {
         const ts = Number(s.inTimestamp || 0);
         if (ts > 0) return ts >= todayMidnightMs;
         return Boolean(s.inTime || s.outTime);
       });
+      const validTodaySessions = normalizePunchSessions(rawToday);
 
-      // Deduplicate completed sessions
-      const seenSessionKeys = new Set();
       validTodaySessions.forEach((s, idx) => {
         const dur = Number(s.durationSeconds) || 0;
-        const sKey = `${s.inTime}_${s.outTime}_${dur}`;
-        if (!seenSessionKeys.has(sKey)) {
-          seenSessionKeys.add(sKey);
-          punchSessions.push({
-            id: s.id || `sess_${idx}`,
-            sessionNumber: punchSessions.length + 1,
-            inTime: s.inTime,
-            outTime: s.outTime,
-            inTimestamp: s.inTimestamp,
-            outTimestamp: s.outTimestamp,
-            durationSeconds: dur,
-            durationText: s.durationText || formatTimeDurationSafe(dur),
-            isLive: false
-          });
-        }
+        punchSessions.push({
+          id: s.id || `sess_${idx}`,
+          sessionNumber: s.sessionNumber || idx + 1,
+          inTime: s.inTime,
+          outTime: s.outTime,
+          inTimestamp: s.inTimestamp,
+          outTimestamp: s.outTimestamp,
+          durationSeconds: dur,
+          durationText: s.durationText || formatTimeDurationSafe(dur),
+          isLive: false
+        });
       });
 
       // Ongoing live session (if clocked in)
       if (isClockedIn && !isOnLeave) {
-        const liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp')) ||
-          Number(readTimerStorage(emp, 'clock_in_timestamp')) ||
-          Number(attRec?.clockInTimestamp) ||
-          Date.now();
-        const liveGrossSecs = Math.max(0, Math.floor((Date.now() - Math.max(liveStartTs, todayMidnightMs)) / 1000));
+        const lastSessionOut = validTodaySessions.length > 0
+          ? Math.max(...validTodaySessions.map(s => Number(s.outTimestamp || s.inTimestamp || 0)))
+          : 0;
+
+        let liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp'));
+        if (!liveStartTs || liveStartTs < todayMidnightMs) {
+          liveStartTs = lastSessionOut > 0 ? lastSessionOut : (Number(readTimerStorage(emp, 'clock_in_timestamp')) || Date.now());
+        }
+        if (lastSessionOut > 0 && liveStartTs < lastSessionOut) {
+          liveStartTs = lastSessionOut;
+        }
+        liveStartTs = Math.max(liveStartTs, todayMidnightMs);
+
+        const liveGrossSecs = Math.max(0, Math.floor((Date.now() - liveStartTs) / 1000));
         const sessionBreakBaseline = Number(readTimerStorage(emp, 'session_break_baseline')) || 0;
         const liveSessionBreaks = Math.max(0, breakSecs - sessionBreakBaseline);
         const liveNetSecs = Math.max(0, liveGrossSecs - liveSessionBreaks);
@@ -1169,9 +1173,12 @@ export const DashboardPage = () => {
         const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
         if (alreadyInTasksWorked) return;
 
-        // Strict guard: only consider task if worked or completed today
+        // Strict guard: only consider task if actually worked or completed today
         const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
-        const isWorkedToday = (pt.sessionDate === todayStr) || (pt.dailySessions && pt.dailySessions[todayStr] > 0) || isCompletedToday || (pt.timerRunning && isClockedIn);
+        const isWorkedToday = (pt.dailySessions && Number(pt.dailySessions[todayStr]) > 0) ||
+          (pt.sessionDate === todayStr && Number(pt.todayWorkSeconds) > 0) ||
+          isCompletedToday ||
+          (pt.timerRunning && isClockedIn);
         if (!isWorkedToday) return;
 
         const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), isClockedIn, isOnBreak);

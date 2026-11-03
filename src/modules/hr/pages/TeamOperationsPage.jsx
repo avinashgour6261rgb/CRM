@@ -36,7 +36,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions } from '../../../shared/utils/timerUtils';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
@@ -650,37 +650,39 @@ export const TeamOperationsPage = () => {
       rawPunchSessions = attRec.punchSessions;
     }
 
-    const validTodaySessions = (rawPunchSessions || []).filter(s => {
+    const validTodaySessions = normalizePunchSessions((rawPunchSessions || []).filter(s => {
       const ts = Number(s.inTimestamp || 0);
       if (ts > 0) return ts >= todayMidnightMs;
       return Boolean(s.inTime || s.outTime);
-    });
+    }));
 
-    const punchSessions = [];
-    const seenSessionKeys = new Set();
-    validTodaySessions.forEach((s, idx) => {
-      const dur = Number(s.durationSeconds) || 0;
-      const sKey = `${s.inTime}_${s.outTime}_${dur}`;
-      if (!seenSessionKeys.has(sKey)) {
-        seenSessionKeys.add(sKey);
-        punchSessions.push({
-          id: s.id || `sess_${idx}`,
-          sessionNumber: punchSessions.length + 1,
-          inTime: s.inTime,
-          outTime: s.outTime,
-          durationSeconds: dur,
-          durationText: s.durationText || formatTimeDurationSafe(dur),
-          isLive: false
-        });
-      }
-    });
+    const punchSessions = validTodaySessions.map((s, idx) => ({
+      id: s.id || `sess_${idx}`,
+      sessionNumber: s.sessionNumber || idx + 1,
+      inTime: s.inTime,
+      outTime: s.outTime,
+      inTimestamp: s.inTimestamp,
+      outTimestamp: s.outTimestamp,
+      durationSeconds: Number(s.durationSeconds) || 0,
+      durationText: s.durationText || formatTimeDurationSafe(Number(s.durationSeconds) || 0),
+      isLive: false
+    }));
 
     if (empState.isClockedIn) {
-      const liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp')) ||
-        Number(readTimerStorage(emp, 'clock_in_timestamp')) ||
-        Number(attRec?.clockInTimestamp) ||
-        Date.now();
-      const liveGrossSecs = Math.max(0, Math.floor((Date.now() - Math.max(liveStartTs, todayMidnightMs)) / 1000));
+      const lastSessionOut = validTodaySessions.length > 0
+        ? Math.max(...validTodaySessions.map(s => Number(s.outTimestamp || s.inTimestamp || 0)))
+        : 0;
+
+      let liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp'));
+      if (!liveStartTs || liveStartTs < todayMidnightMs) {
+        liveStartTs = lastSessionOut > 0 ? lastSessionOut : (Number(readTimerStorage(emp, 'clock_in_timestamp')) || Date.now());
+      }
+      if (lastSessionOut > 0 && liveStartTs < lastSessionOut) {
+        liveStartTs = lastSessionOut;
+      }
+      liveStartTs = Math.max(liveStartTs, todayMidnightMs);
+
+      const liveGrossSecs = Math.max(0, Math.floor((Date.now() - liveStartTs) / 1000));
       const sessionBreakBaseline = Number(readTimerStorage(emp, 'session_break_baseline')) || 0;
       const liveSessionBreaks = Math.max(0, (empState.breakSecs || 0) - sessionBreakBaseline);
       const liveNetSecs = Math.max(0, liveGrossSecs - liveSessionBreaks);

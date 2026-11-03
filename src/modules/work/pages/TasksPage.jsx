@@ -38,8 +38,7 @@ export const TasksPage = () => {
     setTaskFilter,
     currentUser: workUser,
     projects,
-    employees,
-    purgeAllTasks
+    employees
   } = useWork();
   const { currentUser: authUser } = useAuth();
   const { confirm } = useConfirm();
@@ -294,27 +293,6 @@ export const TasksPage = () => {
             <Download size={13} />
             <span>Export CSV</span>
           </button>
-
-          {isPrivileged && tasks.length > 0 && (
-            <button
-              onClick={async () => {
-                const ok = await confirm({
-                  title: 'Purge All Tasks',
-                  message: '⚠️ Are you sure you want to purge all existing tasks? This will wipe legacy tasks so you can start completely clean with new tasks.',
-                  confirmText: 'Purge All Tasks',
-                  variant: 'danger'
-                });
-                if (ok) {
-                  await purgeAllTasks();
-                }
-              }}
-              className="inline-flex items-center gap-1.25 px-3 h-[30px] rounded-md bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-xs font-semibold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-              title="Purge all old tasks to start clean"
-            >
-              <Trash2 size={13} />
-              <span>Purge Old Tasks</span>
-            </button>
-          )}
 
           <button
             onClick={() => setIsAddModalOpen(true)}
