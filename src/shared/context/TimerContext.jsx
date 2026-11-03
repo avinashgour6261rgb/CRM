@@ -1267,6 +1267,10 @@ export const TimerProvider = ({ children }) => {
 
   // ── Actions ──
   const togglePauseResume = () => {
+    if (!isClockedIn || hadClockedOutToday) {
+      addToast('Cannot run timer when clocked out. Please clock in first.', 'warning');
+      return;
+    }
     if (isOnBreak) {
       resumeFromBreak();
       return;

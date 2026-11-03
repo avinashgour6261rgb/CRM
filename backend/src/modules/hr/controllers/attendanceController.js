@@ -97,7 +97,20 @@ const getAttendanceSummary = asyncHandler(async (req, res) => {
 
   const matchStage = { date: new RegExp(`^${monthStr}`) };
   const mongoose = require('mongoose');
-  if (employeeId && employeeId !== 'all') {
+
+  // Tenant scoping: non-admin can only see own attendance summary
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  if (!isPrivileged) {
+    const myId = req.user?.id || req.user?._id;
+    const myCode = req.user?.employeeCode;
+    const matchConditions = [];
+    if (myId && mongoose.Types.ObjectId.isValid(myId)) matchConditions.push({ employee: new mongoose.Types.ObjectId(myId) });
+    if (myCode) matchConditions.push({ employeeCode: myCode });
+    if (myId) matchConditions.push({ employeeId: String(myId) });
+    if (matchConditions.length > 0) {
+      matchStage.$or = matchConditions;
+    }
+  } else if (employeeId && employeeId !== 'all') {
     if (mongoose.Types.ObjectId.isValid(employeeId)) {
       matchStage.employee = new mongoose.Types.ObjectId(employeeId);
     } else {
@@ -353,8 +366,23 @@ const markAttendance = asyncHandler(async (req, res) => {
 const getAttendanceByDate = asyncHandler(async (req, res) => {
   const { date } = req.query;
   const targetDate = date || new Date().toISOString().split('T')[0];
+  const mongoose = require('mongoose');
 
-  const records = await Attendance.find({ date: targetDate }).sort({ employeeName: 1 });
+  const query = { date: targetDate };
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  if (!isPrivileged) {
+    const myId = req.user?.id || req.user?._id;
+    const myCode = req.user?.employeeCode;
+    const matchConditions = [];
+    if (myId && mongoose.Types.ObjectId.isValid(myId)) matchConditions.push({ employee: myId });
+    if (myCode) matchConditions.push({ employeeCode: myCode });
+    if (myId) matchConditions.push({ employeeId: String(myId) });
+    if (matchConditions.length > 0) {
+      query.$or = matchConditions;
+    }
+  }
+
+  const records = await Attendance.find(query).sort({ employeeName: 1 });
   res.json({ success: true, count: records.length, date: targetDate, data: records });
 });
 
@@ -481,6 +509,11 @@ const createAuditLog = asyncHandler(async (req, res) => {
 // ─── POST /api/attendance/force-clock-out ─────────────────────────────────────
 // Admin Override: Forcefully clock out an active employee with mandatory audit note
 const forceClockOut = asyncHandler(async (req, res) => {
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  if (!isPrivileged) {
+    return res.status(403).json({ success: false, message: 'Unauthorized. Administrator or HR access required.' });
+  }
+
   const { employeeId, date, auditNote } = req.body;
   const targetDate = date || new Date().toISOString().split('T')[0];
 

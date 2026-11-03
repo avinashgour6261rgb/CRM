@@ -7,10 +7,16 @@ export const MonthlyMatrixTable = ({
   month = 9,
   year = 2026,
   selectedEmployeeId = 'all',
-  statusFilter = 'all'
+  statusFilter = 'all',
+  canViewAllAttendance = true,
+  currentUser: propCurrentUser
 }) => {
-  const { employees, attendance, currentUser } = useHR();
+  const { employees, attendance, currentUser: hrUser } = useHR();
+  const currentUser = propCurrentUser || hrUser;
   const [activeRecordModal, setActiveRecordModal] = useState(null);
+
+  const isPrivileged = currentUser?.isAdmin || ['admin', 'hr'].includes(currentUser?.role?.toLowerCase()) || ['admin', 'hr'].includes(currentUser?.systemRole?.toLowerCase());
+  const canEdit = isPrivileged || currentUser?.permissions?.editAttendance;
 
   const isEmployeeSelf = (emp) => {
     if (!currentUser || !emp) return false;
@@ -29,10 +35,21 @@ export const MonthlyMatrixTable = ({
     return d.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
-  // Filter employees
-  const displayEmployees = selectedEmployeeId === 'all'
-    ? employees
-    : employees.filter(e => e._id === selectedEmployeeId);
+  // Filter employees strictly: non-privileged users are NEVER allowed to see other employees' rows
+  let displayEmployees = [];
+  if (!canViewAllAttendance) {
+    displayEmployees = employees.filter(e => isEmployeeSelf(e));
+    if (displayEmployees.length === 0 && currentUser) {
+      displayEmployees = [currentUser];
+    }
+  } else if (selectedEmployeeId === 'all') {
+    displayEmployees = employees;
+  } else {
+    displayEmployees = employees.filter(e =>
+      String(e._id) === String(selectedEmployeeId) ||
+      (e.employeeCode && String(e.employeeCode).toUpperCase() === String(selectedEmployeeId).toUpperCase())
+    );
+  }
 
   // Get status icon & styling for a specific cell
   const todayStr = new Date().toISOString().split('T')[0];
@@ -176,7 +193,7 @@ export const MonthlyMatrixTable = ({
                       <td
                         key={day}
                         onClick={() => {
-                          if (isFuture) return; // Future dates cannot be marked for daily shift attendance
+                          if (isFuture || !canEdit) return; // Future dates cannot be marked, and editing requires privileges
                           setActiveRecordModal({
                             employeeId: emp._id,
                             date: dateStr,
@@ -187,7 +204,7 @@ export const MonthlyMatrixTable = ({
                           });
                         }}
                         className={`text-center py-1.5 px-0.5 border-r border-slate-100 dark:border-slate-800 transition-all duration-150 ${
-                          isFuture ? 'cursor-default' : 'cursor-pointer'
+                          (isFuture || !canEdit) ? 'cursor-default' : 'cursor-pointer'
                         } ${
                           isMuted
                             ? 'opacity-25 bg-slate-50 dark:bg-slate-950/40'

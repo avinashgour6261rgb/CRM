@@ -1559,8 +1559,8 @@ export const DashboardPage = () => {
 
   // Resolved live shift state for currently displayed user perspective
   const displayedIsOnLeave = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnLeave) : Boolean(isOnLeaveToday || activeEmpState?.isOnLeave);
-  const displayedIsClockedIn = isViewingOtherEmployee ? activeEmpState?.isClockedIn : isClockedIn;
   const displayedHadClockedOut = isViewingOtherEmployee ? activeEmpState?.isClockedOut : hadClockedOutToday;
+  const displayedIsClockedIn = !displayedHadClockedOut && (isViewingOtherEmployee ? activeEmpState?.isClockedIn : isClockedIn);
   const displayedIsOnBreak = isViewingOtherEmployee ? activeEmpState?.isOnBreak : isOnBreak;
   const displayedBreakType = isViewingOtherEmployee ? (activeEmpState?.breakType || 'Break') : breakType;
   const displayedLoginTime = isViewingOtherEmployee ? activeEmpState?.loginTime : loginTime;
@@ -1669,7 +1669,7 @@ export const DashboardPage = () => {
     if (isTaskActuallyCompleted(t)) return acc;
 
     // Check if task was worked today:
-    const isRunningNow = Boolean(displayedIsClockedIn) && (Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId));
+    const isRunningNow = Boolean(displayedIsClockedIn && !displayedHadClockedOut) && (Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId));
     const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || (t.dailySessions && t.dailySessions[todayStr] > 0);
     if (!isWorkedToday) return acc;
 
@@ -1688,12 +1688,12 @@ export const DashboardPage = () => {
   const currentShiftSecs = isViewingOtherEmployee
     ? (activeEmpState?.workSecs || 0)
     : (workSeconds || activeEmpState?.workSecs || 0);
-  const currentIsClockedIn = isViewingOtherEmployee
-    ? (activeEmpState?.isClockedIn || false)
-    : (displayedIsClockedIn || activeEmpState?.isClockedIn || false);
   const currentHadClockedOut = isViewingOtherEmployee
-    ? (activeEmpState?.hadClockedOut || false)
-    : (displayedHadClockedOut || activeEmpState?.hadClockedOut || false);
+    ? (activeEmpState?.hadClockedOut || activeEmpState?.isClockedOut || false)
+    : (displayedHadClockedOut || activeEmpState?.hadClockedOut || activeEmpState?.isClockedOut || false);
+  const currentIsClockedIn = !currentHadClockedOut && (isViewingOtherEmployee
+    ? (activeEmpState?.isClockedIn || false)
+    : (displayedIsClockedIn || false));
 
   // Today's total task seconds strictly derives from actual tasks worked today (timesheets + active timer)
   let totalTaskTodaySecs = rawTotalTaskTodaySecs;

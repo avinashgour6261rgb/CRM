@@ -20,7 +20,9 @@ initStorage();
 const getAuthUser = () => {
   try {
     const s = localStorage.getItem('ems_auth_session');
-    return s ? JSON.parse(s) : null;
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    return parsed?.user || parsed;
   } catch (e) {
     return null;
   }
@@ -889,19 +891,44 @@ export const hrService = {
   // =========================================================================
 
   async getMonthlyAttendance(month = 9, year = 2026, employeeId = 'all') {
+    const authUser = getAuthUser();
+    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources';
+    const effectiveEmpId = (!isPrivileged && authUser)
+      ? (authUser._id || authUser.id || authUser.employeeCode || 'self')
+      : employeeId;
+
     const query = new URLSearchParams({ month: String(month), year: String(year) });
-    if (employeeId && employeeId !== 'all') query.append('employeeId', employeeId);
+    if (effectiveEmpId && effectiveEmpId !== 'all') query.append('employeeId', effectiveEmpId);
 
     return fetchWithFallback(`${API_BASE}/attendance/monthly?${query.toString()}`, { method: 'GET' }, async () => {
       let attendance = getCollection(KEYS.ATTENDANCE) || [];
       const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
       attendance = attendance.filter(a => a.date && a.date.startsWith(monthStr));
-      if (employeeId && employeeId !== 'all') {
+
+      // Tenant Scoping fallback: non-privileged users strictly see only their own attendance
+      if (!isPrivileged && authUser) {
+        const myId = String(authUser._id || authUser.id || authUser.employeeCode || '').toLowerCase();
+        const myCode = authUser.employeeCode ? String(authUser.employeeCode).toLowerCase() : '';
+        const myName = (authUser.name || '').trim().toLowerCase();
+
+        return attendance.filter(a => {
+          const aId = String(a.employeeId || a.employee?._id || a.employee || '').toLowerCase();
+          const aCode = String(a.employeeCode || '').toLowerCase();
+          const aName = (a.employeeName || '').trim().toLowerCase();
+
+          if (myId && (aId === myId || aCode === myId)) return true;
+          if (myCode && (aCode === myCode || aId === myCode)) return true;
+          if (myName && aName === myName) return true;
+          return false;
+        });
+      }
+
+      if (effectiveEmpId && effectiveEmpId !== 'all') {
         const employees = getCollection(KEYS.EMPLOYEES) || [];
-        const targetEmp = employees.find(e => e._id === employeeId || e.employeeCode === employeeId);
+        const targetEmp = employees.find(e => e._id === effectiveEmpId || e.employeeCode === effectiveEmpId);
         attendance = attendance.filter(a => {
-          if (a.employeeId === employeeId || a.employeeCode === employeeId) return true;
+          if (a.employeeId === effectiveEmpId || a.employeeCode === effectiveEmpId) return true;
           if (targetEmp) {
             if (a.employeeId === targetEmp._id || a.employeeId === targetEmp.employeeCode || a.employeeCode === targetEmp.employeeCode) return true;
             if (a.employeeName && targetEmp.name && a.employeeName.trim().toLowerCase() === targetEmp.name.trim().toLowerCase()) return true;

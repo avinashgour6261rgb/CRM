@@ -71,6 +71,14 @@ export const AttendancePage = () => {
     }
   }, [canViewAllAttendance, currentUser, selectedEmployeeId, setSelectedEmployeeId]);
 
+  // Strictly compute effective target employee ID: non-privileged users are ALWAYS locked to themselves
+  const effectiveEmployeeId = React.useMemo(() => {
+    if (!canViewAllAttendance) {
+      return currentUser?._id || currentUser?.employeeCode || 'self';
+    }
+    return selectedEmployeeId;
+  }, [canViewAllAttendance, currentUser, selectedEmployeeId]);
+
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix', 'logs', 'summary', 'audit'
   const [statusFilter, setStatusFilter] = useState('all');
   const [isMarkModalOpen, setIsMarkModalOpen] = useState(false);
@@ -95,19 +103,33 @@ export const AttendancePage = () => {
 
   // 1. Exact Mathematical Calculations for Attendance Summary KPIs
   const currentMonthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
-  const selectedEmpObj = employees.find(e => e._id === selectedEmployeeId || e.employeeCode === selectedEmployeeId);
-  const currentMonthRecords = attendance.filter(a => {
-    if (!a.date || !a.date.startsWith(currentMonthPrefix)) return false;
-    if (selectedEmployeeId === 'all') return true;
-    return a.employeeId === selectedEmployeeId ||
-           a.employeeCode === selectedEmployeeId ||
-           (selectedEmpObj && (
-             a.employeeId === selectedEmpObj._id ||
-             a.employeeId === selectedEmpObj.employeeCode ||
-             a.employeeCode === selectedEmpObj.employeeCode ||
-             (a.employeeName && a.employeeName.trim().toLowerCase() === selectedEmpObj.name.trim().toLowerCase())
-           ));
-  });
+  const selectedEmpObj = employees.find(e => e._id === effectiveEmployeeId || e.employeeCode === effectiveEmployeeId);
+  const currentMonthRecords = React.useMemo(() => {
+    return attendance.filter(a => {
+      if (!a.date || !a.date.startsWith(currentMonthPrefix)) return false;
+      if (!canViewAllAttendance) {
+        const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '').toLowerCase();
+        const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode).toLowerCase() : '';
+        const myName = (currentUser?.name || '').trim().toLowerCase();
+        const aId = String(a.employeeId || a.employee?._id || a.employee || '').toLowerCase();
+        const aCode = String(a.employeeCode || '').toLowerCase();
+        const aName = (a.employeeName || '').trim().toLowerCase();
+
+        return (myId && (aId === myId || aCode === myId)) ||
+               (myCode && (aCode === myCode || aId === myCode)) ||
+               (myName && aName === myName);
+      }
+      if (effectiveEmployeeId === 'all') return true;
+      return a.employeeId === effectiveEmployeeId ||
+             a.employeeCode === effectiveEmployeeId ||
+             (selectedEmpObj && (
+               a.employeeId === selectedEmpObj._id ||
+               a.employeeId === selectedEmpObj.employeeCode ||
+               a.employeeCode === selectedEmpObj.employeeCode ||
+               (a.employeeName && a.employeeName.trim().toLowerCase() === selectedEmpObj.name.trim().toLowerCase())
+             ));
+    });
+  }, [attendance, currentMonthPrefix, canViewAllAttendance, currentUser, effectiveEmployeeId, selectedEmpObj]);
 
   const displayLogRecords = React.useMemo(() => {
     if (statusFilter === 'all') return currentMonthRecords;
@@ -135,7 +157,7 @@ export const AttendancePage = () => {
   const validPresenceLogs = currentMonthRecords.filter(a => a.date <= todayStr);
   const totalWorkingHoursSum = validPresenceLogs.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
   const effectiveDays = presentCount + lateCount + (halfDayCount * 0.5);
-  const employeeMultiplier = selectedEmployeeId === 'all' ? (employees.length || 1) : 1;
+  const employeeMultiplier = (canViewAllAttendance && effectiveEmployeeId === 'all') ? (employees.length || 1) : 1;
   const totalExpectedWorkingDays = workingDaysCount * employeeMultiplier;
   const attendanceRate = totalExpectedWorkingDays > 0 ? Math.min(100, +((effectiveDays / totalExpectedWorkingDays) * 100).toFixed(1)) : 0;
   const avgDailyHours = (presentCount + lateCount + halfDayCount) > 0 ? (totalWorkingHoursSum / (presentCount + lateCount + halfDayCount)).toFixed(1) : '0.0';
@@ -305,7 +327,7 @@ export const AttendancePage = () => {
           <div className="filter-item">
             <span className="font-semibold text-slate-600 dark:text-slate-300">Employee:</span>
             <select
-              value={selectedEmployeeId}
+              value={effectiveEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
               disabled={!canViewAllAttendance}
               className={`filter-select min-w-[180px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 ${!canViewAllAttendance ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed text-slate-400' : 'bg-white dark:bg-slate-800 cursor-pointer'}`}
@@ -320,7 +342,7 @@ export const AttendancePage = () => {
                   ))}
                 </>
               ) : (
-                <option value={selectedEmployeeId}>
+                <option value={effectiveEmployeeId}>
                   {currentUser?.name || 'My Attendance'} (You)
                 </option>
               )}
@@ -435,14 +457,16 @@ export const AttendancePage = () => {
               <BarChart2 size={15} />
               <span className="text-[11px] font-bold">Summary</span>
             </button>
-            <button
-              onClick={() => setViewMode('audit')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'audit' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
-              title="Complete Admin & Employee Audit Trail"
-            >
-              <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
-              <span className="text-[11px] font-bold">Audit Trail</span>
-            </button>
+            {isPrivileged && (
+              <button
+                onClick={() => setViewMode('audit')}
+                className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'audit' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
+                title="Complete Admin & Employee Audit Trail"
+              >
+                <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
+                <span className="text-[11px] font-bold">Audit Trail</span>
+              </button>
+            )}
             <button
               onClick={() => setViewMode('overtime')}
               className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'overtime' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
@@ -464,8 +488,8 @@ export const AttendancePage = () => {
       )}
 
       {/* Audit Trail View (Complete Admin & Employee Audit Trail) */}
-      {viewMode === 'audit' && (
-        <AttendanceAuditTimeline initialEmployeeId={selectedEmployeeId} />
+      {viewMode === 'audit' && isPrivileged && (
+        <AttendanceAuditTimeline initialEmployeeId={effectiveEmployeeId} />
       )}
 
       {/* Main Monthly Attendance Matrix (Screenshot 2) */}
@@ -473,8 +497,10 @@ export const AttendancePage = () => {
         <MonthlyMatrixTable
           month={selectedMonth}
           year={selectedYear}
-          selectedEmployeeId={selectedEmployeeId}
+          selectedEmployeeId={effectiveEmployeeId}
           statusFilter={statusFilter}
+          canViewAllAttendance={canViewAllAttendance}
+          currentUser={currentUser}
         />
       )}
 

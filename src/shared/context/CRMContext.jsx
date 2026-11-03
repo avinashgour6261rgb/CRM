@@ -687,12 +687,34 @@ export const CRMProvider = ({ children }) => {
 
       const allTasks = getCollection(KEYS.TASKS) || [];
       const userKey = currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
-      const isClockedInToday = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
-      const hadClockedOutToday = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
-      const rawBreakSecs = Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || 0;
+
+      // Helper: match an attendance record to the current user
+      const isMyAttRecord = (a) =>
+        (currentUser?._id && (String(a.employeeId) === String(currentUser._id) || a.employeeId === currentUser.employeeCode)) ||
+        (currentUser?.employeeCode && a.employeeId === currentUser.employeeCode) ||
+        (currentUser?.name && a.employeeName?.toLowerCase() === currentUser.name.toLowerCase());
+
+      const todayAttRec = isCurrentDay ? (attendance || []).find(a => a.date === dateStr && isMyAttRecord(a)) : null;
+
+      const hadClockedOutToday = Boolean(
+        readTimerStorage(currentUser, 'had_clocked_out') === 'true' ||
+        readTimerStorage(currentUser, 'had_clocked_out') === true ||
+        readTimerStorage(currentUser, 'clock_out') ||
+        readTimerStorage(currentUser, 'clockout_time') ||
+        localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' ||
+        todayAttRec?.clockOutTime ||
+        todayAttRec?.clockOut
+      );
+      const isClockedInToday = !hadClockedOutToday && Boolean(
+        readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
+        readTimerStorage(currentUser, 'is_clocked_in') === true ||
+        localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true'
+      );
+      const rawBreakSecs = Number(readTimerStorage(currentUser, 'break_seconds') || localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || 0;
       let todayBreakHistory = [];
       try {
-        todayBreakHistory = JSON.parse(localStorage.getItem(`ems_timer_${userKey}_break_history`) || '[]');
+        const rawBh = readTimerStorage(currentUser, 'break_history') || localStorage.getItem(`ems_timer_${userKey}_break_history`);
+        todayBreakHistory = typeof rawBh === 'string' ? JSON.parse(rawBh) : (rawBh || []);
       } catch (e) {}
 
       // Helper to check if task belongs to user
@@ -719,12 +741,6 @@ export const CRMProvider = ({ children }) => {
       let dayLunchBreaks = 0;
       let dayClockIns = 0;
       let dayClockOuts = 0;
-
-      // Helper: match an attendance record to the current user
-      const isMyAttRecord = (a) =>
-        (currentUser?._id && (String(a.employeeId) === String(currentUser._id) || a.employeeId === currentUser.employeeCode)) ||
-        (currentUser?.employeeCode && a.employeeId === currentUser.employeeCode) ||
-        (currentUser?.name && a.employeeName?.toLowerCase() === currentUser.name.toLowerCase());
 
       // Task calculation based on user request:
       // "week logs me total day wise task ke anusar time count hoga or duration me bhi total task or uske time kitni der me khatam kiya agar task time 1 hour hai or tumne 1:30 laga diye to wo bhi count hote jayega or nest task kiya usna time plus ho jayega"
@@ -766,7 +782,7 @@ export const CRMProvider = ({ children }) => {
         todayMidnight.setHours(0, 0, 0, 0);
         const todayMidnightMs = todayMidnight.getTime();
 
-        if (activeTimer && activeTimer.date === dateStr && (isClockedInToday || hadClockedOutToday)) {
+        if (activeTimer && activeTimer.date === dateStr && isClockedInToday && !hadClockedOutToday) {
           const nowMs = Date.now();
           const isStartedToday = activeTimer.startedAt && Number(activeTimer.startedAt) >= todayMidnightMs;
           const runningElapsed = (activeTimer.timerRunning && isClockedInToday && !hadClockedOutToday && isStartedToday)

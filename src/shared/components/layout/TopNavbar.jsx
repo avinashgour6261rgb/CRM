@@ -238,8 +238,9 @@ export const TopNavbar = () => {
           {/* Pause / Resume Button */}
           <button
             onClick={togglePauseResume}
-            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center cursor-pointer p-0 ${isRunning ? 'bg-blue-500 hover:bg-blue-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
-            title={isRunning ? 'Pause Timer' : 'Resume Timer'}
+            disabled={!isClockedIn || hadClockedOutToday}
+            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : (isRunning ? 'cursor-pointer bg-blue-500 hover:bg-blue-600' : 'cursor-pointer bg-emerald-500 hover:bg-emerald-600')}`}
+            title={(!isClockedIn || hadClockedOutToday) ? 'Clock in first to run timer' : (isRunning ? 'Pause Timer' : 'Resume Timer')}
           >
             {isRunning ? <Pause size={9} fill="#fff" /> : <Play size={9} fill="#fff" />}
           </button>
@@ -247,8 +248,9 @@ export const TopNavbar = () => {
           {/* Stop / Clock-out Button */}
           <button
             onClick={handleClockOut}
-            className="w-[18px] h-[18px] rounded-full border-none bg-red-500 text-white flex items-center justify-center cursor-pointer p-0 hover:bg-red-600"
-            title="Stop Timer / Clock Out"
+            disabled={!isClockedIn || hadClockedOutToday}
+            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : 'cursor-pointer bg-red-500 hover:bg-red-600'}`}
+            title={(!isClockedIn || hadClockedOutToday) ? 'Already clocked out' : 'Stop Timer / Clock Out'}
           >
             <Square size={8} fill="#fff" />
           </button>

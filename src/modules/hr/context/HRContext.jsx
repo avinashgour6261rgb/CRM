@@ -76,7 +76,20 @@ export const HRProvider = ({ children }) => {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('all');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => {
+    try {
+      const s = localStorage.getItem('ems_auth_session');
+      if (s) {
+        const parsed = JSON.parse(s);
+        const u = parsed?.user || parsed;
+        const isPriv = u?.isAdmin || ['admin', 'hr'].includes(u?.role?.toLowerCase()) || ['admin', 'hr'].includes(u?.systemRole?.toLowerCase());
+        if (!isPriv && u) {
+          return u._id || u.employeeCode || 'self';
+        }
+      }
+    } catch (_) {}
+    return 'all';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
 
@@ -90,19 +103,33 @@ export const HRProvider = ({ children }) => {
     isFetchingRef.current = true;
     try {
       setLoading(true);
+
+      const authUserObj = currentUser || (() => {
+        try {
+          const s = localStorage.getItem('ems_auth_session');
+          if (s) {
+            const parsed = JSON.parse(s);
+            return parsed?.user || parsed;
+          }
+        } catch (_) {}
+        return null;
+      })();
+      const isPrivileged = authUserObj?.isAdmin || ['admin', 'hr'].includes(authUserObj?.role?.toLowerCase()) || ['admin', 'hr'].includes(authUserObj?.systemRole?.toLowerCase());
+      const effectiveEmpId = isPrivileged ? selectedEmployeeId : (authUserObj?._id || authUserObj?.employeeCode || 'self');
+
       const results = await Promise.allSettled([
         hrService.getEmployees(),
         hrService.getCurrentUser(),
         hrService.getLeaves({
-          employeeId: selectedEmployeeId,
+          employeeId: effectiveEmpId,
           search: searchQuery,
           startDate: dateRange.startDate,
           endDate: dateRange.endDate
         }),
-        hrService.getMonthlyAttendance(selectedMonth, selectedYear, selectedEmployeeId),
+        hrService.getMonthlyAttendance(selectedMonth, selectedYear, effectiveEmpId),
         hrService.getHolidays(selectedYear, searchQuery),
-        hrService.getAppreciations({ employeeId: selectedEmployeeId, search: searchQuery }),
-        hrService.getAttendanceAuditLogs({ employeeId: selectedEmployeeId, month: selectedMonth, year: selectedYear }),
+        hrService.getAppreciations({ employeeId: effectiveEmpId, search: searchQuery }),
+        hrService.getAttendanceAuditLogs({ employeeId: effectiveEmpId, month: selectedMonth, year: selectedYear }),
         hrService.getResignations()
       ]);
 

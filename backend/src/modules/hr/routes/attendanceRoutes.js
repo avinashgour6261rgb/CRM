@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 const {
   getMonthlyAttendance,
   getAttendanceSummary,
@@ -14,6 +15,9 @@ const {
   requestOvertime,
   updateOvertimeStatus
 } = require('../controllers/attendanceController');
+
+// All attendance routes require authenticated user scoping
+router.use(authenticateUser);
 
 router.get('/', getMonthlyAttendance);
 router.get('/monthly', getMonthlyAttendance);
