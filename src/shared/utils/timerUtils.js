@@ -197,6 +197,20 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     return 0;
   }
 
+  // Derive first clock in timestamp of today to strictly bound physical elapsed work time
+  let firstClockInTs = Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) || Number(attRec?.clockInTimestamp);
+  if (!firstClockInTs || firstClockInTs < todayMidnightMs) {
+    const loginStr = readTimerStorage(userOrEmp, 'login_time') || attRec?.clockInTime || attRec?.clockIn;
+    if (loginStr && loginStr !== '--' && loginStr !== 'Active') {
+      firstClockInTs = todayMidnightMs + parseTimeToSeconds(loginStr) * 1000;
+    }
+  }
+
+  // The true physical upper bound is time elapsed since FIRST clock in today (e.g. 1h 50m since 10:04 AM)
+  const maxPhysicalElapsedToday = (firstClockInTs && firstClockInTs >= todayMidnightMs)
+    ? Math.max(0, Math.floor((nowMs - firstClockInTs) / 1000))
+    : maxPossibleGrossToday;
+
   // Resolved Clock-In state: MUST be clocked in and NOT clocked out
   const isEffectivelyClockedIn = !storedHadClockOut && (
     (storedClockedIn && !hasAttClockOut) ||
@@ -210,52 +224,47 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     (hasAttClockIn && attRec?.isClockedIn === false)
   );
 
-  // Punch sessions for today
-  let punchSessions = [];
+  // Punch sessions strictly for TODAY (filter out any dirty sessions from prior dates)
+  let rawSessions = [];
   try {
-    const rawSessions = readTimerStorage(userOrEmp, 'punch_sessions');
-    if (rawSessions) punchSessions = typeof rawSessions === 'string' ? JSON.parse(rawSessions) : rawSessions;
+    const raw = readTimerStorage(userOrEmp, 'punch_sessions');
+    if (raw) rawSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
   } catch (_) {}
-  if ((!punchSessions || punchSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
-    punchSessions = attRec.punchSessions;
+  if ((!rawSessions || rawSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
+    rawSessions = attRec.punchSessions;
   }
-  const pastSessionsSecs = (punchSessions || []).reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+  const validTodaySessions = (rawSessions || []).filter(s => {
+    const ts = Number(s.inTimestamp || 0);
+    if (ts > 0) return ts >= todayMidnightMs;
+    return false;
+  });
+  const pastSessionsSecs = validTodaySessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
 
   if (isEffectivelyClockedIn) {
     if (storedOnBreak) {
       const frozenSecs = pastSessionsSecs > 0 ? pastSessionsSecs : (storedWorkSecs || Number(attRec?.workSeconds) || 0);
-      return Math.min(frozenSecs, maxPossibleGrossToday);
+      return Math.min(frozenSecs, maxPhysicalElapsedToday);
     }
 
     let sessStartTs = Number(readTimerStorage(userOrEmp, 'current_session_start_timestamp')) ||
-      Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) ||
-      Number(attRec?.clockInTimestamp) ||
+      firstClockInTs ||
       nowMs;
-
-    if (!sessStartTs || sessStartTs < todayMidnightMs) {
-      const loginStr = readTimerStorage(userOrEmp, 'login_time') || attRec?.clockInTime || attRec?.clockIn;
-      if (loginStr && loginStr !== '--' && loginStr !== 'Active') {
-        sessStartTs = todayMidnightMs + parseTimeToSeconds(loginStr) * 1000;
-      } else {
-        sessStartTs = todayMidnightMs;
-      }
-    }
     sessStartTs = Math.max(sessStartTs, todayMidnightMs);
 
     const rawSessionGross = Math.max(0, Math.floor((nowMs - sessStartTs) / 1000));
-    const curSessionGross = Math.min(maxPossibleGrossToday, rawSessionGross);
+    const curSessionGross = Math.min(maxPhysicalElapsedToday, rawSessionGross);
     const sessionBreakBaseline = Number(readTimerStorage(userOrEmp, 'session_break_baseline')) || 0;
     const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
     const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
 
-    const result = Math.max(storedWorkSecs, liveSecs);
-    return Math.min(result, maxPossibleGrossToday);
+    const result = (storedWorkSecs > 0 && storedWorkSecs <= maxPhysicalElapsedToday) ? Math.max(storedWorkSecs, liveSecs) : liveSecs;
+    return Math.min(result, maxPhysicalElapsedToday);
   } else if (isEffectivelyClockedOut) {
     let finalSecs = pastSessionsSecs > 0 ? pastSessionsSecs : (storedWorkSecs || Number(attRec?.workSeconds) || 0);
     if (!finalSecs && attRec?.totalWorkingHours) {
       finalSecs = Math.round(Number(attRec.totalWorkingHours) * 3600);
     }
-    return Math.min(finalSecs, maxPossibleGrossToday);
+    return Math.min(finalSecs, maxPhysicalElapsedToday);
   }
 
   return 0;
@@ -360,6 +369,8 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
     const rawSessions = readTimerStorage(user, 'punch_sessions');
     if (rawSessions) existingSessions = typeof rawSessions === 'string' ? JSON.parse(rawSessions) : rawSessions;
   } catch (_) {}
+  const todayMidnightMs = todayMidnight.getTime();
+  existingSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnightMs);
 
   const pastSessionsSecs = (existingSessions || []).reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
   const storedWorkSecs = Number(readTimerStorage(user, 'work_seconds')) || 0;
@@ -457,10 +468,14 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
       if (matchedRecord) {
         try {
-          fetch(`${API_BASE}/attendance`, {
+          fetch(`${API_BASE}/attendance/mark`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(matchedRecord)
+            body: JSON.stringify({
+              ...matchedRecord,
+              employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
+              status: matchedRecord.status || 'present'
+            })
           }).catch(() => {});
         } catch (_) {}
       }
