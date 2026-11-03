@@ -299,7 +299,12 @@ export const TeamOperationsPage = () => {
       : null;
 
     const nowMs = Date.now();
-    const workSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs);
+    const workSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs, {
+      isClockedIn,
+      isClockedOut,
+      isOnBreak: storedOnBreak,
+      attRec
+    });
 
     // Active Running Task
     let activeTimer = null;
@@ -310,12 +315,12 @@ export const TeamOperationsPage = () => {
     } catch {}
 
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-    const baseRunningTask = isClockedIn
+    const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
       ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
       : null;
     let runningTask = null;
 
-    if (baseRunningTask && isClockedIn) {
+    if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave) {
       const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, storedOnBreak);
       runningTask = {
         ...baseRunningTask,
@@ -738,10 +743,15 @@ export const TeamOperationsPage = () => {
       });
     }
 
-    // Tasks worked today
+    // Tasks worked today (strictly today's tasks)
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
     const tasksWorked = [];
     empTasks.forEach(pt => {
+      // Strict guard: only consider task if worked or completed today
+      const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
+      const isWorkedToday = (pt.sessionDate === todayStr) || (pt.dailySessions && pt.dailySessions[todayStr] > 0) || isCompletedToday || (pt.timerRunning && empState.isClockedIn);
+      if (!isWorkedToday) return;
+
       const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), empState.isClockedIn, empState.isOnBreak);
       if (todaySecs > 0) {
         const isDone = pt.status === 'completed';

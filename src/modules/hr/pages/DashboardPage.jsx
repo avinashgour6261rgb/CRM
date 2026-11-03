@@ -589,7 +589,12 @@ export const DashboardPage = () => {
     const maxPossibleGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
 
     // Calculate dynamic live work seconds strictly using SSOT engine
-    const workSecs = calculateShiftWorkSeconds(emp, todayStr, Date.now());
+    const workSecs = calculateShiftWorkSeconds(emp, todayStr, Date.now(), {
+      isClockedIn,
+      isClockedOut,
+      isOnBreak: storedOnBreak,
+      attRec
+    });
 
     // Active running task with live ticking calculation
     let activeTimer = null;
@@ -614,13 +619,13 @@ export const DashboardPage = () => {
       if (!empTaskMap.has(k)) empTaskMap.set(k, t);
     });
     const empTasks = Array.from(empTaskMap.values());
-    const baseRunningTask = isClockedIn
+    const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
       ? (empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
          (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null))
       : null;
     let runningTask = null;
 
-    if (baseRunningTask && isClockedIn && !isTaskActuallyCompleted(baseRunningTask)) {
+    if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave && !isTaskActuallyCompleted(baseRunningTask)) {
       const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, Date.now(), isClockedIn, storedOnBreak);
       runningTask = {
         ...baseRunningTask,
@@ -1135,7 +1140,7 @@ export const DashboardPage = () => {
       } catch (e) {}
 
       let runningTaskId = null;
-      if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr && isClockedIn) {
+      if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr && isClockedIn && !isOnBreak && !isClockedOut) {
         runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
         const runningElapsed = empActiveTimer.startedAt
           ? Math.max(0, Math.floor((Date.now() - empActiveTimer.startedAt) / 1000))
@@ -1163,6 +1168,11 @@ export const DashboardPage = () => {
         if (runningTaskId && ptId === runningTaskId) return;
         const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
         if (alreadyInTasksWorked) return;
+
+        // Strict guard: only consider task if worked or completed today
+        const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
+        const isWorkedToday = (pt.sessionDate === todayStr) || (pt.dailySessions && pt.dailySessions[todayStr] > 0) || isCompletedToday || (pt.timerRunning && isClockedIn);
+        if (!isWorkedToday) return;
 
         const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), isClockedIn, isOnBreak);
         if (todaySecs > 0) {

@@ -776,8 +776,8 @@ export const TimerProvider = ({ children }) => {
         setHadClockedOutToday(false);
         setBreakSeconds(bSecs);
 
-        // 🌟 FLICKER PREVENTION: Never overwrite live ticking workSeconds unless stale / out-of-bounds!
-        setWorkSeconds(prev => (prev > 0 && prev <= maxGrossSecs ? prev : effectiveWorkSecs));
+        // 🌟 FLICKER PREVENTION: While timer is running, tick() is the single driver of workSeconds. Never overwrite live seconds!
+        setWorkSeconds(prev => (prev > 0 ? prev : effectiveWorkSecs));
 
         if (rec?.breakType) setBreakType(rec.breakType);
         if (Array.isArray(rec?.breakHistory) && rec.breakHistory.length > 0) {

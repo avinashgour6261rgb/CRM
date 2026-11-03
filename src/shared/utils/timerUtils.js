@@ -137,6 +137,8 @@ export const removeTimerStorage = (user, subKey) => {
 };
 
 import { API_BASE } from '../config/apiConfig';
+import { hrService } from '../../modules/hr/services/hrService';
+import { workService } from '../../modules/work/services/workService';
 
 /**
  * Single Source of Truth: Calculate shift work seconds for an employee on a given date.
@@ -147,7 +149,7 @@ import { API_BASE } from '../config/apiConfig';
  * - If clocked in: returns pastSessionsSecs + currentSessionNet. Live ticking.
  * - Work seconds can NEVER exceed physical wall-clock elapsed time since midnight today.
  */
-export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()) => {
+export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now(), options = {}) => {
   if (!userOrEmp || typeof localStorage === 'undefined') return 0;
   const today = dateStr || new Date().toISOString().split('T')[0];
 
@@ -160,7 +162,7 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   const isTodaySession = storedSessionDate === today;
 
   const storedClockedIn = isTodaySession && (readTimerStorage(userOrEmp, 'is_clocked_in') === 'true' || readTimerStorage(userOrEmp, 'is_clocked_in') === true);
-  const storedOnBreak = isTodaySession && (readTimerStorage(userOrEmp, 'is_on_break') === 'true' || readTimerStorage(userOrEmp, 'is_on_break') === true);
+  const storedOnBreak = options.isOnBreak !== undefined ? Boolean(options.isOnBreak) : (isTodaySession && (readTimerStorage(userOrEmp, 'is_on_break') === 'true' || readTimerStorage(userOrEmp, 'is_on_break') === true));
   const storedWorkSecs = isTodaySession ? (Number(readTimerStorage(userOrEmp, 'work_seconds')) || 0) : 0;
   const storedBreakSecs = isTodaySession ? (Number(readTimerStorage(userOrEmp, 'break_seconds')) || 0) : 0;
   const storedHadClockOut = isTodaySession && (
@@ -170,32 +172,29 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     Boolean(readTimerStorage(userOrEmp, 'clockout_time'))
   );
 
-  let attRec = null;
-  try {
-    const rawAtt = localStorage.getItem('hrms_attendance');
-    if (rawAtt) {
-      const attList = JSON.parse(rawAtt) || [];
-      const keys = getTimerMirrorKeys(userOrEmp).map(k => String(k).toLowerCase());
-      const uName = (userOrEmp.name || userOrEmp.employeeName || '').toLowerCase().trim();
-      attRec = attList.find(a =>
-        a.date === today && (
-          (a.employeeId && keys.includes(String(a.employeeId).toLowerCase())) ||
-          (a.employee && keys.includes(String(a.employee._id || a.employee).toLowerCase())) ||
-          (a.employeeCode && keys.includes(String(a.employeeCode).toLowerCase())) ||
-          (uName && a.employeeName && a.employeeName.toLowerCase().trim() === uName)
-        )
-      ) || null;
-    }
-  } catch (_) {}
+  let attRec = options.attRec || null;
+  if (!attRec) {
+    try {
+      const rawAtt = localStorage.getItem('hrms_attendance');
+      if (rawAtt) {
+        const attList = JSON.parse(rawAtt) || [];
+        const keys = getTimerMirrorKeys(userOrEmp).map(k => String(k).toLowerCase());
+        const uName = (userOrEmp.name || userOrEmp.employeeName || '').toLowerCase().trim();
+        attRec = attList.find(a =>
+          a.date === today && (
+            (a.employeeId && keys.includes(String(a.employeeId).toLowerCase())) ||
+            (a.employee && keys.includes(String(a.employee._id || a.employee).toLowerCase())) ||
+            (a.employeeCode && keys.includes(String(a.employeeCode).toLowerCase())) ||
+            (uName && a.employeeName && a.employeeName.toLowerCase().trim() === uName)
+          )
+        ) || null;
+      }
+    } catch (_) {}
+  }
 
   const hasAttClockIn = Boolean(attRec && attRec.date === today && (attRec.clockInTime || attRec.clockIn));
   const hasAttClockOut = Boolean(attRec && attRec.date === today && (attRec.clockOutTime || attRec.clockOut));
   const hasAnyClockInToday = hasAttClockIn || (isTodaySession && Boolean(readTimerStorage(userOrEmp, 'login_time') || Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) > 0));
-
-  // If user NEVER clocked in today, their work time is STRICTLY 0!
-  if (!hasAnyClockInToday && !storedClockedIn) {
-    return 0;
-  }
 
   // Derive first clock in timestamp of today to strictly bound physical elapsed work time
   let firstClockInTs = Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) || Number(attRec?.clockInTimestamp);
@@ -210,19 +209,6 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   const maxPhysicalElapsedToday = (firstClockInTs && firstClockInTs >= todayMidnightMs)
     ? Math.max(0, Math.floor((nowMs - firstClockInTs) / 1000))
     : maxPossibleGrossToday;
-
-  // Resolved Clock-In state: MUST be clocked in and NOT clocked out
-  const isEffectivelyClockedIn = !storedHadClockOut && (
-    (storedClockedIn && !hasAttClockOut) ||
-    (hasAttClockIn && !hasAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
-  );
-
-  // Resolved Clocked-Out state
-  const isEffectivelyClockedOut = !isEffectivelyClockedIn && (
-    storedHadClockOut ||
-    hasAttClockOut ||
-    (hasAttClockIn && attRec?.isClockedIn === false)
-  );
 
   // Punch sessions strictly for TODAY (filter out any dirty sessions from prior dates)
   let rawSessions = [];
@@ -239,6 +225,31 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     return false;
   });
   const pastSessionsSecs = validTodaySessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+
+  // If user NEVER clocked in today, their work time is STRICTLY 0!
+  if (!hasAnyClockInToday && !storedClockedIn && pastSessionsSecs === 0) {
+    return 0;
+  }
+
+  // Strict Clock-Out resolution:
+  const isExplicitlyClockedOut = Boolean(
+    options.isClockedOut === true ||
+    (options.isClockedIn === false && options.isClockedOut !== false) ||
+    storedHadClockOut ||
+    hasAttClockOut ||
+    (hasAttClockIn && attRec?.isClockedIn === false)
+  );
+
+  // Strict Clock-In resolution:
+  const isEffectivelyClockedIn = !isExplicitlyClockedOut && (
+    options.isClockedIn === true ||
+    (storedClockedIn && !hasAttClockOut) ||
+    (hasAttClockIn && !hasAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
+  );
+
+  const isEffectivelyClockedOut = isExplicitlyClockedOut || (
+    !isEffectivelyClockedIn && (hasAnyClockInToday || pastSessionsSecs > 0)
+  );
 
   if (isEffectivelyClockedIn) {
     if (storedOnBreak) {
@@ -257,9 +268,10 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
     const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
 
-    const result = (storedWorkSecs > 0 && storedWorkSecs <= maxPhysicalElapsedToday) ? Math.max(storedWorkSecs, liveSecs) : liveSecs;
-    return Math.min(result, maxPhysicalElapsedToday);
+    // FLICKER FIX: Never bounce with stale storedWorkSecs. Use monotonic physical liveSecs.
+    return Math.min(liveSecs, maxPhysicalElapsedToday);
   } else if (isEffectivelyClockedOut) {
+    // CLOCKED OUT: Strictly return verified frozen seconds. NEVER calculate live elapsed time!
     let finalSecs = pastSessionsSecs > 0 ? pastSessionsSecs : (storedWorkSecs || Number(attRec?.workSeconds) || 0);
     if (!finalSecs && attRec?.totalWorkingHours) {
       finalSecs = Math.round(Number(attRec.totalWorkingHours) * 3600);
@@ -272,7 +284,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
 
 /**
  * Single Source of Truth: Calculate task today seconds for any task on a given date.
- * Strictly guarantees identical values across Dashboard, Active Timer, Weekly Logs, and Tasks Page.
+ * Strictly guarantees:
+ * - Past tasks not worked or completed today return strictly 0 today seconds (prevents leaking into Day Logs).
+ * - Identical values across Dashboard, Active Timer, Weekly Logs, and Tasks Page.
  */
 export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffectiveClockedIn = true, isEffectiveOnBreak = false) => {
   if (!task) return 0;
@@ -285,8 +299,11 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
     baseSecs = Number(task.todayWorkSeconds) || 0;
   } else if (task.sessionDate === today) {
     baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-  } else if (!task.sessionDate) {
+  } else if (task.completedOn === today || (task.completedAt && String(task.completedAt).startsWith(today))) {
     baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+  } else {
+    // STRICT: Past tasks not worked today have 0 seconds for today!
+    baseSecs = 0;
   }
 
   let liveSecs = 0;
@@ -468,14 +485,11 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
       if (matchedRecord) {
         try {
-          fetch(`${API_BASE}/attendance/mark`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...matchedRecord,
-              employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
-              status: matchedRecord.status || 'present'
-            })
+          hrService.markAttendance({
+            ...matchedRecord,
+            employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
+            employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
+            status: matchedRecord.status || 'present'
           }).catch(() => {});
         } catch (_) {}
       }
@@ -507,6 +521,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
       const taskList = JSON.parse(rawTasks) || [];
       const userIdentifiers = mirrorKeys.map(k => String(k).toLowerCase());
       let taskChanged = false;
+      const tasksToUpdateBackend = [];
 
       const updatedTasks = taskList.map(t => {
         const isAssigned = (t.assignedToId && userIdentifiers.includes(String(t.assignedToId).toLowerCase())) ||
@@ -517,7 +532,9 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
         if (isAssigned && t.timerRunning) {
           taskChanged = true;
-          return syncTaskPauseState(t, { nowMs: nowTs, todayStr: today, wasPausedForClockOut: true });
+          const pausedT = syncTaskPauseState(t, { nowMs: nowTs, todayStr: today, wasPausedForClockOut: true });
+          tasksToUpdateBackend.push(pausedT);
+          return pausedT;
         }
         return t;
       });
@@ -525,6 +542,39 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
       if (taskChanged) {
         localStorage.setItem('ems_tasks', JSON.stringify(updatedTasks));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_tasks' } }));
+
+        // Async update tasks in MongoDB backend so remote clients see timerRunning: false
+        tasksToUpdateBackend.forEach(pt => {
+          if (pt && (pt._id || pt.id)) {
+            workService.updateTask(pt._id || pt.id, {
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: pt.accumulatedSeconds,
+              timerSeconds: pt.timerSeconds,
+              todayWorkSeconds: pt.todayWorkSeconds,
+              dailySessions: pt.dailySessions,
+              sessionDate: pt.sessionDate,
+              wasPausedForClockOut: true
+            }).catch(() => {});
+          }
+        });
+      }
+
+      // Also ensure pausedActiveTimer taskId is synced to backend
+      if (pausedActiveTimer && pausedActiveTimer.taskId) {
+        const alreadyUpdated = tasksToUpdateBackend.some(pt => String(pt._id || pt.id) === String(pausedActiveTimer.taskId));
+        if (!alreadyUpdated) {
+          workService.updateTask(pausedActiveTimer.taskId, {
+            timerRunning: false,
+            startedAt: null,
+            accumulatedSeconds: pausedActiveTimer.accumulatedSeconds,
+            timerSeconds: pausedActiveTimer.timerSeconds,
+            todayWorkSeconds: pausedActiveTimer.todayWorkSeconds,
+            dailySessions: pausedActiveTimer.dailySessions,
+            sessionDate: pausedActiveTimer.sessionDate,
+            wasPausedForClockOut: true
+          }).catch(() => {});
+        }
       }
     }
   } catch (_) {}
