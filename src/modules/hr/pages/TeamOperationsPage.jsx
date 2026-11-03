@@ -36,6 +36,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
+import { calculateShiftWorkSeconds, getTaskTodaySeconds } from '../../../shared/utils/timerUtils';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
@@ -287,61 +288,8 @@ export const TeamOperationsPage = () => {
       ? (attRec?.clockOutTime || storedClockOut || '--')
       : null;
 
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    const todayMidnightMs = todayMidnight.getTime();
-    const maxPossibleGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
-
-    let workSecs = 0;
-    if (isClockedIn) {
-      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
-      if (!storedOnBreak) {
-        let punchSessions = [];
-        try {
-          const rawS = localStorage.getItem(`ems_timer_${empKey}_punch_sessions`) || (empId ? localStorage.getItem(`ems_timer_${empId}_punch_sessions`) : null);
-          if (rawS) punchSessions = JSON.parse(rawS) || [];
-        } catch {}
-        if (punchSessions.length === 0 && Array.isArray(attRec?.punchSessions)) {
-          punchSessions = attRec.punchSessions;
-        }
-        const pastSessionsSecs = punchSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
-
-        let sessStartTs = Number(localStorage.getItem(`ems_timer_${empKey}_current_session_start_timestamp`)) ||
-                          (empId ? Number(localStorage.getItem(`ems_timer_${empId}_current_session_start_timestamp`)) : 0) ||
-                          Number(attRec?.clockInTimestamp) ||
-                          Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) ||
-                          (empId ? Number(localStorage.getItem(`ems_timer_${empId}_clock_in_timestamp`)) : 0);
-
-        // Sanitize sessStartTs against midnight - cannot be earlier than today 00:00:00
-        if (!sessStartTs || sessStartTs < todayMidnightMs) {
-          if (loginTime && loginTime !== 'Active' && loginTime !== '--' && loginTime !== 'On Leave') {
-            sessStartTs = todayMidnightMs + parseTimeToSeconds(loginTime) * 1000;
-          } else {
-            sessStartTs = todayMidnightMs;
-          }
-        }
-        sessStartTs = Math.max(sessStartTs, todayMidnightMs);
-
-        if (sessStartTs > 0) {
-          const rawSessionGross = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
-          const curSessionGross = Math.min(maxPossibleGrossToday, rawSessionGross);
-          const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${empKey}_session_break_baseline`)) || 0;
-          const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
-          const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
-          workSecs = Math.max(workSecs, liveSecs);
-        }
-      }
-      // Strict upper bound: can never exceed physical elapsed time since today's midnight, or 14h
-      workSecs = Math.min(workSecs, maxPossibleGrossToday, 14 * 3600);
-    } else if (isClockedOut) {
-      workSecs = storedWorkSecs || Number(attRec?.workSeconds) || 0;
-      if (!workSecs && attRec?.totalWorkingHours) {
-        workSecs = Math.round(attRec.totalWorkingHours * 3600);
-      }
-      workSecs = Math.min(workSecs, 14 * 3600);
-    } else {
-      workSecs = 0;
-    }
+    const nowMs = Date.now();
+    const workSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs);
 
     // Active Running Task
     let activeTimer = null;
@@ -358,12 +306,7 @@ export const TeamOperationsPage = () => {
     let runningTask = null;
 
     if (baseRunningTask && isClockedIn) {
-      let liveTaskSecs = Number(baseRunningTask.timerSeconds) || Number(baseRunningTask.accumulatedSeconds) || 0;
-      const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? Number(baseRunningTask.startedAt) : 0);
-      if (baseRunningTask.timerRunning && startEpoch > 0) {
-        const elapsed = Math.max(0, Math.floor((Date.now() - startEpoch) / 1000));
-        liveTaskSecs = (Number(baseRunningTask.accumulatedSeconds) || Number(baseRunningTask.timerSeconds) || 0) + elapsed;
-      }
+      const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, storedOnBreak);
       runningTask = {
         ...baseRunningTask,
         liveTaskSecs,

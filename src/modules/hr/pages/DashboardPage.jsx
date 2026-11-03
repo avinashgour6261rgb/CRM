@@ -69,7 +69,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage } from '../../../shared/utils/timerUtils';
+import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -686,16 +686,7 @@ export const DashboardPage = () => {
     let runningTask = null;
 
     if (baseRunningTask && isClockedIn && !isTaskActuallyCompleted(baseRunningTask)) {
-      const startEpoch = baseRunningTask.startEpoch || (baseRunningTask.startedAt ? (typeof baseRunningTask.startedAt === 'number' ? baseRunningTask.startedAt : new Date(baseRunningTask.startedAt).getTime()) : 0);
-      const accumulated = (baseRunningTask.accumulatedSeconds !== undefined && baseRunningTask.accumulatedSeconds !== null)
-        ? Number(baseRunningTask.accumulatedSeconds)
-        : (Number(baseRunningTask.timerSeconds) || 0);
-
-      let liveTaskSecs = accumulated;
-      if (baseRunningTask.timerRunning && startEpoch > 0) {
-        const elapsed = Math.max(0, Math.floor((Date.now() - startEpoch) / 1000));
-        liveTaskSecs = accumulated + elapsed;
-      }
+      const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, Date.now(), isClockedIn, storedOnBreak);
       runningTask = {
         ...baseRunningTask,
         liveTaskSecs,
@@ -1489,42 +1480,14 @@ export const DashboardPage = () => {
     if (isTaskActuallyCompleted(t)) return acc;
 
     // Check if task was worked today:
-    // Strictly must be currently running today (AND clocked in!), or explicitly worked/paused today (sessionDate === todayStr)
     const isRunningNow = Boolean(displayedIsClockedIn) && (Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId));
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    const wasStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnight.getTime();
-    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || wasStartedToday;
+    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || (t.dailySessions && t.dailySessions[todayStr] > 0);
     if (!isWorkedToday) return acc;
 
+    const todayPortion = getTaskTodaySeconds(t, todayStr, Date.now(), displayedIsClockedIn, displayedIsOnBreak);
     const loggedForThisTaskToday = todayTimesheets
       .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
       .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
-
-    // Subtract all time already logged on previous days
-    const prevDaysLogged = (timesheets || [])
-      .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== todayStr)
-      .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-
-    // Strictly isolate time worked TODAY from previous days' lifetime seconds
-    let todayPortion = 0;
-    if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[todayStr] !== undefined) {
-      todayPortion = Number(t.dailySessions[todayStr]) || 0;
-    } else if (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined) {
-      todayPortion = Number(t.todayWorkSeconds) || 0;
-    } else if (wasStartedToday && !prevDaysLogged) {
-      // Only if the task itself was genuinely created and started today
-      const rawSecs = Number(t.todayWorkSeconds) || Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
-      todayPortion = Math.min(rawSecs, 12 * 3600);
-    }
-
-    // Add running timer elapsed seconds for today (only time that ticked today while CLOCKED IN)
-    if (isRunningNow && displayedIsClockedIn) {
-      const runningStart = t.startedAt ? Number(t.startedAt) : (activeRunningTask?.startedAt ? Number(activeRunningTask.startedAt) : Date.now());
-      const effectiveStart = Math.max(runningStart, todayMidnight.getTime());
-      const liveElapsed = Math.max(0, Math.floor((Date.now() - effectiveStart) / 1000));
-      todayPortion += liveElapsed;
-    }
 
     const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
     return acc + unsubmitted;

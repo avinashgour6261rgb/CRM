@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
+import { getTaskTodaySeconds } from '../../../../shared/utils/timerUtils';
 
 export const WeeklyTimeLogsCard = ({
     effectiveTargetUser,
@@ -149,120 +150,55 @@ export const WeeklyTimeLogsCard = ({
                 };
             });
 
-            // 2. Also check tasks completed on this date that might not be in timesheets yet
-            (tasks || []).forEach(t => {
-                if (!isMyTask(t)) return;
-                const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
-                const alreadyInTs = dayTs.some(ts =>
-                  String(ts.taskId) === String(t._id || t.id) ||
-                  (t.taskCode && ts.taskCode === t.taskCode) ||
-                  (t.title && ts.taskTitle === t.title)
-                );
-                if (isCompletedOnDate && !alreadyInTs) {
-                    let tSecs = 0;
-                    if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
-                        tSecs = Number(t.dailySessions[dateStr]) || 0;
-                    } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
-                        tSecs = Number(t.todayWorkSeconds) || 0;
-                    } else if (t.completedOn === dateStr && !timesheets?.some(ts => ts.date !== dateStr && String(ts.taskId) === String(t._id || t.id))) {
-                        const rawSecs = Number(t.todayWorkSeconds) || Number(t.timerSeconds) || 0;
-                        tSecs = Math.min(rawSecs, 12 * 3600);
-                    }
-                    tSecs = Math.min(tSecs, 12 * 3600);
-                    if (tSecs > 0) {
-                        dayTotalSecs += tSecs;
-                        tasksWorked.push({
-                            taskId: t._id || t.id,
-                            taskCode: t.taskCode || 'TSK',
-                            taskTitle: t.title || 'Task',
-                            projectName: t.projectName || 'General Work',
-                            durationText: formatSeconds(tSecs),
-                            durationSeconds: tSecs,
-                            status: 'completed',
-                            isCompleted: true
-                        });
-                    }
-                }
-            });
-
-            // 3. For CURRENT DAY ONLY: include active running / paused tasks worked today
+            // 2. Add unsubmitted work portions for tasks worked on this date
             if (isCurrentDay && dateStr === currentTodayStr) {
-                // Today's active running timer (strictly only count live ticking if effective user is CLOCKED IN)
-                if (isEffectiveClockedIn && activeRunningTask && activeRunningTask.timerRunning && (!activeRunningTask.date || activeRunningTask.date === dateStr)) {
-                    const tId = String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId);
-                    const alreadyLoggedToday = dayTs
-                        .filter(ts => String(ts.taskId) === tId || (activeRunningTask.taskCode && ts.taskCode === activeRunningTask.taskCode) || (activeRunningTask.title && ts.taskTitle === activeRunningTask.title))
-                        .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
-
-                    const todayMidnight = new Date();
-                    todayMidnight.setHours(0, 0, 0, 0);
-                    const todayMidnightMs = todayMidnight.getTime();
-                    const nowMs = Date.now();
-                    const rawStartMs = activeRunningTask.startedAt ? Number(activeRunningTask.startedAt) : nowMs;
-
-                    // Guard against runaway multi-day timer: clamp startMs to today midnight
-                    const startMs = Math.max(rawStartMs, todayMidnightMs);
-                    const liveRunSecs = Math.min(Math.max(0, Math.floor((nowMs - startMs) / 1000)), 14 * 3600);
-                    const baseSecs = Math.min(Number(activeRunningTask.todayWorkSeconds) || Number(activeRunningTask.dailySessions?.[currentTodayStr]) || 0, 14 * 3600);
-                    const totalLiveSecs = Math.min(baseSecs + liveRunSecs, 14 * 3600);
-                    const unsubmitted = Math.max(0, totalLiveSecs - alreadyLoggedToday);
-
-                    if (unsubmitted > 0) {
-                        dayTotalSecs += unsubmitted;
-                        tasksWorked.unshift({
-                            taskId: tId,
-                            taskCode: activeRunningTask.taskCode || 'TSK',
-                            taskTitle: activeRunningTask.title || 'Active Work',
-                            projectName: activeRunningTask.projectName || 'General Work',
-                            durationText: formatSeconds(totalLiveSecs),
-                            durationSeconds: totalLiveSecs,
-                            status: 'in_progress',
-                            isCompleted: false,
-                            isLive: true
-                        });
-                    }
-                }
-
-                // Also check any tasks explicitly paused today (sessionDate === dateStr)
+                const nowMs = Date.now();
                 (tasks || []).forEach(t => {
                     if (!isMyTask(t)) return;
                     const tId = String(t._id || t.id);
-                    if (activeRunningTask && String(activeRunningTask.taskId || activeRunningTask._id) === tId) return;
 
-                    // Strictly tasks worked today that are not completed
-                    if (t.sessionDate === dateStr && t.status !== 'completed' && !t.completedAt) {
-                        const alreadyLoggedToday = dayTs
-                            .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
-                            .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
+                    const isRunning = Boolean(
+                        (t.timerRunning || (activeRunningTask && String(activeRunningTask.taskId || activeRunningTask._id) === tId)) &&
+                        isEffectiveClockedIn
+                    );
 
-                        // Previous days logged to prevent historical leak
-                        const prevDaysLogged = (timesheets || [])
-                            .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== dateStr)
-                            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+                    const isWorkedToday = isRunning || t.sessionDate === dateStr || (t.dailySessions && t.dailySessions[dateStr] > 0);
+                    if (!isWorkedToday) return;
 
-                        let todayPortion = 0;
-                        if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
-                            todayPortion = Number(t.dailySessions[dateStr]) || 0;
-                        } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
-                            todayPortion = Number(t.todayWorkSeconds) || 0;
-                        } else if (t.completedOn === dateStr && !timesheets?.some(ts => ts.date !== dateStr && String(ts.taskId) === String(t._id || t.id))) {
-                            const rawTaskSecs = Math.min(Number(t.todayWorkSeconds) || Number(t.timerSeconds) || 0, 12 * 3600);
-                            todayPortion = Math.min(rawTaskSecs, 12 * 3600);
-                        }
-                        const unsubmitted = Math.max(0, todayPortion - alreadyLoggedToday);
+                    const taskTodaySecs = getTaskTodaySeconds(t, dateStr, nowMs, isEffectiveClockedIn, false);
+                    if (taskTodaySecs <= 0) return;
 
-                        if (unsubmitted > 0) {
-                            dayTotalSecs += unsubmitted;
-                            tasksWorked.push({
+                    const alreadyLoggedToday = dayTs
+                        .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
+                        .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
+
+                    const unsubmitted = Math.max(0, taskTodaySecs - alreadyLoggedToday);
+                    if (unsubmitted > 0) {
+                        dayTotalSecs += unsubmitted;
+                        // Avoid duplicate task items in tasksWorked
+                        const existingIdx = tasksWorked.findIndex(tw => String(tw.taskId) === tId);
+                        if (existingIdx >= 0) {
+                            tasksWorked[existingIdx].durationSeconds = taskTodaySecs;
+                            tasksWorked[existingIdx].durationText = formatSeconds(taskTodaySecs);
+                            tasksWorked[existingIdx].status = isRunning ? 'in_progress' : (t.status || 'in_progress');
+                            tasksWorked[existingIdx].isLive = isRunning;
+                        } else {
+                            const taskEntry = {
                                 taskId: tId,
                                 taskCode: t.taskCode || 'TSK',
                                 taskTitle: t.title || 'Task',
                                 projectName: t.projectName || 'General Work',
-                                durationText: formatSeconds(todayPortion),
-                                durationSeconds: todayPortion,
-                                status: 'in_progress',
-                                isCompleted: false
-                            });
+                                durationText: formatSeconds(taskTodaySecs),
+                                durationSeconds: taskTodaySecs,
+                                status: isRunning ? 'in_progress' : (t.status || 'in_progress'),
+                                isCompleted: Boolean(t.status === 'completed' || t.completedAt),
+                                isLive: isRunning
+                            };
+                            if (isRunning) {
+                                tasksWorked.unshift(taskEntry);
+                            } else {
+                                tasksWorked.push(taskEntry);
+                            }
                         }
                     }
                 });

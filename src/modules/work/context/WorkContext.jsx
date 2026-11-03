@@ -16,7 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -615,32 +615,24 @@ export const WorkProvider = ({ children }) => {
 
       // Auto-pause task timer strictly when employee is on break OR not clocked in!
       if ((isShiftOnBreak || !isShiftClockedIn) && activeTimer?.timerRunning) {
-        const currentSecs = getElapsedSeconds(activeTimer);
         const today = getTodayStr();
-        const pausedTimerState = {
-          ...activeTimer,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: currentSecs,
-          date: today,
-          wasPausedForBreak: Boolean(isShiftOnBreak),
-          wasPausedForClockOut: Boolean(!isShiftClockedIn)
-        };
-        saveActiveTimerSnapshot(pausedTimerState);
+        const pausedTimer = syncTaskPauseState(activeTimer, {
+          nowMs: Date.now(),
+          todayStr: today,
+          wasPausedForClockOut: Boolean(!isShiftClockedIn),
+          wasPausedForBreak: Boolean(isShiftOnBreak)
+        });
+        const currentSecs = pausedTimer.accumulatedSeconds;
+        saveActiveTimerSnapshot(pausedTimer);
 
         const allTasks = getCollection(KEYS.TASKS) || [];
         const updatedAll = allTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
             return {
               ...t,
-              timerRunning: false,
-              startedAt: null,
-              accumulatedSeconds: currentSecs,
-              timerSeconds: currentSecs,
-              liveDurationText: formatSeconds(currentSecs),
-              hoursLoggedText: formatSeconds(currentSecs),
-              wasPausedForBreak: Boolean(isShiftOnBreak),
-              wasPausedForClockOut: Boolean(!isShiftClockedIn)
+              ...pausedTimer,
+              _id: t._id,
+              id: t.id
             };
           }
           return t;
@@ -651,14 +643,9 @@ export const WorkProvider = ({ children }) => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
             return {
               ...t,
-              timerRunning: false,
-              startedAt: null,
-              accumulatedSeconds: currentSecs,
-              timerSeconds: currentSecs,
-              liveDurationText: formatSeconds(currentSecs),
-              hoursLoggedText: formatSeconds(currentSecs),
-              wasPausedForBreak: Boolean(isShiftOnBreak),
-              wasPausedForClockOut: Boolean(!isShiftClockedIn)
+              ...pausedTimer,
+              _id: t._id,
+              id: t.id
             };
           }
           return t;
@@ -1513,21 +1500,14 @@ export const WorkProvider = ({ children }) => {
     }
 
     // Existing seconds for today's session:
-    // If targetTask was already worked today (sessionDate === today), resume today's portion.
-    // If it's a new day, today's session starts fresh at 0!
-    let existingSecs = 0;
-    if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[today] !== undefined) {
-      existingSecs = Number(targetTask.dailySessions[today]) || 0;
-    } else if (targetTask.sessionDate === today && targetTask.todayWorkSeconds !== undefined) {
-      existingSecs = Number(targetTask.todayWorkSeconds) || 0;
-    } else if (targetTask.sessionDate === today) {
-      const rawSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
-        ? Number(targetTask.accumulatedSeconds)
-        : (Number(targetTask.timerSeconds) || 0);
-      existingSecs = Math.max(0, rawSecs - prevDaysLogged);
-    }
+    // Read from unified getTaskTodaySeconds to ensure 100% synchronization
+    const existingTodaySecs = getTaskTodaySeconds(targetTask, today, now, false, false);
+    const existingTotalSecs = Number(targetTask.accumulatedSeconds ?? targetTask.timerSeconds ?? existingTodaySecs);
+    let existingSecs = existingTotalSecs;
+
     if (activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today && !isForOtherEmployee) {
-      existingSecs = Math.max(existingSecs, getElapsedSeconds(activeTimer));
+      const activeBase = Number(activeTimer.accumulatedSeconds ?? activeTimer.timerSeconds ?? 0);
+      existingSecs = Math.max(existingSecs, activeBase);
     }
 
     const newTimerState = {
@@ -1540,7 +1520,11 @@ export const WorkProvider = ({ children }) => {
       timerRunning: true,
       startedAt: now,
       accumulatedSeconds: existingSecs,
+      timerSeconds: existingSecs,
+      todayWorkSeconds: existingTodaySecs,
+      dailySessions: { ...(targetTask.dailySessions || {}), [today]: existingTodaySecs },
       date: today,
+      sessionDate: today,
       lastUpdated: now,
       startedBy: currentUser?.name || 'User',
       startedById: currentUser?._id
@@ -1752,37 +1736,14 @@ export const WorkProvider = ({ children }) => {
       String(assignedEmpId) !== String(currentUser?._id);
     const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
 
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    const todayMidnightMs = todayMidnight.getTime();
-
-    let sessionElapsed = 0;
-    if (targetTask.timerRunning && targetTask.startedAt) {
-      const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMs);
-      sessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
-    } else if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && !isForOtherEmployee) {
-      const base = Number(activeTimer.accumulatedSeconds) || 0;
-      sessionElapsed = Math.max(0, getElapsedSeconds(activeTimer) - base);
-    }
-
-    const baseAccum = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
-      ? Number(targetTask.accumulatedSeconds)
-      : (activeTimer ? (Number(activeTimer.accumulatedSeconds) || 0) : 0);
-    const currentSecs = baseAccum + sessionElapsed;
-
-    // Isolate today session seconds strictly from prior days
-    const dailySessionsMap = (targetTask.dailySessions && typeof targetTask.dailySessions === 'object') ? { ...targetTask.dailySessions } : {};
-    const priorTodaySecs = Number(dailySessionsMap[today]) || (targetTask.sessionDate === today ? Number(targetTask.todayWorkSeconds || 0) : 0);
-    const updatedTodaySecs = priorTodaySecs + sessionElapsed;
-    dailySessionsMap[today] = updatedTodaySecs;
+    const pausedTask = syncTaskPauseState(targetTask, { nowMs: now, todayStr: today, wasPausedForClockOut: false, wasPausedForBreak: false });
+    const currentSecs = pausedTask.accumulatedSeconds;
+    const updatedTodaySecs = pausedTask.todayWorkSeconds;
+    const dailySessionsMap = pausedTask.dailySessions;
 
     const pausedTimerState = {
+      ...pausedTask,
       taskId: targetTask._id,
-      timerRunning: false,
-      startedAt: null,
-      accumulatedSeconds: currentSecs,
-      todayWorkSeconds: updatedTodaySecs,
-      dailySessions: dailySessionsMap,
       date: today
     };
 
@@ -1803,14 +1764,9 @@ export const WorkProvider = ({ children }) => {
       if (String(t._id || t.id) === String(taskId)) {
         return {
           ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: currentSecs,
-          timerSeconds: currentSecs,
-          todayWorkSeconds: updatedTodaySecs,
-          dailySessions: dailySessionsMap,
-          sessionDate: today,
-          liveDurationText: formatSeconds(currentSecs)
+          ...pausedTask,
+          _id: t._id,
+          id: t.id
         };
       }
       return t;
@@ -1832,14 +1788,9 @@ export const WorkProvider = ({ children }) => {
       if (String(t._id || t.id) === String(taskId)) {
         return {
           ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: currentSecs,
-          timerSeconds: currentSecs,
-          todayWorkSeconds: updatedTodaySecs,
-          dailySessions: dailySessionsMap,
-          sessionDate: today,
-          liveDurationText: formatSeconds(currentSecs)
+          ...pausedTask,
+          _id: t._id,
+          id: t.id
         };
       }
       return t;
