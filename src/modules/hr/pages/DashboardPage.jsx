@@ -326,7 +326,7 @@ export const DashboardPage = () => {
   const [isEmpDirectoryOpen, setIsEmpDirectoryOpen] = useState(false);
   const [isAddNoticeOpen, setIsAddNoticeOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
-  const [selectedDayLog, setSelectedDayLog] = useState(null);
+  const [dayLogModalParams, setDayLogModalParams] = useState(null); // { targetUser, customDate }
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -870,17 +870,239 @@ export const DashboardPage = () => {
     }
   };
 
-  // Open DayTimeLogModal for any user (default today)
-  const openDayLogModalForUser = (targetUser, customDate = todayStr) => {
+  // ── CANONICAL BUILDER FOR DAY TIME LOG MODAL ─────────────────────────
+  const buildDayLogData = React.useCallback((targetUser, customDate = todayStr) => {
     const emp = targetUser || (isViewingOtherEmployee ? activeViewUser : currentUser);
-    const empState = getEmployeeTodayState(emp);
+    if (!emp) return null;
+
+    const empKey = emp.employeeCode || (emp._id ? String(emp._id) : '');
+    const empId = emp._id ? String(emp._id) : '';
+    const empCode = emp.employeeCode ? String(emp.employeeCode) : '';
+    const empName = emp.name || '';
+    const empRole = emp.role || emp.systemRole || 'Team Member';
+    const empAvatar = emp.avatar || '';
     const isToday = customDate === todayStr;
 
-    const uId = emp?._id ? String(emp._id).toLowerCase() : '';
-    const uCode = emp?.employeeCode ? String(emp.employeeCode).toLowerCase() : '';
-    const uName = emp?.name ? emp.name.toLowerCase().trim() : '';
+    const uId = empId.toLowerCase();
+    const uCode = empCode.toLowerCase();
+    const uName = empName.toLowerCase().trim();
 
-    // 1. Get all timesheets specifically logged on customDate for this employee
+    // Attendance record for customDate
+    const attRec = (attendance || []).find(a =>
+      a.date === customDate && (
+        (uId && (String(a.employeeId).toLowerCase() === uId || String(a.employee).toLowerCase() === uId || String(a.employee?._id).toLowerCase() === uId)) ||
+        (uCode && (String(a.employeeCode).toLowerCase() === uCode || String(a.employeeId).toLowerCase() === uCode)) ||
+        (empKey && (String(a.employeeCode).toLowerCase() === String(empKey).toLowerCase() || String(a.employeeId).toLowerCase() === String(empKey).toLowerCase())) ||
+        (uName && a.employeeName?.trim().toLowerCase() === uName)
+      )
+    );
+
+    // Leave status for customDate
+    const leaveRec = (leaves || []).find(l =>
+      l.status === 'approved' &&
+      l.startDate <= customDate &&
+      l.endDate >= customDate && (
+        (uId && (String(l.employeeId).toLowerCase() === uId || String(l.employee).toLowerCase() === uId)) ||
+        (uCode && String(l.employeeCode).toLowerCase() === uCode) ||
+        (uName && l.employeeName?.trim().toLowerCase() === uName)
+      )
+    );
+    const isOnLeave = Boolean(attRec?.status === 'on_leave' || leaveRec);
+    const leaveNote = leaveRec?.reason || attRec?.notes || (isOnLeave ? 'Approved Leave' : '');
+
+    let isClockedIn = false;
+    let isOnBreak = false;
+    let breakType = 'Break';
+    let isClockedOut = false;
+    let loginTime = '--';
+    let logoutTime = '--';
+    let shiftSecs = 0;
+    let breakSecs = 0;
+    let punchSessions = [];
+    let breakHistory = [];
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+
+    if (isToday) {
+      const empState = getEmployeeTodayState(emp);
+      isClockedIn = Boolean(empState?.isClockedIn);
+      isOnBreak = Boolean(empState?.isOnBreak);
+      breakType = empState?.breakType || 'Break';
+      isClockedOut = Boolean(empState?.isClockedOut);
+      loginTime = isClockedIn
+        ? (empState?.loginTime || '--')
+        : (isClockedOut ? (empState?.loginTime || '--') : '--');
+      logoutTime = isClockedOut
+        ? (empState?.clockOutTime || '--')
+        : (isClockedIn ? 'In Progress' : '--');
+      shiftSecs = (isClockedIn || isClockedOut) ? (empState?.workSecs || 0) : 0;
+      breakSecs = empState?.breakSecs || 0;
+
+      // 1. Gather punch sessions from storage and attendance
+      let rawStoredSessions = [];
+      try {
+        const raw = readTimerStorage(emp, 'punch_sessions');
+        if (raw) rawStoredSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch (_) {}
+      if ((!rawStoredSessions || rawStoredSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
+        rawStoredSessions = attRec.punchSessions;
+      }
+
+      // Filter to today's sessions only
+      const validTodaySessions = (rawStoredSessions || []).filter(s => {
+        const ts = Number(s.inTimestamp || 0);
+        if (ts > 0) return ts >= todayMidnightMs;
+        return Boolean(s.inTime || s.outTime);
+      });
+
+      // Deduplicate completed sessions
+      const seenSessionKeys = new Set();
+      validTodaySessions.forEach((s, idx) => {
+        const dur = Number(s.durationSeconds) || 0;
+        const sKey = `${s.inTime}_${s.outTime}_${dur}`;
+        if (!seenSessionKeys.has(sKey)) {
+          seenSessionKeys.add(sKey);
+          punchSessions.push({
+            id: s.id || `sess_${idx}`,
+            sessionNumber: punchSessions.length + 1,
+            inTime: s.inTime,
+            outTime: s.outTime,
+            inTimestamp: s.inTimestamp,
+            outTimestamp: s.outTimestamp,
+            durationSeconds: dur,
+            durationText: s.durationText || formatTimeDurationSafe(dur),
+            isLive: false
+          });
+        }
+      });
+
+      // Ongoing live session (if clocked in)
+      if (isClockedIn && !isOnLeave) {
+        const liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp')) ||
+          Number(readTimerStorage(emp, 'clock_in_timestamp')) ||
+          Number(attRec?.clockInTimestamp) ||
+          Date.now();
+        const liveGrossSecs = Math.max(0, Math.floor((Date.now() - Math.max(liveStartTs, todayMidnightMs)) / 1000));
+        const sessionBreakBaseline = Number(readTimerStorage(emp, 'session_break_baseline')) || 0;
+        const liveSessionBreaks = Math.max(0, breakSecs - sessionBreakBaseline);
+        const liveNetSecs = Math.max(0, liveGrossSecs - liveSessionBreaks);
+        const liveInTime = readTimerStorage(emp, 'current_session_in') || loginTime || '10:00 AM';
+
+        punchSessions.push({
+          id: 'sess_live_ongoing',
+          sessionNumber: punchSessions.length + 1,
+          inTime: liveInTime,
+          outTime: 'Active (Running 🟢)',
+          inTimestamp: liveStartTs,
+          outTimestamp: Date.now(),
+          durationSeconds: liveNetSecs,
+          durationText: formatTimeDurationSafe(liveNetSecs),
+          isLive: true
+        });
+      } else if (punchSessions.length === 0 && loginTime && loginTime !== '--') {
+        punchSessions.push({
+          id: 'sess_single_today',
+          sessionNumber: 1,
+          inTime: loginTime,
+          outTime: logoutTime !== '--' ? logoutTime : 'In Progress',
+          durationSeconds: shiftSecs,
+          durationText: formatTimeDurationSafe(shiftSecs),
+          isLive: false
+        });
+      }
+
+      // 2. Breaks history
+      let storedBreaks = [];
+      try {
+        const rawB = readTimerStorage(emp, 'break_history');
+        if (rawB) storedBreaks = typeof rawB === 'string' ? JSON.parse(rawB) : rawB;
+      } catch (_) {}
+      if ((!storedBreaks || storedBreaks.length === 0) && Array.isArray(attRec?.breakHistory)) {
+        storedBreaks = attRec.breakHistory;
+      }
+
+      breakHistory = (storedBreaks || []).map((b, idx) => ({
+        id: b.id || `brk_${idx}`,
+        type: b.type || 'Break',
+        startTime: b.startTime || b.start || '--',
+        endTime: b.endTime || b.end || '--',
+        durationSeconds: Number(b.durationSeconds) || 0,
+        durationText: b.durationText || formatTimeDurationSafe(Number(b.durationSeconds) || 0),
+        isLive: false
+      }));
+
+      if (isOnBreak) {
+        const curBreakSecs = Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
+        const breakStart = readTimerStorage(emp, 'break_start_time') || '--';
+        breakHistory.push({
+          id: 'brk_live_ongoing',
+          type: breakType,
+          startTime: breakStart,
+          endTime: 'Active (On Break ☕)',
+          durationSeconds: curBreakSecs,
+          durationText: formatTimeDurationSafe(curBreakSecs),
+          isLive: true
+        });
+      }
+    } else {
+      // Past day
+      isClockedIn = false;
+      isOnBreak = false;
+      breakType = 'Break';
+      isClockedOut = Boolean(attRec?.clockOutTime || attRec?.clockOut);
+      loginTime = attRec?.clockInTime || attRec?.clockIn || '--';
+      logoutTime = attRec?.clockOutTime || attRec?.clockOut || '--';
+      shiftSecs = Number(attRec?.workSeconds) || Math.round((Number(attRec?.totalWorkingHours) || 0) * 3600);
+      breakSecs = Number(attRec?.breakSeconds) || 0;
+
+      if (Array.isArray(attRec?.punchSessions) && attRec.punchSessions.length > 0) {
+        punchSessions = attRec.punchSessions.map((s, idx) => ({
+          id: s.id || `sess_${idx}`,
+          sessionNumber: s.sessionNumber || idx + 1,
+          inTime: s.inTime,
+          outTime: s.outTime,
+          durationSeconds: Number(s.durationSeconds) || 0,
+          durationText: s.durationText || formatTimeDurationSafe(Number(s.durationSeconds) || 0),
+          isLive: false
+        }));
+      } else if (loginTime && loginTime !== '--') {
+        punchSessions = [{
+          id: 'sess_past_single',
+          sessionNumber: 1,
+          inTime: loginTime,
+          outTime: logoutTime,
+          durationSeconds: shiftSecs,
+          durationText: formatTimeDurationSafe(shiftSecs),
+          isLive: false
+        }];
+      }
+
+      if (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0) {
+        breakHistory = attRec.breakHistory.map((b, idx) => ({
+          id: b.id || `brk_${idx}`,
+          type: b.type || 'Break',
+          startTime: b.startTime || '--',
+          endTime: b.endTime || '--',
+          durationSeconds: Number(b.durationSeconds) || 0,
+          durationText: b.durationText || formatTimeDurationSafe(Number(b.durationSeconds) || 0),
+          isLive: false
+        }));
+      } else if (breakSecs > 0) {
+        breakHistory = [{
+          id: 'brk_past_single',
+          type: 'Break',
+          startTime: 'During Shift',
+          endTime: 'Completed',
+          durationSeconds: breakSecs,
+          durationText: formatTimeDurationSafe(breakSecs),
+          isLive: false
+        }];
+      }
+    }
+
+    // ── TASKS WORKED FOR customDate ──
     const rawDayTimesheets = (timesheets || []).filter(ts => {
       const matchDate = ts.date === customDate || ts.createdAt?.startsWith(customDate);
       if (!matchDate) return false;
@@ -894,7 +1116,6 @@ export const DashboardPage = () => {
       return false;
     });
 
-    // Deduplicate timesheets by task for customDate to prevent duplicate rows & duration stacking
     const dayTsMap = new Map();
     rawDayTimesheets.forEach(ts => {
       const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
@@ -903,45 +1124,40 @@ export const DashboardPage = () => {
         dayTsMap.set(taskKey, ts);
       }
     });
-    const dayTimesheets = Array.from(dayTsMap.values());
 
-    let tasksWorked = dayTimesheets.map(ts => ({
-      taskId: ts.taskId,
+    let tasksWorked = Array.from(dayTsMap.values()).map(ts => ({
+      taskId: ts.taskId || ts._id,
       taskCode: ts.taskCode || 'TSK',
       taskTitle: ts.taskTitle || 'Assigned Work',
       projectName: ts.projectName || 'General Work',
       durationText: ts.totalDurationText || formatSeconds(ts.totalDurationSeconds || 0),
-      durationSeconds: ts.totalDurationSeconds || 0,
+      durationSeconds: Number(ts.totalDurationSeconds) || 0,
       status: 'completed',
       isCompleted: true,
-      timerRunning: false
+      timerRunning: false,
+      memo: ts.notes || ts.memo || 'Completed Task Timesheet'
     }));
 
-    // If viewing TODAY, also include all active running, paused, and completed task sessions for this employee
     if (isToday) {
       const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-
-      // 1. Check live active running timer
-      const empUserKey = emp?.employeeCode || emp?._id;
+      const empUserKey = emp.employeeCode || emp._id;
       let empActiveTimer = null;
       try {
         empActiveTimer = JSON.parse(
           localStorage.getItem(`ems_active_task_timer_${empUserKey}`) ||
-          localStorage.getItem(`ems_active_task_timer_${emp?._id}`) || 'null'
+          localStorage.getItem(`ems_active_task_timer_${emp._id}`) || 'null'
         );
-      } catch (e) { }
+      } catch (e) {}
 
       let runningTaskId = null;
-      if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr) {
+      if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr && isClockedIn) {
         runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
         const runningElapsed = empActiveTimer.startedAt
-          ? Math.floor((Date.now() - empActiveTimer.startedAt) / 1000)
+          ? Math.max(0, Math.floor((Date.now() - empActiveTimer.startedAt) / 1000))
           : 0;
         const liveSecs = (Number(empActiveTimer.accumulatedSeconds) || 0) + runningElapsed;
 
-        // Remove duplicate if already present in tasksWorked
-        tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId);
-
+        tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId && t.taskCode !== empActiveTimer.taskCode);
         const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
         tasksWorked.unshift({
           taskId: runningTaskId,
@@ -957,70 +1173,98 @@ export const DashboardPage = () => {
         });
       }
 
-      // 2. Add all paused tasks worked today that have accumulated seconds
-      if (empState?.isClockedIn || empState?.hadClockedOut) {
-        empTasks.forEach(pt => {
-          const ptId = String(pt._id || pt.id);
-          if (runningTaskId && ptId === runningTaskId) return;
-          const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId);
-          const secs = Number(pt.timerSeconds) || Number(pt.accumulatedSeconds) || 0;
-          if (!alreadyInTasksWorked && secs > 0 && (pt.sessionDate === todayStr || pt.timerRunning)) {
-            tasksWorked.push({
-              taskId: ptId,
-              taskCode: pt.taskCode || 'TSK',
-              taskTitle: pt.title,
-              projectName: pt.projectName || 'General Work',
-              durationText: formatSeconds(secs),
-              durationSeconds: secs,
-              status: pt.status === 'completed' ? 'completed' : 'on_hold',
-              isCompleted: pt.status === 'completed',
-              timerRunning: false,
-              memo: `Paused work session (${formatSeconds(secs)} logged)`
-            });
-          }
-        });
-      }
+      empTasks.forEach(pt => {
+        const ptId = String(pt._id || pt.id);
+        if (runningTaskId && ptId === runningTaskId) return;
+        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
+        if (alreadyInTasksWorked) return;
+
+        const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), isClockedIn, isOnBreak);
+        if (todaySecs > 0) {
+          const isDone = isTaskActuallyCompleted(pt);
+          tasksWorked.push({
+            taskId: ptId,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title,
+            projectName: pt.projectName || 'General Work',
+            durationText: formatSeconds(todaySecs),
+            durationSeconds: todaySecs,
+            status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
+            isCompleted: isDone,
+            timerRunning: Boolean(pt.timerRunning && isClockedIn),
+            memo: isDone ? 'Completed Today' : `Work session (${formatSeconds(todaySecs)} logged)`
+          });
+        }
+      });
     }
 
-    const targetWeekLog = (weeklyTimeLogs || []).find(l => l.date === customDate) ||
-      (weeklyTimeLogs || []).find(l => l.shortDay === activeWeekDayShort);
-    const pastAttRec = (attendance || []).find(a =>
-      a.date === customDate && (
-        a.employeeId === emp?._id ||
-        a.employeeCode === emp?.employeeCode ||
-        (emp?.name && a.employeeName?.toLowerCase() === emp.name.toLowerCase())
-      )
-    );
+    const totalTaskSeconds = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
+    const totalTaskDurationText = formatSeconds(totalTaskSeconds);
+    const shiftDurationText = formatTimeDurationSafe(shiftSecs);
+    const breakDurationText = formatTimeDurationSafe(breakSecs);
 
-    const effectiveTasksWorked = (tasksWorked.length > 0)
-      ? tasksWorked
-      : (targetWeekLog?.tasksWorked || []);
+    const targetWeekLog = (weeklyTimeLogs || []).find(l => l.date === customDate);
+    const effectiveDayStr = targetWeekLog?.day || new Date(customDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    const isSunday = new Date(customDate + 'T12:00:00').getDay() === 0;
 
-    const pastDayDuration = (targetWeekLog?.durationText && targetWeekLog.durationText !== '0h 0m' && targetWeekLog.durationText !== '0h 00m')
-      ? targetWeekLog.durationText
-      : (pastAttRec?.totalWorkingHours ? `${pastAttRec.totalWorkingHours}h 00m` : (targetWeekLog?.durationText || '0h 00m'));
-
-    const logData = {
+    return {
       date: customDate,
-      day: targetWeekLog?.day || currentDayStr,
-      isCurrentDay: customDate === todayStr,
-      employeeId: emp?._id || '',
-      employeeCode: emp?.employeeCode || '',
-      employeeName: emp?.name || '',
-      employeeRole: emp?.role || '',
-      loginTime: customDate === todayStr ? (empState?.loginTime || '--') : (targetWeekLog?.loginTime || pastAttRec?.clockInTime || '--'),
-      logoutTime: customDate === todayStr ? (empState?.clockOutTime || '--') : (targetWeekLog?.logoutTime || pastAttRec?.clockOutTime || '--'),
-      durationText: customDate === todayStr
-        ? (totalTaskTodaySecs > 0 ? (totalTaskTodaySecs < 60 ? `${totalTaskTodaySecs}s` : `${Math.floor(totalTaskTodaySecs / 3600)}h ${String(Math.floor((totalTaskTodaySecs % 3600) / 60)).padStart(2, '0')}m`) : (empState?.workSecs ? formatTimeDurationSafe(empState.workSecs) : '0h 0m'))
-        : pastDayDuration,
-      breakDuration: customDate === todayStr ? `${Math.round((empState?.breakSecs || 0) / 60)}m` : (targetWeekLog?.breakDuration || '0m'),
-      teaBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Tea') ? 1 : (empState?.breakHistory?.filter(b => b.type?.toLowerCase().includes('tea')).length || 0),
-      lunchBreaksCount: empState?.isOnBreak && empState?.breakType?.includes('Lunch') ? 1 : (empState?.breakHistory?.filter(b => b.type?.toLowerCase().includes('lunch')).length || 0),
-      tasksWorked: effectiveTasksWorked
+      day: effectiveDayStr,
+      shortDay: effectiveDayStr.slice(0, 2),
+      isCurrentDay: isToday,
+      isSunday,
+      employeeId: empId,
+      employeeCode: empCode,
+      employeeName: empName,
+      employeeRole: empRole,
+      employeeAvatar: empAvatar,
+      isClockedIn,
+      isOnBreak,
+      breakType,
+      isClockedOut,
+      isOnLeave,
+      leaveNote,
+      loginTime,
+      logoutTime,
+      shiftWorkSeconds: shiftSecs,
+      shiftDurationText,
+      durationText: shiftDurationText,
+      totalTaskSeconds,
+      totalTaskDurationText,
+      taskDurationText: totalTaskDurationText,
+      breakSeconds: breakSecs,
+      breakDuration: breakDurationText,
+      totalBreaksCount: breakHistory.length,
+      punchSessions,
+      breakHistory,
+      tasksWorked
     };
+  }, [
+    isViewingOtherEmployee,
+    activeViewUser,
+    currentUser,
+    todayStr,
+    attendance,
+    leaves,
+    timesheets,
+    tasks,
+    weeklyTimeLogs,
+    getEmployeeTodayState,
+    isTaskAssignedToUser,
+    isTaskActuallyCompleted,
+    formatSeconds
+  ]);
 
-    setSelectedDayLog(logData);
-  };
+  // Open DayTimeLogModal for any user (default today)
+  const openDayLogModalForUser = React.useCallback((targetUser, customDate = todayStr) => {
+    setDayLogModalParams({ targetUser, customDate });
+  }, [todayStr]);
+
+  // Reactive live dayLog data: ticks every second when modal is open
+  const activeDayLogData = React.useMemo(() => {
+    if (!dayLogModalParams) return null;
+    return buildDayLogData(dayLogModalParams.targetUser, dayLogModalParams.customDate);
+  }, [dayLogModalParams, buildDayLogData, syncTick]);
 
   // Canonical task deduplication: guarantees zero duplicate tasks across all dashboard scopes and counters
   const cleanTasks = React.useMemo(() => {
@@ -3410,8 +3654,8 @@ export const DashboardPage = () => {
       />
 
       <DayTimeLogModal
-        dayLog={selectedDayLog}
-        onClose={() => setSelectedDayLog(null)}
+        dayLog={activeDayLogData}
+        onClose={() => setDayLogModalParams(null)}
       />
 
       <TaskDetailModal

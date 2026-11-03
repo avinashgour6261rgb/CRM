@@ -36,7 +36,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, getTaskTodaySeconds } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage } from '../../../shared/utils/timerUtils';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
@@ -618,18 +618,150 @@ export const TeamOperationsPage = () => {
   // 4. Open Day Log Modal for Employee
   const handleOpenDayLog = (empState) => {
     const emp = empState.emp;
-    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+    const empId = String(emp._id || '');
+    const empCode = String(emp.employeeCode || '');
+    const empName = emp.name || '';
 
-    const tasksWorked = empTasks.map(t => ({
-      taskId: t._id,
-      taskCode: t.taskCode || 'TSK',
-      taskTitle: t.title,
-      projectName: t.projectName || 'General',
-      durationText: t.hoursLoggedText || formatSeconds(t.timerSeconds || 0),
-      status: t.status || 'pending',
-      isCompleted: t.status === 'completed',
-      timerRunning: Boolean(t.timerRunning)
+    // Attendance record for today
+    const attRec = (attendance || []).find(a =>
+      a.date === todayStr && (
+        (empId && (String(a.employeeId) === empId || String(a.employee) === empId || String(a.employee?._id) === empId)) ||
+        (empCode && (String(a.employeeCode) === empCode || String(a.employeeId) === empCode)) ||
+        (empName && a.employeeName?.trim().toLowerCase() === empName.trim().toLowerCase())
+      )
+    );
+
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+
+    // Gather punch sessions
+    let rawPunchSessions = [];
+    try {
+      const raw = readTimerStorage(emp, 'punch_sessions');
+      if (raw) rawPunchSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {}
+    if ((!rawPunchSessions || rawPunchSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
+      rawPunchSessions = attRec.punchSessions;
+    }
+
+    const validTodaySessions = (rawPunchSessions || []).filter(s => {
+      const ts = Number(s.inTimestamp || 0);
+      if (ts > 0) return ts >= todayMidnightMs;
+      return Boolean(s.inTime || s.outTime);
+    });
+
+    const punchSessions = [];
+    const seenSessionKeys = new Set();
+    validTodaySessions.forEach((s, idx) => {
+      const dur = Number(s.durationSeconds) || 0;
+      const sKey = `${s.inTime}_${s.outTime}_${dur}`;
+      if (!seenSessionKeys.has(sKey)) {
+        seenSessionKeys.add(sKey);
+        punchSessions.push({
+          id: s.id || `sess_${idx}`,
+          sessionNumber: punchSessions.length + 1,
+          inTime: s.inTime,
+          outTime: s.outTime,
+          durationSeconds: dur,
+          durationText: s.durationText || formatTimeDurationSafe(dur),
+          isLive: false
+        });
+      }
+    });
+
+    if (empState.isClockedIn) {
+      const liveStartTs = Number(readTimerStorage(emp, 'current_session_start_timestamp')) ||
+        Number(readTimerStorage(emp, 'clock_in_timestamp')) ||
+        Number(attRec?.clockInTimestamp) ||
+        Date.now();
+      const liveGrossSecs = Math.max(0, Math.floor((Date.now() - Math.max(liveStartTs, todayMidnightMs)) / 1000));
+      const sessionBreakBaseline = Number(readTimerStorage(emp, 'session_break_baseline')) || 0;
+      const liveSessionBreaks = Math.max(0, (empState.breakSecs || 0) - sessionBreakBaseline);
+      const liveNetSecs = Math.max(0, liveGrossSecs - liveSessionBreaks);
+      const liveInTime = readTimerStorage(emp, 'current_session_in') || empState.loginTime || '10:00 AM';
+
+      punchSessions.push({
+        id: 'sess_live_ongoing',
+        sessionNumber: punchSessions.length + 1,
+        inTime: liveInTime,
+        outTime: 'Active (Running 🟢)',
+        inTimestamp: liveStartTs,
+        outTimestamp: Date.now(),
+        durationSeconds: liveNetSecs,
+        durationText: formatTimeDurationSafe(liveNetSecs),
+        isLive: true
+      });
+    } else if (punchSessions.length === 0 && empState.loginTime && empState.loginTime !== '--') {
+      punchSessions.push({
+        id: 'sess_single_today',
+        sessionNumber: 1,
+        inTime: empState.loginTime,
+        outTime: empState.clockOutTime !== '--' ? empState.clockOutTime : 'In Progress',
+        durationSeconds: empState.workSecs,
+        durationText: formatTimeDurationSafe(empState.workSecs),
+        isLive: false
+      });
+    }
+
+    // Breaks
+    let storedBreaks = [];
+    try {
+      const rawB = readTimerStorage(emp, 'break_history');
+      if (rawB) storedBreaks = typeof rawB === 'string' ? JSON.parse(rawB) : rawB;
+    } catch (_) {}
+    if ((!storedBreaks || storedBreaks.length === 0) && Array.isArray(attRec?.breakHistory)) {
+      storedBreaks = attRec.breakHistory;
+    }
+
+    const breakHistory = (storedBreaks || []).map((b, idx) => ({
+      id: b.id || `brk_${idx}`,
+      type: b.type || 'Break',
+      startTime: b.startTime || b.start || '--',
+      endTime: b.endTime || b.end || '--',
+      durationSeconds: Number(b.durationSeconds) || 0,
+      durationText: b.durationText || formatTimeDurationSafe(Number(b.durationSeconds) || 0),
+      isLive: false
     }));
+
+    if (empState.isOnBreak) {
+      const curBreakSecs = Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
+      const breakStart = readTimerStorage(emp, 'break_start_time') || '--';
+      breakHistory.push({
+        id: 'brk_live_ongoing',
+        type: empState.breakType || 'Break',
+        startTime: breakStart,
+        endTime: 'Active (On Break ☕)',
+        durationSeconds: curBreakSecs,
+        durationText: formatTimeDurationSafe(curBreakSecs),
+        isLive: true
+      });
+    }
+
+    // Tasks worked today
+    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+    const tasksWorked = [];
+    empTasks.forEach(pt => {
+      const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), empState.isClockedIn, empState.isOnBreak);
+      if (todaySecs > 0) {
+        const isDone = pt.status === 'completed';
+        tasksWorked.push({
+          taskId: pt._id,
+          taskCode: pt.taskCode || 'TSK',
+          taskTitle: pt.title,
+          projectName: pt.projectName || 'General Work',
+          durationText: formatSeconds(todaySecs),
+          durationSeconds: todaySecs,
+          status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
+          isCompleted: isDone,
+          timerRunning: Boolean(pt.timerRunning && empState.isClockedIn),
+          memo: isDone ? 'Completed Today' : `Work session (${formatSeconds(todaySecs)} logged)`
+        });
+      }
+    });
+
+    const totalTaskSeconds = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
+    const totalTaskDurationText = formatSeconds(totalTaskSeconds);
 
     const logData = {
       date: todayStr,
@@ -641,11 +773,20 @@ export const TeamOperationsPage = () => {
       employeeRole: emp.role || 'Member',
       loginTime: empState.loginTime || '--',
       logoutTime: empState.clockOutTime || '--',
+      shiftDurationText: formatTimeDurationSafe(empState.workSecs),
       durationText: formatTimeDurationSafe(empState.workSecs),
+      totalTaskDurationText,
+      taskDurationText: totalTaskDurationText,
+      totalTaskSeconds,
       breakDuration: formatTimeDurationSafe(empState.breakSecs),
+      breakSeconds: empState.breakSecs,
+      totalBreaksCount: breakHistory.length,
       isClockedIn: empState.isClockedIn,
       isOnBreak: empState.isOnBreak,
+      breakType: empState.breakType,
       isClockedOut: empState.isClockedOut,
+      punchSessions,
+      breakHistory,
       tasksWorked
     };
 
