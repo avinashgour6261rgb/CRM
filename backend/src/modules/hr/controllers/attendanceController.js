@@ -50,7 +50,7 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
   }
 
   // Tenant scoping: non-admin can only see own attendance
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
 
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
@@ -99,7 +99,7 @@ const getAttendanceSummary = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
 
   // Tenant scoping: non-admin can only see own attendance summary
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
     const myCode = req.user?.employeeCode;
@@ -213,7 +213,7 @@ const markAttendance = asyncHandler(async (req, res) => {
   const targetEmpRole = empDoc ? empDoc.role : (req.body.employeeRole || 'Team Member');
   const targetEmpAvatar = empDoc ? empDoc.avatar : (req.body.employeeAvatar || '');
 
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.permissions?.editAttendance || req.user?.permissions?.allAccess;
   const adminActorId = req.user?.id || req.user?._id || markedBy || 'ADMIN';
   const adminActorName = req.user?.name || markedBy || 'HR Administrator';
 
@@ -369,7 +369,7 @@ const getAttendanceByDate = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
 
   const query = { date: targetDate };
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
     const myCode = req.user?.employeeCode;
@@ -419,7 +419,7 @@ const deleteAttendanceRecord = asyncHandler(async (req, res) => {
 // ─── GET /api/attendance/audit ───────────────────────────────────────────────
 const getAuditLogs = asyncHandler(async (req, res) => {
   const { employeeId, date, month, year, type, onlyOverrides } = req.query;
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAuditTrail || req.user?.permissions?.allAccess;
 
   const query = {};
 
@@ -466,7 +466,7 @@ const createAuditLog = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'employeeId is required' });
   }
 
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.permissions?.editAttendance || req.user?.permissions?.allAccess;
   const isAdminOverride = !!auditData.isAdminOverride || (isPrivileged && auditData.actor === 'admin');
 
   // Sanitize employee field - must be valid Mongo ObjectId or omitted
@@ -509,7 +509,7 @@ const createAuditLog = asyncHandler(async (req, res) => {
 // ─── POST /api/attendance/force-clock-out ─────────────────────────────────────
 // Admin Override: Forcefully clock out an active employee with mandatory audit note
 const forceClockOut = asyncHandler(async (req, res) => {
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin';
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.forceClockOut || req.user?.permissions?.allAccess;
   if (!isPrivileged) {
     return res.status(403).json({ success: false, message: 'Unauthorized. Administrator or HR access required.' });
   }

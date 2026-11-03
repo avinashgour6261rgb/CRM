@@ -58,8 +58,11 @@ export const AttendancePage = () => {
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const userRole = React.useMemo(() => getUserRole(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  // Regular employees/Team Members can ONLY view their own attendance
-  const canViewAllAttendance = isPrivileged && userRole !== ROLES.TEAM_MEMBER;
+  // Can view team attendance if privileged, or explicitly granted viewAllAttendance / allAccess
+  const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance === true || perms?.allAccess === true;
+  const hasForceClockOut = isPrivileged || perms?.forceClockOut === true || perms?.allAccess === true;
+  const hasEditAttendance = isPrivileged || perms?.editAttendance === true || perms?.allAccess === true;
+  const hasViewAuditTrail = isPrivileged || perms?.viewAuditTrail === true || perms?.allAccess === true;
 
   const isEmployeeSelf = React.useCallback((emp) => {
     if (!currentUser || !emp) return false;
@@ -363,7 +366,7 @@ export const AttendancePage = () => {
             <span>Export CSV</span>
           </button>
 
-          {isPrivileged && (
+          {hasEditAttendance && (
             <button
               onClick={() => setIsMarkModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-sky-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-sky-700 transition-colors"
@@ -534,7 +537,7 @@ export const AttendancePage = () => {
               <span>Summary</span>
             </button>
 
-            {isPrivileged && (
+            {hasViewAuditTrail && (
               <button
                 onClick={() => setViewMode('audit')}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
@@ -566,7 +569,7 @@ export const AttendancePage = () => {
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Admin Force Clock-Out Button */}
-            {isPrivileged && (
+            {hasForceClockOut && (
               <button
                 onClick={() => setIsForceClockOutOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer shadow-xs"
@@ -588,7 +591,7 @@ export const AttendancePage = () => {
             </button>
 
             {/* Mark Attendance Button (Admin, HR, or editAttendance permission only) */}
-            {(isPrivileged || perms?.editAttendance) && (
+            {hasEditAttendance && (
               <button
                 onClick={() => setIsMarkModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 border-0 transition-colors cursor-pointer shadow-xs"
@@ -721,7 +724,7 @@ export const AttendancePage = () => {
       )}
 
       {/* Audit Trail View (Complete Admin & Employee Audit Trail) */}
-      {viewMode === 'audit' && isPrivileged && (
+      {viewMode === 'audit' && hasViewAuditTrail && (
         <AttendanceAuditTimeline initialEmployeeId={effectiveEmployeeId} />
       )}
 
@@ -804,6 +807,11 @@ export const AttendancePage = () => {
                             <span className="font-bold">
                               {record.totalWorkingHours ? `${record.totalWorkingHours} hrs` : (record.workSeconds ? `${(record.workSeconds / 3600).toFixed(2)} hrs` : '—')}
                             </span>
+                            {record.overtimeHours > 0 && (
+                              <span className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded px-1.5 py-px">
+                                +{record.overtimeHours}h OT
+                              </span>
+                            )}
                             {Array.isArray(record.punchSessions) && record.punchSessions.length > 1 && (
                               <span
                                 title={record.punchSessions.map((s, idx) => `Session ${idx + 1}: ${s.inTime} - ${s.outTime} (${s.durationText || Math.round((s.durationSeconds || 0) / 60) + 'm'})`).join('\n')}

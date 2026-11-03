@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file storageService.js
  * @description Centralized Database-First Storage & Offline Mirroring Layer.
  * 
@@ -10,6 +10,7 @@
  */
 
 import { API_BASE } from '../config/apiConfig';
+import { ensureHistoricalData } from '../utils/historicalDataSeeder';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from './realtimeSyncService';
 
 export const KEYS = {
@@ -291,6 +292,9 @@ export const initStorage = () => {
       localStorage.setItem(k, JSON.stringify([]));
     }
   });
+
+  // Ensure historical records for past days/months exist so users never see blank screens
+  ensureHistoricalData();
 
   // Pull live data from MongoDB Atlas
   syncDatabaseToStorage();

@@ -1018,6 +1018,20 @@ export const TimerProvider = ({ children }) => {
       const todayMidnightMs = todayMidnight.getTime();
       const maxPossibleGrossSecs = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
 
+      // 🌙 Strict Midnight Auto-Close (User Requirement): Auto-clock out at 11:59 PM if employee hasn't clocked out
+      const nowClock = new Date();
+      if (inVal && nowClock.getHours() === 23 && nowClock.getMinutes() >= 59) {
+        performShiftClockOut(currentUser, { reason: 'Midnight 11:59 PM Auto-Close', nowTs: nowClock.getTime(), nowStr: '11:59 PM' });
+        setIsClockedIn(false);
+        setIsRunning(false);
+        setIsOnBreak(false);
+        setClockOutTime('11:59 PM');
+        setHadClockedOutToday(true);
+        window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: { reason: 'midnight_autoclose' } }));
+        window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { reason: 'midnight_autoclose' } }));
+        return;
+      }
+
       // Guard: Check if active timer belongs to a prior calendar day (midnight rollover / forgotten clock-out)
       const storedSessionDate = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
       const isPastDaySession = Boolean(
@@ -1795,11 +1809,16 @@ export const TimerProvider = ({ children }) => {
         : `Shift resumed at ${nowStr}. Continuing time tracking.`
     });
 
+    const isOvertimePeriod = now.getHours() >= 19;
     addToast({
-      title: isFirstClockIn ? 'Clocked In Successfully! 🟢' : 'Shift Resumed! 🟢',
+      title: isFirstClockIn
+        ? 'Clocked In Successfully! 🟢'
+        : (isOvertimePeriod ? 'Shift Resumed (Overtime Period) ⏱️' : 'Shift Resumed! 🟢'),
       message: isFirstClockIn
         ? `Shift started at ${nowStr}. Live work timer running.`
-        : `Shift resumed at ${nowStr}. Continuing time tracking.`,
+        : (isOvertimePeriod
+            ? `Clocked in for overtime (post 7:00 PM). Shift auto-seals at 11:59 PM.`
+            : `Shift resumed at ${nowStr}. Continuing time tracking.`),
       type: 'success'
     });
   };

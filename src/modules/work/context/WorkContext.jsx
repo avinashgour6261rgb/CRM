@@ -1012,6 +1012,42 @@ export const WorkProvider = ({ children }) => {
   useEffect(() => {
     const checkDayRollover = () => {
       const today = getTodayStr();
+
+      // 🌙 Strict 11:59 PM Auto-Seal: Stop active task timer before midnight so zero time leaks to next day
+      const nowMidnightCheck = new Date();
+      if (nowMidnightCheck.getHours() === 23 && nowMidnightCheck.getMinutes() >= 59) {
+        const rawSaved = localStorage.getItem(activeTimerKey);
+        if (rawSaved) {
+          try {
+            const current = JSON.parse(rawSaved);
+            if (current && current.timerRunning) {
+              const currentSecs = getElapsedSeconds();
+              saveActiveTimerSnapshot(null);
+              setTasks(prev => prev.map(t => {
+                if (String(t._id || t.id) === String(current.taskId)) {
+                  return syncTaskPauseState(t, { nowMs: nowMidnightCheck.getTime(), todayStr: today, wasPausedForClockOut: true });
+                }
+                return t;
+              }));
+              workService.createTimesheet({
+                taskId: current.taskId,
+                taskCode: current.taskCode,
+                taskTitle: current.title || current.taskTitle,
+                projectName: current.projectName,
+                employeeId: current.assignedToId || userKey,
+                employeeName: current.assignedToName || currentUser?.name,
+                date: today,
+                totalDurationSeconds: Math.min(currentSecs, 14 * 3600),
+                totalDurationText: formatSeconds(Math.min(currentSecs, 14 * 3600)),
+                memo: '11:59 PM auto-close same-day timesheet save',
+                status: 'stopped'
+              }).catch(e => console.warn('11:59 PM auto-timesheet error:', e));
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+            }
+          } catch (_) {}
+        }
+      }
+
       const storedWorkDate = localStorage.getItem(`ems_work_session_date_${userKey}`) || today;
 
       if (storedWorkDate !== today) {

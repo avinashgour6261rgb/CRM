@@ -440,7 +440,7 @@ export const hrService = {
     const result = await fetchWithFallback(`${API_BASE}/leaves?${query.toString()}`, { method: 'GET' }, async () => {
       let leaves = getCollection(KEYS.LEAVES);
       const authUser = getAuthUser();
-      const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
+      const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager' || authUser.permissions?.approveLeaves || authUser.permissions?.allAccess);
 
       // Scoping: Non-privileged users view leaves where they are either applicant or designated reviewer
       if (!isPrivileged && authUser) {
@@ -892,7 +892,7 @@ export const hrService = {
 
   async getMonthlyAttendance(month = 9, year = 2026, employeeId = 'all') {
     const authUser = getAuthUser();
-    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources';
+    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.allAccess;
     const effectiveEmpId = (!isPrivileged && authUser)
       ? (authUser._id || authUser.id || authUser.employeeCode || 'self')
       : employeeId;
@@ -1096,7 +1096,7 @@ export const hrService = {
     }, async () => {
       let logs = getCollection(KEYS.ATTENDANCE_AUDIT);
       const authUser = getAuthUser();
-      const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.department === 'Human Resources';
+      const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAuditTrail || authUser?.permissions?.allAccess;
 
       // Tenant Scoping fallback
       if (!isPrivileged && authUser) {

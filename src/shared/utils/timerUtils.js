@@ -536,8 +536,17 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
         if (matchesUser) {
           attChanged = true;
+          // Standard shift: 10:00 AM - 07:00 PM (9 hours). Work beyond 9h is Overtime (OT)
+          const standardShiftSecs = 9 * 3600;
+          const overtimeSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+          const overtimeHrs = +(overtimeSecs / 3600).toFixed(2);
+
           const updated = {
             ...a,
+            // Preserve immutable First Clock-In of the day
+            clockInTime: a.clockInTime || a.clockIn || readTimerStorage(user, 'login_time') || timeStr,
+            clockIn: a.clockInTime || a.clockIn || readTimerStorage(user, 'login_time') || timeStr,
+            // Progressive Last Clock-Out of the day
             clockOutTime: timeStr,
             clockOut: timeStr,
             clockOutTimestamp: nowTs,
@@ -545,6 +554,9 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             isOnBreak: false,
             workSeconds: finalVerifiedWorkSecs,
             totalWorkingHours: +(finalVerifiedWorkSecs / 3600).toFixed(2),
+            overtimeSeconds: overtimeSecs,
+            overtimeHours: overtimeHrs,
+            hasOvertime: overtimeSecs > 0,
             punchSessions: updatedSessions
           };
           matchedRecord = updated;
@@ -552,6 +564,39 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
         }
         return a;
       });
+
+      if (!attChanged) {
+        // Fallback: Create today's attendance record with First In and Last Out
+        const firstClockIn = readTimerStorage(user, 'login_time') || timeStr;
+        const standardShiftSecs = 9 * 3600;
+        const overtimeSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+        const overtimeHrs = +(overtimeSecs / 3600).toFixed(2);
+
+        const newRecord = {
+          _id: `att_${user._id || mirrorKeys[0]}_${Date.now()}`,
+          employeeId: user._id || mirrorKeys[0],
+          employeeCode: user.employeeCode || mirrorKeys[0],
+          employeeName: user.name || 'Team Member',
+          date: today,
+          status: 'present',
+          clockInTime: firstClockIn,
+          clockIn: firstClockIn,
+          clockOutTime: timeStr,
+          clockOut: timeStr,
+          clockOutTimestamp: nowTs,
+          isClockedIn: false,
+          isOnBreak: false,
+          workSeconds: finalVerifiedWorkSecs,
+          totalWorkingHours: +(finalVerifiedWorkSecs / 3600).toFixed(2),
+          overtimeSeconds: overtimeSecs,
+          overtimeHours: overtimeHrs,
+          hasOvertime: overtimeSecs > 0,
+          punchSessions: updatedSessions
+        };
+        updatedAtt.push(newRecord);
+        matchedRecord = newRecord;
+        attChanged = true;
+      }
 
       if (attChanged) {
         localStorage.setItem('hrms_attendance', JSON.stringify(updatedAtt));

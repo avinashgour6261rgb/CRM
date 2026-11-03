@@ -4,6 +4,7 @@ import { ShieldCheck, Check, Sparkles, AlertCircle, Key, RefreshCw, Copy, Lock }
 import { useToast } from '../../../../shared/context/ToastContext';
 import {
   GRANULAR_PERMISSIONS_LIST,
+  PERMISSION_CATEGORIES,
   getUserModulePermissions,
   setUserPermissions,
   canUserGrantPermissions
@@ -16,6 +17,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
   const { addToast } = useToast();
   const { updateEmployee = () => {}, updateEmployeePermissions, currentUser = null } = useHR() || {};
 
+  const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [permissions, setPermissions] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [generatedPass, setGeneratedPass] = useState('');
@@ -62,6 +64,20 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     if (!canEdit) return;
     const updated = {};
     GRANULAR_PERMISSIONS_LIST.forEach(p => {
+      updated[p.key] = grantAll;
+    });
+    setPermissions(prev => ({ ...prev, ...updated }));
+  };
+
+  const handleSelectCategory = (categoryId, grantAll) => {
+    if (isPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active and cannot be altered.', 'warning');
+      return;
+    }
+    if (!canEdit) return;
+    const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === categoryId);
+    const updated = {};
+    items.forEach(p => {
       updated[p.key] = grantAll;
     });
     setPermissions(prev => ({ ...prev, ...updated }));
@@ -255,35 +271,111 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           </div>
         )}
 
-        {/* Granular Toggles List */}
-        <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
-          {GRANULAR_PERMISSIONS_LIST.map((item) => {
-            const isChecked = !!permissions[item.key];
-            return (
-              <div
-                key={item.key}
-                onClick={() => handleToggle(item.key)}
-                className={`flex items-center justify-between p-3 px-3.5 rounded-xl transition-all duration-150 border ${isChecked ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'} ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="text-lg leading-none">{item.icon}</span>
-                  <div>
-                    <div className={`text-[13px] font-bold ${isChecked ? 'text-blue-700' : 'text-slate-800'}`}>
-                      {item.label}
+        {/* Category Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveCategoryTab('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+              activeCategoryTab === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+            }`}
+          >
+            All Capabilities ({GRANULAR_PERMISSIONS_LIST.length})
+          </button>
+          {PERMISSION_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategoryTab(cat.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer whitespace-nowrap ${
+                activeCategoryTab === cat.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Granular Toggles List Grouped by Category */}
+        <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1">
+          {PERMISSION_CATEGORIES
+            .filter(cat => activeCategoryTab === 'all' || activeCategoryTab === cat.id)
+            .map(cat => {
+              const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === cat.id);
+              if (items.length === 0) return null;
+
+              const enabledCount = items.filter(p => !!permissions[p.key]).length;
+
+              return (
+                <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        {cat.label} ({enabledCount}/{items.length} enabled)
+                      </div>
+                      <div className="text-[10.5px] text-slate-400">{cat.desc}</div>
                     </div>
-                    <div className="text-[11.5px] text-slate-500 mt-0.5">
-                      {item.desc}
-                    </div>
+                    {canEdit && !isPrimaryAdmin && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCategory(cat.id, true)}
+                          className="text-[10px] font-bold text-blue-600 dark:text-sky-400 hover:underline bg-transparent border-0 cursor-pointer p-0"
+                        >
+                          Enable All
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCategory(cat.id, false)}
+                          className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:underline bg-transparent border-0 cursor-pointer p-0"
+                        >
+                          Disable All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 pt-1">
+                    {items.map(item => {
+                      const isChecked = !!permissions[item.key];
+                      return (
+                        <div
+                          key={item.key}
+                          onClick={() => handleToggle(item.key)}
+                          className={`flex items-center justify-between p-2.5 px-3 rounded-xl transition-all duration-150 border ${
+                            isChecked
+                              ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          } ${canEdit ? 'cursor-pointer hover:border-blue-400' : 'cursor-default'}`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-base leading-none">{item.icon}</span>
+                            <div>
+                              <div className={`text-xs font-bold ${isChecked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                                {item.label}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {item.desc}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Custom Toggle Switch */}
+                          <div className={`w-[38px] h-5 rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                            <div className={`w-[14px] h-[14px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${isChecked ? 'left-[21px]' : 'left-[3px]'}`} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-
-                {/* Custom Toggle Switch */}
-                <div className={`w-[42px] h-6 rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                  <div className={`w-[18px] h-[18px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${isChecked ? 'left-[21px]' : 'left-[3px]'}`} />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         {/* Modal Actions */}

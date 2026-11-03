@@ -214,6 +214,27 @@ export const isLeaderOrAbove = (user) => {
 };
 
 // ── Feature-Specific Permission Gates ──
+export const canViewAllAttendance = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess === true || perms?.viewAllAttendance === true);
+};
+
+export const canEditAttendance = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess === true || perms?.editAttendance === true);
+};
+
+export const canForceClockOut = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess === true || perms?.forceClockOut === true);
+};
+
 export const canManageEmployees = (user) => {
   if (!user) return false;
   if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
@@ -729,6 +750,15 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     projects: true,
     manageProjects: false,
     createProjects: false,
+    deleteProjects: false,
+    deleteTasks: false,
+    deleteEmployees: false,
+    deleteLeads: false,
+    deleteTickets: false,
+    deleteNotices: false,
+    editAttendance: false,
+    forceClockOut: false,
+    manageCompanyHolidays: false,
     employees: false,
     reports: false,
     documentation: false,
@@ -746,33 +776,60 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     accessFinance: false,
     manageEmployees: false,
     grantPermissions: false,
-    liveOperations: false
+    liveOperations: false,
+    allAccess: false
   }
 };
 
 /**
- * Granular Permission Definitions for UI toggles
+ * 5 Canonical Categories for Granular Permissions
+ */
+export const PERMISSION_CATEGORIES = [
+  { id: 'shift_attendance', label: '⚡ Shift & Attendance', desc: 'Punch monitoring, live ops, and attendance records' },
+  { id: 'tasks_projects', label: '📋 Tasks & Projects', desc: 'Work delegation, sprint tasks, and project management' },
+  { id: 'workforce_hr', label: '👥 Workforce & Leaves', desc: 'Employee records, leave approvals, holidays & appreciations' },
+  { id: 'crm_comms', label: '💼 CRM & Communications', desc: 'Sales pipeline, helpdesk tickets, and company notices' },
+  { id: 'finance_admin', label: '💰 Finance & Administration', desc: 'Salaries, expenses, role delegation, and system control' }
+];
+
+/**
+ * Granular Permission Definitions for UI toggles (24 Total, Categorized)
  */
 export const GRANULAR_PERMISSIONS_LIST = [
-  { key: 'liveOperations', label: 'Live Operations & Shift Monitor', icon: '⚡', desc: 'Can monitor live employee shifts, see live table & perform shift actions' },
-  { key: 'viewAllTasks', label: 'View All Tasks', icon: '📋', desc: 'Can view tasks of all team members across the company' },
-  { key: 'createTasks', label: 'Create & Assign Tasks', icon: '✍️', desc: 'Can create and delegate tasks to others' },
-  { key: 'manageProjects', label: 'Create & Manage Projects', icon: '📁', desc: 'Can create new projects, assign team leads, and manage project deliverables' },
-  { key: 'giveAppreciation', label: 'Award Appreciations', icon: '🏆', desc: 'Can give recognition awards, rewards and badges to team members' },
-  { key: 'postNotices', label: 'Post Company Notices', icon: '📢', desc: 'Can publish official notices to the company notice board' },
-  { key: 'viewAllAttendance', label: 'View Team Attendance', icon: '🕒', desc: 'Can see live shift status and punch logs of others' },
-  { key: 'viewAllTasks', label: 'View All Tasks', icon: '📋', desc: 'Can view tasks of all team members across the company' },
-  { key: 'createTasks', label: 'Create & Assign Tasks', icon: '✍️', desc: 'Can create and delegate tasks to others' },
-  { key: 'manageProjects', label: 'Create & Manage Projects', icon: '📁', desc: 'Can create new projects, assign team leads, and manage project deliverables' },
-  { key: 'viewAllAttendance', label: 'View Team Attendance', icon: '🕒', desc: 'Can see live shift status and punch logs of others' },
-  { key: 'approveLeaves', label: 'Approve Leaves', icon: '🌴', desc: 'Can approve or decline leave applications' },
-  { key: 'viewAllTickets', label: 'View All Tickets', icon: '🎫', desc: 'Can view and resolve helpdesk support tickets' },
-  { key: 'accessCRM', label: 'Access CRM & Leads', icon: '💼', desc: 'Can access CRM pipeline and customer leads' },
-  { key: 'deleteLeads', label: 'Delete CRM Leads', icon: '👥', desc: 'Can permanently delete sales leads from CRM pipeline' },
-  { key: 'deleteTickets', label: 'Delete Support Tickets', icon: '🎫', desc: 'Can permanently delete helpdesk support tickets' },
-  { key: 'accessFinance', label: 'Finance & Payroll', icon: '💰', desc: 'Can view payroll summaries and company expenses' },
-  { key: 'manageEmployees', label: 'Manage Employees', icon: '👥', desc: 'Can add, edit, or remove employee records' },
-  { key: 'grantPermissions', label: 'Grant Permissions', icon: '🛡️', desc: 'Admin delegation: Can modify other users access rights' }
+  // ── 1. Shift & Attendance ──
+  { key: 'liveOperations', category: 'shift_attendance', label: 'Shift Monitor & Live Ops', icon: '⚡', desc: 'Monitor live shifts, team clock-in states and perform real-time shift actions' },
+  { key: 'viewAllAttendance', category: 'shift_attendance', label: 'View Team Attendance', icon: '🕒', desc: 'View monthly attendance matrix, daily punch logs, and shift histories of all employees' },
+  { key: 'editAttendance', category: 'shift_attendance', label: 'Mark & Edit Attendance', icon: '✍️', desc: 'Manually mark, adjust, or correct attendance records for team members' },
+  { key: 'forceClockOut', category: 'shift_attendance', label: 'Admin Force Clock-Out', icon: '🛑', desc: 'Forcefully clock out active employee shifts with required audit logs' },
+
+  // ── 2. Tasks & Projects ──
+  { key: 'createTasks', category: 'tasks_projects', label: 'Create & Assign Tasks', icon: '➕', desc: 'Create tasks and delegate them to any team member' },
+  { key: 'viewAllTasks', category: 'tasks_projects', label: 'View All Tasks', icon: '📋', desc: 'View company-wide tasks beyond assigned items' },
+  { key: 'deleteTasks', category: 'tasks_projects', label: 'Delete Tasks', icon: '🗑️', desc: 'Permanently delete tasks and associated task timelogs' },
+  { key: 'manageProjects', category: 'tasks_projects', label: 'Create & Manage Projects', icon: '📁', desc: 'Create projects, define sprint milestones, and assign project leads' },
+  { key: 'deleteProjects', category: 'tasks_projects', label: 'Delete Projects', icon: '🗑️', desc: 'Permanently delete projects and sprint boards' },
+
+  // ── 3. Workforce & Leaves ──
+  { key: 'manageEmployees', category: 'workforce_hr', label: 'Manage Employees', icon: '👥', desc: 'Add, update employee profiles, documents, and department assignments' },
+  { key: 'deleteEmployees', category: 'workforce_hr', label: 'Delete Employees', icon: '🗑️', desc: 'Permanently remove employee records from the organization' },
+  { key: 'approveLeaves', category: 'workforce_hr', label: 'Approve & Reject Leaves', icon: '🌴', desc: 'Review, approve, or reject employee leave applications' },
+  { key: 'manageCompanyHolidays', category: 'workforce_hr', label: 'Manage Company Holidays', icon: '⭐', desc: 'Declare, edit, or delete official company holidays and calendar events' },
+  { key: 'giveAppreciation', category: 'workforce_hr', label: 'Award Appreciations', icon: '🏆', desc: 'Award recognition badges, performance awards, and rewards' },
+  { key: 'deleteAppreciations', category: 'workforce_hr', label: 'Delete Appreciations', icon: '🗑️', desc: 'Remove recognition awards from the public board' },
+
+  // ── 4. CRM & Communications ──
+  { key: 'accessCRM', category: 'crm_comms', label: 'Access CRM & Leads', icon: '💼', desc: 'Access sales CRM pipeline, leads tracking, and deals' },
+  { key: 'deleteLeads', category: 'crm_comms', label: 'Delete CRM Leads', icon: '🗑️', desc: 'Permanently delete sales leads from the CRM' },
+  { key: 'manageTickets', category: 'crm_comms', label: 'Manage Support Tickets', icon: '🎫', desc: 'Assign, update priority, and resolve helpdesk support tickets' },
+  { key: 'deleteTickets', category: 'crm_comms', label: 'Delete Support Tickets', icon: '🗑️', desc: 'Permanently delete customer or employee support tickets' },
+  { key: 'postNotices', category: 'crm_comms', label: 'Post Company Notices', icon: '📢', desc: 'Publish announcements to the official company notice board' },
+  { key: 'deleteNotices', category: 'crm_comms', label: 'Delete Notices', icon: '🗑️', desc: 'Delete official company notice board announcements' },
+
+  // ── 5. Finance & Administration ──
+  { key: 'accessFinance', category: 'finance_admin', label: 'Access Finance & Expenses', icon: '💰', desc: 'Review expense reimbursement claims and company expenditure' },
+  { key: 'manageSalaries', category: 'finance_admin', label: 'Manage Payroll & Salaries', icon: '💵', desc: 'View payroll matrix, manage employee salary slips, and increments' },
+  { key: 'grantPermissions', category: 'finance_admin', label: 'Grant Permissions (Accesser)', icon: '🛡️', desc: 'Accesser authority: Can assign, customize, and delegate permissions to other users' },
+  { key: 'allAccess', category: 'finance_admin', label: 'Full System Authority (Super Admin)', icon: '👑', desc: 'Unrestricted master control across all modules and system settings' }
 ];
 
 /**
