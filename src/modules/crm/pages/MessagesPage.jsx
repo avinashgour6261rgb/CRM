@@ -12,6 +12,7 @@ import {
   Paperclip,
   Smile,
   MoreVertical,
+  Check,
   CheckCheck,
   User,
   MessageSquare,
@@ -134,6 +135,16 @@ export const MessagesPage = () => {
     }
   }, [activeConv?.id, activeConv?.messages?.length]);
 
+  useEffect(() => {
+    const handleFocus = () => {
+      if (activeConv?.id) {
+        markConversationAsRead(activeConv.id);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [activeConv?.id]);
+
   // Filter conversations by active tab and search query with privacy resolution
   const filteredConversations = useMemo(() => {
     const q = searchContact.toLowerCase().trim();
@@ -237,8 +248,41 @@ export const MessagesPage = () => {
   };
 
   const isCurrentSender = (msg) => {
-    const curId = currentUser?._id || currentUser?.employeeCode;
-    return msg.senderId === curId || msg.senderCode === curId || (currentUser?.email && msg.senderEmail === currentUser.email);
+    if (!msg || !currentUser) return false;
+    const myIdentifiers = [
+      currentUser._id,
+      currentUser.id,
+      currentUser.employeeCode,
+      currentUser.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+    const msgSenderIds = [
+      msg.senderId,
+      msg.senderCode,
+      msg.senderEmail
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
+
+    return msgSenderIds.some(id => myIdentifiers.includes(id));
+  };
+
+  const isMessageReadByOther = (msg) => {
+    if (!msg) return false;
+    const readList = Array.isArray(msg.readBy) ? msg.readBy : [];
+
+    const senderIds = [
+      msg.senderId,
+      msg.senderCode,
+      msg.senderEmail,
+      currentUser?._id,
+      currentUser?.id,
+      currentUser?.employeeCode,
+      currentUser?.email
+    ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+
+    return readList.some(reader => {
+      const r = String(reader).toLowerCase().trim();
+      return r && !senderIds.includes(r);
+    });
   };
 
   return (
@@ -577,10 +621,20 @@ export const MessagesPage = () => {
                             )}
                           </div>
 
-                          {/* Timestamp & Status */}
-                          <div className={`text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1 ${outgoing ? 'self-end' : 'self-start'}`}>
+                          {/* Timestamp & Read Receipt Status */}
+                          <div className={`text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1.5 ${outgoing ? 'self-end' : 'self-start'}`}>
                             <span>{msg.timestamp || 'Just now'}</span>
-                            {outgoing && <CheckCheck size={13} className="text-blue-500 dark:text-sky-400" />}
+                            {outgoing && (
+                              isMessageReadByOther(msg) ? (
+                                <span title={activeIsChannel ? 'Seen by channel members' : `Seen by ${activePartner?.name || 'recipient'}`} className="inline-flex items-center text-blue-500 dark:text-sky-400">
+                                  <CheckCheck size={13.5} strokeWidth={2.2} />
+                                </span>
+                              ) : (
+                                <span title="Sent (Delivered, not yet seen)" className="inline-flex items-center text-slate-400 dark:text-slate-500">
+                                  <Check size={13.5} strokeWidth={2.2} />
+                                </span>
+                              )
+                            )}
                           </div>
                         </div>
                       );

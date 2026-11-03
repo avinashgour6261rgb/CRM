@@ -537,15 +537,22 @@ export const CRMProvider = ({ children }) => {
         syncWithStorage();
       }
     };
+    const handleNativeStorage = (e) => {
+      if (!e.key || ['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.key)) {
+        syncWithStorage();
+      }
+    };
     const handleSettingsUpdate = () => {
       setCompanySettings(getCompanySettings());
       setStorageTick(prev => prev + 1);
     };
 
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
+    window.addEventListener('storage', handleNativeStorage);
     window.addEventListener('company-settings-updated', handleSettingsUpdate);
     return () => {
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+      window.removeEventListener('storage', handleNativeStorage);
       window.removeEventListener('company-settings-updated', handleSettingsUpdate);
     };
   }, []);
@@ -1601,7 +1608,7 @@ export const CRMProvider = ({ children }) => {
       attachments: hasAttachments ? attachments : [],
       timestamp: timeStr,
       createdAt: Date.now(),
-      readBy: [senderId]
+      readBy: Array.from(new Set([senderId, currentUser?.employeeCode, currentUser?._id, currentUser?.id].filter(Boolean)))
     };
 
     if (!Array.isArray(currentConvs[idx].messages)) {
@@ -1737,9 +1744,12 @@ export const CRMProvider = ({ children }) => {
 
   const markConversationAsRead = (conversationId) => {
     if (!conversationId || !currentUser) return;
-    const myId = String(currentUser._id || '').toLowerCase();
-    const myCode = String(currentUser.employeeCode || '').toLowerCase();
-    const myEmail = String(currentUser.email || '').toLowerCase();
+    const myIdentifiers = [
+      currentUser._id,
+      currentUser.id,
+      currentUser.employeeCode,
+      currentUser.email
+    ].filter(Boolean).map(id => String(id).toLowerCase().trim());
 
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
     const idx = currentConvs.findIndex(c => c.id === conversationId);
@@ -1750,11 +1760,12 @@ export const CRMProvider = ({ children }) => {
       currentConvs[idx].messages.forEach(msg => {
         const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
         const hasRead = readBy.some(id => {
-          const s = String(id).toLowerCase();
-          return (myId && s === myId) || (myCode && s === myCode) || (myEmail && s === myEmail);
+          const s = String(id).toLowerCase().trim();
+          return myIdentifiers.includes(s);
         });
         if (!hasRead) {
-          msg.readBy = [...readBy, currentUser._id || currentUser.employeeCode];
+          const readerIdentifier = currentUser.employeeCode || currentUser._id || currentUser.id || 'reader';
+          msg.readBy = [...readBy, readerIdentifier];
           changed = true;
         }
       });

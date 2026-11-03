@@ -19,7 +19,9 @@ import {
   CalendarCheck,
   ShieldAlert,
   LogOut,
-  History
+  History,
+  Filter,
+  RotateCcw
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -487,161 +489,225 @@ export const AttendancePage = () => {
         </div>
       </div>
 
-      {/* Top Filter Bar (Matches Screenshot 2 + Attendance Status Filter) */}
-      <div className="action-bar-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <div className="filter-left-group">
-          {/* Employee Selector */}
-          <div className="filter-item">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">Employee:</span>
-            <select
-              value={effectiveEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              disabled={!canViewAllAttendance}
-              className={`filter-select min-w-[180px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 ${!canViewAllAttendance ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed text-slate-400' : 'bg-white dark:bg-slate-800 cursor-pointer'}`}
-            >
-              {canViewAllAttendance ? (
-                <>
-                  <option value="all">All Employees</option>
-                  {employees.map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} {isEmployeeSelf(emp) ? "— It's You" : ''}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <option value={effectiveEmployeeId}>
-                  {currentUser?.name || 'My Attendance'} (You)
-                </option>
-              )}
-            </select>
-          </div>
-
-          {/* Month Selector */}
-          <div className="filter-item">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="filter-select dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-            >
-              {months.map(m => (
-                <option key={m.value} value={m.value}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Year Selector */}
-          <div className="filter-item">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">Year:</span>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="filter-select dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-            >
-              {years.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Attendance Status Filter (Explicit Requirement) */}
-          <div className="filter-item">
-            <span className="font-semibold text-slate-600 dark:text-slate-300">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select min-w-[140px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-            >
-              <option value="all">All Statuses</option>
-              <option value="present">✔️ Present</option>
-              <option value="half_day">🌟 Half Day</option>
-              <option value="late">⚠️ Late</option>
-              <option value="absent">❌ Absent</option>
-              <option value="on_leave">✈️ On Leave</option>
-              <option value="holiday">⭐ Holiday</option>
-              <option value="day_off">📅 Day Off</option>
-              <option value="not_marked">— Not Marked</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="filter-right-group">
-          {/* Admin Force Clock-Out Button */}
-          {isPrivileged && (
-            <button
-              onClick={() => setIsForceClockOutOpen(true)}
-              className="btn btn-outline text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-              title="Forcefully clock out an active employee shift with mandatory audit logging"
-            >
-              <LogOut size={14} />
-              <span>Force Clock-Out</span>
-            </button>
-          )}
-
-          {/* Mark Attendance Button (Admin, HR, or editAttendance permission only) */}
-          {(isPrivileged || perms?.editAttendance) && (
-            <button
-              onClick={() => setIsMarkModalOpen(true)}
-              className="btn btn-primary"
-            >
-              <Plus size={15} />
-              <span>Mark Attendance</span>
-            </button>
-          )}
-
-          {/* Export Button */}
-          <button
-            onClick={handleExportCSV}
-            className="btn btn-outline dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
-          >
-            <Download size={15} />
-            <span>Export</span>
-          </button>
-
-          {/* View Mode Switcher */}
-          <div className="view-switch-group">
+      {/* ── Attendance Navigation & Action Toolbar (Clean 2-Row Design) ── */}
+      <div className="flex flex-col gap-3 mb-4">
+        {/* Row 1: View Modes (Left) & Actions (Right) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+          {/* Segmented View Mode Tabs */}
+          <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/90 rounded-xl border border-slate-200/80 dark:border-slate-700/80 gap-1 overflow-x-auto max-w-full">
             <button
               onClick={() => setViewMode('matrix')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2 ${viewMode === 'matrix' ? 'active' : ''}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+                viewMode === 'matrix'
+                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs'
+                  : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
               title="Matrix Calendar View"
             >
-              <Grid size={15} />
-              <span className="text-[11px] font-bold">Matrix</span>
+              <Grid size={14} />
+              <span>Matrix</span>
             </button>
+
             <button
               onClick={() => setViewMode('logs')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2 ${viewMode === 'logs' ? 'active' : ''}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+                viewMode === 'logs'
+                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs'
+                  : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
               title="Detailed Daily Punch Logs (Clock In / Clock Out)"
             >
-              <List size={15} />
-              <span className="text-[11px] font-bold">Daily Logs</span>
+              <List size={14} />
+              <span>Daily Logs</span>
             </button>
+
             <button
               onClick={() => setViewMode('summary')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2 ${viewMode === 'summary' ? 'active' : ''}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+                viewMode === 'summary'
+                  ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs'
+                  : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
               title="Analytics Summary"
             >
-              <BarChart2 size={15} />
-              <span className="text-[11px] font-bold">Summary</span>
+              <BarChart2 size={14} />
+              <span>Summary</span>
             </button>
+
             {isPrivileged && (
               <button
                 onClick={() => setViewMode('audit')}
-                className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'audit' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+                  viewMode === 'audit'
+                    ? 'bg-white dark:bg-orange-600 text-orange-600 dark:text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
                 title="Complete Admin & Employee Audit Trail"
               >
-                <ShieldAlert size={15} color={viewMode === 'audit' ? '#ea580c' : '#64748b'} />
-                <span className="text-[11px] font-bold">Audit Trail</span>
+                <ShieldAlert size={14} className={viewMode === 'audit' ? 'text-current' : 'text-orange-500'} />
+                <span>Audit Trail</span>
               </button>
             )}
+
             <button
               onClick={() => setViewMode('overtime')}
-              className={`view-switch-btn inline-flex items-center gap-1 px-2.5 transition-colors ${viewMode === 'overtime' ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border-orange-200 dark:border-orange-800' : 'text-slate-500 dark:text-slate-400 bg-transparent border-transparent'}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer ${
+                viewMode === 'overtime'
+                  ? 'bg-white dark:bg-amber-600 text-amber-600 dark:text-white shadow-xs'
+                  : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
               title="Overtime Requests & Approvals"
             >
-              <Clock size={15} color={viewMode === 'overtime' ? '#ea580c' : '#64748b'} />
-              <span className="text-[11px] font-bold">Overtime</span>
+              <Clock size={14} className={viewMode === 'overtime' ? 'text-current' : 'text-amber-500'} />
+              <span>Overtime</span>
             </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Admin Force Clock-Out Button */}
+            {isPrivileged && (
+              <button
+                onClick={() => setIsForceClockOutOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer shadow-xs"
+                title="Forcefully clock out an active employee shift with mandatory audit logging"
+              >
+                <LogOut size={13} />
+                <span>Force Clock-Out</span>
+              </button>
+            )}
+
+            {/* Export Button */}
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
+              title="Export filtered records to CSV"
+            >
+              <Download size={13} />
+              <span>Export</span>
+            </button>
+
+            {/* Mark Attendance Button (Admin, HR, or editAttendance permission only) */}
+            {(isPrivileged || perms?.editAttendance) && (
+              <button
+                onClick={() => setIsMarkModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 border-0 transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus size={14} />
+                <span>Mark Attendance</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Clean Filter Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Employee Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Users size={13} className="text-slate-400" />
+                <span>Employee:</span>
+              </span>
+              <select
+                value={effectiveEmployeeId}
+                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                disabled={!canViewAllAttendance}
+                className={`text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 outline-none transition-all ${
+                  !canViewAllAttendance
+                    ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed text-slate-400'
+                    : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 cursor-pointer focus:border-blue-500'
+                }`}
+              >
+                {canViewAllAttendance ? (
+                  <>
+                    <option value="all">All Employees ({employees.length})</option>
+                    {employees.map(emp => (
+                      <option key={emp._id} value={emp._id}>
+                        {emp.name} {isEmployeeSelf(emp) ? "— It's You" : ''}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  <option value={effectiveEmployeeId}>
+                    {currentUser?.name || 'My Attendance'} (You)
+                  </option>
+                )}
+              </select>
+            </div>
+
+            {/* Month Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Calendar size={13} className="text-slate-400" />
+                <span>Month:</span>
+              </span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500"
+              >
+                {months.map(m => (
+                  <option key={m.value} value={m.value}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Year:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500"
+              >
+                {years.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Attendance Status Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Filter size={13} className="text-slate-400" />
+                <span>Status:</span>
+              </span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="present">✔️ Present</option>
+                <option value="half_day">🌟 Half Day</option>
+                <option value="late">⚠️ Late</option>
+                <option value="absent">❌ Absent</option>
+                <option value="on_leave">✈️ On Leave</option>
+                <option value="holiday">⭐ Holiday</option>
+                <option value="day_off">📅 Day Off</option>
+                <option value="not_marked">— Not Marked</option>
+              </select>
+            </div>
+
+            {/* Reset Button */}
+            {(statusFilter !== 'all' || (canViewAllAttendance && effectiveEmployeeId !== 'all')) && (
+              <button
+                onClick={() => {
+                  setStatusFilter('all');
+                  if (canViewAllAttendance) setSelectedEmployeeId('all');
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:underline bg-transparent border-0 cursor-pointer p-0"
+              >
+                <RotateCcw size={11} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+
+          {/* Quick Info Indicator */}
+          <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+            <span>{months.find(m => m.value === selectedMonth)?.name} {selectedYear} • {targetEmployees.length} employee(s)</span>
           </div>
         </div>
       </div>
