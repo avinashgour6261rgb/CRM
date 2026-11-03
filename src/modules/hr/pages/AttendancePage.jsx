@@ -15,6 +15,7 @@ import {
   Palmtree,
   UserCheck,
   UserX,
+  Users,
   CalendarCheck,
   ShieldAlert,
   LogOut,
@@ -32,6 +33,7 @@ import { AdminForceClockOutModal } from '../components/attendance/AdminForceCloc
 import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { readTimerStorage, parseTimeToSeconds } from '../../../shared/utils/timerUtils';
 
 export const AttendancePage = () => {
   const { addToast } = useToast();
@@ -46,6 +48,7 @@ export const AttendancePage = () => {
     selectedYear,
     setSelectedYear,
     attendance,
+    leaves,
     currentUser: hrUser
   } = useHR();
 
@@ -148,21 +151,151 @@ export const AttendancePage = () => {
   }
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const presentCount = currentMonthRecords.filter(a => a.status === 'present' && a.date <= todayStr).length;
+
+  // Scoped employees for calculations (admin looking at 'all' vs single employee)
+  const targetEmployees = React.useMemo(() => {
+    if (canViewAllAttendance && effectiveEmployeeId === 'all') {
+      return employees || [];
+    }
+    const filtered = (employees || []).filter(e => isEmployeeSelf(e) || String(e._id) === String(effectiveEmployeeId) || e.employeeCode === effectiveEmployeeId);
+    if (filtered.length === 0 && currentUser) return [currentUser];
+    return filtered;
+  }, [canViewAllAttendance, effectiveEmployeeId, employees, currentUser, isEmployeeSelf]);
+
+  // 1. TODAY'S LIVE WORKFORCE STATUS (Real-time presence & absence truth)
+  const todayLiveStats = React.useMemo(() => {
+    let present = 0;
+    let onTime = 0;
+    let late = 0;
+    let halfDay = 0;
+    let absent = 0;
+    let onLeave = 0;
+    let workingLive = 0;
+    let clockedOut = 0;
+
+    targetEmployees.forEach(emp => {
+      const empId = String(emp._id || emp.id || '').toLowerCase();
+      const empCode = String(emp.employeeCode || '').toLowerCase();
+      const empName = (emp.name || '').trim().toLowerCase();
+
+      const att = (attendance || []).find(a =>
+        a.date === todayStr && (
+          (empId && (String(a.employeeId).toLowerCase() === empId || String(a.employee).toLowerCase() === empId || String(a.employee?._id).toLowerCase() === empId)) ||
+          (empCode && (String(a.employeeCode).toLowerCase() === empCode || String(a.employeeId).toLowerCase() === empCode)) ||
+          (empName && a.employeeName?.trim().toLowerCase() === empName)
+        )
+      );
+
+      const leave = (leaves || []).find(l =>
+        l.status === 'approved' && l.startDate <= todayStr && l.endDate >= todayStr && (
+          (empId && (String(l.employeeId).toLowerCase() === empId || String(l.employee).toLowerCase() === empId)) ||
+          (empCode && String(l.employeeCode).toLowerCase() === empCode) ||
+          (empName && l.employeeName?.trim().toLowerCase() === empName)
+        )
+      );
+
+      const storedIn = readTimerStorage(emp, 'is_clocked_in') === 'true';
+      const storedOut = readTimerStorage(emp, 'had_clocked_out') === 'true' || Boolean(readTimerStorage(emp, 'clock_out'));
+
+      const isClockedIn = Boolean(storedIn || (att && att.isClockedIn && !att.clockOutTime));
+      const isClockedOut = Boolean(storedOut || att?.clockOutTime || (att && att.isClockedIn === false));
+      const isPresent = isClockedIn || isClockedOut || ['present', 'late', 'half_day'].includes(att?.status);
+      const isOnLeave = Boolean(att?.status === 'on_leave' || leave);
+
+      if (isOnLeave) {
+        onLeave++;
+      } else if (isPresent) {
+        present++;
+        if (att?.status === 'late' || (att?.clockInTime && parseTimeToSeconds(att.clockInTime) > 34200)) {
+          late++;
+        } else if (att?.status === 'half_day') {
+          halfDay++;
+        } else {
+          onTime++;
+        }
+        if (isClockedIn) workingLive++;
+        if (isClockedOut) clockedOut++;
+      } else {
+        absent++;
+      }
+    });
+
+    return {
+      total: targetEmployees.length,
+      present,
+      onTime,
+      late,
+      halfDay,
+      absent,
+      onLeave,
+      workingLive,
+      clockedOut
+    };
+  }, [targetEmployees, attendance, leaves, todayStr]);
+
+  // 2. MONTHLY ACCUMULATED ATTENDANCE METRICS
+  const onTimeCount = currentMonthRecords.filter(a => a.status === 'present' && a.date <= todayStr).length;
   const lateCount = currentMonthRecords.filter(a => a.status === 'late' && a.date <= todayStr).length;
   const halfDayCount = currentMonthRecords.filter(a => a.status === 'half_day' && a.date <= todayStr).length;
-  const absentCount = currentMonthRecords.filter(a => a.status === 'absent' && a.date <= todayStr).length;
+  const fullDaysPresent = onTimeCount + lateCount;
+  const totalPresentCount = fullDaysPresent + halfDayCount;
   const onLeaveCount = currentMonthRecords.filter(a => a.status === 'on_leave').length;
   const holidayCount = currentMonthRecords.filter(a => a.status === 'holiday').length;
   const dayOffCount = currentMonthRecords.filter(a => a.status === 'day_off').length;
 
+  // Real Monthly Absences: count actual missed working days (no punch + no approved leave)
+  const realAbsentCount = React.useMemo(() => {
+    let count = 0;
+    const pastDates = [];
+    for (let day = 1; day <= daysInSelectedMonth; day++) {
+      const d = new Date(selectedYear, selectedMonth - 1, day);
+      const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      if (dateStr > todayStr) break;
+      // Skip weekends
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      pastDates.push(dateStr);
+    }
+
+    pastDates.forEach(dStr => {
+      targetEmployees.forEach(emp => {
+        const empId = String(emp._id || emp.id || '').toLowerCase();
+        const empCode = String(emp.employeeCode || '').toLowerCase();
+        const empName = (emp.name || '').trim().toLowerCase();
+
+        const att = (attendance || []).find(a =>
+          a.date === dStr && (
+            (empId && (String(a.employeeId).toLowerCase() === empId || String(a.employee).toLowerCase() === empId || String(a.employee?._id).toLowerCase() === empId)) ||
+            (empCode && (String(a.employeeCode).toLowerCase() === empCode || String(a.employeeId).toLowerCase() === empCode)) ||
+            (empName && a.employeeName?.trim().toLowerCase() === empName)
+          )
+        );
+
+        const onLeave = (leaves || []).some(l =>
+          l.status === 'approved' && l.startDate <= dStr && l.endDate >= dStr && (
+            (empId && (String(l.employeeId).toLowerCase() === empId || String(l.employee).toLowerCase() === empId)) ||
+            (empCode && String(l.employeeCode).toLowerCase() === empCode) ||
+            (empName && l.employeeName?.trim().toLowerCase() === empName)
+          )
+        );
+
+        if (att) {
+          if (att.status === 'absent') count++;
+        } else if (!onLeave) {
+          count++;
+        }
+      });
+    });
+
+    return count;
+  }, [daysInSelectedMonth, selectedYear, selectedMonth, todayStr, targetEmployees, attendance, leaves]);
+
   const validPresenceLogs = currentMonthRecords.filter(a => a.date <= todayStr);
   const totalWorkingHoursSum = validPresenceLogs.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);
-  const effectiveDays = presentCount + lateCount + (halfDayCount * 0.5);
+  const effectiveDays = fullDaysPresent + (halfDayCount * 0.5);
   const employeeMultiplier = (canViewAllAttendance && effectiveEmployeeId === 'all') ? (employees.length || 1) : 1;
   const totalExpectedWorkingDays = workingDaysCount * employeeMultiplier;
   const attendanceRate = totalExpectedWorkingDays > 0 ? Math.min(100, +((effectiveDays / totalExpectedWorkingDays) * 100).toFixed(1)) : 0;
-  const avgDailyHours = (presentCount + lateCount + halfDayCount) > 0 ? (totalWorkingHoursSum / (presentCount + lateCount + halfDayCount)).toFixed(1) : '0.0';
+  const avgDailyHours = totalPresentCount > 0 ? (totalWorkingHoursSum / totalPresentCount).toFixed(1) : '0.0';
 
   const totalLogs = currentMonthRecords.length;
 
@@ -241,6 +374,38 @@ export const AttendancePage = () => {
         </div>
       </div>
 
+      {/* ── TODAY'S REAL-TIME WORKFORCE STATUS STRIP ── */}
+      <div className="bg-slate-50 dark:bg-slate-800/80 rounded-[10px] border border-slate-200 dark:border-slate-700/80 p-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-2xs">
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className="font-bold text-slate-700 dark:text-slate-300">
+            📅 Today's Live Status ({todayStr}):
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-bold bg-white dark:bg-slate-900 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
+            <Users size={13} className="text-sky-600" />
+            <span>Team: {todayLiveStats.total}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-bold bg-green-50 dark:bg-green-950/60 px-2.5 py-1 rounded-md border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300">
+            <UserCheck size={13} className="text-green-600" />
+            <span>Present Today: {todayLiveStats.present}</span>
+            {todayLiveStats.late > 0 && <span className="text-[10.5px] font-medium text-amber-600">({todayLiveStats.late} late)</span>}
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-bold bg-red-50 dark:bg-red-950/60 px-2.5 py-1 rounded-md border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+            <UserX size={13} className="text-red-600" />
+            <span>Absent Today: {todayLiveStats.absent}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 font-bold bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300">
+            <Palmtree size={13} className="text-amber-600" />
+            <span>On Leave: {todayLiveStats.onLeave}</span>
+          </span>
+        </div>
+        {todayLiveStats.workingLive > 0 && (
+          <span className="inline-flex items-center gap-1.5 font-bold text-xs bg-emerald-100 dark:bg-emerald-950/80 px-2.5 py-1 rounded-md text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{todayLiveStats.workingLive} Working Live Now</span>
+          </span>
+        )}
+      </div>
+
       {/* Top Attendance Summary KPI Cards */}
       <div className="kpi-grid-6">
         <div className="kpi-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -250,9 +415,9 @@ export const AttendancePage = () => {
               <UserCheck size={18} />
             </div>
           </div>
-          <div className="kpi-value text-green-600 dark:text-green-400">{presentCount}</div>
+          <div className="kpi-value text-green-600 dark:text-green-400">{totalPresentCount}</div>
           <div className="kpi-subtext text-green-600 dark:text-green-400">
-            <span>✔️ On-time attendance</span>
+            <span>✔️ {onTimeCount} On Time • {lateCount} Late</span>
           </div>
         </div>
 
@@ -289,9 +454,9 @@ export const AttendancePage = () => {
               <UserX size={18} />
             </div>
           </div>
-          <div className="kpi-value text-red-600 dark:text-red-400">{absentCount}</div>
+          <div className="kpi-value text-red-600 dark:text-red-400">{realAbsentCount}</div>
           <div className="kpi-subtext text-red-600 dark:text-red-400">
-            <span>❌ Unplanned leaves</span>
+            <span>❌ Unplanned / No punch</span>
           </div>
         </div>
 
@@ -609,7 +774,7 @@ export const AttendancePage = () => {
               <CheckCircle2 color="#16a34a" size={20} />
             </div>
             <div className="text-[28px] font-extrabold text-green-600 dark:text-green-400 mt-2.5">
-              {Math.round(((presentCount + lateCount + halfDayCount) / (totalLogs || 1)) * 100)}%
+              {attendanceRate}%
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">Effective presence recorded</span>
           </div>
@@ -642,7 +807,7 @@ export const AttendancePage = () => {
               <XCircle color="#dc2626" size={20} />
             </div>
             <div className="text-[28px] font-extrabold text-red-600 dark:text-red-400 mt-2.5">
-              {absentCount}
+              {realAbsentCount}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">Requires follow-up</span>
           </div>

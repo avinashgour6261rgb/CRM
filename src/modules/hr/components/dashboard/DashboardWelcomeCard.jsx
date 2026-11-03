@@ -115,7 +115,7 @@ export const DashboardWelcomeCard = ({
         >
           <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Leave Balance</div>
           <div className="text-[11.5px] font-bold text-slate-900 dark:text-slate-100 mt-px">
-            Casual: 10d • Sick: 8d
+            Casual: {effectiveTargetUser?.leaveBalance?.casual ?? 12}d • Sick: {effectiveTargetUser?.leaveBalance?.sick ?? 8}d
           </div>
         </div>
       </div>

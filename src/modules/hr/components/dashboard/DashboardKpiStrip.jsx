@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Users,
   UserCheck,
+  UserX,
   Palmtree,
   Clock,
   Play,
@@ -64,6 +65,20 @@ export const DashboardKpiStrip = ({
             </div>
             <div className="text-lg font-extrabold text-green-600 dark:text-green-400">
               {teamStats.present || 0}
+            </div>
+          </div>
+
+          <div
+            onClick={() => navigate('/team-operations')}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-600"
+            title="Click to view absent / not clocked in employees"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Absent Today</span>
+              <UserX size={13} color="#dc2626" />
+            </div>
+            <div className="text-lg font-extrabold text-red-600 dark:text-red-400">
+              {teamStats.absent || 0}
             </div>
           </div>
 

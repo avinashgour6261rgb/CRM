@@ -637,13 +637,20 @@ export const DashboardPage = () => {
     // Completed tasks today
     const completedTasksToday = empTasks.filter(t => isTaskActuallyCompleted(t) && (t.completedAt?.startsWith(todayStr) || t.completedOn?.startsWith(todayStr)));
 
+    const isPresent = !isOnLeave && Boolean(isClockedIn || isClockedOut || (attRec && ['present', 'late', 'half_day'].includes(attRec.status)));
+    const isAbsent = !isOnLeave && !isPresent;
+
     return {
       emp,
       empKey,
       empId,
       empName,
+      department: emp.department || 'General',
       isOnLeave,
       leaveNote,
+      isPresent,
+      isAbsent,
+      attStatus: attRec?.status || (isOnLeave ? 'on_leave' : (isClockedIn || isClockedOut ? 'present' : 'absent')),
       isClockedIn: !isOnLeave && isClockedIn,
       isOnBreak: !isOnLeave && storedOnBreak,
       breakType: storedBreakType,
@@ -671,8 +678,9 @@ export const DashboardPage = () => {
     const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
     const runningTask = teamTodayStates.filter(s => s.runningTask).length;
-    const present = teamTodayStates.filter(s => s.isClockedIn || s.isClockedOut).length;
-    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present };
+    const present = teamTodayStates.filter(s => s.isPresent).length;
+    const absent = teamTodayStates.filter(s => s.isAbsent).length;
+    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present, absent };
   }, [teamTodayStates]);
 
   // Active view user's live today state
