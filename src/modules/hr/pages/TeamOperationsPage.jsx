@@ -271,11 +271,21 @@ export const TeamOperationsPage = () => {
     const hasTodayStoredClockIn = Boolean(isTodaySession && (storedLogin || Number(localStorage.getItem(`ems_timer_${empKey}_clock_in_timestamp`)) > 0));
     const hasTodayStoredClockOut = Boolean(isTodaySession && (storedClockOut || localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true'));
 
-    // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today!
-    const isClockedIn = (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
-                        (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent');
+    const isExplicitlyStoredClockedOut = isTodaySession && (
+      localStorage.getItem(`ems_timer_${empKey}_is_clocked_in`) === 'false' ||
+      localStorage.getItem(`ems_timer_${empKey}_had_clocked_out`) === 'true' ||
+      (empId && (localStorage.getItem(`ems_timer_${empId}_is_clocked_in`) === 'false' || localStorage.getItem(`ems_timer_${empId}_had_clocked_out`) === 'true')) ||
+      Boolean(storedClockOut)
+    );
+
+    // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
+    const isClockedIn = !isExplicitlyStoredClockedOut && (
+      (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
+      (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
+    );
 
     const isClockedOut = !isClockedIn && (
+      isExplicitlyStoredClockedOut ||
       (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
       (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
     );

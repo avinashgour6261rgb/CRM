@@ -60,6 +60,7 @@ export const TopNavbar = () => {
     timeString,
     isRunning,
     isClockedIn,
+    hadClockedOutToday,
     isOnBreak,
     breakType,
     togglePauseResume,
@@ -229,7 +230,7 @@ export const TopNavbar = () => {
         {/* ── Working Timer Widget (e.g. 02:16:05 with blue/red controls) ── */}
         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2.5 h-[34px] transition-colors duration-200">
           <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
-            {timeString || '00:00:00'}
+            {(!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00')}
           </span>
 
           <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-blue-500 shadow-[0_0_6px_#3b82f6]' : 'bg-slate-400'}`} />

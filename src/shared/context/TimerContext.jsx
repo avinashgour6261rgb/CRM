@@ -365,8 +365,11 @@ export const TimerProvider = ({ children }) => {
     const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
     const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
     if (!inVal && !hadOutVal) return 0;
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const maxGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnight.getTime()) / 1000));
     const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
-    if (saved) return Math.min(24 * 3600, Math.max(0, parseInt(saved, 10)));
+    if (saved) return Math.min(maxGrossToday, Math.max(0, parseInt(saved, 10)));
     return 0;
   });
 
@@ -546,10 +549,14 @@ export const TimerProvider = ({ children }) => {
       const resolvedHadClockedOut = hadOut !== null ? (hadOut === 'true' || hadOut === true) : Boolean(cTime || hasAttClockOut);
       setHadClockedOutToday(resolvedHadClockedOut);
 
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const maxGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnight.getTime()) / 1000));
+
       const secVal = readTimerStorage(currentUser, 'work_seconds');
       let resolvedWorkSecs = 0;
       if (resolvedIsClockedIn || resolvedHadClockedOut) {
-        resolvedWorkSecs = secVal ? Math.min(24 * 3600, Math.max(0, parseInt(secVal, 10))) : (Number(attRec?.workSeconds) || 0);
+        resolvedWorkSecs = secVal ? Math.min(maxGrossToday, Math.max(0, parseInt(secVal, 10))) : (Number(attRec?.workSeconds) || 0);
       } else {
         // Not clocked in and not clocked out yet today: must be strictly 0!
         resolvedWorkSecs = 0;
@@ -2036,7 +2043,7 @@ export const TimerProvider = ({ children }) => {
       remainingShiftText: isShiftTargetReached
         ? '🎉 8h 30m Shift Target Completed!'
         : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 8h 30m target`,
-      timeString: formatSeconds(workSeconds),
+      timeString: (!isClockedIn && !hadClockedOutToday) ? '00:00:00' : formatSeconds(workSeconds),
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),
       workDurationText: (!isClockedIn && !hadClockedOutToday) ? '00h 00m' : formatHoursMinutes(workSeconds),

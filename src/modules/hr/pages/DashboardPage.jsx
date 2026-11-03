@@ -572,13 +572,20 @@ export const DashboardPage = () => {
     const hasTodayStoredClockIn = Boolean(hasTodayStoredSession && (storedLogin || rawClockInTs > 0));
     const hasTodayStoredClockOut = Boolean(hasTodayStoredSession && (storedClockOut || readTimerKey('had_clocked_out') === 'true' || readTimerKey('had_clocked_out') === true));
 
-    // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today!
-    const isClockedIn = !isStaleFromPreviousDay && (
+    const isExplicitlyStoredClockedOut = hasTodayStoredSession && (
+      readTimerKey('is_clocked_in') === 'false' ||
+      readTimerKey('had_clocked_out') === 'true' ||
+      Boolean(storedClockOut)
+    );
+
+    // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
+    const isClockedIn = !isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && (
       (hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn) ||
       (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
     );
 
     const isClockedOut = !isClockedIn && !isStaleFromPreviousDay && (
+      isExplicitlyStoredClockedOut ||
       (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
       (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
     );
