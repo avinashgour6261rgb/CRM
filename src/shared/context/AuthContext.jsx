@@ -297,7 +297,7 @@ export const AuthProvider = ({ children }) => {
     }
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
     return targetUser;
-  }, [currentUser, pauseUserTasks]);
+  }, [currentUser]);
 
   // Quick switch to any specific employee or user object
   const switchUser = useCallback(async (userOrId) => {
