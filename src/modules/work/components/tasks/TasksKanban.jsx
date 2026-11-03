@@ -17,6 +17,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
+import { canDeleteTask as checkCanDeleteTask } from '../../../../shared/utils/permissionUtils';
 
 const COLUMNS = [
   {
@@ -61,22 +62,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
   const { currentUser } = useAuth();
   const tasks = propTasks !== undefined ? propTasks : (contextTasks || []);
 
-  const canDeleteTask = (task) => {
-    if (!currentUser) return false;
-    return (
-      currentUser.isAdmin ||
-      currentUser.isSuperAdmin ||
-      currentUser.systemRole === 'admin' ||
-      currentUser.systemRole === 'hr' ||
-      currentUser.role === 'Administrator' ||
-      currentUser.role === 'HR Manager' ||
-      currentUser.permissions?.manageTasks ||
-      currentUser.permissions?.deleteTasks ||
-      task?.assignedById === currentUser?._id ||
-      task?.createdBy === currentUser?.name ||
-      task?.createdById === currentUser?._id
-    );
-  };
+  const canDeleteTask = (task) => checkCanDeleteTask(currentUser, task);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 items-start">

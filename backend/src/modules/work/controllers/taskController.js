@@ -288,6 +288,13 @@ exports.updateTaskStatus = async (req, res, next) => {
 // @route   DELETE /api/tasks/:id
 exports.deleteTask = async (req, res, next) => {
   try {
+    if (req.user && !req.user.isAdmin && req.user.systemRole !== 'admin') {
+      const perms = req.user.permissions || {};
+      if (!perms.deleteTasks && !perms.allAccess) {
+        return res.status(403).json({ success: false, message: 'Access Denied: Missing deleteTasks authority' });
+      }
+    }
+
     let task = null;
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
       task = await Task.findByIdAndDelete(req.params.id);

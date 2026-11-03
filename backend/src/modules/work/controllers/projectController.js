@@ -146,6 +146,13 @@ exports.updateProject = async (req, res, next) => {
 // @route   DELETE /api/projects/:id
 exports.deleteProject = async (req, res, next) => {
   try {
+    if (req.user && !req.user.isAdmin && req.user.systemRole !== 'admin') {
+      const perms = req.user.permissions || {};
+      if (!perms.deleteProjects && !perms.allAccess) {
+        return res.status(403).json({ success: false, message: 'Access Denied: Missing deleteProjects authority' });
+      }
+    }
+
     let project = null;
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
       project = await Project.findByIdAndDelete(req.params.id);

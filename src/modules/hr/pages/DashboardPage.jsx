@@ -64,7 +64,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
@@ -300,22 +300,7 @@ export const DashboardPage = () => {
   const [currentDayStr, setCurrentDayStr] = useState(() => new Date().toLocaleDateString('en-US', { weekday: 'long' }));
   const [currentDateFormatted, setCurrentDateFormatted] = useState(() => new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
 
-  const canDeleteTask = (task) => {
-    if (!currentUser) return false;
-    return (
-      currentUser.isAdmin ||
-      currentUser.isSuperAdmin ||
-      currentUser.systemRole === 'admin' ||
-      currentUser.systemRole === 'hr' ||
-      currentUser.role === 'Administrator' ||
-      currentUser.role === 'HR Manager' ||
-      currentUser.permissions?.manageTasks ||
-      currentUser.permissions?.deleteTasks ||
-      task?.assignedById === currentUser?._id ||
-      task?.createdBy === currentUser?.name ||
-      task?.createdById === currentUser?._id
-    );
-  };
+  const canDeleteTask = (task) => checkCanDeleteTask(currentUser, task);
 
   // Modals state
   const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);

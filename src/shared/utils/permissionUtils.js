@@ -341,34 +341,24 @@ export const canPostNotices = (user) => {
 };
 export const canDeleteTask = (user, task = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
-  const perms = getUserModulePermissions(user);
-  if (perms?.allAccess || perms?.deleteTasks || perms?.manageTasks) return true;
-  if (task) {
-    const uId = String(user._id || user.id || '').toLowerCase().trim();
-    const uCode = String(user.employeeCode || '').toLowerCase().trim();
-    const uName = String(user.name || '').toLowerCase().trim();
-    if (task.assignedById && (String(task.assignedById).toLowerCase() === uId || String(task.assignedById).toLowerCase() === uCode)) return true;
-    if (task.createdById && (String(task.createdById).toLowerCase() === uId || String(task.createdById).toLowerCase() === uCode)) return true;
-    if (task.createdBy && String(task.createdBy).toLowerCase().trim() === uName) return true;
+  // 1. Administrators have full delete authority
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || user.role === 'Administrator' || user.systemRole === 'admin') {
+    return true;
   }
-  return false;
+  // 2. Strict permission check: user must explicitly have deleteTasks or allAccess granted
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess === true || perms?.deleteTasks === true || perms?.canDeleteTasks === true);
 };
 
 export const canDeleteProject = (user, project = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
-  const perms = getUserModulePermissions(user);
-  if (perms?.allAccess || perms?.deleteProjects || perms?.manageProjects) return true;
-  if (project) {
-    const uId = String(user._id || user.id || '').toLowerCase().trim();
-    const uCode = String(user.employeeCode || '').toLowerCase().trim();
-    const uEmail = String(user.email || '').toLowerCase().trim();
-    if (project.createdById && (String(project.createdById).toLowerCase() === uId || String(project.createdById).toLowerCase() === uCode)) return true;
-    if (project.createdBy && (String(project.createdBy).toLowerCase() === uId || String(project.createdBy).toLowerCase() === uCode)) return true;
-    if (project.creatorEmail && String(project.creatorEmail).toLowerCase() === uEmail) return true;
+  // 1. Administrators have full delete authority
+  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || user.role === 'Administrator' || user.systemRole === 'admin') {
+    return true;
   }
-  return false;
+  // 2. Strict permission check: user must explicitly have deleteProjects or allAccess granted
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess === true || perms?.deleteProjects === true || perms?.canDeleteProjects === true);
 };
 
 export const canDeleteEmployee = (user) => {

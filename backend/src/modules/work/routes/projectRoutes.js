@@ -7,6 +7,7 @@ const {
   updateProject,
   deleteProject
 } = require('../controllers/projectController');
+const { authenticateUser, requirePermission } = require('../../../shared/middleware/authMiddleware');
 
 router.route('/')
   .get(getProjects)
@@ -15,6 +16,6 @@ router.route('/')
 router.route('/:id')
   .get(getProjectById)
   .put(updateProject)
-  .delete(deleteProject);
+  .delete(authenticateUser, requirePermission('deleteProjects'), deleteProject);
 
 module.exports = router;

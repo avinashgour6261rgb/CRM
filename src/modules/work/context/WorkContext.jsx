@@ -15,7 +15,7 @@ import { hrService } from '../../hr/services/hrService';
 import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
 import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
@@ -1090,6 +1090,15 @@ export const WorkProvider = ({ children }) => {
 
   const deleteProject = async (id) => {
     try {
+      const allProjects = getCollection(KEYS.PROJECTS) || [];
+      const targetProj = (projects || []).find(p => String(p._id || p.id) === String(id) || p.projectCode === id) ||
+        allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
+
+      if (!canDeleteProject(currentUser, targetProj)) {
+        addToast('⛔ Access Denied: You do not have permission to delete projects.', 'error');
+        return;
+      }
+
       await workService.deleteProject(id);
       addToast('Project removed successfully', 'info');
       await loadWorkData();
@@ -1259,8 +1268,17 @@ export const WorkProvider = ({ children }) => {
 
   const deleteTask = async (id) => {
     try {
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const targetTask = (tasks || []).find(t => String(t._id || t.id) === String(id)) ||
+        allTasks.find(t => String(t._id || t.id) === String(id));
+
+      if (!canDeleteTask(currentUser, targetTask)) {
+        addToast('⛔ Access Denied: You do not have permission to delete tasks.', 'error');
+        return;
+      }
+
       const activeTimer = getActiveTimerSnapshot();
-      if (activeTimer && activeTimer.taskId === id) {
+      if (activeTimer && (activeTimer.taskId === id || activeTimer._id === id)) {
         saveActiveTimerSnapshot(null);
       }
       await workService.deleteTask(id);
@@ -1273,6 +1291,10 @@ export const WorkProvider = ({ children }) => {
 
   const purgeAllTasks = async () => {
     try {
+      if (!isAdmin(currentUser) && !currentUser?.isAdmin && !currentUser?.isSuperAdmin) {
+        addToast('⛔ Access Denied: Only Administrators can purge tasks.', 'error');
+        return;
+      }
       saveActiveTimerSnapshot(null);
       await workService.purgeAllTasks();
       addToast('🧹 All legacy tasks purged successfully! System ready for fresh tasks.', 'success');
