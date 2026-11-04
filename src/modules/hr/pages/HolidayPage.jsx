@@ -17,7 +17,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { HolidayCalendar } from '../components/holidays/HolidayCalendar';
 import { AddHolidayModal } from '../components/holidays/AddHolidayModal';
-import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canManageCompanyHolidays } from '../../../shared/utils/permissionUtils';
 import { holidaySyncService } from '../services/holidaySyncService';
 
 export const HolidayPage = () => {
@@ -29,8 +29,8 @@ export const HolidayPage = () => {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Access Control: Admin & HR permission check
-  const canManageHolidays = isHRorAdmin(currentUser);
+  // Access Control: Admin & HR or explicit granular permission
+  const canManageHolidays = canManageCompanyHolidays(currentUser);
 
   // Dynamic today's date
   const todayStr = new Date().toISOString().split('T')[0];

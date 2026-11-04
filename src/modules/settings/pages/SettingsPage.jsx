@@ -25,12 +25,13 @@ import { CompanyBrandingTab } from '../components/CompanyBrandingTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isAdmin } from '../../../shared/utils/permissionUtils';
+import { isAdmin, canUserGrantPermissions } from '../../../shared/utils/permissionUtils';
 
 export const SettingsPage = () => {
   const { timeString, isClockedIn, isOnBreak } = useTimer();
   const { currentUser } = useAuth();
   const isUserAdmin = isAdmin(currentUser);
+  const canManagePerms = isUserAdmin || canUserGrantPermissions(currentUser);
 
   const [activeSection, setActiveSection] = useState('profile');
   const [profileSubTab, setProfileSubTab] = useState('profile');
@@ -50,22 +51,30 @@ export const SettingsPage = () => {
       { id: 'preferences', label: 'My Work Preferences', icon: Sliders, desc: 'Notifications & work alerts' }
     ];
 
+    if (canManagePerms) {
+      baseItems.push(
+        { id: 'permissions', label: 'Employee Access & Permissions', icon: ShieldCheck, desc: 'RBAC module toggles & privileges' }
+      );
+    }
+
     if (isUserAdmin) {
       baseItems.push(
-        { id: 'permissions', label: 'Employee Access & Permissions', icon: ShieldCheck, desc: 'RBAC module toggles & privileges' },
         { id: 'company', label: 'Company & Payslip Settings', icon: Building2, desc: 'Company policy & branding' }
       );
     }
 
     return baseItems;
-  }, [isUserAdmin]);
+  }, [isUserAdmin, canManagePerms]);
 
   // Fallback if employee lands on restricted admin tab
   React.useEffect(() => {
-    if (!isUserAdmin && ['permissions', 'company'].includes(activeSection)) {
+    if (!canManagePerms && activeSection === 'permissions') {
       setActiveSection('profile');
     }
-  }, [isUserAdmin, activeSection]);
+    if (!isUserAdmin && activeSection === 'company') {
+      setActiveSection('profile');
+    }
+  }, [canManagePerms, isUserAdmin, activeSection]);
 
   const filteredMenuItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchMenu.toLowerCase())

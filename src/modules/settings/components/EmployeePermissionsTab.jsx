@@ -1,34 +1,34 @@
 /**
  * @file EmployeePermissionsTab.jsx
- * @description Modern, Clean & Simplified RBAC UI for Admin & HR.
+ * @description Enterprise Role-Based Access Control (RBAC) & Granular Permissions Management.
  * Features:
- *  1. 1-Click Base Role Selection (Team Member, Team Lead, HR Specialist).
- *  2. 6 Modular Extra Access Cards (Live Operations, Project Lead, Employee Roster, Payroll, Leaves, CRM Leads).
- *  3. Fixed-height, static layout (Zero layout jitter/jumping on toggle).
- *  4. Co-Admin Delegation with optional expiry date.
- *  5. Optional Collapsible Advanced Controls (granular delete/export switches).
- *  6. Full DB persistence (MongoDB Atlas + localStorage cache sync).
- *  7. Administrator permanent account protection.
- *  8. Direct, rock-solid switch controls (Zero misfire / instant revert bug fixed).
+ *  1. 1-Click Base Role Presets (Team Member, Team / Project Lead, HR Specialist).
+ *  2. Categorized Granular Capabilities Matrix (26+ Individual Toggles across 5 Modules).
+ *  3. Category-level Quick Actions ("Enable All" & "Disable All" in 1 click).
+ *  4. Instant Keyword Search Filter to find any permission instantly.
+ *  5. Executive Co-Admin Delegation with optional expiry date.
+ *  6. Spreadsheet & CSV Data Export Authority Controls.
+ *  7. Full Cloud Database Persistence (MongoDB Atlas + Real-Time Sync across all devices/laptops).
+ *  8. Primary Administrator Permanent Account Protection.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ShieldCheck,
   Check,
   RotateCcw,
-  UserCheck,
-  Users2,
-  Lock,
-  Sparkles,
   Crown,
-  Briefcase,
   Clock,
   ChevronDown,
   ChevronUp,
   AlertCircle,
   Shield,
-  Layers
+  Layers,
+  Search,
+  Filter,
+  Sparkles,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { broadcastSyncEvent } from '../../../shared/services/realtimeSyncService';
@@ -38,7 +38,10 @@ import {
   ROLES,
   getUserRole,
   getUserModulePermissions,
-  DEFAULT_MODULE_PERMISSIONS
+  GRANULAR_PERMISSIONS_LIST,
+  PERMISSION_CATEGORIES,
+  canUserGrantPermissions,
+  isAdmin
 } from '../../../shared/utils/permissionUtils';
 
 const BASE_ROLES = [
@@ -48,17 +51,115 @@ const BASE_ROLES = [
     emoji: '👤',
     title: 'Team Member',
     subtitle: 'Standard Employee (Default)',
-    desc: 'Self-service dashboard: own tasks, shift clock-in/out, personal leaves & support tickets.',
-    badgeColor: 'blue'
+    desc: 'Self-service dashboard: personal tasks, shift clock-in/out, personal leaves & support tickets.',
+    badgeColor: 'blue',
+    presets: {
+      dashboard: true,
+      tasks: true,
+      attendance: true,
+      leaves: true,
+      tickets: true,
+      events: true,
+      documentation: false,
+      projects: true,
+      leads: false,
+      employees: false,
+      payroll: false,
+      finance: false,
+      liveOperations: false,
+      reports: false,
+      createTasks: false,
+      viewAllTasks: false,
+      deleteTasks: false,
+      manageProjects: false,
+      viewAllProjects: false,
+      deleteProjects: false,
+      manageEmployees: false,
+      deleteEmployees: false,
+      viewAllAttendance: false,
+      editAttendance: false,
+      forceClockOut: false,
+      viewAllLeaves: false,
+      approveLeaves: false,
+      manageCompanyHolidays: false,
+      giveAppreciation: false,
+      deleteAppreciations: false,
+      accessCRM: false,
+      viewAllLeads: false,
+      deleteLeads: false,
+      manageTickets: false,
+      deleteTickets: false,
+      postNotices: false,
+      deleteNotices: false,
+      accessFinance: false,
+      manageSalaries: false,
+      grantPermissions: false,
+      allAccess: false,
+      export_leads: false,
+      export_payroll: false,
+      export_attendance: false,
+      tasksScope: 'own',
+      projectsScope: 'own',
+      leadsScope: 'own'
+    }
   },
   {
     id: 'team_lead',
-    roleKey: ROLES.TEAM_LEAD,
+    roleKey: ROLES.TEAM_LEADER,
     emoji: '📋',
     title: 'Team / Project Lead',
     subtitle: 'Squad & Sprint Lead',
     desc: 'Create sprint projects, delegate tasks to teammates, view squad work & review team leaves.',
-    badgeColor: 'purple'
+    badgeColor: 'purple',
+    presets: {
+      dashboard: true,
+      tasks: true,
+      projects: true,
+      attendance: true,
+      leaves: true,
+      tickets: true,
+      events: true,
+      documentation: true,
+      leads: false,
+      employees: false,
+      payroll: false,
+      finance: false,
+      liveOperations: false,
+      reports: false,
+      createTasks: true,
+      viewAllTasks: true,
+      deleteTasks: true,
+      manageProjects: true,
+      viewAllProjects: true,
+      deleteProjects: false,
+      manageEmployees: false,
+      deleteEmployees: false,
+      viewAllAttendance: false,
+      editAttendance: false,
+      forceClockOut: false,
+      viewAllLeaves: true,
+      approveLeaves: true,
+      manageCompanyHolidays: false,
+      giveAppreciation: true,
+      deleteAppreciations: false,
+      accessCRM: false,
+      viewAllLeads: false,
+      deleteLeads: false,
+      manageTickets: true,
+      deleteTickets: false,
+      postNotices: true,
+      deleteNotices: false,
+      accessFinance: false,
+      manageSalaries: false,
+      grantPermissions: false,
+      allAccess: false,
+      export_leads: false,
+      export_payroll: false,
+      export_attendance: false,
+      tasksScope: 'team',
+      projectsScope: 'team',
+      leadsScope: 'own'
+    }
   },
   {
     id: 'hr_specialist',
@@ -67,140 +168,61 @@ const BASE_ROLES = [
     title: 'HR Specialist',
     subtitle: 'Workforce & Operations',
     desc: 'Full workforce directory, attendance punch matrix, leave approvals & payroll summaries.',
-    badgeColor: 'amber'
-  }
-];
-
-const EXTRA_ACCESS_CARDS = [
-  {
-    id: 'liveOperations',
-    emoji: '🚀',
-    title: 'Live Shift Operations',
-    subtitle: 'Floor Monitor & Overrides',
-    desc: 'Monitor team live shifts, active breaks, and force clock-out overrides.',
-    primaryKey: 'liveOperations',
-    grantKeys: {
-      liveOperations: true,
-      teamoperations: true,
-      editAttendance: true,
-      viewAllAttendance: true
-    },
-    revokeKeys: {
-      liveOperations: false,
-      teamoperations: false,
-      editAttendance: false,
-      viewAllAttendance: false
-    }
-  },
-  {
-    id: 'projectLead',
-    emoji: '📋',
-    title: 'Project & Task Leadership',
-    subtitle: 'Delegation & Workspaces',
-    desc: 'Create projects, manage sprints, and assign tasks to any team member.',
-    primaryKey: 'manageProjects',
-    grantKeys: {
+    badgeColor: 'amber',
+    presets: {
+      dashboard: true,
+      tasks: true,
       projects: true,
-      manageProjects: true,
-      createProjects: true,
-      createTasks: true,
-      viewAllProjects: true,
-      viewAllTasks: true,
-      tasksScope: 'team',
-      projectsScope: 'team'
-    },
-    revokeKeys: {
-      manageProjects: false,
-      createProjects: false,
-      createTasks: false,
-      viewAllProjects: false,
-      viewAllTasks: false,
-      tasksScope: 'own',
-      projectsScope: 'own'
-    }
-  },
-  {
-    id: 'employeeDirectory',
-    emoji: '👥',
-    title: 'Employee Directory Management',
-    subtitle: 'Workforce Records',
-    desc: 'View team directory, onboard new employees, and manage profiles.',
-    primaryKey: 'manageEmployees',
-    grantKeys: {
       employees: true,
-      manageEmployees: true
-    },
-    revokeKeys: {
-      employees: false,
-      manageEmployees: false
-    }
-  },
-  {
-    id: 'payrollAccess',
-    emoji: '💰',
-    title: 'Salary & Payroll Access',
-    subtitle: 'Compensation & Payslips',
-    desc: 'View salary structures, monthly payslips, and compensation reports.',
-    primaryKey: 'payroll',
-    grantKeys: {
+      attendance: true,
+      leaves: true,
       payroll: true,
-      manageSalaries: true,
-      export_payroll: true
-    },
-    revokeKeys: {
-      payroll: false,
-      manageSalaries: false,
-      export_payroll: false
-    }
-  },
-  {
-    id: 'leaveApprovals',
-    emoji: '🌴',
-    title: 'Leave Approval Authority',
-    subtitle: 'Absence Decisions',
-    desc: 'Review, approve, or reject team leave applications.',
-    primaryKey: 'approveLeaves',
-    grantKeys: {
+      finance: true,
+      events: true,
+      documentation: true,
+      liveOperations: true,
+      reports: true,
+      createTasks: false,
+      viewAllTasks: true,
+      deleteTasks: false,
+      manageProjects: false,
+      viewAllProjects: true,
+      deleteProjects: false,
+      manageEmployees: true,
+      deleteEmployees: false,
+      viewAllAttendance: true,
+      editAttendance: true,
+      forceClockOut: true,
+      viewAllLeaves: true,
       approveLeaves: true,
-      viewAllLeaves: true
-    },
-    revokeKeys: {
-      approveLeaves: false,
-      viewAllLeaves: false
-    }
-  },
-  {
-    id: 'crmLeads',
-    emoji: '🎯',
-    title: 'CRM Sales & Leads Pipeline',
-    subtitle: 'Client Deals & Outreach',
-    desc: 'Access sales pipeline, manage customer prospects and sales deals.',
-    primaryKey: 'leads',
-    grantKeys: {
-      leads: true,
-      accessCRM: true,
-      viewAllLeads: true,
-      leadsScope: 'all'
-    },
-    revokeKeys: {
-      leads: false,
+      manageCompanyHolidays: true,
+      giveAppreciation: true,
+      deleteAppreciations: false,
       accessCRM: false,
       viewAllLeads: false,
+      deleteLeads: false,
+      manageTickets: true,
+      deleteTickets: false,
+      postNotices: true,
+      deleteNotices: false,
+      accessFinance: true,
+      manageSalaries: true,
+      grantPermissions: false,
+      allAccess: false,
+      export_attendance: true,
+      export_payroll: true,
+      export_leads: false,
+      tasksScope: 'own',
+      projectsScope: 'own',
       leadsScope: 'own'
     }
   }
 ];
 
-const ADVANCED_DELETE_EXPORT_LIST = [
-  { key: 'deleteTasks', emoji: '🗑️', label: 'Delete Sprint Tasks', desc: 'Permanently delete tasks created by any employee' },
-  { key: 'deleteProjects', emoji: '🗂️', label: 'Delete Workspaces & Projects', desc: 'Permanently remove projects and their task backlogs' },
-  { key: 'deleteEmployees', emoji: '👥', label: 'Remove Employee Accounts', desc: 'Archive or permanently delete non-admin employee records' },
-  { key: 'deleteLeads', emoji: '💼', label: 'Delete CRM Sales Leads', desc: 'Permanently remove client records from CRM pipeline' },
-  { key: 'deleteTickets', emoji: '🎫', label: 'Delete Helpdesk Tickets', desc: 'Permanently remove support tickets' },
-  { key: 'postNotices', emoji: '📢', label: 'Publish & Delete Board Notices', desc: 'Broadcast notices to the entire company notice board' },
-  { key: 'export_leads', emoji: '📤', label: 'Export CRM Leads (CSV/Excel)', desc: 'Download client lead contacts and pipeline data' },
-  { key: 'export_payroll', emoji: '📊', label: 'Export Payroll & Salary Data', desc: 'Download salary registers and compensation summaries' },
-  { key: 'export_attendance', emoji: '📑', label: 'Export Monthly Attendance', desc: 'Download monthly employee clock in/out timesheet sheets' }
+const SPREADSHEET_EXPORTS_LIST = [
+  { key: 'export_attendance', emoji: '📑', label: 'Export Attendance Reports', desc: 'Download monthly timesheets, daily punch logs, and overtime CSV/Excel' },
+  { key: 'export_payroll', emoji: '📊', label: 'Export Payroll & Salary Data', desc: 'Download monthly salary registers and compensation summaries' },
+  { key: 'export_leads', emoji: '📤', label: 'Export CRM Client Leads', desc: 'Export sales pipeline contacts and CRM lead sheets' }
 ];
 
 export const EmployeePermissionsTab = () => {
@@ -208,18 +230,27 @@ export const EmployeePermissionsTab = () => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
+  const canEdit = isAdmin(currentUser) || canUserGrantPermissions(currentUser);
+
   const [selectedEmpId, setSelectedEmpId] = useState(() => {
     const nonAdmin = (employees || []).find(e => !e.isAdmin && e.role?.toLowerCase() !== 'admin');
-    return nonAdmin?._id || employees[0]?._id || 'ENG-001';
+    return nonAdmin?._id || employees[0]?._id || 'EMP-002';
   });
 
-  const selectedEmp = (employees || []).find(e => e._id === selectedEmpId || e.employeeCode === selectedEmpId) || employees[0];
+  const selectedEmp = useMemo(() => {
+    return (employees || []).find(e => e._id === selectedEmpId || e.employeeCode === selectedEmpId) || employees[0];
+  }, [employees, selectedEmpId]);
 
-  const isSelectedEmpPrimaryAdmin = selectedEmp?.employeeCode === 'ADM-001' ||
-    selectedEmp?.isSuperAdmin ||
-    selectedEmp?.email === 'avinash@inforag.com' ||
-    selectedEmp?.email === 'admin@inforag.com' ||
-    (selectedEmp?.isAdmin && (selectedEmp?.role || '').toLowerCase() === 'admin');
+  const isSelectedEmpPrimaryAdmin = useMemo(() => {
+    if (!selectedEmp) return false;
+    return (
+      selectedEmp.employeeCode === 'ADM-001' ||
+      selectedEmp.isSuperAdmin ||
+      selectedEmp.email === 'avinash@inforag.com' ||
+      selectedEmp.email === 'admin@inforag.com' ||
+      (selectedEmp.isAdmin && (selectedEmp.role || '').toLowerCase() === 'admin')
+    );
+  }, [selectedEmp]);
 
   const [permissions, setPermissions] = useState(() => {
     return getUserModulePermissions(selectedEmp);
@@ -228,9 +259,13 @@ export const EmployeePermissionsTab = () => {
   const [delegationExpiresAt, setDelegationExpiresAt] = useState('');
   const [isSaved, setIsSaved] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Ref to track last explicitly loaded employee ID to prevent background loads from wiping uncommitted edits
+  // UI state for search & filtering
+  const [activeCategoryTab, setActiveCategoryTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showExportsSection, setShowExportsSection] = useState(false);
+
+  // Ref to track last explicitly loaded employee ID
   const lastLoadedEmpIdRef = useRef(null);
 
   // Sync state ONLY when user explicitly selects a different employee in dropdown
@@ -258,188 +293,62 @@ export const EmployeePermissionsTab = () => {
     }
   }, [selectedEmpId, selectedEmp]);
 
-  // Master Authority Toggle: Full Admin Superpowers
-  const handleToggleDelegatedAdmin = () => {
-    if (isSelectedEmpPrimaryAdmin) {
-      addToast('🔒 Primary Administrator authority is protected and cannot be revoked.', 'warning');
-      return;
-    }
-    const nextVal = !isDelegatedAdmin;
-    setIsDelegatedAdmin(nextVal);
-    setIsSaved(false);
-
-    if (nextVal) {
-      const allTrue = { ...permissions, allAccess: true, isDelegatedAdmin: true };
-      const allKeys = [
-        'dashboard', 'liveOperations', 'projects', 'tasks', 'leads', 'attendance', 'leaves',
-        'tickets', 'events', 'employees', 'payroll', 'finance', 'reports', 'documentation',
-        'manageProjects', 'viewAllProjects', 'approveLeaves', 'viewAllLeads', 'viewAllTasks',
-        'viewAllTickets', 'viewAllAttendance', 'viewAllLeaves', 'manageEmployees', 'accessFinance',
-        'manageSalaries', 'manageExpenses', 'editAttendance', 'postNotices', 'grantPermissions',
-        'deleteTasks', 'deleteProjects', 'deleteEmployees', 'deleteLeads', 'deleteTickets',
-        'export_leads', 'export_payroll', 'export_attendance'
-      ];
-      allKeys.forEach(k => {
-        allTrue[k] = true;
-      });
-      allTrue.leadsScope = 'all';
-      allTrue.tasksScope = 'all';
-      allTrue.projectsScope = 'all';
-      setPermissions(allTrue);
-      addToast(`👑 Full Admin access granted for ${selectedEmp?.name}! Click 'Save' to apply.`, 'info');
-    } else {
-      handleApplyBaseRole('team_member');
-    }
-  };
-
-  // 1-Click Base Role Application
+  // Apply baseline preset in 1 click
   const handleApplyBaseRole = (baseRoleId) => {
     if (isSelectedEmpPrimaryAdmin) {
-      addToast('🔒 Primary Administrator authority is protected.', 'warning');
+      addToast('🔒 Primary Administrator privileges are permanently active and cannot be altered.', 'warning');
       return;
     }
-    setIsDelegatedAdmin(false);
-
-    let nextPerms = {};
-    if (baseRoleId === 'team_member') {
-      nextPerms = {
-        dashboard: true,
-        tasks: true,
-        attendance: true,
-        leaves: true,
-        tickets: true,
-        events: true,
-        documentation: true,
-        projects: false,
-        leads: false,
-        employees: false,
-        payroll: false,
-        finance: false,
-        liveOperations: false,
-        reports: false,
-        manageProjects: false,
-        viewAllProjects: false,
-        viewAllTasks: false,
-        viewAllAttendance: false,
-        viewAllLeaves: false,
-        approveLeaves: false,
-        manageEmployees: false,
-        manageSalaries: false,
-        manageExpenses: false,
-        editAttendance: false,
-        deleteTasks: false,
-        deleteProjects: false,
-        deleteEmployees: false,
-        deleteLeads: false,
-        deleteTickets: false,
-        export_leads: false,
-        export_payroll: false,
-        export_attendance: false,
-        tasksScope: 'own',
-        projectsScope: 'own',
-        leadsScope: 'own'
-      };
-      addToast('👤 Applied Standard Team Member baseline', 'info');
-    } else if (baseRoleId === 'team_lead') {
-      nextPerms = {
-        dashboard: true,
-        tasks: true,
-        projects: true,
-        attendance: true,
-        leaves: true,
-        tickets: true,
-        events: true,
-        documentation: true,
-        leads: false,
-        employees: false,
-        payroll: false,
-        finance: false,
-        liveOperations: false,
-        reports: false,
-        manageProjects: true,
-        viewAllProjects: true,
-        viewAllTasks: true,
-        approveLeaves: true,
-        deleteTasks: true,
-        deleteProjects: false,
-        manageEmployees: false,
-        manageSalaries: false,
-        manageExpenses: false,
-        editAttendance: false,
-        tasksScope: 'team',
-        projectsScope: 'team',
-        leadsScope: 'own'
-      };
-      addToast('📋 Applied Team / Project Lead preset', 'info');
-    } else if (baseRoleId === 'hr_specialist') {
-      nextPerms = {
-        dashboard: true,
-        tasks: true,
-        projects: false,
-        employees: true,
-        attendance: true,
-        leaves: true,
-        payroll: true,
-        finance: true,
-        events: true,
-        documentation: true,
-        liveOperations: true,
-        manageEmployees: true,
-        viewAllAttendance: true,
-        viewAllLeaves: true,
-        approveLeaves: true,
-        manageSalaries: true,
-        manageExpenses: true,
-        editAttendance: true,
-        postNotices: true,
-        export_attendance: true,
-        export_payroll: true,
-        tasksScope: 'own',
-        projectsScope: 'own',
-        leadsScope: 'own'
-      };
-      addToast('💼 Applied HR Specialist preset', 'info');
+    if (!canEdit) {
+      addToast('Unauthorized: Only Admin or authorized Accessers can modify permissions', 'error');
+      return;
     }
 
-    setPermissions(nextPerms);
+    const presetObj = BASE_ROLES.find(r => r.id === baseRoleId);
+    if (!presetObj) return;
+
+    setIsDelegatedAdmin(false);
+    setPermissions({ ...presetObj.presets });
     setIsSaved(false);
+    addToast(`${presetObj.emoji} Applied ${presetObj.title} baseline permissions`, 'info');
   };
 
-  // Check if an extra access card is currently active
-  const isExtraAccessActive = (card) => {
-    if (isDelegatedAdmin) return true;
-    return Boolean(permissions[card.primaryKey]);
-  };
-
-  // Toggle an extra access card bundle cleanly
-  const handleToggleExtraAccess = (card) => {
+  // Toggle single permission key
+  const handleTogglePermission = (key) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
       return;
     }
-    const currentActive = isExtraAccessActive(card);
-    const nextVal = !currentActive;
+    if (!canEdit) {
+      addToast('Unauthorized: Only Admin or authorized Accessers can modify permissions', 'error');
+      return;
+    }
 
     setPermissions(prev => {
-      const updated = { ...prev };
+      const nextVal = !prev[key];
+      const updated = { ...prev, [key]: nextVal };
+
+      // Automatic elevation: if turning on a capability, ensure parent module view is enabled
       if (nextVal) {
-        Object.assign(updated, card.grantKeys);
-      } else {
-        Object.assign(updated, card.revokeKeys);
+        if (key === 'manageEmployees' || key === 'deleteEmployees') updated.employees = true;
+        if (key === 'manageSalaries' || key === 'accessFinance') {
+          updated.payroll = true;
+          updated.finance = true;
+        }
+        if (key === 'accessCRM' || key === 'viewAllLeads' || key === 'deleteLeads') updated.leads = true;
+        if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut') updated.attendance = true;
+        if (key === 'liveOperations') updated.teamoperations = true;
+        if (key === 'approveLeaves' || key === 'viewAllLeaves') updated.leaves = true;
+        if (key === 'manageProjects' || key === 'createProjects' || key === 'deleteProjects' || key === 'viewAllProjects') updated.projects = true;
+        if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks') updated.tasks = true;
+        if (key === 'manageTickets' || key === 'deleteTickets') updated.tickets = true;
+        if (key === 'documentation') updated.documents = true;
+        if (key === 'reports') updated.viewReports = true;
       }
 
-      // Sync immediately to local cache so reactive components see the change right away
-      try {
-        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
-        const map = rawMap ? JSON.parse(rawMap) : {};
-        const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
-        if (userKey) map[userKey] = updated;
-        if (selectedEmp._id) map[String(selectedEmp._id)] = updated;
-        if (selectedEmp.employeeCode) map[String(selectedEmp.employeeCode)] = updated;
-        if (selectedEmp.email) map[String(selectedEmp.email).toLowerCase()] = updated;
-        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
-      } catch (_) {}
+      if (key === 'allAccess') {
+        setIsDelegatedAdmin(nextVal);
+      }
 
       return updated;
     });
@@ -447,26 +356,85 @@ export const EmployeePermissionsTab = () => {
     setIsSaved(false);
   };
 
-  // Toggle single advanced switch
-  const handleToggleSingle = (key) => {
+  // Quick action: Grant / Revoke all in a specific category
+  const handleToggleCategory = (categoryId, grantAll) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
       return;
     }
-    const currentVal = Boolean(permissions[key] || isDelegatedAdmin);
+    if (!canEdit) {
+      addToast('Unauthorized: Only Admin or authorized Accessers can modify permissions', 'error');
+      return;
+    }
+
+    const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === categoryId);
+    setPermissions(prev => {
+      const updated = { ...prev };
+      items.forEach(item => {
+        updated[item.key] = grantAll;
+      });
+
+      if (grantAll) {
+        if (categoryId === 'shift_attendance') {
+          updated.attendance = true;
+          updated.teamoperations = true;
+        } else if (categoryId === 'tasks_projects') {
+          updated.tasks = true;
+          updated.projects = true;
+        } else if (categoryId === 'workforce_hr') {
+          updated.employees = true;
+          updated.leaves = true;
+        } else if (categoryId === 'crm_comms') {
+          updated.leads = true;
+          updated.tickets = true;
+        } else if (categoryId === 'finance_admin') {
+          updated.payroll = true;
+          updated.finance = true;
+        }
+      }
+
+      return updated;
+    });
+
+    setIsSaved(false);
+    addToast(`${grantAll ? '✓ Granted' : '✕ Revoked'} all capabilities in ${categoryId.replace('_', ' ')}`, 'info');
+  };
+
+  // Co-Admin Delegation Switch
+  const handleToggleDelegatedAdmin = () => {
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
+      return;
+    }
+    if (!canEdit) {
+      addToast('Unauthorized: Only Admin can grant full Co-Admin powers', 'error');
+      return;
+    }
+
+    const nextVal = !isDelegatedAdmin;
+    setIsDelegatedAdmin(nextVal);
     setPermissions(prev => ({
       ...prev,
-      [key]: !currentVal
+      allAccess: nextVal,
+      isDelegatedAdmin: nextVal
     }));
     setIsSaved(false);
   };
 
-  // Save to DB and sync local cache
+  // Save everything to MongoDB Atlas DB
   const handleSave = async () => {
-    if (!selectedEmp?._id) return;
+    if (isSelectedEmpPrimaryAdmin) {
+      addToast('Primary Administrator settings cannot be altered', 'info');
+      return;
+    }
+    if (!canEdit) {
+      addToast('Unauthorized: You do not have permission to alter access rights', 'error');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const userKey = selectedEmp._id || selectedEmp.employeeCode || selectedEmp.email;
+      const userKey = selectedEmp.employeeCode || selectedEmp._id;
       const safePerms = { ...permissions };
 
       if (isDelegatedAdmin) {
@@ -483,7 +451,7 @@ export const EmployeePermissionsTab = () => {
         delete safePerms.delegationExpiresAt;
       }
 
-      // 1. Authoritative Save to MongoDB Atlas
+      // 1. Authoritative Save directly to MongoDB Atlas Cloud Database
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(selectedEmp._id, {
           permissions: safePerms,
@@ -499,7 +467,7 @@ export const EmployeePermissionsTab = () => {
         });
       }
 
-      // 2. Local Cache Update
+      // 2. Synchronize Local Cache (EMS_USER_PERMISSIONS)
       const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
       const map = rawMap ? JSON.parse(rawMap) : {};
       map[userKey] = safePerms;
@@ -508,7 +476,7 @@ export const EmployeePermissionsTab = () => {
       if (selectedEmp.email) map[String(selectedEmp.email).toLowerCase()] = safePerms;
       localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
-      // 3. Realtime Cross-tab Sync
+      // 3. Dispatch Live Browser & Cross-Device Broadcast Sync Events
       window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
       broadcastSyncEvent('PERMISSIONS_UPDATED', {
         userKey,
@@ -520,7 +488,7 @@ export const EmployeePermissionsTab = () => {
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
 
       setIsSaved(true);
-      addToast(`✅ Permissions & Access saved to database for ${selectedEmp?.name || 'Employee'}!`, 'success');
+      addToast(`✅ Permissions saved to Database for ${selectedEmp?.name || 'Employee'}!`, 'success');
     } catch (e) {
       console.error('Failed to save permissions to database:', e);
       addToast(`Failed to save permissions: ${e?.message || 'Network error'}`, 'error');
@@ -529,8 +497,22 @@ export const EmployeePermissionsTab = () => {
     }
   };
 
+  // Filtered permissions list based on active category tab & search query
+  const filteredCategories = useMemo(() => {
+    return PERMISSION_CATEGORIES.filter(cat => {
+      if (activeCategoryTab !== 'all' && cat.id !== activeCategoryTab) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === cat.id);
+      return (
+        cat.label.toLowerCase().includes(q) ||
+        items.some(p => p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q))
+      );
+    });
+  }, [activeCategoryTab, searchQuery]);
+
   return (
-    <div className="flex flex-col gap-5 py-3 select-none">
+    <div className="flex flex-col gap-5 py-2 select-none">
 
       {/* ── TOP HEADER & ACTIONS ── */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4 shadow-xs">
@@ -539,11 +521,14 @@ export const EmployeePermissionsTab = () => {
             <ShieldCheck size={24} />
           </div>
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0">
-              Employee Role & Access Control (RBAC)
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 flex items-center gap-2">
+              <span>Employee Role & Access Control (RBAC)</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                ☁️ DB Synced
+              </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">
-              Standard base roles with 1-click modular extra privileges. Changes are securely saved to the database.
+              Configure granular modular toggles for any employee. All updates sync authoritative data to MongoDB Atlas.
             </p>
           </div>
         </div>
@@ -552,7 +537,7 @@ export const EmployeePermissionsTab = () => {
           <button
             type="button"
             onClick={() => handleApplyBaseRole('team_member')}
-            disabled={isSelectedEmpPrimaryAdmin}
+            disabled={isSelectedEmpPrimaryAdmin || !canEdit}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RotateCcw size={13} />
@@ -562,24 +547,24 @@ export const EmployeePermissionsTab = () => {
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving || isSelectedEmpPrimaryAdmin}
+            disabled={isSaving || isSelectedEmpPrimaryAdmin || !canEdit}
             className={`inline-flex items-center gap-1.5 px-5 py-2 rounded-xl border-0 text-white text-xs font-bold cursor-pointer shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
               isSaving
                 ? 'bg-blue-400 cursor-wait'
                 : isSaved
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
-                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 animate-pulse'
             }`}
           >
             {isSaving ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Saving to DB...</span>
+                <span>Saving to Database...</span>
               </>
             ) : (
               <>
                 <Check size={14} />
-                <span>{isSaved ? 'Saved in DB' : 'Save Changes'}</span>
+                <span>{isSaved ? 'Saved in Database' : 'Save Changes'}</span>
               </>
             )}
           </button>
@@ -607,11 +592,17 @@ export const EmployeePermissionsTab = () => {
 
         {selectedEmp && (
           <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <img
-              src={selectedEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-              alt={selectedEmp.name}
-              className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-            />
+            {selectedEmp.avatar ? (
+              <img
+                src={selectedEmp.avatar}
+                alt={selectedEmp.name}
+                className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[11px]">
+                {selectedEmp.name?.charAt(0) || 'U'}
+              </div>
+            )}
             <div className="leading-tight">
               <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                 <span>{selectedEmp.name}</span>
@@ -622,32 +613,32 @@ export const EmployeePermissionsTab = () => {
                 )}
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                Code: #{selectedEmp.employeeCode || 'EMP'} • System Role: <span className="font-bold text-blue-600 dark:text-blue-400">{selectedEmp.role || 'Team Member'}</span>
+                Code: #{selectedEmp.employeeCode || 'EMP'} • Department: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedEmp.department || 'General'}</span>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── ADMIN PROTECTED NOTICE (IF PRIMARY ADMIN) ── */}
+      {/* ── ADMIN PROTECTED NOTICE ── */}
       {isSelectedEmpPrimaryAdmin && (
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/80 rounded-2xl p-4 flex items-center gap-3 text-amber-900 dark:text-amber-200 text-xs">
           <Shield className="text-amber-600 shrink-0" size={20} />
           <div>
-            <span className="font-bold">Permanent Administrator Account:</span> This account is the primary system administrator. All module permissions, operational controls, and administrative powers are permanently active and protected from deletion or lockout.
+            <span className="font-bold">Permanent Administrator Account:</span> This root administrator account has universal master authority over the entire enterprise. All capabilities are permanently active and protected from modification.
           </div>
         </div>
       )}
 
-      {/* ── 1️⃣ BASE ROLE BASELINE CARDS (1-CLICK ASSIGNMENT) ── */}
+      {/* ── 1️⃣ BASE ROLE BASELINE PRESETS ── */}
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
-              1. Base Role Baseline
+              1. Base Role Presets (1-Click Baseline)
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              (Choose the primary default role for this employee)
+              (Quickly set standard defaults for Team Member, Lead, or HR)
             </span>
           </div>
         </div>
@@ -683,7 +674,7 @@ export const EmployeePermissionsTab = () => {
                     </div>
                     {isCurrentBase && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-600 text-white tracking-wide">
-                        ACTIVE BASE
+                        ACTIVE PRESET
                       </span>
                     )}
                   </div>
@@ -695,14 +686,14 @@ export const EmployeePermissionsTab = () => {
                 <button
                   type="button"
                   onClick={() => handleApplyBaseRole(role.id)}
-                  disabled={isSelectedEmpPrimaryAdmin}
+                  disabled={isSelectedEmpPrimaryAdmin || !canEdit}
                   className={`w-full py-2 px-3 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
                     isCurrentBase
                       ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {isCurrentBase ? '✓ Active Baseline' : `Apply ${role.title}`}
+                  {isCurrentBase ? '✓ Active Baseline' : `Apply ${role.title} Preset`}
                 </button>
               </div>
             );
@@ -710,92 +701,7 @@ export const EmployeePermissionsTab = () => {
         </div>
       </div>
 
-      {/* ── 2️⃣ MODULAR EXTRA ACCESS CARDS (ZERO LAYOUT JITTER) ── */}
-      <div className="flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
-              2. Extra Access & Special Powers
-            </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              (Enable specific superpowers on top of the base role without cluttered toggles)
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {EXTRA_ACCESS_CARDS.map(card => {
-            const isActive = isExtraAccessActive(card);
-            const canToggle = !isSelectedEmpPrimaryAdmin;
-
-            return (
-              <div
-                key={card.id}
-                onClick={() => canToggle && handleToggleExtraAccess(card)}
-                className={`rounded-2xl p-4 border transition-colors flex flex-col justify-between gap-3 h-[148px] select-none ${
-                  canToggle ? 'cursor-pointer hover:shadow-xs' : 'cursor-not-allowed'
-                } ${
-                  isActive
-                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/80 shadow-xs'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg shrink-0">{card.emoji}</span>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 m-0 truncate">
-                          {card.title}
-                        </h4>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium block truncate">
-                          {card.subtitle}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Standard Accessible Switch Button — Zero Double-Trigger */}
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isActive}
-                      disabled={!canToggle}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleExtraAccess(card);
-                      }}
-                      className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
-                        isActive ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                      } ${!canToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out ${
-                          isActive ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Fixed Static Description (Prevents Layout Shifts) */}
-                  <p className="text-[11.5px] text-slate-600 dark:text-slate-300 mt-2 m-0 leading-relaxed line-clamp-2">
-                    {card.desc}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px]">
-                  <span className="text-slate-400 dark:text-slate-500">Status:</span>
-                  <span className={`font-bold ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                    {isActive ? '● Granted (Active)' : '○ Standard (Locked)'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── 3️⃣ EXECUTIVE CO-ADMIN SUPERPOWERS CARD ── */}
+      {/* ── 2️⃣ EXECUTIVE CO-ADMIN DELEGATION ── */}
       <div className={`rounded-2xl p-4 sm:p-5 flex flex-col gap-3 transition-all ${
         isDelegatedAdmin
           ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/30 border border-blue-400 dark:border-blue-700 shadow-sm'
@@ -820,7 +726,7 @@ export const EmployeePermissionsTab = () => {
                 )}
               </div>
               <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 m-0">
-                Grant this user master privileges identical to Primary Admin (all employees, financial approvals, audit logs, and settings).
+                Grant this user master system privileges identical to Primary Admin (all employees, financial approvals, audit logs, and settings).
               </p>
             </div>
           </div>
@@ -829,11 +735,11 @@ export const EmployeePermissionsTab = () => {
             type="button"
             role="switch"
             aria-checked={isDelegatedAdmin}
-            disabled={isSelectedEmpPrimaryAdmin}
+            disabled={isSelectedEmpPrimaryAdmin || !canEdit}
             onClick={handleToggleDelegatedAdmin}
             className={`relative inline-flex items-center w-11 h-6 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
               isDelegatedAdmin ? 'bg-blue-600 shadow-sm shadow-blue-600/30' : 'bg-slate-300 dark:bg-slate-700'
-            } ${isSelectedEmpPrimaryAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+            } ${isSelectedEmpPrimaryAdmin || !canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span
               aria-hidden="true"
@@ -848,9 +754,9 @@ export const EmployeePermissionsTab = () => {
           <div className="pt-3 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2 text-blue-950 dark:text-blue-200 font-bold">
               <Clock size={14} className="text-blue-600" />
-              <span>Optional Temporary Delegation Expiry:</span>
+              <span>Optional Temporary Delegation Expiry Date:</span>
               <span className="text-slate-500 dark:text-slate-400 text-[11px] font-normal">
-                (Leave blank for permanent delegation)
+                (Leave blank for indefinite / permanent delegation)
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -880,43 +786,230 @@ export const EmployeePermissionsTab = () => {
         )}
       </div>
 
-      {/* ── 4️⃣ OPTIONAL ADVANCED GRANULAR OVERRIDES (COLLAPSIBLE ACCORDION) ── */}
+      {/* ── 3️⃣ GRANULAR MODULAR CAPABILITIES MATRIX ── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <span>3. Modular Granular Permissions Matrix</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                {GRANULAR_PERMISSIONS_LIST.length} Total Capabilities
+              </span>
+            </div>
+            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 m-0">
+              Fine-tune exact capabilities. Each toggle operates independently and saves to the cloud database.
+            </p>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative min-w-[220px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search capability or keyword..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 shadow-xs"
+            />
+          </div>
+        </div>
+
+        {/* Category Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveCategoryTab('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer ${
+              activeCategoryTab === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+            }`}
+          >
+            All Categories ({GRANULAR_PERMISSIONS_LIST.length})
+          </button>
+          {PERMISSION_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategoryTab(cat.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 cursor-pointer whitespace-nowrap ${
+                activeCategoryTab === cat.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Categories & Capability Cards */}
+        <div className="flex flex-col gap-4">
+          {filteredCategories.map(cat => {
+            const items = GRANULAR_PERMISSIONS_LIST.filter(p => {
+              if (p.category !== cat.id) return false;
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase().trim();
+              return p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q);
+            });
+
+            if (items.length === 0) return null;
+
+            const enabledCount = items.filter(p => Boolean(permissions[p.key] || isDelegatedAdmin)).length;
+
+            return (
+              <div
+                key={cat.id}
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 flex flex-col gap-3.5 shadow-xs"
+              >
+                {/* Category Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                  <div>
+                    <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <span>{cat.label}</span>
+                      <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full ${
+                        enabledCount > 0
+                          ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                      }`}>
+                        {enabledCount} of {items.length} active
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {cat.desc}
+                    </div>
+                  </div>
+
+                  {canEdit && !isSelectedEmpPrimaryAdmin && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCategory(cat.id, true)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-900/40 cursor-pointer transition-colors"
+                      >
+                        <CheckCircle2 size={12} />
+                        <span>Enable All</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCategory(cat.id, false)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-red-600 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                      >
+                        <XCircle size={12} />
+                        <span>Disable All</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Capability Toggles Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {items.map(item => {
+                    const isChecked = Boolean(permissions[item.key] || isDelegatedAdmin);
+                    const canToggleSingle = canEdit && !isSelectedEmpPrimaryAdmin && !isDelegatedAdmin;
+
+                    return (
+                      <div
+                        key={item.key}
+                        onClick={() => canToggleSingle && handleTogglePermission(item.key)}
+                        className={`rounded-xl p-3 border transition-all flex flex-col justify-between gap-2.5 select-none ${
+                          canToggleSingle ? 'cursor-pointer hover:shadow-xs' : 'cursor-default'
+                        } ${
+                          isChecked
+                            ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/80 shadow-xs'
+                            : 'bg-slate-50/50 dark:bg-slate-850/60 border-slate-200 dark:border-slate-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-base shrink-0">{item.icon}</span>
+                              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 m-0 truncate">
+                                {item.label}
+                              </h4>
+                            </div>
+
+                            {/* Clean Switch Toggle */}
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isChecked}
+                              disabled={!canToggleSingle}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTogglePermission(item.key);
+                              }}
+                              className={`relative inline-flex items-center w-10 h-5.5 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
+                                isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                              } ${!canToggleSingle ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className={`pointer-events-none inline-block h-4.5 w-4.5 rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out ${
+                                  isChecked ? 'translate-x-4.5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 m-0 leading-relaxed line-clamp-2">
+                            {item.desc}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10.5px]">
+                          <span className="text-slate-400">Access:</span>
+                          <span className={`font-bold ${isChecked ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                            {isChecked ? '● Active' : '○ Locked'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 4️⃣ SPREADSHEET & CSV EXPORT CONTROLS ── */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
         <button
           type="button"
-          onClick={() => setShowAdvanced(prev => !prev)}
+          onClick={() => setShowExportsSection(prev => !prev)}
           className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-left cursor-pointer border-0 transition-colors"
         >
           <div className="flex items-center gap-2.5">
             <Layers size={16} className="text-slate-500 dark:text-slate-400" />
             <div>
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                Advanced Granular Authority & Export Rights
+                Data Export & Download Authority (CSV / Excel)
               </span>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-2 hidden sm:inline">
-                (Optional: fine-tune specific delete privileges and spreadsheet exports)
+                (Allow this employee to export attendance records, salary registers, or CRM leads)
               </span>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <span>{showAdvanced ? 'Hide' : 'Show'}</span>
-            {showAdvanced ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            <span>{showExportsSection ? 'Hide' : 'Show'}</span>
+            {showExportsSection ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </div>
         </button>
 
-        {showAdvanced && (
+        {showExportsSection && (
           <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ADVANCED_DELETE_EXPORT_LIST.map(item => {
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {SPREADSHEET_EXPORTS_LIST.map(item => {
                 const isEnabled = Boolean(permissions[item.key] || isDelegatedAdmin);
-                const canToggleSingle = !isSelectedEmpPrimaryAdmin;
+                const canToggleSingle = canEdit && !isSelectedEmpPrimaryAdmin && !isDelegatedAdmin;
 
                 return (
                   <div
                     key={item.key}
-                    onClick={() => canToggleSingle && handleToggleSingle(item.key)}
-                    className={`p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 h-[64px] ${
-                      canToggleSingle ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800' : 'cursor-not-allowed'
+                    onClick={() => canToggleSingle && handleTogglePermission(item.key)}
+                    className={`p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 min-h-[64px] ${
+                      canToggleSingle ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800' : 'cursor-default'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
@@ -936,7 +1029,7 @@ export const EmployeePermissionsTab = () => {
                       disabled={!canToggleSingle}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleSingle(item.key);
+                        handleTogglePermission(item.key);
                       }}
                       className={`relative inline-flex items-center w-9 h-5 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
                         isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
