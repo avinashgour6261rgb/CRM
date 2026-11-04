@@ -53,7 +53,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
     >
       <div className="flex flex-col gap-4">
         {/* Employee & Reviewer Banners */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Applicant Employee Banner */}
           <div className="flex items-center gap-3 p-3 px-3.5 bg-slate-50 rounded-xl border border-slate-200">
             <div className="employee-avatar w-10 h-10 text-sm">
@@ -100,7 +100,7 @@ export const LeaveDetailModal = ({ leave, isOpen, onClose }) => {
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="py-2.5 px-3 border border-slate-100 rounded-lg bg-slate-50/70">
             <div className="text-[11px] text-slate-500 font-semibold uppercase">
               Leave Type

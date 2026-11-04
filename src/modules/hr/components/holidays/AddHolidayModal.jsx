@@ -60,7 +60,7 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
               Holiday Date

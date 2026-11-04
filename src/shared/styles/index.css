@@ -1150,6 +1150,12 @@ html.dark option,
   .kpi-grid-6 {
     grid-template-columns: repeat(2, 1fr);
   }
+  .kpi-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpi-grid-3 {
+    grid-template-columns: 1fr;
+  }
   .action-bar-card {
     flex-direction: column;
     align-items: stretch;
@@ -1161,7 +1167,9 @@ html.dark option,
 }
 
 @media (max-width: 480px) {
-  .kpi-grid-6 {
+  .kpi-grid-6,
+  .kpi-grid-4,
+  .kpi-grid-3 {
     grid-template-columns: 1fr;
   }
 }

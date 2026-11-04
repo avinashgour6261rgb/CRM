@@ -1150,7 +1150,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           <span className="text-xs font-bold text-slate-900 block mb-1.5">
             📅 Annual Leave Balance Allotment (Days):
           </span>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-[11px] text-slate-600 block mb-1 font-semibold">Casual Leave (CL)</label>
               <input

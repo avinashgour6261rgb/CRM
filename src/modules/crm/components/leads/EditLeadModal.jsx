@@ -132,10 +132,10 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 flex flex-col gap-4">
           
           {/* Row 1: Lead Name & Company Name */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead / Deal Name *
@@ -166,7 +166,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
           </div>
 
           {/* Row 2: Contact Person, Work Email & Phone */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Contact Person
@@ -206,7 +206,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
           </div>
 
           {/* Row 3: Lead Owner & Created By */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Owner (Assigned Team Member) *
@@ -241,7 +241,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
           </div>
 
           {/* Row 4: Lead Type, Status, Priority, Deal Value */}
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Lead Type / Category
@@ -308,7 +308,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
           </div>
 
           {/* Row 5: Start Date, Target End Date & Lead Source */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start / Inquiry Date

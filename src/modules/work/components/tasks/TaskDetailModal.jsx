@@ -231,7 +231,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 text-[12.5px]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[12.5px]">
               <div>
                 <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Estimated Budget:</span>
                 <strong className="text-slate-900 dark:text-slate-100 text-[13.5px]">

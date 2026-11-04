@@ -924,33 +924,37 @@ export const LeavesPage = () => {
 
       {/* Calendar Schedule View */}
       {viewMode === 'calendar' && (
-        <div className="table-card p-6">
+        <div className="table-card p-4 sm:p-6">
           <h3 className="text-base font-bold mb-4">{currentMonthCalendar.monthTitle} Leaves Calendar</h3>
-          <div className="grid grid-cols-7 gap-2">
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-              <div key={day} className="text-center font-semibold text-slate-500 text-xs pb-2">{day}</div>
-            ))}
-            {currentMonthCalendar.days.map(({ dayNum, dayStr }) => {
-              const dayLeaves = leaves.filter(l => l.startDate <= dayStr && l.endDate >= dayStr);
-              return (
-                <div
-                  key={dayNum}
-                  className={`min-h-[80px] border border-slate-100 dark:border-slate-800 rounded-lg p-1.5 ${dayLeaves.length > 0 ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-slate-900'}`}
-                >
-                  <div className="text-[11px] font-bold text-slate-500">{dayNum}</div>
-                  {dayLeaves.map(dl => (
+          <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0 pb-2">
+            <div className="min-w-[650px] md:min-w-0">
+              <div className="grid grid-cols-7 gap-2">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                  <div key={day} className="text-center font-semibold text-slate-500 text-xs pb-2">{day}</div>
+                ))}
+                {currentMonthCalendar.days.map(({ dayNum, dayStr }) => {
+                  const dayLeaves = leaves.filter(l => l.startDate <= dayStr && l.endDate >= dayStr);
+                  return (
                     <div
-                      key={dl._id}
-                      onClick={() => setSelectedLeave(dl)}
-                      className={`text-[10.5px] font-semibold py-0.5 px-1 rounded mt-1 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${dl.status === 'approved' ? 'text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60' : 'text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60'}`}
-                      title={`${dl.employeeName} - ${dl.leaveType} (${dl.status})`}
+                      key={dayNum}
+                      className={`min-h-[80px] border border-slate-100 dark:border-slate-800 rounded-lg p-1.5 ${dayLeaves.length > 0 ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-white dark:bg-slate-900'}`}
                     >
-                      {dl.employeeName} ({dl.leaveType})
+                      <div className="text-[11px] font-bold text-slate-500">{dayNum}</div>
+                      {dayLeaves.map(dl => (
+                        <div
+                          key={dl._id}
+                          onClick={() => setSelectedLeave(dl)}
+                          className={`text-[10.5px] font-semibold py-0.5 px-1 rounded mt-1 cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis ${dl.status === 'approved' ? 'text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60' : 'text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60'}`}
+                          title={`${dl.employeeName} - ${dl.leaveType} (${dl.status})`}
+                        >
+                          {dl.employeeName} ({dl.leaveType})
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}

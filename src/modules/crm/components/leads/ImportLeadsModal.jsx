@@ -261,8 +261,8 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
               <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100 mb-2">
                 Live Data Preview & Row Validation:
               </div>
-              <div className="max-h-[260px] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-                <table className="w-full border-collapse text-xs text-left">
+              <div className="max-h-[260px] overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="w-full min-w-[620px] border-collapse text-xs text-left">
                   <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0">
                     <tr>
                       <th className="py-2 px-2.5 w-[30px]">Status</th>

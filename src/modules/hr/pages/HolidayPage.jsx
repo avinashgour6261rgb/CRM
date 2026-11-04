@@ -242,17 +242,17 @@ export const HolidayPage = () => {
                                   </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
                                 <button
                                   onClick={() => setIsReviewOpen(!isReviewOpen)}
-                                  className="px-3 h-[32px] rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/60 cursor-pointer flex items-center gap-1"
+                                  className="flex-1 sm:flex-initial px-3 h-[32px] rounded-md border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-800 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/60 cursor-pointer flex items-center justify-center gap-1"
                                 >
                                   <span>{isReviewOpen ? 'Hide Review' : 'Review List'}</span>
                                   {isReviewOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                 </button>
                                 <button
                                   onClick={handleConfirmAll}
-                                  className="px-3.5 h-[32px] rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5 transition-colors"
+                                  className="flex-1 sm:flex-initial px-3.5 h-[32px] rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                                 >
                                   <CheckCircle2 size={14} />
                                   <span>Confirm All as Company Offs</span>

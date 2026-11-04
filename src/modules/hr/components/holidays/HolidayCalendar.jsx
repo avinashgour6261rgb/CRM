@@ -241,68 +241,70 @@ export const HolidayCalendar = () => {
   return (
     <div className="table-card p-0 overflow-hidden shadow-xs">
       {/* Calendar Header Controls */}
-        <div className="flex items-center justify-between p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 dark:border-slate-800 bg-white dark:bg-slate-900 flex-wrap gap-3">
-          {/* Left: Prev / Next / Today & Quick Month-Year Selectors */}
-          <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
-                <button
-                  onClick={handlePrevMonth}
-                  className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer"
-                  title="Previous Month"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={handleNextMonth}
-                  className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none cursor-pointer"
-                  title="Next Month"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 sm:p-3.5 sm:px-5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-3">
+        {/* Left Row: Controls & Month Title */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
               <button
-                onClick={handleToday}
-                className="h-8 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                onClick={handlePrevMonth}
+                className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer"
+                title="Previous Month"
               >
-                Today
+                <ChevronLeft size={16} />
               </button>
-
-              {/* Quick Jump Month Dropdown */}
-              <select
-                value={currentMonth}
-                onChange={handleMonthChange}
-                className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
+              <button
+                onClick={handleNextMonth}
+                className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-none cursor-pointer"
+                title="Next Month"
               >
-                {MONTH_NAMES.map((name, idx) => (
-                  <option key={name} value={idx}>{name}</option>
-                ))}
-              </select>
-
-              {/* Quick Jump Year Dropdown */}
-              <select
-                value={currentYear}
-                onChange={handleYearChange}
-                className="h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
-              >
-                <option value={2025}>2025</option>
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
-              </select>
+                <ChevronRight size={16} />
+              </button>
             </div>
 
-            {/* Center: Month Year Title */}
-              <div className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-                {monthName}
-              </div>
+            <button
+              onClick={handleToday}
+              className="h-8 px-2.5 sm:px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Today
+            </button>
+
+            {/* Quick Jump Month Dropdown */}
+            <select
+              value={currentMonth}
+              onChange={handleMonthChange}
+              className="h-8 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
+            >
+              {MONTH_NAMES.map((name, idx) => (
+                <option key={name} value={idx}>{name.slice(0, 3)}</option>
+              ))}
+            </select>
+
+            {/* Quick Jump Year Dropdown */}
+            <select
+              value={currentYear}
+              onChange={handleYearChange}
+              className="h-8 px-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer hover:border-blue-400"
+            >
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+              <option value={2027}>2027</option>
+            </select>
+          </div>
+
+          {/* Month Year Title */}
+          <div className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white tracking-tight ml-auto sm:ml-2">
+            {monthName}
+          </div>
+        </div>
 
         {/* Right: View Switcher (month | week | day | list) */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
           {['month', 'week', 'day', 'list'].map((view) => (
             <button
               key={view}
               onClick={() => setCalendarView(view)}
-              className={`h-[28px] px-3.5 rounded-md border-none capitalize text-xs font-bold cursor-pointer transition-all ${
+              className={`flex-1 sm:flex-initial h-[28px] px-2.5 sm:px-3.5 rounded-md border-none capitalize text-xs font-bold cursor-pointer transition-all ${
                 calendarView === view ? 'bg-blue-600 text-white shadow-xs' : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -310,7 +312,7 @@ export const HolidayCalendar = () => {
             </button>
           ))}
         </div>
-            </div>
+      </div>
 
             {/* Quick Visual Legend Bar */}
                 <div className="flex items-center gap-4 px-5 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs flex-wrap">
@@ -633,7 +635,8 @@ export const HolidayCalendar = () => {
                                   </div>
                                 </div>
 
-                                <table className="crm-table">
+                                <div className="overflow-x-auto w-full">
+                                  <table className="crm-table">
                                   <thead>
                                     <tr>
                                       <th>Holiday / Festival Name</th>
@@ -715,7 +718,8 @@ export const HolidayCalendar = () => {
                                   </tbody>
                                 </table>
                               </div>
-                            )}
+                            </div>
+                          )}
 
                             {/* Add Holiday Modal */}
                             <AddHolidayModal

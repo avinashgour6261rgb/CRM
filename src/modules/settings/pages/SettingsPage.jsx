@@ -112,7 +112,7 @@ export const SettingsPage = () => {
       </div>
 
       {/* ── Two-Column Settings Layout ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-[18px] bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-4 min-h-[600px] shadow-xs">
+      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 md:gap-[18px] bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3 sm:p-4 min-h-[500px] shadow-xs">
 
         {/* ── Left Sidebar Menu ── */}
         <div className="border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-3 md:pb-0 md:pr-[18px] flex flex-col gap-2.5 md:gap-4 overflow-hidden">
@@ -137,13 +137,13 @@ export const SettingsPage = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`flex items-center gap-2 md:gap-2.5 py-2 md:py-2.5 px-3 md:px-3.5 rounded-lg border-0 text-[12.5px] md:text-[13.5px] text-left cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 border-l-[3px] ${
+                  className={`flex items-center gap-2 md:gap-2.5 py-2 md:py-2.5 px-3 md:px-3.5 rounded-lg border-0 text-[12px] sm:text-[12.5px] md:text-[13.5px] text-left cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 md:border-l-[3px] ${
                     isActive
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold border-l-blue-600'
-                      : 'bg-transparent text-slate-500 dark:text-slate-400 font-medium border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      ? 'bg-blue-600 md:bg-slate-100 dark:md:bg-slate-800 text-white md:text-slate-900 dark:md:text-slate-100 font-bold md:border-l-blue-600 shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800/80 md:bg-transparent text-slate-600 dark:text-slate-400 font-medium md:border-l-transparent hover:bg-slate-200 dark:hover:bg-slate-700 md:hover:bg-slate-50 dark:md:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Icon size={16} className={isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'} />
+                  <Icon size={16} className={isActive ? 'text-white md:text-blue-600 dark:md:text-blue-400' : 'text-slate-400'} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -152,16 +152,16 @@ export const SettingsPage = () => {
         </div>
 
         {/* ── Right Content Area ── */}
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-0">
 
           {/* Section: Profile Settings */}
           {activeSection === 'profile' && (
             <div>
               {/* Profile Sub-tabs (Profile | Emergency Contacts) Matching Screenshot 8 & 9 */}
-              <div className="flex gap-7 border-b border-slate-200 dark:border-slate-800 pb-0.5">
+              <div className="flex gap-4 sm:gap-7 border-b border-slate-200 dark:border-slate-800 pb-0.5 overflow-x-auto">
                 <button
                   onClick={() => setProfileSubTab('profile')}
-                  className={`bg-transparent border-0 pb-2.5 text-sm font-bold cursor-pointer transition-all border-b-[2.5px] ${
+                  className={`bg-transparent border-0 pb-2.5 text-xs sm:text-sm font-bold cursor-pointer transition-all border-b-[2.5px] whitespace-nowrap ${
                     profileSubTab === 'profile'
                       ? 'text-slate-900 dark:text-slate-100 border-b-blue-600'
                       : 'text-slate-500 dark:text-slate-400 border-b-transparent hover:text-slate-700'
@@ -172,7 +172,7 @@ export const SettingsPage = () => {
 
                 <button
                   onClick={() => setProfileSubTab('emergency_contacts')}
-                  className={`bg-transparent border-0 pb-2.5 text-sm font-bold cursor-pointer transition-all border-b-[2.5px] ${
+                  className={`bg-transparent border-0 pb-2.5 text-xs sm:text-sm font-bold cursor-pointer transition-all border-b-[2.5px] whitespace-nowrap ${
                     profileSubTab === 'emergency_contacts'
                       ? 'text-slate-900 dark:text-slate-100 border-b-blue-600'
                       : 'text-slate-500 dark:text-slate-400 border-b-transparent hover:text-slate-700'

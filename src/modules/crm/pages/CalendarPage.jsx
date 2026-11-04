@@ -675,23 +675,23 @@ export const CalendarPage = () => {
 
       {/* Filter and Top Navigation Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-md">
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           
           {/* Employee Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Employee:</span>
-            <div className="flex items-center gap-1.5 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 w-full sm:w-auto">
+            <span className="font-semibold shrink-0">Employee:</span>
+            <div className="flex items-center gap-1.5 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-full sm:w-auto flex-1 sm:flex-initial">
               <img
                 src={selectedEmployee?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                 alt={selectedEmployee?.name}
-                className="w-[18px] h-[18px] rounded-full object-cover"
+                className="w-[18px] h-[18px] rounded-full object-cover shrink-0"
               />
               <select
                 value={selectedEmployeeId}
                 onChange={e => setSelectedEmployeeId(e.target.value)}
                 disabled={!isPrivileged}
                 title={!isPrivileged ? "Calendar schedule is scoped to your personal profile" : "Select employee schedule"}
-                className={`border-0 bg-transparent outline-none text-xs font-semibold ${
+                className={`border-0 bg-transparent outline-none text-xs font-semibold w-full sm:w-auto ${
                   !isPrivileged ? 'text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'text-slate-900 dark:text-slate-100 cursor-pointer'
                 }`}
               >
@@ -711,12 +711,12 @@ export const CalendarPage = () => {
           </div>
 
           {/* Client Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Client:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 w-full sm:w-auto">
+            <span className="font-semibold shrink-0">Client:</span>
             <select
               value={clientFilter}
               onChange={e => setClientFilter(e.target.value)}
-              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer w-full sm:w-auto flex-1 sm:flex-initial"
             >
               <option value="all">All Clients</option>
               <option value="enterprise">Enterprise Clients</option>
@@ -874,19 +874,21 @@ export const CalendarPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-[18px] shadow-sm dark:shadow-md">
         
         {/* Calendar Nav Bar (< > today, Month Year, month/week/day/list switcher) */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          {/* Navigation Controls */}
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-4 gap-3">
+          {/* Top/Left Row: Navigation Controls & Month Year Display */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+            <div className="flex rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
               <button
                 onClick={handlePrevMonth}
                 className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none border-r border-slate-300 dark:border-slate-700 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                title="Previous Month"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={handleNextMonth}
                 className="py-1.5 px-3 bg-white dark:bg-slate-800 border-none cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                title="Next Month"
               >
                 <ChevronRight size={16} />
               </button>
@@ -894,26 +896,26 @@ export const CalendarPage = () => {
 
             <button
               onClick={handleToday}
-              className="py-1.5 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="py-1.5 px-3 sm:px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs sm:text-[13px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
-              today
+              Today
             </button>
-          </div>
 
-          {/* Current Month & Year Display */}
-          <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
-            {monthNames[month]} {year}
+            {/* Current Month & Year Display */}
+            <div className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-slate-100 ml-auto sm:ml-3">
+              {monthNames[month]} {year}
+            </div>
           </div>
 
           {/* View Switcher (month, week, day, list) */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 w-full sm:w-auto">
             {['month', 'week', 'day', 'list'].map(view => (
               <button
                 key={view}
                 onClick={() => setCurrentView(view)}
-                className={`py-1 px-3.5 rounded-md border-none text-[12.5px] font-bold cursor-pointer transition-all capitalize ${
+                className={`flex-1 sm:flex-initial py-1 px-3 sm:px-3.5 rounded-md border-none text-[12px] sm:text-[12.5px] font-bold cursor-pointer transition-all capitalize text-center ${
                   currentView === view
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
@@ -1135,7 +1137,7 @@ export const CalendarPage = () => {
                       setSelectedEvent(ev);
                     }
                   }}
-                  className="p-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                  className="p-3.5 sm:p-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
                 >
                   <div className="flex items-center gap-3.5">
                     <div
@@ -1193,7 +1195,7 @@ export const CalendarPage = () => {
                     setSelectedEvent(ev);
                   }
                 }}
-                className="py-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                className="py-3 px-3.5 sm:px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -1247,8 +1249,8 @@ export const CalendarPage = () => {
 
       {/* Event Detail Modal */}
       {selectedEvent && (
-        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] p-6 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4 sm:p-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] p-4 sm:p-6 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-4">
               <span
                 className="py-1 px-2.5 rounded-md text-xs font-bold"
@@ -1330,7 +1332,7 @@ export const CalendarPage = () => {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 flex-wrap">
+            <div className="flex items-center justify-end gap-2 flex-wrap">
               {(!selectedEvent.isHoliday && !selectedEvent.type?.toLowerCase().includes('holiday') && selectedEvent.type !== 'Birthday' && selectedEvent.type !== 'Work Anniversary') && (isPrivileged || (currentUser && (selectedEvent.createdById === currentUser._id || selectedEvent.createdBy === currentUser._id || selectedEvent.createdBy === currentUser.employeeCode || selectedEvent.createdByName === currentUser.name))) && (
                 <button
                   onClick={async () => {

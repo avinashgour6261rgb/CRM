@@ -206,11 +206,11 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
               e.stopPropagation();
               onCloseMobile();
             }}
-            className="lg:hidden w-8 h-8 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white border border-slate-700/80 flex items-center justify-center cursor-pointer transition-all shrink-0 ml-1.5 shadow-sm active:scale-95"
+            className="lg:hidden w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white border border-slate-700/80 flex items-center justify-center cursor-pointer transition-all shrink-0 ml-2 shadow-md active:scale-90"
             title="Close menu"
             aria-label="Close menu"
           >
-            <X size={17} strokeWidth={2.5} />
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 

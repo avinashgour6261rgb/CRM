@@ -123,7 +123,7 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
               Select Authority Action *
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setDecision('approved')}

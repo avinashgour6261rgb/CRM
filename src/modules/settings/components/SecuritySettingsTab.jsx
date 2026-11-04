@@ -178,9 +178,9 @@ export const SecuritySettingsTab = () => {
       </div>
 
       {/* ── Section 1: Setup Using Email (Matching Screenshot 7) ── */}
-      <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
+      <div className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
             <Mail size={20} />
           </div>
           <div>
@@ -195,10 +195,10 @@ export const SecuritySettingsTab = () => {
 
         <button
           onClick={handleToggleEmail2FA}
-          className={`px-[18px] py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors ${
+          className={`w-full sm:w-auto px-[18px] py-2 sm:py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors text-center ${
             email2FA
               ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
-              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white'
+              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white shadow-xs'
           }`}
         >
           {email2FA ? 'Disable' : 'Enable'}
@@ -206,9 +206,9 @@ export const SecuritySettingsTab = () => {
       </div>
 
       {/* ── Section 2: Setup Using Google Authenticator (Matching Screenshot 7) ── */}
-      <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+      <div className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <Smartphone size={20} />
           </div>
           <div>
@@ -223,10 +223,10 @@ export const SecuritySettingsTab = () => {
 
         <button
           onClick={handleGoogle2FAToggle}
-          className={`px-[18px] py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors ${
+          className={`w-full sm:w-auto px-[18px] py-2 sm:py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors text-center ${
             google2FA
               ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
-              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white'
+              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white shadow-xs'
           }`}
         >
           {google2FA ? 'Disable' : 'Enable'}

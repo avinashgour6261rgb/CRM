@@ -167,8 +167,8 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
                 </span>
               </div>
 
-              <div className="max-h-[200px] overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-                <table className="w-full border-collapse text-[12.5px]">
+              <div className="max-h-[200px] overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg">
+                <table className="w-full min-w-[560px] border-collapse text-[12.5px]">
                   <thead>
                     <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 text-left">
                       <th className="p-2 px-3">Item Name</th>

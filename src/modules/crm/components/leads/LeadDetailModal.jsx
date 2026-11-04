@@ -94,14 +94,14 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-5">
           
           {/* Quick Stage Progression Bar */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 p-3.5">
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-3.5">
             <span className="text-[11.5px] font-bold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wide">
               Pipeline Stage Progression:
             </span>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
               {[
                 { id: 'new', label: '1. New' },
                 { id: 'active', label: '2. Active' },
@@ -126,7 +126,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
           </div>
 
           {/* Contact Details & Info Grid */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 px-3.5 flex flex-col gap-0.5">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Contact Person</span>
               <div className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100">{lead.contactPerson || lead.name}</div>

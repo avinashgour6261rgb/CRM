@@ -258,7 +258,7 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 1: Name, Email, Password (Matching Screenshot 9) ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Your Name */}
         <div>
           <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
@@ -393,7 +393,7 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 2: Radio options & Country (Matching Screenshot 6 & 9) ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Receive email notifications? */}
         <div>
           <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-2.5">
@@ -480,7 +480,7 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 3: Mobile, Language, Gender (Matching Screenshot 6 & 9) ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Mobile */}
         <div>
           <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
@@ -537,7 +537,7 @@ export const ProfileTab = () => {
       </div>
 
       {/* ── Row 4: DOB, Slack Member ID, Marital Status ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {/* Date of Birth */}
         <div>
           <label className="block text-[13px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">

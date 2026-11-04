@@ -392,7 +392,7 @@ export const CompanyBrandingTab = () => {
 
           <div className="border-2 border-dashed border-blue-300 dark:border-blue-800/80 rounded-xl p-5 bg-white dark:bg-slate-900 shadow-xs">
             {/* Live Header Render */}
-            <div className="flex justify-between items-start border-b-2 border-blue-600 dark:border-blue-500 pb-3 mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 border-b-2 border-blue-600 dark:border-blue-500 pb-3 mb-4">
               <div>
                 <h3 className="text-base font-extrabold text-blue-950 dark:text-blue-200 m-0">
                   {formData.companyName || 'YOUR COMPANY NAME'}
@@ -404,14 +404,14 @@ export const CompanyBrandingTab = () => {
                   {formData.hrEmail || formData.email} • {formData.phone}
                 </p>
               </div>
-              <div className="px-2 py-[3px] rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[10.5px] font-bold whitespace-nowrap">
+              <div className="px-2 py-[3px] rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[10.5px] font-bold whitespace-nowrap self-start">
                 SAMPLE PAYSLIP
               </div>
             </div>
 
             {/* Dummy Mock Table */}
             <div className="bg-slate-50 dark:bg-slate-800/70 rounded-md border border-slate-200 dark:border-slate-700 p-3 text-[11.5px] flex flex-col gap-1.5 text-slate-600 dark:text-slate-300">
-              <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row justify-between gap-1">
                 <span>Employee Name: <strong>Rahul Verma</strong></span>
                 <span>Designation: <strong>Senior Full Stack Developer</strong></span>
               </div>
