@@ -57,7 +57,7 @@ export const ShiftClockCard = ({
 
   const effectiveHadClockedOut = isViewingOtherEmployee
     ? Boolean(activeEmpState?.isClockedOut)
-    : Boolean(displayedHadClockedOut);
+    : Boolean(displayedHadClockedOut && displayedClockOutTime && displayedClockOutTime !== '--' && displayedClockOutTime !== '—');
 
   const effectiveIsOnBreak = isViewingOtherEmployee
     ? Boolean(activeEmpState?.isOnBreak)

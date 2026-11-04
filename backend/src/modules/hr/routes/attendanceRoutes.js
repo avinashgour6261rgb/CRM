@@ -13,11 +13,17 @@ const {
   forceClockOut,
   getOvertimeRequests,
   requestOvertime,
-  updateOvertimeStatus
+  updateOvertimeStatus,
+  updateLiveHeartbeat,
+  getLiveTelemetry
 } = require('../controllers/attendanceController');
 
 // All attendance routes require authenticated user scoping
 router.use(authenticateUser);
+
+// Real-Time Live Telemetry & Heartbeat Pulse
+router.get('/live-telemetry', getLiveTelemetry);
+router.post('/heartbeat', updateLiveHeartbeat);
 
 router.get('/', getMonthlyAttendance);
 router.get('/monthly', getMonthlyAttendance);

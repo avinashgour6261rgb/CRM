@@ -270,27 +270,39 @@ export const TimerProvider = ({ children }) => {
   // ── 1. Daily Clock In / Out State (User-Scoped & Validated against Today) ──
   const [sessionDate, setSessionDate] = useState(() => {
     const today = getTodayStr();
-    const stored = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
-    if (stored && stored !== today) {
-      // Stale session from previous day/weekend! Wipe stale timer storage immediately
-      localStorage.removeItem(`ems_timer_${userKey}_login_time`);
-      localStorage.removeItem(`ems_timer_${userKey}_clockout_time`);
-      localStorage.removeItem(`ems_timer_${userKey}_clock_out`);
-      localStorage.removeItem(`ems_timer_${userKey}_clock_in_timestamp`);
-      localStorage.removeItem(`ems_timer_${userKey}_clock_out_timestamp`);
-      localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
-      localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
-      localStorage.setItem(`ems_timer_${userKey}_work_seconds`, '0');
-      localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
-      localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
-      localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
-      localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-      localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
-      localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'false');
-      localStorage.setItem(`ems_timer_${userKey}_work_session_date`, today);
+    const mirrorKeys = getTimerMirrorKeys(userKey, targetEmpId, targetEmpCode);
+    let hasStaleSession = false;
+    for (const mk of mirrorKeys) {
+      const stored = localStorage.getItem(`ems_timer_${mk}_work_session_date`);
+      if (stored && stored !== today) {
+        hasStaleSession = true;
+        break;
+      }
+    }
+    if (hasStaleSession) {
+      for (const mk of mirrorKeys) {
+        localStorage.removeItem(`ems_timer_${mk}_login_time`);
+        localStorage.removeItem(`ems_timer_${mk}_clockout_time`);
+        localStorage.removeItem(`ems_timer_${mk}_clock_out`);
+        localStorage.removeItem(`ems_timer_${mk}_clock_in_timestamp`);
+        localStorage.removeItem(`ems_timer_${mk}_clock_out_timestamp`);
+        localStorage.removeItem(`ems_timer_${mk}_current_session_start_timestamp`);
+        localStorage.removeItem(`ems_timer_${mk}_break_start_time`);
+        localStorage.removeItem(`ems_timer_${mk}_break_start_timestamp`);
+        localStorage.setItem(`ems_timer_${mk}_work_seconds`, '0');
+        localStorage.setItem(`ems_timer_${mk}_break_seconds`, '0');
+        localStorage.setItem(`ems_timer_${mk}_current_break_seconds`, '0');
+        localStorage.setItem(`ems_timer_${mk}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${mk}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${mk}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${mk}_had_clocked_out`, 'false');
+        localStorage.setItem(`ems_timer_${mk}_work_session_date`, today);
+        localStorage.removeItem(`ems_timer_${mk}_punch_sessions`);
+      }
       return today;
     }
-    return stored || today;
+    const currentStored = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
+    return currentStored || today;
   });
 
   const isTodaySession = sessionDate === getTodayStr();
@@ -320,7 +332,7 @@ export const TimerProvider = ({ children }) => {
   const [clockOutTime, setClockOutTime] = useState(() => {
     if (!isTodaySession) return null;
     const scoped = localStorage.getItem(`ems_timer_${userKey}_clockout_time`) || localStorage.getItem(`ems_timer_${userKey}_clock_out`);
-    if (scoped) return scoped;
+    if (scoped && scoped !== '--' && scoped !== '—' && scoped !== 'null') return scoped;
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
       if (attRaw) {
@@ -333,7 +345,8 @@ export const TimerProvider = ({ children }) => {
           a.employeeCode === targetEmpCode ||
           (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
         ));
-        if (rec?.clockOutTime || rec?.clockOut) return rec.clockOutTime || rec.clockOut;
+        const val = rec?.clockOutTime || rec?.clockOut;
+        if (val && val !== '--' && val !== '—' && val !== 'null') return val;
       }
     } catch {}
     return null;
@@ -341,9 +354,11 @@ export const TimerProvider = ({ children }) => {
 
   const [hadClockedOutToday, setHadClockedOutToday] = useState(() => {
     if (!isTodaySession) return false;
+    const sessionD = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
+    if (sessionD && sessionD !== getTodayStr()) return false;
     const saved = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`);
-    if (saved !== null) return JSON.parse(saved);
-    return !!clockOutTime;
+    if (saved !== null) return JSON.parse(saved) === true;
+    return Boolean(clockOutTime && clockOutTime !== '--' && clockOutTime !== '—');
   });
 
   const [isClockedIn, setIsClockedIn] = useState(() => {
@@ -1390,6 +1405,17 @@ export const TimerProvider = ({ children }) => {
       }).catch(() => {});
     } catch {}
 
+    try {
+      hrService.sendHeartbeat({
+        employeeId: targetEmpId || userKey,
+        employeeCode: targetEmpCode || userKey,
+        isOnBreak: true,
+        breakType: type,
+        breakStartTimestamp: Date.now(),
+        workSeconds
+      }).catch(() => {});
+    } catch (_) {}
+
     addToast({
       title: `On ${type} ☕ (${minutesChosen} min target)`,
       message: `Break started at ${startTimeStr}. Task & work timers paused. Break timer active.`,
@@ -1616,14 +1642,14 @@ export const TimerProvider = ({ children }) => {
     existingSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
 
     const hasPriorClockInToday = Boolean(
-      hasRemoteSessionToday ||
+      (hasRemoteSessionToday && existingRec?.clockInTime !== '--') ||
       hasStoredClockIn ||
       isClockedIn ||
       localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-      (sessionDate === today && loginTime) ||
+      (sessionDate === today && loginTime && loginTime !== '--' && loginTime !== 'Active') ||
       existingSessions.length > 0 ||
-      hadClockedOutToday ||
-      localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true'
+      (hadClockedOutToday && (clockOutTime || existingSessions.length > 0)) ||
+      (localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' && (clockOutTime || existingSessions.length > 0))
     );
 
     const isFirstClockIn = !hasPriorClockInToday;
@@ -1785,6 +1811,19 @@ export const TimerProvider = ({ children }) => {
       try {
         hrService.markAttendance(record).catch(err => console.warn('Sync clock in to backend notice:', err));
       } catch (err) {}
+
+      try {
+        hrService.sendHeartbeat({
+          employeeId: targetEmpId || userKey,
+          employeeCode: targetEmpCode || userKey,
+          isClockedIn: true,
+          clockInTime: initialClockIn,
+          clockInTimestamp: clockInTs,
+          currentSessionStartTimestamp: nowMs,
+          workSeconds: currentWorkSeconds,
+          isOnBreak: false
+        }).catch(() => {});
+      } catch (_) {}
     } catch (e) {
       console.error('Error recording clock-in to attendance:', e);
     }
@@ -1823,7 +1862,44 @@ export const TimerProvider = ({ children }) => {
     });
   };
 
-  // ── Auto Clock-In Event Listener (called when employee starts a task timer) ──
+  // ── Periodic Live Heartbeat to Backend (Every 12s while clocked in) ──
+  useEffect(() => {
+    if (!isClockedIn || !userKey) return;
+
+    const pulseHeartbeat = () => {
+      try {
+        const sessStart = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`)) ||
+                          Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`)) || undefined;
+        let activeTaskData = null;
+        try {
+          const rawTask = localStorage.getItem(`ems_active_task_timer_${userKey}`) || localStorage.getItem('ems_active_task_timer');
+          if (rawTask) {
+            const p = JSON.parse(rawTask);
+            if (p && p.taskId) activeTaskData = p;
+          }
+        } catch (_) {}
+
+        hrService.sendHeartbeat({
+          employeeId: targetEmpId || userKey,
+          employeeCode: targetEmpCode || userKey,
+          isClockedIn: true,
+          clockInTime: loginTime,
+          currentSessionStartTimestamp: sessStart,
+          isOnBreak: Boolean(isOnBreak),
+          breakType: isOnBreak ? breakType : null,
+          workSeconds,
+          breakSeconds,
+          activeTask: activeTaskData
+        }).catch(() => {});
+      } catch (_) {}
+    };
+
+    pulseHeartbeat();
+    const hbInterval = setInterval(pulseHeartbeat, 12000);
+    return () => clearInterval(hbInterval);
+  }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, workSeconds, breakSeconds, breakType]);
+
+    // ── Auto Clock-In Event Listener (called when employee starts a task timer) ──
   useEffect(() => {
     const handleRequestClockIn = () => {
       if (!isClockedIn) {

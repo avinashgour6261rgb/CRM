@@ -1023,6 +1023,14 @@ export const WorkProvider = ({ children }) => {
             if (current && current.timerRunning) {
               const currentSecs = getElapsedSeconds();
               saveActiveTimerSnapshot(null);
+      try {
+        const empK = current?.userKey || userKey;
+        hrService.sendHeartbeat({
+          employeeId: empK,
+          employeeCode: empK,
+          activeTask: null
+        }).catch(() => {});
+      } catch (_) {}
               setTasks(prev => prev.map(t => {
                 if (String(t._id || t.id) === String(current.taskId)) {
                   return syncTaskPauseState(t, { nowMs: nowMidnightCheck.getTime(), todayStr: today, wasPausedForClockOut: true });
@@ -1691,6 +1699,19 @@ export const WorkProvider = ({ children }) => {
           sessionDate: today
         }).catch(() => {});
       }
+
+      // Transmit real-time live telemetry to backend for cross-window / multi-device Live Operations
+      hrService.sendHeartbeat({
+        employeeId: targetUserKey,
+        employeeCode: targetUserKey,
+        activeTask: {
+          taskId,
+          taskCode: targetTask.taskCode,
+          title: targetTask.title,
+          startedAt: now,
+          accumulatedSeconds: existingSecs
+        }
+      }).catch(() => {});
     } catch (e) {}
 
     // Instant cross-tab broadcast
@@ -1835,6 +1856,14 @@ export const WorkProvider = ({ children }) => {
     if (!isForOtherEmployee) {
       saveActiveTimerSnapshot(pausedTimerState);
     }
+
+    try {
+      hrService.sendHeartbeat({
+        employeeId: targetUserKey,
+        employeeCode: targetUserKey,
+        activeTask: null
+      }).catch(() => {});
+    } catch (_) {}
 
     // Save in storage collection
     const updatedAll = allTasks.map(t => {
@@ -1983,6 +2012,14 @@ export const WorkProvider = ({ children }) => {
       if (targetTask?.activeUserId) {
         try { localStorage.removeItem(`ems_active_task_timer_${targetTask.activeUserId}`); } catch {}
       }
+      try {
+        const empK = targetTask?.activeUserId || targetTask?.assignedToId || userKey;
+        hrService.sendHeartbeat({
+          employeeId: empK,
+          employeeCode: empK,
+          activeTask: null
+        }).catch(() => {});
+      } catch (_) {}
 
       const hoursLoggedNum = +(totalSecs / 3600).toFixed(2);
       const hoursLoggedFormatted = formatSeconds(totalSecs);
@@ -2178,6 +2215,13 @@ export const WorkProvider = ({ children }) => {
       if (!isForOtherEmployee) {
         saveActiveTimerSnapshot(null);
       }
+      try {
+        hrService.sendHeartbeat({
+          employeeId: targetUserKey,
+          employeeCode: targetUserKey,
+          activeTask: null
+        }).catch(() => {});
+      } catch (_) {}
 
       try {
         const raw = localStorage.getItem('ems_active_task_timer');

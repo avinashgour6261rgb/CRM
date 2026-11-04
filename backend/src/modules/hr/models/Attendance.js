@@ -61,6 +61,22 @@ const AttendanceSchema = new mongoose.Schema(
       default: null
     },
     breakHistory: [mongoose.Schema.Types.Mixed],
+    breakStartTimestamp: {
+      type: Number,
+      default: null
+    },
+    currentSessionStartTimestamp: {
+      type: Number,
+      default: null
+    },
+    activeTask: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    lastHeartbeatAt: {
+      type: Number,
+      default: Date.now
+    },
     isClockedIn: {
       type: Boolean,
       default: false

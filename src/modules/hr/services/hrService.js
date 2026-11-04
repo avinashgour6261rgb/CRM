@@ -1077,6 +1077,75 @@ export const hrService = {
   },
 
   // =========================================================================
+    // ─── Real-Time Live Telemetry & Heartbeat Engine ───────────────────────────
+  async sendHeartbeat(telemetryData) {
+    if (!telemetryData) return;
+    const authUser = getAuthUser();
+    const today = telemetryData.date || new Date().toISOString().split('T')[0];
+
+    const payload = {
+      ...telemetryData,
+      employeeId: telemetryData.employeeId || authUser?._id || authUser?.id,
+      employeeCode: telemetryData.employeeCode || authUser?.employeeCode,
+      employeeName: telemetryData.employeeName || authUser?.name,
+      date: today
+    };
+
+    // Fast local mirror update
+    try {
+      const cacheKey = `ems_live_telemetry_${payload.employeeCode || payload.employeeId}`;
+      localStorage.setItem(cacheKey, JSON.stringify({ ...payload, timestamp: Date.now() }));
+    } catch (_) {}
+
+    // Transmit to backend
+    return fetchWithFallback(`${API_BASE}/attendance/heartbeat`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }, async () => {
+      return { success: true, localOnly: true };
+    }).catch(() => ({ success: false }));
+  },
+
+  async getLiveTelemetry(dateStr) {
+    const today = dateStr || new Date().toISOString().split('T')[0];
+    return fetchWithFallback(`${API_BASE}/attendance/live-telemetry?date=${today}`, {
+      method: 'GET'
+    }, async () => {
+      // LocalStorage fallback for offline / mock
+      const telemetryMap = {};
+      const attendance = getCollection(KEYS.ATTENDANCE) || [];
+      const todayRecords = attendance.filter(a => a.date === today);
+
+      todayRecords.forEach(r => {
+        const code = String(r.employeeCode || '').trim().toUpperCase();
+        const id = String(r.employeeId || r.employee?._id || r.employee || r._id);
+        const key = code || id;
+        telemetryMap[key] = {
+          employeeId: id,
+          employeeCode: code,
+          employeeName: r.employeeName,
+          date: r.date,
+          status: r.status,
+          isClockedIn: Boolean(r.isClockedIn && !r.clockOutTime),
+          isClockedOut: Boolean(r.clockOutTime || r.clockOut),
+          isOnBreak: Boolean(r.isOnBreak),
+          breakType: r.breakType || null,
+          clockInTime: r.clockInTime || r.clockIn || null,
+          clockInTimestamp: r.clockInTimestamp || null,
+          clockOutTime: r.clockOutTime || r.clockOut || null,
+          clockOutTimestamp: r.clockOutTimestamp || null,
+          workSeconds: Number(r.workSeconds) || 0,
+          totalWorkingHours: Number(r.totalWorkingHours) || 0,
+          activeTask: r.activeTask || null
+        };
+        if (code) telemetryMap[code] = telemetryMap[key];
+        if (id) telemetryMap[id] = telemetryMap[key];
+      });
+
+      return { success: true, data: telemetryMap };
+    });
+  },
+
   // 📋 ATTENDANCE AUDIT TRAIL & ADMIN OVERRIDES
   // =========================================================================
 

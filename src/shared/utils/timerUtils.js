@@ -151,13 +151,41 @@ export const normalizePunchSessions = (sessions = []) => {
   return merged.map((s, idx) => ({ ...s, sessionNumber: idx + 1 }));
 };
 
+const SESSION_SCOPED_KEYS = new Set([
+  'had_clocked_out',
+  'is_clocked_in',
+  'is_running',
+  'is_on_break',
+  'break_type',
+  'work_seconds',
+  'break_seconds',
+  'current_break_seconds',
+  'login_time',
+  'clock_out',
+  'clockout_time',
+  'clock_in_timestamp',
+  'clock_out_timestamp',
+  'current_session_start_timestamp',
+  'current_session_in',
+  'punch_sessions',
+  'session_break_baseline'
+]);
+
 /**
- * Read timer storage safely with mirror fallback
+ * Read timer storage safely with mirror fallback and strict session date validation
  */
 export const readTimerStorage = (user, subKey, fallback = null) => {
   if (typeof localStorage === 'undefined') return fallback;
+  const today = new Date().toISOString().split('T')[0];
+  const isSessionScoped = SESSION_SCOPED_KEYS.has(subKey);
   const keys = getTimerMirrorKeys(user);
   for (const k of keys) {
+    if (isSessionScoped) {
+      const sDate = localStorage.getItem(`ems_timer_${k}_work_session_date`);
+      if (sDate && sDate !== today) {
+        continue; // Stale session from a prior date! Ignore stale data
+      }
+    }
     const val = localStorage.getItem(`ems_timer_${k}_${subKey}`);
     if (val !== null && val !== undefined) return val;
   }
@@ -208,6 +236,24 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   todayMidnight.setHours(0, 0, 0, 0);
   const todayMidnightMs = todayMidnight.getTime();
   const maxPossibleGrossToday = Math.max(0, Math.floor((nowMs - todayMidnightMs) / 1000));
+
+  // Multi-User Live Telemetry Support (cross-browser / incognito realtime sync)
+  if (options.telemetry) {
+    const telem = options.telemetry;
+    if (telem.isClockedIn) {
+      if (telem.isOnBreak) {
+        return Number(telem.workSeconds) || 0;
+      }
+      const sessStart = Number(telem.currentSessionStartTimestamp) || Number(telem.clockInTimestamp);
+      if (sessStart && sessStart >= todayMidnightMs) {
+        const liveElapsed = Math.max(0, Math.floor((nowMs - sessStart) / 1000));
+        return Math.min(maxPossibleGrossToday, (Number(telem.workSeconds) || 0) + liveElapsed);
+      }
+      return Number(telem.workSeconds) || 0;
+    } else if (telem.clockOutTime) {
+      return Number(telem.workSeconds) || 0;
+    }
+  }
 
   const storedSessionDate = readTimerStorage(userOrEmp, 'work_session_date');
   const isTodaySession = storedSessionDate === today;
@@ -610,6 +656,17 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
             employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
             status: matchedRecord.status || 'present'
+          }).catch(() => {});
+
+          hrService.sendHeartbeat({
+            employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
+            employeeCode: matchedRecord.employeeCode || user.employeeCode,
+            employeeName: matchedRecord.employeeName || user.name,
+            isClockedIn: false,
+            clockOutTime: timeStr,
+            clockOutTimestamp: nowTs,
+            workSeconds: finalVerifiedWorkSecs,
+            activeTask: null
           }).catch(() => {});
         } catch (_) {}
       }

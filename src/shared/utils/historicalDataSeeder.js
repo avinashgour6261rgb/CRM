@@ -303,3 +303,4 @@ export const ensureHistoricalData = () => {
     console.warn('Notice in ensureHistoricalData:', err);
   }
 };
+

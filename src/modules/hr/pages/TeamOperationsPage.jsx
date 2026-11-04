@@ -109,6 +109,27 @@ export const TeamOperationsPage = () => {
   };
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
+
+  // ── Multi-User Live Telemetry Poller (Every 3.5s for real-time remote sync) ──
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTelemetry = async () => {
+      try {
+        const res = await hrService.getLiveTelemetry(todayStr);
+        if (isMounted && res && res.data) {
+          setLiveTelemetryMap(res.data);
+        }
+      } catch (_) {}
+    };
+
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [todayStr]);
 
   // 1-sec live ticker for real-time timer progression
   useEffect(() => {
@@ -278,55 +299,83 @@ export const TeamOperationsPage = () => {
       Boolean(storedClockOut)
     );
 
+    const telem = liveTelemetryMap[String(empId)] ||
+                  (emp.employeeCode && liveTelemetryMap[String(emp.employeeCode)]) ||
+                  (empKey && liveTelemetryMap[String(empKey)]) || null;
+
     // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
-    const isClockedIn = !isExplicitlyStoredClockedOut && (
+    const isClockedIn = telem ? Boolean(telem.isClockedIn) : (!isExplicitlyStoredClockedOut && (
       (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
       (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
-    );
+    ));
 
-    const isClockedOut = !isClockedIn && (
+    const isClockedOut = telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && (
       isExplicitlyStoredClockedOut ||
       (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
       (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
-    );
+    ));
+
+    const effectiveOnBreak = telem ? Boolean(telem.isOnBreak) : storedOnBreak;
+    const effectiveBreakType = telem ? (telem.breakType || 'Break') : storedBreakType;
 
     const loginTime = isClockedIn
-      ? (attRec?.clockInTime || storedLogin || 'Active')
-      : (isClockedOut ? (attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
+      ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
 
     const clockOutTime = isClockedOut
-      ? (attRec?.clockOutTime || storedClockOut || '--')
+      ? (telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || '--')
       : null;
 
     const nowMs = Date.now();
     const workSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs, {
       isClockedIn,
       isClockedOut,
-      isOnBreak: storedOnBreak,
-      attRec
+      isOnBreak: effectiveOnBreak,
+      attRec,
+      telemetry: telem
     });
 
-    // Active Running Task
-    let activeTimer = null;
-    try {
-      const rawTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`) ||
-                       localStorage.getItem(`ems_active_task_timer_${empId}`);
-      if (rawTimer) activeTimer = JSON.parse(rawTimer);
-    } catch {}
-
-    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
-    const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
-      ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
-      : null;
+    // Active Running Task (prioritize live telemetry from Atlas for multi-device/incognito sync)
     let runningTask = null;
-
-    if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave) {
-      const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, storedOnBreak);
+    if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
+      const at = telem.activeTask;
+      const startedAtMs = Number(at.startedAt) || nowMs;
+      const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
+      const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
       runningTask = {
-        ...baseRunningTask,
+        _id: at.taskId,
+        id: at.taskId,
+        taskId: at.taskId,
+        taskCode: at.taskCode || 'TSK',
+        title: at.title || 'Live Task',
+        projectName: at.projectName || 'General Work',
+        timerRunning: true,
+        startedAt: startedAtMs,
+        accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
         liveTaskSecs,
         liveDurationText: formatSeconds(liveTaskSecs)
       };
+    } else {
+      let activeTimer = null;
+      try {
+        const rawTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`) ||
+                         localStorage.getItem(`ems_active_task_timer_${empId}`);
+        if (rawTimer) activeTimer = JSON.parse(rawTimer);
+      } catch {}
+
+      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+      const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
+        ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
+        : null;
+
+      if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave) {
+        const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+        runningTask = {
+          ...baseRunningTask,
+          liveTaskSecs,
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      }
     }
 
     return {
@@ -337,8 +386,8 @@ export const TeamOperationsPage = () => {
       department: emp.department || 'General',
       isOnLeave,
       isClockedIn,
-      isOnBreak: storedOnBreak,
-      breakType: storedBreakType,
+      isOnBreak: effectiveOnBreak,
+      breakType: effectiveBreakType,
       isClockedOut,
       loginTime,
       clockOutTime,
@@ -347,7 +396,7 @@ export const TeamOperationsPage = () => {
       runningTask,
       empTasks
     };
-  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds]);
+  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap]);
 
   // Compute live states for all employees
   const teamTodayStates = useMemo(() => {

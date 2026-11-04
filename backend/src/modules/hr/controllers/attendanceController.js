@@ -300,6 +300,10 @@ const markAttendance = asyncHandler(async (req, res) => {
   if (breakType !== undefined) updateFields.breakType = breakType;
   if (breakHistory !== undefined) updateFields.breakHistory = breakHistory;
   if ('punchSessions' in req.body) updateFields.punchSessions = req.body.punchSessions;
+  if (req.body.currentSessionStartTimestamp !== undefined) updateFields.currentSessionStartTimestamp = Number(req.body.currentSessionStartTimestamp) || null;
+  if (req.body.breakStartTimestamp !== undefined) updateFields.breakStartTimestamp = Number(req.body.breakStartTimestamp) || null;
+  if ('activeTask' in req.body) updateFields.activeTask = req.body.activeTask;
+  updateFields.lastHeartbeatAt = Date.now();
 
   if (isClockedIn !== undefined) {
     updateFields.isClockedIn = Boolean(isClockedIn);
@@ -751,6 +755,165 @@ const updateOvertimeStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
 });
 
+// In-memory cache of live telemetry for sub-millisecond response to Live Operations dashboard
+const liveTelemetryCache = new Map();
+
+// ─── POST /api/attendance/heartbeat ──────────────────────────────────────────
+// Lightweight telemetry pulse sent by employee client while shift or task is active
+const updateLiveHeartbeat = asyncHandler(async (req, res) => {
+  const {
+    employeeId,
+    employeeCode,
+    isClockedIn,
+    clockInTime,
+    clockInTimestamp,
+    currentSessionStartTimestamp,
+    workSeconds,
+    isOnBreak,
+    breakType,
+    breakStartTimestamp,
+    activeTask
+  } = req.body;
+
+  const targetId = String(employeeId || req.user?.id || req.user?._id || '').trim();
+  const targetCode = String(employeeCode || req.user?.employeeCode || '').trim().toUpperCase();
+  const today = req.body.date || new Date().toISOString().split('T')[0];
+
+  if (!targetId && !targetCode) {
+    return res.status(400).json({ success: false, message: 'employeeId or employeeCode is required' });
+  }
+
+  const payload = {
+    employeeId: targetId,
+    employeeCode: targetCode,
+    employeeName: req.body.employeeName || req.user?.name || '',
+    date: today,
+    isClockedIn: Boolean(isClockedIn),
+    clockInTime: clockInTime || null,
+    clockInTimestamp: clockInTimestamp ? Number(clockInTimestamp) : null,
+    currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : null,
+    workSeconds: workSeconds !== undefined ? Number(workSeconds) : 0,
+    isOnBreak: Boolean(isOnBreak),
+    breakType: breakType || null,
+    breakStartTimestamp: breakStartTimestamp ? Number(breakStartTimestamp) : null,
+    activeTask: activeTask || null,
+    lastHeartbeatAt: Date.now()
+  };
+
+  // Update in-memory telemetry cache
+  const cacheKey = targetCode || targetId;
+  liveTelemetryCache.set(cacheKey, payload);
+
+  // Background upsert in MongoDB Atlas to persist live state
+  try {
+    const updateObj = {
+      isClockedIn: payload.isClockedIn,
+      workSeconds: payload.workSeconds,
+      totalWorkingHours: +(payload.workSeconds / 3600).toFixed(2),
+      isOnBreak: payload.isOnBreak,
+      breakType: payload.breakType,
+      activeTask: payload.activeTask,
+      lastHeartbeatAt: payload.lastHeartbeatAt
+    };
+    if (payload.clockInTime) updateObj.clockInTime = payload.clockInTime;
+    if (payload.clockInTimestamp) updateObj.clockInTimestamp = payload.clockInTimestamp;
+    if (payload.currentSessionStartTimestamp) updateObj.currentSessionStartTimestamp = payload.currentSessionStartTimestamp;
+    if (payload.breakStartTimestamp) updateObj.breakStartTimestamp = payload.breakStartTimestamp;
+
+    const orClauses = [];
+    if (targetId && mongoose.Types.ObjectId.isValid(targetId)) orClauses.push({ employee: targetId });
+    if (targetCode) orClauses.push({ employeeCode: targetCode });
+
+    if (orClauses.length > 0) {
+      Attendance.findOneAndUpdate(
+        { date: today, $or: orClauses },
+        { $set: updateObj },
+        { new: true }
+      ).catch(e => console.warn('[heartbeat] DB update notice:', e.message));
+    }
+  } catch (_) {}
+
+  res.json({ success: true, timestamp: Date.now() });
+});
+
+// ─── GET /api/attendance/live-telemetry ────────────────────────────────────────
+// Returns live status of all active employees for Live Operations & Admin Dashboard
+const getLiveTelemetry = asyncHandler(async (req, res) => {
+  const today = req.query.date || new Date().toISOString().split('T')[0];
+  const now = Date.now();
+
+  // Load all today's attendance records from MongoDB
+  const query = { date: today };
+  const records = await Attendance.find(query).lean();
+
+  const telemetryMap = {};
+
+  records.forEach(r => {
+    const code = String(r.employeeCode || '').trim().toUpperCase();
+    const id = String(r.employee?._id || r.employee || r._id);
+    const key = code || id;
+
+    const inTs = Number(r.clockInTimestamp || 0);
+    const sessStart = Number(r.currentSessionStartTimestamp || inTs);
+    const isClockedIn = Boolean(r.isClockedIn && !r.clockOutTime);
+    const isClockedOut = Boolean(r.clockOutTime || r.clockOut);
+    const isOnBreak = Boolean(r.isOnBreak);
+
+    let liveWorkSecs = Number(r.workSeconds) || 0;
+    if (isClockedIn && !isOnBreak && sessStart > 0 && sessStart <= now) {
+      // Add live elapsed seconds since session start
+      const liveElapsed = Math.max(0, Math.floor((now - sessStart) / 1000));
+      const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
+      liveWorkSecs = Math.min(liveWorkSecs + liveElapsed, maxPossibleGross);
+    }
+
+    let runningTask = r.activeTask || null;
+    if (runningTask && runningTask.startedAt && isClockedIn && !isOnBreak) {
+      const taskStart = Number(runningTask.startedAt);
+      const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
+      const accum = Number(runningTask.accumulatedSeconds) || 0;
+      runningTask = {
+        ...runningTask,
+        liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
+        timerRunning: true
+      };
+    }
+
+    const state = {
+      employeeId: id,
+      employeeCode: code,
+      employeeName: r.employeeName,
+      date: r.date,
+      status: r.status,
+      isClockedIn,
+      isClockedOut,
+      isOnBreak,
+      breakType: r.breakType || null,
+      clockInTime: r.clockInTime || r.clockIn || null,
+      clockInTimestamp: inTs,
+      clockOutTime: r.clockOutTime || r.clockOut || null,
+      clockOutTimestamp: r.clockOutTimestamp || null,
+      currentSessionStartTimestamp: sessStart,
+      workSeconds: liveWorkSecs,
+      totalWorkingHours: +(liveWorkSecs / 3600).toFixed(2),
+      activeTask: runningTask,
+      lastHeartbeatAt: r.lastHeartbeatAt || now
+    };
+
+    telemetryMap[key] = state;
+    if (code) telemetryMap[code] = state;
+    if (id) telemetryMap[id] = state;
+  });
+
+  res.json({
+    success: true,
+    date: today,
+    timestamp: now,
+    count: Object.keys(telemetryMap).length,
+    data: telemetryMap
+  });
+});
+
 module.exports = {
   autoClosePastDayShifts,
   getMonthlyAttendance,
@@ -765,5 +928,7 @@ module.exports = {
   forceClockOut,
   getOvertimeRequests,
   requestOvertime,
-  updateOvertimeStatus
+  updateOvertimeStatus,
+  updateLiveHeartbeat,
+  getLiveTelemetry
 };
