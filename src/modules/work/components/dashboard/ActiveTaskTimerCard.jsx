@@ -99,7 +99,7 @@ export const ActiveTaskTimerCard = ({
             </div>
 
             {/* Line 2: Meta info (Start Time • Assignee • Assigner) */}
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
               <span>Start: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{displayActiveTask?.timerStartTime || (displayActiveTask?.timerRunning ? 'Running ⏱️' : (isOnBreak ? 'On Break ☕' : (displayActiveTask?.timerSeconds > 0 ? 'Paused ⏸️' : 'Not Started')))}</strong></span>
               <span>Assignee: <strong className="text-slate-900 dark:text-white font-semibold">{displayActiveTask?.assignedToName || 'Me'}</strong></span>
               <span>By: <strong className="text-slate-500 dark:text-slate-400">{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
@@ -163,7 +163,7 @@ export const ActiveTaskTimerCard = ({
             </div>
           )}
 
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5">
             <button
               onClick={async () => {
                 if (!isViewingOtherEmployee && !isClockedIn) {
@@ -181,7 +181,7 @@ export const ActiveTaskTimerCard = ({
                   setActiveSelectedTaskId(null);
                 }
               }}
-              className="flex-[1.2] flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white border-none py-1.5 px-2.5 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-green-600/30 transition-colors"
+              className="col-span-2 sm:col-span-1 sm:flex-[1.2] flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white border-none py-2 sm:py-1.5 px-2.5 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-green-600/30 transition-colors"
               title="Mark current task complete & automatically start next task in queue"
             >
               <CheckCircle2 size={13} />
@@ -204,7 +204,7 @@ export const ActiveTaskTimerCard = ({
                   startTaskTimer(displayActiveTask._id);
                 }
               }}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer border transition-colors ${
+              className={`col-span-1 sm:flex-1 flex items-center justify-center gap-1 py-2 sm:py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer border transition-colors ${
                 displayActiveTask?.timerRunning
                   ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -227,7 +227,7 @@ export const ActiveTaskTimerCard = ({
                   setActiveSelectedTaskId(null);
                 }
               }}
-              className="flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-none py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-emerald-600/30 transition-colors"
+              className="col-span-1 sm:flex-1 flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white border-none py-2 sm:py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer shadow-sm shadow-emerald-600/30 transition-colors"
               title="Mark this task as complete (without auto-starting next task)"
             >
               <CheckCircle2 size={12} />
@@ -239,7 +239,7 @@ export const ActiveTaskTimerCard = ({
                 setSnoozeTaskTarget(displayActiveTask);
                 setIsSnoozeModalOpen(true);
               }}
-              className="flex-1 flex items-center justify-center gap-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/60 py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer transition-colors"
+              className="col-span-1 sm:flex-1 flex items-center justify-center gap-1 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/60 py-2 sm:py-1.5 px-2 rounded-lg text-[11.5px] font-bold cursor-pointer transition-colors"
               title="Pause task right here and schedule CRM reminder"
             >
               <Bell size={12} />
@@ -248,7 +248,7 @@ export const ActiveTaskTimerCard = ({
 
             <button
               onClick={() => stopTaskTimer(displayActiveTask._id)}
-              className="flex-[0.7] flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer transition-colors"
+              className="col-span-1 sm:flex-[0.7] flex items-center justify-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 sm:py-1.5 px-2 rounded-lg text-[11.5px] font-semibold cursor-pointer transition-colors"
               title="Stop timer and log hours"
             >
               <Square size={10} className="fill-slate-500" />
@@ -269,13 +269,13 @@ export const ActiveTaskTimerCard = ({
               {upcomingQueueTasks.slice(0, 2).map(nextT => (
                 <div
                   key={nextT._id}
-                  className="p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-1.5"
+                  className="p-1.5 px-2 bg-white dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-[11.5px] font-bold text-slate-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
                       <span className="text-sky-600 dark:text-sky-400">#{nextT.taskCode || 'TSK'}:</span> {nextT.title}
                     </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span>{nextT.projectName || 'General'}</span>
                       <span>•</span>
                       <span>{nextT.estimatedHours ? `${nextT.estimatedHours}h` : 'No est.'}</span>
@@ -291,7 +291,7 @@ export const ActiveTaskTimerCard = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                     <button
                       onClick={() => {
                         if (!isClockedIn) {

@@ -31,7 +31,8 @@ import {
   FileCode,
   Maximize2,
   Lock,
-  Pin
+  Pin,
+  ChevronLeft
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useCRM } from '../../../shared/context/CRMContext';
@@ -76,6 +77,7 @@ export const MessagesPage = () => {
   const [isNewConvOpen, setIsNewConvOpen] = useState(false);
   const [viewerAttachment, setViewerAttachment] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [mobileShowChat, setMobileShowChat] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
@@ -319,10 +321,10 @@ export const MessagesPage = () => {
       </div>
 
       {/* Main Chat Layout Container */}
-      <div className="flex-1 grid grid-cols-[290px_1fr] bg-white dark:bg-[#101b33] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-[290px_1fr] bg-white dark:bg-[#101b33] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
 
         {/* ── Left Sidebar: Conversations & Channels ── */}
-        <div className="border-r border-slate-200/80 dark:border-slate-800 flex flex-col bg-slate-50/80 dark:bg-[#0c1427]">
+        <div className={`border-r border-slate-200/80 dark:border-slate-800 flex-col bg-slate-50/80 dark:bg-[#0c1427] ${mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
 
           {/* Search Bar */}
           <div className="p-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c1427]">
@@ -378,7 +380,10 @@ export const MessagesPage = () => {
                 return (
                   <div
                     key={conv.id}
-                    onClick={() => setActiveConversationId(conv.id)}
+                    onClick={() => {
+                      setActiveConversationId(conv.id);
+                      setMobileShowChat(true);
+                    }}
                     className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all border ${
                       isSelected
                         ? 'bg-blue-50/90 dark:bg-[#16223e] border-blue-200 dark:border-blue-900/60 shadow-xs border-l-3 border-l-blue-600 dark:border-l-sky-400'
@@ -445,7 +450,7 @@ export const MessagesPage = () => {
         </div>
 
         {/* ── Right Side: Active Chat Window ── */}
-        <div className="flex flex-col bg-white dark:bg-[#0e172c]">
+        <div className={`flex-col bg-white dark:bg-[#0e172c] ${!mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
 
           {!activeConv ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-10 text-slate-400 dark:text-slate-500">
@@ -464,8 +469,17 @@ export const MessagesPage = () => {
             return (
               <>
                 {/* Chat Header */}
-                <div className="p-3 px-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111c35]">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="p-3 px-3 sm:px-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111c35]">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setMobileShowChat(false)}
+                      className="md:hidden inline-flex items-center gap-0.5 text-xs font-bold text-blue-600 dark:text-sky-400 py-1 px-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer -ml-1 shrink-0"
+                      title="Back to conversation list"
+                    >
+                      <ChevronLeft size={18} />
+                      <span className="hidden sm:inline">Back</span>
+                    </button>
                     {activeIsChannel ? (
                       <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-xs">
                         <Hash size={19} />
@@ -719,7 +733,7 @@ export const MessagesPage = () => {
                 {/* ── Chat Input Bar ── */}
                 <form
                   onSubmit={handleSend}
-                  className="p-3 px-4 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2 bg-white dark:bg-[#111c35]"
+                  className="p-2 sm:p-3 px-2.5 sm:px-4 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-[#111c35]"
                 >
                   {/* Hidden File Input */}
                   <input
@@ -734,23 +748,23 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 cursor-pointer transition-all shadow-xs shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-sky-300 cursor-pointer transition-all shadow-xs shrink-0"
                     title="Attach Photo, Video, Document or Code file"
                   >
-                    <Paperclip size={19} className="rotate-45" />
+                    <Paperclip size={18} className="rotate-45" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all border shadow-xs shrink-0 ${
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all border shadow-xs shrink-0 ${
                       showEmojiPicker
                         ? 'bg-amber-100 dark:bg-amber-950 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 ring-2 ring-amber-400/40'
                         : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400'
                     }`}
                     title="Quick Reactions, Stickers & Emojis"
                   >
-                    <Smile size={19} />
+                    <Smile size={18} />
                   </button>
 
                   <input
@@ -758,26 +772,26 @@ export const MessagesPage = () => {
                     type="text"
                     placeholder={
                       pendingAttachments.length > 0
-                        ? `Add caption for ${activeIsChannel ? headerTitle : `${headerTitle} (Private DM)`} and press Send...`
+                        ? `Add caption and press Send...`
                         : activeIsChannel
-                        ? `Message ${headerTitle}...`
-                        : `Private Direct Message to ${headerTitle}...`
+                        ? `Message #${headerTitle}...`
+                        : `Message ${headerTitle}...`
                     }
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
-                    className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-slate-50 dark:bg-[#0c1427] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:border-blue-600 dark:focus:border-sky-400 focus:ring-1 focus:ring-blue-500/20 transition-all font-medium"
+                    className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-[12.5px] sm:text-[13px] outline-none bg-slate-50 dark:bg-[#0c1427] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:border-blue-600 dark:focus:border-sky-400 focus:ring-1 focus:ring-blue-500/20 transition-all font-medium min-w-0"
                   />
 
                   <button
                     type="submit"
                     disabled={(!inputText.trim() && pendingAttachments.length === 0) || isSending}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border-0 ${
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all border-0 shrink-0 ${
                       inputText.trim() || pendingAttachments.length > 0
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer shadow-md shadow-blue-600/30'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
                     }`}
                   >
-                    <Send size={16} />
+                    <Send size={15} />
                   </button>
                 </form>
               </>

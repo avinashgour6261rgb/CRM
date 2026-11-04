@@ -37,7 +37,7 @@ export const DashboardKpiStrip = ({
   currentUser = null
 }) => {
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2.5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-2 sm:gap-2.5">
       {isUserAdminOrHR && !isViewingOtherEmployee ? (
         <>
           <div

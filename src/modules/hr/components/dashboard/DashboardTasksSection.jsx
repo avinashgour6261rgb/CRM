@@ -73,13 +73,13 @@ export const DashboardTasksSection = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
           {/* Primary Task Scope Switcher: Assigned to Me vs Delegated by Me vs All */}
-          <div className="flex gap-[3px] bg-slate-100 dark:bg-slate-800 p-[3px] rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex gap-[3px] bg-slate-100 dark:bg-slate-800 p-[3px] rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => { setDashboardTaskScope('assigned_to_me'); setDashboardTaskTab('pending'); }}
-              className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 transition-all ${dashboardTaskScope === 'assigned_to_me' ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+              className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap transition-all ${dashboardTaskScope === 'assigned_to_me' ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               <span>📥 Assigned to Me ({myTasks.length})</span>
             </button>
@@ -87,7 +87,7 @@ export const DashboardTasksSection = ({
             <button
               type="button"
               onClick={() => { setDashboardTaskScope('delegated'); setDashboardTaskTab('all'); }}
-              className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 transition-all ${dashboardTaskScope === 'delegated' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+              className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap transition-all ${dashboardTaskScope === 'delegated' ? 'bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               <span>📤 Delegated ({delegatedByMeTasks.length})</span>
             </button>
@@ -96,7 +96,7 @@ export const DashboardTasksSection = ({
               <button
                 type="button"
                 onClick={() => { setDashboardTaskScope('all'); setDashboardTaskTab('all'); }}
-                className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 transition-all ${dashboardTaskScope === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer inline-flex items-center gap-1 whitespace-nowrap transition-all ${dashboardTaskScope === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 <span>🏢 All ({allTeamTasks.length})</span>
               </button>
@@ -104,7 +104,7 @@ export const DashboardTasksSection = ({
           </div>
 
           {/* Status Filter Pills */}
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-[3px] rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-[3px] rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full">
             {[
               { id: 'pending', label: `Pending (${poolPendingTasks.length})` },
               ...(poolLeftoverTasks.length > 0 ? [{ id: 'leftover', label: `⏮️ Leftover (${poolLeftoverTasks.length})` }] : []),
@@ -116,31 +116,33 @@ export const DashboardTasksSection = ({
               <button
                 key={tab.id}
                 onClick={() => setDashboardTaskTab(tab.id)}
-                className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer transition-all ${dashboardTaskTab === tab.id ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`border-none py-1 px-[9px] rounded-md text-[11px] font-bold cursor-pointer whitespace-nowrap transition-all ${dashboardTaskTab === tab.id ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          <button
-            onClick={() => setIsAddTaskOpen(true)}
-            className="flex items-center gap-1 bg-sky-600 text-white border-none py-1.5 px-3 rounded-[7px] text-[11.5px] font-bold cursor-pointer hover:bg-sky-700 transition-colors"
-          >
-            <Plus size={13} /> Add Task
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => setIsAddTaskOpen(true)}
+              className="flex items-center gap-1 bg-sky-600 text-white border-none py-1.5 px-3 rounded-[7px] text-[11.5px] font-bold cursor-pointer hover:bg-sky-700 transition-colors"
+            >
+              <Plus size={13} /> Add Task
+            </button>
 
-          <button
-            onClick={() => navigate('/tasks')}
-            className="flex items-center gap-0.5 bg-transparent border-none text-sky-600 dark:text-sky-400 text-xs font-bold cursor-pointer hover:underline"
-          >
-            Full Board →
-          </button>
+            <button
+              onClick={() => navigate('/tasks')}
+              className="flex items-center gap-0.5 bg-transparent border-none text-sky-600 dark:text-sky-400 text-xs font-bold cursor-pointer hover:underline whitespace-nowrap"
+            >
+              Full Board →
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Tasks Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400">

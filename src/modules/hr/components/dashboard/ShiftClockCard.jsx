@@ -89,7 +89,7 @@ export const ShiftClockCard = ({
     <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-[14px_18px] flex flex-col justify-between gap-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="flex items-center justify-between flex-wrap gap-3.5">
         {/* Left Info Column: Clock Time, Live Status & Key Shift/Task Metrics */}
-        <div className="flex-1 min-w-[260px]">
+        <div className="flex-1 min-w-0 sm:min-w-[240px]">
           <div className="flex items-center gap-2">
             <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
               {currentTime}
@@ -167,9 +167,9 @@ export const ShiftClockCard = ({
         </div>
 
         {/* Right Action Column: Prominent Action Buttons */}
-        <div className="flex flex-col items-end justify-center gap-1.5 shrink-0">
+        <div className="w-full sm:w-auto flex flex-col sm:items-end items-stretch justify-center gap-1.5 shrink-0 mt-1 sm:mt-0">
           {isViewingOtherEmployee ? (
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col sm:items-end items-start gap-1">
               <div className="text-[11px] font-bold text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 py-[3px] px-2.5 rounded-[5px]">
                 Shift View: {effectiveTargetUser?.name} (Read-Only)
               </div>
@@ -187,20 +187,20 @@ export const ShiftClockCard = ({
               <button
                 id="btn-resume-work-dashboard"
                 onClick={resumeFromBreak}
-                className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-green-500 to-green-600 text-white border-none py-[11px] px-6 rounded-lg text-sm font-bold cursor-pointer shadow-[0_4px_12px_rgba(22,163,74,0.3)] hover:brightness-105 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-green-500 to-green-600 text-white border-none py-[11px] px-6 rounded-lg text-sm font-bold cursor-pointer shadow-[0_4px_12px_rgba(22,163,74,0.3)] hover:brightness-105 transition-all"
                 title="Resume working and continue shift"
               >
                 <Play size={14} fill="#fff" />
                 <span>Resume Shift 🟢</span>
               </button>
             ) : effectiveIsClockedIn ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 {/* ☕ SINGLE BIG BREAK BUTTON WITH OPTIONS */}
-                <div className="relative">
+                <div className="relative flex-1 sm:flex-initial">
                   <button
                     id="btn-take-break-menu"
                     onClick={() => setShowBreakDropdown(prev => !prev)}
-                    className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-[1.5px] border-amber-200 dark:border-amber-800 py-2.5 px-4 rounded-lg text-[13px] font-bold cursor-pointer shadow-[0_2px_8px_rgba(217,119,6,0.15)] hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-[1.5px] border-amber-200 dark:border-amber-800 py-2.5 px-4 rounded-lg text-[13px] font-bold cursor-pointer shadow-[0_2px_8px_rgba(217,119,6,0.15)] hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all"
                     title="Choose a break (Tea, Lunch, or Custom)"
                   >
                     <Coffee size={14} color="#b45309" />
@@ -208,7 +208,7 @@ export const ShiftClockCard = ({
                   </button>
 
                   {showBreakDropdown && (
-                    <div className="absolute top-[115%] right-0 z-[100] bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xl p-1.5 min-w-[220px] flex flex-col gap-1">
+                    <div className="absolute top-[115%] right-0 sm:right-0 left-0 sm:left-auto z-[100] bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xl p-1.5 min-w-[220px] flex flex-col gap-1">
                       <button
                         id="btn-menu-tea-break"
                         onClick={() => { startTeaBreak(); setShowBreakDropdown(false); }}
@@ -242,22 +242,22 @@ export const ShiftClockCard = ({
                   id="btn-clock-out"
                   onClick={onClockOutClick}
                   title="End shift and save attendance logs"
-                  className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-orange-500 to-red-600 text-white border-none py-2.5 px-[22px] rounded-lg text-[13.5px] font-bold cursor-pointer shadow-[0_4px_14px_rgba(234,88,12,0.35)] hover:brightness-105 transition-all"
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-orange-500 to-red-600 text-white border-none py-2.5 px-[22px] rounded-lg text-[13.5px] font-bold cursor-pointer shadow-[0_4px_14px_rgba(234,88,12,0.35)] hover:brightness-105 transition-all"
                 >
                   <Square size={12} fill="#fff" />
                   <span>Clock Out</span>
                 </button>
               </div>
             ) : displayedIsOnLeave ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="py-2.5 px-3 rounded-lg text-xs font-bold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 inline-flex items-center gap-1.5 shadow-xs">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <span className="py-2.5 px-3 rounded-lg text-xs font-bold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 inline-flex items-center gap-1.5 shadow-xs flex-1 sm:flex-initial justify-center">
                   <span>🌴 Approved Leave Active</span>
                 </span>
                 <button
                   id="btn-clock-in-urgent"
                   onClick={handleClockIn}
                   title="Clock In for urgent work during approved leave"
-                  className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-none py-2 px-3.5 rounded-lg text-xs font-bold cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.3)] hover:brightness-105 transition-all"
+                  className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-none py-2 px-3.5 rounded-lg text-xs font-bold cursor-pointer shadow-[0_2px_8px_rgba(245,158,11,0.3)] hover:brightness-105 transition-all flex-1 sm:flex-initial"
                 >
                   <Play size={12} fill="#fff" />
                   <span>Work During Leave ⚡</span>
@@ -268,7 +268,7 @@ export const ShiftClockCard = ({
                 id="btn-clock-in"
                 onClick={handleClockIn}
                 title="Start your daily shift timer"
-                className="inline-flex items-center justify-center gap-2 bg-gradient-to-br from-green-500 to-green-600 text-white border-none py-[11px] px-[26px] rounded-lg text-sm font-bold cursor-pointer shadow-[0_4px_14px_rgba(22,163,74,0.35)] hover:brightness-105 transition-all min-w-[160px]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-br from-green-500 to-green-600 text-white border-none py-[11px] px-[26px] rounded-lg text-sm font-bold cursor-pointer shadow-[0_4px_14px_rgba(22,163,74,0.35)] hover:brightness-105 transition-all min-w-[160px]"
               >
                 <Play size={13} fill="#fff" />
                 <span>{effectiveHadClockedOut ? 'Clock In Again (Resume Shift)' : 'Clock In (Start Shift)'}</span>
@@ -276,7 +276,7 @@ export const ShiftClockCard = ({
             )
           )}
 
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-start sm:justify-end gap-1.5 flex-wrap mt-0.5">
             {effectiveIsClockedIn ? (
               <>
                 <span>Clock In: <strong className="text-slate-900 dark:text-slate-100">{displayedLoginTime || '--'}</strong></span>

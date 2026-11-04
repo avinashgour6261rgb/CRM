@@ -121,10 +121,10 @@ export const DashboardWelcomeCard = ({
       </div>
 
       {/* Quick Direct Buttons for Employees & Profile */}
-      <div className="flex gap-2 mt-0.5">
+      <div className="flex flex-wrap sm:flex-nowrap gap-2 mt-0.5">
         <button
           onClick={() => navigate('/employees')}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+          className="flex-1 min-w-[90px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
         >
           <Users size={13} />
           <span>Directory</span>
@@ -132,7 +132,7 @@ export const DashboardWelcomeCard = ({
 
         <button
           onClick={() => navigate('/attendance')}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-900/60 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/60 transition-colors"
+          className="flex-1 min-w-[90px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-[7px] bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-900/60 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/60 transition-colors"
           title="View full attendance matrix & clock in/out logs"
         >
           <CalendarCheck size={13} color="#16a34a" />
@@ -142,7 +142,7 @@ export const DashboardWelcomeCard = ({
         <button
           id="btn-edit-profile-welcome"
           onClick={() => setIsEditProfileOpen(true)}
-          className="py-2 px-4 rounded-[7px] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-[1.5px] border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+          className="flex-1 sm:flex-initial min-w-[100px] justify-center py-2 px-3.5 rounded-[7px] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-[1.5px] border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
           title="Edit My Profile"
         >
           <User size={13} color="#2563eb" /> Edit Profile

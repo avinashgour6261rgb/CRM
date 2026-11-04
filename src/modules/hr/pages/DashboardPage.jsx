@@ -2884,7 +2884,7 @@ export const DashboardPage = () => {
             {/* ─────────────────────────────────────────────────────────────────────────
           TOP SECTION: Welcome Profile Card & Attendance Shift Clock (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
         <DashboardWelcomeCard
           effectiveTargetUser={effectiveTargetUser}
           currentUser={currentUser}
@@ -2941,7 +2941,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           MIDDLE ROW: My Active Timer & Week Timelogs (Side-by-Side Responsive Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-3.5 mb-3.5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 mb-3.5 items-stretch">
         {/* Left Column: My Active Timer Card (Compact & Modern) */}
         <ActiveTaskTimerCard
           currentDateFormatted={currentDateFormatted}
@@ -3105,7 +3105,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 1: Support Tickets & Calendar / Schedule (Spacious 2-Column Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
         {/* Support Tickets Widget */}
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -3268,7 +3268,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 2: Birthdays, Appreciations & Calendar (Compact & Clean)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
         {/* Birthdays Widget */}
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
@@ -3442,7 +3442,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           LOWER ROW 3: On Leave, Anniversaries & WFH (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch">
         {/* On Leave Today */}
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between">

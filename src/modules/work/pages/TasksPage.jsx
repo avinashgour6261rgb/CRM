@@ -274,11 +274,11 @@ export const TasksPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
           {/* Assignment & Project History Modal Button */}
           <button
             onClick={() => setIsHistoryModalOpen(true)}
-            className="inline-flex items-center gap-1.25 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
             title="View complete project assignment & activity history audit log"
           >
             <History size={13} className="text-blue-600" />
@@ -287,7 +287,7 @@ export const TasksPage = () => {
 
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.25 px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
             title="Export tasks to CSV"
           >
             <Download size={13} />
@@ -296,7 +296,7 @@ export const TasksPage = () => {
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.25 px-3 h-[30px] rounded-md bg-sky-600 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_2px_rgba(2,132,199,0.2)] hover:bg-sky-700 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-sky-600 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_2px_rgba(2,132,199,0.2)] hover:bg-sky-700 transition-colors"
             title="Create a new task"
           >
             <Plus size={13} />
@@ -306,10 +306,10 @@ export const TasksPage = () => {
       </div>
 
       {/* Top Filter Controls Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg px-3.5 py-2 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2.5 flex-wrap flex-1">
+      <div className="bg-white dark:bg-slate-900 rounded-lg px-3.5 py-2.5 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2.5 flex-wrap flex-1 w-full">
           {/* Member Filter Dropdown */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Member</span>
             <select
               value={canViewAllTasks ? (taskFilter.assignedTo || 'all') : (currentUser?._id || 'me')}
@@ -320,7 +320,7 @@ export const TasksPage = () => {
                 }
               }}
               disabled={!canViewAllTasks}
-              className={`px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none h-[30px] ${!canViewAllTasks ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed' : 'bg-white dark:bg-slate-900 cursor-pointer'
+              className={`w-full sm:w-auto px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none h-[32px] ${!canViewAllTasks ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed' : 'bg-white dark:bg-slate-900 cursor-pointer'
                 }`}
             >
               {canViewAllTasks ? (
@@ -341,7 +341,7 @@ export const TasksPage = () => {
           </div>
 
           {/* Status Dropdown */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status</span>
             <select
               value={taskFilter.hideCompleted ? 'hide_completed' : taskFilter.status}
@@ -353,7 +353,7 @@ export const TasksPage = () => {
                   setTaskFilter(prev => ({ ...prev, hideCompleted: false, status: val }));
                 }
               }}
-              className="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[30px] cursor-pointer"
+              className="w-full sm:w-auto px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[32px] cursor-pointer"
             >
               <option value="hide_completed">Hide Completed Task</option>
               <option value="all">All Tasks</option>
@@ -365,12 +365,12 @@ export const TasksPage = () => {
           </div>
 
           {/* Project Dropdown */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Project</span>
             <select
               value={taskFilter.projectId || 'all'}
               onChange={(e) => setTaskFilter(prev => ({ ...prev, projectId: e.target.value }))}
-              className="px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[30px] cursor-pointer max-w-[160px]"
+              className="w-full sm:w-auto px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-200 outline-none bg-white dark:bg-slate-900 h-[32px] cursor-pointer max-w-full sm:max-w-[160px]"
             >
               <option value="all">All Projects</option>
               {projects?.map(prj => (
@@ -382,7 +382,7 @@ export const TasksPage = () => {
           </div>
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1 min-w-[200px] flex-1 h-[30px]">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-1 min-w-[200px] flex-1 w-full sm:w-auto h-[32px]">
             <Search size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
             <input
               type="text"
@@ -396,24 +396,24 @@ export const TasksPage = () => {
       </div>
 
       {/* Action Sub-Bar: + Add Task, All / Assigned to Me / Assigned by Me, Export, View Mode */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center justify-between flex-wrap gap-2 w-full">
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
           {/* Add Task Button */}
           <button
             id="btn-add-task"
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.25 bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[30px]"
+            className="flex items-center gap-1.25 bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[32px]"
           >
             <Plus size={14} />
             Assign New Task
           </button>
 
           {/* Scope Filter Pills (All / Assigned To Me / Assigned By Me) */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[30px] items-center">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[32px] items-center overflow-x-auto max-w-full">
             {canViewAllTasks && (
               <button
                 onClick={() => handleScopeChange('all')}
-                className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${scopeMode === 'all'
+                className={`whitespace-nowrap shrink-0 px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6.5 ${scopeMode === 'all'
                   ? 'font-bold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                   : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                   }`}
@@ -423,7 +423,7 @@ export const TasksPage = () => {
             )}
             <button
               onClick={() => handleScopeChange('assigned_to_me')}
-              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${scopeMode === 'assigned_to_me'
+              className={`whitespace-nowrap shrink-0 px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6.5 ${scopeMode === 'assigned_to_me'
                 ? 'font-bold bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -432,7 +432,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleScopeChange('assigned_by_me')}
-              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${scopeMode === 'assigned_by_me'
+              className={`whitespace-nowrap shrink-0 px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6.5 ${scopeMode === 'assigned_by_me'
                 ? 'font-bold bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -441,7 +441,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleScopeChange('personal')}
-              className={`px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6 ${scopeMode === 'personal'
+              className={`whitespace-nowrap shrink-0 px-2.5 py-1 border-0 rounded text-[11.5px] cursor-pointer transition-all h-6.5 ${scopeMode === 'personal'
                 ? 'font-bold bg-white dark:bg-slate-700 text-purple-600 dark:text-purple-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -451,10 +451,10 @@ export const TasksPage = () => {
           </div>
 
           {/* Status Filter Pills */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[30px] items-center">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[32px] items-center overflow-x-auto max-w-full">
             <button
               onClick={() => handleStatusModeChange('all')}
-              className={`px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${statusMode === 'all'
+              className={`whitespace-nowrap shrink-0 px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6.5 ${statusMode === 'all'
                 ? 'font-bold bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -463,7 +463,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleStatusModeChange('active')}
-              className={`px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${statusMode === 'active'
+              className={`whitespace-nowrap shrink-0 px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6.5 ${statusMode === 'active'
                 ? 'font-bold bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -472,7 +472,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleStatusModeChange('leftover')}
-              className={`px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 inline-flex items-center gap-1 ${statusMode === 'leftover'
+              className={`whitespace-nowrap shrink-0 px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6.5 inline-flex items-center gap-1 ${statusMode === 'leftover'
                 ? 'font-bold bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -487,7 +487,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleStatusModeChange('future')}
-              className={`px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 inline-flex items-center gap-1 ${statusMode === 'future'
+              className={`whitespace-nowrap shrink-0 px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6.5 inline-flex items-center gap-1 ${statusMode === 'future'
                 ? 'font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -502,7 +502,7 @@ export const TasksPage = () => {
             </button>
             <button
               onClick={() => handleStatusModeChange('completed')}
-              className={`px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6 ${statusMode === 'completed'
+              className={`whitespace-nowrap shrink-0 px-2.25 py-1 border-0 rounded text-[11px] cursor-pointer transition-all h-6.5 ${statusMode === 'completed'
                 ? 'font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
                 : 'font-medium bg-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
                 }`}
@@ -515,7 +515,7 @@ export const TasksPage = () => {
           <button
             onClick={() => setIsHistoryModalOpen(true)}
             title="View complete project task assignment & activity audit history"
-            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer h-[30px] shadow-[0_1px_2px_rgba(15,118,110,0.08)] hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
+            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer h-[32px] shadow-[0_1px_2px_rgba(15,118,110,0.08)] hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-colors"
           >
             <History size={13} className="text-teal-700 dark:text-teal-400" />
             Assignment History
@@ -524,7 +524,7 @@ export const TasksPage = () => {
           {/* Export Button */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer h-[30px] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            className="flex items-center gap-1.25 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded-md text-xs font-medium cursor-pointer h-[32px] hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             Export

@@ -463,7 +463,7 @@ export const LeavesPage = () => {
             <Search size={15} className="filter-input-icon" />
             <input
               type="text"
-              className="filter-input min-w-[240px]"
+              className="filter-input w-full sm:min-w-[200px]"
               placeholder="Search employee, reason, type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

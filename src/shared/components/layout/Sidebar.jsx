@@ -24,7 +24,8 @@ import {
   Users2,
   UserCheck,
   Edit,
-  Power
+  Power,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
@@ -33,7 +34,7 @@ import { canAccessModule, isLeaderOrAbove, canManageProjects } from '../../utils
 import { getCompanySettings } from '../../services/companySettingsService';
 import { EmployeeDirectoryModal } from '../../../modules/hr/components/employees/EmployeeDirectoryModal';
 
-export const Sidebar = () => {
+export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -134,48 +135,76 @@ export const Sidebar = () => {
   );
 
   return (
-    <aside className={`bg-[#101b33] text-slate-400 flex flex-col h-screen shrink-0 border-r border-slate-800 sticky top-0 z-[100] overflow-hidden transition-[width] duration-250 ease-out ${collapsed ? 'w-[72px]' : 'w-[250px]'}`}>
-      {/* Brand & User Top Header */}
-      <div
-        ref={profileRef}
-        onClick={handleProfilePosition}
-        className={`border-b border-white/6 flex items-center justify-between min-h-[70px] cursor-pointer hover:bg-white/[0.03] transition-colors select-none ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}
-        title="Click to view profile options"
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="lg:hidden fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-[140] transition-opacity animate-in fade-in duration-200"
+          title="Click to close menu"
+        />
+      )}
+
+      <aside
+        className={`bg-[#101b33] text-slate-400 flex flex-col h-screen shrink-0 border-r border-slate-800 overflow-hidden transition-all duration-300 ease-in-out
+          /* Mobile Tier: Off-canvas sliding drawer */
+          fixed inset-y-0 left-0 z-[150] w-[270px] ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+          /* Desktop Tier: Sticky sidebar */
+          lg:translate-x-0 lg:static lg:sticky lg:top-0 lg:z-[100] ${collapsed ? 'lg:w-[72px]' : 'lg:w-[250px]'}`}
       >
-        {!collapsed ? (
-          <div className="flex items-center gap-3 overflow-hidden">
-            {currentUser?.avatar ? (
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name || 'User'}
-                className="w-9 h-9 rounded-[10px] object-cover border-2 border-blue-500/60 shadow-md shadow-blue-600/40 shrink-0"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40 shrink-0">
-                <Zap size={20} fill="#ffffff" />
-              </div>
-            )}
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1">
-                <span className="text-[15px] font-extrabold text-white tracking-tight max-w-[140px] truncate">
-                  {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
-                </span>
-                <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
-                <span className="text-xs text-slate-300 font-semibold max-w-[130px] truncate">
-                  {currentUser?.name || 'Employee'}
-                </span>
+        {/* Brand & User Top Header */}
+        <div
+          ref={profileRef}
+          onClick={handleProfilePosition}
+          className={`border-b border-white/6 flex items-center justify-between min-h-[70px] cursor-pointer hover:bg-white/[0.03] transition-colors select-none ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}
+          title="Click to view profile options"
+        >
+          {!collapsed ? (
+            <div className="flex items-center gap-3 overflow-hidden">
+              {currentUser?.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name || 'User'}
+                  className="w-9 h-9 rounded-[10px] object-cover border-2 border-blue-500/60 shadow-md shadow-blue-600/40 shrink-0"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40 shrink-0">
+                  <Zap size={20} fill="#ffffff" />
+                </div>
+              )}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="text-[15px] font-extrabold text-white tracking-tight max-w-[140px] truncate">
+                    {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
+                  </span>
+                  <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+                  <span className="text-xs text-slate-300 font-semibold max-w-[130px] truncate">
+                    {currentUser?.name || 'Employee'}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="w-9 h-9 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40">
-            <Zap size={20} fill="#ffffff" />
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="w-9 h-9 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40">
+              <Zap size={20} fill="#ffffff" />
+            </div>
+          )}
+
+          {/* Close button for Mobile Drawer */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseMobile();
+            }}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors ml-auto"
+            title="Close menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
       {/* Profile Popover (Teammate Feature) */}
       {isOpen && (
@@ -266,7 +295,10 @@ export const Sidebar = () => {
       )}
 
       {/* Navigation Links */}
-      <div className={`flex-1 overflow-y-auto flex flex-col gap-1 ${collapsed ? 'py-3 px-1.5' : 'py-4 px-3'}`}>
+      <div
+        onClick={(e) => { if (e.target.closest('a')) onCloseMobile(); }}
+        className={`flex-1 overflow-y-auto flex flex-col gap-1 ${collapsed ? 'py-3 px-1.5' : 'py-4 px-3'}`}
+      >
         {/* Dashboard */}
         {canAccessModule(currentUser, 'dashboard') && (
           <NavLink
@@ -648,5 +680,6 @@ export const Sidebar = () => {
         onClose={() => setIsDirectoryOpen(false)}
       />
     </aside>
+    </>
   );
 };

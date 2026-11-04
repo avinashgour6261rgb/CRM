@@ -356,10 +356,10 @@ export const AttendancePage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             title="Export attendance records to CSV"
           >
             <Download size={13} />
@@ -369,7 +369,7 @@ export const AttendancePage = () => {
           {hasEditAttendance && (
             <button
               onClick={() => setIsMarkModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-sky-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-sky-700 transition-colors"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-sky-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-sky-700 transition-colors"
               title="Manually log or update employee attendance"
             >
               <Plus size={13} />
@@ -567,12 +567,12 @@ export const AttendancePage = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end">
             {/* Admin Force Clock-Out Button */}
             {hasForceClockOut && (
               <button
                 onClick={() => setIsForceClockOutOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer shadow-xs"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors cursor-pointer shadow-xs"
                 title="Forcefully clock out an active employee shift with mandatory audit logging"
               >
                 <LogOut size={13} />
@@ -583,7 +583,7 @@ export const AttendancePage = () => {
             {/* Export Button */}
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
               title="Export filtered records to CSV"
             >
               <Download size={13} />
@@ -594,7 +594,7 @@ export const AttendancePage = () => {
             {hasEditAttendance && (
               <button
                 onClick={() => setIsMarkModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 border-0 transition-colors cursor-pointer shadow-xs"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 border-0 transition-colors cursor-pointer shadow-xs"
               >
                 <Plus size={14} />
                 <span>Mark Attendance</span>

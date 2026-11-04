@@ -456,7 +456,7 @@ export const LeadsPage = () => {
             </div>
 
             {/* Live Search Input */}
-            <div className="relative min-w-[220px] flex items-center">
+            <div className="relative w-full sm:w-[220px] flex-1 sm:flex-initial flex items-center">
               <Search
                 size={14}
                 className="absolute left-2.5 text-slate-400 pointer-events-none"

@@ -298,7 +298,7 @@ export const WeeklyTimeLogsCard = ({
                             title={isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
                         >
                             {/* Circle badge for selected day, holiday, or plain letter */}
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all ${isSelected
+                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-xs transition-all ${isSelected
                                 ? (isHoliday ? 'bg-red-600 text-white shadow-md shadow-red-600/35 font-extrabold' : 'bg-sky-600 text-white shadow-md shadow-sky-600/35 font-extrabold')
                                 : isHoliday
                                     ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-[1.5px] border-red-400 font-extrabold'

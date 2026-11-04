@@ -26,7 +26,8 @@ import {
   Moon,
   MessageSquare,
   LayoutDashboard,
-  FileText
+  FileText,
+  Menu
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimer } from '../../context/TimerContext';
@@ -49,7 +50,7 @@ import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 import { LogoutConfirmModal } from '../modals/LogoutConfirmModal';
 import { DashboardOverviewModal } from '../modals/DashboardOverviewModal';
 
-export const TopNavbar = () => {
+export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -234,29 +235,39 @@ export const TopNavbar = () => {
   };
 
   return (
-    <header className="top-navbar-container h-16 min-h-16 max-h-16 shrink-0 box-border bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 sticky top-0 z-[90] shadow-xs dark:shadow-md transition-colors duration-200">
-      {/* ── LEFT: Clean Page Title ── */}
-      <div className="flex items-center gap-2 shrink-0">
-        <h1 className="text-base font-bold text-slate-800 dark:text-slate-100 m-0 leading-none tracking-tight transition-colors duration-200">
+    <header className="top-navbar-container h-16 min-h-16 max-h-16 shrink-0 box-border bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-[90] shadow-xs dark:shadow-md transition-colors duration-200">
+      {/* ── LEFT: Hamburger Menu (Mobile/Tablet) + Clean Page Title ── */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <button
+          onClick={onToggleMobileMenu}
+          className="lg:hidden p-1.5 -ml-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border-none bg-transparent"
+          title="Open Menu"
+        >
+          <Menu size={20} />
+        </button>
+        <h1 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 m-0 leading-none tracking-tight transition-colors duration-200 truncate max-w-[110px] xs:max-w-[150px] sm:max-w-none">
           {pageTitle}
         </h1>
       </div>
 
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
 
         {/* ── Active Task Timer Pill (Visible only when task is running) ── */}
         {activeRunningTask && (
           <div
             onClick={() => navigate('/tasks')}
-            className="flex items-center gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
+            className="flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
             title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Click to open Tasks)`}
           >
             <ListTodo size={14} className="text-blue-600 dark:text-blue-400 animate-pulse" />
-            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+            <span className="hidden sm:inline text-[11px] font-bold text-blue-700 dark:text-blue-300">
               Task: {activeRunningTask.taskCode || 'Active'}
             </span>
-            <span className="font-mono text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
+            <span className="sm:hidden text-[10.5px] font-bold text-blue-700 dark:text-blue-300">
+              {activeRunningTask.taskCode || 'TSK'}
+            </span>
+            <span className="font-mono text-[11.5px] sm:text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
               {formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
@@ -264,12 +275,12 @@ export const TopNavbar = () => {
         )}
 
         {/* ── Working Shift Timer Widget ── */}
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2.5 h-[34px] transition-colors duration-200">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
           <Clock size={13} className="text-slate-400 dark:text-slate-500" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Shift:
           </span>
-          <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
+          <span className="font-mono text-[12px] sm:text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
             {(!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00')}
           </span>
 
@@ -305,7 +316,7 @@ export const TopNavbar = () => {
         {/* ── 🔍 Quick Search Icon ── */}
         <button
           onClick={() => setShowSearchModal(true)}
-          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          className="hidden md:flex w-8 h-8 rounded-md border-none bg-transparent items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
           title="Quick Search (Ctrl+K)"
         >
           <Search size={18} />
@@ -314,7 +325,7 @@ export const TopNavbar = () => {
         {/* ── 📅 Calendar / Events Icon ── */}
         <button
           onClick={() => navigate('/events')}
-          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          className="hidden md:flex w-8 h-8 rounded-md border-none bg-transparent items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
           title="Events & Calendar"
         >
           <Calendar size={18} />
@@ -323,7 +334,7 @@ export const TopNavbar = () => {
         {/* ── 📊 Workspace Quick Overview HUD ── */}
         <button
           onClick={() => setIsOverviewOpen(true)}
-          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+          className="hidden md:flex w-8 h-8 rounded-md border-none bg-transparent items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
           title="Quick Overview & Module Switcher"
         >
           <LayoutDashboard size={18} />

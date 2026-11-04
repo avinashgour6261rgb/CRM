@@ -224,10 +224,10 @@ export const TicketsPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
           <button
             onClick={() => setIsRaiseModalOpen(true)}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-sky-600 hover:bg-sky-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.2)] transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-[5px] px-3 h-[32px] rounded-md bg-sky-600 hover:bg-sky-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.2)] transition-colors"
           >
             <Plus size={14} />
             <span>Create Ticket</span>
@@ -235,7 +235,7 @@ export const TicketsPage = () => {
 
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-[5px] px-3 h-[32px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
           >
             <Download size={13} />
             <span>Export</span>
@@ -244,7 +244,7 @@ export const TicketsPage = () => {
       </div>
 
       {/* KPI Cards Row (Compact 5-grid) */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
         {/* Total Tickets */}
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between">
@@ -290,7 +290,7 @@ export const TicketsPage = () => {
         </div>
 
         {/* Resolved Tickets */}
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="col-span-2 sm:col-span-1 bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Resolved</span>
             <TicketIcon size={14} className="text-emerald-500" />
@@ -301,14 +301,14 @@ export const TicketsPage = () => {
         </div>
       </div>
 
-      {/* Filter and Search Bar (Compact) */}
-      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex items-center justify-between flex-wrap gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Filter and Search Bar (Compact & Responsive) */}
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2 flex-wrap flex-1 w-full">
           
           {/* Duration */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-1 sm:flex-initial">
             <span className="font-semibold">Duration:</span>
-            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
+            <div className="flex items-center gap-1 px-2 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px] w-full sm:w-auto">
               <input
                 type="date"
                 value={startDateFilter}
@@ -329,7 +329,7 @@ export const TicketsPage = () => {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-medium outline-none cursor-pointer"
+            className="flex-1 sm:flex-initial px-2 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-medium outline-none cursor-pointer"
           >
             <option value="all">All Tickets</option>
             <option value="open">Open Tickets</option>
@@ -339,7 +339,7 @@ export const TicketsPage = () => {
           </select>
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-[200px]">
+          <div className="flex items-center gap-1.5 px-2.5 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex-1 sm:flex-initial w-full sm:w-[220px]">
             <Search size={14} className="text-slate-400 shrink-0" />
             <input
               type="text"

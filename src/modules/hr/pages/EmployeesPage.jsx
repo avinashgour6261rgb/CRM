@@ -183,10 +183,10 @@ export const EmployeesPage = () => {
                   </div>
 
                   {/* Header Action Buttons */}
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
                     <button
                       onClick={() => navigate('/settings')}
-                      className="inline-flex items-center gap-1.5 py-1.5 px-[11px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer h-[30px] hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1.5 px-[11px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer h-[32px] hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                       title="Configure RBAC Roles & Custom Designations"
                     >
                       <ShieldCheck size={14} color="#2563eb" />
@@ -195,7 +195,7 @@ export const EmployeesPage = () => {
 
                     <button
                       onClick={() => setIsAddOpen(true)}
-                      className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer h-[30px] shadow-sm hover:bg-blue-700 transition-colors"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer h-[32px] shadow-sm hover:bg-blue-700 transition-colors"
                     >
                       <Plus size={14} />
                       <span>Add New Employee</span>
@@ -259,49 +259,51 @@ export const EmployeesPage = () => {
               </button>
             </div>
 
-                            {/* ── Filters & Search Bar (Compact) ── */}
-                              <div className="bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-[10px] border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-                                  <div className="relative flex-1 flex items-center">
-                                    <Search size={14} className="absolute left-2.5 text-slate-400" />
-                                    <input
-                                      type="text"
-                                      placeholder="Search by name, role, email, employee ID..."
-                                      value={search}
-                                      onChange={e => setSearch(e.target.value)}
-                                      className="w-full h-[30px] pl-[30px] pr-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs outline-none bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                                    />
-                                  </div>
+            {/* ── Filters & Search Bar (Compact & Responsive) ── */}
+            <div className="bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-[10px] border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+                <div className="relative flex-1 flex items-center">
+                  <Search size={14} className="absolute left-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, role, email, employee ID..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full h-[32px] pl-[30px] pr-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs outline-none bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  />
+                </div>
 
-                                  <select
-                                    value={selectedDept}
-                                    onChange={e => setSelectedDept(e.target.value)}
-                                    className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
-                                  >
-                                    <option value="all" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">All Departments ({departments.length})</option>
-                                    {departments.map(d => (
-              <option key={d} value={d} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{d}</option>
-                                    ))}
-                                  </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedDept}
+                    onChange={e => setSelectedDept(e.target.value)}
+                    className="flex-1 sm:flex-initial h-[32px] px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                  >
+                    <option value="all" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">All Departments ({departments.length})</option>
+                    {departments.map(d => (
+                      <option key={d} value={d} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{d}</option>
+                    ))}
+                  </select>
 
-                                  <select
-                                    value={selectedRoleFilter}
-                                    onChange={e => setSelectedRoleFilter(e.target.value)}
-                                    className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
-                                  >
-                                    <option value="all" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">All Roles & Posts</option>
-                                    {systemRoles.map(r => (
-              <option key={r.id} value={r.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{r.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
+                  <select
+                    value={selectedRoleFilter}
+                    onChange={e => setSelectedRoleFilter(e.target.value)}
+                    className="flex-1 sm:flex-initial h-[32px] px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none"
+                  >
+                    <option value="all" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">All Roles & Posts</option>
+                    {systemRoles.map(r => (
+                      <option key={r.id} value={r.name} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                                      Showing {filteredEmployees.length} of {employees.length} employees
-                                    </span>
-                                </div>
-                              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-1.5">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                  Showing {filteredEmployees.length} of {employees.length} employees
+                </span>
+              </div>
+            </div>
 
                               {/* ── Employee Directory Table (Compact Rows & Zero Wrapping) ── */}
                                 <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">

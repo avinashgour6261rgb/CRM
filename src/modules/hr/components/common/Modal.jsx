@@ -20,16 +20,16 @@ export const Modal = ({ isOpen, onClose, title, subtitle, children, maxWidth = '
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[1000] flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[1000] flex items-center justify-center p-2.5 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
         style={{ maxWidth }}
-        className="bg-white dark:bg-slate-900 rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800"
+        className="bg-white dark:bg-slate-900 rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] border border-slate-200 dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-[18px] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-[18px] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">{title}</h3>
             {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">{subtitle}</p>}
@@ -43,7 +43,7 @@ export const Modal = ({ isOpen, onClose, title, subtitle, children, maxWidth = '
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto">
+        <div className="p-3.5 sm:p-6 overflow-y-auto">
           {children}
         </div>
       </div>
