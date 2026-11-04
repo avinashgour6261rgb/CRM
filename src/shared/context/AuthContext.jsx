@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getCollection, saveCollection, KEYS } from '../services/storageService';
+import { getCollection, saveCollection, KEYS, syncDatabaseToStorage } from '../services/storageService';
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
 import { API_BASE } from '../config/apiConfig';
 import { subscribeToSyncEvents } from '../services/realtimeSyncService';
@@ -296,6 +296,7 @@ export const AuthProvider = ({ children }) => {
       } catch (_) {}
     }
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+    syncDatabaseToStorage().catch(() => {});
     return targetUser;
   }, [currentUser]);
 
@@ -338,6 +339,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(targetUser));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+      syncDatabaseToStorage().catch(() => {});
     }
     return targetUser;
   }, [currentUser]);
@@ -378,6 +380,7 @@ export const AuthProvider = ({ children }) => {
           }
           saveCollection(KEYS.EMPLOYEES, localEmps);
           window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+          syncDatabaseToStorage().catch(() => {});
           return dbUser;
         }
       } else {
@@ -508,6 +511,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(finalizedUser));
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+    syncDatabaseToStorage().catch(() => {});
     return finalizedUser;
   }, [currentUser]);
 

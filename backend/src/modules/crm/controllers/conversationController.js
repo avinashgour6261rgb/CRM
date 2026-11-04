@@ -129,9 +129,9 @@ exports.getConversations = async (req, res) => {
       convs = await Conversation.find().sort({ updatedAt: -1 });
     }
 
-    const userId = req.headers['x-user-id'] || req.user?.id;
-    const userCode = req.headers['x-user-code'];
-    const userEmail = req.headers['x-user-email'];
+    const userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+    const userCode = req.headers['x-user-code'] || req.user?.employeeCode;
+    const userEmail = req.headers['x-user-email'] || req.user?.email;
 
     const userIdentifiers = [userId, userCode, userEmail]
       .filter(Boolean)
@@ -229,8 +229,10 @@ exports.sendMessage = async (req, res) => {
 exports.markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.headers['x-user-id'] || req.body?.userId;
-    if (!userId) {
+    const userId = req.headers['x-user-id'] || req.body?.userId || req.user?.id || req.user?._id;
+    const userCode = req.headers['x-user-code'] || req.user?.employeeCode;
+    const userEmail = req.headers['x-user-email'] || req.user?.email;
+    if (!userId && !userCode) {
       return res.status(400).json({ success: false, message: 'User ID is required' });
     }
 
@@ -239,14 +241,16 @@ exports.markAsRead = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
 
-    const uStr = String(userId).toLowerCase();
+    const identifiers = [userId, userCode, userEmail].filter(Boolean).map(x => String(x).toLowerCase().trim());
     let updated = false;
 
     if (Array.isArray(conv.messages)) {
       conv.messages.forEach(msg => {
-        const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
-        if (!readBy.some(r => String(r).toLowerCase() === uStr)) {
-          msg.readBy.push(userId);
+        if (!Array.isArray(msg.readBy)) msg.readBy = [];
+        const hasRead = msg.readBy.some(r => identifiers.includes(String(r).toLowerCase().trim()));
+        if (!hasRead) {
+          if (userId) msg.readBy.push(String(userId));
+          if (userCode && String(userCode) !== String(userId)) msg.readBy.push(String(userCode));
           updated = true;
         }
       });

@@ -365,6 +365,17 @@ export const TimerProvider = ({ children }) => {
     if (!isTodaySession) return false;
     const saved = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`);
     if (saved !== null) return JSON.parse(saved);
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const att = JSON.parse(attRaw);
+        const today = new Date().toISOString().split('T')[0];
+        const rec = att.find(a => isRecordForUser(a, today));
+        if (rec && rec.date === today && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false && rec.status !== 'on_leave') {
+          return true;
+        }
+      }
+    } catch (_) {}
     return false;
   });
 
@@ -375,17 +386,36 @@ export const TimerProvider = ({ children }) => {
     return false;
   });
 
-  // Active productive work seconds (starts strictly from 0 on a fresh day)
+  // Active productive work seconds (starts strictly from 0 on a fresh day, hydrates from Atlas across devices)
   const [workSeconds, setWorkSeconds] = useState(() => {
     if (!isTodaySession) return 0;
-    const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
-    const hadOutVal = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
-    if (!inVal && !hadOutVal) return 0;
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
-    const maxGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnight.getTime()) / 1000));
+    const todayMidnightMs = todayMidnight.getTime();
+    const maxGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
     const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
     if (saved) return Math.min(maxGrossToday, Math.max(0, parseInt(saved, 10)));
+
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const att = JSON.parse(attRaw);
+        const today = new Date().toISOString().split('T')[0];
+        const rec = att.find(a => isRecordForUser(a, today));
+        if (rec && rec.date === today) {
+          if (rec.clockOutTime) {
+            return Number(rec.workSeconds) || 0;
+          }
+          let inTs = Number(rec.clockInTimestamp);
+          if (!inTs && rec.clockInTime) {
+            inTs = todayMidnightMs + parseTimeToSeconds(rec.clockInTime) * 1000;
+          }
+          if (inTs && inTs >= todayMidnightMs) {
+            return Math.min(maxGrossToday, Math.max(0, Math.floor((Date.now() - inTs) / 1000)));
+          }
+        }
+      }
+    } catch (_) {}
     return 0;
   });
 

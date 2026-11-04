@@ -406,6 +406,8 @@ export const CRMProvider = ({ children }) => {
       return {
         'Content-Type': 'application/json',
         'x-user-id': String(u?._id || u?.id || u?.employeeCode || ''),
+        'x-user-code': String(u?.employeeCode || ''),
+        'x-user-email': String(u?.email || '').toLowerCase().trim(),
         'x-user-role': String(u?.systemRole || (u?.isAdmin ? 'admin' : (u?.department === 'Human Resources' ? 'hr' : 'team_member')))
       };
     } catch {
@@ -488,7 +490,7 @@ export const CRMProvider = ({ children }) => {
           // Index remote channels & conversations from database
           remoteConvs.forEach(c => map.set(c.id, c));
 
-          // Check local for any messages or conversations that haven't synced yet
+          // Deep merge local messages with remote messages so no messages are ever lost
           let hasUnsynced = false;
           local.forEach(c => {
             if (!map.has(c.id)) {
@@ -496,12 +498,30 @@ export const CRMProvider = ({ children }) => {
               hasUnsynced = true;
             } else {
               const remote = map.get(c.id);
-              const remoteMsgCount = remote.messages?.length || 0;
-              const localMsgCount = c.messages?.length || 0;
-              if (localMsgCount > remoteMsgCount) {
-                map.set(c.id, { ...remote, ...c });
-                hasUnsynced = true;
-              }
+              const msgMap = new Map();
+              (remote.messages || []).forEach(m => {
+                if (m.id) msgMap.set(m.id, m);
+              });
+              (c.messages || []).forEach(m => {
+                if (m.id) {
+                  if (!msgMap.has(m.id)) {
+                    msgMap.set(m.id, m);
+                    hasUnsynced = true;
+                  } else {
+                    const ex = msgMap.get(m.id);
+                    const combinedReadBy = Array.from(new Set([...(ex.readBy || []), ...(m.readBy || [])]));
+                    msgMap.set(m.id, { ...ex, ...m, readBy: combinedReadBy });
+                  }
+                }
+              });
+              const mergedMessages = Array.from(msgMap.values()).sort((a, b) => (Number(a.createdAt || 0) - Number(b.createdAt || 0)));
+              map.set(c.id, {
+                ...c,
+                ...remote,
+                messages: mergedMessages,
+                lastMessage: mergedMessages.length > 0 ? mergedMessages[mergedMessages.length - 1].text : remote.lastMessage,
+                lastMessageTime: mergedMessages.length > 0 ? mergedMessages[mergedMessages.length - 1].timestamp : remote.lastMessageTime
+              });
             }
           });
 
@@ -528,6 +548,15 @@ export const CRMProvider = ({ children }) => {
   useEffect(() => {
     loadTickets();
     loadConversations();
+  }, [currentUser]);
+
+  // ── Multi-User Real-time Chat Sync Poller (Every 2.5s for instant message delivery & read receipts) ──
+  useEffect(() => {
+    if (!currentUser) return;
+    const interval = setInterval(() => {
+      loadConversations();
+    }, 2500);
+    return () => clearInterval(interval);
   }, [currentUser]);
 
   useEffect(() => {

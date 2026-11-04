@@ -232,6 +232,8 @@ export const syncDatabaseToStorage = async () => {
         if (u) {
           return {
             'x-user-id': String(u._id || u.id || u.employeeCode || ''),
+            'x-user-code': String(u.employeeCode || ''),
+            'x-user-email': String(u.email || '').toLowerCase().trim(),
             'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
           };
         }
@@ -251,7 +253,30 @@ export const syncDatabaseToStorage = async () => {
             const json = await res.json();
             const data = json.data !== undefined ? json.data : json;
                         if (Array.isArray(data)) {
-              localStorage.setItem(key, JSON.stringify(data));
+              if (key === KEYS.ATTENDANCE) {
+                const existing = getCollection(KEYS.ATTENDANCE) || [];
+                const attMap = new Map();
+                existing.forEach(a => {
+                  const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
+                  attMap.set(k, a);
+                });
+                data.forEach(a => {
+                  const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
+                  attMap.set(k, a);
+                });
+                localStorage.setItem(key, JSON.stringify(Array.from(attMap.values())));
+              } else if (key === KEYS.TASKS) {
+                const existing = getCollection(KEYS.TASKS) || [];
+                const tMap = new Map();
+                existing.forEach(t => tMap.set(String(t._id || t.id), t));
+                data.forEach(t => {
+                  const ex = tMap.get(String(t._id || t.id));
+                  tMap.set(String(t._id || t.id), { ...ex, ...t });
+                });
+                localStorage.setItem(key, JSON.stringify(Array.from(tMap.values())));
+              } else {
+                localStorage.setItem(key, JSON.stringify(data));
+              }
               if (key === KEYS.EMPLOYEES) {
                 try {
                   const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');

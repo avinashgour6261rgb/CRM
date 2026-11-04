@@ -1076,8 +1076,7 @@ export const hrService = {
     return result;
   },
 
-  // =========================================================================
-    // ─── Real-Time Live Telemetry & Heartbeat Engine ───────────────────────────
+  // ─── Real-Time Live Telemetry & Heartbeat Engine ───────────────────────────
   async sendHeartbeat(telemetryData) {
     if (!telemetryData) return;
     const authUser = getAuthUser();
