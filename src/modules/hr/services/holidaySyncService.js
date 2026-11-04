@@ -569,53 +569,9 @@ export const holidaySyncService = {
   },
 
   /**
-   * Fetch online Google Calendar / Indian festival feed or return curated fallback
+   * Return curated master holidays for year (instant, zero CORS errors)
    */
   async fetchLiveOrCuratedFestivals(year = 2026) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s quick timeout
-
-      const res = await fetch(`https://namantam1.github.io/holidays?format=json&country=indian`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const yearStr = String(year);
-          const master = this.getMasterHolidaysForYear(year);
-
-          // Merge live data with our curated master
-          const merged = [...master];
-          data.forEach(item => {
-            if (item.date && item.date.startsWith(yearStr)) {
-              const exists = merged.some(m => m.date === item.date);
-              if (!exists) {
-                merged.push({
-                  code: `live_${item.date}`,
-                  name: item.name || 'Festival',
-                  date: item.date,
-                  dayOfWeek: new Date(item.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }),
-                  month: parseInt(item.date.split('-')[1], 10),
-                  type: 'Major Festival',
-                  category: 'festival',
-                  icon: '🪔',
-                  isGazetted: false,
-                  description: item.description || 'Indian public holiday.'
-                });
-              }
-            }
-          });
-
-          return merged.sort((a, b) => a.date.localeCompare(b.date));
-        }
-      }
-    } catch {
-      // Seamlessly fallback to our rich 12-month master
-    }
-
     return this.getMasterHolidaysForYear(year);
   },
 

@@ -65,7 +65,7 @@ export const LeavesPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterEmployee, filterType, filterStatus, activeTab]);
+  }, [searchQuery, filterEmployee, filterType, filterStatus, pageTab]);
 
   // Dynamic Today reference for active leaves
   const todayStr = new Date().toISOString().split('T')[0];
