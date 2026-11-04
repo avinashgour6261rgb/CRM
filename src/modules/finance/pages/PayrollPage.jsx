@@ -170,11 +170,11 @@ export const PayrollPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
-            className="px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500 transition-colors"
+            className="px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500 transition-colors flex-1 sm:flex-initial"
           >
             <option value="October 2026">October 2026</option>
             <option value="September 2026">September 2026</option>
@@ -184,7 +184,7 @@ export const PayrollPage = () => {
 
           <button
             onClick={handleDisburseAll}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-green-600 hover:bg-green-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors"
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-green-600 hover:bg-green-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center"
           >
             <CreditCard size={14} />
             <span>Disburse All</span>
@@ -193,7 +193,7 @@ export const PayrollPage = () => {
       </div>
 
       {/* Metric Cards (Compact 10px padding) */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
         {/* Total Payroll */}
         <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -255,8 +255,8 @@ export const PayrollPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
         {/* Search & Filter Bar */}
         <div className="p-2.5 px-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-60 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-colors">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-full sm:w-60 min-w-0 flex-1 focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-800 transition-colors">
               <Search size={14} className="text-slate-400" />
               <input
                 type="text"
@@ -270,7 +270,7 @@ export const PayrollPage = () => {
             <select
               value={selectedDepartment}
               onChange={e => setSelectedDepartment(e.target.value)}
-              className="px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              className="px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer w-full sm:w-auto"
             >
               {departments.map(dept => (
                 <option key={dept} value={dept}>

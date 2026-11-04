@@ -147,24 +147,24 @@ export const ExpensesPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={() => setIsImportOpen(true)}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
           >
             <Upload size={13} />
             Import
           </button>
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-700/60 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-700/60 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
           >
             <Download size={13} />
             Export CSV
           </button>
           <button
             onClick={() => setIsAddOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center"
           >
             <Plus size={14} />
             Add Expense
@@ -177,7 +177,7 @@ export const ExpensesPage = () => {
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
 
           {/* Duration */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -215,7 +215,7 @@ export const ExpensesPage = () => {
           </div>
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px] focus-within:border-blue-500 transition-colors">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[220px] flex-1 focus-within:border-blue-500 transition-colors">
             <Search size={13} className="text-slate-400 shrink-0" />
             <input
               type="text"

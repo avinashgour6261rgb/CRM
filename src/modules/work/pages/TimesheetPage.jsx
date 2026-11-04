@@ -154,10 +154,10 @@ export const TimesheetPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
             title="Export timesheets to CSV"
           >
             <Download size={13} />
@@ -166,7 +166,7 @@ export const TimesheetPage = () => {
 
           <button
             onClick={() => setIsLogModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-none text-xs font-bold cursor-pointer shadow-xs shadow-sky-600/30 transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-none text-xs font-bold cursor-pointer shadow-xs shadow-sky-600/30 transition-colors"
             title="Manually log time"
           >
             <Plus size={13} />
@@ -230,8 +230,8 @@ export const TimesheetPage = () => {
       <ActiveTimerCard onSelectTask={(task) => setSelectedTask(task)} />
 
       {/* Filters Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 px-5 border border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg py-1.5 px-3 min-w-[240px] flex-1">
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-3.5 sm:p-4 px-4 sm:px-5 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg py-1.5 px-3 w-full sm:min-w-[200px] flex-1">
           <Search size={15} className="text-slate-400" />
           <input
             type="text"

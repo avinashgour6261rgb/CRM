@@ -618,11 +618,11 @@ export const CalendarPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
           {/* Quick Add Private Note Button */}
           <button
             onClick={() => handleOpenDateMemory(todayStr)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-purple-600 hover:bg-purple-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-purple-600 hover:bg-purple-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-colors"
             title="Add a private memory or task for today or any date"
           >
             <Lock size={12} />
@@ -632,7 +632,7 @@ export const CalendarPage = () => {
           {/* Add Public Event Button */}
           <button
             onClick={() => setIsAddEventOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
           >
             <Plus size={14} />
             <span>Add Event</span>
@@ -725,7 +725,7 @@ export const CalendarPage = () => {
           </div>
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px]">
+          <div className="flex items-center gap-1.5 px-2.5 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-[220px] flex-1 sm:flex-initial">
             <Search size={13} className="text-slate-400 dark:text-sky-400 shrink-0" />
             <input
               type="text"
@@ -923,12 +923,16 @@ export const CalendarPage = () => {
           </div>
         </div>
 
-        {/* Days of Week Header */}
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
-          {DAYS_OF_WEEK.map(day => (
-            <div key={day}>{day}</div>
-          ))}
-        </div>
+        {/* Responsive Horizontal Container for Month and Week Views */}
+        {(currentView === 'month' || currentView === 'week') && (
+          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 pb-2">
+            <div className="min-w-[700px] md:min-w-0">
+              {/* Days of Week Header */}
+              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
+                {DAYS_OF_WEEK.map(day => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
 
         {/* Month Calendar Grid */}
         {currentView === 'month' && (
@@ -1099,6 +1103,9 @@ export const CalendarPage = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+            </div>
           </div>
         )}
 

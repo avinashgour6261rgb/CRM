@@ -182,11 +182,11 @@ export const AppreciationPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {canExport && (
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors flex-1 sm:flex-initial justify-center"
             >
               <Download size={13} />
               Export CSV
@@ -195,7 +195,7 @@ export const AppreciationPage = () => {
           {canGive && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors flex-1 sm:flex-initial justify-center"
             >
               <Plus size={14} />
               Give Award
@@ -273,14 +273,14 @@ export const AppreciationPage = () => {
 
       {/* Action Bar (Search & Filters) */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           {/* Employee Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Employee:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 w-full sm:w-auto">
+            <span className="font-semibold shrink-0">Employee:</span>
             <select
               value={selectedEmployeeFilter}
               onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer"
+              className="h-[30px] px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer w-full sm:w-auto"
             >
               <option value="all">All Employees</option>
               {employees.map(emp => (
@@ -290,7 +290,7 @@ export const AppreciationPage = () => {
           </div>
 
           {/* Search Bar */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 min-w-[240px]">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[240px] flex-1">
             <Search size={13} color="#94a3b8" />
             <input
               type="text"
@@ -303,7 +303,7 @@ export const AppreciationPage = () => {
         </div>
 
         {/* View Switcher Icons (Table / Cards Showcase) */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md w-full sm:w-auto justify-end">
           <button
             onClick={() => setViewMode('table')}
             className={`h-[26px] px-2.5 rounded border-none inline-flex items-center gap-1 text-[11.5px] font-bold cursor-pointer transition-all ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
@@ -481,7 +481,7 @@ export const AppreciationPage = () => {
 
       {/* Cards Gallery Showcase View */}
       {viewMode === 'cards' && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5 items-start mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start mb-6">
           {filteredAppreciations.map(item => (
             <div
               key={item._id}

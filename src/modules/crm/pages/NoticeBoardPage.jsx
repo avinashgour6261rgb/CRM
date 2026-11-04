@@ -118,10 +118,10 @@ export const NoticeBoardPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors flex-1 sm:flex-initial justify-center"
           >
             <Download size={13} />
             <span>Export CSV</span>
@@ -129,7 +129,7 @@ export const NoticeBoardPage = () => {
           {canPostNotices(currentUser) && (
             <button
               onClick={() => setIsAddOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors flex-1 sm:flex-initial justify-center"
             >
               <Plus size={14} />
               <span>Publish Notice</span>
@@ -140,12 +140,12 @@ export const NoticeBoardPage = () => {
 
       {/* Filter and Top Navigation Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           
           {/* Duration */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Duration:</span>
-            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+            <span className="font-semibold shrink-0">Duration:</span>
+            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px] max-w-full overflow-x-auto">
               <input
                 type="date"
                 value={startDateFilter}
@@ -163,7 +163,7 @@ export const NoticeBoardPage = () => {
           </div>
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-w-[220px]">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[220px] flex-1">
             <Search size={13} className="text-slate-400 shrink-0" />
             <input
               type="text"

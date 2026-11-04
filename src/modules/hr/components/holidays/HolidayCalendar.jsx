@@ -335,8 +335,9 @@ export const HolidayCalendar = () => {
 
                       {/* Main Month Grid View */}
                       {calendarView === 'month' && (
-                        <div>
-                          {/* Weekday Headers */}
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[700px] md:min-w-0">
+                            {/* Weekday Headers */}
                             <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-center text-xs font-bold text-slate-600 dark:text-slate-300 py-2.5">
                               <div>Mon</div>
                               <div>Tue</div>
@@ -449,12 +450,13 @@ export const HolidayCalendar = () => {
                                 })}
                               </div>
                             </div>
+                          </div>
       )}
 
                             {/* Week View */}
                             {calendarView === 'week' && (
-                              <div className="p-4">
-                                <div className="grid grid-cols-7 gap-2">
+                              <div className="p-4 overflow-x-auto">
+                                <div className="grid grid-cols-7 gap-2 min-w-[700px] md:min-w-0">
                                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => {
                                     const startOfWeek = new Date(currentDate);
                                     const dayOffset = (startOfWeek.getDay() + 6) % 7;
@@ -560,7 +562,7 @@ export const HolidayCalendar = () => {
                                 <div className="flex flex-col gap-2.5 pb-2 border-b border-slate-200">
                                   {/* Top row: Type switcher */}
                                   <div className="flex items-center justify-between flex-wrap gap-2">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="text-xs font-bold text-slate-500">Show:</span>
                                       <button
                                         onClick={() => setListTypeFilter('all')}

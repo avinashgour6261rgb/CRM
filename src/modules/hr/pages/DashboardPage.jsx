@@ -2373,7 +2373,7 @@ export const DashboardPage = () => {
 
             return (
               <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/60 rounded-lg py-2.5 px-3.5 flex items-center justify-between flex-wrap gap-2.5">
-                <div className="flex-1 min-w-[240px]">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-extrabold text-red-600 dark:text-red-400">
                       #{currentLeftover.taskCode || 'TSK'}:
@@ -2548,7 +2548,7 @@ export const DashboardPage = () => {
               key={`my_pending_top_${l._id}`}
               className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_2px_8px_rgba(37,99,235,0.08)]"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 rounded-[9px] bg-blue-500 text-white flex items-center justify-center shrink-0">
                   <Clock size={20} />
                 </div>
@@ -2595,7 +2595,7 @@ export const DashboardPage = () => {
               key={`top_leave_${l._id}`}
               className="bg-amber-50 dark:bg-amber-950/40 border-[1.5px] border-amber-200 dark:border-amber-800 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(245,158,11,0.12)]"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 rounded-[9px] bg-amber-500 text-white flex items-center justify-center shrink-0">
                   <Palmtree size={20} />
                 </div>
@@ -2659,7 +2659,7 @@ export const DashboardPage = () => {
                 key={bdayAlertId}
                 className="bg-gradient-to-r from-pink-50 via-rose-50 to-amber-50 dark:from-pink-950/40 dark:via-rose-950/30 dark:to-amber-950/30 border-[1.5px] border-pink-300 dark:border-pink-800/70 rounded-[12px] py-3 px-4 flex items-center justify-between flex-wrap gap-3 shadow-[0_4px_16px_rgba(244,63,94,0.12)]"
               >
-                <div className="flex items-center gap-3.5 flex-1 min-w-[280px]">
+                <div className="flex items-center gap-3.5 flex-1 min-w-0">
                   <div className="relative shrink-0">
                     <img
                       src={bday?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(bday?.name || 'User')}`}
@@ -2718,7 +2718,7 @@ export const DashboardPage = () => {
                 key={annivAlertId}
                 className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-blue-950/30 border-[1.5px] border-purple-300 dark:border-purple-800/70 rounded-[12px] py-3 px-4 flex items-center justify-between flex-wrap gap-3 shadow-[0_4px_16px_rgba(147,51,234,0.12)]"
               >
-                <div className="flex items-center gap-3.5 flex-1 min-w-[280px]">
+                <div className="flex items-center gap-3.5 flex-1 min-w-0">
                   <div className="relative shrink-0">
                     <img
                       src={anniv?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(anniv?.name || 'User')}`}
@@ -2775,7 +2775,7 @@ export const DashboardPage = () => {
               key={`top_notice_${not._id || not.id}`}
               className="bg-blue-50 dark:bg-blue-950/40 border-[1.5px] border-blue-200 dark:border-blue-900/60 rounded-[10px] py-3 px-4 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.08)]"
             >
-              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 rounded-[9px] bg-blue-600 text-white flex items-center justify-center shrink-0">
                   <Bell size={20} />
                 </div>
@@ -3273,7 +3273,7 @@ export const DashboardPage = () => {
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           {/* Celebrations Header with Birthdays & Anniversaries Tabs */}
           <div className="flex items-center justify-between flex-wrap gap-1.5">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg max-w-full overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setCelebrationTab('birthdays')}
@@ -3440,9 +3440,9 @@ export const DashboardPage = () => {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          LOWER ROW 3: On Leave, Anniversaries & WFH (Compact & Sleek)
+          LOWER ROW 3: On Leave & Company Announcements (Balanced 2-Column Responsive Grid)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
         {/* On Leave Today */}
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-3.5 px-[18px] flex flex-col justify-start gap-2.5 shadow-xs">
           <div className="flex items-center justify-between">

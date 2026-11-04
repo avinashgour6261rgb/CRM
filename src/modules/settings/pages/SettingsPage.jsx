@@ -115,21 +115,21 @@ export const SettingsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-[18px] bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-4 min-h-[600px] shadow-xs">
 
         {/* ── Left Sidebar Menu ── */}
-        <div className="border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-4 md:pb-0 md:pr-[18px] flex flex-col gap-4">
-          {/* Search Menu */}
-          <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 pb-3 md:pb-0 md:pr-[18px] flex flex-col gap-2.5 md:gap-4 overflow-hidden">
+          {/* Search Menu (Visible on Desktop) */}
+          <div className="hidden md:flex items-center gap-2 py-1.5 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800">
             <Search size={14} className="text-slate-400" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Search settings..."
               value={searchMenu}
               onChange={e => setSearchMenu(e.target.value)}
               className="border-0 outline-none text-[12.5px] w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
             />
           </div>
 
-          {/* Navigation Items */}
-          <div className="flex flex-col gap-1">
+          {/* Navigation Items (Horizontal Pills on Mobile, Vertical Stack on Desktop) */}
+          <div className="flex md:flex-col gap-1.5 md:gap-1 overflow-x-auto max-w-full pb-1 md:pb-0">
             {filteredMenuItems.map(item => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
@@ -137,7 +137,7 @@ export const SettingsPage = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`flex items-center gap-2.5 py-2.5 px-3.5 rounded-lg border-0 text-[13.5px] text-left cursor-pointer transition-all duration-150 border-l-[3px] ${
+                  className={`flex items-center gap-2 md:gap-2.5 py-2 md:py-2.5 px-3 md:px-3.5 rounded-lg border-0 text-[12.5px] md:text-[13.5px] text-left cursor-pointer transition-all duration-150 whitespace-nowrap shrink-0 border-l-[3px] ${
                     isActive
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold border-l-blue-600'
                       : 'bg-transparent text-slate-500 dark:text-slate-400 font-medium border-l-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'

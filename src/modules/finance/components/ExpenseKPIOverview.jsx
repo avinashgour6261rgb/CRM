@@ -24,7 +24,7 @@ export const ExpenseKPIOverview = ({ expenses = [] }) => {
   const approvedCount = expenses.filter(e => e.status === 'approved').length;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2.5 mb-2.5">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5 mb-2.5">
       {/* Total Expenses */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 border-l-[3px] border-l-blue-500 p-2.5 px-3.5 shadow-xs">
         <div className="flex items-center justify-between">

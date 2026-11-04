@@ -190,12 +190,12 @@ export const HolidayPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {canManageHolidays && (
             <button
               onClick={handleSyncAll12Months}
               disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex-1 sm:flex-initial justify-center"
               title="Synchronize all 12 months (Jan-Dec) of official Indian gazetted holidays and festivals for this year"
             >
               <Sparkles size={13} className={isSyncing ? 'animate-spin' : ''} />
@@ -204,14 +204,14 @@ export const HolidayPage = () => {
           )}
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial justify-center"
           >
             <Download size={13} />
             <span>Export Calendar</span>
           </button>
           <button
             onClick={handleOpenAddHoliday}
-            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors flex-1 sm:flex-initial justify-center"
           >
             {canManageHolidays ? <Plus size={14} /> : <Lock size={13} />}
             <span>Declare Holiday</span>
@@ -373,7 +373,7 @@ export const HolidayPage = () => {
 
                                 {/* Action Bar (Search Filter) */}
                                     <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 py-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-                                      <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 min-w-[280px]">
+                                      <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[280px] flex-1">
                                         <Search size={13} className="text-slate-400" />
                                         <input
                                           type="text"

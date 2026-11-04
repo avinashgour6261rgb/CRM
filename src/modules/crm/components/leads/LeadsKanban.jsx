@@ -44,7 +44,7 @@ export const LeadsKanban = ({
   };
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4 overflow-x-auto pb-4 items-start">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start">
       {STAGES.map((stage) => {
         const stageLeads = leads.filter(l => l.status === stage.id);
         const stageValue = stageLeads.reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0);
@@ -52,7 +52,7 @@ export const LeadsKanban = ({
         return (
           <div
             key={stage.id}
-            className="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 flex flex-col gap-3 min-w-[280px] shadow-xs"
+            className="bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3.5 flex flex-col gap-3 min-w-0 shadow-xs"
           >
             {/* Stage Header */}
             <div className="flex items-center justify-between">

@@ -388,10 +388,10 @@ export const LeadsPage = () => {
         <div className="flex items-center justify-between flex-wrap gap-2.5">
           
           {/* Left Action Buttons: + Add Lead Contact, Import, Export */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-[5px] px-3 h-[30px] bg-sky-600 hover:bg-sky-700 text-white border-none rounded-md text-xs font-bold cursor-pointer shadow-sm transition-colors"
+              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-sky-600 hover:bg-sky-700 text-white border-none rounded-md text-xs font-bold cursor-pointer shadow-sm transition-colors flex-1 sm:flex-initial"
             >
               <Plus size={14} strokeWidth={2.5} />
               Add Lead
@@ -399,7 +399,7 @@ export const LeadsPage = () => {
 
             <button
               onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
             >
               <Upload size={13} className="text-sky-600" />
               Import
@@ -407,7 +407,7 @@ export const LeadsPage = () => {
 
             <button
               onClick={() => handleExportCSV(false)}
-              className="flex items-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
             >
               <Download size={13} className="text-sky-600" />
               Export CSV
@@ -415,7 +415,7 @@ export const LeadsPage = () => {
           </div>
 
           {/* Right Filters Bar: Duration, Type, Search Input, Filter Toggle */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             
             {/* Duration / Date Range Selector */}
             <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">

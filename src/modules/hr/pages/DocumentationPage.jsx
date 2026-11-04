@@ -116,7 +116,7 @@ export const DocumentationPage = () => {
 
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer shadow-sm hover:bg-blue-700 transition-colors w-full sm:w-auto"
         >
           <Upload size={14} />
           Upload Document
@@ -124,7 +124,7 @@ export const DocumentationPage = () => {
       </div>
 
       {/* Metric Cards - Compact High-Density Grid */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         <div className="bg-white dark:bg-slate-900 rounded-[10px] p-[10px_14px] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div>
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total KYC Documents</span>
@@ -169,7 +169,7 @@ export const DocumentationPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         {/* Filter / Search Bar */}
         <div className="p-2 px-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-60">
+          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 w-full sm:w-60 min-w-0 flex-1">
             <Search size={13} color="#94a3b8" />
             <input
               type="text"
@@ -183,7 +183,7 @@ export const DocumentationPage = () => {
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="h-[30px] px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+            className="h-[30px] px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none w-full sm:w-auto"
           >
             <option value="all">All Document Types</option>
             <option value="Aadhaar Card">Aadhaar Card</option>

@@ -108,7 +108,7 @@ export const PendingTasksModal = ({
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[9999] flex items-center justify-center p-5 animate-fade-in"
+      className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[9999] flex items-center justify-center p-2.5 sm:p-5 animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -194,7 +194,7 @@ export const PendingTasksModal = ({
           </div>
 
           {/* Search Input */}
-          <div className="relative min-w-[220px]">
+          <div className="relative w-full sm:w-auto min-w-0 sm:min-w-[220px] flex-1">
             <Search size={14} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"

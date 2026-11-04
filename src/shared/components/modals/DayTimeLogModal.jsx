@@ -273,7 +273,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
     }
   };
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5">
       <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         {/* Header */}
         <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
@@ -301,7 +301,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 flex flex-col gap-4">
+        <div className="p-3.5 sm:p-6 flex flex-col gap-4">
           {/* Total Duration Callout */}
           <div className="bg-gradient-to-r from-sky-600 to-sky-700 rounded-xl p-4 sm:px-5 text-white flex items-center justify-between shadow-md shadow-sky-600/25">
             <div>

@@ -97,7 +97,7 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
   ];
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5 mb-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-3">
       {kpis.map((kpi, idx) => {
         const Icon = kpi.icon;
         return (

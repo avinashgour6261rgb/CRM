@@ -573,14 +573,14 @@ export const EmployeePermissionsTab = () => {
 
       {/* ── EMPLOYEE SELECTOR BAR ── */}
       <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 sm:px-5 flex items-center justify-between flex-wrap gap-3.5">
-        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+        <div className="flex items-center gap-3 flex-1 min-w-0 w-full sm:w-auto flex-wrap sm:flex-nowrap">
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
             Select Employee:
           </span>
           <select
             value={selectedEmpId}
             onChange={(e) => setSelectedEmpId(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-semibold cursor-pointer flex-1 max-w-[380px] outline-none focus:border-blue-500 transition-colors shadow-xs"
+            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 font-semibold cursor-pointer flex-1 w-full sm:max-w-[380px] outline-none focus:border-blue-500 transition-colors shadow-xs"
           >
             {(employees || []).map(emp => (
               <option key={emp._id} value={emp._id}>
@@ -802,7 +802,7 @@ export const EmployeePermissionsTab = () => {
           </div>
 
           {/* Search Box */}
-          <div className="relative min-w-[220px]">
+          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
