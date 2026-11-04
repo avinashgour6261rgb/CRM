@@ -76,18 +76,34 @@ export const ProfileTab = () => {
   const canEditRole = isActorAdmin || isActorHR;
 
   useEffect(() => {
-    if (currentUser) {
-      setFormData(prev => ({
+    if (!currentUser) return;
+    setFormData(prev => {
+      const newName = currentUser.name || prev.name;
+      const newEmail = currentUser.email || prev.email;
+      const newRole = currentUser.role || prev.role;
+      const newDob = currentUser.dob || prev.dob;
+      const newAvatar = currentUser.avatar || prev.avatar;
+
+      if (
+        prev.name === newName &&
+        prev.email === newEmail &&
+        prev.role === newRole &&
+        prev.dob === newDob &&
+        prev.avatar === newAvatar
+      ) {
+        return prev;
+      }
+
+      return {
         ...prev,
-        name: currentUser.name || prev.name,
-        email: currentUser.email || prev.email,
-        role: currentUser.role || prev.role,
-        dob: currentUser.dob || prev.dob,
-        avatar: currentUser.avatar || prev.avatar
-      }));
-      setAvailableRoles(getRoles());
-    }
-  }, [currentUser]);
+        name: newName,
+        email: newEmail,
+        role: newRole,
+        dob: newDob,
+        avatar: newAvatar
+      };
+    });
+  }, [currentUser?._id, currentUser?.name, currentUser?.email, currentUser?.role, currentUser?.dob, currentUser?.avatar]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

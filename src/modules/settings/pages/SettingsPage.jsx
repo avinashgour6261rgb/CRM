@@ -84,28 +84,28 @@ export const SettingsPage = () => {
     <div className="flex flex-col gap-[18px]">
 
       {/* ── Standard Compact Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3 bg-white dark:bg-slate-900 p-3 px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[68px] box-border shrink-0">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-3 sm:px-4 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-xs min-h-[64px] box-border shrink-0">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-white shadow-xs shrink-0">
             <SettingsIcon size={16} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight tracking-tight">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight tracking-tight truncate">
                 {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip Settings'}
               </h1>
-              <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
                 Settings
               </span>
             </div>
-            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
+            <p className="text-[11px] sm:text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5 truncate sm:whitespace-normal">
               Manage account profile, security credentials, RBAC permissions & company details.
             </p>
           </div>
         </div>
 
         {/* Live Work Clock */}
-        <div className="flex items-center gap-2 py-1 px-3 bg-slate-50 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100">
+        <div className="flex items-center gap-2 py-1 px-2.5 sm:px-3 bg-slate-50 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100 shrink-0">
           <span className={`w-1.5 h-1.5 rounded-full ${!isClockedIn ? 'bg-slate-400' : isOnBreak ? 'bg-amber-500' : 'bg-emerald-500'}`} />
           <span className="font-mono">{timeString || '00:00:00'}</span>
         </div>
@@ -200,13 +200,13 @@ export const SettingsPage = () => {
 
           {/* Section: Personal Work Preferences (For All Employees) */}
           {activeSection === 'preferences' && (
-            <div className="bg-white dark:bg-slate-900 rounded-[10px] p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-5">
+            <div className="bg-white dark:bg-slate-900 rounded-[10px] p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex flex-col gap-4 sm:gap-5">
               <div>
-                <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0 mb-1">My Work & Notification Preferences</h3>
+                <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 dark:text-slate-100 m-0 mb-1">My Work & Notification Preferences</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 m-0">Configure personal desktop notifications, task reminders, and shift alerts.</p>
               </div>
 
-              <div className="flex flex-col gap-3.5">
+              <div className="flex flex-col gap-3">
                 {[
                   {
                     id: 'email',
@@ -253,14 +253,17 @@ export const SettingsPage = () => {
                     }
                   }
                 ].map(pref => (
-                  <div key={pref.id} className="flex items-center justify-between p-3 px-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div>
+                  <div key={pref.id} className="flex items-center justify-between gap-3 p-3 sm:px-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex-1 min-w-0 pr-1">
                       <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{pref.title}</div>
-                      <div className="text-[11.5px] text-slate-500 dark:text-slate-400">{pref.desc}</div>
+                      <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{pref.desc}</div>
                     </div>
                     <button
+                      type="button"
+                      role="switch"
+                      aria-checked={pref.value}
                       onClick={pref.toggle}
-                      className={`w-11 h-6 rounded-full border-0 cursor-pointer relative transition-colors p-0 ${
+                      className={`w-11 h-6 rounded-full border-0 cursor-pointer relative transition-colors p-0 shrink-0 ${
                         pref.value ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
                       }`}
                     >

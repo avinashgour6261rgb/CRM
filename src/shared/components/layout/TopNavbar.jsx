@@ -489,21 +489,21 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
         {isOnBreak ? (
           <button
             onClick={() => setIsBreakModalOpen(true)}
-            className="h-8 px-2.5 rounded-md text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs"
+            className="h-8 px-2 sm:px-2.5 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs shrink-0"
             title={`Currently on ${breakType || 'Break'}. Click to manage or resume work.`}
           >
-            <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
-            <span>☕ On {breakType || 'Break'}</span>
+            <Coffee size={15} className="text-amber-600 dark:text-amber-400" />
+            <span className="hidden sm:inline">☕ On {breakType || 'Break'}</span>
           </button>
         ) : (
           isClockedIn && (
             <button
               onClick={() => setIsBreakModalOpen(true)}
-              className="h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs"
+              className="h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs shrink-0"
               title="Take a break (Tea/Coffee, Lunch, etc.)"
             >
-              <Coffee size={14} className="text-amber-600 dark:text-amber-400" />
-              <span>Break</span>
+              <Coffee size={15} className="text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">Break</span>
             </button>
           )
         )}
@@ -512,18 +512,18 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
         {!isOnBreak && (
           <button
             onClick={isClockedIn ? handleClockOut : handleClockIn}
-            className={`h-8 px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
+            className={`h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-150 shrink-0 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
             title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
           >
-            <Clock size={14} className={isClockedIn ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
-            <span>{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
+            <Clock size={15} className={isClockedIn ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
+            <span className="hidden sm:inline">{isClockedIn ? 'Clocked In' : 'Clock In'}</span>
           </button>
         )}
 
         {/* ── ☀️ / 🌙 Dark/Light Theme Toggle ── */}
         <button
           onClick={toggleDarkMode}
-          className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition-colors relative bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-amber-400 shadow-xs"
+          className="w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer transition-colors relative bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-amber-400 shadow-xs shrink-0"
           title={darkMode ? 'Switch to Light Mode ☀️' : 'Switch to Dark Mode 🌙'}
         >
           {darkMode ? (
@@ -533,37 +533,37 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
           )}
         </button>
 
-        {/* ── ⚙️ Settings Icon ── */}
+        {/* ── ⚙️ Settings Icon (Hidden on mobile phones, accessible in sidebar & profile) ── */}
         <button
           onClick={() => navigate('/settings')}
-          className="w-8 h-8 rounded-md border-none bg-transparent flex items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+          className="hidden sm:flex w-8 h-8 rounded-md border-none bg-transparent items-center justify-center cursor-pointer transition-colors relative hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0"
           title="Settings"
         >
           <Settings size={18} />
         </button>
 
         {/* ── 👤 User Avatar Pill (Matching 'A Work' in Novainfinity Screenshot) ── */}
-        <div className="relative" ref={profileRef}>
+        <div className="relative shrink-0" ref={profileRef}>
           <div
             onClick={() => {
               setShowProfileMenu(!showProfileMenu);
               setShowNotifications(false);
             }}
-            className="flex items-center gap-1.5 cursor-pointer select-none py-0.5 px-1 rounded-full"
+            className="flex items-center gap-1.5 cursor-pointer select-none py-0.5 px-0.5 sm:px-1 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             title="Profile details & Working mode"
           >
             {currentUser?.avatar ? (
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
-                className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-600 text-white text-sm font-bold flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-amber-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
                 {currentUser?.name?.charAt(0) || 'A'}
               </div>
             )}
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <span className="hidden sm:inline text-xs font-semibold text-slate-700 dark:text-slate-200">
               {currentUser?.name?.split(' ')[0] || 'User'}
             </span>
           </div>
