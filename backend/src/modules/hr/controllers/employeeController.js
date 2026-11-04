@@ -147,12 +147,29 @@ const createEmployee = asyncHandler(async (req, res) => {
 // ─── PUT /api/employees/:id ───────────────────────────────────────────────────
 const updateEmployee = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const query = mongoose.Types.ObjectId.isValid(id)
-    ? { _id: id }
-    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
-
   const payload = { ...req.body };
   delete payload._id; // Prevent modifying immutable _id
+
+  // Multi-key query: id as ObjectId, id as employeeCode (with hyphen/underscore conversion), id as email, or payload identifiers
+  const orConditions = [];
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    orConditions.push({ _id: id });
+  }
+  const cleanId = String(id).trim();
+  orConditions.push({ employeeCode: cleanId.toUpperCase() });
+  orConditions.push({ employeeCode: cleanId.toUpperCase().replace(/_/g, '-') });
+  orConditions.push({ employeeCode: cleanId.toUpperCase().replace(/-/g, '_') });
+  orConditions.push({ email: cleanId.toLowerCase() });
+
+  if (payload.employeeCode) {
+    const cleanCode = String(payload.employeeCode).trim().toUpperCase();
+    orConditions.push({ employeeCode: cleanCode });
+    orConditions.push({ employeeCode: cleanCode.replace(/_/g, '-') });
+    orConditions.push({ employeeCode: cleanCode.replace(/-/g, '_') });
+  }
+  if (payload.email) {
+    orConditions.push({ email: String(payload.email).trim().toLowerCase() });
+  }
 
   // Explicitly ensure permissions object and delegation flags are preserved
   if (payload.permissions !== undefined) {
@@ -166,8 +183,8 @@ const updateEmployee = asyncHandler(async (req, res) => {
   }
 
   const employee = await Employee.findOneAndUpdate(
-    query,
-    payload,
+    { $or: orConditions },
+    { $set: payload },
     { new: true, runValidators: false }
   );
   if (!employee) {

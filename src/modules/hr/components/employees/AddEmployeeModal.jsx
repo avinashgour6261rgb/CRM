@@ -29,12 +29,14 @@ import {
   canUserGrantPermissions
 } from '../../../../shared/utils/permissionUtils';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { EmployeeCredentialsModal } from './EmployeeCredentialsModal';
 
 export const AddEmployeeModal = ({ isOpen, onClose }) => {
   const { addEmployee = () => {}, employees = [], currentUser = null } = useHR() || {};
   const { addToast } = useToast();
   const [availableRoles, setAvailableRoles] = useState(getRoles());
   const [showPassword, setShowPassword] = useState(false);
+  const [createdCredentialsEmp, setCreatedCredentialsEmp] = useState(null);
 
   const canGrantAccess = canUserGrantPermissions(currentUser);
 
@@ -439,6 +441,19 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         type: 'success'
       });
 
+      const generatedEmp = {
+        name: formData.name,
+        employeeCode: empCode,
+        email: formData.email,
+        password: formData.password || 'emp123',
+        role: formData.role || 'Associate',
+        systemRole: formData.systemRole || 'team_member',
+        department: formData.department || 'General Operations',
+        avatar: formData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
+      };
+
+      setCreatedCredentialsEmp(generatedEmp);
+
       // Reset form
       setFormData({
         name: '',
@@ -470,7 +485,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         avatar: '',
         customFields: []
       });
-      onClose();
+      // Keep modal open to show EmployeeCredentialsModal pass!
     } catch (err) {
       console.error('Error adding employee:', err);
     } finally {
@@ -479,8 +494,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
+    <>
+      <Modal
+        isOpen={isOpen}
       onClose={onClose}
       title="Add New Employee"
       subtitle="Register team member, generate login ID/password, and configure granular access permissions."
@@ -1208,6 +1224,18 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         </div>
       </form>
     </Modal>
+
+    {createdCredentialsEmp && (
+      <EmployeeCredentialsModal
+        isOpen={Boolean(createdCredentialsEmp)}
+        employee={createdCredentialsEmp}
+        onClose={() => {
+          setCreatedCredentialsEmp(null);
+          onClose();
+        }}
+      />
+    )}
+  </>
   );
 };
 export default AddEmployeeModal;

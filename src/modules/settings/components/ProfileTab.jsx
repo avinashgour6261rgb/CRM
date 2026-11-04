@@ -164,23 +164,29 @@ export const ProfileTab = () => {
           }
         }
 
-        await updateEmployee(currentUser._id, {
+        const profileUpdatePayload = {
           name: formData.name,
           email: formData.email,
           role: safeRole,
           dob: formData.dob,
           avatar: formData.avatar,
           phone: `${formData.countryCode} ${formData.mobile}`,
+          gender: formData.gender,
+          address: formData.address,
+          city: formData.city,
+          maritalStatus: formData.maritalStatus,
+          about: formData.about,
+          salutation: formData.salutation,
+          ...(formData.password?.trim() ? { password: formData.password.trim() } : {}),
           ...(isPrimaryAdmin ? { isAdmin: true, isSuperAdmin: true, systemRole: 'admin' } : {})
-        });
+        };
+
+        await updateEmployee(currentUser._id, profileUpdatePayload);
 
         // Sync AuthContext and session immediately
         const updatedAuth = {
           ...(authUser || currentUser),
-          ...formData,
-          role: safeRole,
-          phone: `${formData.countryCode} ${formData.mobile}`,
-          ...(isPrimaryAdmin ? { isAdmin: true, isSuperAdmin: true, systemRole: 'admin' } : {}),
+          ...profileUpdatePayload,
           isCurrentUser: true
         };
         setAuthCurrentUser?.(updatedAuth);

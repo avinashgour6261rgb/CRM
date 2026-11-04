@@ -278,13 +278,30 @@ export const HRProvider = ({ children }) => {
       // Instant React memory sync for current user & all employee lists
       setCurrentUser(prev => {
         if (!prev) return updated;
-        if (prev._id === employeeId || prev.isCurrentUser) {
-          return { ...prev, ...updated };
+        const isMatch = prev._id === employeeId ||
+          prev.employeeCode === employeeId ||
+          (updateData.employeeCode && prev.employeeCode === updateData.employeeCode) ||
+          (updateData.email && prev.email?.toLowerCase() === updateData.email?.toLowerCase()) ||
+          prev.isCurrentUser;
+        if (isMatch) {
+          const merged = { ...prev, ...updated, ...updateData };
+          try {
+            localStorage.setItem('ems_auth_session', JSON.stringify(merged));
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+          } catch (_) {}
+          return merged;
         }
         return prev;
       });
 
-      setEmployees(prev => prev.map(e => (e._id === employeeId || (e.isCurrentUser && updated.isCurrentUser) ? { ...e, ...updated } : e)));
+      setEmployees(prev => prev.map(e => {
+        const isMatch = e._id === employeeId ||
+          e.employeeCode === employeeId ||
+          (updateData.employeeCode && e.employeeCode === updateData.employeeCode) ||
+          (updateData.email && e.email?.toLowerCase() === updateData.email?.toLowerCase()) ||
+          (e.isCurrentUser && updated?.isCurrentUser);
+        return isMatch ? { ...e, ...updated, ...updateData } : e;
+      }));
 
       addToast('Profile & employee details updated successfully!', 'success');
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));

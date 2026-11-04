@@ -18,7 +18,8 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowUpDown,
-  Filter
+  Filter,
+  Key
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -29,6 +30,7 @@ import { PromoteEmployeeModal } from '../components/employees/PromoteEmployeeMod
 import { EditProfileModal } from '../../../shared/components/modals/EditProfileModal';
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
+import { EmployeeCredentialsModal } from '../components/employees/EmployeeCredentialsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
 import { isAdmin, isHRorAdmin, canAccessModule, canDeleteEmployee } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
@@ -51,6 +53,7 @@ export const EmployeesPage = () => {
   const [selectedProfileEmp, setSelectedProfileEmp] = useState(null);
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
   const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
+  const [selectedCredentialsEmp, setSelectedCredentialsEmp] = useState(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -430,10 +433,22 @@ export const EmployeesPage = () => {
                                                                 onClick={() => setSelectedProfileEmp(emp)}
                                                                 className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer h-6 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                                                                 title="Edit Full Profile & Designation"
-                                                              >
+                                                             >
                                                                 <User size={11} color="#0284c7" />
                                                                 <span>Edit</span>
                                                               </button>
+
+                                                              {/* Button 3.5: View Login Credentials & Access Pass (Admin & HR) */}
+                                                              {isHRorAdmin(currentUser) && (
+                                                                <button
+                                                                  onClick={() => setSelectedCredentialsEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                                                                  title="View & Copy Employee Login Credentials / Pass"
+                                                                >
+                                                                  <Key size={11} color="#d97706" />
+                                                                  <span>Pass</span>
+                                                                </button>
+                                                              )}
 
                                                               {(() => {
                                                                 const isEmpAdmin = emp.isAdmin === true ||
@@ -525,6 +540,12 @@ export const EmployeesPage = () => {
                                                   isOpen={!!selectedPermsEmp}
                                                   onClose={() => setSelectedPermsEmp(null)}
                                                   employee={selectedPermsEmp}
+                                                />
+
+                                                <EmployeeCredentialsModal
+                                                  isOpen={!!selectedCredentialsEmp}
+                                                  onClose={() => setSelectedCredentialsEmp(null)}
+                                                  employee={selectedCredentialsEmp}
                                                 />
 
                                               </div>
