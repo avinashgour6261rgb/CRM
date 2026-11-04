@@ -336,7 +336,6 @@ export const DashboardPage = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [calendarView, setCalendarView] = useState('list'); // 'month' | 'week' | 'day' | 'list'
   const [showBreakDropdown, setShowBreakDropdown] = useState(false);
   const [showWorkModeMenu, setShowWorkModeMenu] = useState(false);
   const [celebrationTab, setCelebrationTab] = useState('birthdays'); // 'birthdays' | 'anniversaries'
@@ -1644,8 +1643,6 @@ export const DashboardPage = () => {
   const allDueTodayTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate === todayStr).length, [allTasksList, todayStr]);
   const allOverdueTasksCount = React.useMemo(() => allTasksList.filter(t => !isTaskActuallyCompleted(t) && t.dueDate && t.dueDate < todayStr).length, [allTasksList, todayStr]);
   const allCompletedTodayCount = React.useMemo(() => allTasksList.filter(t => isTaskActuallyCompleted(t) && (t.completedAt?.startsWith(todayStr) || t.updatedAt?.startsWith(todayStr))).length, [allTasksList, todayStr]);
-
-  const todayDisplayTasks = myTasks;
 
   // Resolved live shift state for currently displayed user perspective
   const displayedIsOnLeave = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnLeave) : Boolean(isOnLeaveToday || activeEmpState?.isOnLeave);

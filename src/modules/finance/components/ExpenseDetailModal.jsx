@@ -150,25 +150,53 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           )}
 
           {/* Bill Attachment */}
-          {expense.billAttachment && (
+          {expense.billAttachment ? (
             <div>
               <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Attachment / Invoice Proof</span>
-              <div className="mt-1.5 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800">
-                <div className="flex items-center gap-2">
-                  <FileText size={18} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-[13px] text-slate-900 dark:text-slate-100 font-medium">
-                    Invoice_Receipt_{expense.expenseCode || '101'}.pdf
-                  </span>
+              {expense.billAttachment.startsWith('data:image') || expense.billAttachment.match(/\.(jpeg|jpg|png|webp)($|\?)/i) ? (
+                <div className="mt-1.5 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex flex-col gap-2">
+                  <img
+                    src={expense.billAttachment}
+                    alt="Receipt invoice"
+                    className="w-full max-h-[220px] object-contain rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                  <div className="flex justify-end">
+                    <a
+                      href={expense.billAttachment}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <ExternalLink size={13} />
+                      Open Full Size
+                    </a>
+                  </div>
                 </div>
-                <a
-                  href={expense.billAttachment}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 no-underline transition-colors"
-                >
-                  <ExternalLink size={14} />
-                  View Bill
-                </a>
+              ) : (
+                <div className="mt-1.5 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800">
+                  <div className="flex items-center gap-2">
+                    <FileText size={18} className="text-blue-600 dark:text-blue-400" />
+                    <span className="text-[13px] text-slate-900 dark:text-slate-100 font-medium">
+                      Receipt_Document_{expense.expenseCode || '101'}.pdf
+                    </span>
+                  </div>
+                  <a
+                    href={expense.billAttachment}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 no-underline transition-colors"
+                  >
+                    <ExternalLink size={14} />
+                    View Document
+                  </a>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <span className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Attachment / Invoice Proof</span>
+              <div className="mt-1 p-2.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500 italic">
+                No receipt attached to this claim
               </div>
             </div>
           )}

@@ -20,10 +20,12 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useHR } from '../../hr/context/HRContext';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryData, onSalaryUpdated }) => {
   const { addToast } = useToast();
+  const { updateEmployee } = useHR();
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
 
@@ -138,6 +140,16 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
 
     if (onSalaryUpdated) {
       onSalaryUpdated(employee.employeeCode, updatedSalaryObject);
+    }
+
+    // Persist permanently to MongoDB Atlas & HR Context
+    if (employee?._id && typeof updateEmployee === 'function') {
+      updateEmployee(employee._id, {
+        ...employee,
+        salary: updatedSalaryObject,
+        startingSalary: updatedSalaryObject.monthlyGross,
+        annualCTC: updatedSalaryObject.annualCTC
+      });
     }
 
     // Dispatch global event for instant sync

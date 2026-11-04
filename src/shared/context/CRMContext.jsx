@@ -37,6 +37,7 @@ const DEFAULT_WEEKLY_TIMELOGS = [
 
 const defaultCRMContext = {
   expenses: [],
+  loadExpenses: async () => {},
   createExpense: async () => {},
   updateExpense: async () => {},
   updateExpenseStatus: async () => {},
@@ -44,6 +45,7 @@ const defaultCRMContext = {
   importExpensesBatch: async () => {},
 
   tickets: [],
+  loadTickets: async () => {},
   createTicket: async () => {},
   updateTicketStatus: async () => {},
   replyToTicket: async () => {},
@@ -52,6 +54,7 @@ const defaultCRMContext = {
   deleteTicket: async () => {},
 
   events: [],
+  loadEvents: async () => {},
   createEvent: async () => {},
   updateEvent: async () => {},
   deleteEvent: async () => {},
@@ -71,12 +74,14 @@ const defaultCRMContext = {
   markConversationAsRead: () => {},
 
   notices: [],
+  loadNotices: async () => {},
   createNotice: async () => {},
   updateNotice: async () => {},
   deleteNotice: async () => {},
   dismissNoticeForUser: () => {},
 
   leads: [],
+  loadLeads: async () => {},
   leadsFilter: 'all',
   setLeadsFilter: () => {},
   createLead: async () => {},
@@ -575,10 +580,109 @@ export const CRMProvider = ({ children }) => {
     }
   };
 
+  // Synchronize company expenses with backend
+  const loadExpenses = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/expenses`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteExpenses = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteExpenses)) {
+          const local = getCollection(KEYS.EXPENSES) || [];
+          const map = new Map();
+          remoteExpenses.forEach(exp => {
+            const key = String(exp._id || exp.expenseCode || exp.idNumber);
+            map.set(key, exp);
+          });
+          local.forEach(exp => {
+            const key = String(exp._id || exp.expenseCode || exp.idNumber);
+            if (!map.has(key)) {
+              map.set(key, exp);
+            }
+          });
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.purchaseDate || b.date || b.createdAt || 0) - new Date(a.purchaseDate || a.date || a.createdAt || 0));
+          saveCollection(KEYS.EXPENSES, merged);
+          setExpenses(merged);
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for expenses:', err);
+    }
+  };
+
+  // Synchronize CRM leads pipeline with backend
+  const loadLeads = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/leads`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteLeads = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteLeads)) {
+          const local = getCollection(KEYS.LEADS) || [];
+          const map = new Map();
+          remoteLeads.forEach(l => {
+            const key = String(l._id || l.leadCode || l.id);
+            map.set(key, l);
+          });
+          local.forEach(l => {
+            const key = String(l._id || l.leadCode || l.id);
+            if (!map.has(key)) {
+              map.set(key, l);
+            }
+          });
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+          saveCollection(KEYS.LEADS, merged);
+          setLeads(merged);
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for leads:', err);
+    }
+  };
+
+  // Synchronize company notices & announcements with backend
+  const loadNotices = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/notices`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteNotices = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteNotices)) {
+          const local = getCollection(KEYS.NOTICES) || [];
+          const map = new Map();
+          remoteNotices.forEach(n => {
+            const key = String(n._id || n.id);
+            map.set(key, n);
+          });
+          local.forEach(n => {
+            const key = String(n._id || n.id);
+            if (!map.has(key)) {
+              map.set(key, n);
+            }
+          });
+          const merged = Array.from(map.values()).sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+          saveCollection(KEYS.NOTICES, merged);
+          setNotices(merged);
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for notices:', err);
+    }
+  };
+
   useEffect(() => {
     loadTickets();
     loadConversations();
     loadEvents();
+    loadExpenses();
+    loadLeads();
+    loadNotices();
   }, [currentUser]);
 
   // ── Multi-User Real-time Chat Sync Poller (Every 2.5s for instant message delivery & read receipts) ──
@@ -2308,6 +2412,7 @@ export const CRMProvider = ({ children }) => {
 
   const contextValue = useMemo(() => ({
     expenses,
+    loadExpenses,
     createExpense,
     updateExpense,
     updateExpenseStatus,
@@ -2315,6 +2420,7 @@ export const CRMProvider = ({ children }) => {
     importExpensesBatch,
 
     tickets,
+    loadTickets,
     createTicket,
     updateTicketStatus,
     replyToTicket,
@@ -2343,12 +2449,14 @@ export const CRMProvider = ({ children }) => {
     markConversationAsRead,
 
     notices,
+    loadNotices,
     createNotice,
     updateNotice,
     deleteNotice,
     dismissNoticeForUser,
 
     leads,
+    loadLeads,
     leadsFilter,
     setLeadsFilter,
     createLead,

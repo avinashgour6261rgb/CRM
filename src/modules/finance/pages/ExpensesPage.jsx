@@ -74,6 +74,20 @@ export const ExpensesPage = () => {
     });
   }, [expenses, canViewAllExpenses, currentUser]);
 
+  const pendingApprovalsCount = useMemo(() => {
+    return (expenses || []).filter(e => e.status === 'pending').length;
+  }, [expenses]);
+
+  const handleQuickApprove = (exp, e) => {
+    e.stopPropagation();
+    updateExpenseStatus(exp._id, 'approved');
+  };
+
+  const handleQuickReject = (exp, e) => {
+    e.stopPropagation();
+    updateExpenseStatus(exp._id, 'rejected');
+  };
+
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
     return scopedExpenses.filter(exp => {
@@ -175,6 +189,36 @@ export const ExpensesPage = () => {
 
       {/* KPI Overview Cards */}
       <ExpenseKPIOverview expenses={scopedExpenses} />
+
+      {/* Pending Claims Review Banner for HR / Admin */}
+      {isPrivileged && pendingApprovalsCount > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 px-4 flex items-center justify-between flex-wrap gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold">
+              <Clock size={17} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                  {pendingApprovalsCount} Expense Reimbursement {pendingApprovalsCount === 1 ? 'Claim' : 'Claims'} Awaiting Review
+                </span>
+                <span className="text-[10px] bg-amber-200 dark:bg-amber-800 px-1.5 py-0.5 rounded font-extrabold text-amber-800 dark:text-amber-200">
+                  Action Required
+                </span>
+              </div>
+              <p className="text-[11.5px] text-amber-700 dark:text-amber-400 m-0 mt-0.5">
+                Review team bills and receipts before statutory account settlement and payroll disbursal.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer transition-colors"
+          >
+            {statusFilter === 'pending' ? 'Show All Expenses' : 'View Pending Claims Only'}
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
@@ -344,12 +388,34 @@ export const ExpensesPage = () => {
 
                     {/* Actions */}
                     <td className="py-[7px] px-3 text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedExpense(exp)}
-                        className="bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-300 text-[11.5px] font-bold transition-colors"
-                      >
-                        View
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        {isPrivileged && exp.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={(e) => handleQuickApprove(exp, e)}
+                              title="Approve Reimbursement"
+                              className="p-1 px-1.5 rounded bg-green-50 dark:bg-green-950/60 hover:bg-green-100 dark:hover:bg-green-900/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11px] font-bold flex items-center gap-0.5 cursor-pointer transition-colors"
+                            >
+                              <Check size={12} />
+                              Approve
+                            </button>
+                            <button
+                              onClick={(e) => handleQuickReject(exp, e)}
+                              title="Reject Reimbursement"
+                              className="p-1 px-1.5 rounded bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11px] font-bold flex items-center gap-0.5 cursor-pointer transition-colors"
+                            >
+                              <XCircle size={12} />
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setSelectedExpense(exp)}
+                          className="bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-300 text-[11.5px] font-bold transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
