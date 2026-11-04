@@ -78,7 +78,25 @@ export const TopNavbar = () => {
 
   const { darkMode, toggleDarkMode, tickets, computedBirthdays, computedAnniversaries, totalUnreadMessagesCount = 0 } = useCRM();
   const theme = darkMode ? 'dark' : 'light';
-  const { tasks, projects } = useWork();
+  const { tasks, projects, activeRunningTask, formatSeconds } = useWork();
+
+  // Active Task Live Ticker strictly scoped to running task
+  const [taskTick, setTaskTick] = useState(0);
+  useEffect(() => {
+    if (!activeRunningTask?.timerRunning) return;
+    const interval = setInterval(() => setTaskTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [activeRunningTask?.timerRunning, activeRunningTask?._id]);
+
+  const liveTaskSecs = useMemo(() => {
+    if (!activeRunningTask) return 0;
+    if (!activeRunningTask.timerRunning) {
+      return Number(activeRunningTask.accumulatedSeconds) || Number(activeRunningTask.timerSeconds) || 0;
+    }
+    const started = Number(activeRunningTask.startedAt) || Date.now();
+    const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
+    return (Number(activeRunningTask.accumulatedSeconds) || 0) + elapsed;
+  }, [activeRunningTask, taskTick]);
 
   // Dropdown States
   const [showNotifications, setShowNotifications] = useState(false);
@@ -227,20 +245,47 @@ export const TopNavbar = () => {
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
       <div className="flex items-center gap-3 shrink-0">
 
-        {/* ── Working Timer Widget (e.g. 02:16:05 with blue/red controls) ── */}
+        {/* ── Active Task Timer Pill (Visible only when task is running) ── */}
+        {activeRunningTask && (
+          <div
+            onClick={() => navigate('/tasks')}
+            className="flex items-center gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
+            title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Click to open Tasks)`}
+          >
+            <ListTodo size={14} className="text-blue-600 dark:text-blue-400 animate-pulse" />
+            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+              Task: {activeRunningTask.taskCode || 'Active'}
+            </span>
+            <span className="font-mono text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
+              {formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+          </div>
+        )}
+
+        {/* ── Working Shift Timer Widget ── */}
         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2.5 h-[34px] transition-colors duration-200">
+          <Clock size={13} className="text-slate-400 dark:text-slate-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Shift:
+          </span>
           <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
             {(!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00')}
           </span>
 
-          <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-blue-500 shadow-[0_0_6px_#3b82f6]' : 'bg-slate-400'}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isRunning ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : isOnBreak ? 'bg-amber-500 shadow-[0_0_6px_#f59e0b]' : 'bg-slate-400'
+            }`}
+            title={isRunning ? 'Shift Active' : isOnBreak ? `On Break (${breakType || 'Break'})` : hadClockedOutToday ? 'Shift Ended' : 'Not Clocked In'}
+          />
 
-          {/* Pause / Resume Button */}
+          {/* Pause / Resume Shift Button */}
           <button
             onClick={togglePauseResume}
             disabled={!isClockedIn || hadClockedOutToday}
             className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : (isRunning ? 'cursor-pointer bg-blue-500 hover:bg-blue-600' : 'cursor-pointer bg-emerald-500 hover:bg-emerald-600')}`}
-            title={(!isClockedIn || hadClockedOutToday) ? 'Clock in first to run timer' : (isRunning ? 'Pause Timer' : 'Resume Timer')}
+            title={(!isClockedIn || hadClockedOutToday) ? 'Clock in first to run shift timer' : (isRunning ? 'Take Shift Break' : 'Resume Shift')}
           >
             {isRunning ? <Pause size={9} fill="#fff" /> : <Play size={9} fill="#fff" />}
           </button>
@@ -250,7 +295,7 @@ export const TopNavbar = () => {
             onClick={handleClockOut}
             disabled={!isClockedIn || hadClockedOutToday}
             className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : 'cursor-pointer bg-red-500 hover:bg-red-600'}`}
-            title={(!isClockedIn || hadClockedOutToday) ? 'Already clocked out' : 'Stop Timer / Clock Out'}
+            title={(!isClockedIn || hadClockedOutToday) ? 'Already clocked out' : 'Stop Shift / Clock Out'}
           >
             <Square size={8} fill="#fff" />
           </button>

@@ -3,7 +3,7 @@
  * @description Helpdesk & Support Tickets module matching Screenshot 2 exactly.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   LifeBuoy,
   Plus,
@@ -27,6 +27,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isHRorAdmin, canDeleteTicket as checkCanDeleteTicket } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
+import { Pagination } from '../../../shared/components/common/Pagination';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 
@@ -49,6 +50,14 @@ export const TicketsPage = () => {
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, startDateFilter, endDateFilter]);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState([]);
@@ -101,6 +110,11 @@ export const TicketsPage = () => {
       return matchSearch && matchesStatus && matchDate;
     });
   }, [scopedTickets, search, statusFilter, startDateFilter, endDateFilter]);
+
+  const totalEntries = filteredTickets.length;
+  const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedTickets = filteredTickets.slice(startIndex, startIndex + pageSize);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -378,14 +392,14 @@ export const TicketsPage = () => {
             </thead>
 
             <tbody>
-              {filteredTickets.length === 0 ? (
+              {paginatedTickets.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-[30px] text-center text-slate-500 dark:text-slate-400">
                     <div className="text-xs font-medium">No tickets found</div>
                   </td>
                 </tr>
               ) : (
-                filteredTickets.map(ticket => (
+                paginatedTickets.map(ticket => (
                   <tr
                     key={ticket._id}
                     className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
@@ -507,6 +521,15 @@ export const TicketsPage = () => {
             </tbody>
           </table>
         </div>
+        {/* Universal Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalEntries={totalEntries}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Modals */}

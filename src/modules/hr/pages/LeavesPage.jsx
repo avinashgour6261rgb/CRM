@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
   Download,
@@ -30,6 +30,7 @@ import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveM
 import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
 import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
+import { Pagination } from '../../../shared/components/common/Pagination';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -61,6 +62,10 @@ export const LeavesPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterEmployee, filterType, filterStatus, activeTab]);
 
   // Dynamic Today reference for active leaves
   const todayStr = new Date().toISOString().split('T')[0];
@@ -804,56 +809,15 @@ export const LeavesPage = () => {
             </table>
           </div>
 
-          {/* Pagination Footer (Matching Screenshot 1) */}
-          <div className="table-pagination-footer">
-            <div className="flex items-center gap-2">
-              <span>Show</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="filter-select h-[30px] pr-6 pl-2 text-xs"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span>entries</span>
-            </div>
-
-            <div>
-              Showing {totalEntries > 0 ? startIndex + 1 : 0} to {Math.min(startIndex + pageSize, totalEntries)} of {totalEntries} entries
-            </div>
-
-            <div className="pagination-controls">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                className="page-btn"
-              >
-                Previous
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setCurrentPage(p)}
-                  className={`page-btn ${currentPage === p ? 'active' : ''}`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                disabled={currentPage === totalPages || totalEntries === 0}
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className="page-btn"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          {/* Universal Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalEntries={totalEntries}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 

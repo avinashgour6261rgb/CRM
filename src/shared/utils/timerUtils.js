@@ -252,6 +252,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
       return Number(telem.workSeconds) || 0;
     } else if (telem.clockOutTime) {
       return Number(telem.workSeconds) || 0;
+    } else {
+      // Telemetry exists and employee has neither clocked in nor clocked out today on server
+      return 0;
     }
   }
 

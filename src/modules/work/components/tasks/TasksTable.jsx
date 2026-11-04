@@ -23,6 +23,7 @@ import { useAuth } from '../../../../shared/context/AuthContext';
 import { canDeleteTask } from '../../../../shared/utils/permissionUtils';
 import { useConfirm, confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { SnoozeTaskModal } from './SnoozeTaskModal';
+import { Pagination } from '../../../../shared/components/common/Pagination';
 
 const STATUS_CONFIG = {
   incomplete: { label: 'Incomplete', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
@@ -54,6 +55,19 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
   const [snoozeTargetTask, setSnoozeTargetTask] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [propTasks]);
+
+  const totalEntries = tasks.length;
+  const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedTasks = tasks.slice(startIndex, startIndex + pageSize);
 
   const toggleSelectAll = (e) => {
     if (e.target.checked) {
@@ -141,7 +155,14 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => {
+            {paginatedTasks.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="text-center p-8 text-slate-500 dark:text-slate-400 text-xs">
+                  No tasks found matching current filter.
+                </td>
+              </tr>
+            ) : (
+              paginatedTasks.map((task) => {
               const status = STATUS_CONFIG[task.status] || STATUS_CONFIG.incomplete;
               const isMenuOpen = activeMenuId === task._id;
               const isSelected = selectedTaskIds.includes(task._id);
@@ -495,49 +516,20 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
 
-      {/* Table Footer & Pagination */}
-        <div className="py-3.5 px-5 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[13px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select
-              defaultValue="25"
-              className="py-1 px-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12.5px] text-slate-700 dark:text-slate-200 outline-none"
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
-            <span>entries</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span>Showing 1 to {tasks.length} of {tasks.length} entries</span>
-            <div className="flex gap-1">
-              <button
-                disabled
-                className="py-1 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                className="py-1 px-3 rounded-md border border-sky-600 bg-sky-600 text-white text-xs font-semibold cursor-pointer"
-              >
-                1
-              </button>
-              <button
-                disabled
-                className="py-1 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Universal Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalEntries={totalEntries}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
         <SnoozeTaskModal
           isOpen={isSnoozeModalOpen}

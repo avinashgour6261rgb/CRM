@@ -32,6 +32,7 @@ import { ManagePermissionsModal } from '../components/employees/ManagePermission
 import { getRoles } from '../../../shared/services/roleManagementService';
 import { isAdmin, isHRorAdmin, canAccessModule, canDeleteEmployee } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
+import { Pagination } from '../../../shared/components/common/Pagination';
 
 export const EmployeesPage = () => {
   const navigate = useNavigate();
@@ -50,6 +51,14 @@ export const EmployeesPage = () => {
   const [selectedProfileEmp, setSelectedProfileEmp] = useState(null);
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
   const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDept, selectedRoleFilter, activeTab]);
 
   // Salary map from localStorage for quick lookup
   const [salaryMap, setSalaryMap] = useState(() => {
@@ -131,6 +140,11 @@ export const EmployeesPage = () => {
     }
     return true;
   });
+
+  const totalEntries = filteredEmployees.length;
+  const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + pageSize);
 
   const getRoleBadgeStyle = (roleName = '') => {
     const r = roleName.toLowerCase();
@@ -304,14 +318,14 @@ export const EmployeesPage = () => {
                                           </tr>
                                       </thead>
                                       <tbody>
-                                        {filteredEmployees.length === 0 ? (
+                                        {paginatedEmployees.length === 0 ? (
                                           <tr>
                                               <td colSpan={6} className="text-center p-7 text-slate-500 dark:text-slate-400 text-xs">
                                                 No employees matching search criteria.
                                               </td>
                                           </tr>
                                         ) : (
-                                          filteredEmployees.map(emp => {
+                                          paginatedEmployees.map(emp => {
                                             const badge = getRoleBadgeStyle(emp.role);
                                             return (
                                               <tr
@@ -469,6 +483,14 @@ export const EmployeesPage = () => {
                                                       </tbody>
                                                     </table>
                                                   </div>
+                                                  <Pagination
+                                                    currentPage={currentPage}
+                                                    totalPages={totalPages}
+                                                    pageSize={pageSize}
+                                                    totalEntries={totalEntries}
+                                                    onPageChange={setCurrentPage}
+                                                    onPageSizeChange={setPageSize}
+                                                  />
                                                 </div>
 
                                                 {/* ── Modals ── */}

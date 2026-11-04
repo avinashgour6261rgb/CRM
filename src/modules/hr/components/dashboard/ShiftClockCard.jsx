@@ -55,9 +55,15 @@ export const ShiftClockCard = ({
     ? Boolean(activeEmpState?.isClockedIn)
     : Boolean(isClockedIn || displayedIsClockedIn);
 
-  const effectiveHadClockedOut = isViewingOtherEmployee
-    ? Boolean(activeEmpState?.isClockedOut)
-    : Boolean(displayedHadClockedOut && displayedClockOutTime && displayedClockOutTime !== '--' && displayedClockOutTime !== '—');
+  const hasEverClockedInToday = Boolean(
+    displayedLoginTime && displayedLoginTime !== '--' && displayedLoginTime !== '—'
+  ) || Boolean(activeEmpState?.loginTime && activeEmpState.loginTime !== '--' && activeEmpState.loginTime !== '—');
+
+  const effectiveHadClockedOut = hasEverClockedInToday && (
+    isViewingOtherEmployee
+      ? Boolean(activeEmpState?.isClockedOut)
+      : Boolean(displayedHadClockedOut && displayedClockOutTime && displayedClockOutTime !== '--' && displayedClockOutTime !== '—')
+  );
 
   const effectiveIsOnBreak = isViewingOtherEmployee
     ? Boolean(activeEmpState?.isOnBreak)

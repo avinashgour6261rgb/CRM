@@ -339,22 +339,40 @@ export const TeamOperationsPage = () => {
     let runningTask = null;
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
-      const startedAtMs = Number(at.startedAt) || nowMs;
-      const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
-      const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
-      runningTask = {
-        _id: at.taskId,
-        id: at.taskId,
-        taskId: at.taskId,
-        taskCode: at.taskCode || 'TSK',
-        title: at.title || 'Live Task',
-        projectName: at.projectName || 'General Work',
-        timerRunning: true,
-        startedAt: startedAtMs,
-        accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
-        liveTaskSecs,
-        liveDurationText: formatSeconds(liveTaskSecs)
-      };
+      const isTaskTimerActuallyRunning = Boolean(at.timerRunning);
+      if (isTaskTimerActuallyRunning) {
+        const startedAtMs = Number(at.startedAt) || nowMs;
+        const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
+        const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
+        runningTask = {
+          _id: at.taskId,
+          id: at.taskId,
+          taskId: at.taskId,
+          taskCode: at.taskCode || 'TSK',
+          title: at.title || 'Live Task',
+          projectName: at.projectName || 'General Work',
+          timerRunning: true,
+          startedAt: startedAtMs,
+          accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          liveTaskSecs,
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      } else {
+        const liveTaskSecs = Number(at.accumulatedSeconds) || 0;
+        runningTask = {
+          _id: at.taskId,
+          id: at.taskId,
+          taskId: at.taskId,
+          taskCode: at.taskCode || 'TSK',
+          title: at.title || 'Task (Paused)',
+          projectName: at.projectName || 'General Work',
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: liveTaskSecs,
+          liveTaskSecs,
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      }
     } else {
       let activeTimer = null;
       try {
@@ -411,7 +429,7 @@ export const TeamOperationsPage = () => {
     const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak && !s.isOnLeave).length;
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut && !s.isOnLeave).length;
     const offline = Math.max(0, total - working - onBreak - clockedOut - onLeave);
-    const runningTasksCount = teamTodayStates.filter(s => s.runningTask && !s.isOnLeave).length;
+    const runningTasksCount = teamTodayStates.filter(s => s.runningTask && s.runningTask.timerRunning && !s.isOnLeave).length;
 
     return { total, onLeave, working, onBreak, clockedOut, offline, runningTasksCount };
   }, [teamTodayStates]);

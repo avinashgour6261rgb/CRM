@@ -637,23 +637,42 @@ export const DashboardPage = () => {
 
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
-      const startedAtMs = Number(at.startedAt) || Date.now();
-      const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
-      const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
-      runningTask = {
-        _id: at.taskId,
-        id: at.taskId,
-        taskId: at.taskId,
-        taskCode: at.taskCode || 'TSK',
-        title: at.title || 'Live Task',
-        projectName: at.projectName || 'General Work',
-        timerRunning: true,
-        startedAt: startedAtMs,
-        accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
-        liveTaskSecs,
-        liveTaskFormatted: formatSeconds(liveTaskSecs),
-        liveDurationText: formatSeconds(liveTaskSecs)
-      };
+      const isTaskTimerActuallyRunning = Boolean(at.timerRunning);
+      if (isTaskTimerActuallyRunning) {
+        const startedAtMs = Number(at.startedAt) || Date.now();
+        const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+        const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
+        runningTask = {
+          _id: at.taskId,
+          id: at.taskId,
+          taskId: at.taskId,
+          taskCode: at.taskCode || 'TSK',
+          title: at.title || 'Live Task',
+          projectName: at.projectName || 'General Work',
+          timerRunning: true,
+          startedAt: startedAtMs,
+          accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          liveTaskSecs,
+          liveTaskFormatted: formatSeconds(liveTaskSecs),
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      } else {
+        const liveTaskSecs = Number(at.accumulatedSeconds) || 0;
+        runningTask = {
+          _id: at.taskId,
+          id: at.taskId,
+          taskId: at.taskId,
+          taskCode: at.taskCode || 'TSK',
+          title: at.title || 'Task (Paused)',
+          projectName: at.projectName || 'General Work',
+          timerRunning: false,
+          startedAt: null,
+          accumulatedSeconds: liveTaskSecs,
+          liveTaskSecs,
+          liveTaskFormatted: formatSeconds(liveTaskSecs),
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      }
     } else {
       let activeTimer = null;
       try {
@@ -729,7 +748,7 @@ export const DashboardPage = () => {
     const clockedIn = teamTodayStates.filter(s => s.isClockedIn).length;
     const onBreak = teamTodayStates.filter(s => s.isClockedIn && s.isOnBreak).length;
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
-    const runningTask = teamTodayStates.filter(s => s.runningTask).length;
+    const runningTask = teamTodayStates.filter(s => s.runningTask && s.runningTask.timerRunning && !s.isOnLeave).length;
     const present = teamTodayStates.filter(s => s.isPresent).length;
     const absent = teamTodayStates.filter(s => s.isAbsent).length;
     return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present, absent };

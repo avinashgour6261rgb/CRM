@@ -27,6 +27,7 @@ import { useToast } from '../../../../shared/context/ToastContext';
 import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { canDeleteLead } from '../../../../shared/utils/permissionUtils';
+import { Pagination } from '../../../../shared/components/common/Pagination';
 
 export const LeadsTable = ({
   leads = [],
@@ -45,6 +46,14 @@ export const LeadsTable = ({
   const [sortField, setSortField] = useState('idNumber');
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
   const menuRef = useRef(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [leads]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -82,6 +91,11 @@ export const LeadsTable = ({
     if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
     return 0;
   });
+
+  const totalEntries = sortedLeads.length;
+  const totalPages = Math.ceil(totalEntries / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedLeads = sortedLeads.slice(startIndex, startIndex + pageSize);
 
   const getStatusBadge = (status) => {
     const map = {
@@ -148,8 +162,8 @@ export const LeadsTable = ({
             </tr>
           </thead>
           <tbody>
-            {sortedLeads.length > 0 ? (
-              sortedLeads.map((lead) => {
+            {paginatedLeads.length > 0 ? (
+              paginatedLeads.map((lead) => {
                 const isSelected = selectedIds.includes(lead._id);
                 const statusBadge = getStatusBadge(lead.status);
                 const priorityBadge = getPriorityBadge(lead.priority);
@@ -427,6 +441,15 @@ export const LeadsTable = ({
           </tbody>
         </table>
       </div>
+      {/* Universal Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalEntries={totalEntries}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 };

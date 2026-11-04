@@ -479,6 +479,82 @@ export const canDeleteNotice = (user, notice = null) => {
   return false;
 };
 
+export const canEditAnyTask = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.editAnyTask);
+};
+
+export const canViewAllProjects = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.viewAllProjects);
+};
+
+export const canViewEmployeeDetails = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.viewEmployeeDetails || perms?.manageEmployees);
+};
+
+export const canApproveOvertime = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.approveOvertime || perms?.editAttendance);
+};
+
+export const canRequestOvertime = (user) => {
+  if (!user) return false;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.requestOvertime !== false);
+};
+
+export const canReviewResignations = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.reviewResignations || perms?.manageEmployees);
+};
+
+export const canCreateLeads = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.createLeads || perms?.accessCRM);
+};
+
+export const canEditLeads = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.editLeads || perms?.accessCRM);
+};
+
+export const canManageEvents = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.manageEvents || perms?.events);
+};
+
+export const canApproveExpenses = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.approveExpenses || perms?.accessFinance);
+};
+
+export const canManageSettings = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.manageSettings || perms?.settings);
+};
+
 export const canDeleteTicket = (user, ticket = null) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
@@ -701,11 +777,22 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     viewAllProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
+    editAnyTask: true,
     viewAllTickets: true,
     viewAllAttendance: true,
     viewAllLeaves: true,
     createTasks: true,
     approveLeaves: true,
+    cancelLeaves: true,
+    reviewResignations: true,
+    viewEmployeeDetails: true,
+    requestOvertime: true,
+    approveOvertime: true,
+    createLeads: true,
+    editLeads: true,
+    manageEvents: true,
+    approveExpenses: true,
+    manageSettings: true,
     accessCRM: true,
     accessFinance: true,
     manageEmployees: true,
@@ -731,13 +818,25 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     deleteAppreciations: true,
     projects: true,
     manageProjects: true,
+    viewAllProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
+    editAnyTask: false,
     viewAllTickets: true,
     viewAllAttendance: true,
     viewAllLeaves: true,
     createTasks: true,
     approveLeaves: true,
+    cancelLeaves: true,
+    reviewResignations: true,
+    viewEmployeeDetails: true,
+    requestOvertime: true,
+    approveOvertime: true,
+    createLeads: false,
+    editLeads: false,
+    manageEvents: true,
+    approveExpenses: true,
+    manageSettings: false,
     accessCRM: false,
     accessFinance: true,
     manageEmployees: true,
@@ -762,13 +861,25 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     deleteAppreciations: false,
     projects: true,
     manageProjects: true,
+    viewAllProjects: true,
     viewAllLeads: true,
     viewAllTasks: true,
+    editAnyTask: false,
     viewAllTickets: false,
     viewAllAttendance: false,
     viewAllLeaves: false,
     createTasks: true,
     approveLeaves: true,
+    cancelLeaves: false,
+    reviewResignations: false,
+    viewEmployeeDetails: false,
+    requestOvertime: true,
+    approveOvertime: true,
+    createLeads: true,
+    editLeads: true,
+    manageEvents: true,
+    approveExpenses: false,
+    manageSettings: false,
     accessCRM: true,
     accessFinance: false,
     manageEmployees: false,
@@ -795,19 +906,31 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     createProjects: false,
     deleteProjects: false,
     deleteTasks: false,
+    editAnyTask: false,
     deleteEmployees: false,
     deleteLeads: false,
     deleteTickets: false,
     deleteNotices: false,
     editAttendance: false,
     forceClockOut: false,
+    requestOvertime: true,
+    approveOvertime: false,
     manageCompanyHolidays: false,
+    viewEmployeeDetails: false,
+    cancelLeaves: false,
+    reviewResignations: false,
+    createLeads: false,
+    editLeads: false,
+    manageEvents: false,
+    approveExpenses: false,
+    manageSettings: false,
     employees: false,
     reports: false,
     documentation: false,
     payroll: false,
     finance: false,
     settings: false,
+    viewAllProjects: false,
     viewAllLeads: false,
     viewAllTasks: false,
     viewAllTickets: false,
@@ -844,35 +967,47 @@ export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'viewAllAttendance', category: 'shift_attendance', label: 'View Team Attendance', icon: '🕒', desc: 'View monthly attendance matrix, daily punch logs, and shift histories of all employees' },
   { key: 'editAttendance', category: 'shift_attendance', label: 'Mark & Edit Attendance', icon: '✍️', desc: 'Manually mark, adjust, or correct attendance records for team members' },
   { key: 'forceClockOut', category: 'shift_attendance', label: 'Admin Force Clock-Out', icon: '🛑', desc: 'Forcefully clock out active employee shifts with required audit logs' },
+  { key: 'requestOvertime', category: 'shift_attendance', label: 'Request Shift Overtime', icon: '⏱️', desc: 'Submit overtime request logs for working post 7:00 PM standard shift' },
+  { key: 'approveOvertime', category: 'shift_attendance', label: 'Approve Overtime Claims', icon: '✅', desc: 'Review, approve, or reject team members overtime hour submissions' },
 
   // ── 2. Tasks & Projects ──
   { key: 'createTasks', category: 'tasks_projects', label: 'Create & Assign Tasks', icon: '➕', desc: 'Create tasks and delegate them to any team member' },
   { key: 'viewAllTasks', category: 'tasks_projects', label: 'View All Tasks', icon: '📋', desc: 'View company-wide tasks beyond assigned items' },
+  { key: 'editAnyTask', category: 'tasks_projects', label: 'Edit & Reassign Any Task', icon: '✏️', desc: 'Modify, reassign, or update deadline of tasks across all departments' },
   { key: 'deleteTasks', category: 'tasks_projects', label: 'Delete Tasks', icon: '🗑️', desc: 'Permanently delete tasks and associated task timelogs' },
   { key: 'manageProjects', category: 'tasks_projects', label: 'Create & Manage Projects', icon: '📁', desc: 'Create projects, define sprint milestones, and assign project leads' },
+  { key: 'viewAllProjects', category: 'tasks_projects', label: 'View All Projects', icon: '📂', desc: 'View all organization projects and sprint roadmaps' },
   { key: 'deleteProjects', category: 'tasks_projects', label: 'Delete Projects', icon: '🗑️', desc: 'Permanently delete projects and sprint boards' },
 
   // ── 3. Workforce & Leaves ──
   { key: 'manageEmployees', category: 'workforce_hr', label: 'Manage Employees', icon: '👥', desc: 'Add, update employee profiles, documents, and department assignments' },
+  { key: 'viewEmployeeDetails', category: 'workforce_hr', label: 'View Sensitive Employee Data', icon: '🔍', desc: 'Access PAN, Aadhaar, bank details, emergency contacts, and private profile info' },
   { key: 'deleteEmployees', category: 'workforce_hr', label: 'Delete Employees', icon: '🗑️', desc: 'Permanently remove employee records from the organization' },
   { key: 'approveLeaves', category: 'workforce_hr', label: 'Approve & Reject Leaves', icon: '🌴', desc: 'Review, approve, or reject employee leave applications' },
+  { key: 'cancelLeaves', category: 'workforce_hr', label: 'Cancel & Revoke Leaves', icon: '❌', desc: 'Cancel approved leaves or revoke pending leave requests' },
+  { key: 'reviewResignations', category: 'workforce_hr', label: 'Review Resignations', icon: '🚪', desc: 'Process and manage employee resignation requests and exit workflows' },
   { key: 'manageCompanyHolidays', category: 'workforce_hr', label: 'Manage Company Holidays', icon: '⭐', desc: 'Declare, edit, or delete official company holidays and calendar events' },
   { key: 'giveAppreciation', category: 'workforce_hr', label: 'Award Appreciations', icon: '🏆', desc: 'Award recognition badges, performance awards, and rewards' },
   { key: 'deleteAppreciations', category: 'workforce_hr', label: 'Delete Appreciations', icon: '🗑️', desc: 'Remove recognition awards from the public board' },
 
   // ── 4. CRM & Communications ──
   { key: 'accessCRM', category: 'crm_comms', label: 'Access CRM & Leads', icon: '💼', desc: 'Access sales CRM pipeline, leads tracking, and deals' },
+  { key: 'createLeads', category: 'crm_comms', label: 'Create CRM Leads', icon: '🎯', desc: 'Create new prospect entries, leads, and sales deals' },
+  { key: 'editLeads', category: 'crm_comms', label: 'Edit CRM Leads', icon: '✍️', desc: 'Update lead status, values, customer contact information, and pipeline stages' },
   { key: 'deleteLeads', category: 'crm_comms', label: 'Delete CRM Leads', icon: '🗑️', desc: 'Permanently delete sales leads from the CRM' },
   { key: 'manageTickets', category: 'crm_comms', label: 'Manage Support Tickets', icon: '🎫', desc: 'Assign, update priority, and resolve helpdesk support tickets' },
   { key: 'deleteTickets', category: 'crm_comms', label: 'Delete Support Tickets', icon: '🗑️', desc: 'Permanently delete customer or employee support tickets' },
+  { key: 'manageEvents', category: 'crm_comms', label: 'Manage Calendar Events', icon: '📅', desc: 'Create, schedule, edit, or remove company-wide calendar events and meetings' },
   { key: 'postNotices', category: 'crm_comms', label: 'Post Company Notices', icon: '📢', desc: 'Publish announcements to the official company notice board' },
   { key: 'deleteNotices', category: 'crm_comms', label: 'Delete Notices', icon: '🗑️', desc: 'Delete official company notice board announcements' },
 
   // ── 5. Finance & Administration ──
   { key: 'accessFinance', category: 'finance_admin', label: 'Access Finance & Expenses', icon: '💰', desc: 'Review expense reimbursement claims and company expenditure' },
+  { key: 'approveExpenses', category: 'finance_admin', label: 'Approve Expense Claims', icon: '💳', desc: 'Review, approve, or reject employee reimbursement claims and bills' },
   { key: 'manageSalaries', category: 'finance_admin', label: 'Manage Payroll & Salaries', icon: '💵', desc: 'View payroll matrix, manage employee salary slips, and increments' },
   { key: 'documentation', category: 'finance_admin', label: 'Company Documentation', icon: '📄', desc: 'Manage official company policies, handbooks, and documentation' },
   { key: 'reports', category: 'finance_admin', label: 'View Analytics & Reports', icon: '📊', desc: 'Access organizational reports, attendance logs, and workforce charts' },
+  { key: 'manageSettings', category: 'finance_admin', label: 'Manage Company Settings', icon: '⚙️', desc: 'Configure company branding, shifts, working hours, and operational policies' },
   { key: 'grantPermissions', category: 'finance_admin', label: 'Grant Permissions (Accesser)', icon: '🛡️', desc: 'Accesser authority: Can assign, customize, and delegate permissions to other users' },
   { key: 'allAccess', category: 'finance_admin', label: 'Full System Authority (Super Admin)', icon: '👑', desc: 'Unrestricted master control across all modules and system settings' }
 ];
