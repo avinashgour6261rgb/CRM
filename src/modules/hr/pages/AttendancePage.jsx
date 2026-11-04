@@ -605,10 +605,10 @@ export const AttendancePage = () => {
 
         {/* Row 2: Clean Filter Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
             {/* Employee Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0">
                 <Users size={13} className="text-slate-400" />
                 <span>Employee:</span>
               </span>
@@ -616,7 +616,7 @@ export const AttendancePage = () => {
                 value={effectiveEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
                 disabled={!canViewAllAttendance}
-                className={`text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 outline-none transition-all ${
+                className={`text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 outline-none transition-all w-full sm:w-auto ${
                   !canViewAllAttendance
                     ? 'bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed text-slate-400'
                     : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 cursor-pointer focus:border-blue-500'
@@ -640,15 +640,15 @@ export const AttendancePage = () => {
             </div>
 
             {/* Month Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 shrink-0">
                 <Calendar size={13} className="text-slate-400" />
                 <span>Month:</span>
               </span>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500"
+                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500 w-full sm:w-auto"
               >
                 {months.map(m => (
                   <option key={m.value} value={m.value}>{m.name}</option>
@@ -657,12 +657,12 @@ export const AttendancePage = () => {
             </div>
 
             {/* Year Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Year:</span>
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Year:</span>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500"
+                className="text-xs font-semibold py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none cursor-pointer focus:border-blue-500 w-full sm:w-auto"
               >
                 {years.map(y => (
                   <option key={y} value={y}>{y}</option>

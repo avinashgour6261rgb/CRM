@@ -1775,6 +1775,8 @@ export const TimerProvider = ({ children }) => {
     setReclockStatus('none');
     setReclockSessionSeconds(0);
 
+    const initialClockIn = initialLoginTime || loginTime || nowStr;
+
     // Sync to Attendance Collection / Time Logs
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
@@ -1782,7 +1784,6 @@ export const TimerProvider = ({ children }) => {
       const existingIdx = attendance.findIndex(a => isRecordForUser(a, today));
 
       const existingRec = existingIdx >= 0 ? attendance[existingIdx] : null;
-      const initialClockIn = initialLoginTime || loginTime || nowStr;
 
       const existingPunchSessions = existingRec?.punchSessions || punchSessions || [];
       const currentWorkSeconds = isFirstClockIn ? 0 : preservedWorkSecs;

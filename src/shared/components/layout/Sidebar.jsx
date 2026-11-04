@@ -154,13 +154,15 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
       >
         {/* Brand & User Top Header */}
         <div
-          ref={profileRef}
-          onClick={handleProfilePosition}
-          className={`border-b border-white/6 flex items-center justify-between min-h-[70px] cursor-pointer hover:bg-white/[0.03] transition-colors select-none ${collapsed ? 'p-4 px-2' : 'py-4.5 px-5'}`}
-          title="Click to view profile options"
+          className={`border-b border-white/6 flex items-center justify-between min-h-[70px] select-none ${collapsed ? 'p-4 px-2' : 'py-3.5 px-4'}`}
         >
           {!collapsed ? (
-            <div className="flex items-center gap-3 overflow-hidden">
+            <div
+              ref={profileRef}
+              onClick={handleProfilePosition}
+              className="flex items-center gap-2.5 overflow-hidden flex-1 cursor-pointer hover:bg-white/[0.04] p-1.5 -ml-1 rounded-lg transition-colors"
+              title="Click to view profile options"
+            >
               {currentUser?.avatar ? (
                 <img
                   src={currentUser.avatar}
@@ -172,37 +174,43 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
                   <Zap size={20} fill="#ffffff" />
                 </div>
               )}
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center gap-1">
-                  <span className="text-[15px] font-extrabold text-white tracking-tight max-w-[140px] truncate">
+                  <span className="text-[14.5px] font-extrabold text-white tracking-tight truncate">
                     {companyInfo.companyName || companyInfo.shortName || 'Workspace'}
                   </span>
-                  <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={13} className={`text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
-                  <span className="text-xs text-slate-300 font-semibold max-w-[130px] truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_6px_#10b981]" />
+                  <span className="text-xs text-slate-300 font-semibold truncate">
                     {currentUser?.name || 'Employee'}
                   </span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="w-9 h-9 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40">
+            <div
+              ref={profileRef}
+              onClick={handleProfilePosition}
+              className="w-9 h-9 mx-auto rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-600/40 cursor-pointer"
+            >
               <Zap size={20} fill="#ffffff" />
             </div>
           )}
 
-          {/* Close button for Mobile Drawer */}
+          {/* Close button for Mobile Drawer (Prominent Touch Button) */}
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onCloseMobile();
             }}
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors ml-auto"
+            className="lg:hidden w-8 h-8 rounded-lg bg-slate-800/90 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white border border-slate-700/80 flex items-center justify-center cursor-pointer transition-all shrink-0 ml-1.5 shadow-sm active:scale-95"
             title="Close menu"
+            aria-label="Close menu"
           >
-            <X size={18} />
+            <X size={17} strokeWidth={2.5} />
           </button>
         </div>
 

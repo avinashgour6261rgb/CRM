@@ -253,34 +253,31 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
 
-        {/* ── Active Task Timer Pill (Visible only when task is running) ── */}
+        {/* ── Active Task Timer Pill (Visible on md+ screens when task is running) ── */}
         {activeRunningTask && (
           <div
             onClick={() => navigate('/tasks')}
-            className="flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
+            className="hidden md:flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
             title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Click to open Tasks)`}
           >
             <ListTodo size={14} className="text-blue-600 dark:text-blue-400 animate-pulse" />
-            <span className="hidden sm:inline text-[11px] font-bold text-blue-700 dark:text-blue-300">
+            <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
               Task: {activeRunningTask.taskCode || 'Active'}
             </span>
-            <span className="sm:hidden text-[10.5px] font-bold text-blue-700 dark:text-blue-300">
-              {activeRunningTask.taskCode || 'TSK'}
-            </span>
-            <span className="font-mono text-[11.5px] sm:text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
+            <span className="font-mono text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
               {formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
           </div>
         )}
 
-        {/* ── Working Shift Timer Widget ── */}
-        <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
+        {/* ── Working Shift Timer Widget (Visible on md+ screens) ── */}
+        <div className="hidden md:flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
           <Clock size={13} className="text-slate-400 dark:text-slate-500" />
-          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Shift:
           </span>
-          <span className="font-mono text-[12px] sm:text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
+          <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
             {(!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00')}
           </span>
 

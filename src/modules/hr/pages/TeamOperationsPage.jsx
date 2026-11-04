@@ -337,6 +337,8 @@ export const TeamOperationsPage = () => {
 
     // Active Running Task (prioritize live telemetry from Atlas for multi-device/incognito sync)
     let runningTask = null;
+    const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
       const isTaskTimerActuallyRunning = Boolean(at.timerRunning);
@@ -381,7 +383,6 @@ export const TeamOperationsPage = () => {
         if (rawTimer) activeTimer = JSON.parse(rawTimer);
       } catch {}
 
-      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
       const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
         ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
         : null;
@@ -986,7 +987,7 @@ export const TeamOperationsPage = () => {
       )}
 
       {/* ── KPI STATS CARDS ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
             <span>Total Team</span>
@@ -1054,9 +1055,9 @@ export const TeamOperationsPage = () => {
       </div>
 
       {/* ── FILTER & SEARCH STRIP ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-wrap gap-3 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap w-full lg:w-auto">
           {[
             { id: 'all', label: `All (${kpiStats.total})` },
             { id: 'working', label: `Working (${kpiStats.working})` },
@@ -1067,9 +1068,9 @@ export const TeamOperationsPage = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`border-0 px-3 py-1.5 rounded-md text-xs cursor-pointer transition-all ${
+              className={`border-0 px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-all flex-1 sm:flex-initial text-center ${
                 statusFilter === tab.id
-                  ? 'font-bold bg-sky-600 text-white'
+                  ? 'font-bold bg-sky-600 text-white shadow-xs'
                   : 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
@@ -1079,9 +1080,9 @@ export const TeamOperationsPage = () => {
         </div>
 
         {/* Search & Department Filters */}
-        <div className="flex items-center gap-2 flex-wrap flex-1 justify-end">
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] max-w-[240px] w-full">
-            <Search size={14} className="text-slate-500 dark:text-slate-400" />
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto flex-1 justify-end">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] w-full sm:max-w-[240px] flex-1">
+            <Search size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search employee..."
@@ -1090,14 +1091,14 @@ export const TeamOperationsPage = () => {
               className="border-0 bg-transparent outline-none text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full"
             />
             {searchQuery && (
-              <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300" onClick={() => setSearchQuery('')} />
+              <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 shrink-0" onClick={() => setSearchQuery('')} />
             )}
           </div>
 
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer"
+            className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer w-full sm:w-auto"
           >
             {departments.map(dept => (
               <option key={dept} value={dept}>
