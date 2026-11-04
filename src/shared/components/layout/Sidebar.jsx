@@ -199,18 +199,19 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
             </div>
           )}
 
-          {/* Close button for Mobile Drawer (Prominent Touch Button) */}
+          {/* Close button for Mobile Drawer (Prominent Touch Target) */}
           <button
             type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onCloseMobile();
             }}
-            className="lg:hidden w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:bg-slate-600 text-slate-200 hover:text-white border border-slate-700/80 flex items-center justify-center cursor-pointer transition-all shrink-0 ml-2 shadow-md active:scale-90"
-            title="Close menu"
-            aria-label="Close menu"
+            className="lg:hidden w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white border border-slate-600/80 flex items-center justify-center cursor-pointer transition-all shrink-0 ml-2 shadow-md active:scale-90 touch-manipulation select-none"
+            title="Close menu (Press to dismiss)"
+            aria-label="Close navigation menu"
           >
-            <X size={20} strokeWidth={2.5} />
+            <X size={22} strokeWidth={2.5} className="text-white" />
           </button>
         </div>
 

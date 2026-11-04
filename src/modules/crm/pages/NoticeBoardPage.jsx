@@ -26,6 +26,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { canPostNotices, canDeleteNotice } from '../../../shared/utils/permissionUtils';
 import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
+import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice } = useCRM();
@@ -142,25 +143,19 @@ export const NoticeBoardPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
           
-          {/* Duration */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-            <span className="font-semibold shrink-0">Duration:</span>
-            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px] max-w-full overflow-x-auto">
-              <input
-                type="date"
-                value={startDateFilter}
-                onChange={e => setStartDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
-              />
-              <span className="text-slate-400">to</span>
-              <input
-                type="date"
-                value={endDateFilter}
-                onChange={e => setEndDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
-              />
-            </div>
-          </div>
+          {/* Duration Selector with Presets */}
+          <ResponsiveDurationFilter
+            startDate={startDateFilter}
+            endDate={endDateFilter}
+            onChange={(s, e) => {
+              setStartDateFilter(s);
+              setEndDateFilter(e);
+            }}
+            onClear={() => {
+              setStartDateFilter('');
+              setEndDateFilter('');
+            }}
+          />
 
           {/* Search Input */}
           <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[220px] flex-1">

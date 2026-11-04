@@ -32,6 +32,7 @@ import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
 import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
 import { ImportExpensesModal } from '../components/ImportExpensesModal';
+import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 
 export const ExpensesPage = () => {
   const { expenses, updateExpenseStatus, deleteExpense } = useCRM();
@@ -179,25 +180,19 @@ export const ExpensesPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-2 px-3 flex items-center justify-between flex-wrap gap-2.5 shadow-xs">
         <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
 
-          {/* Duration */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold">Duration:</span>
-            <div className="flex items-center gap-1 px-2 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px]">
-              <input
-                type="date"
-                value={startDateFilter}
-                onChange={e => setStartDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200 cursor-pointer"
-              />
-              <span className="text-slate-400">to</span>
-              <input
-                type="date"
-                value={endDateFilter}
-                onChange={e => setEndDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200 cursor-pointer"
-              />
-            </div>
-          </div>
+          {/* Duration Selector with Presets */}
+          <ResponsiveDurationFilter
+            startDate={startDateFilter}
+            endDate={endDateFilter}
+            onChange={(s, e) => {
+              setStartDateFilter(s);
+              setEndDateFilter(e);
+            }}
+            onClear={() => {
+              setStartDateFilter('');
+              setEndDateFilter('');
+            }}
+          />
 
           {/* Status Dropdown */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -237,7 +232,7 @@ export const ExpensesPage = () => {
       {/* Expenses Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs">
+          <table className="w-full min-w-[780px] border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left">
                 <th className="p-2 px-3 w-9 whitespace-nowrap">

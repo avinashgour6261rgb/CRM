@@ -545,9 +545,40 @@ export const CRMProvider = ({ children }) => {
     setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
   };
 
+  // Synchronize company calendar events with backend
+  const loadEvents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/events`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const remoteEvents = json.data || (Array.isArray(json) ? json : []);
+        if (Array.isArray(remoteEvents)) {
+          const local = getCollection(KEYS.EVENTS) || [];
+          const map = new Map();
+          remoteEvents.forEach(e => {
+            if (e._id) map.set(String(e._id), normalizeEvent(e));
+          });
+          local.forEach(e => {
+            if (e._id && !map.has(String(e._id))) {
+              map.set(String(e._id), normalizeEvent(e));
+            }
+          });
+          const merged = Array.from(map.values());
+          saveCollection(KEYS.EVENTS, merged);
+          setEvents(merged);
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for events:', err);
+    }
+  };
+
   useEffect(() => {
     loadTickets();
     loadConversations();
+    loadEvents();
   }, [currentUser]);
 
   // ── Multi-User Real-time Chat Sync Poller (Every 2.5s for instant message delivery & read receipts) ──
@@ -2292,6 +2323,7 @@ export const CRMProvider = ({ children }) => {
     deleteTicket,
 
     events,
+    loadEvents,
     createEvent,
     updateEvent,
     deleteEvent,

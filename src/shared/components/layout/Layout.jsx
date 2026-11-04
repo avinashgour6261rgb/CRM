@@ -19,7 +19,16 @@ export const Layout = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-950 overflow-x-hidden relative">
+      {/* Mobile Drawer Backdrop overlay to tap anywhere to dismiss sidebar */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-[140] lg:hidden animate-fade-in transition-opacity cursor-pointer"
+          title="Click to close menu"
+          aria-label="Close menu backdrop"
+        />
+      )}
       <Sidebar
         mobileMenuOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}

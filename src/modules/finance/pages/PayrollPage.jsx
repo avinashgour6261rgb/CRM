@@ -192,8 +192,8 @@ export const PayrollPage = () => {
         </div>
       </div>
 
-      {/* Metric Cards (Compact 10px padding) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+      {/* Metric Cards (Responsive Grid) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {/* Total Payroll */}
         <div className="bg-white dark:bg-slate-900 rounded-xl p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -285,9 +285,14 @@ export const PayrollPage = () => {
           </div>
         </div>
 
+        {/* Mobile Swipe Hint */}
+        <div className="xl:hidden px-3.5 py-1.5 text-[11px] text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+          <span>👉 Swipe horizontally for Basic, Allowances, Deductions & Actions</span>
+        </div>
+
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full min-w-[820px] border-collapse text-left text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                 <th className="p-2 px-2.5">Employee</th>

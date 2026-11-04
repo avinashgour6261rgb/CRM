@@ -21,20 +21,20 @@ export const DateRangePicker = () => {
     <div className="relative">
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 h-9 px-3 rounded-lg text-[13px] cursor-pointer select-none min-w-[220px] justify-between border ${
+        className={`flex items-center gap-2 h-9 px-3 rounded-lg text-[13px] cursor-pointer select-none min-w-0 sm:min-w-[220px] max-w-full justify-between border ${
           hasValue
             ? 'bg-blue-50 border-blue-300 text-blue-800'
             : 'bg-slate-50 border-slate-200 text-slate-500'
         }`}
       >
-        <div className="flex items-center gap-2">
-          <Calendar size={15} color={hasValue ? '#2563eb' : '#94a3b8'} />
-          <span className={hasValue ? 'font-semibold' : 'font-normal'}>{displayLabel}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar size={15} color={hasValue ? '#2563eb' : '#94a3b8'} className="shrink-0" />
+          <span className={`truncate text-xs ${hasValue ? 'font-semibold' : 'font-normal'}`}>{displayLabel}</span>
         </div>
         {hasValue && (
           <button
             onClick={handleClear}
-            className="bg-transparent border-0 text-blue-500 cursor-pointer flex p-0.5"
+            className="bg-transparent border-0 text-blue-500 cursor-pointer flex p-0.5 shrink-0"
           >
             <X size={14} />
           </button>
@@ -42,7 +42,7 @@ export const DateRangePicker = () => {
       </div>
 
       {isOpen && (
-        <div className="absolute top-[42px] left-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-50 w-[280px] flex flex-col gap-3 animate-[fadeIn_0.15s_ease]">
+        <div className="absolute top-[42px] left-0 sm:left-auto right-auto sm:right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-50 w-[280px] max-w-[calc(100vw-32px)] flex flex-col gap-3 animate-[fadeIn_0.15s_ease]">
           <div>
             <label className="text-[11px] font-semibold text-slate-500 block mb-1">
               Start Date

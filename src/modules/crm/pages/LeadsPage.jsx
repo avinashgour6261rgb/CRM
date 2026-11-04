@@ -45,6 +45,7 @@ import { AddLeadModal } from '../components/leads/AddLeadModal';
 import { EditLeadModal } from '../components/leads/EditLeadModal';
 import { LeadDetailModal } from '../components/leads/LeadDetailModal';
 import { ImportLeadsModal } from '../components/leads/ImportLeadsModal';
+import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 
 export const LeadsPage = () => {
   const { leads, updateLeadStatus, deleteLead } = useCRM();
@@ -192,7 +193,8 @@ export const LeadsPage = () => {
       }
 
       // Date Range
-      if (!matchesDateRange(lead.startDate || lead.createdAt, startDateFilter, endDateFilter)) {
+      const leadDate = lead.startDate || lead.createdAt || lead.date || lead.createdDate;
+      if (!matchesDateRange(leadDate, startDateFilter, endDateFilter)) {
         return false;
       }
 
@@ -417,28 +419,19 @@ export const LeadsPage = () => {
           {/* Right Filters Bar: Duration, Type, Search Input, Filter Toggle */}
           <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             
-            {/* Duration / Date Range Selector */}
-            <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-              <span>Duration:</span>
-              <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-600 rounded-md px-2 h-[30px] bg-slate-50 dark:bg-slate-800">
-                <Calendar size={13} className="text-slate-400" />
-                <input
-                  type="date"
-                  value={startDateFilter}
-                  onChange={(e) => setStartDateFilter(e.target.value)}
-                  className="border-none bg-transparent text-[11.5px] text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[105px]"
-                  title="Start Date"
-                />
-                <span className="text-[11px] text-slate-400">To</span>
-                <input
-                  type="date"
-                  value={endDateFilter}
-                  onChange={(e) => setEndDateFilter(e.target.value)}
-                  className="border-none bg-transparent text-[11.5px] text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[105px]"
-                  title="End Date"
-                />
-              </div>
-            </div>
+            {/* Duration / Date Range Selector with Presets */}
+            <ResponsiveDurationFilter
+              startDate={startDateFilter}
+              endDate={endDateFilter}
+              onChange={(s, e) => {
+                setStartDateFilter(s);
+                setEndDateFilter(e);
+              }}
+              onClear={() => {
+                setStartDateFilter('');
+                setEndDateFilter('');
+              }}
+            />
 
             {/* Type Filter dropdown */}
             <div className="flex items-center gap-1.5 text-[12.5px] text-slate-500 dark:text-slate-400 font-medium">

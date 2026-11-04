@@ -30,6 +30,7 @@ import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
+import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 
 export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
@@ -305,25 +306,19 @@ export const TicketsPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex items-center gap-2 flex-wrap flex-1 w-full">
           
-          {/* Duration */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 flex-1 sm:flex-initial">
-            <span className="font-semibold">Duration:</span>
-            <div className="flex items-center gap-1 px-2 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11.5px] w-full sm:w-auto">
-              <input
-                type="date"
-                value={startDateFilter}
-                onChange={e => setStartDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
-              />
-              <span className="text-slate-400">-</span>
-              <input
-                type="date"
-                value={endDateFilter}
-                onChange={e => setEndDateFilter(e.target.value)}
-                className="border-0 bg-transparent outline-none text-[11.5px] text-slate-700 dark:text-slate-200"
-              />
-            </div>
-          </div>
+          {/* Duration Selector with Presets */}
+          <ResponsiveDurationFilter
+            startDate={startDateFilter}
+            endDate={endDateFilter}
+            onChange={(s, e) => {
+              setStartDateFilter(s);
+              setEndDateFilter(e);
+            }}
+            onClear={() => {
+              setStartDateFilter('');
+              setEndDateFilter('');
+            }}
+          />
 
           {/* Status Dropdown */}
           <select
@@ -370,7 +365,7 @@ export const TicketsPage = () => {
       {/* Tickets Table (Compact Rows) */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full min-w-[780px] border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left whitespace-nowrap">
                 <th className="px-2.5 py-2 w-9">

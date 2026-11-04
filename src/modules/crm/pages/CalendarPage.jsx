@@ -43,7 +43,7 @@ const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export const CalendarPage = () => {
   const { addToast } = useToast();
   const { confirm } = useConfirm();
-  const { events, deleteEvent, computedBirthdays, computedAnniversaries, darkMode } = useCRM();
+  const { events, loadEvents, deleteEvent, computedBirthdays, computedAnniversaries, darkMode } = useCRM();
   const isDark = !!darkMode;
   const { holidays, currentUser, employees, leaves } = useHR();
   const { tasks, projects } = useWork();
@@ -95,19 +95,31 @@ export const CalendarPage = () => {
   const loadFestivals = async () => {
     try {
       const list = await holidaySyncService.getSuggestedHolidays(year);
-      setSuggestedHolidays(list);
+      if (list && list.length > 0) {
+        setSuggestedHolidays(list);
+      } else {
+        const fallback = holidaySyncService.getMasterHolidaysForYear(year);
+        setSuggestedHolidays(fallback || []);
+      }
     } catch {
-      // Graceful fallback
+      const fallback = holidaySyncService.getMasterHolidaysForYear(year);
+      setSuggestedHolidays(fallback || []);
     }
   };
 
   useEffect(() => {
     loadUserMemories();
     loadFestivals();
+    if (typeof loadEvents === 'function') {
+      loadEvents();
+    }
 
     const handleSync = () => {
       loadUserMemories();
       loadFestivals();
+      if (typeof loadEvents === 'function') {
+        loadEvents();
+      }
     };
 
     window.addEventListener('ems_user_memories_updated', handleSync);
@@ -162,8 +174,8 @@ export const CalendarPage = () => {
       .map(e => ({
         _id: e._id || `ev_${Math.random()}`,
         title: e.eventName || e.title || 'Company Event',
-        date: e.startDate || e.date || new Date().toISOString().split('T')[0],
-        endDate: e.endDate || e.startDate || e.date || new Date().toISOString().split('T')[0],
+        date: String(e.startDate || e.date || new Date().toISOString()).split('T')[0],
+        endDate: String(e.endDate || e.startDate || e.date || new Date().toISOString()).split('T')[0],
         time: e.startTime || e.time || 'All Day',
         type: e.eventType || e.type || 'Company Event',
         location: e.location || 'Headquarters / Main Office',
@@ -177,8 +189,8 @@ export const CalendarPage = () => {
     const dynamicBirthdayEvents = (computedBirthdays || []).map(b => ({
       _id: `bday_cal_${b.employeeId || Math.random()}`,
       title: `🎂 Birthday: ${b.name || 'Team Member'}`,
-      date: b.eventDate || new Date().toISOString().split('T')[0],
-      endDate: b.eventDate || new Date().toISOString().split('T')[0],
+      date: String(b.eventDate || new Date().toISOString()).split('T')[0],
+      endDate: String(b.eventDate || new Date().toISOString()).split('T')[0],
       time: 'All Day',
       type: 'Birthday',
       employeeName: b.name,
@@ -195,8 +207,8 @@ export const CalendarPage = () => {
     const dynamicAnniversaryEvents = (computedAnniversaries || []).map(a => ({
       _id: `anniv_cal_${a.employeeId || Math.random()}`,
       title: `🌟 ${a.serviceYearsText} Work Anniversary: ${a.name || 'Team Member'}`,
-      date: a.eventDate || new Date().toISOString().split('T')[0],
-      endDate: a.eventDate || new Date().toISOString().split('T')[0],
+      date: String(a.eventDate || new Date().toISOString()).split('T')[0],
+      endDate: String(a.eventDate || new Date().toISOString()).split('T')[0],
       time: 'All Day',
       type: 'Work Anniversary',
       employeeName: a.name,
@@ -217,8 +229,8 @@ export const CalendarPage = () => {
       .map(h => ({
       _id: `hol_cal_${h._id || Math.random()}`,
       title: `🏖️ ${h.name || h.holidayName || h.title || 'Public Holiday'}`,
-      date: h.date || new Date().toISOString().split('T')[0],
-      endDate: h.date || new Date().toISOString().split('T')[0],
+      date: String(h.date || h.holidayDate || new Date().toISOString()).split('T')[0],
+      endDate: String(h.date || h.holidayDate || new Date().toISOString()).split('T')[0],
       time: 'All Day',
       type: h.type || 'Company Holiday',
       location: h.type === 'Company Holiday' ? 'Company Declared Holiday' : 'National / Gazetted Holiday',
@@ -927,14 +939,25 @@ export const CalendarPage = () => {
 
         {/* Responsive Horizontal Container for Month and Week Views */}
         {(currentView === 'month' || currentView === 'week') && (
-          <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 pb-2">
-            <div className="min-w-[700px] md:min-w-0">
-              {/* Days of Week Header */}
-              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
-                {DAYS_OF_WEEK.map(day => (
-                  <div key={day}>{day}</div>
-                ))}
-              </div>
+          <div className="flex flex-col gap-1">
+            <div className="xl:hidden px-1 pt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+              <span>👉 Swipe horizontally for all 7 days</span>
+              <button
+                type="button"
+                onClick={() => setCurrentView('list')}
+                className="text-blue-600 dark:text-blue-400 font-bold underline bg-transparent border-none cursor-pointer p-0"
+              >
+                Switch to List View
+              </button>
+            </div>
+            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0 pb-2">
+              <div className="min-w-[720px] xl:min-w-0">
+                {/* Days of Week Header */}
+                <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 pb-2 text-center text-[13px] font-bold text-slate-600 dark:text-slate-300">
+                  {DAYS_OF_WEEK.map(day => (
+                    <div key={day}>{day}</div>
+                  ))}
+                </div>
 
         {/* Month Calendar Grid */}
         {currentView === 'month' && (
@@ -1107,6 +1130,7 @@ export const CalendarPage = () => {
             ))}
           </div>
         )}
+              </div>
             </div>
           </div>
         )}
