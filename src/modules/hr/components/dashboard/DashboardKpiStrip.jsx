@@ -70,15 +70,15 @@ export const DashboardKpiStrip = ({
 
           <div
             onClick={() => navigate('/team-operations')}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-600"
-            title="Click to view absent / not clocked in employees"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-[10px_12px] cursor-pointer flex flex-col gap-1 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-400"
+            title="Click to view employees not yet clocked in"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Absent Today</span>
-              <UserX size={13} color="#dc2626" />
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Not Clocked In</span>
+              <UserX size={13} color="#64748b" />
             </div>
-            <div className="text-lg font-extrabold text-red-600 dark:text-red-400">
-              {teamStats.absent || 0}
+            <div className="text-lg font-extrabold text-slate-700 dark:text-slate-300">
+              {teamStats.notClockedIn !== undefined ? teamStats.notClockedIn : (teamStats.absent || 0)}
             </div>
           </div>
 
@@ -300,10 +300,10 @@ export const DashboardKpiStrip = ({
                 (Number(currentUser.leaveBalance.casual) || 0) +
                 (Number(currentUser.leaveBalance.sick) || 0) +
                 (Number(currentUser.leaveBalance.earned) || 0)
-              ) : 35} Days
+              ) : 0} Days
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400">
-              CL: {currentUser?.leaveBalance?.casual ?? 10} • SL: {currentUser?.leaveBalance?.sick ?? 8} • EL: {currentUser?.leaveBalance?.earned ?? 15}
+              CL: {currentUser?.leaveBalance?.casual ?? 0} • SL: {currentUser?.leaveBalance?.sick ?? 0} • EL: {currentUser?.leaveBalance?.earned ?? 0}
             </div>
           </div>
         </>

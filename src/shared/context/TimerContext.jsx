@@ -1260,11 +1260,6 @@ export const TimerProvider = ({ children }) => {
 
         // Total working time = completed sessions + (current active session minus active & completed breaks in this session)
         let netWorkSecs = Math.min(maxPossibleNetWorkSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
-
-        // ⏱️ Task Invariant: Shift work seconds must reflect actual tasks worked today, bounded by physical elapsed time
-        const todayTaskSecs = Math.min(maxPossibleNetWorkSecs, getTodayTaskSecondsForUser());
-        netWorkSecs = Math.max(netWorkSecs, todayTaskSecs);
-        netWorkSecs = Math.min(netWorkSecs, maxPossibleNetWorkSecs);
         setWorkSeconds(netWorkSecs);
 
         const nowTs = Date.now();

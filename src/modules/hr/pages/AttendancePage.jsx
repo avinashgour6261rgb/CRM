@@ -51,6 +51,7 @@ export const AttendancePage = () => {
     setSelectedYear,
     attendance,
     leaves,
+    holidays,
     currentUser: hrUser
   } = useHR();
 
@@ -255,14 +256,21 @@ export const AttendancePage = () => {
     for (let day = 1; day <= daysInSelectedMonth; day++) {
       const d = new Date(selectedYear, selectedMonth - 1, day);
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      if (dateStr > todayStr) break;
+      // Exclude today and future dates! Today's workday is active and incomplete.
+      if (dateStr >= todayStr) break;
       // Skip weekends
       if (d.getDay() === 0 || d.getDay() === 6) continue;
+      // Skip recognized company/gazetted holidays
+      const isHoliday = (holidays || []).some(h => (h.date === dateStr || h.holidayDate === dateStr) && h.status !== 'cancelled');
+      if (isHoliday) continue;
       pastDates.push(dateStr);
     }
 
     pastDates.forEach(dStr => {
       targetEmployees.forEach(emp => {
+        // Skip dates before employee's joining date
+        if (emp.joiningDate && dStr < emp.joiningDate) return;
+
         const empId = String(emp._id || emp.id || '').toLowerCase();
         const empCode = String(emp.employeeCode || '').toLowerCase();
         const empName = (emp.name || '').trim().toLowerCase();
@@ -286,13 +294,14 @@ export const AttendancePage = () => {
         if (att) {
           if (att.status === 'absent') count++;
         } else if (!onLeave) {
+          // Employee had joined, day was a working day, not a holiday, and had no punch & no leave
           count++;
         }
       });
     });
 
     return count;
-  }, [daysInSelectedMonth, selectedYear, selectedMonth, todayStr, targetEmployees, attendance, leaves]);
+  }, [daysInSelectedMonth, selectedYear, selectedMonth, todayStr, targetEmployees, attendance, leaves, holidays]);
 
   const validPresenceLogs = currentMonthRecords.filter(a => a.date <= todayStr);
   const totalWorkingHoursSum = validPresenceLogs.reduce((sum, a) => sum + (parseFloat(a.totalWorkingHours) || 0), 0);

@@ -64,6 +64,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
     hadClockedOutToday,
     isOnBreak,
     breakType,
+    currentBreakTimeString,
     togglePauseResume,
     handleClockIn,
     handleClockOut
@@ -275,10 +276,12 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
         <div className="hidden md:flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
           <Clock size={13} className="text-slate-400 dark:text-slate-500" />
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Shift:
+            {isOnBreak ? 'Break:' : 'Shift:'}
           </span>
           <span className="font-mono text-[13.5px] font-bold text-slate-800 dark:text-slate-100 tracking-wide transition-colors duration-200">
-            {(!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00')}
+            {isOnBreak
+              ? (currentBreakTimeString || '00:00:00')
+              : ((!isClockedIn && !hadClockedOutToday) ? '00:00:00' : (timeString || '00:00:00'))}
           </span>
 
           <span
@@ -493,7 +496,10 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
             title={`Currently on ${breakType || 'Break'}. Click to manage or resume work.`}
           >
             <Coffee size={15} className="text-amber-600 dark:text-amber-400" />
-            <span className="hidden sm:inline">☕ On {breakType || 'Break'}</span>
+            <span className="hidden sm:inline">☕ {breakType || 'Break'}</span>
+            <span className="font-mono text-xs font-extrabold bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded">
+              {currentBreakTimeString || '00:00'}
+            </span>
           </button>
         ) : (
           isClockedIn && (

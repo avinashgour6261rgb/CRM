@@ -709,7 +709,9 @@ export const DashboardPage = () => {
     const completedTasksToday = empTasks.filter(t => isTaskActuallyCompleted(t) && (t.completedAt?.startsWith(todayStr) || t.completedOn?.startsWith(todayStr)));
 
     const isPresent = !isOnLeave && Boolean(isClockedIn || isClockedOut || (attRec && ['present', 'late', 'half_day'].includes(attRec.status)));
-    const isAbsent = !isOnLeave && !isPresent;
+    const isMarkedAbsent = !isOnLeave && attRec?.status === 'absent';
+    const isNotClockedIn = !isOnLeave && !isPresent && !isMarkedAbsent;
+    const isAbsent = isMarkedAbsent;
 
     return {
       emp,
@@ -720,8 +722,9 @@ export const DashboardPage = () => {
       isOnLeave,
       leaveNote,
       isPresent,
+      isNotClockedIn,
       isAbsent,
-      attStatus: attRec?.status || (isOnLeave ? 'on_leave' : (isClockedIn || isClockedOut ? 'present' : 'absent')),
+      attStatus: attRec?.status || (isOnLeave ? 'on_leave' : (isClockedIn || isClockedOut ? 'present' : 'not_clocked_in')),
       isClockedIn: !isOnLeave && isClockedIn,
       isOnBreak: !isOnLeave && effectiveOnBreak,
       breakType: effectiveBreakType,
@@ -750,8 +753,9 @@ export const DashboardPage = () => {
     const clockedOut = teamTodayStates.filter(s => s.isClockedOut).length;
     const runningTask = teamTodayStates.filter(s => s.runningTask && s.runningTask.timerRunning && !s.isOnLeave).length;
     const present = teamTodayStates.filter(s => s.isPresent).length;
+    const notClockedIn = teamTodayStates.filter(s => s.isNotClockedIn).length;
     const absent = teamTodayStates.filter(s => s.isAbsent).length;
-    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present, absent };
+    return { total, onLeave, clockedIn, onBreak, clockedOut, runningTask, present, notClockedIn, absent };
   }, [teamTodayStates]);
 
   // Active view user's live today state

@@ -412,7 +412,12 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   } else if (task.sessionDate === today) {
     baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
   } else if (task.completedOn === today || (task.completedAt && String(task.completedAt).startsWith(today))) {
-    baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+    // If completed today, strictly count work performed today (prevent multi-day lifetime rollover leaking into today)
+    if (task.sessionDate === today) {
+      baseSecs = Number(task.todayWorkSeconds ?? task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+    } else {
+      baseSecs = Number(task.todayWorkSeconds || 0);
+    }
   } else {
     // STRICT: Past tasks not worked today have 0 seconds for today!
     baseSecs = 0;
