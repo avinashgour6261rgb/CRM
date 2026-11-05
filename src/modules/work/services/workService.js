@@ -856,7 +856,9 @@ export const workService = {
           const idx = timesheets.findIndex(t =>
             t._id === json.data._id ||
             (t.date === json.data.date &&
-              (String(t.taskId) === String(json.data.taskId) || (json.data.taskCode && t.taskCode === json.data.taskCode)))
+              (String(t.taskId) === String(json.data.taskId) || (json.data.taskCode && t.taskCode === json.data.taskCode)) &&
+              (String(t.employeeId || t.employee) === String(json.data.employeeId || json.data.employee) ||
+               (t.employeeCode && json.data.employeeCode && String(t.employeeCode) === String(json.data.employeeCode))))
           );
           if (idx !== -1) timesheets[idx] = json.data;
           else timesheets.unshift(json.data);
@@ -944,7 +946,13 @@ export const workService = {
         if (res.ok) {
           const json = await res.json();
           const timesheets = getCollection(KEYS.TIMESHEETS) || [];
-          const idx = timesheets.findIndex(t => t._id === json.data._id || (t.date === json.data.date && String(t.taskId) === String(json.data.taskId)));
+          const idx = timesheets.findIndex(t =>
+            t._id === json.data._id ||
+            (t.date === json.data.date &&
+              String(t.taskId) === String(json.data.taskId) &&
+              (String(t.employeeId || t.employee) === String(json.data.employeeId || json.data.employee) ||
+               (t.employeeCode && json.data.employeeCode && String(t.employeeCode) === String(json.data.employeeCode))))
+          );
           if (idx !== -1) timesheets[idx] = json.data;
           else timesheets.unshift(json.data);
           saveCollection(KEYS.TIMESHEETS, timesheets);

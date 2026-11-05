@@ -1956,8 +1956,9 @@ export const WorkProvider = ({ children }) => {
           taskCode: targetTask?.taskCode || 'TSK',
           taskTitle: targetTask?.title || 'Task',
           projectName: targetTask?.projectName || 'General Work',
-          employeeId: targetTask?.assignedToId || userKey,
-          employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
+          employeeId: currentUser?._id || userKey || targetTask?.assignedToId,
+          employeeCode: currentUser?.employeeCode || userKey,
+          employeeName: currentUser?.name || targetTask?.assignedToName || 'User',
           totalDurationSeconds: durationToLog,
           date: todayStr,
           memo: memo || `Work on ${targetTask?.title || 'Task'}`
