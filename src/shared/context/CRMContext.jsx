@@ -71,6 +71,7 @@ const defaultCRMContext = {
   sendMessage: async () => {},
   startConversation: async () => {},
   createChannel: async () => {},
+  updateChannelMembers: () => {},
   markConversationAsRead: () => {},
 
   notices: [],
@@ -1944,11 +1945,20 @@ export const CRMProvider = ({ children }) => {
     }
   };
 
-  const createChannel = ({ name, description = '', category = 'general' }) => {
+  const createChannel = ({ name, description = '', category = 'general', members = ['all'] }) => {
     if (!name || !name.trim()) return null;
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/^#/, '');
     const channelId = `channel_${cleanName}_${Date.now()}`;
     const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const myId = currentUser?._id || currentUser?.employeeCode;
+
+    const finalMembers = Array.isArray(members) && members.length > 0
+      ? (members.includes('all') ? ['all'] : Array.from(new Set([...members, myId].filter(Boolean))))
+      : ['all'];
+
+    const welcomeNotice = finalMembers.includes('all')
+      ? `🎉 Channel #${cleanName} created! ${description.trim()}`
+      : `🎉 Group #${cleanName} created with ${finalMembers.length} member(s)! ${description.trim()}`;
 
     const newChannel = {
       id: channelId,
@@ -1958,8 +1968,8 @@ export const CRMProvider = ({ children }) => {
       description: description.trim() || 'Team collaboration channel',
       avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120',
       category,
-      members: ['all'],
-      createdBy: currentUser?._id || currentUser?.employeeCode,
+      members: finalMembers,
+      createdBy: myId,
       createdByName: currentUser?.name || 'Administrator',
       isOnline: true,
       lastMessage: 'Channel created',
@@ -1970,15 +1980,15 @@ export const CRMProvider = ({ children }) => {
         {
           id: `msg_init_${Date.now()}`,
           conversationId: channelId,
-          senderId: currentUser?._id || currentUser?.employeeCode,
+          senderId: myId,
           senderName: currentUser?.name || 'Administrator',
           senderAvatar: currentUser?.avatar || '',
           senderRole: currentUser?.role || 'Admin',
-          text: `🎉 Channel #${cleanName} created! ${description.trim()}`,
+          text: welcomeNotice,
           attachments: [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           createdAt: Date.now(),
-          readBy: [currentUser?._id || currentUser?.employeeCode]
+          readBy: [myId]
         }
       ]
     };
@@ -2000,6 +2010,20 @@ export const CRMProvider = ({ children }) => {
     } catch (err) {}
 
     return newChannel.id;
+  };
+
+  const updateChannelMembers = (channelId, newMembers = []) => {
+    if (!channelId) return;
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const idx = currentConvs.findIndex(c => c.id === channelId);
+    if (idx === -1) return;
+    const finalMembers = Array.isArray(newMembers) && newMembers.length > 0 ? newMembers : ['all'];
+    currentConvs[idx].members = finalMembers;
+    currentConvs[idx].updatedAt = Date.now();
+    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    setConversations([...currentConvs]);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    addToast('Channel members updated successfully!', 'success');
   };
 
   // =========================================================================
@@ -2438,6 +2462,7 @@ export const CRMProvider = ({ children }) => {
     sendMessage,
     startConversation,
     createChannel,
+    updateChannelMembers,
     markConversationAsRead,
 
     notices,

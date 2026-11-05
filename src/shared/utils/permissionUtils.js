@@ -1000,6 +1000,8 @@ export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'manageEvents', category: 'crm_comms', label: 'Manage Calendar Events', icon: '📅', desc: 'Create, schedule, edit, or remove company-wide calendar events and meetings' },
   { key: 'postNotices', category: 'crm_comms', label: 'Post Company Notices', icon: '📢', desc: 'Publish announcements to the official company notice board' },
   { key: 'deleteNotices', category: 'crm_comms', label: 'Delete Notices', icon: '🗑️', desc: 'Delete official company notice board announcements' },
+  { key: 'createChannels', category: 'crm_comms', label: 'Create Group Channels', icon: '💬', desc: 'Create and manage dedicated team chat channels and group discussions' },
+  { key: 'screenShare', category: 'crm_comms', label: 'Screen Share & Huddle', icon: '🖥️', desc: 'Host live screen share sessions and join voice walkie-talkie rooms during active shifts' },
 
   // ── 5. Finance & Administration ──
   { key: 'accessFinance', category: 'finance_admin', label: 'Access Finance & Expenses', icon: '💰', desc: 'Review expense reimbursement claims and company expenditure' },
@@ -1199,6 +1201,29 @@ export const canUserGrantPermissions = (user) => {
   if (isAdmin(user)) return true;
   const perms = getUserModulePermissions(user);
   return !!perms.grantPermissions;
+};
+
+/**
+ * Check if the user is authorized to create new group channels in CRM chat
+ */
+export const canCreateChannels = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || user.isDelegatedAdmin) return true;
+  const role = getUserRole(user);
+  if (role === ROLES.TEAM_LEADER) return true;
+  const perms = getUserModulePermissions(user);
+  return Boolean(perms?.allAccess || perms?.createChannels || perms?.manageGroups || perms?.manageChannels);
+};
+
+/**
+ * Check if the user is allowed to initiate live screen sharing
+ */
+export const canScreenShare = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isHR(user) || user.isDelegatedAdmin) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.screenShare === false) return false;
+  return true;
 };
 
 /**

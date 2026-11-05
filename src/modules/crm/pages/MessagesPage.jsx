@@ -32,13 +32,22 @@ import {
   Maximize2,
   Lock,
   Pin,
-  ChevronLeft
+  ChevronLeft,
+  Monitor,
+  Radio,
+  Mic
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
+import { useTimer } from '../../../shared/context/TimerContext';
+import { canScreenShare } from '../../../shared/utils/permissionUtils';
 import { NewConversationModal } from '../components/messages/NewConversationModal';
 import { ChatMediaViewerModal } from '../components/messages/ChatMediaViewerModal';
+import { ChatVoiceRecorder } from '../components/messages/ChatVoiceRecorder';
+import { VoiceMemoPlayer } from '../components/messages/VoiceMemoPlayer';
+import { LiveVoiceHuddleBar } from '../components/messages/LiveVoiceHuddleBar';
+import { ScreenShareModal } from '../components/messages/ScreenShareModal';
 import { processFileForChat, downloadChatAttachment } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -53,7 +62,8 @@ export const MessagesPage = () => {
     markConversationAsRead
   } = useCRM();
   const { currentUser: authUser } = useAuth();
-  const { currentUser: hrUser, employees } = useHR();
+  const { currentUser: hrUser, employees, attendance } = useHR();
+  const { isClockedIn, isOnBreak } = useTimer();
 
   const currentUser = useMemo(() => {
     const base = authUser || hrUser;
@@ -78,6 +88,11 @@ export const MessagesPage = () => {
   const [viewerAttachment, setViewerAttachment] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  // Screen Share & Live Huddle State
+  const [screenStream, setScreenStream] = useState(null);
+  const [isScreenShareOpen, setIsScreenShareOpen] = useState(false);
+  const [isScreenShareHost, setIsScreenShareHost] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
@@ -287,8 +302,116 @@ export const MessagesPage = () => {
     });
   };
 
+  // Live partner shift state in 1-on-1 direct messages
+  const partnerShiftState = useMemo(() => {
+    if (!activeConv || activeConv.type === 'channel') return null;
+    const partner = getDmPartner(activeConv, currentUser, employees);
+    if (!partner) return null;
+
+    const empKey = partner.employeeCode || (partner._id ? String(partner._id) : '');
+    const today = new Date().toISOString().split('T')[0];
+    const hrAttendance = (attendance || []).find(a =>
+      a.date === today && (
+        String(a.employeeId) === String(partner._id) ||
+        String(a.employeeCode) === String(partner.employeeCode) ||
+        (empKey && (String(a.employeeCode) === String(empKey) || String(a.employeeId) === String(empKey)))
+      )
+    );
+
+    const isPartnerClockedIn = Boolean(
+      (hrAttendance && !hrAttendance.outTime && hrAttendance.inTime && hrAttendance.status !== 'absent' && hrAttendance.status !== 'on_leave') ||
+      (typeof localStorage !== 'undefined' && (
+        localStorage.getItem(`ems_timer_${partner.employeeCode}_is_clocked_in`) === 'true' ||
+        localStorage.getItem(`ems_timer_${partner._id}_is_clocked_in`) === 'true'
+      ))
+    );
+
+    const isPartnerOnBreak = Boolean(
+      typeof localStorage !== 'undefined' && (
+        localStorage.getItem(`ems_timer_${partner.employeeCode}_is_on_break`) === 'true' ||
+        localStorage.getItem(`ems_timer_${partner._id}_is_on_break`) === 'true'
+      )
+    );
+
+    const breakType = (typeof localStorage !== 'undefined' && (
+      localStorage.getItem(`ems_timer_${partner.employeeCode}_break_type`) ||
+      localStorage.getItem(`ems_timer_${partner._id}_break_type`)
+    )) || 'Break';
+
+    return {
+      isClockedIn: isPartnerClockedIn,
+      isOnBreak: isPartnerOnBreak,
+      breakType,
+      partner
+    };
+  }, [activeConv, currentUser, employees, attendance]);
+
+  // Screen share controls
+  const startScreenShare = async () => {
+    if (!isClockedIn) {
+      addToast('🔒 Shift Clock-In Required: You must clock into your shift to share your screen.', 'warning');
+      return;
+    }
+    if (isOnBreak) {
+      addToast('☕ Screen sharing is paused while on break.', 'warning');
+      return;
+    }
+    if (!canScreenShare(currentUser)) {
+      addToast('Screen share is disabled for your role.', 'error');
+      return;
+    }
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        addToast('Screen sharing is not supported by your browser.', 'error');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: 'always' },
+        audio: false
+      });
+
+      setScreenStream(stream);
+      setIsScreenShareHost(true);
+      setIsScreenShareOpen(true);
+
+      stream.getVideoTracks()[0].onended = () => {
+        stopScreenShare();
+      };
+
+      if (activeConv) {
+        sendMessage(activeConv.id, `🖥️ Started live screen share session.`);
+      }
+      addToast('🖥️ Live Screen Sharing started', 'success');
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') {
+        console.error('Error starting screen share:', err);
+        addToast('Failed to start screen share.', 'error');
+      }
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+    }
+    setIsScreenShareHost(false);
+    setIsScreenShareOpen(false);
+    if (activeConv) {
+      sendMessage(activeConv.id, `⏹️ Live screen share session ended.`);
+    }
+    addToast('Screen share stopped', 'info');
+  };
+
+  const handleSendVoiceMemo = (audioAttachment) => {
+    if (!activeConv) return;
+    sendMessage(activeConv.id, '', [audioAttachment]);
+    addToast('🎙️ Voice memo sent!', 'success');
+  };
+
   return (
-    <div className="flex flex-col gap-2.5 h-[calc(100vh-105px)] select-none">
+    <div className="flex flex-col gap-2.5 h-[calc(100vh-105px)] max-h-[calc(100vh-105px)] select-none overflow-hidden">
 
       {/* Top Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-[#101b33] p-2.5 px-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs min-h-[58px] shrink-0">
@@ -321,13 +444,13 @@ export const MessagesPage = () => {
       </div>
 
       {/* Main Chat Layout Container */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-[290px_1fr] bg-white dark:bg-[#101b33] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[290px_1fr] bg-white dark:bg-[#101b33] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs">
 
         {/* ── Left Sidebar: Conversations & Channels ── */}
-        <div className={`border-r border-slate-200/80 dark:border-slate-800 flex-col bg-slate-50/80 dark:bg-[#0c1427] ${mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`border-r border-slate-200/80 dark:border-slate-800 flex flex-col bg-slate-50/80 dark:bg-[#0c1427] h-full min-h-0 overflow-hidden ${mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
 
           {/* Search Bar */}
-          <div className="p-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c1427]">
+          <div className="p-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c1427] shrink-0">
             <div className="flex items-center gap-2 px-2.5 h-[32px] rounded-lg border border-slate-300/80 dark:border-slate-700/80 bg-white dark:bg-[#111c35] focus-within:border-blue-500 dark:focus-within:border-sky-500 transition-colors">
               <Search size={14} className="text-slate-400 dark:text-slate-500 shrink-0" />
               <input
@@ -341,7 +464,7 @@ export const MessagesPage = () => {
           </div>
 
           {/* Segmented Filter Switcher */}
-          <div className="flex p-1.5 gap-1 border-b border-slate-200/60 dark:border-slate-800/80 bg-slate-100/60 dark:bg-[#0f1930] text-xs">
+          <div className="flex p-1.5 gap-1 border-b border-slate-200/60 dark:border-slate-800/80 bg-slate-100/60 dark:bg-[#0f1930] text-xs shrink-0">
             {[
               { id: 'all', label: 'All' },
               { id: 'channels', label: '🏢 Channels' },
@@ -362,7 +485,7 @@ export const MessagesPage = () => {
           </div>
 
           {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto p-1.5 flex flex-col gap-1">
+          <div className="flex-1 min-h-0 overflow-y-auto p-1.5 flex flex-col gap-1">
             {filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full p-6 text-slate-400 text-center">
                 <MessageSquare size={26} className="text-slate-300 dark:text-slate-600 mb-1.5" />
@@ -450,7 +573,7 @@ export const MessagesPage = () => {
         </div>
 
         {/* ── Right Side: Active Chat Window ── */}
-        <div className={`flex-col bg-white dark:bg-[#0e172c] ${!mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex flex-col bg-white dark:bg-[#0e172c] h-full min-h-0 overflow-hidden ${!mobileShowChat ? 'hidden md:flex' : 'flex'}`}>
 
           {!activeConv ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-10 text-slate-400 dark:text-slate-500">
@@ -469,7 +592,7 @@ export const MessagesPage = () => {
             return (
               <>
                 {/* Chat Header */}
-                <div className="p-3 px-3 sm:px-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111c35]">
+                <div className="p-3 px-3 sm:px-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#111c35] shrink-0">
                   <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <button
                       type="button"
@@ -491,7 +614,9 @@ export const MessagesPage = () => {
                           alt={headerTitle}
                           className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                         />
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111c35]" />
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#111c35] ${
+                          partnerShiftState?.isClockedIn ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`} />
                       </div>
                     )}
 
@@ -510,7 +635,22 @@ export const MessagesPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Screen Share Button */}
+                    <button
+                      type="button"
+                      onClick={screenStream ? () => setIsScreenShareOpen(true) : startScreenShare}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                        screenStream
+                          ? 'bg-rose-500 text-white border-rose-600 shadow-md animate-pulse'
+                          : 'bg-slate-100 dark:bg-[#192644] hover:bg-slate-200 dark:hover:bg-[#203157] text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
+                      }`}
+                      title={screenStream ? 'View active screen share' : 'Share your screen with team'}
+                    >
+                      <Monitor size={14} className={screenStream ? 'text-white' : 'text-blue-500'} />
+                      <span className="hidden sm:inline">{screenStream ? 'Screen LIVE' : 'Share Screen'}</span>
+                    </button>
+
                     <button
                       onClick={() => setIsNewConvOpen(true)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#192644] hover:bg-slate-200 dark:hover:bg-[#203157] text-slate-700 dark:text-slate-200 border-0 text-xs font-bold cursor-pointer transition-colors"
@@ -521,8 +661,18 @@ export const MessagesPage = () => {
                   </div>
                 </div>
 
+                {/* Live Voice Huddle & Walkie-Talkie Intercom Bar */}
+                <LiveVoiceHuddleBar
+                  activeConv={activeConv}
+                  currentUser={currentUser}
+                  activePartner={activePartner}
+                  partnerShiftState={partnerShiftState}
+                  isChannel={activeIsChannel}
+                  employees={employees}
+                />
+
                 {/* Message Stream */}
-                <div ref={messageContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3 bg-slate-100/50 dark:bg-[#0b1329]">
+                <div ref={messageContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3 bg-slate-100/50 dark:bg-[#0b1329]">
                   {(!activeConv.messages || activeConv.messages.length === 0) ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400 dark:text-slate-500">
                       <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 flex items-center justify-center mb-2 border border-blue-200/50 dark:border-blue-900/40 shadow-xs">
@@ -602,6 +752,11 @@ export const MessagesPage = () => {
                                       </div>
                                     )}
 
+                                    {/* Audio Voice Memo Attachment */}
+                                    {att.category === 'audio' && (
+                                      <VoiceMemoPlayer attachment={att} isOutgoing={outgoing} />
+                                    )}
+
                                     {/* Document Attachment */}
                                     {att.category === 'document' && (
                                       <div className={`flex items-center justify-between gap-3 p-2.5 px-3 rounded-lg border transition-colors ${
@@ -659,7 +814,7 @@ export const MessagesPage = () => {
 
                 {/* ── Pending Attachments Preview Tray ── */}
                 {pendingAttachments.length > 0 && (
-                  <div className="p-2.5 px-4 bg-slate-100/90 dark:bg-[#131e38] border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 overflow-x-auto">
+                  <div className="p-2.5 px-4 bg-slate-100/90 dark:bg-[#131e38] border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 overflow-x-auto shrink-0">
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Attached:</span>
                     {pendingAttachments.map((att, idx) => (
                       <div
@@ -689,7 +844,7 @@ export const MessagesPage = () => {
 
                 {/* ── Emoji Bar (Toggleable) ── */}
                 {showEmojiPicker && (
-                  <div className="px-4 py-2 bg-slate-50 dark:bg-[#131e38] border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2">
+                  <div className="px-4 py-2 bg-slate-50 dark:bg-[#131e38] border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-2 shrink-0">
                     <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold mr-1">Quick Reaction:</span>
                     {['👍', '❤️', '🎉', '🔥', '🚀', '👏', '😊', '💡', '✅', '🙌'].map(emoji => (
                       <button
@@ -705,7 +860,7 @@ export const MessagesPage = () => {
                 )}
 
                 {/* Privacy & Recipient Confirmation Indicator */}
-                <div className={`px-4 py-2 border-t text-xs flex items-center justify-between select-none ${
+                <div className={`px-4 py-2 border-t text-xs flex items-center justify-between select-none shrink-0 ${
                   activeIsChannel
                     ? 'bg-slate-50 dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                     : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
@@ -730,10 +885,10 @@ export const MessagesPage = () => {
                   )}
                 </div>
 
-                {/* ── Chat Input Bar ── */}
+                {/* ── Chat Input Bar (Permanently Sticky & Shift-Gated) ── */}
                 <form
                   onSubmit={handleSend}
-                  className="p-2 sm:p-3 px-2.5 sm:px-4 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-[#111c35]"
+                  className="p-2 sm:p-3 px-2.5 sm:px-4 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-[#111c35] shrink-0"
                 >
                   {/* Hidden File Input */}
                   <input
@@ -766,6 +921,12 @@ export const MessagesPage = () => {
                   >
                     <Smile size={18} />
                   </button>
+
+                  {/* Walkie-Talkie & Voice Memo Recorder */}
+                  <ChatVoiceRecorder
+                    onSendAudio={handleSendVoiceMemo}
+                    disabled={isSending}
+                  />
 
                   <input
                     ref={inputRef}
@@ -810,6 +971,16 @@ export const MessagesPage = () => {
         isOpen={!!viewerAttachment}
         attachment={viewerAttachment}
         onClose={() => setViewerAttachment(null)}
+      />
+
+      <ScreenShareModal
+        isOpen={isScreenShareOpen}
+        onClose={() => setIsScreenShareOpen(false)}
+        activeConv={activeConv}
+        currentUser={currentUser}
+        stream={screenStream}
+        isHost={isScreenShareHost}
+        onStopSharing={stopScreenShare}
       />
     </div>
   );
