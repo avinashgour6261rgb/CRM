@@ -193,16 +193,24 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     setSubmitting(true);
     try {
       const isRoleChanged = targetEmp?.role && targetEmp.role !== formData.role;
+      let derivedSystemRole = targetEmp?.systemRole || 'team_member';
+      if (isRoleChanged && formData.role) {
+        const lower = formData.role.toLowerCase();
+        if (lower.includes('admin')) derivedSystemRole = 'admin';
+        else if (lower.includes('hr') || lower.includes('human resource')) derivedSystemRole = 'hr';
+        else if (lower.includes('leader') || lower.includes('lead') || lower.includes('manager')) derivedSystemRole = 'team_leader';
+      }
+      const payload = { ...formData, systemRole: derivedSystemRole };
 
       if (targetEmp?._id) {
-        await updateEmployee(targetEmp._id, formData);
+        await updateEmployee(targetEmp._id, payload);
       } else {
-        await updateUserProfile(formData);
+        await updateUserProfile(payload);
       }
 
       // If user is editing their own active profile, sync Auth session immediately
       if (!employee || employee._id === currentUser?._id || targetEmp?.isCurrentUser || targetEmp?._id === authUser?._id) {
-        const updatedAuthUser = { ...(authUser || currentUser), ...formData, isCurrentUser: true };
+        const updatedAuthUser = { ...(authUser || currentUser), ...payload, isCurrentUser: true };
         setAuthCurrentUser?.(updatedAuthUser);
         localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuthUser));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));

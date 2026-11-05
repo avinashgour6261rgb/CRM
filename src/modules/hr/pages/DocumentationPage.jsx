@@ -42,11 +42,27 @@ export const DocumentationPage = () => {
   };
 
   const handleDownload = (doc) => {
-    addToast({
-      title: 'Download Started 📥',
-      message: `Downloading ${doc.fileName} (${doc.fileSize})...`,
-      type: 'info'
-    });
+    try {
+      const fileName = doc.fileName || `${doc.title || 'document'}.txt`;
+      const content = doc.fileDataUrl || `data:text/plain;charset=utf-8,Inforag Management System%0AOfficial Employee Document Record%0A-----------------------------------%0ATitle: ${encodeURIComponent(doc.title || '')}%0AEmployee: ${encodeURIComponent(doc.employeeName || '')} (${doc.employeeCode || ''})%0ACategory: ${encodeURIComponent(doc.docType || '')}%0AUpload Date: ${doc.uploadDate || ''}%0AStatus: Verified Record%0A`;
+      const link = document.createElement('a');
+      link.href = content;
+      link.download = fileName.endsWith('.pdf') ? fileName.replace('.pdf', '.txt') : fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addToast({
+        title: 'Document Downloaded 📥',
+        message: `${fileName} downloaded successfully.`,
+        type: 'success'
+      });
+    } catch (_) {
+      addToast({
+        title: 'Download Started 📥',
+        message: `Downloading ${doc.fileName} (${doc.fileSize})...`,
+        type: 'info'
+      });
+    }
   };
 
   const handleDelete = (docId) => {

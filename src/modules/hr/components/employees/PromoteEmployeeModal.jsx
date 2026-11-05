@@ -74,9 +74,21 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
     try {
       setIsSubmitting(true);
 
+      // Derive standard system role if applicable while preserving custom granted permissions
+      let derivedSystemRole = employee.systemRole || 'team_member';
+      const lower = targetRoleTitle.toLowerCase();
+      if (lower.includes('admin')) {
+        derivedSystemRole = 'admin';
+      } else if (lower.includes('hr') || lower.includes('human resource')) {
+        derivedSystemRole = 'hr';
+      } else if (lower.includes('leader') || lower.includes('lead') || lower.includes('manager')) {
+        derivedSystemRole = 'team_leader';
+      }
+
       // 1. Update Employee Record in Context & Storage
       await updateEmployee(employee._id, {
         role: targetRoleTitle,
+        systemRole: derivedSystemRole,
         department: selectedDepartment
       });
 

@@ -78,13 +78,25 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
   const [isDirectoryOpen, setIsDirectoryOpen] = useState(false);
+  const [, setPermTick] = useState(0);
 
   useEffect(() => {
     const handleSettingsUpdate = () => {
       setCompanyInfo(getCompanySettings());
     };
+    const handlePermChange = () => {
+      setPermTick(t => t + 1);
+    };
     window.addEventListener('company-settings-updated', handleSettingsUpdate);
-    return () => window.removeEventListener('company-settings-updated', handleSettingsUpdate);
+    window.addEventListener('ems_permissions_updated', handlePermChange);
+    window.addEventListener('hrms_storage_change', handlePermChange);
+    window.addEventListener('storage', handlePermChange);
+    return () => {
+      window.removeEventListener('company-settings-updated', handleSettingsUpdate);
+      window.removeEventListener('ems_permissions_updated', handlePermChange);
+      window.removeEventListener('hrms_storage_change', handlePermChange);
+      window.removeEventListener('storage', handlePermChange);
+    };
   }, []);
 
   const [leadsExpanded, setLeadsExpanded] = useState(false);

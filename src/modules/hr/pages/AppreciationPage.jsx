@@ -55,7 +55,7 @@ export const AppreciationPage = () => {
   const currentMonthPrefix = new Date().toISOString().slice(0, 7);
   const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const totalAppreciationsCount = appreciations.length;
-  const thisMonthAppreciations = appreciations.filter(a => a.givenOn?.startsWith(currentMonthPrefix) || a.givenOn?.startsWith('2026-09'));
+  const thisMonthAppreciations = appreciations.filter(a => a.givenOn?.startsWith(currentMonthPrefix));
 
   // Star Performer (most awarded employee count)
   const awardCounts = {};
