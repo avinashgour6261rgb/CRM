@@ -34,7 +34,7 @@ import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { confirmDialog } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canDeleteLead, canAccessModule } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canDeleteLead, canCreateLeads, canExportData, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 
 // Components
@@ -58,6 +58,8 @@ export const LeadsPage = () => {
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllLeads = isPrivileged || perms?.viewAllLeads;
+  const canCreate = useMemo(() => canCreateLeads(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'leads'), [currentUser]);
   const canAccessLeads = canAccessModule(currentUser, 'leads');
 
   if (!canAccessLeads) {
@@ -391,29 +393,35 @@ export const LeadsPage = () => {
           
           {/* Left Action Buttons: + Add Lead Contact, Import, Export */}
           <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-sky-600 hover:bg-sky-700 text-white border-none rounded-md text-xs font-bold cursor-pointer shadow-sm transition-colors flex-1 sm:flex-initial"
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              Add Lead
-            </button>
+            {canCreate && (
+              <>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-sky-600 hover:bg-sky-700 text-white border-none rounded-md text-xs font-bold cursor-pointer shadow-sm transition-colors flex-1 sm:flex-initial"
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Add Lead
+                </button>
 
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
-            >
-              <Upload size={13} className="text-sky-600" />
-              Import
-            </button>
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
+                >
+                  <Upload size={13} className="text-sky-600" />
+                  Import
+                </button>
+              </>
+            )}
 
-            <button
-              onClick={() => handleExportCSV(false)}
-              className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
-            >
-              <Download size={13} className="text-sky-600" />
-              Export CSV
-            </button>
+            {canExport && (
+              <button
+                onClick={() => handleExportCSV(false)}
+                className="flex items-center justify-center gap-[5px] px-3 h-[30px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex-1 sm:flex-initial"
+              >
+                <Download size={13} className="text-sky-600" />
+                Export CSV
+              </button>
+            )}
           </div>
 
           {/* Right Filters Bar: Duration, Type, Search Input, Filter Toggle */}

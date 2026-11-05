@@ -18,6 +18,8 @@ import {
   User
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
+import { canEditLeads } from '../../../../shared/utils/permissionUtils';
 
 const STAGES = [
   { id: 'new', title: 'New Inquiries', color: '#0284c7', bg: '#e0f2fe', border: '#bae6fd' },
@@ -35,6 +37,7 @@ export const LeadsKanban = ({
   onAddNewLead
 }) => {
   const { updateLeadStatus } = useCRM();
+  const { currentUser } = useAuth();
 
   const formatCurrency = (amount) => {
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
@@ -141,20 +144,22 @@ export const LeadsKanban = ({
                         </span>
                       </div>
 
-                      {/* Quick Move Selector */}
-                      <select
-                        value={lead.status}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => updateLeadStatus(lead._id, e.target.value)}
-                        className="text-[10.5px] font-semibold py-0.5 px-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
-                      >
-                        <option value="new">Move: New</option>
-                        <option value="active">Move: Active</option>
-                        <option value="in_progress">Move: In Progress</option>
-                        <option value="negotiation">Move: Negotiation</option>
-                        <option value="converted">Move: Won</option>
-                        <option value="lost">Move: Lost</option>
-                      </select>
+                      {/* Quick Move Selector (Gated by Edit permission) */}
+                      {canEditLeads(currentUser, lead) && (
+                        <select
+                          value={lead.status}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => updateLeadStatus(lead._id, e.target.value)}
+                          className="text-[10.5px] font-semibold py-0.5 px-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <option value="new">Move: New</option>
+                          <option value="active">Move: Active</option>
+                          <option value="in_progress">Move: In Progress</option>
+                          <option value="negotiation">Move: Negotiation</option>
+                          <option value="converted">Move: Won</option>
+                          <option value="lost">Move: Lost</option>
+                        </select>
+                      )}
                     </div>
                   </div>
                 ))

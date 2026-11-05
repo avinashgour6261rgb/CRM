@@ -28,7 +28,10 @@ import {
   Filter,
   Sparkles,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Lock,
+  Unlock,
+  Info
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
 import { broadcastSyncEvent } from '../../../shared/services/realtimeSyncService';
@@ -40,6 +43,10 @@ import {
   getUserModulePermissions,
   GRANULAR_PERMISSIONS_LIST,
   PERMISSION_CATEGORIES,
+  PERMISSION_DEPENDENCIES,
+  getPermissionPrerequisite,
+  getDependentChildPermissions,
+  sanitizePermissionDependencies,
   canUserGrantPermissions,
   isAdmin
 } from '../../../shared/utils/permissionUtils';
@@ -319,7 +326,7 @@ export const EmployeePermissionsTab = () => {
     addToast(`${presetObj.emoji} Applied ${presetObj.title} baseline permissions`, 'info');
   };
 
-  // Toggle single permission key
+  // Toggle single permission key with Bi-Directional Dependency Cascading
   const handleTogglePermission = (key) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
@@ -334,22 +341,82 @@ export const EmployeePermissionsTab = () => {
       const nextVal = !prev[key];
       const updated = { ...prev, [key]: nextVal };
 
-      // Automatic elevation: if turning on a capability, ensure parent module view is enabled
       if (nextVal) {
-        if (key === 'manageEmployees' || key === 'deleteEmployees') updated.employees = true;
-        if (key === 'manageSalaries' || key === 'accessFinance') {
+        // ── 1. FORWARD CASCADE (Auto-Enable Parent Prerequisite) ──
+        // If enabling a child capability, automatically enable its required prerequisite parent!
+        const dep = PERMISSION_DEPENDENCIES[key];
+        if (dep && !prev[dep.parentKey]) {
+          updated[dep.parentKey] = true;
+          // Recursively check if the parent also has a prerequisite
+          let currentParent = dep;
+          while (currentParent && PERMISSION_DEPENDENCIES[currentParent.parentKey]) {
+            const nextParent = PERMISSION_DEPENDENCIES[currentParent.parentKey];
+            updated[nextParent.parentKey] = true;
+            currentParent = nextParent;
+          }
+          const itemObj = GRANULAR_PERMISSIONS_LIST.find(p => p.key === key) || SPREADSHEET_EXPORTS_LIST.find(p => p.key === key);
+          addToast(`✓ Auto-enabled "${dep.parentLabel}" (required for ${itemObj?.label || key})`, 'info');
+        }
+
+        // Automatic elevation: if turning on a capability, ensure parent module view is enabled
+        if (key === 'manageEmployees' || key === 'deleteEmployees' || key === 'viewEmployeeDetails' || key === 'reviewResignations') updated.employees = true;
+        if (key === 'manageSalaries' || key === 'export_payroll' || key === 'accessFinance' || key === 'approveExpenses') {
           updated.payroll = true;
           updated.finance = true;
         }
-        if (key === 'accessCRM' || key === 'viewAllLeads' || key === 'deleteLeads') updated.leads = true;
-        if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut') updated.attendance = true;
-        if (key === 'liveOperations') updated.teamoperations = true;
-        if (key === 'approveLeaves' || key === 'viewAllLeaves') updated.leaves = true;
+        if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads') {
+          updated.accessCRM = true;
+          updated.leads = true;
+        }
+        if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut' || key === 'approveOvertime' || key === 'export_attendance') {
+          updated.attendance = true;
+        }
+        if (key === 'liveOperations' || key === 'forceClockOut') updated.teamoperations = true;
+        if (key === 'approveLeaves' || key === 'viewAllLeaves' || key === 'cancelLeaves') updated.leaves = true;
         if (key === 'manageProjects' || key === 'createProjects' || key === 'deleteProjects' || key === 'viewAllProjects') updated.projects = true;
-        if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks') updated.tasks = true;
+        if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks' || key === 'editAnyTask') updated.tasks = true;
         if (key === 'manageTickets' || key === 'deleteTickets') updated.tickets = true;
+        if (key === 'postNotices' || key === 'deleteNotices') updated.notices = true;
+        if (key === 'giveAppreciation' || key === 'deleteAppreciations') updated.appreciation = true;
         if (key === 'documentation') updated.documents = true;
         if (key === 'reports') updated.viewReports = true;
+      } else {
+        // ── 2. REVERSE CASCADE (Auto-Disable Dependent Child Capabilities) ──
+        // If turning off a parent prerequisite, automatically turn off all dependent child capabilities!
+        const dependentChildren = getDependentChildPermissions(key);
+        let disabledChildCount = 0;
+        const disabledLabels = [];
+        dependentChildren.forEach(childKey => {
+          if (updated[childKey]) {
+            updated[childKey] = false;
+            disabledChildCount++;
+            const item = GRANULAR_PERMISSIONS_LIST.find(p => p.key === childKey) || SPREADSHEET_EXPORTS_LIST.find(p => p.key === childKey);
+            if (item) disabledLabels.push(item.label);
+          }
+        });
+
+        // Synchronize parent module mirrors when parent is disabled
+        if (key === 'accessCRM') {
+          updated.leads = false;
+        }
+        if (key === 'viewAllAttendance') {
+          updated.editAttendance = false;
+          updated.approveOvertime = false;
+          updated.export_attendance = false;
+        }
+        if (key === 'manageEmployees') {
+          updated.viewEmployeeDetails = false;
+          updated.deleteEmployees = false;
+          updated.reviewResignations = false;
+        }
+        if (key === 'manageSalaries') {
+          updated.export_payroll = false;
+        }
+
+        if (disabledChildCount > 0) {
+          const parentItem = GRANULAR_PERMISSIONS_LIST.find(p => p.key === key) || SPREADSHEET_EXPORTS_LIST.find(p => p.key === key) || { label: key };
+          addToast(`ℹ️ Auto-disabled ${disabledChildCount} dependent action(s) [${disabledLabels.slice(0, 2).join(', ')}${disabledLabels.length > 2 ? '...' : ''}] because "${parentItem.label}" was turned off`, 'info');
+        }
       }
 
       if (key === 'allAccess') {
@@ -362,7 +429,7 @@ export const EmployeePermissionsTab = () => {
     setIsSaved(false);
   };
 
-  // Quick action: Grant / Revoke all in a specific category
+  // Quick action: Grant / Revoke all in a specific category with dependency handling
   const handleToggleCategory = (categoryId, grantAll) => {
     if (isSelectedEmpPrimaryAdmin) {
       addToast('🔒 Primary Administrator privileges are permanently active.', 'warning');
@@ -375,7 +442,7 @@ export const EmployeePermissionsTab = () => {
 
     const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === categoryId);
     setPermissions(prev => {
-      const updated = { ...prev };
+      let updated = { ...prev };
       items.forEach(item => {
         updated[item.key] = grantAll;
       });
@@ -384,19 +451,35 @@ export const EmployeePermissionsTab = () => {
         if (categoryId === 'shift_attendance') {
           updated.attendance = true;
           updated.teamoperations = true;
+          updated.viewAllAttendance = true;
+          updated.liveOperations = true;
         } else if (categoryId === 'tasks_projects') {
           updated.tasks = true;
           updated.projects = true;
+          updated.createTasks = true;
+          updated.viewAllTasks = true;
+          updated.manageProjects = true;
         } else if (categoryId === 'workforce_hr') {
           updated.employees = true;
           updated.leaves = true;
+          updated.manageEmployees = true;
+          updated.approveLeaves = true;
+          updated.giveAppreciation = true;
         } else if (categoryId === 'crm_comms') {
+          updated.accessCRM = true;
           updated.leads = true;
           updated.tickets = true;
+          updated.manageTickets = true;
+          updated.postNotices = true;
         } else if (categoryId === 'finance_admin') {
           updated.payroll = true;
           updated.finance = true;
+          updated.accessFinance = true;
+          updated.manageSalaries = true;
         }
+      } else {
+        // Run dependency sanitizer to cascade off any dependent actions
+        updated = sanitizePermissionDependencies(updated);
       }
 
       return updated;
@@ -913,6 +996,10 @@ export const EmployeePermissionsTab = () => {
                   {items.map(item => {
                     const isChecked = Boolean(permissions[item.key] || isDelegatedAdmin);
                     const canToggleSingle = canEdit && !isSelectedEmpPrimaryAdmin && !isDelegatedAdmin;
+                    const dep = PERMISSION_DEPENDENCIES[item.key];
+                    const isPrereqActive = dep ? Boolean(permissions[dep.parentKey] || isDelegatedAdmin) : true;
+                    const childDeps = getDependentChildPermissions(item.key);
+                    const isParentModule = childDeps.length > 0;
 
                     return (
                       <div
@@ -923,7 +1010,9 @@ export const EmployeePermissionsTab = () => {
                         } ${
                           isChecked
                             ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/80 shadow-xs'
-                            : 'bg-slate-50/50 dark:bg-slate-850/60 border-slate-200 dark:border-slate-800'
+                            : !isPrereqActive
+                              ? 'bg-slate-50/40 dark:bg-slate-900/40 border-dashed border-amber-300 dark:border-amber-900/60'
+                              : 'bg-slate-50/50 dark:bg-slate-850/60 border-slate-200 dark:border-slate-800'
                         }`}
                       >
                         <div>
@@ -945,6 +1034,7 @@ export const EmployeePermissionsTab = () => {
                                 e.stopPropagation();
                                 handleTogglePermission(item.key);
                               }}
+                              title={!isPrereqActive ? `Requires ${dep?.parentLabel}. Clicking will auto-enable both.` : item.label}
                               className={`relative inline-flex items-center w-10 h-5.5 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
                                 isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                               } ${!canToggleSingle ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -961,12 +1051,41 @@ export const EmployeePermissionsTab = () => {
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 m-0 leading-relaxed line-clamp-2">
                             {item.desc}
                           </p>
+
+                          {/* ── PREREQUISITE & DEPENDENCY STATUS PILL ── */}
+                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            {dep && !isPrereqActive && (
+                              <div
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-850/70"
+                                title={dep.reason}
+                              >
+                                <Lock size={10} className="shrink-0" />
+                                <span className="truncate">Requires: {dep.parentLabel}</span>
+                              </div>
+                            )}
+                            {dep && isPrereqActive && (
+                              <div className="inline-flex items-center gap-1 text-[9.5px] font-medium text-slate-400 dark:text-slate-500">
+                                <Check size={10} className="text-emerald-500 shrink-0" />
+                                <span className="truncate">Requires: {dep.parentLabel}</span>
+                              </div>
+                            )}
+                            {isParentModule && (
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/40">
+                                👑 Prerequisite Module
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50 text-[10.5px]">
                           <span className="text-slate-400">Access:</span>
-                          <span className={`font-bold ${isChecked ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                          <span className={`font-bold flex items-center gap-1 ${isChecked ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
                             {isChecked ? '● Active' : '○ Locked'}
+                            {!isChecked && !isPrereqActive && (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-normal">
+                                (Auto-enables parent on ON)
+                              </span>
+                            )}
                           </span>
                         </div>
                       </div>
@@ -1009,13 +1128,21 @@ export const EmployeePermissionsTab = () => {
               {SPREADSHEET_EXPORTS_LIST.map(item => {
                 const isEnabled = Boolean(permissions[item.key] || isDelegatedAdmin);
                 const canToggleSingle = canEdit && !isSelectedEmpPrimaryAdmin && !isDelegatedAdmin;
+                const dep = PERMISSION_DEPENDENCIES[item.key];
+                const isPrereqActive = dep ? Boolean(permissions[dep.parentKey] || isDelegatedAdmin) : true;
 
                 return (
                   <div
                     key={item.key}
                     onClick={() => canToggleSingle && handleTogglePermission(item.key)}
-                    className={`p-3 px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex items-center justify-between gap-2.5 min-h-[64px] ${
+                    className={`p-3 px-3.5 rounded-xl border flex items-center justify-between gap-2.5 min-h-[68px] transition-all select-none ${
                       canToggleSingle ? 'cursor-pointer hover:bg-slate-100/50 dark:hover:bg-slate-800' : 'cursor-default'
+                    } ${
+                      isEnabled
+                        ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800/80 shadow-xs'
+                        : !isPrereqActive
+                          ? 'bg-slate-50/40 dark:bg-slate-900/40 border-dashed border-amber-300 dark:border-amber-900/60'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
@@ -1026,6 +1153,18 @@ export const EmployeePermissionsTab = () => {
                       <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                         {item.desc}
                       </div>
+                      {dep && !isPrereqActive && (
+                        <div className="mt-1.5 inline-flex items-center gap-1 text-[9.5px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-850/70">
+                          <Lock size={9} className="shrink-0" />
+                          <span>Requires: {dep.parentLabel}</span>
+                        </div>
+                      )}
+                      {dep && isPrereqActive && (
+                        <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-medium text-slate-400 dark:text-slate-500">
+                          <Check size={9} className="text-emerald-500 shrink-0" />
+                          <span>Prerequisite met</span>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -1037,6 +1176,7 @@ export const EmployeePermissionsTab = () => {
                         e.stopPropagation();
                         handleTogglePermission(item.key);
                       }}
+                      title={!isPrereqActive ? `Requires ${dep?.parentLabel}. Clicking will auto-enable both.` : item.label}
                       className={`relative inline-flex items-center w-9 h-5 rounded-full transition-colors duration-200 ease-in-out border-2 border-transparent focus:outline-none cursor-pointer shrink-0 ${
                         isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
                       } ${!canToggleSingle ? 'opacity-50 cursor-not-allowed' : ''}`}

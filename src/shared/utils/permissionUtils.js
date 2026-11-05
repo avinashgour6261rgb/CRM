@@ -426,6 +426,7 @@ export const canDeleteTask = (user, task = null) => {
   }
   // 2. Strict permission check: user must explicitly have deleteTasks or allAccess granted
   const perms = getUserModulePermissions(user);
+  if (!perms?.createTasks && !perms?.tasks && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess === true || perms?.deleteTasks === true || perms?.canDeleteTasks === true);
 };
 
@@ -437,6 +438,7 @@ export const canDeleteProject = (user, project = null) => {
   }
   // 2. Strict permission check: user must explicitly have deleteProjects or allAccess granted
   const perms = getUserModulePermissions(user);
+  if (!perms?.manageProjects && !perms?.projects && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess === true || perms?.deleteProjects === true || perms?.canDeleteProjects === true);
 };
 
@@ -444,6 +446,7 @@ export const canDeleteEmployee = (user) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
   return !!(perms?.allAccess || perms?.deleteEmployees);
 };
 
@@ -451,6 +454,7 @@ export const canDeleteLead = (user, lead = null) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
   if (perms?.allAccess || perms?.deleteLeads || perms?.manageLeads) return true;
   if (lead) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
@@ -467,6 +471,7 @@ export const canDeleteNotice = (user, notice = null) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || isHR(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.postNotices && !perms?.notices && !perms?.allAccess) return false;
   if (perms?.allAccess || perms?.deleteNotices) return true;
   if (notice) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
@@ -483,6 +488,7 @@ export const canEditAnyTask = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.viewAllTasks && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.editAnyTask);
 };
 
@@ -497,6 +503,7 @@ export const canViewEmployeeDetails = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.viewEmployeeDetails || perms?.manageEmployees);
 };
 
@@ -504,6 +511,7 @@ export const canApproveOvertime = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.viewAllAttendance && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.approveOvertime || perms?.editAttendance);
 };
 
@@ -517,6 +525,7 @@ export const canReviewResignations = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.reviewResignations || perms?.manageEmployees);
 };
 
@@ -524,14 +533,25 @@ export const canCreateLeads = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.createLeads || perms?.accessCRM);
+  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
+  return Boolean(perms?.allAccess || perms?.createLeads);
 };
 
-export const canEditLeads = (user) => {
+export const canEditLeads = (user, lead = null) => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.editLeads || perms?.accessCRM);
+  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
+  if (perms?.allAccess || perms?.editLeads) return true;
+  if (lead) {
+    const uId = String(user._id || user.id || '').toLowerCase().trim();
+    const uCode = String(user.employeeCode || '').toLowerCase().trim();
+    const uEmail = String(user.email || '').toLowerCase().trim();
+    if (lead.leadOwnerId && (String(lead.leadOwnerId).toLowerCase() === uId || String(lead.leadOwnerId).toLowerCase() === uCode)) return true;
+    if (lead.createdById && (String(lead.createdById).toLowerCase() === uId || String(lead.createdById).toLowerCase() === uCode)) return true;
+    if (lead.createdByEmail && String(lead.createdByEmail).toLowerCase() === uEmail) return true;
+  }
+  return false;
 };
 
 export const canManageEvents = (user) => {
@@ -545,6 +565,7 @@ export const canApproveExpenses = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.accessFinance && !perms?.finance && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.approveExpenses || perms?.accessFinance);
 };
 
@@ -559,6 +580,7 @@ export const canDeleteTicket = (user, ticket = null) => {
   if (!user) return false;
   if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.manageTickets && !perms?.tickets && !perms?.allAccess) return false;
   if (perms?.allAccess || perms?.deleteTickets || perms?.manageTickets) return true;
   if (ticket) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
@@ -1015,6 +1037,264 @@ export const GRANULAR_PERMISSIONS_LIST = [
 ];
 
 /**
+ * Canonical Permission Prerequisite & Dependency Hierarchy
+ * Defines required parent permissions for granular actions.
+ * A child capability CANNOT be active or executed without its parent prerequisite.
+ */
+export const PERMISSION_DEPENDENCIES = {
+  // CRM & Leads (Parent: accessCRM)
+  createLeads: {
+    parentKey: 'accessCRM',
+    parentLabel: 'Access CRM & Leads',
+    reason: 'Cannot create leads without CRM & Leads pipeline access'
+  },
+  editLeads: {
+    parentKey: 'accessCRM',
+    parentLabel: 'Access CRM & Leads',
+    reason: 'Cannot edit leads without CRM & Leads pipeline access'
+  },
+  deleteLeads: {
+    parentKey: 'accessCRM',
+    parentLabel: 'Access CRM & Leads',
+    reason: 'Cannot delete leads without CRM & Leads pipeline access'
+  },
+  export_leads: {
+    parentKey: 'accessCRM',
+    parentLabel: 'Access CRM & Leads',
+    reason: 'Cannot export leads without CRM & Leads pipeline access'
+  },
+  createChannels: {
+    parentKey: 'accessCRM',
+    parentLabel: 'Access CRM & Leads',
+    reason: 'Cannot create group channels without CRM communication access'
+  },
+
+  // Tasks & Projects
+  deleteTasks: {
+    parentKey: 'createTasks',
+    parentLabel: 'Create & Assign Tasks',
+    reason: 'Cannot delete tasks without task creation & management authority'
+  },
+  editAnyTask: {
+    parentKey: 'viewAllTasks',
+    parentLabel: 'View All Tasks',
+    reason: 'Cannot edit and reassign tasks without view all tasks authority'
+  },
+  deleteProjects: {
+    parentKey: 'manageProjects',
+    parentLabel: 'Create & Manage Projects',
+    reason: 'Cannot delete projects without project management authority'
+  },
+
+  // Workforce & Leaves
+  viewEmployeeDetails: {
+    parentKey: 'manageEmployees',
+    parentLabel: 'Manage Employees',
+    reason: 'Viewing sensitive employee documents requires employee directory management authority'
+  },
+  deleteEmployees: {
+    parentKey: 'manageEmployees',
+    parentLabel: 'Manage Employees',
+    reason: 'Cannot delete employee accounts without employee directory management authority'
+  },
+  reviewResignations: {
+    parentKey: 'manageEmployees',
+    parentLabel: 'Manage Employees',
+    reason: 'Reviewing employee resignations requires employee directory authority'
+  },
+  cancelLeaves: {
+    parentKey: 'approveLeaves',
+    parentLabel: 'Approve & Reject Leaves',
+    reason: 'Cannot revoke leaves without leave approval authority'
+  },
+  deleteAppreciations: {
+    parentKey: 'giveAppreciation',
+    parentLabel: 'Award Appreciations',
+    reason: 'Cannot delete appreciation awards without award authority'
+  },
+
+  // Shift & Attendance
+  editAttendance: {
+    parentKey: 'viewAllAttendance',
+    parentLabel: 'View Team Attendance',
+    reason: 'Cannot edit punch records without team attendance viewing authority'
+  },
+  approveOvertime: {
+    parentKey: 'viewAllAttendance',
+    parentLabel: 'View Team Attendance',
+    reason: 'Cannot approve overtime claims without team attendance viewing authority'
+  },
+  export_attendance: {
+    parentKey: 'viewAllAttendance',
+    parentLabel: 'View Team Attendance',
+    reason: 'Cannot export attendance records without team attendance viewing authority'
+  },
+  forceClockOut: {
+    parentKey: 'liveOperations',
+    parentLabel: 'Shift Monitor & Live Ops',
+    reason: 'Force clock-out requires live operations and shift monitor access'
+  },
+
+  // Finance & Payroll
+  approveExpenses: {
+    parentKey: 'accessFinance',
+    parentLabel: 'Access Finance & Expenses',
+    reason: 'Cannot approve expense claims without finance module access'
+  },
+  export_payroll: {
+    parentKey: 'manageSalaries',
+    parentLabel: 'Manage Payroll & Salaries',
+    reason: 'Cannot export payroll registers without payroll management access'
+  },
+
+  // Notices & Tickets
+  deleteNotices: {
+    parentKey: 'postNotices',
+    parentLabel: 'Post Company Notices',
+    reason: 'Cannot delete notice board posts without notice posting authority'
+  },
+  deleteTickets: {
+    parentKey: 'manageTickets',
+    parentLabel: 'Manage Support Tickets',
+    reason: 'Cannot delete tickets without ticket management authority'
+  }
+};
+
+/**
+ * Get direct prerequisite for a permission key (if any)
+ */
+export const getPermissionPrerequisite = (key) => {
+  return PERMISSION_DEPENDENCIES[key] || null;
+};
+
+/**
+ * Get all child permissions that directly or indirectly depend on a given parent key
+ */
+export const getDependentChildPermissions = (parentKey) => {
+  const children = [];
+  for (const [childKey, dep] of Object.entries(PERMISSION_DEPENDENCIES)) {
+    if (dep.parentKey === parentKey) {
+      children.push(childKey);
+      // Recursively gather nested children if any
+      children.push(...getDependentChildPermissions(childKey));
+    }
+  }
+  return [...new Set(children)];
+};
+
+/**
+ * Enforce and sanitize permission dependency integrity
+ * Ensures no child capability is active if its prerequisite parent is inactive.
+ */
+export const sanitizePermissionDependencies = (permissions = {}) => {
+  if (!permissions) return {};
+  if (permissions.allAccess || permissions.isDelegatedAdmin) return { ...permissions };
+
+  const sanitized = { ...permissions };
+  let changed = true;
+
+  // Multi-pass resolution in case of nested dependencies
+  while (changed) {
+    changed = false;
+    for (const [childKey, dep] of Object.entries(PERMISSION_DEPENDENCIES)) {
+      if (sanitized[childKey] && !sanitized[dep.parentKey]) {
+        sanitized[childKey] = false;
+        changed = true;
+      }
+    }
+  }
+
+  // Synchronize parent module mirrors
+  if (sanitized.accessCRM) {
+    sanitized.leads = true;
+  } else {
+    sanitized.leads = false;
+    sanitized.createLeads = false;
+    sanitized.editLeads = false;
+    sanitized.deleteLeads = false;
+    sanitized.export_leads = false;
+  }
+
+  if (sanitized.viewAllAttendance) {
+    sanitized.attendance = true;
+  } else {
+    sanitized.editAttendance = false;
+    sanitized.approveOvertime = false;
+    sanitized.export_attendance = false;
+  }
+
+  if (sanitized.liveOperations) {
+    sanitized.teamoperations = true;
+  } else {
+    sanitized.forceClockOut = false;
+  }
+
+  if (sanitized.manageEmployees) {
+    sanitized.employees = true;
+  } else {
+    sanitized.viewEmployeeDetails = false;
+    sanitized.deleteEmployees = false;
+    sanitized.reviewResignations = false;
+  }
+
+  if (sanitized.approveLeaves) {
+    sanitized.leaves = true;
+  } else {
+    sanitized.cancelLeaves = false;
+  }
+
+  if (sanitized.manageSalaries) {
+    sanitized.payroll = true;
+  } else {
+    sanitized.export_payroll = false;
+  }
+
+  if (sanitized.accessFinance) {
+    sanitized.finance = true;
+  } else {
+    sanitized.approveExpenses = false;
+  }
+
+  if (sanitized.manageProjects) {
+    sanitized.projects = true;
+  } else {
+    sanitized.deleteProjects = false;
+  }
+
+  if (sanitized.createTasks) {
+    sanitized.tasks = true;
+  } else {
+    sanitized.deleteTasks = false;
+  }
+
+  if (sanitized.viewAllTasks) {
+    sanitized.tasks = true;
+  } else {
+    sanitized.editAnyTask = false;
+  }
+
+  if (sanitized.postNotices) {
+    sanitized.notices = true;
+  } else {
+    sanitized.deleteNotices = false;
+  }
+
+  if (sanitized.manageTickets) {
+    sanitized.tickets = true;
+  } else {
+    sanitized.deleteTickets = false;
+  }
+
+  if (sanitized.giveAppreciation) {
+    sanitized.appreciation = true;
+  } else {
+    sanitized.deleteAppreciations = false;
+  }
+
+  return sanitized;
+};
+
+/**
  * Check if an employee's temporary delegation is currently active (or expired)
  */
 export const isDelegationActive = (user) => {
@@ -1132,7 +1412,7 @@ export const getUserModulePermissions = (user) => {
     delete basePerms.isDelegatedAdmin;
   }
 
-  return basePerms;
+  return sanitizePermissionDependencies(basePerms);
 };
 
 /**
@@ -1160,6 +1440,12 @@ export const canExportData = (user, module = 'general') => {
   if (r === ROLES.HR) return true;
   const perms = getUserModulePermissions(user);
   const modKey = String(module).toLowerCase();
+
+  // Enforce parent prerequisite gates for export
+  if ((modKey === 'leads' || modKey === 'lead') && !perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
+  if ((modKey === 'payroll' || modKey === 'salary') && !perms?.manageSalaries && !perms?.payroll && !perms?.allAccess) return false;
+  if ((modKey === 'attendance' || modKey === 'punch') && !perms?.viewAllAttendance && !perms?.allAccess) return false;
+
   return !!(perms[`export_${modKey}`] || perms.exportData || perms.canExport || perms.allAccess);
 };
 
@@ -1212,6 +1498,7 @@ export const canCreateChannels = (user) => {
   const role = getUserRole(user);
   if (role === ROLES.TEAM_LEADER) return true;
   const perms = getUserModulePermissions(user);
+  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
   return Boolean(perms?.allAccess || perms?.createChannels || perms?.manageGroups || perms?.manageChannels);
 };
 
@@ -1316,7 +1603,7 @@ export const canAccessModule = (user, moduleId) => {
   if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) {
     return true;
   }
-  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.deleteLeads || perms?.export_leads)) {
+  if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.createLeads || perms?.editLeads || perms?.deleteLeads || perms?.export_leads)) {
     return true;
   }
   if (permKey === 'projects' && (perms?.projects || perms?.manageProjects || perms?.createProjects || perms?.viewAllProjects || perms?.deleteProjects)) {
@@ -1344,7 +1631,7 @@ export const canAccessModule = (user, moduleId) => {
     if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) return true;
     if (permKey === 'payroll' && (perms?.payroll || perms?.manageSalaries || perms?.export_payroll)) return true;
     if (permKey === 'finance' && (perms?.finance || perms?.accessFinance || perms?.manageExpenses)) return true;
-    if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.deleteLeads)) return true;
+    if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.createLeads || perms?.editLeads || perms?.deleteLeads)) return true;
     if (permKey === 'documentation' && (perms?.documentation || perms?.documents)) return true;
     if (permKey === 'reports' && (perms?.reports || perms?.viewReports)) return true;
     if (permKey === 'settings' && (perms?.settings || perms?.grantPermissions)) return true;

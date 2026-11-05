@@ -26,7 +26,7 @@ import { useCRM } from '../../../../shared/context/CRMContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
-import { canDeleteLead } from '../../../../shared/utils/permissionUtils';
+import { canDeleteLead, canEditLeads } from '../../../../shared/utils/permissionUtils';
 import { Pagination } from '../../../../shared/components/common/Pagination';
 
 export const LeadsTable = ({
@@ -316,18 +316,24 @@ export const LeadsTable = ({
 
                     {/* Status with Quick Toggle Dropdown */}
                     <td className="py-[7px] px-2.5 whitespace-nowrap">
-                      <select
-                        value={lead.status}
-                        onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
-                        className={`text-[10.5px] font-bold py-0.5 px-1.5 rounded cursor-pointer outline-none border ${statusBadge.className}`}
-                      >
-                        <option value="new">New Inquiry</option>
-                        <option value="active">Active</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="negotiation">In Negotiation</option>
-                        <option value="converted">Converted (Won)</option>
-                        <option value="lost">Lost</option>
-                      </select>
+                      {canEditLeads(currentUser, lead) ? (
+                        <select
+                          value={lead.status}
+                          onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                          className={`text-[10.5px] font-bold py-0.5 px-1.5 rounded cursor-pointer outline-none border ${statusBadge.className}`}
+                        >
+                          <option value="new">New Inquiry</option>
+                          <option value="active">Active</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="negotiation">In Negotiation</option>
+                          <option value="converted">Converted (Won)</option>
+                          <option value="lost">Lost</option>
+                        </select>
+                      ) : (
+                        <span className={`text-[10.5px] font-bold py-0.5 px-1.5 rounded inline-block border ${statusBadge.className}`}>
+                          {statusBadge.label}
+                        </span>
+                      )}
                     </td>
 
                     {/* Priority */}
@@ -373,28 +379,32 @@ export const LeadsTable = ({
                             <span>View Details</span>
                           </button>
 
-                          <button
-                            onClick={() => {
-                              setActiveMenuId(null);
-                              onEditLead(lead);
-                            }}
-                            className={actionItemClass}
-                          >
-                            <Edit2 size={14} className="text-sky-600" />
-                            <span>Edit Lead</span>
-                          </button>
+                          {canEditLeads(currentUser, lead) && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  onEditLead(lead);
+                                }}
+                                className={actionItemClass}
+                              >
+                                <Edit2 size={14} className="text-sky-600" />
+                                <span>Edit Lead</span>
+                              </button>
 
-                          {lead.status !== 'converted' && (
-                            <button
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                updateLeadStatus(lead._id, 'converted');
-                              }}
-                              className={`${actionItemClass} text-green-600 dark:text-green-400`}
-                            >
-                              <CheckCircle2 size={14} className="text-green-600" />
-                              <span>Convert to Won</span>
-                            </button>
+                              {lead.status !== 'converted' && (
+                                <button
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    updateLeadStatus(lead._id, 'converted');
+                                  }}
+                                  className={`${actionItemClass} text-green-600 dark:text-green-400`}
+                                >
+                                  <CheckCircle2 size={14} className="text-green-600" />
+                                  <span>Convert to Won</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {canDeleteLead(currentUser, lead) && (
