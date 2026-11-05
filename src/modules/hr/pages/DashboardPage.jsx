@@ -505,7 +505,15 @@ export const DashboardPage = () => {
     const storedLogin = readTimerKey('login_time');
     const storedClockOut = readTimerKey('clock_out') || readTimerKey('clockout_time');
     const storedWorkSecs = Number(readTimerKey('work_seconds')) || 0;
-    const storedBreakSecs = Number(readTimerKey('break_seconds')) || 0;
+    let storedBreakSecs = Number(readTimerKey('break_seconds')) || 0;
+    if (storedOnBreak) {
+      const brkStart = Number(readTimerKey('break_start_timestamp'));
+      if (brkStart && brkStart > 0) {
+        const liveCurBreak = Math.max(0, Math.floor((Date.now() - brkStart) / 1000));
+        const curBreakSecs = Number(readTimerKey('current_break_seconds')) || 0;
+        storedBreakSecs = Math.max(storedBreakSecs, Math.max(liveCurBreak, curBreakSecs));
+      }
+    }
     const storedBreakHistoryRaw = readTimerKey('break_history');
     let storedBreakHistory = [];
     try {
@@ -534,12 +542,20 @@ export const DashboardPage = () => {
         writeTimerStorage(emp, 'is_running', 'false');
         writeTimerStorage(emp, 'is_on_break', 'false');
         writeTimerStorage(emp, 'work_seconds', '0');
+        writeTimerStorage(emp, 'break_seconds', '0');
+        writeTimerStorage(emp, 'current_break_seconds', '0');
+        writeTimerStorage(emp, 'had_clocked_out', 'false');
         writeTimerStorage(emp, 'work_session_date', todayStr);
         removeTimerStorage(emp, 'clock_in_timestamp');
         removeTimerStorage(emp, 'login_time');
         removeTimerStorage(emp, 'clock_out');
         removeTimerStorage(emp, 'clockout_time');
         removeTimerStorage(emp, 'current_session_start_timestamp');
+        removeTimerStorage(emp, 'break_start_time');
+        removeTimerStorage(emp, 'break_start_timestamp');
+        removeTimerStorage(emp, 'punch_sessions');
+        removeTimerStorage(emp, 'break_history');
+        removeTimerStorage(emp, 'session_break_baseline');
 
         const rawAtt = localStorage.getItem('hrms_attendance');
         if (rawAtt) {
@@ -1089,7 +1105,7 @@ export const DashboardPage = () => {
         });
       }
 
-      // 2. Breaks history
+      // 2. Breaks history (Strictly filtered to this date to prevent cross-day leakage)
       let storedBreaks = [];
       try {
         const rawB = readTimerStorage(emp, 'break_history');
@@ -1098,6 +1114,7 @@ export const DashboardPage = () => {
       if ((!storedBreaks || storedBreaks.length === 0) && Array.isArray(attRec?.breakHistory)) {
         storedBreaks = attRec.breakHistory;
       }
+      storedBreaks = (storedBreaks || []).filter(b => b && (b.date === customDate || (!b.date && isToday)));
 
       breakHistory = (storedBreaks || []).map((b, idx) => ({
         id: b.id || `brk_${idx}`,
@@ -1718,7 +1735,8 @@ export const DashboardPage = () => {
   // Stable logged total duration today strictly scoped to current viewed user (timesheets logged today + active task timer seconds)
   const todayTimesheets = React.useMemo(() => {
     const rawList = (timesheets || []).filter(ts => {
-      const isToday = ts.date === todayStr || ts.createdAt?.startsWith(todayStr);
+      const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
+      const isToday = tsDate === todayStr;
       const tsEmpId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee).toLowerCase() : '');
       const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
       const myId = effectiveTargetUser?._id ? String(effectiveTargetUser._id).toLowerCase() : '';
@@ -1861,9 +1879,10 @@ export const DashboardPage = () => {
         };
       }
 
-      // Timesheets for effective user on this day
+      // Timesheets for effective user on this day (Strict date authority: never count past dates)
       const dayTs = (timesheets || []).filter(ts => {
-        if (ts.date !== dateStr && !ts.createdAt?.startsWith(dateStr)) return false;
+        const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
+        if (tsDate !== dateStr) return false;
         if (!effectiveWeekUser) return true;
         const tsId = ts.employeeId ? String(ts.employeeId).toLowerCase() : (ts.employee ? String(ts.employee._id || ts.employee).toLowerCase() : '');
         const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
@@ -1883,18 +1902,7 @@ export const DashboardPage = () => {
         const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
         const alreadyInTs = dayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode));
         if (isCompletedOnDate && !alreadyInTs) {
-          let tSecs = 0;
-          if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
-            tSecs = Number(t.dailySessions[dateStr]) || 0;
-          } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
-            tSecs = Number(t.todayWorkSeconds) || 0;
-          } else {
-            const otherDaysLogged = (timesheets || [])
-              .filter(ts => (String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== dateStr)
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-            const rawSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
-            tSecs = Math.max(0, rawSecs - otherDaysLogged);
-          }
+          const tSecs = getTaskTodaySeconds(t, dateStr, Date.now(), isCurrentDay && displayedIsClockedIn, isCurrentDay && displayedIsOnBreak);
           if (tSecs > 0) dayTotalSecs += tSecs;
         }
       });

@@ -294,6 +294,8 @@ export const TimerProvider = ({ children }) => {
         localStorage.removeItem(`ems_timer_${mk}_current_session_start_timestamp`);
         localStorage.removeItem(`ems_timer_${mk}_break_start_time`);
         localStorage.removeItem(`ems_timer_${mk}_break_start_timestamp`);
+        localStorage.removeItem(`ems_timer_${mk}_break_history`);
+        localStorage.removeItem(`ems_timer_${mk}_session_break_baseline`);
         localStorage.setItem(`ems_timer_${mk}_work_seconds`, '0');
         localStorage.setItem(`ems_timer_${mk}_break_seconds`, '0');
         localStorage.setItem(`ems_timer_${mk}_current_break_seconds`, '0');
@@ -457,13 +459,17 @@ export const TimerProvider = ({ children }) => {
 
   const [breakReminderSent, setBreakReminderSent] = useState(false);
 
-  // Persistent Break History List
+  // Persistent Break History List (Strictly scoped to today)
   const [breakHistory, setBreakHistory] = useState(() => {
+    if (!isTodaySession) return [];
     const saved = localStorage.getItem(`ems_timer_${userKey}_break_history`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          const today = getTodayStr();
+          return parsed.filter(b => b.date === today);
+        }
       } catch (e) {}
     }
     return [];
@@ -1176,6 +1182,8 @@ export const TimerProvider = ({ children }) => {
           localStorage.removeItem(`ems_timer_${uk}_break_start_time`);
           localStorage.removeItem(`ems_timer_${uk}_break_start_timestamp`);
           localStorage.removeItem(`ems_timer_${uk}_punch_sessions`);
+          localStorage.removeItem(`ems_timer_${uk}_break_history`);
+          localStorage.removeItem(`ems_timer_${uk}_session_break_baseline`);
           localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'false');
           localStorage.setItem(`ems_timer_${uk}_is_running`, 'false');
           localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
@@ -1190,6 +1198,9 @@ export const TimerProvider = ({ children }) => {
         setIsOnBreak(false);
         setHadClockedOutToday(false);
         setWorkSeconds(0);
+        setBreakSeconds(0);
+        setCurrentBreakSeconds(0);
+        setBreakHistory([]);
         setLoginTime(null);
         setClockOutTime(null);
         return;
@@ -1507,7 +1518,8 @@ export const TimerProvider = ({ children }) => {
       notes: `Resumed work at ${endTimeStr}`
     };
 
-    const updatedHistory = [newRecord, ...breakHistory];
+    const today = getTodayStr();
+    const updatedHistory = [newRecord, ...breakHistory.filter(b => b.date === today)];
     setBreakHistory(updatedHistory);
 
     setIsOnBreak(false);
@@ -1517,7 +1529,8 @@ export const TimerProvider = ({ children }) => {
     setBreakReminderSent(false);
 
     const mirrorKeys = getTimerMirrorKeys(currentUser);
-    const totalBreaksAfterResume = (Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || breakSeconds) + duration;
+    // Mathematically exact sum of all completed breaks strictly for today (prevents double-counting duration)
+    const totalBreaksAfterResume = updatedHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
 
     for (const uk of mirrorKeys) {
       localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
@@ -2241,6 +2254,16 @@ export const TimerProvider = ({ children }) => {
     return `${hrs}h ${mins}m`;
   };
 
+  const formatBreakDuration = (totalSecs) => {
+    const safe = Math.max(0, Math.floor(Number(totalSecs) || 0));
+    const hrs = Math.floor(safe / 3600);
+    const mins = Math.floor((safe % 3600) / 60);
+    const secs = safe % 60;
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    if (mins > 0) return `${mins}m ${secs}s`;
+    return `${secs}s`;
+  };
+
   const formatMinutesSeconds = (totalSecs) => {
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
@@ -2293,7 +2316,7 @@ export const TimerProvider = ({ children }) => {
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),
       workDurationText: (!isClockedIn && !hadClockedOutToday) ? '00h 00m' : formatHoursMinutes(workSeconds),
-      breakDurationText: formatHoursMinutes(breakSeconds),
+      breakDurationText: formatBreakDuration(breakSeconds),
       grossDurationText: formatHoursMinutes(grossSeconds),
       togglePauseResume,
       startBreak,

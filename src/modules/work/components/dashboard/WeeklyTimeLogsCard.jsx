@@ -122,27 +122,17 @@ export const WeeklyTimeLogsCard = ({
             let dayBreakSecs = 0;
             if (isCurrentDay) {
                 const storedBreak = Number(readTimerStorage(effectiveUser, 'break_seconds')) || 0;
-                const isOnBreakNow = readTimerStorage(effectiveUser, 'is_on_break') === 'true' || readTimerStorage(effectiveUser, 'is_on_break') === true;
-                let activeBreakSecs = 0;
-                if (isOnBreakNow) {
-                    const brkStart = Number(readTimerStorage(effectiveUser, 'break_start_timestamp'));
-                    if (brkStart && brkStart > 0) {
-                        activeBreakSecs = Math.max(0, Math.floor((Date.now() - brkStart) / 1000));
-                    } else {
-                        activeBreakSecs = Number(readTimerStorage(effectiveUser, 'current_break_seconds')) || 0;
-                    }
-                }
-                const attBreak = Number(attRec?.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
-                dayBreakSecs = Math.max(storedBreak, attBreak) + (storedBreak >= activeBreakSecs ? 0 : activeBreakSecs);
+                const attBreak = Number(attRec?.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.filter(b => b.date === dateStr).reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
+                dayBreakSecs = Math.max(storedBreak, attBreak);
             } else if (attRec) {
-                dayBreakSecs = Number(attRec.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
+                dayBreakSecs = Number(attRec.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.filter(b => b.date === dateStr).reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
             }
 
             const bHrs = Math.floor(dayBreakSecs / 3600);
             const bMins = Math.floor((dayBreakSecs % 3600) / 60);
             const bSecs = dayBreakSecs % 60;
             const breakDuration = dayBreakSecs > 0
-                ? (bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m` : `${bSecs}s`))
+                ? (bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m ${bSecs}s` : `${bSecs}s`))
                 : '0s';
 
             // Sunday is always Day Off
@@ -164,9 +154,10 @@ export const WeeklyTimeLogsCard = ({
                 };
             }
 
-      // 1. Strictly filter timesheets recorded on this exact calendar date
+      // 1. Strictly filter timesheets recorded on this exact calendar date (prevent previous day leakage)
       const rawDayTs = (timesheets || []).filter(ts => {
-        if (ts.date !== dateStr && !ts.createdAt?.startsWith(dateStr)) return false;
+        const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
+        if (tsDate !== dateStr) return false;
         return isMyTimesheet(ts);
       });
 

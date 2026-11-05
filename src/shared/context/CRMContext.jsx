@@ -828,9 +828,10 @@ export const CRMProvider = ({ children }) => {
         };
       }
 
-      // Find matching timesheet logs for this date strictly scoped to authenticated user
+      // Find matching timesheet logs for this date strictly scoped to authenticated user (Strict date authority)
       const rawMatchingTimesheets = timesheets.filter(t => {
-        if (t.date !== dateStr && !t.createdAt?.startsWith(dateStr)) return false;
+        const tsDate = t.date || (t.createdAt ? t.createdAt.split('T')[0] : '');
+        if (tsDate !== dateStr) return false;
         if (!currentUser) return true;
         const cId = currentUser._id ? String(currentUser._id).toLowerCase() : null;
         const cCode = currentUser.employeeCode ? String(currentUser.employeeCode).toLowerCase() : null;
@@ -887,7 +888,8 @@ export const CRMProvider = ({ children }) => {
       let todayBreakHistory = [];
       try {
         const rawBh = readTimerStorage(currentUser, 'break_history') || localStorage.getItem(`ems_timer_${userKey}_break_history`);
-        todayBreakHistory = typeof rawBh === 'string' ? JSON.parse(rawBh) : (rawBh || []);
+        const parsed = typeof rawBh === 'string' ? JSON.parse(rawBh) : (rawBh || []);
+        todayBreakHistory = (Array.isArray(parsed) ? parsed : []).filter(b => b.date === dateStr);
       } catch (e) {}
 
       // Helper to check if task belongs to user

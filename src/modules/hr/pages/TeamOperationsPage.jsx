@@ -267,6 +267,11 @@ export const TeamOperationsPage = () => {
           localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
           localStorage.setItem(`ems_timer_${k}_work_seconds`, '0');
           localStorage.setItem(`ems_timer_${k}_break_seconds`, '0');
+          localStorage.setItem(`ems_timer_${k}_current_break_seconds`, '0');
+          localStorage.removeItem(`ems_timer_${k}_break_start_time`);
+          localStorage.removeItem(`ems_timer_${k}_break_start_timestamp`);
+          localStorage.removeItem(`ems_timer_${k}_break_history`);
+          localStorage.removeItem(`ems_timer_${k}_session_break_baseline`);
           localStorage.removeItem(`ems_timer_${k}_login_time`);
           localStorage.removeItem(`ems_timer_${k}_clock_out`);
           localStorage.removeItem(`ems_timer_${k}_clockout_time`);
