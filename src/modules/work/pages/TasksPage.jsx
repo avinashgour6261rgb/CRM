@@ -23,7 +23,7 @@ import {
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canCreateTasks, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesAssignee, matchesProject, matchesSearch } from '../../../shared/utils/filterUtils';
 import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
@@ -47,6 +47,8 @@ export const TasksPage = () => {
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllTasks = isPrivileged || perms?.viewAllTasks;
+  const canCreate = React.useMemo(() => canCreateTasks(currentUser), [currentUser]);
+  const canExport = React.useMemo(() => canExportData(currentUser, 'tasks'), [currentUser]);
 
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -285,23 +287,27 @@ export const TasksPage = () => {
             <span>Assignment History</span>
           </button>
 
-          <button
-            onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
-            title="Export tasks to CSV"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+              title="Export tasks to CSV"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-sky-600 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_2px_rgba(2,132,199,0.2)] hover:bg-sky-700 transition-colors"
-            title="Create a new task"
-          >
-            <Plus size={13} />
-            <span>Add Task</span>
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.25 px-3 h-[32px] rounded-md bg-sky-600 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_2px_rgba(2,132,199,0.2)] hover:bg-sky-700 transition-colors"
+              title="Create a new task"
+            >
+              <Plus size={13} />
+              <span>Add Task</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -399,14 +405,16 @@ export const TasksPage = () => {
       <div className="flex items-center justify-between flex-wrap gap-2 w-full">
         <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
           {/* Add Task Button */}
-          <button
-            id="btn-add-task"
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1.25 bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[32px]"
-          >
-            <Plus size={14} />
-            Assign New Task
-          </button>
+          {canCreate && (
+            <button
+              id="btn-add-task"
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-1.25 bg-sky-600 hover:bg-sky-700 text-white border-0 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer shadow-[0_1px_3px_rgba(2,132,199,0.3)] transition-all h-[32px]"
+            >
+              <Plus size={14} />
+              Assign New Task
+            </button>
+          )}
 
           {/* Scope Filter Pills (All / Assigned To Me / Assigned By Me) */}
           <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md border border-slate-200 dark:border-slate-700 gap-0.5 h-[32px] items-center overflow-x-auto max-w-full">

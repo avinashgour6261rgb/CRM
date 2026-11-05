@@ -20,7 +20,7 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
-import { isHRorAdmin, isAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, isAdmin, canApproveExpenses } from '../../../shared/utils/permissionUtils';
 
 export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   const { updateExpenseStatus, deleteExpense } = useCRM();
@@ -31,7 +31,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
 
   const isClaimant = (expense.employeeId && currentUser?._id && expense.employeeId === currentUser._id) ||
     (expense.employeeName && currentUser?.name && expense.employeeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
-  const canApprove = !isClaimant && isHRorAdmin(currentUser);
+  const canApprove = !isClaimant && (canApproveExpenses(currentUser) || isHRorAdmin(currentUser));
   const canDelete = isAdmin(currentUser) || (isClaimant && expense.status === 'pending');
 
   const handleStatusChange = (status) => {

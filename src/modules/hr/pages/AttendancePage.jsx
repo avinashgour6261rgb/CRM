@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { getUserModulePermissions, isHRorAdmin, getUserRole, ROLES } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, getUserRole, ROLES, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter } from '../../../shared/utils/filterUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
@@ -63,6 +63,7 @@ export const AttendancePage = () => {
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   // Can view team attendance if privileged, or explicitly granted viewAllAttendance / allAccess
   const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance === true || perms?.allAccess === true;
+  const canExport = React.useMemo(() => canExportData(currentUser, 'attendance'), [currentUser]);
   const hasForceClockOut = isPrivileged || perms?.forceClockOut === true || perms?.allAccess === true;
   const hasEditAttendance = isPrivileged || perms?.editAttendance === true || perms?.allAccess === true;
   const hasViewAuditTrail = isPrivileged || perms?.viewAuditTrail === true || perms?.allAccess === true;
@@ -391,14 +392,16 @@ export const AttendancePage = () => {
             </button>
           )}
 
-          <button
-            onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            title="Export attendance records to CSV"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              title="Export attendance records to CSV"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
 
           {hasEditAttendance && (
             <button
@@ -615,14 +618,16 @@ export const AttendancePage = () => {
             )}
 
             {/* Export Button */}
-            <button
-              onClick={handleExportCSV}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
-              title="Export filtered records to CSV"
-            >
-              <Download size={13} />
-              <span>Export</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={handleExportCSV}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
+                title="Export filtered records to CSV"
+              >
+                <Download size={13} />
+                <span>Export</span>
+              </button>
+            )}
 
             {/* Mark Attendance Button (Admin, HR, or editAttendance permission only) */}
             {hasEditAttendance && (

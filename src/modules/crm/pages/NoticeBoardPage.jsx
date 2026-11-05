@@ -23,7 +23,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { canPostNotices, canDeleteNotice } from '../../../shared/utils/permissionUtils';
+import { canPostNotices, canDeleteNotice, isHRorAdmin, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
@@ -33,6 +33,7 @@ export const NoticeBoardPage = () => {
   const { addToast } = useToast();
   const { confirm, alert } = useConfirm();
   const { currentUser } = useAuth();
+  const canExport = useMemo(() => canExportData(currentUser, 'notices') || isHRorAdmin(currentUser), [currentUser]);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
@@ -120,13 +121,15 @@ export const NoticeBoardPage = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors flex-1 sm:flex-initial justify-center"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors flex-1 sm:flex-initial justify-center"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
           {canPostNotices(currentUser) && (
             <button
               onClick={() => setIsAddOpen(true)}

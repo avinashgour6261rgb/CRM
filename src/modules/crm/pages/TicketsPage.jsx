@@ -25,7 +25,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canDeleteTicket as checkCanDeleteTicket } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canDeleteTicket as checkCanDeleteTicket, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
@@ -41,6 +41,7 @@ export const TicketsPage = () => {
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllTickets = isPrivileged || perms?.viewAllTickets;
+  const canExport = useMemo(() => canExportData(currentUser, 'tickets') || isHRorAdmin(currentUser), [currentUser]);
 
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -234,13 +235,15 @@ export const TicketsPage = () => {
             <span>Create Ticket</span>
           </button>
 
-          <button
-            onClick={handleExport}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-[5px] px-3 h-[32px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
-          >
-            <Download size={13} />
-            <span>Export</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExport}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-[5px] px-3 h-[32px] rounded-md bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors"
+            >
+              <Download size={13} />
+              <span>Export</span>
+            </button>
+          )}
         </div>
       </div>
 

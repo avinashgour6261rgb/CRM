@@ -26,7 +26,7 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
-import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, getUserModulePermissions, canApproveExpenses, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
@@ -42,6 +42,8 @@ export const ExpensesPage = () => {
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllExpenses = isPrivileged || perms?.accessFinance || perms?.viewAllExpenses;
+  const canApprove = useMemo(() => canApproveExpenses(currentUser) || isPrivileged, [currentUser, isPrivileged]);
+  const canExport = useMemo(() => canExportData(currentUser, 'expenses') || isPrivileged, [currentUser, isPrivileged]);
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -163,20 +165,24 @@ export const ExpensesPage = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button
-            onClick={() => setIsImportOpen(true)}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
-          >
-            <Upload size={13} />
-            Import
-          </button>
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-700/60 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
-          >
-            <Download size={13} />
-            Export CSV
-          </button>
+          {canApprove && (
+            <button
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
+            >
+              <Upload size={13} />
+              Import
+            </button>
+          )}
+          {canExport && (
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-blue-50/50 dark:hover:bg-slate-700/60 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
+            >
+              <Download size={13} />
+              Export CSV
+            </button>
+          )}
           <button
             onClick={() => setIsAddOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 h-[30px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center"
@@ -190,8 +196,8 @@ export const ExpensesPage = () => {
       {/* KPI Overview Cards */}
       <ExpenseKPIOverview expenses={scopedExpenses} />
 
-      {/* Pending Claims Review Banner for HR / Admin */}
-      {isPrivileged && pendingApprovalsCount > 0 && (
+      {/* Pending Claims Review Banner for HR / Admin / Finance */}
+      {canApprove && pendingApprovalsCount > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 px-4 flex items-center justify-between flex-wrap gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold">
@@ -389,7 +395,7 @@ export const ExpensesPage = () => {
                     {/* Actions */}
                     <td className="py-[7px] px-3 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
-                        {isPrivileged && exp.status === 'pending' && (
+                        {canApprove && exp.status === 'pending' && (
                           <>
                             <button
                               onClick={(e) => handleQuickApprove(exp, e)}

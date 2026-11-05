@@ -32,7 +32,16 @@ import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementMo
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { EmployeeCredentialsModal } from '../components/employees/EmployeeCredentialsModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
-import { isAdmin, isHRorAdmin, canAccessModule, canDeleteEmployee } from '../../../shared/utils/permissionUtils';
+import {
+  isAdmin,
+  isHRorAdmin,
+  canAccessModule,
+  canDeleteEmployee,
+  canManageEmployees,
+  canViewEmployeeDetails,
+  canUserGrantPermissions,
+  canManagePayroll
+} from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 
@@ -100,6 +109,11 @@ export const EmployeesPage = () => {
   const isActorAdmin = isAdmin(currentUser);
   const isActorHR = isHRorAdmin(currentUser);
   const canAccessEmployees = isActorHR || isActorAdmin || canAccessModule(currentUser, 'employees') || currentUser?.isDelegatedAdmin;
+
+  const canManage = canManageEmployees(currentUser);
+  const canViewSensitive = canViewEmployeeDetails(currentUser);
+  const canGrantPerms = canUserGrantPermissions(currentUser) || isAdmin(currentUser);
+  const canManageSalaries = canManagePayroll(currentUser);
 
   if (!canAccessEmployees) {
     return (
@@ -196,13 +210,15 @@ export const EmployeesPage = () => {
                       <span>Roles & RBAC Matrix</span>
                     </button>
 
-                    <button
-                      onClick={() => setIsAddOpen(true)}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer h-[32px] shadow-sm hover:bg-blue-700 transition-colors"
-                    >
-                      <Plus size={14} />
-                      <span>Add New Employee</span>
-                    </button>
+                    {canManage && (
+                      <button
+                        onClick={() => setIsAddOpen(true)}
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-600 text-white border-none text-xs font-bold cursor-pointer h-[32px] shadow-sm hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus size={14} />
+                        <span>Add New Employee</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -399,47 +415,55 @@ export const EmployeesPage = () => {
                                                           <td className="p-2 px-2.5 text-right whitespace-nowrap">
                                                             <div className="inline-flex items-center gap-1.5">
                                                               {/* Button 1: Revise Compensation (Hike / Reduction) */}
-                                                              <button
-                                                                onClick={() => setSelectedSalaryEmp(emp)}
-                                                                className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
-                                                                title="Revise Compensation (Hike 📈 or Deduction 📉)"
-                                                              >
-                                                                <ArrowUpDown size={11} color="#16a34a" />
-                                                                <span>Salary</span>
-                                                              </button>
+                                                              {canManageSalaries && (
+                                                                <button
+                                                                  onClick={() => setSelectedSalaryEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                                                                  title="Revise Compensation (Hike 📈 or Deduction 📉)"
+                                                                >
+                                                                  <ArrowUpDown size={11} color="#16a34a" />
+                                                                  <span>Salary</span>
+                                                                </button>
+                                                              )}
 
                                                               {/* Button 2: Direct Role & Post Change (Promote Modal) */}
-                                                              <button
-                                                                onClick={() => setSelectedPromoteEmp(emp)}
-                                                                className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                                                                title="Promote or Change Post (Admin & HR)"
-                                                              >
-                                                                <Award size={11} />
-                                                                <span>Role</span>
-                                                              </button>
+                                                              {canManage && (
+                                                                <button
+                                                                  onClick={() => setSelectedPromoteEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                                                                  title="Promote or Change Post (Admin & HR)"
+                                                                >
+                                                                  <Award size={11} />
+                                                                  <span>Role</span>
+                                                                </button>
+                                                              )}
 
                                                               {/* Button 2.5: Granular Permissions & Access Rights Modal */}
-                                                              <button
-                                                                onClick={() => setSelectedPermsEmp(emp)}
-                                                                className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
-                                                                title="Manage Granular Module Permissions & Access Rights"
-                                                              >
-                                                                <ShieldCheck size={11} color="#7c3aed" />
-                                                                <span>Access</span>
-                                                              </button>
+                                                              {canGrantPerms && (
+                                                                <button
+                                                                  onClick={() => setSelectedPermsEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+                                                                  title="Manage Granular Module Permissions & Access Rights"
+                                                                >
+                                                                  <ShieldCheck size={11} color="#7c3aed" />
+                                                                  <span>Access</span>
+                                                                </button>
+                                                              )}
 
                                                               {/* Button 3: Full Profile & Role Edit */}
-                                                              <button
-                                                                onClick={() => setSelectedProfileEmp(emp)}
-                                                                className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer h-6 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                                                title="Edit Full Profile & Designation"
-                                                             >
-                                                                <User size={11} color="#0284c7" />
-                                                                <span>Edit</span>
-                                                              </button>
+                                                              {canManage && (
+                                                                <button
+                                                                  onClick={() => setSelectedProfileEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold cursor-pointer h-6 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                                                  title="Edit Full Profile & Designation"
+                                                                >
+                                                                  <User size={11} color="#0284c7" />
+                                                                  <span>Edit</span>
+                                                                </button>
+                                                              )}
 
                                                               {/* Button 3.5: View Login Credentials & Access Pass (Admin & HR) */}
-                                                              {isHRorAdmin(currentUser) && (
+                                                              {canViewSensitive && (
                                                                 <button
                                                                   onClick={() => setSelectedCredentialsEmp(emp)}
                                                                   className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"

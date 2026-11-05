@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesProject, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ActiveTimerCard } from '../components/timesheet/ActiveTimerCard';
 import { TimesheetTable } from '../components/timesheet/TimesheetTable';
@@ -38,6 +38,7 @@ export const TimesheetPage = () => {
   } = useWork();
   const { currentUser } = useAuth();
   const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const canExport = React.useMemo(() => canExportData(currentUser, 'tasks') || isPrivileged, [currentUser, isPrivileged]);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -155,14 +156,16 @@ export const TimesheetPage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
-          <button
-            onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
-            title="Export timesheets to CSV"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+              title="Export timesheets to CSV"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsLogModalOpen(true)}

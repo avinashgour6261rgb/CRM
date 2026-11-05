@@ -26,7 +26,7 @@ import {
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
-import { isHRorAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canAccessModule, canManagePayroll, canExportData } from '../../../shared/utils/permissionUtils';
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
 
@@ -37,6 +37,8 @@ export const PayrollPage = () => {
 
   const effectiveUser = currentUser || authUser;
   const isPrivileged = isAuthHRorAdmin || isHRorAdmin(effectiveUser) || effectiveUser?.isDelegatedAdmin || canAccessModule(effectiveUser, 'payroll') || canAccessModule(effectiveUser, 'finance');
+  const canManageSalaries = useMemo(() => canManagePayroll(effectiveUser), [effectiveUser]);
+  const canExport = useMemo(() => canExportData(effectiveUser, 'payroll') || isHRorAdmin(effectiveUser), [effectiveUser]);
 
   const [selectedMonth, setSelectedMonth] = useState('October 2026');
   const [searchTerm, setSearchTerm] = useState('');
@@ -435,6 +437,38 @@ export const PayrollPage = () => {
     return matchesSearch && matchesDept;
   });
 
+  const handleExportPayroll = () => {
+    if (!filteredEmployees || filteredEmployees.length === 0) {
+      alert('No employee payroll records to export');
+      return;
+    }
+    const headers = ['Employee Code', 'Name', 'Department', 'Designation', 'Gross Salary', 'Deductions', 'Net Pay', 'Status'];
+    const rows = filteredEmployees.map(emp => {
+      const s = resolveEmployeeSalary(emp);
+      const gross = s.monthlyGross || 0;
+      const deductions = (s.pf || 0) + (s.pt || 0) + (s.tds || 0);
+      const net = Math.max(0, gross - deductions);
+      return [
+        `"${emp.employeeCode || ''}"`,
+        `"${emp.name || ''}"`,
+        `"${emp.department || ''}"`,
+        `"${emp.designation || emp.role || ''}"`,
+        gross,
+        deductions,
+        net,
+        `"${isCurrentMonthDisbursed ? 'Disbursed' : 'Pending'}"`
+      ].join(',');
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Calculate live company-wide totals directly from employees
   let totalGross = 0;
   let totalDeductions = 0;
@@ -494,17 +528,30 @@ export const PayrollPage = () => {
             <option value="July 2026">July 2026</option>
           </select>
 
-          <button
-            onClick={handleDisburseAll}
-            className={`inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center ${
-              isCurrentMonthDisbursed
-                ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-            }`}
-          >
-            <CreditCard size={14} />
-            <span>{isCurrentMonthDisbursed ? 'Re-Disburse' : 'Disburse All'}</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportPayroll}
+              className="inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-xs font-bold cursor-pointer transition-colors flex-1 sm:flex-initial justify-center"
+              title="Export Monthly Payroll CSV"
+            >
+              <Download size={13} />
+              <span>Export CSV</span>
+            </button>
+          )}
+
+          {canManageSalaries && (
+            <button
+              onClick={handleDisburseAll}
+              className={`inline-flex items-center gap-[5px] px-3 h-[30px] rounded-md border-0 text-xs font-bold cursor-pointer shadow-xs transition-colors flex-1 sm:flex-initial justify-center ${
+                isCurrentMonthDisbursed
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              <CreditCard size={14} />
+              <span>{isCurrentMonthDisbursed ? 'Re-Disburse' : 'Disburse All'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -706,14 +753,16 @@ export const PayrollPage = () => {
                       <div className="inline-flex items-center gap-[5px]">
                         
                         {/* Revise Salary Button */}
-                        <button
-                          onClick={() => handleOpenRevisionModal(emp)}
-                          className="inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11px] font-bold cursor-pointer h-6 transition-colors"
-                          title="Hike (Increase) or Deduct (Decrease) Employee Salary"
-                        >
-                          <ArrowUpDown size={11} className="text-blue-600 dark:text-blue-400" />
-                          <span>Revise</span>
-                        </button>
+                        {canManageSalaries && (
+                          <button
+                            onClick={() => handleOpenRevisionModal(emp)}
+                            className="inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11px] font-bold cursor-pointer h-6 transition-colors"
+                            title="Hike (Increase) or Deduct (Decrease) Employee Salary"
+                          >
+                            <ArrowUpDown size={11} className="text-blue-600 dark:text-blue-400" />
+                            <span>Revise</span>
+                          </button>
+                        )}
 
                         {/* Payslip Button */}
                         <button

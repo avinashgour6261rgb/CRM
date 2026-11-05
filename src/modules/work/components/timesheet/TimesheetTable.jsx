@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
-import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canDeleteTask } from '../../../../shared/utils/permissionUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 const STATUS_CONFIG = {
@@ -46,9 +46,16 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
 
   const [activeMenuId, setActiveMenuId] = useState(null);
 
-  const handleDelete = async (id, e) => {
+  const canDeleteEntry = (entry) => {
+    if (!currentUser || !entry) return false;
+    if (isPrivileged || currentUser?.isAdmin) return true;
+    return canDeleteTask(currentUser, entry);
+  };
+
+  const handleDelete = async (entry, e) => {
     e.stopPropagation();
     setActiveMenuId(null);
+    if (!canDeleteEntry(entry)) return;
     const ok = await confirmDialog({
       title: 'Delete Timesheet Entry',
       message: 'Are you sure you want to delete this timesheet entry? This log will be permanently removed.',
@@ -56,7 +63,7 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
       variant: 'danger'
     });
     if (ok) {
-      deleteTimesheet(id);
+      deleteTimesheet(entry._id);
     }
   };
 
@@ -202,28 +209,34 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
 
                   {/* Actions */}
                   <td className="px-2.5 py-[7px] text-right relative whitespace-nowrap">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMenuId(isMenuOpen ? null : entry._id);
-                      }}
-                      className="bg-transparent border-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1.5 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-
-                    {isMenuOpen && (
-                      <div
-                        onClick={e => e.stopPropagation()}
-                        className="absolute right-[18px] top-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[140px] text-left"
-                      >
-                        <div
-                          onClick={(e) => handleDelete(entry._id, e)}
-                          className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                    {canDeleteEntry(entry) ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(isMenuOpen ? null : entry._id);
+                          }}
+                          className="bg-transparent border-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1.5 rounded-md cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
-                          <Trash2 size={14} /> Delete Entry
-                        </div>
-                      </div>
+                          <MoreVertical size={16} />
+                        </button>
+
+                        {isMenuOpen && (
+                          <div
+                            onClick={e => e.stopPropagation()}
+                            className="absolute right-[18px] top-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[140px] text-left"
+                          >
+                            <div
+                              onClick={(e) => handleDelete(entry, e)}
+                              className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                            >
+                              <Trash2 size={14} /> Delete Entry
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 dark:text-slate-600 font-medium">—</span>
                     )}
                   </td>
                 </tr>

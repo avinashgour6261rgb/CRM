@@ -28,7 +28,7 @@ import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
-import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover } from '../../../shared/utils/permissionUtils';
+import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 
@@ -174,6 +174,8 @@ export const LeavesPage = () => {
   const paginatedLeaves = filteredLeaves.slice(startIndex, startIndex + pageSize);
 
   // Export CSV
+  const canExport = useMemo(() => canExportData(currentUser, 'leaves') || isHRorAdmin(currentUser), [currentUser]);
+
   const handleExportCSV = () => {
     if (filteredLeaves.length === 0) {
       alert('No leave records to export');
@@ -491,13 +493,15 @@ export const LeavesPage = () => {
           </button>
 
           {/* Export Button */}
-          <button
-            onClick={handleExportCSV}
-            className="btn btn-outline"
-          >
-            <Download size={15} />
-            <span>Export</span>
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExportCSV}
+              className="btn btn-outline"
+            >
+              <Download size={15} />
+              <span>Export</span>
+            </button>
+          )}
 
           {/* View Switchers */}
           <div className="view-switch-group">

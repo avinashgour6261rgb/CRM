@@ -36,7 +36,7 @@ import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
 import { dateMemoryService } from '../services/dateMemoryService';
 import { holidaySyncService } from '../../hr/services/holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
-import { isProjectVisibleToUser, isTaskVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { isProjectVisibleToUser, isTaskVisibleToUser, canManageEvents, isHRorAdmin } from '../../../shared/utils/permissionUtils';
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -49,6 +49,7 @@ export const CalendarPage = () => {
   const { tasks, projects } = useWork();
 
   const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
+  const canAddPublicEvent = useMemo(() => canManageEvents(currentUser) || isHRorAdmin(currentUser), [currentUser]);
 
   const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic live current date
   const [currentView, setCurrentView] = useState('month'); // 'month' | 'week' | 'day' | 'list'
@@ -642,13 +643,15 @@ export const CalendarPage = () => {
           </button>
 
           {/* Add Public Event Button */}
-          <button
-            onClick={() => setIsAddEventOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
-          >
-            <Plus size={14} />
-            <span>Add Event</span>
-          </button>
+          {canAddPublicEvent && (
+            <button
+              onClick={() => setIsAddEventOpen(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-xs font-bold cursor-pointer shadow-[0_1px_3px_rgba(37,99,235,0.2)] transition-colors"
+            >
+              <Plus size={14} />
+              <span>Add Event</span>
+            </button>
+          )}
         </div>
       </div>
 
