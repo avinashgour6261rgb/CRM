@@ -264,8 +264,36 @@ export const CRMProvider = ({ children }) => {
     }
   ];
 
+  // Helper to remove any duplicate messages within conversations
+  const sanitizeConversationMessages = (convList = []) => {
+    if (!Array.isArray(convList)) return [];
+    return convList.map(c => {
+      if (!c || !Array.isArray(c.messages)) return c;
+      const seen = new Set();
+      const deduped = [];
+      for (const m of c.messages) {
+        if (!m) continue;
+        const k = m.id || `${m.senderId || ''}_${m.createdAt || ''}_${m.text || ''}`;
+        if (!seen.has(k)) {
+          seen.add(k);
+          deduped.push(m);
+        }
+      }
+      return deduped.length === c.messages.length ? c : { ...c, messages: deduped };
+    });
+  };
+
   const ensureDefaultChannels = (storedConvs = []) => {
     let convs = Array.isArray(storedConvs) ? [...storedConvs] : [];
+    // Deduplicate conversations by id
+    const convMap = new Map();
+    convs.forEach(c => {
+      if (c && c.id && !convMap.has(c.id)) {
+        convMap.set(c.id, c);
+      }
+    });
+    convs = Array.from(convMap.values());
+
     let changed = false;
     DEFAULT_ENTERPRISE_CHANNELS.forEach(defaultCh => {
       const exists = convs.some(c => c.id === defaultCh.id || c.channelName === defaultCh.channelName);
@@ -274,6 +302,13 @@ export const CRMProvider = ({ children }) => {
         changed = true;
       }
     });
+
+    const sanitized = sanitizeConversationMessages(convs);
+    if (sanitized.some((c, i) => c !== convs[i])) {
+      changed = true;
+      convs = sanitized;
+    }
+
     if (changed) {
       saveCollection(KEYS.CONVERSATIONS, convs);
     }
@@ -1774,7 +1809,20 @@ export const CRMProvider = ({ children }) => {
       currentConvs[idx].messages = [];
     }
 
-    currentConvs[idx].messages.push(newMsg);
+    // Deduplicate existing messages in this conversation if any were corrupted
+    const seenMsgIds = new Set();
+    currentConvs[idx].messages = currentConvs[idx].messages.filter(m => {
+      if (!m) return false;
+      const k = m.id || `${m.senderId || ''}_${m.createdAt || ''}_${m.text || ''}`;
+      if (seenMsgIds.has(k)) return false;
+      seenMsgIds.add(k);
+      return true;
+    });
+
+    const alreadyInList = currentConvs[idx].messages.some(m => m.id === newMsg.id);
+    if (!alreadyInList) {
+      currentConvs[idx].messages.push(newMsg);
+    }
     currentConvs[idx].lastMessage = trimmedText || (hasAttachments ? `📎 Shared ${attachments.length} file(s)` : 'Attachment');
     currentConvs[idx].lastMessageTime = timeStr;
     currentConvs[idx].updatedAt = Date.now();

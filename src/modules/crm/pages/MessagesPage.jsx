@@ -159,10 +159,14 @@ export const MessagesPage = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [activeConv?.id]);
 
-  // Filter conversations by active tab and search query with privacy resolution
+  // Filter conversations by active tab and search query with privacy resolution and deduplication
   const filteredConversations = useMemo(() => {
     const q = searchContact.toLowerCase().trim();
+    const seenIds = new Set();
     return (visibleConversations || []).filter(c => {
+      if (!c || !c.id || seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+
       // Tab filter
       if (activeTab === 'channels' && c.type !== 'channel') return false;
       if (activeTab === 'dms' && c.type === 'channel') return false;
@@ -184,12 +188,28 @@ export const MessagesPage = () => {
     });
   }, [visibleConversations, activeTab, searchContact, currentUser, employees]);
 
+  // Clean and deduplicate messages to eliminate duplicate keys and repeated bubbles
+  const displayMessages = useMemo(() => {
+    if (!activeConv || !Array.isArray(activeConv.messages)) return [];
+    const seenKeys = new Set();
+    const deduped = [];
+    for (const msg of activeConv.messages) {
+      if (!msg) continue;
+      const key = msg.id || `${msg.senderId || ''}_${msg.createdAt || ''}_${msg.text || ''}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        deduped.push(msg);
+      }
+    }
+    return deduped;
+  }, [activeConv?.messages]);
+
   // Smooth scroll strictly within the message stream container without jumping outer page
   useEffect(() => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
     }
-  }, [activeConv?.messages?.length, activeConv?.id]);
+  }, [displayMessages.length, activeConv?.id]);
 
   // Handle file uploads (images, videos, docs)
   const handleFileSelect = async (e) => {
@@ -754,7 +774,7 @@ export const MessagesPage = () => {
 
                 {/* Message Stream */}
                 <div ref={messageContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3 bg-slate-100/50 dark:bg-[#0b1329]">
-                  {(!activeConv.messages || activeConv.messages.length === 0) ? (
+                  {displayMessages.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-400 dark:text-slate-500">
                       <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 flex items-center justify-center mb-2 border border-blue-200/50 dark:border-blue-900/40 shadow-xs">
                         <Sparkles size={22} />
@@ -763,12 +783,13 @@ export const MessagesPage = () => {
                       <div className="text-[11px] text-slate-400 dark:text-slate-400 mt-0.5">Send a greeting, photo, video, or project document below.</div>
                     </div>
                   ) : (
-                    activeConv.messages.map((msg, idx) => {
+                    displayMessages.map((msg, idx) => {
                       const outgoing = isCurrentSender(msg);
+                      const itemKey = msg.id ? `${msg.id}_${idx}` : `msg_${idx}`;
 
                       return (
                         <div
-                          key={msg.id || idx}
+                          key={itemKey}
                           className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${outgoing ? 'self-end' : 'self-start'}`}
                         >
                           {/* Sender Label for Incoming or Channel Messages */}
@@ -802,7 +823,7 @@ export const MessagesPage = () => {
                                 outgoing ? 'border-white/20' : 'border-slate-100 dark:border-slate-700'
                               }`}>
                                 {msg.attachments.map((att, aIdx) => (
-                                 <div key={att.id || aIdx} className="overflow-hidden">
+                                 <div key={att.id ? `${att.id}_${aIdx}` : `att_${aIdx}`} className="overflow-hidden">
                                     {/* Photo Attachment */}
                                     {att.category === 'image' && (
                                       <div

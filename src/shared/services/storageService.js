@@ -274,6 +274,23 @@ export const syncDatabaseToStorage = async () => {
                   tMap.set(String(t._id || t.id), { ...ex, ...t });
                 });
                 localStorage.setItem(key, JSON.stringify(Array.from(tMap.values())));
+              } else if (key === KEYS.CONVERSATIONS) {
+                // Sanitize conversations and deduplicate messages mirrored from MongoDB
+                const cleanConvs = (Array.isArray(data) ? data : []).map(c => {
+                  if (!c || !Array.isArray(c.messages)) return c;
+                  const seen = new Set();
+                  const uniqueMsgs = [];
+                  for (const m of c.messages) {
+                    if (!m) continue;
+                    const mKey = m.id || `${m.senderId || ''}_${m.createdAt || ''}_${m.text || ''}`;
+                    if (!seen.has(mKey)) {
+                      seen.add(mKey);
+                      uniqueMsgs.push(m);
+                    }
+                  }
+                  return { ...c, messages: uniqueMsgs };
+                });
+                localStorage.setItem(key, JSON.stringify(cleanConvs));
               } else {
                 localStorage.setItem(key, JSON.stringify(data));
               }

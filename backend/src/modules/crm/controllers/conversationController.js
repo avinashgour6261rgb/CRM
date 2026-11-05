@@ -156,6 +156,29 @@ exports.getConversations = async (req, res) => {
       });
     }
 
+    // Clean and deduplicate messages across conversations to eliminate database-level duplicate keys
+    convs = convs.map(c => {
+      const convObj = c.toObject ? c.toObject() : c;
+      if (Array.isArray(convObj.messages)) {
+        const seen = new Set();
+        const dedupedMsgs = [];
+        for (const m of convObj.messages) {
+          if (!m) continue;
+          const k = m.id || `${m.senderId || ''}_${m.createdAt || ''}_${m.text || ''}`;
+          if (!seen.has(k)) {
+            seen.add(k);
+            dedupedMsgs.push(m);
+          }
+        }
+        if (dedupedMsgs.length !== convObj.messages.length) {
+          convObj.messages = dedupedMsgs;
+          // Async background cleanup in MongoDB Atlas
+          Conversation.updateOne({ id: convObj.id }, { $set: { messages: dedupedMsgs } }).catch(() => {});
+        }
+      }
+      return convObj;
+    });
+
     res.json({
       success: true,
       data: convs
@@ -209,6 +232,19 @@ exports.sendMessage = async (req, res) => {
       await conv.save();
       return res.status(201).json({ success: true, data: conv });
     }
+
+    // Deduplicate existing messages in MongoDB document
+    const seenMsgKeys = new Set();
+    const cleanExisting = [];
+    (conv.messages || []).forEach(m => {
+      if (!m) return;
+      const k = m.id || `${m.senderId || ''}_${m.createdAt || ''}_${m.text || ''}`;
+      if (!seenMsgKeys.has(k)) {
+        seenMsgKeys.add(k);
+        cleanExisting.push(m);
+      }
+    });
+    conv.messages = cleanExisting;
 
     // Check if message is already recorded to avoid duplicates
     const alreadyExists = conv.messages.some(m => m.id === message.id);
