@@ -866,11 +866,11 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     const isOnBreak = Boolean(r.isOnBreak);
 
     let liveWorkSecs = Number(r.workSeconds) || 0;
-    if (isClockedIn && !isOnBreak && sessStart > 0 && sessStart <= now) {
-      // Add live elapsed seconds since session start
-      const liveElapsed = Math.max(0, Math.floor((now - sessStart) / 1000));
+    if (isClockedIn && !isOnBreak && r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now) {
+      // Add live elapsed seconds since last heartbeat pulse (monotonic progression without doubling session duration)
+      const elapsedSinceHeartbeat = Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000));
       const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
-      liveWorkSecs = Math.min(liveWorkSecs + liveElapsed, maxPossibleGross);
+      liveWorkSecs = Math.min(liveWorkSecs + elapsedSinceHeartbeat, maxPossibleGross);
     }
 
     let runningTask = r.activeTask || null;

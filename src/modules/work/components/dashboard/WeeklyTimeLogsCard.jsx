@@ -311,7 +311,7 @@ export const WeeklyTimeLogsCard = ({
                 </div>
 
                 {/* Pill Badge: XXh YYm This Week */}
-                <div className="bg-gradient-to-r from-sky-600 to-blue-600 text-white px-3 py-1 rounded-full text-[11px] font-extrabold tracking-tight shadow-sm shadow-sky-600/30 inline-flex items-center gap-1">
+                <div className="bg-gradient-to-r from-sky-600 to-blue-600 text-white px-3 py-1 rounded-full text-[11px] font-extrabold tracking-tight shadow-sm shadow-sky-600/30 inline-flex items-center gap-1 font-mono tabular-nums">
                     <span>{totalWeeklyFormatted} This Week</span>
                 </div>
             </div>
@@ -352,7 +352,7 @@ export const WeeklyTimeLogsCard = ({
                             </div>
 
                             {/* Hour tag below each day */}
-                            <span className={`text-[9.5px] ${isSelected || isHoliday
+                            <span className={`text-[9.5px] font-mono tabular-nums ${isSelected || isHoliday
                                 ? 'font-extrabold'
                                 : 'font-semibold'
                                 } ${isHoliday
@@ -382,7 +382,7 @@ export const WeeklyTimeLogsCard = ({
             <div className="flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap gap-1.5">
                 <div>
                     <span>Duration: </span>
-                    <strong className="text-slate-900 dark:text-white font-extrabold">
+                    <strong className="text-slate-900 dark:text-white font-extrabold font-mono tabular-nums">
                         {selectedDayLogData?.durationText || '0h 00m'}
                     </strong>
                     {isSelectedDayToday && selectedDayLogData?.durationSeconds > 0 && (
@@ -395,7 +395,7 @@ export const WeeklyTimeLogsCard = ({
                 <div className="flex items-center gap-2">
                     <div>
                         <span>Break: </span>
-                        <strong className="text-slate-600 dark:text-slate-300 font-semibold">
+                        <strong className="text-slate-600 dark:text-slate-300 font-semibold font-mono tabular-nums">
                             {selectedDayLogData?.breakDuration || '0s'}
                         </strong>
                     </div>

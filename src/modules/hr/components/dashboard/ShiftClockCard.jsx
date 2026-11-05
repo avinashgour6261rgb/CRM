@@ -91,7 +91,7 @@ export const ShiftClockCard = ({
         {/* Left Info Column: Clock Time, Live Status & Key Shift/Task Metrics */}
         <div className="flex-1 min-w-0 sm:min-w-[240px]">
           <div className="flex items-center gap-2">
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+            <div className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none font-mono tabular-nums">
               {currentTime}
             </div>
             <span
@@ -120,10 +120,10 @@ export const ShiftClockCard = ({
 
           {/* Shift Working Time & Day Log button */}
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center flex-wrap gap-2">
-            <span>Working Time: <strong className="text-sky-600 dark:text-sky-400">{displayedWorkDuration || '0h 0m'}</strong></span>
+            <span>Working Time: <strong className="text-sky-600 dark:text-sky-400 font-mono tabular-nums">{displayedWorkDuration || '0h 0m'}</strong></span>
             {displayedBreakDuration && displayedBreakDuration !== '0s' && displayedBreakDuration !== '0h 00m' && displayedBreakDuration !== '00h 00m' && (
               <span className="text-amber-700 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded px-1.5 py-0.5">
-                ☕ Breaks: <strong>{displayedBreakDuration}</strong>
+                ☕ Breaks: <strong className="font-mono tabular-nums">{displayedBreakDuration}</strong>
               </span>
             )}
             {isOvertime && (

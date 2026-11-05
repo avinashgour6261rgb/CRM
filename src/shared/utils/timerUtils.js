@@ -244,12 +244,10 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
       if (telem.isOnBreak) {
         return Number(telem.workSeconds) || 0;
       }
-      const sessStart = Number(telem.currentSessionStartTimestamp) || Number(telem.clockInTimestamp);
-      if (sessStart && sessStart >= todayMidnightMs) {
-        const liveElapsed = Math.max(0, Math.floor((nowMs - sessStart) / 1000));
-        return Math.min(maxPossibleGrossToday, (Number(telem.workSeconds) || 0) + liveElapsed);
-      }
-      return Number(telem.workSeconds) || 0;
+      // Between backend telemetry polls (every 3.5s), smoothly tick forward from last heartbeat timestamp
+      const heartbeatTs = Number(telem.lastHeartbeatAt) || Number(telem.timestamp) || nowMs;
+      const elapsedSinceHeartbeat = Math.max(0, Math.floor((nowMs - heartbeatTs) / 1000));
+      return Math.min(maxPossibleGrossToday, (Number(telem.workSeconds) || 0) + elapsedSinceHeartbeat);
     } else if (telem.clockOutTime) {
       return Number(telem.workSeconds) || 0;
     } else {
@@ -353,7 +351,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
 
   if (isEffectivelyClockedIn) {
     if (storedOnBreak) {
-      const frozenSecs = pastSessionsSecs > 0 ? pastSessionsSecs : (storedWorkSecs || Number(attRec?.workSeconds) || 0);
+      const frozenSecs = (storedWorkSecs > 0)
+        ? storedWorkSecs
+        : (pastSessionsSecs > 0 ? pastSessionsSecs : (Number(attRec?.workSeconds) || 0));
       return Math.min(frozenSecs, maxPhysicalElapsedToday);
     }
 
@@ -384,7 +384,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     return Math.min(liveSecs, maxPhysicalElapsedToday);
   } else if (isEffectivelyClockedOut) {
     // CLOCKED OUT: Strictly return verified frozen seconds. NEVER calculate live elapsed time!
-    let finalSecs = pastSessionsSecs > 0 ? pastSessionsSecs : (storedWorkSecs || Number(attRec?.workSeconds) || 0);
+    let finalSecs = (storedWorkSecs > 0)
+      ? storedWorkSecs
+      : (pastSessionsSecs > 0 ? pastSessionsSecs : (Number(attRec?.workSeconds) || 0));
     if (!finalSecs && attRec?.totalWorkingHours) {
       finalSecs = Math.round(Number(attRec.totalWorkingHours) * 3600);
     }
