@@ -2041,6 +2041,9 @@ export const WorkProvider = ({ children }) => {
   const completeTask = async (taskId, customMemo = '', autoStartNext = false) => {
     try {
       const todayStr = getTodayStr();
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const todayMidnightMs = todayMidnight.getTime();
       const completedIso = new Date().toISOString();
       const now = Date.now();
       const activeTimer = getActiveTimerSnapshot();
@@ -2081,10 +2084,10 @@ export const WorkProvider = ({ children }) => {
       // 2. Compute current session elapsed seconds strictly once
       let liveSessionElapsed = 0;
       if (targetTask.timerRunning && targetTask.startedAt) {
-        const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMsForComplete);
+        const effectiveStart = Math.max(Number(targetTask.startedAt), todayMidnightMs);
         liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
       } else if (activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId)) && activeTimer.timerRunning && activeTimer.startedAt) {
-        const effectiveStart = Math.max(Number(activeTimer.startedAt), todayMidnightMsForComplete);
+        const effectiveStart = Math.max(Number(activeTimer.startedAt), todayMidnightMs);
         liveSessionElapsed = Math.max(0, Math.floor((now - effectiveStart) / 1000));
       }
 
