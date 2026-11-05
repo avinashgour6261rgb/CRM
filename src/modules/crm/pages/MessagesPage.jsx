@@ -4,7 +4,7 @@
  * Rich Media & Document Sharing, Real-Time MongoDB Persistence & Polished Light/Dark Theme.
  */
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   Search,
   Plus,
