@@ -209,9 +209,9 @@ export const NoticeBoardPage = () => {
                   </td>
                 </tr>
               ) : (
-                filteredNotices.map(notice => (
+                filteredNotices.map((notice, nIdx) => (
                   <tr
-                    key={notice._id}
+                    key={notice._id ? `${notice._id}_${nIdx}` : (notice.id ? `${notice.id}_${nIdx}` : `notice_${nIdx}`)}
                     className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
                       selectedIds.includes(notice._id)
                         ? 'bg-blue-50/40 dark:bg-blue-950/20'

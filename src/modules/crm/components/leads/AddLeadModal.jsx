@@ -257,7 +257,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
               className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 cursor-pointer focus:border-blue-600"
             >
               {employees.map(emp => (
-                <option key={emp._id} value={emp._id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium">
+                <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium">
                   {emp.name} — {emp.role} ({emp.department || 'General'})
                 </option>
               ))}

@@ -217,7 +217,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
                 className={selectClass}
               >
                 {employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>
+                  <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>
                     {emp.name} — {emp.role} ({emp.department})
                   </option>
                 ))}

@@ -537,7 +537,7 @@ export const LeadsPage = () => {
                   <>
                     <option value="all">All Lead Owners</option>
                     {employees.map(emp => (
-                      <option key={emp._id} value={emp._id}>{emp.name} ({emp.role})</option>
+                      <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>{emp.name} ({emp.role})</option>
                     ))}
                   </>
                 ) : (

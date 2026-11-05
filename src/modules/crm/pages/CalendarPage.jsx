@@ -712,8 +712,8 @@ export const CalendarPage = () => {
               >
                 {isPrivileged ? (
                   employees.map(emp => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.name} {emp._id === currentUser?._id ? "[It's You]" : ''}
+                    <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>
+                      {emp.name} {emp._id === currentUser?._id || emp.id === currentUser?._id ? "[It's You]" : ''}
                     </option>
                   ))
                 ) : (
@@ -1031,13 +1031,13 @@ export const CalendarPage = () => {
 
                   {/* Event & Note Pills */}
                   <div className="flex flex-col gap-0.5">
-                    {day.events.slice(0, 3).map(ev => {
+                    {day.events.slice(0, 3).map((ev, evIdx) => {
                       const isEvHoliday = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev.title?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
                       const isEvPrivate = ev.isPrivateMemory;
 
                       return (
                         <div
-                          key={ev._id}
+                          key={ev._id ? `${ev._id}_${evIdx}` : `cal_ev_${evIdx}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isEvPrivate) {
@@ -1104,9 +1104,9 @@ export const CalendarPage = () => {
                   </span>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {day.events.map(ev => (
+                  {day.events.map((ev, evIdx) => (
                     <div
-                      key={ev._id}
+                      key={ev._id ? `${ev._id}_${evIdx}` : `week_ev_${evIdx}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (ev.isPrivateMemory) {
@@ -1154,9 +1154,9 @@ export const CalendarPage = () => {
               </button>
             </div>
             {filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).length > 0 ? (
-              filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).map(ev => (
+              filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).map((ev, evIdx) => (
                 <div
-                  key={ev._id}
+                  key={ev._id ? `${ev._id}_${evIdx}` : `day_ev_${evIdx}`}
                   onClick={() => {
                     if (ev.isPrivateMemory) {
                       handleOpenDateMemory(ev.date);
@@ -1212,9 +1212,9 @@ export const CalendarPage = () => {
         {/* List View */}
         {currentView === 'list' && (
           <div className="mt-4 flex flex-col gap-2.5">
-            {filteredEvents.map(ev => (
+            {filteredEvents.map((ev, evIdx) => (
               <div
-                key={ev._id}
+                key={ev._id ? `${ev._id}_${evIdx}` : `list_ev_${evIdx}`}
                 onClick={() => {
                   if (ev.isPrivateMemory) {
                     handleOpenDateMemory(ev.date);

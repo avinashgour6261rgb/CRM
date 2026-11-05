@@ -163,7 +163,7 @@ export const LeadsTable = ({
           </thead>
           <tbody>
             {paginatedLeads.length > 0 ? (
-              paginatedLeads.map((lead) => {
+              paginatedLeads.map((lead, lIdx) => {
                 const isSelected = selectedIds.includes(lead._id);
                 const statusBadge = getStatusBadge(lead.status);
                 const priorityBadge = getPriorityBadge(lead.priority);
@@ -171,7 +171,7 @@ export const LeadsTable = ({
 
                 return (
                   <tr
-                    key={lead._id}
+                    key={lead._id ? `${lead._id}_${lIdx}` : (lead.id ? `${lead.id}_${lIdx}` : `lead_${lIdx}`)}
                     className={`border-b border-slate-100 dark:border-slate-800 transition-colors ${
                       isSelected
                         ? 'bg-blue-50/70 dark:bg-blue-900/30'

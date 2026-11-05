@@ -87,9 +87,9 @@ export const LeadsKanban = ({
             {/* Stage Cards */}
             <div className="flex flex-col gap-2.5 min-h-[120px]">
               {stageLeads.length > 0 ? (
-                stageLeads.map((lead) => (
+                stageLeads.map((lead, lIdx) => (
                   <div
-                    key={lead._id}
+                    key={lead._id ? `${lead._id}_${lIdx}` : (lead.id ? `${lead.id}_${lIdx}` : `lead_${lIdx}`)}
                     onClick={() => onViewLead(lead)}
                     className="bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 p-3.5 shadow-xs hover:shadow-md hover:-translate-y-0.5 cursor-pointer flex flex-col gap-2 transition-all"
                   >

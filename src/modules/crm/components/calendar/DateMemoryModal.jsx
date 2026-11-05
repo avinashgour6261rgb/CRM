@@ -211,11 +211,11 @@ export const DateMemoryModal = ({
               </div>
             ) : (
               <div className="space-y-2">
-                {memories.map(mem => {
+                {memories.map((mem, mIdx) => {
                   const tagConfig = TAG_CONFIGS.find(t => t.id === mem.tag) || TAG_CONFIGS[0];
                   return (
                     <div
-                      key={mem._id}
+                      key={mem._id ? `${mem._id}_${mIdx}` : (mem.id ? `${mem.id}_${mIdx}` : `mem_${mIdx}`)}
                       className={`p-3 rounded-lg border transition-all flex items-start justify-between gap-2.5 ${
                         mem.isCompleted
                           ? 'bg-slate-50/80 dark:bg-slate-800/20 border-slate-200 dark:border-slate-800 opacity-60'

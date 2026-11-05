@@ -397,9 +397,9 @@ export const TicketsPage = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedTickets.map(ticket => (
+                paginatedTickets.map((ticket, tIdx) => (
                   <tr
-                    key={ticket._id}
+                    key={ticket._id ? `${ticket._id}_${tIdx}` : (ticket.id ? `${ticket.id}_${tIdx}` : `ticket_${tIdx}`)}
                     className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
                       selectedIds.includes(ticket._id)
                         ? 'bg-blue-50/40 dark:bg-blue-950/20'

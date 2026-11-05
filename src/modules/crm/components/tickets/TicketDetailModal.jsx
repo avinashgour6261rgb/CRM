@@ -186,7 +186,7 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                 className="block mt-1 py-1 px-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none cursor-pointer max-w-[160px]"
               >
                 {employees.map(emp => (
-                  <option key={emp._id} value={emp._id}>
+                  <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>
                     {emp.name} ({emp.role?.split(' ')[0]})
                   </option>
                 ))}
@@ -241,9 +241,9 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                       No replies yet. Admin can reply below to initiate conversation with employee.
                     </div>
                   ) : (
-                    ticket.replies.map(rep => (
+                    ticket.replies.map((rep, rIdx) => (
                       <div
-                        key={rep.id}
+                        key={rep.id ? `${rep.id}_${rIdx}` : (rep._id ? `${rep._id}_${rIdx}` : `rep_${rIdx}`)}
                         className={`flex flex-col max-w-[85%] ${rep.isAdminReply ? 'self-end' : 'self-start'}`}
                       >
                         <div className={`flex items-center gap-1.5 mb-1 ${rep.isAdminReply ? 'self-end' : 'self-start'}`}>
@@ -301,8 +301,8 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                       No internal notes recorded. Internal notes are only visible to Admins/Managers.
                     </div>
                   ) : (
-                    ticket.internalNotes.map(n => (
-                      <div key={n.id} className="bg-white dark:bg-slate-800 p-2.5 px-3 rounded-md border border-amber-200 dark:border-amber-900/40">
+                    ticket.internalNotes.map((n, nIdx) => (
+                      <div key={n.id ? `${n.id}_${nIdx}` : (n._id ? `${n._id}_${nIdx}` : `note_${nIdx}`)} className="bg-white dark:bg-slate-800 p-2.5 px-3 rounded-md border border-amber-200 dark:border-amber-900/40">
                         <div className="flex justify-between text-[11px] text-amber-700 dark:text-amber-400 font-bold">
                           <span>🔒 Note by {n.author}</span>
                           <span>{new Date(n.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
