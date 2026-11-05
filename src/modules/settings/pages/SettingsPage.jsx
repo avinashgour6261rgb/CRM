@@ -14,6 +14,7 @@ import {
   KeyRound,
   Bell,
   Building2,
+  Clock,
   Layers,
   Sliders,
   Check
@@ -22,6 +23,7 @@ import { ProfileTab } from '../components/ProfileTab';
 import { EmergencyContactsTab } from '../components/EmergencyContactsTab';
 import { SecuritySettingsTab } from '../components/SecuritySettingsTab';
 import { CompanyBrandingTab } from '../components/CompanyBrandingTab';
+import { ShiftSettingsTab } from '../components/ShiftSettingsTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -59,7 +61,8 @@ export const SettingsPage = () => {
 
     if (isUserAdmin) {
       baseItems.push(
-        { id: 'company', label: 'Company & Payslip Settings', icon: Building2, desc: 'Company policy & branding' }
+        { id: 'company', label: 'Company Profile & Branding', icon: Building2, desc: 'Legal identity, address, tax IDs & payslips' },
+        { id: 'shifts', label: 'Work Shift & Timing Policy', icon: Clock, desc: 'Office timings, grace period & breaks' }
       );
     }
 
@@ -71,7 +74,7 @@ export const SettingsPage = () => {
     if (!canManagePerms && activeSection === 'permissions') {
       setActiveSection('profile');
     }
-    if (!isUserAdmin && activeSection === 'company') {
+    if (!isUserAdmin && (activeSection === 'company' || activeSection === 'shifts')) {
       setActiveSection('profile');
     }
   }, [canManagePerms, isUserAdmin, activeSection]);
@@ -92,14 +95,28 @@ export const SettingsPage = () => {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-slate-100 m-0 leading-tight tracking-tight truncate">
-                {activeSection === 'profile' ? 'Profile Settings' : activeSection === 'security' ? 'Security Settings' : activeSection === 'permissions' ? 'Employee Access & Permissions' : 'Company & Payslip Settings'}
+                {activeSection === 'profile'
+                  ? 'Profile Settings'
+                  : activeSection === 'security'
+                  ? 'Security Settings'
+                  : activeSection === 'preferences'
+                  ? 'Work & Notification Preferences'
+                  : activeSection === 'permissions'
+                  ? 'Employee Access & Permissions'
+                  : activeSection === 'shifts'
+                  ? 'Work Shift & Timing Policy'
+                  : 'Company Profile & Legal Branding'}
               </h1>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
                 Settings
               </span>
             </div>
             <p className="text-[11px] sm:text-[11.5px] text-slate-500 dark:text-slate-400 m-0 mt-0.5 truncate sm:whitespace-normal">
-              Manage account profile, security credentials, RBAC permissions & company details.
+              {activeSection === 'shifts'
+                ? 'Configure universal working hours, shift timings, late grace periods, and break rules.'
+                : activeSection === 'company'
+                ? 'Manage company legal identity, corporate address, tax IDs, and payslip letterhead.'
+                : 'Manage account profile, security credentials, RBAC permissions & work preferences.'}
             </p>
           </div>
         </div>
@@ -287,7 +304,14 @@ export const SettingsPage = () => {
           {/* Section: Company & Payslip Branding (Admin Only) */}
           {activeSection === 'company' && isUserAdmin && (
             <div>
-              <CompanyBrandingTab />
+              <CompanyBrandingTab onNavigateTab={setActiveSection} />
+            </div>
+          )}
+
+          {/* Section: Work Shift & Timing Policy (Admin Only) */}
+          {activeSection === 'shifts' && isUserAdmin && (
+            <div>
+              <ShiftSettingsTab onNavigateTab={setActiveSection} />
             </div>
           )}
 

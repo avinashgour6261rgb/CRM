@@ -11,12 +11,14 @@ import {
   Printer,
   Sparkles,
   Edit3,
-  Clock
+  Clock,
+  ArrowRight,
+  Info
 } from 'lucide-react';
 import { getCompanySettings, saveCompanySettings, fetchCompanySettingsFromDB } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
 
-export const CompanyBrandingTab = () => {
+export const CompanyBrandingTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
@@ -47,15 +49,34 @@ export const CompanyBrandingTab = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 py-4">
-      {/* Header Description */}
-      <div>
-        <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mb-1">
-          Company & Payslip Settings (Admin Control)
-        </h2>
-        <p className="text-[13px] text-slate-500 dark:text-slate-400 m-0">
-          Customize company legal name, corporate address, branding logos, and authorized signatories for official documents.
-        </p>
+    <div className="flex flex-col gap-5 py-3">
+      {/* ── Sub Navigation Switcher ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/80 rounded-xl border border-blue-200 dark:border-blue-900/60 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Building2 size={16} />
+          </div>
+          <div>
+            <h2 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 m-0">
+              Company Profile & Legal Branding
+            </h2>
+            <p className="text-[11.5px] text-slate-600 dark:text-slate-400 m-0 mt-0.5">
+              Legal entity details, registered address, statutory tax numbers, and payslip letterhead.
+            </p>
+          </div>
+        </div>
+
+        {onNavigateTab && (
+          <button
+            type="button"
+            onClick={() => onNavigateTab('shifts')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold cursor-pointer transition-colors shrink-0 shadow-xs"
+          >
+            <Clock size={13} className="text-blue-500" />
+            <span>Switch to Work Shift & Timing Policy</span>
+            <ArrowRight size={13} />
+          </button>
+        )}
       </div>
 
       {/* Form and Live Preview Grid */}
@@ -75,8 +96,8 @@ export const CompanyBrandingTab = () => {
                 type="text"
                 value={formData.companyName}
                 onChange={e => handleChange('companyName', e.target.value)}
-                placeholder="e.g. My Company Pvt. Ltd. (Optional — Leave blank for default workspace)"
-                className="w-full h-10 pl-9 pr-3 rounded-lg border-[1.5px] border-slate-300 dark:border-slate-700 text-[13.5px] font-bold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-500 transition-colors"
+                placeholder="e.g. Inforag Technology Pvt. Ltd."
+                className="w-full h-10 pl-9 pr-3 rounded-lg border-[1.5px] border-slate-300 dark:border-slate-700 text-[13.5px] font-bold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-500 transition-colors shadow-xs"
               />
             </div>
           </div>
@@ -91,7 +112,7 @@ export const CompanyBrandingTab = () => {
                 type="text"
                 value={formData.shortName}
                 onChange={e => handleChange('shortName', e.target.value)}
-                placeholder="e.g. My Company (Optional)"
+                placeholder="e.g. Inforag"
                 className="w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -104,7 +125,7 @@ export const CompanyBrandingTab = () => {
                 type="text"
                 value={formData.tagline}
                 onChange={e => handleChange('tagline', e.target.value)}
-                placeholder="e.g. Enterprise Solutions"
+                placeholder="e.g. Enterprise Management System"
                 className="w-full h-[38px] px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -127,11 +148,11 @@ export const CompanyBrandingTab = () => {
             </div>
           </div>
 
-          {/* Official Email & Phone */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Official Email, Phone & Website */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                HR Official Email (From Address)
+                HR Official Email
               </label>
               <div className="relative">
                 <Mail size={15} className="absolute left-2.5 top-[11px] text-slate-500" />
@@ -139,7 +160,7 @@ export const CompanyBrandingTab = () => {
                   type="email"
                   value={formData.hrEmail || formData.email}
                   onChange={e => handleChange('hrEmail', e.target.value)}
-                  placeholder="hr@inforagtechnology.com"
+                  placeholder="hr@company.com"
                   className="w-full h-[38px] pl-8 pr-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -156,6 +177,22 @@ export const CompanyBrandingTab = () => {
                   value={formData.phone}
                   onChange={e => handleChange('phone', e.target.value)}
                   placeholder="+91 98765 43210"
+                  className="w-full h-[38px] pl-8 pr-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Official Website
+              </label>
+              <div className="relative">
+                <Globe size={15} className="absolute left-2.5 top-[11px] text-slate-500" />
+                <input
+                  type="text"
+                  value={formData.website || ''}
+                  onChange={e => handleChange('website', e.target.value)}
+                  placeholder="www.company.com"
                   className="w-full h-[38px] pl-8 pr-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[12.5px] outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -219,99 +256,6 @@ export const CompanyBrandingTab = () => {
                 onChange={e => handleChange('foundationDate', e.target.value)}
                 className="h-9 px-3 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-purple-500"
               />
-            </div>
-          </div>
-
-          {/* ⏱️ Work Shift Timings & Working Hours Configuration (Admin/HR Setting) */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-[1.5px] border-slate-200 dark:border-slate-800 rounded-xl flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Clock size={16} className="text-blue-600" />
-              <div>
-                <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
-                  Work Shift Timing & Hours Configuration (Universal Company Policy)
-                </div>
-                <div className="text-[11.5px] text-slate-500 dark:text-slate-400">
-                  Define company default work shift hours. Late check-ins, half-days, and overtime across all employees are calculated against these times.
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Shift Start Time
-                </label>
-                <input
-                  type="text"
-                  value={formData.shiftStartTime || '09:30 AM'}
-                  onChange={e => handleChange('shiftStartTime', e.target.value)}
-                  placeholder="e.g. 09:30 AM"
-                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Shift End Time
-                </label>
-                <input
-                  type="text"
-                  value={formData.shiftEndTime || '06:30 PM'}
-                  onChange={e => handleChange('shiftEndTime', e.target.value)}
-                  placeholder="e.g. 06:30 PM"
-                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Standard Hours / Day
-                </label>
-                <input
-                  type="number"
-                  min="4"
-                  max="14"
-                  value={formData.standardWorkHours || 9}
-                  onChange={e => handleChange('standardWorkHours', Number(e.target.value) || 9)}
-                  placeholder="9"
-                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Late Arrival Grace Period (Minutes)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="60"
-                  value={formData.gracePeriodMinutes ?? 15}
-                  onChange={e => handleChange('gracePeriodMinutes', Number(e.target.value) || 0)}
-                  placeholder="15"
-                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
-                />
-                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Clock-ins after start time + grace (e.g. after 09:45 AM) are auto-marked Late.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Half-Day Threshold (Hours)
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="2"
-                  max="8"
-                  value={formData.halfDayThresholdHours ?? 4.5}
-                  onChange={e => handleChange('halfDayThresholdHours', Number(e.target.value) || 4.5)}
-                  placeholder="4.5"
-                  className="w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[12.5px] font-semibold outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-500 transition-colors"
-                />
-                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">Total work hours completed below this will be recorded as Half Day.</p>
-              </div>
             </div>
           </div>
 
@@ -398,10 +342,10 @@ export const CompanyBrandingTab = () => {
                   {formData.companyName || 'YOUR COMPANY NAME'}
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-[3px] m-0 leading-snug">
-                  {formData.address}
+                  {formData.address || 'Registered Office Address'}
                 </p>
                 <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 m-0">
-                  {formData.hrEmail || formData.email} • {formData.phone}
+                  {formData.hrEmail || formData.email || 'hr@company.com'} {formData.phone ? `• ${formData.phone}` : ''}
                 </p>
               </div>
               <div className="px-2 py-[3px] rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[10.5px] font-bold whitespace-nowrap self-start">
@@ -429,7 +373,7 @@ export const CompanyBrandingTab = () => {
               <div className="text-center">
                 <div className="w-[100px] border-b border-slate-400 dark:border-slate-600 mb-[3px] mx-auto"></div>
                 <strong className="text-slate-800 dark:text-slate-200">{formData.signatoryTitle}</strong>
-                <div className="text-[9.5px] text-slate-500 dark:text-slate-400">({formData.signatoryName})</div>
+                <div className="text-[9.5px] text-slate-500 dark:text-slate-400">({formData.signatoryName || 'Authorized Signatory'})</div>
               </div>
             </div>
           </div>
