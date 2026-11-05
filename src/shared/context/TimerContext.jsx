@@ -73,7 +73,7 @@ export const TimerProvider = ({ children }) => {
 
   // Derive canonical userKey for multi-user storage isolation
   const userKey = useMemo(() => {
-    return getCanonicalTimerKey(currentUser) || (currentUser ? 'ADM-001' : '');
+    return getCanonicalTimerKey(currentUser) || '';
   }, [currentUser]);
 
   // Anti-overwrite Hydration Lock: Prevents previous user state from overwriting new user keys on fast switch
@@ -82,6 +82,7 @@ export const TimerProvider = ({ children }) => {
 
   // Resolve canonical employee profile from storage to bridge _id, employeeCode, and name
   const resolvedEmp = useMemo(() => {
+    if (!currentUser) return null;
     try {
       const empsRaw = localStorage.getItem('hrms_employees');
       const allEmps = empsRaw ? JSON.parse(empsRaw) : [];
@@ -98,59 +99,63 @@ export const TimerProvider = ({ children }) => {
     }
   }, [currentUser, userKey]);
 
-  const targetEmpId = resolvedEmp?._id || currentUser?._id || (userKey.startsWith('emp_') ? userKey : 'emp_admin');
-  const targetEmpCode = resolvedEmp?.employeeCode || currentUser?.employeeCode || userKey;
-  const targetEmpName = currentUser?.name || resolvedEmp?.name || 'Employee';
+  const targetEmpId = resolvedEmp?._id || currentUser?._id || '';
+  const targetEmpCode = resolvedEmp?.employeeCode || currentUser?.employeeCode || (userKey && !userKey.startsWith('emp_') ? userKey : '');
+  const targetEmpName = currentUser?.name || resolvedEmp?.name || '';
 
   // Helper: robustly check if an attendance record belongs to the current user (MongoDB & local storage universal)
   const isRecordForUser = useCallback((rec, dateStr) => {
     if (!rec || (dateStr && rec.date !== dateStr)) return false;
+    if (!currentUser) return false;
+
     const recEmp = rec.employee && typeof rec.employee === 'object' ? String(rec.employee._id || '') : String(rec.employee || '');
     const recEmpId = String(rec.employeeId || recEmp || rec._id || '');
     const recEmpCode = String(rec.employeeCode || '').trim().toUpperCase();
     const recEmpName = String(rec.employeeName || '').trim().toLowerCase();
+    const recEmpEmail = String(rec.employeeEmail || rec.email || '').trim().toLowerCase();
 
     const currId = currentUser?._id ? String(currentUser._id) : '';
     const currIdStr = currentUser?.id ? String(currentUser.id) : '';
     const currCode = currentUser?.employeeCode ? String(currentUser.employeeCode).trim().toUpperCase() : '';
     const currName = String(currentUser?.name || targetEmpName || '').trim().toLowerCase();
+    const currEmail = String(currentUser?.email || '').trim().toLowerCase();
     const tId = String(targetEmpId || '');
     const tCode = String(targetEmpCode || '').trim().toUpperCase();
     const uKey = String(userKey || '').trim().toUpperCase();
 
-    // Check Employee ID / ObjectId match
-    if (recEmpId && (
-      recEmpId === tId ||
-      recEmpId === currId ||
-      recEmpId === currIdStr ||
-      recEmpId === tCode ||
-      recEmpId === uKey
-    )) {
+    // Check Employee ID / ObjectId match (ONLY if non-empty)
+    if (recEmpId) {
+      if (tId && recEmpId === tId) return true;
+      if (currId && recEmpId === currId) return true;
+      if (currIdStr && recEmpId === currIdStr) return true;
+      if (tCode && recEmpId.toUpperCase() === tCode) return true;
+      if (uKey && recEmpId.toUpperCase() === uKey) return true;
+    }
+
+    if (recEmp) {
+      if (tId && recEmp === tId) return true;
+      if (currId && recEmp === currId) return true;
+      if (currIdStr && recEmp === currIdStr) return true;
+      if (tCode && recEmp.toUpperCase() === tCode) return true;
+      if (uKey && recEmp.toUpperCase() === uKey) return true;
+    }
+
+    // Check Employee Code match (ONLY if non-empty)
+    if (recEmpCode) {
+      if (tCode && recEmpCode === tCode) return true;
+      if (currCode && recEmpCode === currCode) return true;
+      if (uKey && recEmpCode === uKey) return true;
+      if (tId && recEmpCode === tId.toUpperCase()) return true;
+    }
+
+    // Check Email match
+    if (recEmpEmail && currEmail && recEmpEmail === currEmail) {
       return true;
     }
 
-    if (recEmp && (
-      recEmp === tId ||
-      recEmp === currId ||
-      recEmp === currIdStr ||
-      recEmp === tCode ||
-      recEmp === uKey
-    )) {
-      return true;
-    }
-
-    // Check Employee Code match
-    if (recEmpCode && (
-      recEmpCode === tCode ||
-      recEmpCode === currCode ||
-      recEmpCode === uKey ||
-      recEmpCode === tId
-    )) {
-      return true;
-    }
-
-    // Check Name match
-    if (recEmpName && currName && (recEmpName === currName || recEmpName.includes(currName) || currName.includes(recEmpName))) {
+    // Strict Exact Name match ONLY if currName has at least 3 characters and is NOT a generic role word like 'admin' or 'employee'
+    const genericNames = ['employee', 'admin', 'administrator', 'team member', 'hr', 'user'];
+    if (recEmpName && currName && !genericNames.includes(currName) && recEmpName === currName) {
       return true;
     }
 
@@ -308,7 +313,7 @@ export const TimerProvider = ({ children }) => {
   const isTodaySession = sessionDate === getTodayStr();
 
   const [loginTime, setLoginTime] = useState(() => {
-    if (!isTodaySession) return null;
+    if (!currentUser || !userKey || !isTodaySession) return null;
     const scoped = localStorage.getItem(`ems_timer_${userKey}_login_time`);
     if (scoped) return scoped;
     try {
@@ -316,13 +321,7 @@ export const TimerProvider = ({ children }) => {
       if (attRaw) {
         const att = JSON.parse(attRaw);
         const today = new Date().toISOString().split('T')[0];
-        const rec = att.find(a => a.date === today && (
-          a.employeeId === targetEmpId ||
-          a.employeeId === targetEmpCode ||
-          a.employeeId === userKey ||
-          a.employeeCode === targetEmpCode ||
-          (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
-        ));
+        const rec = att.find(a => isRecordForUser(a, today));
         if (rec?.clockInTime || rec?.clockIn) return rec.clockInTime || rec.clockIn;
       }
     } catch {}
@@ -330,7 +329,7 @@ export const TimerProvider = ({ children }) => {
   });
 
   const [clockOutTime, setClockOutTime] = useState(() => {
-    if (!isTodaySession) return null;
+    if (!currentUser || !userKey || !isTodaySession) return null;
     const scoped = localStorage.getItem(`ems_timer_${userKey}_clockout_time`) || localStorage.getItem(`ems_timer_${userKey}_clock_out`);
     if (scoped && scoped !== '--' && scoped !== '—' && scoped !== 'null') return scoped;
     try {
@@ -338,13 +337,7 @@ export const TimerProvider = ({ children }) => {
       if (attRaw) {
         const att = JSON.parse(attRaw);
         const today = new Date().toISOString().split('T')[0];
-        const rec = att.find(a => a.date === today && (
-          a.employeeId === targetEmpId ||
-          a.employeeId === targetEmpCode ||
-          a.employeeId === userKey ||
-          a.employeeCode === targetEmpCode ||
-          (a.employeeName && targetEmpName && a.employeeName.trim().toLowerCase() === targetEmpName.trim().toLowerCase())
-        ));
+        const rec = att.find(a => isRecordForUser(a, today));
         const val = rec?.clockOutTime || rec?.clockOut;
         if (val && val !== '--' && val !== '—' && val !== 'null') return val;
       }
@@ -519,7 +512,41 @@ export const TimerProvider = ({ children }) => {
 
   // Reload timer state when userKey switches (Multi-User Safe & Anti-Overwrite Hydration)
   useEffect(() => {
-    if (!userKey) return;
+    if (!userKey || !currentUser) {
+      setIsClockedIn(false);
+      setIsRunning(false);
+      setIsOnBreak(false);
+      setBreakType(null);
+      setWorkSeconds(0);
+      setBreakSeconds(0);
+      setCurrentBreakSeconds(0);
+      setLoginTime(null);
+      setClockOutTime(null);
+      setHadClockedOutToday(false);
+      setPunchSessions([]);
+      setReclockStatus('none');
+      setReclockSessionSeconds(0);
+      setSavedOfficialWorkSeconds(0);
+      return;
+    }
+
+    if (prevUserKeyRef.current !== userKey) {
+      setIsClockedIn(false);
+      setIsRunning(false);
+      setIsOnBreak(false);
+      setBreakType(null);
+      setWorkSeconds(0);
+      setBreakSeconds(0);
+      setCurrentBreakSeconds(0);
+      setLoginTime(null);
+      setClockOutTime(null);
+      setHadClockedOutToday(false);
+      setPunchSessions([]);
+      setReclockStatus('none');
+      setReclockSessionSeconds(0);
+      setSavedOfficialWorkSeconds(0);
+    }
+
     isHydratingRef.current = true;
     prevUserKeyRef.current = userKey;
 
@@ -572,7 +599,7 @@ export const TimerProvider = ({ children }) => {
       const hasAttClockOut = Boolean(attRec?.clockOutTime || attRec?.clockOut);
       const resolvedIsClockedIn = inVal !== null
         ? (inVal === 'true' || inVal === true)
-        : Boolean(hasAttClockIn && !hasAttClockOut && attRec?.isClockedIn !== false);
+        : Boolean(hasAttClockIn && !hasAttClockOut && attRec?.isClockedIn !== false && attRec?.status !== 'on_leave' && attRec?.status !== 'absent');
       setIsClockedIn(resolvedIsClockedIn);
 
       const runVal = readTimerStorage(currentUser, 'is_running');

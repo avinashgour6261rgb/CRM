@@ -89,7 +89,7 @@ export const WorkProvider = ({ children }) => {
 
   // Derive stable userKey matching TimerContext for seamless cross-module sync
   const userKey = useMemo(() => {
-    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : (currentUser ? 'ADM-001' : ''));
+    return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : '');
   }, [currentUser]);
 
   const getTodayStr = () => new Date().toISOString().split('T')[0];

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
 import { getTaskTodaySeconds } from '../../../../shared/utils/timerUtils';
@@ -17,6 +17,13 @@ export const WeeklyTimeLogsCard = ({
     isClockedIn = undefined,
     formatSeconds = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
 }) => {
+    // 1-Second Live Ticker to keep Week Timelogs counting live in real time
+    const [liveTick, setLiveTick] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => setLiveTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
     const effectiveUser = effectiveTargetUser || currentUser;
     const uId = effectiveUser?._id ? String(effectiveUser._id).toLowerCase() : '';
     const uCode = effectiveUser?.employeeCode ? String(effectiveUser.employeeCode).toLowerCase() : '';
@@ -87,12 +94,52 @@ export const WeeklyTimeLogsCard = ({
             { day: 'Sunday', shortDay: 'Su', offset: 6, isSunday: true, isDayOff: true }
         ];
 
+        let attendanceList = [];
+        try {
+            const rawAtt = localStorage.getItem('hrms_attendance');
+            if (rawAtt) attendanceList = JSON.parse(rawAtt) || [];
+        } catch (_) {}
+
         const logs = dayMeta.map(item => {
             const dayDateObj = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + item.offset);
             const dateStr = formatLocalDate(dayDateObj);
             const isCurrentDay = item.offset === currentDayOffset;
             const isPastDay = item.offset < currentDayOffset;
             const isFutureDay = item.offset > currentDayOffset;
+
+            // Compute break seconds from attendance records & storage
+            const attRec = attendanceList.find(a => {
+                if (a.date !== dateStr) return false;
+                const aId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '').toLowerCase();
+                const aCode = String(a.employeeCode || '').toLowerCase();
+                const aName = String(a.employeeName || '').toLowerCase().trim();
+                if (uId && aId === uId) return true;
+                if (uCode && (aId === uCode || aCode === uCode)) return true;
+                if (uName && aName && aName === uName) return true;
+                return false;
+            });
+
+            let dayBreakSecs = 0;
+            if (isCurrentDay) {
+                const storedBreak = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`));
+                if (storedBreak > 0) {
+                    dayBreakSecs = storedBreak;
+                } else if (attRec?.breakSeconds) {
+                    dayBreakSecs = Number(attRec.breakSeconds) || 0;
+                }
+            } else if (attRec) {
+                dayBreakSecs = Number(attRec.breakSeconds) || 0;
+                if (!dayBreakSecs && Array.isArray(attRec.breaks) && attRec.breaks.length > 0) {
+                    dayBreakSecs = attRec.breaks.reduce((acc, b) => acc + (Number(b.durationSeconds) || (Number(b.durationMinutes) * 60) || 0), 0);
+                }
+            }
+
+            const bHrs = Math.floor(dayBreakSecs / 3600);
+            const bMins = Math.floor((dayBreakSecs % 3600) / 60);
+            const bSecs = dayBreakSecs % 60;
+            const breakDuration = dayBreakSecs > 0
+                ? (bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m` : `${bSecs}s`))
+                : '0m';
 
             // Sunday is always Day Off
             if (item.isSunday) {
@@ -103,7 +150,7 @@ export const WeeklyTimeLogsCard = ({
                     durationText: '0h 00m',
                     durationHours: 0,
                     durationSeconds: 0,
-                    breakDuration: '0m',
+                    breakDuration,
                     isSunday: true,
                     isDayOff: true,
                     isCurrentDay,
@@ -220,7 +267,7 @@ export const WeeklyTimeLogsCard = ({
                 durationText,
                 durationHours: +(dayTotalSecs / 3600).toFixed(2),
                 durationSeconds: dayTotalSecs,
-                breakDuration: '0m',
+                breakDuration,
                 isSunday: false,
                 isDayOff: false,
                 isCurrentDay,
@@ -236,7 +283,7 @@ export const WeeklyTimeLogsCard = ({
         } catch (e) { }
 
         return logs;
-    }, [timesheets, tasks, activeRunningTask, effectiveUser, uId, uCode, uName, formatSeconds]);
+    }, [timesheets, tasks, activeRunningTask, effectiveUser, uId, uCode, uName, formatSeconds, isEffectiveClockedIn, liveTick, empKey, todayStr]);
 
     // Total weekly duration is strictly the sum of all 7 days of the current week
     const totalWeeklySecs = useMemo(() => {
