@@ -402,21 +402,27 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
  */
 export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffectiveClockedIn = true, isEffectiveOnBreak = false) => {
   if (!task) return 0;
-  const today = dateStr || new Date().toISOString().split('T')[0];
+  const targetDate = dateStr || new Date().toISOString().split('T')[0];
+  const actualToday = new Date().toISOString().split('T')[0];
 
   let baseSecs = 0;
-  if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[today] !== undefined) {
-    baseSecs = Number(task.dailySessions[today]) || 0;
-  } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
+  if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
+    baseSecs = Number(task.dailySessions[targetDate]) || 0;
+  } else if (task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
     baseSecs = Number(task.todayWorkSeconds) || 0;
-  } else if (task.sessionDate === today) {
+  } else if (task.sessionDate === targetDate && !task.dailySessions && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
+    // Single-day task created and worked exclusively on targetDate
     baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-  } else if (task.completedOn === today || (task.completedAt && String(task.completedAt).startsWith(today))) {
-    // If completed today, strictly count work performed today (prevent multi-day lifetime rollover leaking into today)
-    if (task.sessionDate === today) {
-      baseSecs = Number(task.todayWorkSeconds ?? task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+  } else if (task.completedOn === targetDate || (task.completedAt && String(task.completedAt).startsWith(targetDate))) {
+    // If completed on targetDate, strictly count work performed on targetDate
+    if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
+      baseSecs = Number(task.dailySessions[targetDate]) || 0;
+    } else if (task.sessionDate === targetDate && Number(task.todayWorkSeconds) > 0) {
+      baseSecs = Number(task.todayWorkSeconds);
+    } else if (!task.dailySessions && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
+      baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
     } else {
-      baseSecs = Number(task.todayWorkSeconds || 0);
+      baseSecs = 0;
     }
   } else {
     // STRICT: Past tasks not worked today have 0 seconds for today!
@@ -424,7 +430,8 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   }
 
   let liveSecs = 0;
-  if (task.timerRunning && isEffectiveClockedIn && !isEffectiveOnBreak) {
+  // STRICT: live ticking elapsed timer ONLY counts on actualToday (never for past/future days)
+  if (task.timerRunning && targetDate === actualToday && isEffectiveClockedIn && !isEffectiveOnBreak) {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
@@ -434,6 +441,49 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   }
 
   return Math.min(baseSecs + liveSecs, 14 * 3600);
+};
+
+/**
+ * Auto-healer: Sanitizes and repairs a task's dailySessions map to prevent multi-day leakage.
+ * If prior bugs caused total accumulated seconds to be copied into dailySessions[today],
+ * this repairs it so dailySessions strictly sum up to task.accumulatedSeconds without overflow.
+ */
+export const sanitizeTaskDailySessions = (task) => {
+  if (!task) return task;
+  const totalAccum = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+  if (totalAccum <= 0) return task;
+
+  const rawSessions = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : null;
+  if (!rawSessions || Object.keys(rawSessions).length <= 1) {
+    return task;
+  }
+
+  const sessionDates = Object.keys(rawSessions).sort();
+  let sumSessions = sessionDates.reduce((acc, d) => acc + (Number(rawSessions[d]) || 0), 0);
+
+  // If daily sessions sum exceeds lifetime totalAccum by more than 10%, a day was mistakenly assigned lifetime seconds
+  if (sumSessions > totalAccum + 10) {
+    const cleanedSessions = { ...rawSessions };
+    let runningSum = 0;
+    for (const d of sessionDates) {
+      const daySecs = Number(cleanedSessions[d]) || 0;
+      if (daySecs >= totalAccum && sessionDates.length > 1 && runningSum > 0) {
+        cleanedSessions[d] = Math.max(0, totalAccum - runningSum);
+        runningSum += cleanedSessions[d];
+      } else if (runningSum + daySecs > totalAccum) {
+        cleanedSessions[d] = Math.max(0, totalAccum - runningSum);
+        runningSum = totalAccum;
+      } else {
+        runningSum += daySecs;
+      }
+    }
+    return {
+      ...task,
+      dailySessions: cleanedSessions
+    };
+  }
+
+  return task;
 };
 
 /**
@@ -458,10 +508,13 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
   const totalSecs = baseAccum + sessionElapsed;
 
   const dailySessionsMap = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
-  let priorTodaySecs = Number(dailySessionsMap[today]) || (task.sessionDate === today ? Number(task.todayWorkSeconds || 0) : 0);
-  if (priorTodaySecs === 0 && (task.sessionDate === today || !task.sessionDate)) {
-    priorTodaySecs = baseAccum;
+  let priorTodaySecs = 0;
+  if (dailySessionsMap[today] !== undefined) {
+    priorTodaySecs = Number(dailySessionsMap[today]) || 0;
+  } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
+    priorTodaySecs = Number(task.todayWorkSeconds) || 0;
   }
+  // STRICT: Do NOT copy baseAccum into priorTodaySecs! If priorTodaySecs was 0, it means 0 prior seconds for today.
   const totalTodaySecs = priorTodaySecs + sessionElapsed;
   dailySessionsMap[today] = totalTodaySecs;
 

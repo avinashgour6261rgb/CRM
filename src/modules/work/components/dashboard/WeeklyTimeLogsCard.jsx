@@ -162,7 +162,7 @@ export const WeeklyTimeLogsCard = ({
                         isEffectiveClockedIn
                     );
 
-                    const isWorkedToday = isRunning || t.sessionDate === dateStr || (t.dailySessions && t.dailySessions[dateStr] > 0);
+                    const isWorkedToday = isRunning || (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
                     if (!isWorkedToday) return;
 
                     const taskTodaySecs = getTaskTodaySeconds(t, dateStr, nowMs, isEffectiveClockedIn, false);

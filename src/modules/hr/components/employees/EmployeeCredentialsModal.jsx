@@ -276,3 +276,4 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
     </div>
   );
 };
+

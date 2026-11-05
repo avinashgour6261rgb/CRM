@@ -1757,7 +1757,7 @@ export const DashboardPage = () => {
 
     // Check if task was worked today:
     const isRunningNow = Boolean(displayedIsClockedIn && !displayedHadClockedOut) && (Boolean(t.timerRunning) || Boolean(activeRunningTask && String(activeRunningTask._id || activeRunningTask.id || activeRunningTask.taskId) === tId));
-    const isWorkedToday = isRunningNow || (t.sessionDate === todayStr) || (t.dailySessions && t.dailySessions[todayStr] > 0);
+    const isWorkedToday = isRunningNow || (t.dailySessions && Number(t.dailySessions[todayStr]) > 0) || (t.sessionDate === todayStr && Number(t.todayWorkSeconds) > 0);
     if (!isWorkedToday) return acc;
 
     const todayPortion = getTaskTodaySeconds(t, todayStr, Date.now(), displayedIsClockedIn, displayedIsOnBreak);

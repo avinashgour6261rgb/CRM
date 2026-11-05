@@ -16,7 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -450,7 +450,7 @@ export const WorkProvider = ({ children }) => {
           });
         }
       });
-      const cleanMergedTasks = Array.from(finalTasksMap.values());
+      const cleanMergedTasks = Array.from(finalTasksMap.values()).map(sanitizeTaskDailySessions);
 
       // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
       localStorage.setItem(KEYS.TASKS, JSON.stringify(cleanMergedTasks));
@@ -1098,32 +1098,26 @@ export const WorkProvider = ({ children }) => {
         // Reset active timer snapshot for the new day so Day 2 starts clean
         saveActiveTimerSnapshot(null);
 
-        // Stop running state on all tasks for new day so ghost hours do not count while sleeping
+        // Stop running state on active tasks across midnight rollover so ghost hours do not count while sleeping
         const allTasks = getCollection(KEYS.TASKS) || [];
+        let anyReset = false;
         const resetTasks = allTasks.map(t => {
           if (t.timerRunning) {
+            anyReset = true;
             return {
               ...t,
               timerRunning: false,
               startedAt: null,
-              sessionDate: today
+              todayWorkSeconds: 0
             };
           }
-          return {
-            ...t,
-            sessionDate: today
-          };
+          return t;
         });
-        saveCollection(KEYS.TASKS, resetTasks);
-
-        setTasks(prev => prev.map(t => ({
-          ...t,
-          timerRunning: false,
-          startedAt: null,
-          sessionDate: today
-        })));
-
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+        if (anyReset) {
+          saveCollection(KEYS.TASKS, resetTasks);
+          setTasks(resetTasks);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+        }
       }
     };
 
@@ -1629,6 +1623,7 @@ export const WorkProvider = ({ children }) => {
     }
 
     // Save in storage collection: pause previous task and start new task
+    const updatedDailySessions = { ...(targetTask.dailySessions || {}), [today]: existingTodaySecs };
     const updatedAll = allTasks.map(t => {
       const tId = String(t._id || t.id);
       if (tId === String(taskId)) {
@@ -1638,6 +1633,8 @@ export const WorkProvider = ({ children }) => {
           startedAt: now,
           accumulatedSeconds: existingSecs,
           timerSeconds: existingSecs,
+          todayWorkSeconds: existingTodaySecs,
+          dailySessions: updatedDailySessions,
           activeUserId: targetUserKey,
           activeUserName: assignedEmpName,
           startedBy: currentUser?.name || 'User',
@@ -1647,31 +1644,12 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (previousTaskId && tId === String(previousTaskId)) {
-        return {
-          ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: previousTaskElapsed,
-          timerSeconds: previousTaskElapsed,
-          liveDurationText: formatSeconds(previousTaskElapsed),
-          sessionDate: today
-        };
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       if (t.timerRunning && ((!isForOtherEmployee && isTaskAssignedToMe(t)) || String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
-        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-          ? Number(t.accumulatedSeconds)
-          : (Number(t.timerSeconds) || 0);
-        const tTotal = tBase + tElapsed;
-        return {
-          ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: tTotal,
-          timerSeconds: tTotal,
-          liveDurationText: formatSeconds(tTotal),
-          sessionDate: today
-        };
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       return t;
     });
@@ -1684,6 +1662,8 @@ export const WorkProvider = ({ children }) => {
         startedAt: now,
         accumulatedSeconds: existingSecs,
         timerSeconds: existingSecs,
+        todayWorkSeconds: existingTodaySecs,
+        dailySessions: updatedDailySessions,
         status: targetTask.status === 'incomplete' ? 'in_progress' : targetTask.status,
         sessionDate: today,
         activeUserId: targetUserKey,
@@ -1742,6 +1722,8 @@ export const WorkProvider = ({ children }) => {
           startedAt: now,
           accumulatedSeconds: existingSecs,
           timerSeconds: existingSecs,
+          todayWorkSeconds: existingTodaySecs,
+          dailySessions: updatedDailySessions,
           activeUserId: targetUserKey,
           activeUserName: assignedEmpName,
           startedBy: currentUser?.name || 'User',
@@ -1751,31 +1733,12 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (previousTaskId && tId === String(previousTaskId)) {
-        return {
-          ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: previousTaskElapsed,
-          timerSeconds: previousTaskElapsed,
-          sessionDate: today,
-          liveDurationText: formatSeconds(previousTaskElapsed)
-        };
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        const tElapsed = t.startedAt ? Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000)) : 0;
-        const tBase = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-          ? Number(t.accumulatedSeconds)
-          : (Number(t.timerSeconds) || 0);
-        const tTotal = tBase + tElapsed;
-        return {
-          ...t,
-          timerRunning: false,
-          startedAt: null,
-          accumulatedSeconds: tTotal,
-          timerSeconds: tTotal,
-          liveDurationText: formatSeconds(tTotal),
-          sessionDate: today
-        };
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       return t;
     }));
@@ -1973,37 +1936,33 @@ export const WorkProvider = ({ children }) => {
       todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + sessionElapsed;
     } else if (targetTask?.sessionDate === todayStr && targetTask?.todayWorkSeconds !== undefined) {
       todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + sessionElapsed;
-    } else {
-      // Fallback: subtract previous days from all-time accumulated
-      const rawSecs = (targetTask?.accumulatedSeconds !== undefined && targetTask?.accumulatedSeconds !== null)
-        ? Number(targetTask.accumulatedSeconds)
-        : (Number(targetTask?.timerSeconds) || 0);
-      const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
-      const prevDaysLogged = allTimesheets
-        .filter(ts => (String(ts.taskId) === String(targetTask?._id || taskId) || (targetTask?.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== todayStr)
-        .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-      todaySessionSecs = Math.max(0, rawSecs + sessionElapsed - prevDaysLogged);
+    } else if (targetTask?.timerRunning && targetTask?.startedAt) {
+      todaySessionSecs = sessionElapsed;
+    } else if (targetTask?.sessionDate === todayStr && (targetTask?.startDate === todayStr || targetTask?.createdAt?.startsWith(todayStr))) {
+      todaySessionSecs = Math.max(0, sessionElapsed);
     }
 
     const baseAccum = (targetTask?.accumulatedSeconds !== undefined && targetTask?.accumulatedSeconds !== null)
       ? Number(targetTask.accumulatedSeconds)
       : (activeTimer ? (Number(activeTimer.accumulatedSeconds) || 0) : 0);
     const totalSecs = baseAccum + sessionElapsed;
-    const durationToLog = todaySessionSecs > 0 ? todaySessionSecs : totalSecs;
+    const durationToLog = todaySessionSecs;
     const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
 
     try {
-      await workService.stopTimer({
-        taskId: targetTask?._id || taskId,
-        taskCode: targetTask?.taskCode || 'TSK',
-        taskTitle: targetTask?.title || 'Task',
-        projectName: targetTask?.projectName || 'General Work',
-        employeeId: targetTask?.assignedToId || userKey,
-        employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
-        totalDurationSeconds: durationToLog,
-        date: todayStr,
-        memo: memo || `Work on ${targetTask?.title || 'Task'}`
-      });
+      if (durationToLog > 0) {
+        await workService.stopTimer({
+          taskId: targetTask?._id || taskId,
+          taskCode: targetTask?.taskCode || 'TSK',
+          taskTitle: targetTask?.title || 'Task',
+          projectName: targetTask?.projectName || 'General Work',
+          employeeId: targetTask?.assignedToId || userKey,
+          employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
+          totalDurationSeconds: durationToLog,
+          date: todayStr,
+          memo: memo || `Work on ${targetTask?.title || 'Task'}`
+        });
+      }
 
       saveActiveTimerSnapshot(null);
       if (targetTask?.assignedToId) {
@@ -2026,6 +1985,7 @@ export const WorkProvider = ({ children }) => {
 
       // In storage tasks collection update timer to stopped but preserve total time logged
       const freshAllTasks = getCollection(KEYS.TASKS) || [];
+      const updatedDailySessions = { ...(targetTask?.dailySessions || {}), [todayStr]: todaySessionSecs };
       const updatedAll = freshAllTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           return {
@@ -2035,6 +1995,8 @@ export const WorkProvider = ({ children }) => {
             accumulatedSeconds: totalSecs,
             timerSeconds: totalSecs,
             durationSeconds: totalSecs,
+            todayWorkSeconds: todaySessionSecs,
+            dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             liveDurationText: hoursLoggedFormatted,
@@ -2054,6 +2016,8 @@ export const WorkProvider = ({ children }) => {
             accumulatedSeconds: totalSecs,
             timerSeconds: totalSecs,
             durationSeconds: totalSecs,
+            todayWorkSeconds: todaySessionSecs,
+            dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             liveDurationText: hoursLoggedFormatted,
@@ -2147,7 +2111,9 @@ export const WorkProvider = ({ children }) => {
           todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
         } else if (targetTask.sessionDate === todayStr && targetTask.todayWorkSeconds !== undefined) {
           todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + todayElapsedSecs;
-        } else if (targetTask.sessionDate === todayStr) {
+        } else if (targetTask.timerRunning && targetTask.startedAt) {
+          todaySessionSecs = todayElapsedSecs;
+        } else if (!targetTask.dailySessions && targetTask.sessionDate === todayStr && (targetTask.startDate === todayStr || targetTask.createdAt?.startsWith(todayStr))) {
           todaySessionSecs = Math.max(0, durationSecs - prevDaysLogged);
         }
 
@@ -2174,17 +2140,31 @@ export const WorkProvider = ({ children }) => {
               }
             }
           }
+        } else if (targetTask.sessionDate && targetTask.sessionDate !== todayStr) {
+          const sessDate = targetTask.sessionDate;
+          const prevDaySecs = Math.max(0, durationSecs - todayElapsedSecs);
+          if (prevDaySecs > 0) {
+            const alreadyLoggedOnDate = allTimesheets
+              .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date === sessDate)
+              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+            const unloggedOnDate = Math.max(0, prevDaySecs - alreadyLoggedOnDate);
+            if (unloggedOnDate > 0) {
+              workService.stopTimer({
+                taskId: targetTask._id || taskId,
+                taskCode: targetTask.taskCode,
+                taskTitle: targetTask.title,
+                projectName: targetTask.projectName,
+                totalDurationSeconds: unloggedOnDate,
+                date: sessDate,
+                employeeId: assignedEmpId,
+                employeeName: assignedEmpName,
+                memo: `Session worked on ${sessDate}`
+              }).catch(() => {});
+            }
+          }
         }
 
-        const todayTimesheetsLogged = allTimesheets
-          .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date === todayStr)
-          .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-        // Log ONLY today's portion - never log all-time accumulated seconds as a single day's duration!
-        const todayOnlyDurationSecs = targetTask.sessionDate === todayStr ? Math.max(0, durationSecs - prevDaysLogged) : 0;
-        const durationToLogToday = Math.max(
-          Number(todaySessionSecs) || 0,
-          todayOnlyDurationSecs
-        );
+        const durationToLogToday = Number(todaySessionSecs) || 0;
 
         if (durationToLogToday > 0) {
           try {
@@ -2262,6 +2242,7 @@ export const WorkProvider = ({ children }) => {
         details: `Task completed by ${currentUser?.name || 'User'}${isForOtherEmployee ? ` (for ${assignedEmpName})` : ''}. Final duration logged: ${hoursLoggedFormatted} (${durationSecs}s)`
       };
 
+      const updatedDailySessions = { ...(targetTask.dailySessions || {}), [todayStr]: durationToLogToday };
       const updatedAll = allTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           const hist = Array.isArray(t.history) ? [...t.history, completionHistory] : [completionHistory];
@@ -2273,10 +2254,13 @@ export const WorkProvider = ({ children }) => {
             timerSeconds: finalTaskDuration,
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
+            todayWorkSeconds: durationToLogToday,
+            dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
             completedOn: todayStr,
+            sessionDate: todayStr,
             history: hist
           };
         }
@@ -2294,10 +2278,13 @@ export const WorkProvider = ({ children }) => {
           timerSeconds: finalTaskDuration,
           durationSeconds: finalTaskDuration,
           accumulatedSeconds: finalTaskDuration,
+          todayWorkSeconds: durationToLogToday,
+          dailySessions: updatedDailySessions,
           hoursLogged: hoursLoggedNum,
           hoursLoggedText: hoursLoggedFormatted,
           completedAt: completedIso,
           completedOn: todayStr,
+          sessionDate: todayStr,
           history: fullHist
         });
       } catch (svcErr) {}
@@ -2310,12 +2297,16 @@ export const WorkProvider = ({ children }) => {
             status: 'completed',
             progress: 100,
             timerRunning: false,
-            timerSeconds: durationSecs,
-            durationSeconds: durationSecs,
+            timerSeconds: finalTaskDuration,
+            durationSeconds: finalTaskDuration,
+            accumulatedSeconds: finalTaskDuration,
+            todayWorkSeconds: durationToLogToday,
+            dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
             completedOn: todayStr,
+            sessionDate: todayStr,
             history: hist
           };
         }

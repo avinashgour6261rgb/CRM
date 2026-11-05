@@ -960,18 +960,23 @@ export const CRMProvider = ({ children }) => {
           const runningElapsed = (activeTimer.timerRunning && isClockedInToday && !hadClockedOutToday && isStartedToday)
             ? Math.max(0, Math.floor((nowMs - Number(activeTimer.startedAt)) / 1000))
             : 0;
-          const liveActiveTimerSecs = (Number(activeTimer.accumulatedSeconds) || 0) + runningElapsed;
+
+          // Strictly calculate today's session duration, NOT all-time minus timesheets!
+          let dayPortion = 0;
+          if (activeTimer.dailySessions && typeof activeTimer.dailySessions === 'object' && activeTimer.dailySessions[dateStr] !== undefined) {
+            dayPortion = (Number(activeTimer.dailySessions[dateStr]) || 0) + runningElapsed;
+          } else if (activeTimer.sessionDate === dateStr && activeTimer.todayWorkSeconds !== undefined) {
+            dayPortion = (Number(activeTimer.todayWorkSeconds) || 0) + runningElapsed;
+          } else if (activeTimer.timerRunning) {
+            dayPortion = runningElapsed;
+          }
+
           activeTimerTask = activeTimer;
 
           const timesheetsForThisTask = matchingTimesheets
             .filter(ts => String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode))
             .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
-          const otherDaysLogged = (timesheets || [])
-            .filter(ts => (String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode)) && ts.date !== dateStr)
-            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-
-          const dayPortion = Math.max(0, liveActiveTimerSecs - otherDaysLogged);
           const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
           dayTotalTaskSeconds += unsubmitted;
         }
@@ -987,27 +992,24 @@ export const CRMProvider = ({ children }) => {
             const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
             if (t.status === 'completed' && !isCompletedToday) return;
 
-            // Only consider tasks explicitly worked/paused on this date or completed today
-            const isWorkedToday = (t.sessionDate === dateStr && !t.completedAt) || isCompletedToday;
+            // Only consider tasks explicitly worked today or completed today
+            const hasSessionToday = (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
+            const isWorkedToday = hasSessionToday || isCompletedToday;
             if (!isWorkedToday) return;
-
-            const timesheetsForThisTask = matchingTimesheets
-              .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-
-            const otherDaysLogged = (timesheets || [])
-              .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== dateStr)
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
 
             let dayPortion = 0;
             if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
               dayPortion = Number(t.dailySessions[dateStr]) || 0;
             } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
               dayPortion = Number(t.todayWorkSeconds) || 0;
-            } else {
-              const taskSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || Number(t.durationSeconds) || 0;
-              dayPortion = Math.max(0, taskSecs - otherDaysLogged);
+            } else if (isCompletedToday && (t.startDate === dateStr || t.createdAt?.startsWith(dateStr))) {
+              dayPortion = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
             }
+
+            const timesheetsForThisTask = matchingTimesheets
+              .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
+              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+
             const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
             dayTotalTaskSeconds += unsubmitted;
           });
@@ -1019,12 +1021,8 @@ export const CRMProvider = ({ children }) => {
             secs = Number(curr.dailySessions[dateStr]) || 0;
           } else if (curr.sessionDate === dateStr && curr.todayWorkSeconds !== undefined) {
             secs = Number(curr.todayWorkSeconds) || 0;
-          } else {
-            const otherDaysLogged = (timesheets || [])
-              .filter(ts => (String(ts.taskId) === String(curr._id || curr.id) || (curr.taskCode && ts.taskCode === curr.taskCode)) && ts.date !== dateStr)
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-            const rawSecs = Number(curr.timerSeconds) || Number(curr.durationSeconds) || 0;
-            secs = Math.max(0, rawSecs - otherDaysLogged);
+          } else if (curr.startDate === dateStr || curr.createdAt?.startsWith(dateStr)) {
+            secs = Number(curr.timerSeconds) || Number(curr.durationSeconds) || 0;
           }
           return acc + secs;
         }, 0);
@@ -1035,8 +1033,8 @@ export const CRMProvider = ({ children }) => {
         allTasks.forEach(t => {
           if (!isTaskForMe(t)) return;
           const tId = String(t._id || t.id);
-          const isWorkedOnDate = t.sessionDate === dateStr;
-          if (!isWorkedOnDate) return;
+          const hasPastSession = (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
+          if (!hasPastSession) return;
 
           const alreadyInTimesheets = matchingTimesheets.some(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode));
           const alreadyInCompleted = matchingCompletedTasks.some(ct => String(ct._id || ct.id) === tId);
@@ -1047,13 +1045,7 @@ export const CRMProvider = ({ children }) => {
             secs = Number(t.dailySessions[dateStr]) || 0;
           } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
             secs = Number(t.todayWorkSeconds) || 0;
-          } else {
-            const otherDaysLogged = (timesheets || [])
-              .filter(ts => (String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode)) && ts.date !== dateStr)
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-            const rawSecs = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
-            secs = Math.max(0, rawSecs - otherDaysLogged);
-          };
+          }
           if (secs > 0) {
             dayTotalTaskSeconds += secs;
             const estH = t.estimatedHours || 3;
