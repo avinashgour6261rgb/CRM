@@ -182,8 +182,29 @@ const updateEmployee = asyncHandler(async (req, res) => {
     payload.delegationExpiresAt = payload.delegationExpiresAt || null;
   }
 
-  const employee = await Employee.findOneAndUpdate(
-    { $or: orConditions },
+  const existingEmployee = await Employee.findOne({ $or: orConditions });
+  if (!existingEmployee) {
+    return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  // Password History Audit for Super Admin (Save previous passwords whenever updated)
+  if (payload.password && payload.password !== existingEmployee.password) {
+    const historyEntry = {
+      password: existingEmployee.password,
+      changedAt: new Date().toISOString(),
+      changedBy: req.user?.name || req.user?.email || 'User'
+    };
+    const prevHistory = Array.isArray(existingEmployee.passwordHistory)
+      ? existingEmployee.passwordHistory
+      : [];
+    payload.passwordHistory = [historyEntry, ...prevHistory];
+    payload.passwordUpdatedAt = new Date().toISOString();
+  } else if (payload.passwordHistory === undefined && Array.isArray(existingEmployee.passwordHistory)) {
+    payload.passwordHistory = existingEmployee.passwordHistory;
+  }
+
+  const employee = await Employee.findByIdAndUpdate(
+    existingEmployee._id,
     { $set: payload },
     { new: true, runValidators: false }
   );

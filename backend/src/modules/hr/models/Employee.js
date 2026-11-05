@@ -95,6 +95,14 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       default: 'emp123'
     },
+    passwordHistory: {
+      type: Array,
+      default: []
+    },
+    passwordUpdatedAt: {
+      type: String,
+      default: null
+    },
     isAdmin: {
       type: Boolean,
       default: false

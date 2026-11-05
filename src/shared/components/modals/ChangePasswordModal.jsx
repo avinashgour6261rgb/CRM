@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getCollection, saveCollection, KEYS } from '../../services/storageService';
+import { API_BASE } from '../../config/apiConfig';
 
 export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
   const { currentUser = null, setCurrentUser = () => {} } = useAuth() || {};
@@ -121,29 +122,59 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
         }
       }
 
+      // Old password archive for Super Admin history
+      const oldPass = empIndex >= 0 ? employees[empIndex].password : (effectiveUser?.password || currentPassword || 'emp123');
+      const historyEntry = {
+        password: oldPass,
+        changedAt: new Date().toISOString(),
+        changedBy: isSelf ? 'User (Self-Service)' : `Super Admin (${currentUser?.name || 'Administrator'})`
+      };
+
+      let finalHistory = [];
       // Update employee record
       if (empIndex >= 0) {
+        const prevHist = Array.isArray(employees[empIndex].passwordHistory) ? employees[empIndex].passwordHistory : [];
+        finalHistory = [historyEntry, ...prevHist];
         employees[empIndex] = {
           ...employees[empIndex],
           password: newPassword,
+          passwordHistory: finalHistory,
           passwordUpdatedAt: new Date().toISOString()
         };
       } else {
         // Fallback create / push record
+        finalHistory = [historyEntry];
         employees.push({
           ...effectiveUser,
           password: newPassword,
+          passwordHistory: finalHistory,
           passwordUpdatedAt: new Date().toISOString()
         });
       }
 
       saveCollection(KEYS.EMPLOYEES, employees);
 
+      // Persist to MongoDB backend so Super Admin gets updated immediately
+      const targetId = effectiveUser?._id || employees[empIndex]?._id || effectiveUser?.employeeCode;
+      if (targetId) {
+        fetch(`${API_BASE}/employees/${targetId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: newPassword,
+            passwordHistory: finalHistory,
+            passwordUpdatedAt: new Date().toISOString()
+          })
+        }).catch(err => console.warn('Backend password sync notice:', err));
+      }
+
       // If updating self, update active session
       if (isSelf) {
         const updatedUser = {
           ...(currentUser || {}),
-          password: newPassword
+          password: newPassword,
+          passwordHistory: finalHistory,
+          passwordUpdatedAt: new Date().toISOString()
         };
         setCurrentUser?.(updatedUser);
         localStorage.setItem('ems_auth_session', JSON.stringify(updatedUser));

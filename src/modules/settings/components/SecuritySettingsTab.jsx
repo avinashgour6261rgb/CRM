@@ -109,8 +109,21 @@ export const SecuritySettingsTab = () => {
 
     setPasswordUpdating(true);
     try {
+      const oldPass = currentUser?.password || localStorage.getItem('ems_master_password') || currentPassword;
+      const historyEntry = {
+        password: oldPass,
+        changedAt: new Date().toISOString(),
+        changedBy: `${currentUser?.name || 'User'} (Self-Service)`
+      };
+      const prevHist = Array.isArray(currentUser?.passwordHistory) ? currentUser.passwordHistory : [];
+      const updatedHistory = [historyEntry, ...prevHist];
+
       if (currentUser?._id && updateEmployee) {
-        await updateEmployee(currentUser._id, { password: newPassword });
+        await updateEmployee(currentUser._id, {
+          password: newPassword,
+          passwordHistory: updatedHistory,
+          passwordUpdatedAt: new Date().toISOString()
+        });
       }
 
       // Update active auth session
@@ -118,6 +131,8 @@ export const SecuritySettingsTab = () => {
       if (savedAuth) {
         const parsed = JSON.parse(savedAuth);
         parsed.password = newPassword;
+        parsed.passwordHistory = updatedHistory;
+        parsed.passwordUpdatedAt = new Date().toISOString();
         localStorage.setItem('ems_auth_session', JSON.stringify(parsed));
       }
       localStorage.setItem('ems_master_password', newPassword);

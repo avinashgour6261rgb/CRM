@@ -20,6 +20,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { getRoles } from '../../../../shared/services/roleManagementService';
+import { getCompanySettings } from '../../../../shared/services/companySettingsService';
 import { KEYS } from '../../../../shared/services/storageService';
 import { API_BASE } from '../../../../shared/config/apiConfig';
 import {
@@ -144,6 +145,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   const [showNewRoleInput, setShowNewRoleInput] = useState(false);
   const [newRoleInput, setNewRoleInput] = useState('');
 
+  const companySettings = getCompanySettings();
+  const companyDefaultShift = `${companySettings.shiftStartTime || '09:30 AM'} - ${companySettings.shiftEndTime || '06:30 PM'}`;
+
   const [formData, setFormData] = useState({
     name: '',
     employeeCode: '',
@@ -153,10 +157,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     systemRole: 'team_member',
     department: 'IT & Software Development',
     workMode: 'Office',
-    shiftTiming: '10:00 AM - 07:00 PM',
+    shiftTiming: companyDefaultShift,
     status: 'active',
     joiningDate: new Date().toISOString().split('T')[0],
-    dob: '1998-05-15',
+    dob: '',
     phone: '',
     gender: 'Male',
     bloodGroup: 'O+',
@@ -239,10 +243,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       const code = getNextAvailableCode();
+      const currentSettings = getCompanySettings();
+      const currentDefaultShift = `${currentSettings.shiftStartTime || '09:30 AM'} - ${currentSettings.shiftEndTime || '06:30 PM'}`;
       setFormData(prev => ({
         ...prev,
         employeeCode: prev.employeeCode || code,
-        password: prev.password || generateRandomPassword()
+        password: prev.password || generateRandomPassword(),
+        shiftTiming: prev.shiftTiming || currentDefaultShift
       }));
     }
   }, [isOpen, employees]);
@@ -677,16 +684,15 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[12.5px] font-semibold text-slate-700 m-0">
-                🎂 Date of Birth (DOB) *
+                🎂 Date of Birth (DOB)
               </label>
-              <span className="text-[10px] text-blue-600 font-semibold">30d Birthday Alert</span>
+              <span className="text-[10px] text-blue-600 font-semibold">Optional • Can edit later</span>
             </div>
             <input
               type="date"
               value={formData.dob}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
               className="filter-input w-full h-10 pl-3"
-              required
             />
           </div>
 
@@ -923,14 +929,17 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               ⏰ Work Shift
             </label>
             <select
-              value={formData.shiftTiming || '10:00 AM - 07:00 PM'}
+              value={formData.shiftTiming || companyDefaultShift}
               onChange={(e) => setFormData({ ...formData, shiftTiming: e.target.value })}
               className="filter-select w-full h-10 font-medium"
             >
-              <option value="10:00 AM - 07:00 PM">Day (10:00 AM - 07:00 PM)</option>
-              <option value="09:30 AM - 06:30 PM">Morning (09:30 AM - 06:30 PM)</option>
-              <option value="02:00 PM - 11:00 PM">Evening (02:00 PM - 11:00 PM)</option>
-              <option value="08:00 PM - 05:00 AM">Night (08:00 PM - 05:00 AM)</option>
+              <option value={companyDefaultShift}>
+                ⭐ {companyDefaultShift} (Company Primary Shift - Admin Decided)
+              </option>
+              <option value="10:00 AM - 07:00 PM">Day Shift (10:00 AM - 07:00 PM)</option>
+              <option value="09:30 AM - 06:30 PM">Morning Shift (09:30 AM - 06:30 PM)</option>
+              <option value="02:00 PM - 11:00 PM">Evening Shift (02:00 PM - 11:00 PM)</option>
+              <option value="08:00 PM - 05:00 AM">Night Shift (08:00 PM - 05:00 AM)</option>
               <option value="Flexible Shift">Flexible Hours</option>
             </select>
           </div>
@@ -1048,13 +1057,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 {formData.salaryBasis === 'annual' ? (
                   <div>
                     <label className="text-xs text-slate-800 block mb-1 font-bold">
-                      Annual Package / CTC (₹) *
+                      Annual Package / CTC (₹) (Optional)
                     </label>
                     <input
                       type="number"
                       step="1000"
                       min="0"
-                      placeholder="e.g. 360000 (Enter manual amount)"
+                      placeholder="e.g. 360000 (Optional - can be set later)"
                       value={formData.annualCTC}
                       onChange={(e) => {
                         const valStr = e.target.value;
@@ -1066,22 +1075,21 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                         }));
                       }}
                       className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800"
-                      required
                     />
                     <div className="text-[11px] text-slate-500 mt-1">
-                      Type manual annual package amount
+                      Optional: Leave blank if not decided yet
                     </div>
                   </div>
                 ) : (
                   <div>
                     <label className="text-xs text-slate-800 block mb-1 font-bold">
-                      Monthly Salary (₹) *
+                      Monthly Salary (₹) (Optional)
                     </label>
                     <input
                       type="number"
                       step="500"
                       min="0"
-                      placeholder="e.g. 30000 (Enter manual amount)"
+                      placeholder="e.g. 30000 (Optional - can be set later)"
                       value={formData.startingSalary}
                       onChange={(e) => {
                         const valStr = e.target.value;
@@ -1093,10 +1101,9 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                         }));
                       }}
                       className="filter-input w-full h-[42px] pl-3 font-bold text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800"
-                      required
                     />
                     <div className="text-[11px] text-slate-500 mt-1">
-                      Type manual monthly salary amount
+                      Optional: Leave blank if not decided yet
                     </div>
                   </div>
                 )}

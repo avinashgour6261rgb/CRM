@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
 import { useConfirm } from '../../../../shared/context/ConfirmContext';
-import { Plus, Trash2, Mail, Briefcase, Building, Search, Calendar, UserCheck, Award, User, Edit3, ArrowUpDown, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Mail, Briefcase, Building, Search, Calendar, UserCheck, Award, User, Edit3, ArrowUpDown, ShieldCheck, Key } from 'lucide-react';
 import { AddEmployeeModal } from './AddEmployeeModal';
 import { PromoteEmployeeModal } from './PromoteEmployeeModal';
 import { EditProfileModal } from '../../../../shared/components/modals/EditProfileModal';
 import { SalaryIncrementModal } from '../../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from './ManagePermissionsModal';
+import { EmployeeCredentialsModal } from './EmployeeCredentialsModal';
 
 export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const { employees, deleteEmployee, currentUser } = useHR();
@@ -26,6 +27,7 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const [selectedProfileEmp, setSelectedProfileEmp] = useState(null);
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
   const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
+  const [selectedCredentialsEmp, setSelectedCredentialsEmp] = useState(null);
 
   const [salaryMap, setSalaryMap] = useState(() => {
     try {
@@ -205,6 +207,15 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                         <span>Promote</span>
                       </button>
 
+                      <button
+                        onClick={() => setSelectedCredentialsEmp(emp)}
+                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-amber-100"
+                        title="View & Copy Employee Login Credentials / Password Vault"
+                      >
+                        <Key size={12} color="#d97706" />
+                        <span>Pass</span>
+                      </button>
+
                       {!isEmployeeSelf(emp) && (
                         <button
                           onClick={async () => {
@@ -271,6 +282,14 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
           isOpen={!!selectedPermsEmp}
           onClose={() => setSelectedPermsEmp(null)}
           employee={selectedPermsEmp}
+        />
+      )}
+
+      {selectedCredentialsEmp && (
+        <EmployeeCredentialsModal
+          isOpen={!!selectedCredentialsEmp}
+          onClose={() => setSelectedCredentialsEmp(null)}
+          employee={selectedCredentialsEmp}
         />
       )}
     </>

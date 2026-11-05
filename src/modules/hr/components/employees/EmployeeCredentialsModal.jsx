@@ -27,19 +27,37 @@ import { useToast } from '../../../../shared/context/ToastContext';
 export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   const { addToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [showHistPass, setShowHistPass] = useState({});
   const [copiedField, setCopiedField] = useState(null);
 
   if (!isOpen || !employee) return null;
 
+  // Real-time lookup of freshest employee data from localStorage so updated passwords & history appear instantly
+  const targetEmp = (() => {
+    try {
+      const emps = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
+      const found = emps.find(e =>
+        (e._id && employee._id && String(e._id) === String(employee._id)) ||
+        (e.employeeCode && employee.employeeCode && String(e.employeeCode).toUpperCase() === String(employee.employeeCode).toUpperCase()) ||
+        (e.email && employee.email && e.email.toLowerCase() === employee.email.toLowerCase())
+      );
+      return found ? { ...employee, ...found } : employee;
+    } catch (_) {
+      return employee;
+    }
+  })();
+
   const loginUrl = `${window.location.origin}/login`;
-  const empCode = employee.employeeCode || employee.idNumber || 'EMP-001';
-  const email = employee.email || 'employee@inforag.com';
-  const password = employee.password || 'emp123';
-  const name = employee.name || 'Team Member';
-  const role = employee.role || employee.systemRole || 'Team Member';
-  const department = employee.department || 'General Operations';
-  const shiftTiming = employee.shiftTiming || '10:00 AM - 07:00 PM';
-  const avatar = employee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120';
+  const empCode = targetEmp.employeeCode || targetEmp.idNumber || 'EMP-001';
+  const email = targetEmp.email || 'employee@inforag.com';
+  const password = targetEmp.password || 'emp123';
+  const name = targetEmp.name || 'Team Member';
+  const role = targetEmp.role || targetEmp.systemRole || 'Team Member';
+  const department = targetEmp.department || 'General Operations';
+  const shiftTiming = targetEmp.shiftTiming || '10:00 AM - 07:00 PM';
+  const avatar = targetEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120';
+  const passwordHistory = Array.isArray(targetEmp.passwordHistory) ? targetEmp.passwordHistory : [];
+  const passwordUpdatedAt = targetEmp.passwordUpdatedAt;
 
   const handleCopy = (text, fieldName) => {
     navigator.clipboard.writeText(text);
@@ -51,6 +69,9 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   };
 
   const handleCopyAll = () => {
+    const histSummary = passwordHistory.length > 0
+      ? `\n📜 Past Passwords Archived: ${passwordHistory.length} previous record(s)`
+      : '';
     const fullText = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏢 Inforag Management System — Employee Login Pass
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -60,9 +81,9 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
 ⏰ Shift:       ${shiftTiming}
 🌐 Login Portal:${loginUrl}
 📧 Work Email:  ${email}
-🔑 Password:    ${password}
+🔑 Password:    ${password}${histSummary}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Note: Please log in and change your password in Settings > Profile.`;
+⚠️ Note: Super Admin retains audit access to all credentials & password revision history.`;
 
     navigator.clipboard.writeText(fullText);
     setCopiedField('all');
@@ -238,6 +259,81 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
                   Live DB Password
                 </span>
               </div>
+            </div>
+
+            {/* Field 5: Super Admin Vault & Historical Passwords Audit */}
+            <div className="p-3.5 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-50/50 to-indigo-50/30 dark:from-purple-950/30 dark:to-indigo-950/20 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👑</span>
+                  <div>
+                    <div className="text-xs font-black text-purple-950 dark:text-purple-200">
+                      Super Admin Password Vault & Archive
+                    </div>
+                    <div className="text-[11px] text-purple-700 dark:text-purple-300">
+                      {passwordHistory.length > 0
+                        ? `User has updated password ${passwordHistory.length} time(s). All past and current passwords are permanently archived.`
+                        : 'Initial password active. Whenever employee updates password, past passwords are saved here.'}
+                    </div>
+                  </div>
+                </div>
+                {passwordUpdatedAt && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 font-bold shrink-0">
+                    Updated: {new Date(passwordUpdatedAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+
+              {passwordHistory.length > 0 ? (
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    <span>Archived Previous Passwords ({passwordHistory.length}):</span>
+                    <span className="text-[10px] text-slate-500 font-normal">Stored for Super Admin recovery</span>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto flex flex-col gap-1.5 pr-1">
+                    {passwordHistory.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 px-2.5 rounded-lg bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900/60 text-xs font-mono shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9.5px] font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-1.5 py-0.5 rounded">
+                            v{passwordHistory.length - idx}
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            {showHistPass[idx] ? item.password : '••••••••••••'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <span className="hidden sm:inline font-sans text-[10.5px]">
+                            {item.changedAt ? new Date(item.changedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Previous'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowHistPass(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer bg-transparent border-0 p-0.5"
+                            title={showHistPass[idx] ? 'Hide' : 'Show password'}
+                          >
+                            {showHistPass[idx] ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(item.password, `Previous Password v${passwordHistory.length - idx}`)}
+                            className="text-purple-600 hover:text-purple-700 dark:text-purple-400 cursor-pointer bg-transparent border-0 p-0.5"
+                            title="Copy previous password"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-purple-800 dark:text-purple-300 bg-white/70 dark:bg-slate-800/70 p-2 rounded-lg border border-purple-200 dark:border-purple-900/40">
+                  🔒 No previous passwords yet. Current password is the only active password. If employee or admin updates it, the old one will be safely kept in this vault.
+                </div>
+              )}
             </div>
           </div>
 

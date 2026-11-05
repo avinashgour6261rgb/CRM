@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
 import { getRoles, canUserAssignRole, recordPromotion } from '../../services/roleManagementService';
+import { getCompanySettings } from '../../services/companySettingsService';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 const PRESET_AVATARS = [
@@ -41,6 +42,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   const targetEmp = employee || currentUser;
   const isEditingOther = employee && employee._id !== currentUser?._id;
 
+  const companySettings = getCompanySettings();
+  const companyDefaultShift = `${companySettings.shiftStartTime || '09:30 AM'} - ${companySettings.shiftEndTime || '06:30 PM'}`;
+
   const [availableRoles, setAvailableRoles] = useState(getRoles());
   const [formData, setFormData] = useState({
     name: '',
@@ -56,7 +60,16 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     employeeCode: 'EMP-001',
     address: '',
     bloodGroup: '',
-    shiftTiming: '10:00 AM - 07:00 PM',
+    shiftTiming: companyDefaultShift,
+    emergencyContactName: '',
+    emergencyContactRelation: 'Parent',
+    emergencyContactPhone: '',
+    bankName: '',
+    accountNumber: '',
+    ifsc: '',
+    pan: '',
+    aadhaar: '',
+    upiId: '',
     customFields: []
   });
 
@@ -122,13 +135,15 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   // Sync form data whenever targetEmp or modal open state changes
   useEffect(() => {
     if (targetEmp) {
+      const settings = getCompanySettings();
+      const defaultShift = `${settings.shiftStartTime || '09:30 AM'} - ${settings.shiftEndTime || '06:30 PM'}`;
       setFormData({
         name: targetEmp.name || 'Employee',
         role: targetEmp.role || 'Senior Specialist',
         department: targetEmp.department || 'IT & Software Development',
         email: targetEmp.email || 'employee@company.com',
-        phone: targetEmp.phone || '+91 98765 43210',
-        dob: targetEmp.dob || '1998-10-15',
+        phone: targetEmp.phone || '',
+        dob: targetEmp.dob || '',
         joiningDate: targetEmp.joiningDate || '',
         avatar: targetEmp.avatar || PRESET_AVATARS[0],
         bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
@@ -136,7 +151,16 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         employeeCode: targetEmp.employeeCode || targetEmp._id || 'EMP-001',
         address: targetEmp.address || '',
         bloodGroup: targetEmp.bloodGroup || '',
-        shiftTiming: targetEmp.shiftTiming || '10:00 AM - 07:00 PM',
+        shiftTiming: targetEmp.shiftTiming || defaultShift,
+        emergencyContactName: targetEmp.emergencyContact?.name || targetEmp.emergencyContactName || '',
+        emergencyContactRelation: targetEmp.emergencyContact?.relation || targetEmp.emergencyContactRelation || 'Parent',
+        emergencyContactPhone: targetEmp.emergencyContact?.phone || targetEmp.emergencyContactPhone || '',
+        bankName: targetEmp.bankDetails?.bankName || targetEmp.bankName || '',
+        accountNumber: targetEmp.bankDetails?.accountNumber || targetEmp.accountNumber || '',
+        ifsc: targetEmp.bankDetails?.ifsc || targetEmp.ifsc || '',
+        pan: targetEmp.bankDetails?.pan || targetEmp.pan || '',
+        aadhaar: targetEmp.bankDetails?.aadhaar || targetEmp.aadhaar || '',
+        upiId: targetEmp.bankDetails?.upiId || targetEmp.upiId || '',
         customFields: targetEmp.customFields || []
       });
       setCustomAvatarUrl(targetEmp.avatar || '');
@@ -206,7 +230,26 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         else if (lower.includes('hr') || lower.includes('human resource')) derivedSystemRole = 'hr';
         else if (lower.includes('leader') || lower.includes('lead') || lower.includes('manager')) derivedSystemRole = 'team_leader';
       }
-      const payload = { ...(targetEmp || {}), ...formData, systemRole: derivedSystemRole };
+      const payload = {
+        ...(targetEmp || {}),
+        ...formData,
+        emergencyContact: {
+          name: formData.emergencyContactName || '',
+          relation: formData.emergencyContactRelation || 'Parent',
+          phone: formData.emergencyContactPhone || ''
+        },
+        bankDetails: {
+          bankName: formData.bankName || '',
+          accountNumber: formData.accountNumber || '',
+          ifsc: formData.ifsc || '',
+          pan: formData.pan || '',
+          aadhaar: formData.aadhaar || '',
+          upiId: formData.upiId || ''
+        },
+        aadhaar: formData.aadhaar || '',
+        upiId: formData.upiId || '',
+        systemRole: derivedSystemRole
+      };
 
       if (targetEmp?._id) {
         await updateEmployee(targetEmp._id, payload);
@@ -571,14 +614,17 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 ⏰ Work Shift
               </label>
               <select
-                value={formData.shiftTiming || '10:00 AM - 07:00 PM'}
+                value={formData.shiftTiming || companyDefaultShift}
                 onChange={e => handleChange('shiftTiming', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 font-medium"
               >
-                <option value="10:00 AM - 07:00 PM">Day (10:00 AM - 07:00 PM)</option>
-                <option value="09:30 AM - 06:30 PM">Morning (09:30 AM - 06:30 PM)</option>
-                <option value="02:00 PM - 11:00 PM">Evening (02:00 PM - 11:00 PM)</option>
-                <option value="08:00 PM - 05:00 AM">Night (08:00 PM - 05:00 AM)</option>
+                <option value={companyDefaultShift}>
+                  ⭐ {companyDefaultShift} (Company Primary Shift - Admin Decided)
+                </option>
+                <option value="10:00 AM - 07:00 PM">Day Shift (10:00 AM - 07:00 PM)</option>
+                <option value="09:30 AM - 06:30 PM">Morning Shift (09:30 AM - 06:30 PM)</option>
+                <option value="02:00 PM - 11:00 PM">Evening Shift (02:00 PM - 11:00 PM)</option>
+                <option value="08:00 PM - 05:00 AM">Night Shift (08:00 PM - 05:00 AM)</option>
                 <option value="Flexible Shift">Flexible Hours</option>
               </select>
             </div>
@@ -596,6 +642,145 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
               placeholder="e.g. Flat 402, Royal Palms, MG Road, Jaipur, Rajasthan - 302001"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
             />
+          </div>
+
+          {/* Emergency Contact Section */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 p-3.5 flex flex-col gap-2.5">
+            <span className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100">
+              🚨 Emergency Contact Details
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Contact Person Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ramesh Kumar"
+                  value={formData.emergencyContactName}
+                  onChange={e => handleChange('emergencyContactName', e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Relationship
+                </label>
+                <select
+                  value={formData.emergencyContactRelation || 'Parent'}
+                  onChange={e => handleChange('emergencyContactRelation', e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+                >
+                  <option value="Parent">Parent (Father / Mother)</option>
+                  <option value="Spouse">Spouse (Husband / Wife)</option>
+                  <option value="Sibling">Sibling (Brother / Sister)</option>
+                  <option value="Child">Child</option>
+                  <option value="Guardian">Guardian</option>
+                  <option value="Friend">Friend / Colleague</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Emergency Phone
+                </label>
+                <input
+                  type="tel"
+                  placeholder="+91 98765 00000"
+                  value={formData.emergencyContactPhone}
+                  onChange={e => handleChange('emergencyContactPhone', e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bank Account & Statutory KYC Section */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 p-3.5 flex flex-col gap-2.5">
+            <span className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100">
+              🏦 Bank Account & Statutory KYC Identity
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Bank Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. HDFC Bank"
+                  value={formData.bankName}
+                  onChange={e => handleChange('bankName', e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="A/C Number"
+                  value={formData.accountNumber}
+                  onChange={e => handleChange('accountNumber', e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  IFSC Code
+                </label>
+                <input
+                  type="text"
+                  placeholder="HDFC0001234"
+                  value={formData.ifsc}
+                  onChange={e => handleChange('ifsc', e.target.value.toUpperCase())}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono uppercase"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  PAN Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="ABCDE1234F"
+                  value={formData.pan}
+                  onChange={e => handleChange('pan', e.target.value.toUpperCase())}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Aadhaar Card No. (12 Digits)
+                </label>
+                <input
+                  type="text"
+                  maxLength={14}
+                  placeholder="XXXX XXXX XXXX"
+                  value={formData.aadhaar}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
+                    handleChange('aadhaar', formatted);
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  UPI ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="name@okhdfcbank"
+                  value={formData.upiId}
+                  onChange={e => handleChange('upiId', e.target.value.toLowerCase())}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Work Anniversary / Joining Date */}

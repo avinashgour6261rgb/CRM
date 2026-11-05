@@ -327,7 +327,23 @@ export const hrService = {
         return newRecord;
       }
 
-      employees[index] = { ...employees[index], ...updateData, updatedAt: new Date().toISOString() };
+      let updatedHistory = updateData.passwordHistory || employees[index].passwordHistory || [];
+      if (updateData.password && employees[index].password && employees[index].password !== updateData.password) {
+        const historyEntry = {
+          password: employees[index].password,
+          changedAt: new Date().toISOString(),
+          changedBy: 'User/Admin'
+        };
+        updatedHistory = [historyEntry, ...(Array.isArray(updatedHistory) ? updatedHistory : [])];
+      }
+
+      employees[index] = {
+        ...employees[index],
+        ...updateData,
+        passwordHistory: updatedHistory,
+        passwordUpdatedAt: updateData.password ? new Date().toISOString() : employees[index].passwordUpdatedAt,
+        updatedAt: new Date().toISOString()
+      };
       saveCollection(KEYS.EMPLOYEES, employees);
       return employees[index];
     });
@@ -342,7 +358,22 @@ export const hrService = {
         ((employeeId === 'emp_admin' || updateData.systemRole === 'admin') && (e.systemRole === 'admin' || e.isAdmin))
       );
       if (idx >= 0) {
-        localEmps[idx] = { ...localEmps[idx], ...updateData, ...(result || {}) };
+        let localHistory = updateData.passwordHistory || localEmps[idx].passwordHistory || [];
+        if (updateData.password && localEmps[idx].password && localEmps[idx].password !== updateData.password) {
+          const entry = {
+            password: localEmps[idx].password,
+            changedAt: new Date().toISOString(),
+            changedBy: 'User/Admin'
+          };
+          localHistory = [entry, ...(Array.isArray(localHistory) ? localHistory : [])];
+        }
+        localEmps[idx] = {
+          ...localEmps[idx],
+          ...updateData,
+          ...(result || {}),
+          passwordHistory: result?.passwordHistory || localHistory,
+          passwordUpdatedAt: updateData.password ? new Date().toISOString() : localEmps[idx].passwordUpdatedAt
+        };
         saveCollection(KEYS.EMPLOYEES, localEmps);
       }
       if (updateData.permissions) {
