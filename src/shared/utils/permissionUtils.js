@@ -345,7 +345,8 @@ export const canManagePayroll = (user) => {
   if (!user) return false;
   if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.payroll || perms?.finance || perms?.accessFinance);
+  if (!perms?.manageSalaries && !perms?.payroll && !perms?.allAccess) return false;
+  return Boolean(perms?.allAccess || perms?.manageSalaries || perms?.payroll);
 };
 export const canManageProjects = (user) => {
   if (!user) return false;
@@ -1246,12 +1247,14 @@ export const sanitizePermissionDependencies = (permissions = {}) => {
   if (sanitized.manageSalaries) {
     sanitized.payroll = true;
   } else {
+    sanitized.payroll = false;
     sanitized.export_payroll = false;
   }
 
   if (sanitized.accessFinance) {
     sanitized.finance = true;
   } else {
+    sanitized.finance = false;
     sanitized.approveExpenses = false;
   }
 
@@ -1371,8 +1374,10 @@ export const getUserModulePermissions = (user) => {
   if (basePerms.manageEmployees || basePerms.deleteEmployees) {
     basePerms.employees = true;
   }
-  if (basePerms.manageSalaries || basePerms.export_payroll || basePerms.accessFinance) {
+  if (basePerms.manageSalaries || basePerms.export_payroll) {
     basePerms.payroll = true;
+  }
+  if (basePerms.accessFinance || basePerms.approveExpenses) {
     basePerms.finance = true;
   }
   if (basePerms.accessCRM || basePerms.viewAllLeads || basePerms.deleteLeads) {

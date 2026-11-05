@@ -524,7 +524,7 @@ export const EmployeePermissionsTab = () => {
     setIsSaving(true);
     try {
       const userKey = selectedEmp.employeeCode || selectedEmp._id;
-      const safePerms = { ...permissions };
+      const safePerms = sanitizePermissionDependencies({ ...permissions });
 
       if (isDelegatedAdmin) {
         safePerms.allAccess = true;
