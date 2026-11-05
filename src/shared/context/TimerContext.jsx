@@ -109,7 +109,7 @@ export const TimerProvider = ({ children }) => {
     if (!currentUser) return false;
 
     const recEmp = rec.employee && typeof rec.employee === 'object' ? String(rec.employee._id || '') : String(rec.employee || '');
-    const recEmpId = String(rec.employeeId || recEmp || rec._id || '');
+    const recEmpId = String(rec.employeeId || recEmp || '');
     const recEmpCode = String(rec.employeeCode || '').trim().toUpperCase();
     const recEmpName = String(rec.employeeName || '').trim().toLowerCase();
     const recEmpEmail = String(rec.employeeEmail || rec.email || '').trim().toLowerCase();
@@ -847,7 +847,13 @@ export const TimerProvider = ({ children }) => {
         setLoginTime(inTime);
         setClockOutTime(null);
         setHadClockedOutToday(false);
-        setBreakSeconds(bSecs);
+
+        // 🌟 FLICKER PREVENTION: When actively on break, never overwrite breakSeconds with stale remote bSecs (which is 0 or frozen)!
+        const localStoredBreakSecs = Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || 0;
+        const effectiveBreakSecs = effectiveOnBreak
+          ? Math.max(bSecs, localStoredBreakSecs)
+          : (bSecs > 0 ? bSecs : localStoredBreakSecs);
+        setBreakSeconds(prev => (effectiveOnBreak ? Math.max(prev, effectiveBreakSecs) : effectiveBreakSecs));
 
         // 🌟 FLICKER PREVENTION: While timer is running, tick() is the single driver of workSeconds. Never overwrite live seconds!
         setWorkSeconds(prev => (prev > 0 ? prev : effectiveWorkSecs));
@@ -872,7 +878,9 @@ export const TimerProvider = ({ children }) => {
             localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, String(sessStartTs));
           }
           localStorage.setItem(`ems_timer_${uk}_had_clocked_out`, 'false');
-          localStorage.setItem(`ems_timer_${uk}_break_seconds`, String(bSecs));
+          const curStoredBreak = Number(localStorage.getItem(`ems_timer_${uk}_break_seconds`)) || 0;
+          const breakToPersist = effectiveOnBreak ? Math.max(curStoredBreak, effectiveBreakSecs) : effectiveBreakSecs;
+          localStorage.setItem(`ems_timer_${uk}_break_seconds`, String(breakToPersist));
           const curLocalWorkSecs = Number(localStorage.getItem(`ems_timer_${uk}_work_seconds`)) || 0;
           if (curLocalWorkSecs === 0 && effectiveWorkSecs > 0) {
             localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(effectiveWorkSecs));
@@ -1711,15 +1719,16 @@ export const TimerProvider = ({ children }) => {
     }
     existingSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
 
+    const userPunchSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime() && s.outTime);
+    const storedLoginForUser = (storedSessionDate === today ? localStorage.getItem(`ems_timer_${userKey}_login_time`) : null);
+    const storedClockInTsForUser = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
+    const hasValidStoredLogin = Boolean(storedSessionDate === today && storedLoginForUser && storedClockInTsForUser >= todayMidnight.getTime());
+
+    // User is ONLY considered having a prior clock-in if this specific employee has recorded completed sessions today
     const hasPriorClockInToday = Boolean(
-      (hasRemoteSessionToday && existingRec?.clockInTime !== '--') ||
-      hasStoredClockIn ||
-      isClockedIn ||
-      localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-      (sessionDate === today && loginTime && loginTime !== '--' && loginTime !== 'Active') ||
-      existingSessions.length > 0 ||
-      (hadClockedOutToday && (clockOutTime || existingSessions.length > 0)) ||
-      (localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' && (clockOutTime || existingSessions.length > 0))
+      (userPunchSessions.length > 0) ||
+      (hasValidStoredLogin && localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' && userPunchSessions.length > 0) ||
+      (hasRemoteSessionToday && existingRec && isRecordForUser(existingRec, today) && existingRec.clockInTime && existingRec.clockInTime !== '--' && Array.isArray(existingRec.punchSessions) && existingRec.punchSessions.length > 0)
     );
 
     const isFirstClockIn = !hasPriorClockInToday;
@@ -1732,7 +1741,7 @@ export const TimerProvider = ({ children }) => {
 
     if (hasPriorClockInToday) {
       // 🌟 RESUME / RE-CLOCK IN: Preserve the original first clock-in of the day and prior work time!
-      initialLoginTime = existingRec?.clockInTime || existingRec?.clockIn || storedLogin || loginTime || nowStr;
+      initialLoginTime = userPunchSessions[0]?.inTime || existingRec?.clockInTime || existingRec?.clockIn || storedLoginForUser || nowStr;
       if (!clockInTs || clockInTs < todayMidnight.getTime()) {
         const parsedSecs = parseTimeToSeconds(initialLoginTime);
         clockInTs = todayMidnight.getTime() + parsedSecs * 1000;

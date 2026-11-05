@@ -2102,24 +2102,25 @@ export const WorkProvider = ({ children }) => {
       }
       let todayElapsedSecs = liveSessionElapsed;
 
+      // Calculate strictly today's work portion using dailySessions as source of truth
+      let todaySessionSecs = 0;
+      if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
+        todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
+      } else if (targetTask.sessionDate === todayStr && targetTask.todayWorkSeconds !== undefined) {
+        todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + todayElapsedSecs;
+      } else if (targetTask.timerRunning && targetTask.startedAt) {
+        todaySessionSecs = todayElapsedSecs;
+      } else if (!targetTask.dailySessions && targetTask.sessionDate === todayStr && (targetTask.startDate === todayStr || targetTask.createdAt?.startsWith(todayStr))) {
+        todaySessionSecs = Math.max(0, durationSecs);
+      }
+      const durationToLogToday = Number(todaySessionSecs) || 0;
+
       // Log timesheet for the actual ASSIGNED EMPLOYEE
       if (durationSecs > 0) {
         const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
         const prevDaysLogged = allTimesheets
           .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== todayStr)
           .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-
-        // Calculate strictly today's work portion using dailySessions as source of truth
-        let todaySessionSecs = 0;
-        if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
-          todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
-        } else if (targetTask.sessionDate === todayStr && targetTask.todayWorkSeconds !== undefined) {
-          todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + todayElapsedSecs;
-        } else if (targetTask.timerRunning && targetTask.startedAt) {
-          todaySessionSecs = todayElapsedSecs;
-        } else if (!targetTask.dailySessions && targetTask.sessionDate === todayStr && (targetTask.startDate === todayStr || targetTask.createdAt?.startsWith(todayStr))) {
-          todaySessionSecs = Math.max(0, durationSecs - prevDaysLogged);
-        }
 
         // If task was worked on previous days without timesheets, archive those past days to their respective dates
         if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object') {
@@ -2167,8 +2168,6 @@ export const WorkProvider = ({ children }) => {
             }
           }
         }
-
-        const durationToLogToday = Number(todaySessionSecs) || 0;
 
         if (durationToLogToday > 0) {
           try {

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
-import { getTaskTodaySeconds } from '../../../../shared/utils/timerUtils';
+import { getTaskTodaySeconds, readTimerStorage } from '../../../../shared/utils/timerUtils';
 
 export const WeeklyTimeLogsCard = ({
     effectiveTargetUser,
@@ -121,17 +121,21 @@ export const WeeklyTimeLogsCard = ({
 
             let dayBreakSecs = 0;
             if (isCurrentDay) {
-                const storedBreak = Number(localStorage.getItem(`ems_timer_${empKey}_break_seconds`));
-                if (storedBreak > 0) {
-                    dayBreakSecs = storedBreak;
-                } else if (attRec?.breakSeconds) {
-                    dayBreakSecs = Number(attRec.breakSeconds) || 0;
+                const storedBreak = Number(readTimerStorage(effectiveUser, 'break_seconds')) || 0;
+                const isOnBreakNow = readTimerStorage(effectiveUser, 'is_on_break') === 'true' || readTimerStorage(effectiveUser, 'is_on_break') === true;
+                let activeBreakSecs = 0;
+                if (isOnBreakNow) {
+                    const brkStart = Number(readTimerStorage(effectiveUser, 'break_start_timestamp'));
+                    if (brkStart && brkStart > 0) {
+                        activeBreakSecs = Math.max(0, Math.floor((Date.now() - brkStart) / 1000));
+                    } else {
+                        activeBreakSecs = Number(readTimerStorage(effectiveUser, 'current_break_seconds')) || 0;
+                    }
                 }
+                const attBreak = Number(attRec?.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
+                dayBreakSecs = Math.max(storedBreak, attBreak) + (storedBreak >= activeBreakSecs ? 0 : activeBreakSecs);
             } else if (attRec) {
-                dayBreakSecs = Number(attRec.breakSeconds) || 0;
-                if (!dayBreakSecs && Array.isArray(attRec.breaks) && attRec.breaks.length > 0) {
-                    dayBreakSecs = attRec.breaks.reduce((acc, b) => acc + (Number(b.durationSeconds) || (Number(b.durationMinutes) * 60) || 0), 0);
-                }
+                dayBreakSecs = Number(attRec.breakSeconds) || (Array.isArray(attRec?.breakHistory) ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0) : 0);
             }
 
             const bHrs = Math.floor(dayBreakSecs / 3600);
@@ -139,7 +143,7 @@ export const WeeklyTimeLogsCard = ({
             const bSecs = dayBreakSecs % 60;
             const breakDuration = dayBreakSecs > 0
                 ? (bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m` : `${bSecs}s`))
-                : '0m';
+                : '0s';
 
             // Sunday is always Day Off
             if (item.isSunday) {
