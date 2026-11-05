@@ -215,9 +215,9 @@ export const removeTimerStorage = (user, subKey) => {
   }
 };
 
-import { API_BASE } from '../config/apiConfig';
-import { hrService } from '../../modules/hr/services/hrService';
-import { workService } from '../../modules/work/services/workService';
+import { API_BASE } from '../config/apiConfig.js';
+import { hrService } from '../../modules/hr/services/hrService.js';
+import { workService } from '../../modules/work/services/workService.js';
 
 /**
  * Single Source of Truth: Calculate shift work seconds for an employee on a given date.
