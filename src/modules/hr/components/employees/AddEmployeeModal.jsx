@@ -153,13 +153,16 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     systemRole: 'team_member',
     department: 'IT & Software Development',
     workMode: 'Office',
+    shiftTiming: '10:00 AM - 07:00 PM',
     status: 'active',
     joiningDate: new Date().toISOString().split('T')[0],
     dob: '1998-05-15',
     phone: '',
     gender: 'Male',
+    bloodGroup: 'O+',
     address: '',
     emergencyContactName: '',
+    emergencyContactRelation: 'Parent',
     emergencyContactPhone: '',
     permissions: { ...(DEFAULT_MODULE_PERMISSIONS.team_member || {}) },
     leaveBalance: {
@@ -177,6 +180,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     accountNumber: '',
     ifsc: '',
     pan: '',
+    aadhaar: '',
     upiId: '',
     avatar: '',
     customFields: []
@@ -373,10 +377,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         dob: formData.dob || '',
         phone: formData.phone || '',
         gender: formData.gender || 'Male',
+        bloodGroup: formData.bloodGroup || 'O+',
+        shiftTiming: formData.shiftTiming || '10:00 AM - 07:00 PM',
         joiningDate: formData.joiningDate || new Date().toISOString().split('T')[0],
         address: formData.address || '',
         emergencyContact: {
           name: formData.emergencyContactName || '',
+          relation: formData.emergencyContactRelation || 'Parent',
           phone: formData.emergencyContactPhone || ''
         },
         startingSalary: salaryDetails.monthlyGross,
@@ -386,8 +393,11 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           accountNumber: formData.accountNumber || '',
           ifsc: formData.ifsc || '',
           pan: formData.pan || '',
+          aadhaar: formData.aadhaar || '',
           upiId: formData.upiId || ''
         },
+        aadhaar: formData.aadhaar || '',
+        upiId: formData.upiId || '',
         password: formData.password || 'emp123',
         systemRole: formData.systemRole,
         isAdmin: formData.systemRole === 'admin',
@@ -449,6 +459,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         role: formData.role || 'Associate',
         systemRole: formData.systemRole || 'team_member',
         department: formData.department || 'General Operations',
+        shiftTiming: formData.shiftTiming || '10:00 AM - 07:00 PM',
         avatar: formData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
       };
 
@@ -463,12 +474,17 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         role: '',
         systemRole: 'team_member',
         department: 'IT & Software Development',
+        workMode: 'Office',
+        shiftTiming: '10:00 AM - 07:00 PM',
+        status: 'active',
         joiningDate: new Date().toISOString().split('T')[0],
         dob: '1998-05-15',
         phone: '',
         gender: 'Male',
+        bloodGroup: 'O+',
         address: '',
         emergencyContactName: '',
+        emergencyContactRelation: 'Parent',
         emergencyContactPhone: '',
         permissions: { ...(DEFAULT_MODULE_PERMISSIONS.team_member || {}) },
         leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 },
@@ -481,6 +497,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         accountNumber: '',
         ifsc: '',
         pan: '',
+        aadhaar: '',
         upiId: '',
         avatar: '',
         customFields: []
@@ -603,8 +620,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Row 3: Phone Number & Gender */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Row 3: Phone Number, Gender & Blood Group */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Phone Number
@@ -631,6 +648,26 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               <option value="Female">Female</option>
               <option value="Non-Binary">Non-Binary</option>
               <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
+              🩸 Blood Group
+            </label>
+            <select
+              value={formData.bloodGroup}
+              onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
+              className="filter-select w-full h-10 font-bold text-slate-800"
+            >
+              <option value="O+">O+ (Universal Donor)</option>
+              <option value="O-">O-</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+ (Universal Acceptor)</option>
+              <option value="AB-">AB-</option>
             </select>
           </div>
         </div>
@@ -670,15 +707,29 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Row 4.5: Residential / Permanent Address */}
+        <div>
+          <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
+            🏠 Residential / Permanent Address
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. Flat 402, Royal Enclave, MG Road, Jaipur, Rajasthan - 302001"
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            className="filter-input w-full h-10 pl-3"
+          />
+        </div>
+
         {/* Row 5: Emergency Contact Details */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
               Emergency Contact Person
             </label>
             <input
               type="text"
-              placeholder="e.g. Ramesh Meena (Father/Spouse)"
+              placeholder="e.g. Ramesh Kumar"
               value={formData.emergencyContactName}
               onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
               className="filter-input w-full h-10 pl-3"
@@ -687,7 +738,26 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
 
           <div>
             <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
-              Emergency Contact Phone
+              Relationship
+            </label>
+            <select
+              value={formData.emergencyContactRelation}
+              onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
+              className="filter-select w-full h-10"
+            >
+              <option value="Parent">Parent (Father / Mother)</option>
+              <option value="Spouse">Spouse (Husband / Wife)</option>
+              <option value="Sibling">Sibling (Brother / Sister)</option>
+              <option value="Child">Child</option>
+              <option value="Guardian">Guardian</option>
+              <option value="Friend">Friend / Colleague</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
+              Emergency Phone
             </label>
             <input
               type="tel"
@@ -779,8 +849,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Row 4: Dynamic Department, Work Mode & Status */}
-        <div className="grid grid-cols-[1.4fr_1fr_1fr] gap-3">
+        {/* Row 7: Dynamic Department, Work Mode, Shift Timings & Status */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[12.5px] font-semibold text-slate-700 m-0">
@@ -845,6 +915,23 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
               <option value="Office">🏢 Office</option>
               <option value="Remote">🏡 Remote</option>
               <option value="Hybrid">🔄 Hybrid</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[12.5px] font-semibold text-slate-700 mb-1.5">
+              ⏰ Work Shift
+            </label>
+            <select
+              value={formData.shiftTiming || '10:00 AM - 07:00 PM'}
+              onChange={(e) => setFormData({ ...formData, shiftTiming: e.target.value })}
+              className="filter-select w-full h-10 font-medium"
+            >
+              <option value="10:00 AM - 07:00 PM">Day (10:00 AM - 07:00 PM)</option>
+              <option value="09:30 AM - 06:30 PM">Morning (09:30 AM - 06:30 PM)</option>
+              <option value="02:00 PM - 11:00 PM">Evening (02:00 PM - 11:00 PM)</option>
+              <option value="08:00 PM - 05:00 AM">Night (08:00 PM - 05:00 AM)</option>
+              <option value="Flexible Shift">Flexible Hours</option>
             </select>
           </div>
 
@@ -1121,12 +1208,14 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 )}
               </div>
 
-              {/* Banking & Identity Details (For Realistic Payslip Generation) */}
+              {/* Banking & Identity Details (For Realistic Payslip Generation & KYC) */}
               <div className="border-t border-dashed border-slate-300 pt-2.5 flex flex-col gap-2">
                 <span className="text-[11.5px] font-bold text-slate-700">
-                  🏦 Bank Account & Payment Details (Optional for Payslips):
+                  🏦 Bank Account & Statutory KYC Details (Optional for Payslips & Taxes):
                 </span>
-                <div className="grid grid-cols-[1.2fr_1.2fr_1fr_1fr] gap-2">
+                
+                {/* Bank Account Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <input
                     type="text"
                     placeholder="Bank Name (e.g. HDFC Bank)"
@@ -1136,24 +1225,47 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                   />
                   <input
                     type="text"
-                    placeholder="A/C Number"
+                    placeholder="Bank A/C Number"
                     value={formData.accountNumber}
                     onChange={(e) => setFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
                     className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
                   />
                   <input
                     type="text"
-                    placeholder="IFSC Code"
+                    placeholder="IFSC Code (e.g. HDFC0001234)"
                     value={formData.ifsc}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ifsc: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
+                    onChange={(e) => setFormData(prev => ({ ...prev, ifsc: e.target.value.toUpperCase() }))}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none uppercase font-mono"
+                  />
+                </div>
+
+                {/* Statutory KYC & UPI Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="PAN Number (e.g. ABCDE1234F)"
+                    value={formData.pan}
+                    onChange={(e) => setFormData(prev => ({ ...prev, pan: e.target.value.toUpperCase() }))}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none uppercase font-mono"
                   />
                   <input
                     type="text"
-                    placeholder="PAN Number"
-                    value={formData.pan}
-                    onChange={(e) => setFormData(prev => ({ ...prev, pan: e.target.value }))}
-                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
+                    placeholder="Aadhaar Card No. (12 Digits)"
+                    value={formData.aadhaar}
+                    maxLength={14}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '').slice(0, 12);
+                      const formatted = raw.replace(/(\d{4})(?=\d)/g, '$1 ');
+                      setFormData(prev => ({ ...prev, aadhaar: formatted }));
+                    }}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="UPI ID (e.g. name@okhdfcbank)"
+                    value={formData.upiId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, upiId: e.target.value.toLowerCase() }))}
+                    className="h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-[11.5px] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none font-mono"
                   />
                 </div>
               </div>

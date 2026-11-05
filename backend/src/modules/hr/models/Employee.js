@@ -51,7 +51,23 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       default: 'Other'
     },
+    bloodGroup: {
+      type: String,
+      default: ''
+    },
     address: {
+      type: String,
+      default: ''
+    },
+    shiftTiming: {
+      type: String,
+      default: '10:00 AM - 07:00 PM'
+    },
+    aadhaar: {
+      type: String,
+      default: ''
+    },
+    upiId: {
       type: String,
       default: ''
     },

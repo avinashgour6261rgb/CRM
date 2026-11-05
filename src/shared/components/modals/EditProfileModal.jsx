@@ -54,6 +54,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     bio: '',
     workingMode: 'Office',
     employeeCode: 'EMP-001',
+    address: '',
+    bloodGroup: '',
+    shiftTiming: '10:00 AM - 07:00 PM',
     customFields: []
   });
 
@@ -131,6 +134,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         bio: targetEmp.bio || 'Core member contributing across sprint deliveries.',
         workingMode: targetEmp.workingMode || localStorage.getItem('ems_working_mode') || 'Office',
         employeeCode: targetEmp.employeeCode || targetEmp._id || 'EMP-001',
+        address: targetEmp.address || '',
+        bloodGroup: targetEmp.bloodGroup || '',
+        shiftTiming: targetEmp.shiftTiming || '10:00 AM - 07:00 PM',
         customFields: targetEmp.customFields || []
       });
       setCustomAvatarUrl(targetEmp.avatar || '');
@@ -200,7 +206,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         else if (lower.includes('hr') || lower.includes('human resource')) derivedSystemRole = 'hr';
         else if (lower.includes('leader') || lower.includes('lead') || lower.includes('manager')) derivedSystemRole = 'team_leader';
       }
-      const payload = { ...formData, systemRole: derivedSystemRole };
+      const payload = { ...(targetEmp || {}), ...formData, systemRole: derivedSystemRole };
 
       if (targetEmp?._id) {
         await updateEmployee(targetEmp._id, payload);
@@ -535,6 +541,61 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
               />
             </div>
+          </div>
+
+          {/* Blood Group & Shift Timings */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                🩸 Blood Group
+              </label>
+              <select
+                value={formData.bloodGroup || ''}
+                onChange={e => handleChange('bloodGroup', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600 font-semibold"
+              >
+                <option value="">Select Blood Group</option>
+                <option value="O+">O+ (Universal Donor)</option>
+                <option value="O-">O-</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+ (Universal Acceptor)</option>
+                <option value="AB-">AB-</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                ⏰ Work Shift
+              </label>
+              <select
+                value={formData.shiftTiming || '10:00 AM - 07:00 PM'}
+                onChange={e => handleChange('shiftTiming', e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
+              >
+                <option value="10:00 AM - 07:00 PM">Day (10:00 AM - 07:00 PM)</option>
+                <option value="09:30 AM - 06:30 PM">Morning (09:30 AM - 06:30 PM)</option>
+                <option value="02:00 PM - 11:00 PM">Evening (02:00 PM - 11:00 PM)</option>
+                <option value="08:00 PM - 05:00 AM">Night (08:00 PM - 05:00 AM)</option>
+                <option value="Flexible Shift">Flexible Hours</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Residential Address */}
+          <div>
+            <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              🏠 Residential / Permanent Address
+            </label>
+            <input
+              type="text"
+              value={formData.address || ''}
+              onChange={e => handleChange('address', e.target.value)}
+              placeholder="e.g. Flat 402, Royal Palms, MG Road, Jaipur, Rajasthan - 302001"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
+            />
           </div>
 
           {/* Work Anniversary / Joining Date */}

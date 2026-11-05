@@ -38,6 +38,7 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   const name = employee.name || 'Team Member';
   const role = employee.role || employee.systemRole || 'Team Member';
   const department = employee.department || 'General Operations';
+  const shiftTiming = employee.shiftTiming || '10:00 AM - 07:00 PM';
   const avatar = employee.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120';
 
   const handleCopy = (text, fieldName) => {
@@ -56,6 +57,7 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
 👤 Employee:  ${name}
 🆔 Employee ID: ${empCode}
 💼 Role:        ${role} (${department})
+⏰ Shift:       ${shiftTiming}
 🌐 Login Portal:${loginUrl}
 📧 Work Email:  ${email}
 🔑 Password:    ${password}
@@ -128,6 +130,12 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
                   <span>{role}</span>
                   <span>•</span>
                   <span>{department}</span>
+                  {shiftTiming && (
+                    <>
+                      <span>•</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-semibold">{shiftTiming}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
