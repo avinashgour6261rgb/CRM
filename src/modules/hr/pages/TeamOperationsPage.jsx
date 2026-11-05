@@ -41,7 +41,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
@@ -583,8 +583,12 @@ export const TeamOperationsPage = () => {
     const emp = clockOutModalTarget;
     const empKey = emp.employeeCode || String(emp._id);
     const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const nowTs = Date.now();
 
     try {
+      // Execute canonical shift clock-out to preserve punch sessions and final work time
+      performShiftClockOut(emp, { reason: `Emergency Shift End: ${emergencyReason} (${punchTime})`, nowTs, nowStr: punchTime });
+
       try {
         await hrService.adminForceClockOut(emp._id || empKey, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
       } catch (backendErr) {

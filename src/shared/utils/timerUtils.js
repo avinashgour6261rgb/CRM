@@ -603,7 +603,36 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
     updatedSessions = normalizePunchSessions([...updatedSessions, newSession]);
   }
 
-  const finalVerifiedWorkSecs = Math.min(maxPossibleGrossToday, updatedSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0));
+  const sumSessionsSecs = updatedSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+  const finalVerifiedWorkSecs = Math.min(
+    maxPossibleGrossToday,
+    Math.max(storedWorkSecs, sumSessionsSecs)
+  );
+
+  // Monotonic Invariant: If stored work seconds had accumulated higher than sessions,
+  // reconcile the last session so punchSessions strictly matches work_seconds without dropping time!
+  if (finalVerifiedWorkSecs > sumSessionsSecs) {
+    const diff = finalVerifiedWorkSecs - sumSessionsSecs;
+    if (updatedSessions.length > 0) {
+      const last = { ...updatedSessions[updatedSessions.length - 1] };
+      last.durationSeconds = (Number(last.durationSeconds) || 0) + diff;
+      last.durationText = formatSecondsToHoursMins(last.durationSeconds);
+      last.outTimestamp = nowTs;
+      last.outTime = timeStr;
+      updatedSessions[updatedSessions.length - 1] = last;
+    } else {
+      updatedSessions.push({
+        id: `sess_${Date.now()}`,
+        sessionNumber: 1,
+        inTime: sessInStr,
+        outTime: timeStr,
+        inTimestamp: Math.max(todayMidnight.getTime(), nowTs - finalVerifiedWorkSecs * 1000),
+        outTimestamp: nowTs,
+        durationSeconds: finalVerifiedWorkSecs,
+        durationText: formatSecondsToHoursMins(finalVerifiedWorkSecs)
+      });
+    }
+  }
 
   // 2. Persist shift timer keys across all mirror keys
   for (const uk of mirrorKeys) {

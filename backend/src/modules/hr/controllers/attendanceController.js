@@ -573,11 +573,64 @@ const forceClockOut = asyncHandler(async (req, res) => {
   });
 
   if (attRecord) {
+    const nowTs = Date.now();
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+
+    let updatedSessions = Array.isArray(attRecord.punchSessions) ? [...attRecord.punchSessions] : [];
+    const lastSessionOut = updatedSessions.length > 0
+      ? Math.max(...updatedSessions.map(s => Number(s.outTimestamp || s.inTimestamp || 0)))
+      : 0;
+
+    let sessStartTs = Number(attRecord.currentSessionStartTimestamp);
+    if (!sessStartTs || sessStartTs < todayMidnightMs) {
+      if (lastSessionOut > 0) {
+        sessStartTs = lastSessionOut;
+      } else {
+        sessStartTs = Number(attRecord.clockInTimestamp) || (todayMidnightMs + parseTimeStringToSeconds(attRecord.clockInTime || nowStr) * 1000);
+      }
+    }
+    if (lastSessionOut > 0 && sessStartTs < lastSessionOut) {
+      sessStartTs = lastSessionOut;
+    }
+    sessStartTs = Math.max(sessStartTs, todayMidnightMs);
+
+    const grossSessionSecs = Math.max(0, Math.floor((nowTs - sessStartTs) / 1000));
+    if (grossSessionSecs > 0 && sessStartTs < nowTs) {
+      const sessInStr = attRecord.clockInTime || nowStr;
+      const newSession = {
+        id: `sess_${nowTs}`,
+        sessionNumber: updatedSessions.length + 1,
+        inTime: sessInStr,
+        outTime: nowStr,
+        inTimestamp: sessStartTs,
+        outTimestamp: nowTs,
+        durationSeconds: grossSessionSecs,
+        durationText: `${Math.floor(grossSessionSecs / 3600)}h ${Math.floor((grossSessionSecs % 3600) / 60)}m`
+      };
+      updatedSessions.push(newSession);
+    }
+
+    const sessionsSum = updatedSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+    const finalWorkSecs = Math.max(Number(attRecord.workSeconds) || 0, sessionsSum);
+    const finalWorkHours = +(finalWorkSecs / 3600).toFixed(2);
+
     attRecord.clockOutTime = nowStr;
-    attRecord.clockOutTimestamp = Date.now();
+    attRecord.clockOutTimestamp = nowTs;
     attRecord.isClockedIn = false;
     attRecord.isOnBreak = false;
-    attRecord.status = attRecord.status || 'present';
+    attRecord.workSeconds = finalWorkSecs;
+    attRecord.totalWorkingHours = finalWorkHours;
+    attRecord.punchSessions = updatedSessions;
+    if (finalWorkHours >= 4.5 && attRecord.status === 'half_day') {
+      attRecord.status = 'present';
+    }
+    const standardWorkHours = 9;
+    if (finalWorkHours > standardWorkHours) {
+      attRecord.overtimeHours = +(finalWorkHours - standardWorkHours).toFixed(2);
+      attRecord.overtimeSeconds = Math.round(attRecord.overtimeHours * 3600);
+    }
     attRecord.notes = `Manual Clock-Out by Admin ${adminName}: "${noteText}"`;
     attRecord.markedBy = adminName;
     await attRecord.save();

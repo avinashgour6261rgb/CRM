@@ -69,7 +69,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions } from '../../../shared/utils/timerUtils';
+import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -788,8 +788,12 @@ export const DashboardPage = () => {
     const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
     try {
       const targetEmp = (employees || []).find(e => e._id === empId || e.employeeCode === empId);
-      const empKey = targetEmp?.employeeCode || (targetEmp?._id ? String(targetEmp._id) : String(empId));
+      const empObj = targetEmp || { _id: empId, employeeCode: empId, name: empName };
+      const nowTs = Date.now();
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      // Execute canonical shift clock-out to preserve punch sessions and final work time
+      performShiftClockOut(empObj, { reason: note, nowTs, nowStr });
 
       try {
         await hrService.adminForceClockOut(empId, note, todayStr);
