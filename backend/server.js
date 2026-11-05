@@ -54,8 +54,14 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Health check route
-app.get('/api/health', (req, res) => {
+// Health check route (With graceful 2s connection buffer to avoid 503 on cold start)
+app.get('/api/health', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    const start = Date.now();
+    while (mongoose.connection.readyState !== 1 && Date.now() - start < 2000) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
   const isDbReady = mongoose.connection.readyState === 1;
   res.status(isDbReady ? 200 : 503).json({
     status: isDbReady ? 'online' : 'connecting',

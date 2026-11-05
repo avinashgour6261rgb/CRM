@@ -12,7 +12,13 @@ const Timesheet = require('../models/Timesheet');
 exports.getTasks = async (req, res, next) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ success: false, message: 'Database connecting, standby' });
+      const start = Date.now();
+      while (mongoose.connection.readyState !== 1 && Date.now() - start < 2000) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ success: false, message: 'Database connecting, standby' });
+      }
     }
     const { projectId, status, priority, assignedTo, search, hideCompleted } = req.query;
     let query = {};

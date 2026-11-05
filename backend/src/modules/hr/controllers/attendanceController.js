@@ -35,7 +35,13 @@ const autoClosePastDayShifts = async () => {
 const getMonthlyAttendance = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
   if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({ success: false, message: 'Database connecting, standby', data: [] });
+    const start = Date.now();
+    while (mongoose.connection.readyState !== 1 && Date.now() - start < 2000) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ success: false, message: 'Database connecting, standby', data: [] });
+    }
   }
 
   // Auto-close any unclosed shifts from previous calendar days
