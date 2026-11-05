@@ -430,7 +430,7 @@ export const CRMProvider = ({ children }) => {
     setTickets(getCollection(KEYS.TICKETS));
     setNotices(getCollection(KEYS.NOTICES));
     setEvents((getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
-    setConversations(getCollection(KEYS.CONVERSATIONS));
+    setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
     setWfhEmployees(getCollection(KEYS.WFH));
     setStoredWeeklyTimeLogs(getCollection(KEYS.WEEKLY_TIMELOGS));
     setLeads(getCollection(KEYS.LEADS));

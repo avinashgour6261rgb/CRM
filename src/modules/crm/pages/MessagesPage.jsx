@@ -35,7 +35,8 @@ import {
   ChevronLeft,
   Monitor,
   Radio,
-  Mic
+  Mic,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useCRM } from '../../../shared/context/CRMContext';
@@ -106,25 +107,21 @@ export const MessagesPage = () => {
     const foundVisible = (visibleConversations || []).find(c => c.id === activeConversationId);
     if (foundVisible) return foundVisible;
 
-    // 2. Try finding in all conversations (in case visibility is re-evaluating)
-    const foundAll = (conversations || []).find(c => c.id === activeConversationId);
-    if (foundAll) return foundAll;
-
-    // 3. If tab is 'dms', pick the first DM instead of falling back to channel_general!
+    // 2. If tab is 'dms', pick the first DM strictly from visibleConversations
     if (activeTab === 'dms') {
       const firstDm = (visibleConversations || []).find(c => c.type !== 'channel');
       if (firstDm) return firstDm;
     }
 
-    // 4. If tab is 'channels', pick the first channel
+    // 3. If tab is 'channels', pick the first channel strictly from visibleConversations
     if (activeTab === 'channels') {
       const firstChannel = (visibleConversations || []).find(c => c.type === 'channel');
       if (firstChannel) return firstChannel;
     }
 
-    // 5. Default fallback
-    return visibleConversations?.[0] || null;
-  }, [visibleConversations, conversations, activeConversationId, activeTab]);
+    // 4. Default fallback strictly from visibleConversations
+    return (visibleConversations || [])[0] || null;
+  }, [visibleConversations, activeConversationId, activeTab]);
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
@@ -346,6 +343,44 @@ export const MessagesPage = () => {
     };
   }, [activeConv, currentUser, employees, attendance]);
 
+  // Synchronize active screen share across users & tabs
+  const screenShareKey = activeConv?.id ? `ems_screenshare_${activeConv.id}` : null;
+  const [activeScreenShare, setActiveScreenShare] = useState(null);
+
+  const syncScreenShare = useCallback(() => {
+    if (!screenShareKey || typeof localStorage === 'undefined') {
+      setActiveScreenShare(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(screenShareKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Date.now() - (parsed.startedAt || 0) < 6 * 3600 * 1000)) {
+          setActiveScreenShare(parsed);
+          return;
+        }
+      }
+    } catch {}
+    setActiveScreenShare(null);
+  }, [screenShareKey]);
+
+  useEffect(() => {
+    syncScreenShare();
+    const handleSync = (e) => {
+      if (!e.detail || e.detail.key === screenShareKey) syncScreenShare();
+    };
+    const handleNative = (e) => {
+      if (!e.key || e.key === screenShareKey) syncScreenShare();
+    };
+    window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('storage', handleNative);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('storage', handleNative);
+    };
+  }, [screenShareKey, syncScreenShare]);
+
   // Screen share controls
   const startScreenShare = async () => {
     if (!isClockedIn) {
@@ -375,6 +410,20 @@ export const MessagesPage = () => {
       setIsScreenShareHost(true);
       setIsScreenShareOpen(true);
 
+      const sessionData = {
+        hostId: String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'host'),
+        hostName: currentUser?.name || 'Teammate',
+        hostAvatar: currentUser?.avatar || '',
+        hostRole: currentUser?.role || 'Team Member',
+        convId: activeConv.id,
+        startedAt: Date.now()
+      };
+      if (screenShareKey && typeof localStorage !== 'undefined') {
+        localStorage.setItem(screenShareKey, JSON.stringify(sessionData));
+        setActiveScreenShare(sessionData);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: screenShareKey } }));
+      }
+
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
       };
@@ -398,6 +447,13 @@ export const MessagesPage = () => {
     }
     setIsScreenShareHost(false);
     setIsScreenShareOpen(false);
+
+    if (screenShareKey && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(screenShareKey);
+      setActiveScreenShare(null);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: screenShareKey } }));
+    }
+
     if (activeConv) {
       sendMessage(activeConv.id, `⏹️ Live screen share session ended.`);
     }
@@ -670,6 +726,31 @@ export const MessagesPage = () => {
                   isChannel={activeIsChannel}
                   employees={employees}
                 />
+
+                {/* Incoming Screen Share Alert Banner for Viewers */}
+                {activeScreenShare && String(activeScreenShare.hostId) !== String(currentUser?._id || currentUser?.id || currentUser?.employeeCode) && (
+                  <div className="shrink-0 p-2.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between shadow-xs border-b border-indigo-400/30 animate-fadeIn">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400 animate-ping shrink-0" />
+                      <Monitor size={16} className="text-white shrink-0" />
+                      <div className="min-w-0 text-xs">
+                        <span className="font-extrabold">{activeScreenShare.hostName}</span>
+                        <span className="opacity-90 ml-1">is sharing their screen live in this chat</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsScreenShareHost(false);
+                        setIsScreenShareOpen(true);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-white text-indigo-700 hover:bg-slate-100 font-extrabold text-xs cursor-pointer border-0 shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105 shrink-0"
+                    >
+                      <Eye size={13} />
+                      <span>Watch Stream</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Message Stream */}
                 <div ref={messageContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 flex flex-col gap-3 bg-slate-100/50 dark:bg-[#0b1329]">
@@ -980,6 +1061,7 @@ export const MessagesPage = () => {
         currentUser={currentUser}
         stream={screenStream}
         isHost={isScreenShareHost}
+        hostInfo={activeScreenShare}
         onStopSharing={stopScreenShare}
       />
     </div>

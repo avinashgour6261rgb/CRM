@@ -26,6 +26,7 @@ export const ScreenShareModal = ({
   currentUser,
   stream,
   isHost,
+  hostInfo,
   onStopSharing
 }) => {
   const { isClockedIn } = useTimer();
@@ -48,8 +49,11 @@ export const ScreenShareModal = ({
 
   // Duration timer
   useEffect(() => {
-    if (isOpen && stream) {
-      setShareDuration(0);
+    if (isOpen) {
+      const startEpoch = hostInfo?.startedAt || Date.now();
+      const initialSecs = Math.floor((Date.now() - startEpoch) / 1000);
+      setShareDuration(Math.max(0, initialSecs));
+
       timerRef.current = setInterval(() => {
         setShareDuration(prev => prev + 1);
       }, 1000);
@@ -59,7 +63,7 @@ export const ScreenShareModal = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isOpen, !!stream]);
+  }, [isOpen, !!stream, hostInfo?.startedAt]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -227,9 +231,22 @@ export const ScreenShareModal = ({
               className="w-full h-full max-h-[75vh] object-contain"
             />
           ) : (
-            <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
-              <Monitor size={42} className="text-slate-600" />
-              <span className="text-xs font-bold">No active screen stream available</span>
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg animate-pulse">
+                <Monitor size={32} />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white m-0">
+                  {hostInfo?.hostName || 'Teammate'}'s Live Screen Stream
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-md">
+                  Connected to real-time presentation stream. Broadcasting live to <strong>{convTitle}</strong>.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 text-xs font-bold font-mono">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>RECEIVING BROADCAST • {formatTimer(shareDuration)}</span>
+              </div>
             </div>
           )}
         </div>
@@ -256,3 +273,4 @@ export const ScreenShareModal = ({
     </div>
   );
 };
+

@@ -142,3 +142,4 @@ export const VoiceMemoPlayer = ({ attachment, isOutgoing }) => {
     </div>
   );
 };
+

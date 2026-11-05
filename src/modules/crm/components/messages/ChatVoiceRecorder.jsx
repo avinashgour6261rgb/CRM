@@ -205,3 +205,4 @@ export const ChatVoiceRecorder = ({ onSendAudio, disabled }) => {
     </button>
   );
 };
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic,
   MicOff,
@@ -19,7 +19,7 @@ import { useToast } from '../../../../shared/context/ToastContext';
 /**
  * @file LiveVoiceHuddleBar.jsx
  * @description Shift-verified real-time Voice Huddle & Walkie-Talkie Intercom for 1-on-1 and Group Channels.
- * Both users must be actively clocked in with running shift timers to communicate.
+ * Synchronized across active browser tabs and users with real-time audio detection and presence rings.
  */
 export const LiveVoiceHuddleBar = ({
   activeConv,
@@ -37,12 +37,74 @@ export const LiveVoiceHuddleBar = ({
   const [isDeafened, setIsDeafened] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const huddleKey = activeConv?.id ? `ems_huddle_${activeConv.id}` : null;
+  const [huddleMembers, setHuddleMembers] = useState([]);
 
   const audioStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
+
+  // Sync huddle members from storage
+  const syncHuddleMembers = useCallback(() => {
+    if (!huddleKey || typeof localStorage === 'undefined') {
+      setHuddleMembers([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(huddleKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const now = Date.now();
+          const valid = parsed.filter(m => (now - (m.joinedAt || 0)) < 12 * 3600 * 1000);
+          setHuddleMembers(valid);
+          return;
+        }
+      }
+    } catch {}
+    setHuddleMembers([]);
+  }, [huddleKey]);
+
+  useEffect(() => {
+    syncHuddleMembers();
+    const handleSync = (e) => {
+      if (!e.detail || e.detail.key === huddleKey) syncHuddleMembers();
+    };
+    const handleNative = (e) => {
+      if (!e.key || e.key === huddleKey) syncHuddleMembers();
+    };
+    window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('storage', handleNative);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('storage', handleNative);
+    };
+  }, [huddleKey, syncHuddleMembers]);
+
+  // Clean up on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isInHuddle && huddleKey && typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(huddleKey);
+          if (raw) {
+            const currentList = JSON.parse(raw);
+            const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
+            const remaining = currentList.filter(m => String(m.id) !== myId);
+            if (remaining.length > 0) {
+              localStorage.setItem(huddleKey, JSON.stringify(remaining));
+            } else {
+              localStorage.removeItem(huddleKey);
+            }
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isInHuddle, huddleKey, currentUser]);
 
   // Check partner's shift state in 1-on-1
   const partnerIsClockedIn = Boolean(partnerShiftState?.isClockedIn);
@@ -50,9 +112,6 @@ export const LiveVoiceHuddleBar = ({
 
   // Eligible to speak: Current user is clocked in & not on break
   const canIJoin = isClockedIn && !isOnBreak;
-
-  // In 1-on-1, both must be clocked in
-  const canStart1on1 = canIJoin && partnerIsClockedIn && !partnerIsOnBreak;
 
   // Disconnect if user clocks out or goes on break
   useEffect(() => {
@@ -104,6 +163,28 @@ export const LiveVoiceHuddleBar = ({
       }
 
       setIsInHuddle(true);
+
+      // Register in shared huddleMembers storage
+      if (huddleKey && typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(huddleKey);
+          const currentList = raw ? JSON.parse(raw) : [];
+          const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
+          const filtered = currentList.filter(m => String(m.id) !== myId);
+          filtered.push({
+            id: myId,
+            name: currentUser?.name || 'Teammate',
+            avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+            role: currentUser?.role || 'Team Member',
+            isMuted: false,
+            joinedAt: Date.now()
+          });
+          localStorage.setItem(huddleKey, JSON.stringify(filtered));
+          setHuddleMembers(filtered);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+        } catch {}
+      }
+
       addToast('🎙️ Connected to Live Voice Huddle', 'success');
     } catch (err) {
       console.error('Microphone error in Voice Huddle:', err);
@@ -125,6 +206,25 @@ export const LiveVoiceHuddleBar = ({
     setIsInHuddle(false);
     setAudioLevel(0);
     setIsSpeaking(false);
+
+    // Remove from shared huddleMembers storage
+    if (huddleKey && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(huddleKey);
+        if (raw) {
+          const currentList = JSON.parse(raw);
+          const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
+          const remaining = currentList.filter(m => String(m.id) !== myId);
+          if (remaining.length > 0) {
+            localStorage.setItem(huddleKey, JSON.stringify(remaining));
+          } else {
+            localStorage.removeItem(huddleKey);
+          }
+          setHuddleMembers(remaining);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+        }
+      } catch {}
+    }
   };
 
   const joinHuddle = () => {
@@ -156,12 +256,29 @@ export const LiveVoiceHuddleBar = ({
       audioTrack.enabled = !nextMute;
       setIsMuted(nextMute);
       if (nextMute) setIsSpeaking(false);
+
+      if (huddleKey && typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(huddleKey);
+          if (raw) {
+            const list = JSON.parse(raw);
+            const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
+            const item = list.find(m => String(m.id) === myId);
+            if (item) item.isMuted = nextMute;
+            localStorage.setItem(huddleKey, JSON.stringify(list));
+            setHuddleMembers(list);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+          }
+        } catch {}
+      }
     }
   };
 
   const toggleDeafen = () => {
     setIsDeafened(!isDeafened);
   };
+
+  const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
 
   // ── Render Huddle Bar ──
   return (
@@ -170,25 +287,38 @@ export const LiveVoiceHuddleBar = ({
       {isInHuddle ? (
         <div className="p-2 sm:p-2.5 px-3 sm:px-5 flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-l-4 border-l-emerald-500">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            {/* Pulsing Avatar */}
-            <div className="relative shrink-0">
-              <img
-                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={currentUser?.name}
-                className={`w-8 h-8 rounded-full object-cover transition-all ${
-                  isSpeaking ? 'ring-3 ring-emerald-500 scale-105' : 'ring-1 ring-slate-300 dark:ring-slate-700'
-                }`}
-              />
-              {isSpeaking && (
-                <span className="absolute -inset-1 rounded-full bg-emerald-500/30 animate-ping -z-10" />
-              )}
+            {/* Participants Avatars List */}
+            <div className="flex items-center -space-x-2 shrink-0">
+              {huddleMembers.map(m => {
+                const isMe = String(m.id) === myId;
+                const memberSpeaking = isMe ? isSpeaking : false;
+                return (
+                  <div key={m.id} className="relative group" title={`${m.name} (${m.role || 'Member'})`}>
+                    <img
+                      src={m.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                      alt={m.name}
+                      className={`w-8 h-8 rounded-full object-cover transition-all ${
+                        memberSpeaking ? 'ring-3 ring-emerald-500 scale-105' : 'ring-1 ring-slate-300 dark:ring-slate-700'
+                      }`}
+                    />
+                    {memberSpeaking && (
+                      <span className="absolute -inset-1 rounded-full bg-emerald-500/30 animate-ping -z-10" />
+                    )}
+                    {m.isMuted && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-rose-600 text-white flex items-center justify-center text-[8px] font-bold">
+                        ✕
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-[12.5px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <Radio size={14} className="text-emerald-500 animate-pulse shrink-0" />
-                  <span>{isChannel ? 'Group Voice Huddle' : '1-on-1 Shift Intercom'}</span>
+                  <span>{isChannel ? `Group Voice Huddle (${huddleMembers.length})` : '1-on-1 Shift Intercom'}</span>
                 </span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
                   isSpeaking
@@ -199,7 +329,9 @@ export const LiveVoiceHuddleBar = ({
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {isChannel ? 'All clocked-in teammates can speak and listen' : `Talking with ${activePartner?.name || 'Partner'}`}
+                {isChannel
+                  ? `${huddleMembers.length} member(s) connected • All can speak and listen`
+                  : `Talking with ${activePartner?.name || 'Partner'}`}
               </div>
             </div>
           </div>
@@ -251,7 +383,14 @@ export const LiveVoiceHuddleBar = ({
         /* Not In Huddle - Prompt / Status Banner */
         <div className="p-2 px-3 sm:px-5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            {canIJoin ? (
+            {huddleMembers.length > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                <span className="truncate">
+                  Live Voice Huddle active ({huddleMembers.length} member{huddleMembers.length > 1 ? 's' : ''}: {huddleMembers.map(m => m.name).join(', ')})
+                </span>
+              </span>
+            ) : canIJoin ? (
               !isChannel ? (
                 // 1-on-1 check
                 partnerIsClockedIn && !partnerIsOnBreak ? (
@@ -292,13 +431,15 @@ export const LiveVoiceHuddleBar = ({
               onClick={joinHuddle}
               disabled={!canIJoin || (!isChannel && (!partnerIsClockedIn || partnerIsOnBreak))}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-[11.5px] transition-all border ${
-                canIJoin && (isChannel || (partnerIsClockedIn && !partnerIsOnBreak))
+                huddleMembers.length > 0
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-md shadow-emerald-500/20 border-transparent animate-pulse'
+                  : canIJoin && (isChannel || (partnerIsClockedIn && !partnerIsOnBreak))
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-xs border-transparent'
                   : 'bg-slate-200/70 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-75'
               }`}
             >
               <Mic size={13} />
-              <span>{isChannel ? '🎙️ Join Huddle' : '🎙️ Start Live Talk'}</span>
+              <span>{huddleMembers.length > 0 ? '🎙️ Join Live Huddle' : isChannel ? '🎙️ Start Huddle' : '🎙️ Start Live Talk'}</span>
             </button>
           </div>
         </div>

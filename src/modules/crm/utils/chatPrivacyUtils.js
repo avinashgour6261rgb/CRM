@@ -218,7 +218,7 @@ export const getDmPartner = (conv, currentUser, employees = []) => {
  */
 export const getUnreadCountForUser = (conv, currentUser) => {
   if (!conv || !currentUser || !Array.isArray(conv.messages)) return 0;
-  const myId = String(currentUser._id || '').toLowerCase();
+  const myId = String(currentUser._id || currentUser.id || '').toLowerCase();
   const myCode = String(currentUser.employeeCode || '').toLowerCase();
   const myEmail = String(currentUser.email || '').toLowerCase();
 
