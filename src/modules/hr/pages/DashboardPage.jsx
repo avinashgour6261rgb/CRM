@@ -1791,6 +1791,9 @@ export const DashboardPage = () => {
   // ⏱️ Physical Shift Invariant: Task time worked today can never exceed total shift time clocked in today
   if (currentShiftSecs > 0) {
     totalTaskTodaySecs = Math.min(totalTaskTodaySecs, currentShiftSecs);
+  } else if (!currentIsClockedIn && !currentHadClockedOut && todayTimesheets.length === 0) {
+    // If employee has never clocked in today and has no recorded timesheets today, live task time is 0
+    totalTaskTodaySecs = 0;
   }
 
   const taskTodayH = Math.floor(totalTaskTodaySecs / 3600);
@@ -2842,13 +2845,20 @@ export const DashboardPage = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => navigate('/team-operations')}
-              className="py-1.5 px-4 rounded-lg border-none bg-orange-600 text-white text-[12.5px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_2px_6px_rgba(234,88,12,0.25)] hover:bg-orange-700 transition-colors"
+              className="py-1.5 px-3.5 rounded-lg border-none bg-orange-600 text-white text-[12.5px] font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-[0_2px_6px_rgba(234,88,12,0.25)] hover:bg-orange-700 transition-colors"
             >
               <Zap size={14} fill="#ffffff" />
-              <span>Open Live Operations →</span>
+              <span>Live Operations →</span>
+            </button>
+            <button
+              onClick={() => navigate('/team-operations?tab=audit')}
+              className="py-1.5 px-3.5 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 text-[12.5px] font-bold cursor-pointer inline-flex items-center gap-1.5 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors shadow-2xs"
+            >
+              <History size={14} className="text-sky-600 dark:text-sky-400" />
+              <span>📊 Team Activity & Historical Audit Hub →</span>
             </button>
           </div>
         </div>

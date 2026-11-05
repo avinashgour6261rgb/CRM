@@ -355,7 +355,7 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
             <Zap size={18} className={location.pathname === '/team-operations' ? 'text-orange-400' : 'text-orange-500'} fill={location.pathname === '/team-operations' ? '#fb923c' : 'none'} />
             {!collapsed && (
               <div className="flex items-center justify-between w-full">
-                <span>Live Operations</span>
+                <span>Team Activity & Audit Hub</span>
                 <span className="text-[10px] bg-orange-600 text-white px-1.5 py-0.5 rounded-full font-bold">
                   ADMIN
                 </span>

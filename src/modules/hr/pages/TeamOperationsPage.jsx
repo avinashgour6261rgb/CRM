@@ -55,7 +55,14 @@ export const TeamOperationsPage = () => {
   const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
 
   const [syncTick, setSyncTick] = useState(0);
-  const [viewMode, setViewMode] = useState('live'); // 'live' | 'audit'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tab') === 'audit' ? 'audit' : 'live';
+    } catch {
+      return 'live';
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'working' | 'break' | 'clocked_out' | 'offline'
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -853,7 +860,7 @@ export const TeamOperationsPage = () => {
       const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
       empTasks.forEach(pt => {
         const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
-        const isWorkedToday = (pt.sessionDate === todayStr) || (pt.dailySessions && pt.dailySessions[todayStr] > 0) || isCompletedToday || (pt.timerRunning && empState.isClockedIn);
+        const isWorkedToday = (pt.dailySessions && Number(pt.dailySessions[todayStr]) > 0) || (pt.sessionDate === todayStr && Number(pt.todayWorkSeconds) > 0) || isCompletedToday || (pt.timerRunning && empState.isClockedIn);
         if (!isWorkedToday) return;
 
         const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), empState.isClockedIn, empState.isOnBreak);
@@ -939,6 +946,28 @@ export const TeamOperationsPage = () => {
           isCompleted: true,
           memo: ts.memo || 'Timesheet logged'
         });
+      });
+
+      // Also include any tasks with session recorded on this date not captured in timesheets
+      const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
+      empTasks.forEach(pt => {
+        const ptId = String(pt._id || pt.id);
+        const alreadyInTs = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
+        if (alreadyInTs) return;
+        const sessSecs = (pt.dailySessions && Number(pt.dailySessions[targetDate])) || (pt.sessionDate === targetDate ? Number(pt.todayWorkSeconds || 0) : 0);
+        if (sessSecs > 0) {
+          tasksWorked.push({
+            taskId: ptId,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title,
+            projectName: pt.projectName || 'General Work',
+            durationSeconds: sessSecs,
+            durationText: formatSeconds(sessSecs),
+            status: pt.status || 'in_progress',
+            isCompleted: Boolean(pt.status === 'completed'),
+            memo: `Worked on ${targetDate}`
+          });
+        }
       });
     }
 

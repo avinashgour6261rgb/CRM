@@ -214,7 +214,7 @@ export const ResponsiveDurationFilter = ({
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute top-[34px] left-0 sm:left-auto right-auto sm:right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xl z-[150] w-[275px] max-w-[calc(100vw-32px)] flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute top-[34px] right-0 left-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xl z-[150] w-[275px] max-w-[calc(100vw-24px)] flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-100">
           <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
               Select Duration Period

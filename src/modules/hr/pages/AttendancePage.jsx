@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
   Download,
@@ -38,6 +39,7 @@ import { getCompanySettings } from '../../../shared/services/companySettingsServ
 import { readTimerStorage, parseTimeToSeconds } from '../../../shared/utils/timerUtils';
 
 export const AttendancePage = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const companySettings = getCompanySettings();
   const { currentUser: authUser } = useAuth();
@@ -266,10 +268,22 @@ export const AttendancePage = () => {
       pastDates.push(dateStr);
     }
 
+    // Identify active company work dates where attendance tracking occurred
+    const activeCompanyDates = new Set(
+      (attendance || [])
+        .filter(a => a.date && ['present', 'late', 'half_day'].includes(a.status))
+        .map(a => a.date)
+    );
+
     pastDates.forEach(dStr => {
+      // Only evaluate unrecorded absences on dates when company was actively operating
+      const isCompanyActiveDay = activeCompanyDates.has(dStr);
+
       targetEmployees.forEach(emp => {
         // Skip dates before employee's joining date
         if (emp.joiningDate && dStr < emp.joiningDate) return;
+        // If employee has no joining date, strictly limit to active company days
+        if (!emp.joiningDate && !isCompanyActiveDay) return;
 
         const empId = String(emp._id || emp.id || '').toLowerCase();
         const empCode = String(emp.employeeCode || '').toLowerCase();
@@ -293,8 +307,8 @@ export const AttendancePage = () => {
 
         if (att) {
           if (att.status === 'absent') count++;
-        } else if (!onLeave) {
-          // Employee had joined, day was a working day, not a holiday, and had no punch & no leave
+        } else if (isCompanyActiveDay && !onLeave) {
+          // Company was active, employee was employed, but had no punch & no approved leave
           count++;
         }
       });
@@ -366,6 +380,17 @@ export const AttendancePage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-1 sm:mt-0">
+          {canViewAllAttendance && (
+            <button
+              onClick={() => navigate('/team-operations?tab=audit')}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 text-xs font-bold cursor-pointer hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors shadow-2xs"
+              title="Inspect complete employee daily punch, break, and task history"
+            >
+              <History size={13} className="text-sky-600 dark:text-sky-400" />
+              <span>Shift & Activity Audit Hub</span>
+            </button>
+          )}
+
           <button
             onClick={handleExportCSV}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 h-[32px] rounded-md bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"

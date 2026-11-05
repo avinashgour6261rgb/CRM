@@ -1364,15 +1364,18 @@ export const TimerProvider = ({ children }) => {
     setBreakStartTime(startTimeStr);
     setBreakReminderSent(false);
 
-    localStorage.setItem(`ems_timer_${userKey}_break_type`, type);
-    localStorage.setItem(`ems_timer_${userKey}_custom_break_limit`, minutesChosen.toString());
-    localStorage.setItem(`ems_timer_${userKey}_break_start_time`, startTimeStr);
-    localStorage.setItem(`ems_timer_${userKey}_break_start_timestamp`, Date.now().toString());
-    localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
-    localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'true');
-    localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-    localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'true');
-    localStorage.setItem(`ems_timer_${userKey}_work_seconds`, (workSeconds || 0).toString());
+    const mirrorKeys = getTimerMirrorKeys(currentUser);
+    for (const uk of mirrorKeys) {
+      localStorage.setItem(`ems_timer_${uk}_break_type`, type);
+      localStorage.setItem(`ems_timer_${uk}_custom_break_limit`, minutesChosen.toString());
+      localStorage.setItem(`ems_timer_${uk}_break_start_time`, startTimeStr);
+      localStorage.setItem(`ems_timer_${uk}_break_start_timestamp`, Date.now().toString());
+      localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'true');
+      localStorage.setItem(`ems_timer_${uk}_is_running`, 'false');
+      localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'true');
+      localStorage.setItem(`ems_timer_${uk}_work_seconds`, (workSeconds || 0).toString());
+    }
 
     // Immediately update local hrms_attendance mirror so all UI components see isOnBreak: true synchronously
     try {
@@ -1469,7 +1472,8 @@ export const TimerProvider = ({ children }) => {
       notes: `Resumed work at ${endTimeStr}`
     };
 
-    setBreakHistory(prev => [newRecord, ...prev]);
+    const updatedHistory = [newRecord, ...breakHistory];
+    setBreakHistory(updatedHistory);
 
     setIsOnBreak(false);
     setIsRunning(true);
@@ -1477,14 +1481,18 @@ export const TimerProvider = ({ children }) => {
     setBreakStartTime(null);
     setBreakReminderSent(false);
 
-    localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
-    localStorage.setItem(`ems_timer_${userKey}_is_running`, 'true');
-    localStorage.setItem(`ems_timer_${userKey}_current_break_seconds`, '0');
-    localStorage.removeItem(`ems_timer_${userKey}_break_start_time`);
-    localStorage.removeItem(`ems_timer_${userKey}_break_start_timestamp`);
-
+    const mirrorKeys = getTimerMirrorKeys(currentUser);
     const totalBreaksAfterResume = (Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || breakSeconds) + duration;
-    localStorage.setItem(`ems_timer_${userKey}_break_seconds`, totalBreaksAfterResume.toString());
+
+    for (const uk of mirrorKeys) {
+      localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
+      localStorage.setItem(`ems_timer_${uk}_is_running`, 'true');
+      localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
+      localStorage.removeItem(`ems_timer_${uk}_break_start_time`);
+      localStorage.removeItem(`ems_timer_${uk}_break_start_timestamp`);
+      localStorage.setItem(`ems_timer_${uk}_break_seconds`, totalBreaksAfterResume.toString());
+      localStorage.setItem(`ems_timer_${uk}_break_history`, JSON.stringify(updatedHistory));
+    }
     setBreakSeconds(totalBreaksAfterResume);
 
     // Immediately update local hrms_attendance mirror so all UI components see isOnBreak: false synchronously
@@ -1564,15 +1572,25 @@ export const TimerProvider = ({ children }) => {
   };
 
   const deleteBreakHistoryItem = (id) => {
-    setBreakHistory(prev => prev.filter(b => b.id !== id));
+    setBreakHistory(prev => {
+      const filtered = prev.filter(b => b.id !== id);
+      const mirrorKeys = getTimerMirrorKeys(currentUser);
+      for (const uk of mirrorKeys) {
+        localStorage.setItem(`ems_timer_${uk}_break_history`, JSON.stringify(filtered));
+      }
+      return filtered;
+    });
     addToast('Break log item removed', 'info');
   };
 
   const clearTodayBreaks = () => {
     setBreakHistory([]);
     setBreakSeconds(0);
-    localStorage.setItem(`ems_timer_${userKey}_break_seconds`, '0');
-    localStorage.setItem(`ems_timer_${userKey}_break_history`, JSON.stringify([]));
+    const mirrorKeys = getTimerMirrorKeys(currentUser);
+    for (const uk of mirrorKeys) {
+      localStorage.setItem(`ems_timer_${uk}_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${uk}_break_history`, JSON.stringify([]));
+    }
     addToast('Break history cleared for today', 'info');
   };
 

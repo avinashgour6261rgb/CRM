@@ -121,6 +121,11 @@ export const ShiftClockCard = ({
           {/* Shift Working Time & Day Log button */}
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center flex-wrap gap-2">
             <span>Working Time: <strong className="text-sky-600 dark:text-sky-400">{displayedWorkDuration || '0h 0m'}</strong></span>
+            {displayedBreakDuration && displayedBreakDuration !== '0s' && displayedBreakDuration !== '0h 00m' && displayedBreakDuration !== '00h 00m' && (
+              <span className="text-amber-700 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded px-1.5 py-0.5">
+                ☕ Breaks: <strong>{displayedBreakDuration}</strong>
+              </span>
+            )}
             {isOvertime && (
               <span className="bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-px text-[10.5px] font-bold">
                 +{overtimeHrs}h {overtimeMins}m Overtime
