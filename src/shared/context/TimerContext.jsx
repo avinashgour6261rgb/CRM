@@ -936,10 +936,10 @@ export const TimerProvider = ({ children }) => {
     }
   }, [userKey, targetEmpId, isRecordForUser, loginTime]);
 
-  // Periodic and reactive sync for cross-device consistency
+  // Periodic and reactive sync for cross-device consistency (60s fallback to save bandwidth)
   useEffect(() => {
     syncLiveShiftState();
-    const interval = setInterval(syncLiveShiftState, 5000);
+    const interval = setInterval(syncLiveShiftState, 60000);
     const handleSync = () => syncLiveShiftState();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') syncLiveShiftState();
@@ -1988,7 +1988,7 @@ export const TimerProvider = ({ children }) => {
     };
 
     pulseHeartbeat();
-    const hbInterval = setInterval(pulseHeartbeat, 12000);
+    const hbInterval = setInterval(pulseHeartbeat, 60000);
     return () => clearInterval(hbInterval);
   }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, workSeconds, breakSeconds, breakType]);
 

@@ -150,6 +150,10 @@ exports.getTaskById = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('task:updated', task);
+    } catch (_) {}
     res.status(200).json({ success: true, data: task });
   } catch (error) {
     next(error);
@@ -200,6 +204,10 @@ exports.createTask = async (req, res, next) => {
     }
 
     const task = await Task.create(taskData);
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('task:updated', task);
+    } catch (_) {}
     res.status(201).json({
       success: true,
       message: 'Task created successfully',
@@ -245,6 +253,10 @@ exports.updateTask = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('task:updated', task);
+    } catch (_) {}
     res.status(200).json({
       success: true,
       message: 'Task updated successfully',
@@ -280,6 +292,10 @@ exports.updateTaskStatus = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('task:updated', task);
+    } catch (_) {}
     res.status(200).json({
       success: true,
       message: `Task status updated to ${status}`,
@@ -311,6 +327,10 @@ exports.deleteTask = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('task:updated', task);
+    } catch (_) {}
     res.status(200).json({
       success: true,
       message: 'Task deleted successfully'

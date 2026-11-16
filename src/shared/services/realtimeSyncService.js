@@ -8,6 +8,9 @@
  * update with zero latency and maintain matching elapsed times.
  */
 
+import { subscribeSocketEvent } from './socketService';
+import { KEYS } from './storageService';
+
 const SYNC_CHANNEL_NAME = 'inforag_realtime_sync_v1';
 
 let syncChannel = null;
@@ -17,6 +20,53 @@ try {
   }
 } catch (err) {
   console.warn('BroadcastChannel not supported in this environment, falling back to storage events:', err);
+}
+
+/**
+ * Bridge incoming Socket.IO events across different devices into the local app event bus
+ */
+if (typeof window !== 'undefined') {
+  subscribeSocketEvent('attendance:update', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      if (data?.isClockedIn) {
+        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: data }));
+      } else if (data?.isClockedOut || data?.clockOutTime) {
+        window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: data }));
+      }
+      if (data?.isOnBreak) {
+        window.dispatchEvent(new CustomEvent('ems_break_started', { detail: data }));
+      } else if (data?.isOnBreak === false) {
+        window.dispatchEvent(new CustomEvent('ems_break_ended', { detail: data }));
+      }
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('attendance:force_clock_out', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: data }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('task:updated', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      if (data?.timerRunning) {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: data }));
+      } else if (data?.status === 'completed') {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: data }));
+      } else {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: data }));
+      }
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('chat:message', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+    } catch (_) {}
+  });
 }
 
 /**

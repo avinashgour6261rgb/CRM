@@ -473,9 +473,31 @@ export const CRMProvider = ({ children }) => {
     setStorageTick(prev => prev + 1);
   };
 
+  // Fast Circuit Breaker: Prevents repeated 503 CORS errors when backend is offline/suspended
+  let crmBackendOnline = null;
+  let lastCrmCheck = 0;
+  const isCrmBackendAvailable = async () => {
+    const now = Date.now();
+    if (crmBackendOnline !== null && (now - lastCrmCheck < 25000)) {
+      return crmBackendOnline;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
+      crmBackendOnline = res.ok;
+    } catch {
+      crmBackendOnline = false;
+    }
+    lastCrmCheck = Date.now();
+    return crmBackendOnline;
+  };
+
   // Synchronize tickets with MongoDB backend
   const loadTickets = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setTickets(getCollection(KEYS.TICKETS) || []);
+        return;
+      }
       const res = await fetch(`${API_BASE}/tickets`, {
         headers: getAuthHeaders()
       });
@@ -518,6 +540,10 @@ export const CRMProvider = ({ children }) => {
   // Synchronize conversations with MongoDB backend database
   const loadConversations = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+        return;
+      }
       const res = await fetch(`${API_BASE}/conversations`, {
         headers: getAuthHeaders()
       });
@@ -589,6 +615,10 @@ export const CRMProvider = ({ children }) => {
   // Synchronize company calendar events with backend
   const loadEvents = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setEvents(getCollection(KEYS.EVENTS) || []);
+        return;
+      }
       const res = await fetch(`${API_BASE}/events`, {
         headers: getAuthHeaders()
       });
@@ -619,6 +649,10 @@ export const CRMProvider = ({ children }) => {
   // Synchronize company expenses with backend
   const loadExpenses = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setExpenses(getCollection(KEYS.EXPENSES) || []);
+        return;
+      }
       const res = await fetch(`${API_BASE}/expenses`, {
         headers: getAuthHeaders()
       });
@@ -651,6 +685,10 @@ export const CRMProvider = ({ children }) => {
   // Synchronize CRM leads pipeline with backend
   const loadLeads = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setLeads(getCollection(KEYS.LEADS) || []);
+        return;
+      }
       const res = await fetch(`${API_BASE}/leads`, {
         headers: getAuthHeaders()
       });
@@ -683,6 +721,10 @@ export const CRMProvider = ({ children }) => {
   // Synchronize company notices & announcements with backend
   const loadNotices = async () => {
     try {
+      if (!(await isCrmBackendAvailable())) {
+        setNotices(getCollection(KEYS.NOTICES) || []);
+        return;
+      }
       const res = await fetch(`${API_BASE}/notices`, {
         headers: getAuthHeaders()
       });
@@ -721,13 +763,22 @@ export const CRMProvider = ({ children }) => {
     loadNotices();
   }, [currentUser]);
 
-  // ── Multi-User Real-time Chat Sync Poller (Every 2.5s for instant message delivery & read receipts) ──
+  // ── Multi-User Real-time Chat Sync: Event/Focus driven with 60s fallback (Saves 95% bandwidth) ──
   useEffect(() => {
     if (!currentUser) return;
-    const interval = setInterval(() => {
-      loadConversations();
-    }, 2500);
-    return () => clearInterval(interval);
+    const syncIfVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadConversations();
+      }
+    };
+    const interval = setInterval(syncIfVisible, 60000);
+    window.addEventListener('focus', syncIfVisible);
+    document.addEventListener('visibilitychange', syncIfVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', syncIfVisible);
+      document.removeEventListener('visibilitychange', syncIfVisible);
+    };
   }, [currentUser]);
 
   useEffect(() => {

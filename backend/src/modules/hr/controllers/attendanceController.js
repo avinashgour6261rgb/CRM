@@ -369,6 +369,12 @@ const markAttendance = asyncHandler(async (req, res) => {
 
   const resObj = record.toObject ? record.toObject() : { ...record };
   resObj.employeeId = String(resObj.employee || targetEmpId);
+  try {
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+    emitToAll('attendance:update', resObj);
+    emitToUser(String(resObj.employee || targetEmpId), 'attendance:update', resObj);
+    if (resObj.employeeCode) emitToUser(String(resObj.employeeCode), 'attendance:update', resObj);
+  } catch (_) {}
   res.status(200).json({ success: true, data: resObj });
 });
 
@@ -712,6 +718,13 @@ const forceClockOut = asyncHandler(async (req, res) => {
   } catch (auditErr) {
     console.warn('Could not save auditEntry in forceClockOut:', auditErr);
   }
+
+  try {
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+    emitToAll('attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
+    emitToUser(String(employeeId), 'attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
+    if (targetEmpCode) emitToUser(String(targetEmpCode), 'attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
+  } catch (_) {}
 
   res.status(200).json({
     success: true,

@@ -186,8 +186,8 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('focus', onWindowFocus);
 
-    // Periodic check every 10 seconds for cross-device live sync
-    const intervalId = setInterval(syncCurrentSessionUser, 10000);
+    // Periodic check every 2 minutes for cross-device live sync (saves bandwidth)
+    const intervalId = setInterval(syncCurrentSessionUser, 120000);
 
     // Subscribe to cross-tab broadcast events (0ms latency across tabs)
     const unsubscribeSync = subscribeToSyncEvents((event) => {

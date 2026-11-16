@@ -43,13 +43,13 @@ const getAuthHeaders = () => {
 
 let hrBackendOnline = null;
 let lastHrCheckTime = 0;
-const HR_CACHE_TTL = 5000;
+const HR_CACHE_TTL = 25000;
 let healthCheckPromise = null;
 
 async function checkHrBackendOnline() {
   const now = Date.now();
-  if (hrBackendOnline === true && (now - lastHrCheckTime < HR_CACHE_TTL)) {
-    return true;
+  if (hrBackendOnline !== null && (now - lastHrCheckTime < HR_CACHE_TTL)) {
+    return hrBackendOnline;
   }
   if (healthCheckPromise) {
     return await healthCheckPromise;
@@ -85,6 +85,17 @@ async function checkHrBackendOnline() {
 async function fetchWithFallback(url, options, fallbackFn) {
   const method = (options?.method || 'GET').toUpperCase();
   const isReadOp = method === 'GET';
+
+  // Fast Circuit Breaker: If backend is known to be offline, return local fallback immediately
+  // to avoid flooding console with 20 CORS preflight errors
+  if (isReadOp && hrBackendOnline === false && (Date.now() - lastHrCheckTime < HR_CACHE_TTL)) {
+    try {
+      return await fallbackFn();
+    } catch (fbErr) {
+      console.warn('Fallback error in fetchWithFallback:', fbErr);
+      return [];
+    }
+  }
 
   try {
     const controller = new AbortController();

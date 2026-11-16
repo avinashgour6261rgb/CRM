@@ -186,10 +186,11 @@ export const DashboardPage = () => {
   const todayStr = currentDateStr;
   const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
 
-  // ── Multi-User Live Telemetry Poller (Every 3.5s for real-time remote/incognito sync) ──
+  // ── Multi-User Live Telemetry: Visibility/Focus driven with 45s fallback (Saves 90% bandwidth) ──
   useEffect(() => {
     let isMounted = true;
     const fetchTelemetry = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       try {
         const res = await hrService.getLiveTelemetry(todayStr);
         if (isMounted && res && res.data) {
@@ -199,10 +200,15 @@ export const DashboardPage = () => {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 3500);
+    const interval = setInterval(fetchTelemetry, 45000);
+    const handleFocus = () => fetchTelemetry();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
     };
   }, [todayStr]);
 

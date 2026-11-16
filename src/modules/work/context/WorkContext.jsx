@@ -562,12 +562,12 @@ export const WorkProvider = ({ children }) => {
       }
     });
 
-    // Periodic synchronization from DB (every 12 seconds) + tab focus across laptops (Localhost vs Vercel Live)
+    // Periodic synchronization from DB (every 60s fallback) + tab focus across laptops (Localhost vs Vercel Live)
     const syncInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         scheduleDebouncedLoad(true);
       }
-    }, 12000);
+    }, 60000);
 
     const handleFocus = () => scheduleDebouncedLoad(true);
     const handleVisibility = () => {

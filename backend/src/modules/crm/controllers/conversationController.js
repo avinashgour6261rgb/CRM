@@ -256,6 +256,10 @@ exports.sendMessage = async (req, res) => {
     conv.lastMessageTime = message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     await conv.save();
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('chat:message', { conversationId: id, message });
+    } catch (_) {}
     res.json({ success: true, data: conv });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
