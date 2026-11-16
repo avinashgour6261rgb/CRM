@@ -93,7 +93,7 @@ const EmployeeSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      default: 'emp123'
+      default: 'emp12345'
     },
     passwordHistory: {
       type: Array,

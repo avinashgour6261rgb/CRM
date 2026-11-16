@@ -50,7 +50,7 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   const loginUrl = `${window.location.origin}/login`;
   const empCode = targetEmp.employeeCode || targetEmp.idNumber || 'EMP-001';
   const email = targetEmp.email || 'employee@inforag.com';
-  const password = targetEmp.password || 'emp123';
+  const password = targetEmp.password || 'emp12345';
   const name = targetEmp.name || 'Team Member';
   const role = targetEmp.role || targetEmp.systemRole || 'Team Member';
   const department = targetEmp.department || 'General Operations';

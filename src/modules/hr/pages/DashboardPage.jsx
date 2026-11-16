@@ -1719,7 +1719,10 @@ export const DashboardPage = () => {
           ...(match || {}),
           ...activeEmpState.runningTask,
           timerRunning: true,
-          timerSeconds: liveSecs,
+          timerSeconds: match?.timerSeconds ?? Number(activeEmpState.runningTask.accumulatedSeconds ?? liveSecs),
+          todayWorkSeconds: liveSecs,
+          hoursLogged: match?.hoursLogged ?? +(Number(match?.timerSeconds || liveSecs) / 3600).toFixed(2),
+          estimatedHours: match?.estimatedHours ?? activeEmpState.runningTask.estimatedHours,
           liveDurationText: formatSeconds(liveSecs)
         };
       }

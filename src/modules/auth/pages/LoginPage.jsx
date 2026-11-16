@@ -85,7 +85,7 @@ export const LoginPage = () => {
       badgeColorCls: 'text-pink-400 bg-pink-500/15',
       email: 'janvi@inforag.com',
       code: 'EMP-003',
-      password: 'emp123',
+      password: 'emp12345',
       icon: '💼',
       desc: 'Manage & approve leaves, attendance, notices & reviews'
     },
@@ -97,7 +97,7 @@ export const LoginPage = () => {
       badgeColorCls: 'text-blue-400 bg-blue-500/15',
       email: 'sandeep@inforag.com',
       code: 'EMP-002',
-      password: 'emp123',
+      password: 'emp12345',
       icon: '👤',
       desc: 'Personal tasks, live timer, shift clock & own leaves'
     }
@@ -306,22 +306,22 @@ export const LoginPage = () => {
 
               <button
                 type="button"
-                onClick={() => handleQuickLogin('janvi@inforag.com', 'emp123', 'Janvi Hiwse')}
+                onClick={() => handleQuickLogin('janvi@inforag.com', 'emp12345', 'Janvi Hiwse')}
                 disabled={loading}
                 className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs font-bold text-slate-900">💼 Janvi (HR)</span>
-                <span className="text-[10px] text-slate-500">emp123</span>
+                <span className="text-[10px] text-slate-500">emp12345</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickLogin('sandeep@inforag.com', 'emp123', 'Sandeep Meena')}
+                onClick={() => handleQuickLogin('sandeep@inforag.com', 'emp12345', 'Sandeep Meena')}
                 disabled={loading}
                 className="p-2 px-1.5 bg-white dark:bg-slate-800/90 border border-emerald-200 dark:border-emerald-800/60 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex flex-col items-center gap-0.5 transition-all hover:-translate-y-0.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="text-xs font-bold text-slate-900">👤 Sandeep</span>
-                <span className="text-[10px] text-slate-500">emp123</span>
+                <span className="text-[10px] text-slate-500">emp12345</span>
               </button>
             </div>
           </div>
@@ -369,7 +369,7 @@ export const LoginPage = () => {
                   <span className="text-slate-300 text-[10px]">•</span>
                   <span
                     className="text-[11px] text-pink-600 cursor-pointer font-bold hover:underline"
-                    onClick={() => fillCredentials('janvi@inforag.com', 'emp123')}
+                    onClick={() => fillCredentials('janvi@inforag.com', 'emp12345')}
                     title="Fill Janvi"
                   >
                     Janvi
@@ -377,7 +377,7 @@ export const LoginPage = () => {
                   <span className="text-slate-300 text-[10px]">•</span>
                   <span
                     className="text-[11px] text-sky-600 cursor-pointer font-bold hover:underline"
-                    onClick={() => fillCredentials('sandeep@inforag.com', 'emp123')}
+                    onClick={() => fillCredentials('sandeep@inforag.com', 'emp12345')}
                     title="Fill Sandeep"
                   >
                     Sandeep

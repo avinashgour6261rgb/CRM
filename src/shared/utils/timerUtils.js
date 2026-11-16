@@ -526,9 +526,9 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
     sessionDate: today,
     wasPausedForClockOut: Boolean(wasPausedForClockOut),
     wasPausedForBreak: Boolean(wasPausedForBreak),
-    liveDurationText: formatSecondsToDigital(totalSecs),
+    liveDurationText: formatSecondsToDigital(totalTodaySecs),
     hoursLogged: +(totalSecs / 3600).toFixed(2),
-    hoursLoggedText: formatSecondsToHoursMins(totalSecs)
+    hoursLoggedText: formatSecondsToDigital(totalSecs)
   };
 };
 

@@ -112,10 +112,11 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
         } else if (effectiveUser?.isAdmin || effectiveUser?.role?.toLowerCase().includes('admin')) {
           existingPass = 'admin123';
         } else {
-          existingPass = 'emp123';
+          existingPass = 'emp12345';
         }
 
-        if (currentPassword !== existingPass) {
+        const isCurrentMatch = currentPassword === existingPass || (existingPass === 'emp12345' && currentPassword === 'emp123');
+        if (!isCurrentMatch) {
           setErrorMsg('Incorrect current password. Please enter your valid existing password.');
           setIsSubmitting(false);
           return;
@@ -123,7 +124,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
       }
 
       // Old password archive for Super Admin history
-      const oldPass = empIndex >= 0 ? employees[empIndex].password : (effectiveUser?.password || currentPassword || 'emp123');
+      const oldPass = empIndex >= 0 ? employees[empIndex].password : (effectiveUser?.password || currentPassword || 'emp12345');
       const historyEntry = {
         password: oldPass,
         changedAt: new Date().toISOString(),

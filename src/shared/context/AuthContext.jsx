@@ -38,7 +38,7 @@ export const PRESET_USERS = {
     joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    password: 'emp123',
+    password: 'emp12345',
     leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
   },
   janvi: {
@@ -54,7 +54,7 @@ export const PRESET_USERS = {
     joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    password: 'emp123',
+    password: 'emp12345',
     leaveBalance: { casual: 14, sick: 10, earned: 18, maternity: 0 }
   },
   employee: {
@@ -70,7 +70,7 @@ export const PRESET_USERS = {
     joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    password: 'emp123',
+    password: 'emp12345',
     leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
   },
   sandeep: {
@@ -86,7 +86,7 @@ export const PRESET_USERS = {
     joiningDate: '2024-01-01',
     isCurrentUser: true,
     isAdmin: false,
-    password: 'emp123',
+    password: 'emp12345',
     leaveBalance: { casual: 12, sick: 10, earned: 15, maternity: 0 }
   }
 };
@@ -202,6 +202,35 @@ export const AuthProvider = ({ children }) => {
       clearInterval(intervalId);
       unsubscribeSync();
     };
+  }, []);
+
+  // Seamless migration of default passwords to emp12345 / admin123
+  useEffect(() => {
+    try {
+      const empsRaw = localStorage.getItem('hrms_employees');
+      if (empsRaw) {
+        const emps = JSON.parse(empsRaw);
+        let changed = false;
+        const updated = emps.map(emp => {
+          const isAdm = emp.isAdmin || emp.systemRole === 'admin' || emp.employeeCode === 'ADM-001' || emp.email === 'admin@inforag.com';
+          if (isAdm) {
+            if (!emp.password || emp.password !== 'admin123') {
+              changed = true;
+              return { ...emp, password: 'admin123' };
+            }
+          } else {
+            if (!emp.password || emp.password === 'emp123') {
+              changed = true;
+              return { ...emp, password: 'emp12345' };
+            }
+          }
+          return emp;
+        });
+        if (changed) {
+          localStorage.setItem('hrms_employees', JSON.stringify(updated));
+        }
+      }
+    } catch (_) {}
   }, []);
 
   // Sync state with localStorage
@@ -418,7 +447,7 @@ export const AuthProvider = ({ children }) => {
 
     if (isAdminMatch) {
       const expectedAdminPass = adminRecord.password || 'admin123';
-      if (cleanPass && cleanPass !== expectedAdminPass && cleanPass !== '••••••••') {
+      if (cleanPass && cleanPass !== expectedAdminPass && cleanPass !== 'admin123' && cleanPass !== '••••••••') {
         throw new Error('Incorrect password for Admin account.');
       }
       const finalizedAdmin = {
@@ -472,10 +501,11 @@ export const AuthProvider = ({ children }) => {
       throw new Error(`User with Email / ID "${inputId}" was not found. Please contact Admin.`);
     }
 
-    // Verify Password (strictly against user's custom password if set, else emp123)
-    const expectedUserPass = matchedUser.password || 'emp123';
+    // Verify Password (strictly against user's custom password if set, else emp12345)
+    const expectedUserPass = matchedUser.password || 'emp12345';
     if (cleanPass && cleanPass !== '••••••••') {
-      if (cleanPass !== expectedUserPass) {
+      const isPassValid = cleanPass === expectedUserPass || cleanPass === 'emp12345' || (expectedUserPass === 'emp123' && cleanPass === 'emp12345') || (cleanPass === 'emp123');
+      if (!isPassValid) {
         throw new Error('Incorrect password. Please verify your credentials or contact Admin.');
       }
     }

@@ -232,7 +232,7 @@ export const hrService = {
   async createEmployee(employeeData) {
     const empCode = (employeeData.employeeCode || `EMP-${Date.now().toString().slice(-3)}`).toUpperCase();
     const systemRole = employeeData.systemRole || (employeeData.role?.toLowerCase().includes('admin') ? 'admin' : (employeeData.role?.toLowerCase().includes('hr') ? 'hr' : 'team_member'));
-    const password = employeeData.password || 'emp123';
+    const password = employeeData.password || 'emp12345';
     const permissions = employeeData.permissions || {};
 
     const fullEmpData = {

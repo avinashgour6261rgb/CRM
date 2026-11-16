@@ -119,23 +119,38 @@ export const ActiveTaskTimerCard = ({
                     )}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {(Number(displayActiveTask.hoursLogged) || 0) > Number(displayActiveTask.estimatedHours) && (
-                      <span className="text-[9.5px] px-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-bold" title="Exceeded estimated time - normal work continues">
-                        +{(Number(displayActiveTask.hoursLogged) - Number(displayActiveTask.estimatedHours)).toFixed(1)}h over
-                      </span>
-                    )}
+                    {(() => {
+                      const loggedHrs = Number(displayActiveTask.hoursLogged) || ((Number(displayActiveTask.timerSeconds) || 0) / 3600);
+                      const estHrs = Number(displayActiveTask.estimatedHours) || 4;
+                      if (loggedHrs > estHrs && !displayActiveTask.isUntimed) {
+                        return (
+                          <span className="text-[9.5px] px-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-bold" title="Exceeded estimated time - normal work continues">
+                            +{(loggedHrs - estHrs).toFixed(1)}h over
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                     <div className="flex items-center gap-1.5">
-                      <span className={`font-bold font-mono text-[11px] px-1.5 py-0.5 rounded ${
-                        displayActiveTask.timerRunning 
-                          ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60' 
-                          : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'
-                      }`}>
-                        ⏱️ Task: {displayActiveTask.timerRunning
-                          ? (displayActiveTask.liveDurationText || formatTimeDurationSafe(displayActiveTask.timerSeconds || 0))
-                          : (displayActiveTask.timerSeconds > 0
-                            ? `${formatTimeDurationSafe(displayActiveTask.timerSeconds)} (paused)`
-                            : '00:00:00')}
-                      </span>
+                      {(() => {
+                        const todaySecs = displayActiveTask.todayWorkSeconds !== undefined && displayActiveTask.todayWorkSeconds !== null
+                          ? Number(displayActiveTask.todayWorkSeconds)
+                          : (displayActiveTask.liveTodaySeconds !== undefined && displayActiveTask.liveTodaySeconds !== null
+                            ? Number(displayActiveTask.liveTodaySeconds)
+                            : (displayActiveTask.dailySessions?.[todayStr] !== undefined
+                              ? Number(displayActiveTask.dailySessions[todayStr])
+                              : 0));
+                        const digitalTime = displayActiveTask.liveDurationText || formatTimeDurationSafe(todaySecs);
+                        return (
+                          <span className={`font-bold font-mono text-[11px] px-1.5 py-0.5 rounded ${
+                            displayActiveTask.timerRunning 
+                              ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60' 
+                              : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'
+                          }`}>
+                            ⏱️ Task: {displayActiveTask.timerRunning ? digitalTime : (todaySecs > 0 ? `${digitalTime} (paused)` : '00:00:00')}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
