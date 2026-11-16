@@ -160,6 +160,7 @@ const SESSION_SCOPED_KEYS = new Set([
   'work_seconds',
   'break_seconds',
   'current_break_seconds',
+  'first_clock_in_of_day',
   'login_time',
   'clock_out',
   'clockout_time',
@@ -407,32 +408,24 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   const targetDate = dateStr || new Date().toISOString().split('T')[0];
   const actualToday = new Date().toISOString().split('T')[0];
 
+  // 1. Base seconds worked on targetDate from closed / paused sessions
   let baseSecs = 0;
   if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
-    baseSecs = Number(task.dailySessions[targetDate]) || 0;
+    baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
-    baseSecs = Number(task.todayWorkSeconds) || 0;
-  } else if (task.sessionDate === targetDate && !task.dailySessions && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
-    // Single-day task created and worked exclusively on targetDate
-    baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-  } else if (task.completedOn === targetDate || (task.completedAt && String(task.completedAt).startsWith(targetDate))) {
-    // If completed on targetDate, strictly count work performed on targetDate
-    if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
-      baseSecs = Number(task.dailySessions[targetDate]) || 0;
-    } else if (task.sessionDate === targetDate && Number(task.todayWorkSeconds) > 0) {
-      baseSecs = Number(task.todayWorkSeconds);
-    } else if (!task.dailySessions && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
-      baseSecs = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-    } else {
-      baseSecs = 0;
-    }
+    baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
+  } else if (task.completedOn === targetDate && task.todayWorkSeconds !== undefined) {
+    baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
+  } else if (task.completedOn === targetDate && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
+    // Single-day task created and completed exclusively on targetDate
+    baseSecs = Math.max(0, Number(task.accumulatedSeconds ?? 0));
   } else {
     // STRICT: Past tasks not worked today have 0 seconds for today!
     baseSecs = 0;
   }
 
+  // 2. Live ticking elapsed timer: ONLY counts if task is actively running on actualToday
   let liveSecs = 0;
-  // STRICT: live ticking elapsed timer ONLY counts on actualToday (never for past/future days)
   if (task.timerRunning && targetDate === actualToday && isEffectiveClockedIn && !isEffectiveOnBreak) {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
@@ -506,7 +499,9 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
     sessionElapsed = Math.max(0, Math.floor((nowMs - safeStart) / 1000));
   }
 
-  const baseAccum = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+  const baseAccum = (task.accumulatedSeconds !== undefined && task.accumulatedSeconds !== null)
+    ? Number(task.accumulatedSeconds)
+    : Math.max(0, (Number(task.timerSeconds) || 0) - sessionElapsed);
   const totalSecs = baseAccum + sessionElapsed;
 
   const dailySessionsMap = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
@@ -532,6 +527,7 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
     wasPausedForClockOut: Boolean(wasPausedForClockOut),
     wasPausedForBreak: Boolean(wasPausedForBreak),
     liveDurationText: formatSecondsToDigital(totalSecs),
+    hoursLogged: +(totalSecs / 3600).toFixed(2),
     hoursLoggedText: formatSecondsToHoursMins(totalSecs)
   };
 };
@@ -635,7 +631,10 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   }
 
   // 2. Persist shift timer keys across all mirror keys
+  const origLoginTime = readTimerStorage(user, 'first_clock_in_of_day') || readTimerStorage(user, 'login_time') || timeStr;
   for (const uk of mirrorKeys) {
+    localStorage.setItem(`ems_timer_${uk}_first_clock_in_of_day`, origLoginTime);
+    localStorage.setItem(`ems_timer_${uk}_login_time`, origLoginTime);
     localStorage.setItem(`ems_timer_${uk}_clockout_time`, timeStr);
     localStorage.setItem(`ems_timer_${uk}_clock_out`, timeStr);
     localStorage.setItem(`ems_timer_${uk}_clock_out_timestamp`, nowTs.toString());

@@ -662,7 +662,8 @@ export const DashboardPage = () => {
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || Date.now();
         const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
-        const liveTaskSecs = (Number(at.accumulatedSeconds) || 0) + elapsed;
+        const taskBase = (at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0);
+        const liveTaskSecs = taskBase + elapsed;
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -673,12 +674,14 @@ export const DashboardPage = () => {
           timerRunning: true,
           startedAt: startedAtMs,
           accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveTaskFormatted: formatSeconds(liveTaskSecs),
           liveDurationText: formatSeconds(liveTaskSecs)
         };
       } else {
-        const liveTaskSecs = Number(at.accumulatedSeconds) || 0;
+        const taskBase = (at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0);
+        const liveTaskSecs = taskBase;
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -688,7 +691,8 @@ export const DashboardPage = () => {
           projectName: at.projectName || 'General Work',
           timerRunning: false,
           startedAt: null,
-          accumulatedSeconds: liveTaskSecs,
+          accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveTaskFormatted: formatSeconds(liveTaskSecs),
           liveDurationText: formatSeconds(liveTaskSecs)

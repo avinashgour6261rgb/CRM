@@ -1732,16 +1732,17 @@ export const TimerProvider = ({ children }) => {
     }
     existingSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
 
-    const userPunchSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime() && s.outTime);
-    const storedLoginForUser = (storedSessionDate === today ? localStorage.getItem(`ems_timer_${userKey}_login_time`) : null);
+    const userPunchSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
+    const storedFirstIn = (storedSessionDate === today ? (localStorage.getItem(`ems_timer_${userKey}_first_clock_in_of_day`) || storedLogin) : null);
     const storedClockInTsForUser = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
-    const hasValidStoredLogin = Boolean(storedSessionDate === today && storedLoginForUser && storedClockInTsForUser >= todayMidnight.getTime());
+    const attFirstIn = (existingRec && existingRec.date === today && existingRec.clockInTime && existingRec.clockInTime !== '--' && existingRec.clockInTime !== '—') ? (existingRec.clockInTime || existingRec.clockIn) : null;
+    const hasRecordedSessions = userPunchSessions.some(s => s.outTime || Number(s.durationSeconds) > 0);
 
-    // User is ONLY considered having a prior clock-in if this specific employee has recorded completed sessions today
+    // User has a prior clock-in today if they have existing punch sessions, or had previously clocked out today, or have an existing attendance clock-in today
     const hasPriorClockInToday = Boolean(
-      (userPunchSessions.length > 0) ||
-      (hasValidStoredLogin && localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' && userPunchSessions.length > 0) ||
-      (hasRemoteSessionToday && existingRec && isRecordForUser(existingRec, today) && existingRec.clockInTime && existingRec.clockInTime !== '--' && Array.isArray(existingRec.punchSessions) && existingRec.punchSessions.length > 0)
+      hasRecordedSessions ||
+      (storedFirstIn && storedFirstIn !== '--' && storedFirstIn !== '—' && (localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' || hasRecordedSessions)) ||
+      (attFirstIn && (existingRec?.clockOutTime || hasRecordedSessions || existingRec?.isClockedIn === false))
     );
 
     const isFirstClockIn = !hasPriorClockInToday;
@@ -1754,7 +1755,7 @@ export const TimerProvider = ({ children }) => {
 
     if (hasPriorClockInToday) {
       // 🌟 RESUME / RE-CLOCK IN: Preserve the original first clock-in of the day and prior work time!
-      initialLoginTime = userPunchSessions[0]?.inTime || existingRec?.clockInTime || existingRec?.clockIn || storedLoginForUser || nowStr;
+      initialLoginTime = userPunchSessions[0]?.inTime || storedFirstIn || attFirstIn || nowStr;
       if (!clockInTs || clockInTs < todayMidnight.getTime()) {
         const parsedSecs = parseTimeToSeconds(initialLoginTime);
         clockInTs = todayMidnight.getTime() + parsedSecs * 1000;
@@ -1776,6 +1777,7 @@ export const TimerProvider = ({ children }) => {
 
       const mirrorKeys = getTimerMirrorKeys(currentUser);
       for (const uk of mirrorKeys) {
+        localStorage.setItem(`ems_timer_${uk}_first_clock_in_of_day`, initialLoginTime);
         localStorage.setItem(`ems_timer_${uk}_login_time`, initialLoginTime);
         localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(clockInTs));
         localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(preservedWorkSecs));
@@ -1798,13 +1800,14 @@ export const TimerProvider = ({ children }) => {
 
       const mirrorKeys = getTimerMirrorKeys(currentUser);
       for (const uk of mirrorKeys) {
+        localStorage.setItem(`ems_timer_${uk}_first_clock_in_of_day`, nowStr);
+        localStorage.setItem(`ems_timer_${uk}_login_time`, nowStr);
         localStorage.setItem(`ems_timer_${uk}_punch_sessions`, JSON.stringify([]));
         localStorage.setItem(`ems_timer_${uk}_break_history`, JSON.stringify([]));
         localStorage.setItem(`ems_timer_${uk}_break_seconds`, '0');
         localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
         localStorage.setItem(`ems_timer_${uk}_work_seconds`, '0');
         localStorage.setItem(`ems_timer_${uk}_saved_official_seconds`, '0');
-        localStorage.setItem(`ems_timer_${uk}_login_time`, nowStr);
         localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, nowMs.toString());
         localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, nowMs.toString());
         localStorage.setItem(`ems_timer_${uk}_current_session_in`, nowStr);

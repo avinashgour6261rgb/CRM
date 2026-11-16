@@ -726,24 +726,38 @@ export const WorkProvider = ({ children }) => {
 
           if (isTaskRunning) {
             changed = true;
+            const todayStr = getTodayStr();
             const startTs = (isMyActive && activeTimer.startedAt) ? Number(activeTimer.startedAt) : Number(t.startedAt);
-            const base = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
-              ? Number(activeTimer.accumulatedSeconds)
-              : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : (Number(t.timerSeconds) || 0));
             const safeStartTs = Math.max(startTs, todayMidnightMs);
             const elapsed = Math.min(Math.max(0, Math.floor((now - safeStartTs) / 1000)), 14 * 3600);
-            const liveSecs = Math.min(base + elapsed, 14 * 3600);
-            const text = formatSeconds(liveSecs);
+
+            // Fixed baseline lifetime seconds (from snapshot or task baseline)
+            const baseLifetime = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
+              ? Number(activeTimer.accumulatedSeconds)
+              : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : 0);
+
+            // Fixed baseline today seconds (strictly from today's session)
+            const baseToday = (isMyActive && activeTimer.todayWorkSeconds !== undefined && activeTimer.todayWorkSeconds !== null)
+              ? Number(activeTimer.todayWorkSeconds)
+              : (Number(t.dailySessions?.[todayStr] || t.todayWorkSeconds || 0));
+
+            const liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
+            const liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
+            const lifetimeText = formatSeconds(liveLifetimeSecs);
+            const todayText = formatSeconds(liveTodaySecs);
 
             return {
               ...t,
               timerRunning: true,
               startedAt: startTs,
-              accumulatedSeconds: base,
-              timerSeconds: liveSecs,
-              liveDurationText: text,
-              hoursLoggedText: text,
-              sessionDate: getTodayStr()
+              accumulatedSeconds: baseLifetime,
+              timerSeconds: liveLifetimeSecs,
+              todayWorkSeconds: liveTodaySecs,
+              liveTodaySeconds: liveTodaySecs,
+              dailySessions: { ...(t.dailySessions || {}), [todayStr]: liveTodaySecs },
+              liveDurationText: todayText,
+              hoursLoggedText: lifetimeText,
+              sessionDate: todayStr
             };
           }
           return t;

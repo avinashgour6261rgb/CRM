@@ -296,9 +296,26 @@ const markAttendance = asyncHandler(async (req, res) => {
     overtimeSeconds
   };
 
-  if (clockInTime !== undefined) updateFields.clockInTime = clockInTime;
+  // Check for existing record to preserve immutable first clock-in of the day
+  const existingRecord = await Attendance.findOne({
+    date,
+    $or: [
+      { employee: targetEmpId },
+      { employeeCode: targetEmpCode }
+    ]
+  });
+
+  if (existingRecord && existingRecord.clockInTime && !isAdminOverride) {
+    // Preserve initial first clock-in of the day across re-clock-ins
+    updateFields.clockInTime = existingRecord.clockInTime;
+    if (existingRecord.clockInTimestamp) {
+      updateFields.clockInTimestamp = existingRecord.clockInTimestamp;
+    }
+  } else if (clockInTime !== undefined) {
+    updateFields.clockInTime = clockInTime;
+    if (clockInTimestamp !== undefined) updateFields.clockInTimestamp = clockInTimestamp;
+  }
   if ('clockOutTime' in req.body) updateFields.clockOutTime = clockOutTime;
-  if (clockInTimestamp !== undefined) updateFields.clockInTimestamp = clockInTimestamp;
   if ('clockOutTimestamp' in req.body) updateFields.clockOutTimestamp = clockOutTimestamp;
   if (workSeconds !== undefined) updateFields.workSeconds = Number(workSeconds) || 0;
   if (breakSeconds !== undefined) updateFields.breakSeconds = Number(breakSeconds) || 0;

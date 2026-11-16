@@ -343,17 +343,17 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                             ⚡ Open
                           </span>
                         ) : (
-                          <span className={`text-[9.5px] font-extrabold ${((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? 'text-amber-600' : 'text-green-600'}`}>
-                            {Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100)}%
+                          <span className={`text-[9.5px] font-extrabold ${(Number(task.timerSeconds || 0) / 3600 || Number(task.hoursLogged || 0)) > Number(task.estimatedHours) ? 'text-amber-600' : 'text-green-600'}`}>
+                            {Math.round(((Number(task.timerSeconds) || ((Number(task.hoursLogged) || 0) * 3600)) / (Number(task.estimatedHours) * 3600)) * 100)}%
                           </span>
                         )}
                       </div>
                       {!task.isUntimed && task.estimatedHours > 0 && (
                         <div className="w-full h-1 bg-slate-200 rounded-sm overflow-hidden">
                           <div
-                            className={`h-full rounded-sm transition-all duration-300 ${((Number(task.hoursLogged) || 0) + (Number(task.timerSeconds || 0) / 3600)) > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'}`}
+                            className={`h-full rounded-sm transition-all duration-300 ${(Number(task.timerSeconds || 0) / 3600 || Number(task.hoursLogged || 0)) > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'}`}
                             style={{
-                              width: `${Math.min(100, Math.round(((((Number(task.hoursLogged) || 0) * 3600) + (Number(task.timerSeconds) || 0)) / (Number(task.estimatedHours) * 3600)) * 100))}%`
+                              width: `${Math.min(100, Math.round(((Number(task.timerSeconds) || ((Number(task.hoursLogged) || 0) * 3600)) / (Number(task.estimatedHours) * 3600)) * 100))}%`
                             }}
                           />
                         </div>

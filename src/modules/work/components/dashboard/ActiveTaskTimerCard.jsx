@@ -147,7 +147,7 @@ export const ActiveTaskTimerCard = ({
                         : 'bg-sky-600'
                     }`}
                     style={{
-                      width: `${Math.min(100, Math.round(((((Number(displayActiveTask.hoursLogged) || 0) * 3600) + (Number(displayActiveTask.timerSeconds) || 0)) / ((Number(displayActiveTask.estimatedHours) || 4) * 3600)) * 100)) || 5}%`
+                      width: `${Math.min(100, Math.round(((Number(displayActiveTask.timerSeconds) || ((Number(displayActiveTask.hoursLogged) || 0) * 3600)) / ((Number(displayActiveTask.estimatedHours) || 4) * 3600)) * 100)) || 5}%`
                     }}
                   />
                 </div>
