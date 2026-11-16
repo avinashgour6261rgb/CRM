@@ -38,7 +38,8 @@ export const TasksPage = () => {
     setTaskFilter,
     currentUser: workUser,
     projects,
-    employees
+    employees,
+    isTaskAssignedToMe
   } = useWork();
   const { currentUser: authUser } = useAuth();
   const { confirm } = useConfirm();
@@ -573,10 +574,10 @@ export const TasksPage = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onTaskCreated={(newTask) => {
-          if (newTask && !isTaskAssignedToMe(newTask)) {
-            setTaskScopeFilter('assigned_by_me');
+          if (newTask && isTaskAssignedToMe && !isTaskAssignedToMe(newTask)) {
+            setScopeMode('assigned_by_me');
           } else {
-            setTaskScopeFilter('assigned_to_me');
+            setScopeMode('assigned_to_me');
           }
         }}
       />

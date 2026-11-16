@@ -794,6 +794,7 @@ export const DashboardPage = () => {
     const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
     try {
       const targetEmp = (employees || []).find(e => e._id === empId || e.employeeCode === empId);
+      const empKey = String(targetEmp?.employeeCode || empId);
       const empObj = targetEmp || { _id: empId, employeeCode: empId, name: empName };
       const nowTs = Date.now();
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });

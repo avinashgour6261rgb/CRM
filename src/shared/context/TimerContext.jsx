@@ -1941,7 +1941,7 @@ export const TimerProvider = ({ children }) => {
         : `Shift resumed at ${nowStr}. Continuing time tracking.`
     });
 
-    const isOvertimePeriod = now.getHours() >= 19;
+    const isOvertimePeriod = new Date().getHours() >= 19;
     addToast({
       title: isFirstClockIn
         ? 'Clocked In Successfully! 🟢'

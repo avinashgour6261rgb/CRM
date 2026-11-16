@@ -24,6 +24,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
+import { canDeleteTask } from '../../../../shared/utils/permissionUtils';
 
 export const TaskDetailModal = ({ task, onClose }) => {
   const {
@@ -46,7 +47,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
 
   if (!task) return null;
 
-  const canDeleteTask = checkCanDeleteTask(currentUser, task);
+  const userCanDelete = canDeleteTask(currentUser, task);
 
   const handleReassign = async (newEmpId) => {
     const newAssignee = employees.find(e => e._id === newEmpId);
@@ -547,7 +548,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
         {/* Footer */}
         <div className="px-7 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           <div>
-            {canDeleteTask && (
+            {userCanDelete && (
               <button
                 type="button"
                 onClick={async () => {
