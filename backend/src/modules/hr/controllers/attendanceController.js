@@ -416,7 +416,14 @@ const getAttendanceByDate = asyncHandler(async (req, res) => {
   }
 
   const records = await Attendance.find(query).sort({ employeeName: 1 });
-  res.json({ success: true, count: records.length, date: targetDate, data: records });
+  const formattedRecords = records.map(r => {
+    const obj = r.toObject ? r.toObject() : { ...r };
+    if (!obj.employeeId && obj.employee) {
+      obj.employeeId = String(obj.employee);
+    }
+    return obj;
+  });
+  res.json({ success: true, count: formattedRecords.length, date: targetDate, data: formattedRecords });
 });
 
 // ─── POST /api/attendance/bulk ───────────────────────────────────────────────

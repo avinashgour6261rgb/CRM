@@ -510,7 +510,22 @@ export const WorkProvider = ({ children }) => {
       setTasks(cleanMergedTasks);
       setTimesheets(times || []);
       if (Array.isArray(times) && times.length > 0) {
-        localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(times));
+        try {
+          const existingTimes = getCollection(KEYS.TIMESHEETS) || [];
+          const tsMap = new Map();
+          existingTimes.forEach(t => {
+            if (!t) return;
+            const k = String(t._id || `${t.date}_${t.taskId || t.taskCode}_${t.employeeId || t.employee || ''}`);
+            if (k) tsMap.set(k, t);
+          });
+          times.forEach(t => {
+            if (!t) return;
+            const k = String(t._id || `${t.date}_${t.taskId || t.taskCode}_${t.employeeId || t.employee || ''}`);
+            if (k) tsMap.set(k, { ...(tsMap.get(k) || {}), ...t });
+          });
+          const mergedTimes = Array.from(tsMap.values());
+          localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(mergedTimes));
+        } catch (_) {}
       }
     } catch (err) {
       console.error('Error loading Work module data:', err);
@@ -554,6 +569,7 @@ export const WorkProvider = ({ children }) => {
     };
 
     const handleStorageUpdate = (e) => {
+      if (isFetchingRef.current) return;
       const changedKey = e?.key || e?.detail?.key;
       if (
         !changedKey ||

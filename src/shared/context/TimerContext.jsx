@@ -721,10 +721,9 @@ export const TimerProvider = ({ children }) => {
         }
       } catch {}
 
-      // 2. Query MongoDB Atlas backend for latest attendance record
+      // 2. Query MongoDB Atlas backend for latest attendance record (daily attendance only)
       try {
-        const nowD = new Date();
-        const remoteList = await hrService.getMonthlyAttendance(nowD.getMonth() + 1, nowD.getFullYear(), targetEmpId);
+        const remoteList = await hrService.getDailyAttendance(today);
         if (Array.isArray(remoteList)) {
           const remoteRec = remoteList.find(a => isRecordForUser(a, today));
           if (remoteRec) {
@@ -745,7 +744,6 @@ export const TimerProvider = ({ children }) => {
         }
       } catch (err) {}
 
-      const today = getTodayStr();
       const localSessionDate = localStorage.getItem(`ems_timer_${userKey}_work_session_date`);
 
       // If localSessionDate is from a previous calendar day, reset all live timer keys for fresh day start
@@ -934,7 +932,7 @@ export const TimerProvider = ({ children }) => {
     } catch (e) {
       console.warn('Error in syncLiveShiftState:', e);
     }
-  }, [userKey, targetEmpId, isRecordForUser, loginTime]);
+  }, [userKey, targetEmpId, isRecordForUser]);
 
   // Periodic and reactive sync for cross-device consistency (60s fallback to save bandwidth)
   useEffect(() => {
@@ -947,14 +945,12 @@ export const TimerProvider = ({ children }) => {
 
     window.addEventListener('focus', handleSync);
     document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('hrms_storage_change', handleSync);
     window.addEventListener('ems_clocked_in', handleSync);
     window.addEventListener('ems_clocked_out', handleSync);
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleSync);
       document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('hrms_storage_change', handleSync);
       window.removeEventListener('ems_clocked_in', handleSync);
       window.removeEventListener('ems_clocked_out', handleSync);
     };

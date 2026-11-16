@@ -136,11 +136,16 @@ export const MonthlyMatrixTable = ({
               const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
               const empRecords = attendance.filter(a => {
                 if (!a.date || !a.date.startsWith(monthPrefix)) return false;
-                return a.employeeId === emp._id ||
-                  a.employeeId === emp.employeeCode ||
-                  a.employeeCode === emp.employeeCode ||
-                  a.employeeCode === emp._id ||
-                  (a.employeeName && emp.name && a.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase());
+                const aEmpId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '').toLowerCase();
+                const aCode = String(a.employeeCode || '').trim().toLowerCase();
+                const aName = (a.employeeName || (typeof a.employee === 'object' ? a.employee?.name : '') || '').trim().toLowerCase();
+                const eId = String(emp._id || emp.id || '').toLowerCase();
+                const eCode = String(emp.employeeCode || '').trim().toLowerCase();
+                const eName = (emp.name || '').trim().toLowerCase();
+
+                return (eId && (aEmpId === eId || aCode === eId)) ||
+                       (eCode && (aCode === eCode || aEmpId === eCode)) ||
+                       (eName && aName === eName);
               });
               // Only past and current dates (<= todayStr) can count toward present totals
               const validPresenceRecords = empRecords.filter(a => a.date <= todayStr);

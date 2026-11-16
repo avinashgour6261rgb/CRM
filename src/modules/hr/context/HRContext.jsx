@@ -193,26 +193,34 @@ export const HRProvider = ({ children }) => {
           }
         });
       }
-      setAttendance(atts || []);
+      // Non-destructive merge of remote attendance into local attendance cache
       try {
+        const existing = getCollection(KEYS.ATTENDANCE) || [];
+        const attMap = new Map();
+        existing.forEach(a => {
+          if (!a) return;
+          const empId = a.employeeId || a.employeeCode || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '';
+          const k = `${empId}_${a.date}`;
+          if (k) attMap.set(k, a);
+        });
         if (Array.isArray(atts) && atts.length > 0) {
-          if (isPrivileged) {
-            saveCollection(KEYS.ATTENDANCE, atts);
-          } else {
-            const existing = getCollection(KEYS.ATTENDANCE) || [];
-            const attMap = new Map();
-            existing.forEach(a => {
-              const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
-              attMap.set(k, a);
-            });
-            atts.forEach(a => {
-              const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
-              attMap.set(k, a);
-            });
-            saveCollection(KEYS.ATTENDANCE, Array.from(attMap.values()));
-          }
+          atts.forEach(a => {
+            if (!a) return;
+            const empId = a.employeeId || a.employeeCode || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '';
+            const k = `${empId}_${a.date}`;
+            if (k) attMap.set(k, { ...(attMap.get(k) || {}), ...a });
+          });
         }
-      } catch (_) {}
+        const mergedAtts = Array.from(attMap.values());
+        // For component state: show records for the selected month/year (or full atts if array provided)
+        const monthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+        const scopedAtts = mergedAtts.filter(a => a.date && a.date.startsWith(monthPrefix));
+        setAttendance(scopedAtts.length > 0 ? scopedAtts : (atts || []));
+        // Save silently without triggering storage change event (avoids infinite fetch loop)
+        localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(mergedAtts));
+      } catch (_) {
+        setAttendance(atts || []);
+      }
       setHolidays(hols || []);
       setAppreciations(apps || []);
       setAuditLogs(auds || []);
@@ -236,12 +244,14 @@ export const HRProvider = ({ children }) => {
 
     // Listen for storage events across tabs or internal updates
     const handleStorageUpdate = (e) => {
+      if (isFetchingRef.current) return;
       const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
         scheduleDebouncedLoad();
       }
     };
     const handleNativeStorage = (e) => {
+      if (isFetchingRef.current) return;
       if (e.key === 'ems_auth_session' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
         scheduleDebouncedLoad();
       }

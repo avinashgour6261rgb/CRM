@@ -755,8 +755,9 @@ export const workService = {
             });
             const merged = Array.from(tsMap.values());
             if (merged.length > 0) {
-              localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
-              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+              try {
+                localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(merged));
+              } catch (_) {}
             }
 
             // Return remote list (already filtered by backend) or apply fallback filters

@@ -75,10 +75,17 @@ exports.getTimesheets = async (req, res, next) => {
     }
 
     const timesheets = await Timesheet.find(query).sort({ date: -1, createdAt: -1 });
+    const formattedTimesheets = timesheets.map(t => {
+      const obj = t.toObject ? t.toObject() : { ...t };
+      if (!obj.employeeId && obj.employee) {
+        obj.employeeId = String(obj.employee);
+      }
+      return obj;
+    });
     res.status(200).json({
       success: true,
-      count: timesheets.length,
-      data: timesheets
+      count: formattedTimesheets.length,
+      data: formattedTimesheets
     });
   } catch (error) {
     next(error);

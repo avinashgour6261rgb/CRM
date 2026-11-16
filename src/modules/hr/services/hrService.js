@@ -983,6 +983,37 @@ export const hrService = {
     });
   },
 
+  async getDailyAttendance(date = null) {
+    const authUser = getAuthUser();
+    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.allAccess;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const query = new URLSearchParams({ date: targetDate });
+
+    return fetchWithFallback(`${API_BASE}/attendance/daily?${query.toString()}`, { method: 'GET' }, async () => {
+      let attendance = getCollection(KEYS.ATTENDANCE) || [];
+      attendance = attendance.filter(a => a.date === targetDate);
+
+      if (!isPrivileged && authUser) {
+        const myId = String(authUser._id || authUser.id || authUser.employeeCode || '').toLowerCase();
+        const myCode = authUser.employeeCode ? String(authUser.employeeCode).toLowerCase() : '';
+        const myName = (authUser.name || '').trim().toLowerCase();
+
+        return attendance.filter(a => {
+          const aId = String(a.employeeId || a.employee?._id || a.employee || '').toLowerCase();
+          const aCode = String(a.employeeCode || '').toLowerCase();
+          const aName = (a.employeeName || '').trim().toLowerCase();
+
+          if (myId && (aId === myId || aCode === myId)) return true;
+          if (myCode && (aCode === myCode || aId === myCode)) return true;
+          if (myName && aName === myName) return true;
+          return false;
+        });
+      }
+
+      return attendance;
+    });
+  },
+
   async markAttendance(attendanceData) {
     const result = await fetchWithFallback(`${API_BASE}/attendance/mark`, {
       method: 'POST',
