@@ -359,24 +359,34 @@ export const WorkProvider = ({ children }) => {
               }
             }
 
-            // CRITICAL: Protect today's sessions and accumulated today seconds from being wiped by backend zeros!
+            // CRITICAL: Protect dailySessions from being wiped while strictly isolating past days from today!
             const mergedDailySessions = {
               ...(bt.dailySessions && typeof bt.dailySessions === 'object' ? bt.dailySessions : {}),
               ...(existing.dailySessions && typeof existing.dailySessions === 'object' ? existing.dailySessions : {})
             };
-            if (isLocalActive) {
+            if (isLocalActive && activeTimer.date === todayStr) {
               const activeToday = Number(activeTimer.todayWorkSeconds ?? activeTimer.accumulatedTodaySeconds ?? 0);
               if (activeToday > 0) {
                 mergedDailySessions[todayStr] = Math.max(Number(mergedDailySessions[todayStr]) || 0, activeToday);
               }
             }
+
+            // If existing or backend recorded work on an earlier sessionDate, preserve it under that earlier date
+            if (existing.sessionDate && existing.sessionDate !== todayStr && Number(existing.todayWorkSeconds) > 0) {
+              mergedDailySessions[existing.sessionDate] = Math.max(Number(mergedDailySessions[existing.sessionDate]) || 0, Number(existing.todayWorkSeconds));
+            }
+            if (bt.sessionDate && bt.sessionDate !== todayStr && Number(bt.todayWorkSeconds) > 0) {
+              mergedDailySessions[bt.sessionDate] = Math.max(Number(mergedDailySessions[bt.sessionDate]) || 0, Number(bt.todayWorkSeconds));
+            }
+
+            // Today's work is strictly work performed on todayStr
+            const existingIsToday = existing.sessionDate === todayStr;
+            const backendIsToday = bt.sessionDate === todayStr;
             const effectiveTodaySecs = Math.max(
-              Number(existing.todayWorkSeconds) || 0,
-              Number(bt.todayWorkSeconds) || 0,
-              Number(existing.accumulatedTodaySeconds) || 0,
-              Number(bt.accumulatedTodaySeconds) || 0,
+              existingIsToday ? (Number(existing.todayWorkSeconds) || Number(existing.accumulatedTodaySeconds) || 0) : 0,
+              backendIsToday ? (Number(bt.todayWorkSeconds) || Number(bt.accumulatedTodaySeconds) || 0) : 0,
               Number(mergedDailySessions[todayStr]) || 0,
-              isLocalActive ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0) : 0
+              (isLocalActive && activeTimer.date === todayStr) ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0) : 0
             );
 
             taskMap.set(id, {
@@ -389,6 +399,7 @@ export const WorkProvider = ({ children }) => {
               todayWorkSeconds: effectiveTodaySecs,
               accumulatedTodaySeconds: effectiveTodaySecs,
               dailySessions: mergedDailySessions,
+              sessionDate: effectiveTodaySecs > 0 ? todayStr : (existing.sessionDate || bt.sessionDate || todayStr),
               status: bt.status || existing.status
             });
           } else {
@@ -550,31 +561,39 @@ export const WorkProvider = ({ children }) => {
             ...(existing.dailySessions && typeof existing.dailySessions === 'object' ? existing.dailySessions : {}),
             ...(t.dailySessions && typeof t.dailySessions === 'object' ? t.dailySessions : {})
           };
+          if (existing.sessionDate && existing.sessionDate !== todayStr && Number(existing.todayWorkSeconds) > 0) {
+            mergedDaily[existing.sessionDate] = Math.max(Number(mergedDaily[existing.sessionDate]) || 0, Number(existing.todayWorkSeconds));
+          }
+          if (t.sessionDate && t.sessionDate !== todayStr && Number(t.todayWorkSeconds) > 0) {
+            mergedDaily[t.sessionDate] = Math.max(Number(mergedDaily[t.sessionDate]) || 0, Number(t.todayWorkSeconds));
+          }
+
+          const existingIsToday = existing.sessionDate === todayStr;
+          const tIsToday = t.sessionDate === todayStr;
           const maxToday = Math.max(
-            Number(existing.todayWorkSeconds) || 0,
-            Number(t.todayWorkSeconds) || 0,
-            Number(existing.accumulatedTodaySeconds) || 0,
-            Number(t.accumulatedTodaySeconds) || 0,
+            existingIsToday ? (Number(existing.todayWorkSeconds) || Number(existing.accumulatedTodaySeconds) || 0) : 0,
+            tIsToday ? (Number(t.todayWorkSeconds) || Number(t.accumulatedTodaySeconds) || 0) : 0,
             Number(mergedDaily[todayStr]) || 0
           );
-            const chosenRunning = Boolean(
-              (existing.timerRunning && existing.startedAt) || (t.timerRunning && t.startedAt)
-            );
-            const chosenStartedAt = chosenRunning
-              ? Math.max(Number(existing.startedAt) || 0, Number(t.startedAt) || 0) || null
-              : null;
+          const chosenRunning = Boolean(
+            (existing.timerRunning && existing.startedAt) || (t.timerRunning && t.startedAt)
+          );
+          const chosenStartedAt = chosenRunning
+            ? Math.max(Number(existing.startedAt) || 0, Number(t.startedAt) || 0) || null
+            : null;
 
-            finalTasksMap.set(canonicalKey, {
-              ...other,
-              ...base,
-              timerRunning: chosenRunning,
-              startedAt: chosenStartedAt,
-              timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
-              accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
-              todayWorkSeconds: maxToday,
-              accumulatedTodaySeconds: maxToday,
-              dailySessions: mergedDaily
-            });
+          finalTasksMap.set(canonicalKey, {
+            ...other,
+            ...base,
+            timerRunning: chosenRunning,
+            startedAt: chosenStartedAt,
+            timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
+            accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
+            todayWorkSeconds: maxToday,
+            accumulatedTodaySeconds: maxToday,
+            dailySessions: mergedDaily,
+            sessionDate: maxToday > 0 ? todayStr : (existing.sessionDate || t.sessionDate || todayStr)
+          });
           }
         });
         const cleanMergedTasks = Array.from(finalTasksMap.values()).map(sanitizeTaskDailySessions);
@@ -634,13 +653,23 @@ export const WorkProvider = ({ children }) => {
             const correctEmpId = task.assignedToId || (typeof task.assignedTo === 'string' ? task.assignedTo : task.assignedTo?._id);
             const correctEmpName = task.assignedToName;
             const correctEmpCode = task.assignedToCode;
-            if (correctEmpId && ts.employeeId && String(ts.employeeId) !== String(correctEmpId) && (ts.employeeId === 'ADM-001' || ts.employeeName === 'Administrator' || ts.memo?.includes('Shift clock-out'))) {
+            const isAssignedToAdmin = isTaskAssignedToUser(task, { _id: 'ADM-001', employeeCode: 'ADM-001', name: 'Administrator' });
+            if (!isAssignedToAdmin && (ts.employeeId === 'ADM-001' || ts.employeeName === 'Administrator' || ts.memo?.includes('Shift clock-out'))) {
               tsRepaired = true;
-              return {
+              ts = {
                 ...ts,
+                employee: correctEmpId,
                 employeeId: correctEmpId,
                 employeeCode: correctEmpCode || ts.employeeCode,
                 employeeName: correctEmpName || ts.employeeName
+              };
+            }
+            // Heal timesheet date if a past day session was mistakenly saved under today's date
+            if (task.startDate && task.startDate < todayStr && ts.date === todayStr && ts.memo?.includes('Shift clock-out') && Number(ts.totalDurationSeconds) >= (Number(task.accumulatedSeconds) || 0) - 60) {
+              tsRepaired = true;
+              ts = {
+                ...ts,
+                date: task.startDate
               };
             }
           }
@@ -944,6 +973,7 @@ export const WorkProvider = ({ children }) => {
           wasPausedForBreak: Boolean(isShiftOnBreak)
         });
         const currentSecs = pausedTimer.accumulatedSeconds;
+        const todaySecs = Number(pausedTimer.todayWorkSeconds) || 0;
         saveActiveTimerSnapshot(pausedTimer);
 
         const allTasks = getCollection(KEYS.TASKS) || [];
@@ -972,8 +1002,8 @@ export const WorkProvider = ({ children }) => {
           return t;
         }));
 
-        // Log session to timesheet if clock-out caused pause
-        if (!isShiftClockedIn && currentSecs > 0) {
+        // Log session to timesheet if clock-out caused pause (strictly log TODAY'S work portion)
+        if (!isShiftClockedIn && todaySecs > 0) {
           const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
           const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
           const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
@@ -987,9 +1017,9 @@ export const WorkProvider = ({ children }) => {
             employeeId: targetEmpId,
             employeeCode: targetEmpCode,
             employeeName: targetEmpName,
-            date: activeTimer.date || today,
-            totalDurationSeconds: currentSecs,
-            totalDurationText: formatSeconds(currentSecs),
+            date: today,
+            totalDurationSeconds: todaySecs,
+            totalDurationText: formatSeconds(todaySecs),
             memo: 'Shift clock-out auto-save',
             status: 'stopped'
           }).catch(() => {});
@@ -1247,7 +1277,7 @@ export const WorkProvider = ({ children }) => {
       if (!isEventForMe(e)) return; // Ignore clock-out for other employees!
       const activeTimer = getActiveTimerSnapshot();
       const today = getTodayStr();
-      const currentSecs = activeTimer ? getElapsedSeconds(activeTimer) : 0;
+      const todaySecs = activeTimer ? Number(activeTimer.todayWorkSeconds || getTaskTodaySeconds(activeTimer, today, Date.now(), false, false)) : 0;
 
       if (activeTimer && activeTimer.timerRunning) {
         const pausedState = syncTaskPauseState(activeTimer, { nowMs: Date.now(), todayStr: today, wasPausedForClockOut: true });
@@ -1276,8 +1306,8 @@ export const WorkProvider = ({ children }) => {
         return t;
       }));
 
-      // Automatically log today's task session duration to timesheets
-      if (activeTimer && currentSecs > 0) {
+      // Automatically log today's task session duration to timesheets (strictly TODAY'S work portion)
+      if (activeTimer && todaySecs > 0) {
         const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
         const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
         const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
@@ -1291,9 +1321,9 @@ export const WorkProvider = ({ children }) => {
           employeeId: targetEmpId,
           employeeCode: targetEmpCode,
           employeeName: targetEmpName,
-          date: activeTimer.date || today,
-          totalDurationSeconds: currentSecs,
-          totalDurationText: formatSeconds(currentSecs),
+          date: today,
+          totalDurationSeconds: todaySecs,
+          totalDurationText: formatSeconds(todaySecs),
           memo: 'Shift clock-out session auto-save',
           status: 'stopped'
         }).catch(err => console.warn('Clock-out auto timesheet error:', err));
@@ -2449,33 +2479,36 @@ export const WorkProvider = ({ children }) => {
       }
       let todayElapsedSecs = liveSessionElapsed;
 
-      // Calculate strictly today's work portion using dailySessions as single source of truth
+      // ── STRICT CALENDAR-DAY ISOLATION ──
+      // Calculate strictly what was worked TODAY vs PAST DAYS:
       let todaySessionSecs = 0;
       if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
         todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
-      } else if (targetTask?.sessionDate === todayStr && targetTask?.accumulatedTodaySeconds !== undefined && targetTask?.accumulatedTodaySeconds !== null) {
-        todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + todayElapsedSecs;
-      } else if (targetTask?.sessionDate === todayStr && targetTask?.todayWorkSeconds !== undefined) {
-        const baseSecs = targetTask.timerRunning
-          ? Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - todayElapsedSecs)
-          : (Number(targetTask.todayWorkSeconds) || 0);
+      } else if (targetTask?.timerRunning) {
+        const baseSecs = Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - todayElapsedSecs);
         todaySessionSecs = baseSecs + todayElapsedSecs;
+      } else if (targetTask.startDate === todayStr || (targetTask.createdAt && String(targetTask.createdAt).startsWith(todayStr))) {
+        todaySessionSecs = Number(targetTask.todayWorkSeconds ?? targetTask.accumulatedTodaySeconds ?? durationSecs);
       } else {
-        todaySessionSecs = todayElapsedSecs;
+        // Task created/worked on previous days and NOT run today has ZERO seconds today!
+        todaySessionSecs = 0;
       }
-      const durationToLogToday = Number(todaySessionSecs) || 0;
+      const durationToLogToday = Math.min(Number(todaySessionSecs) || 0, durationSecs);
+      const pastDurationToArchive = Math.max(0, durationSecs - durationToLogToday);
 
-      // Log timesheet for the actual ASSIGNED EMPLOYEE
-      if (durationSecs > 0) {
-        const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
-        const prevDaysLogged = allTimesheets
-          .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date !== todayStr)
-          .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+      const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+      const updatedDailySessions = { ...(targetTask.dailySessions || {}) };
 
-        // If task was worked on previous days without timesheets, archive those past days to their respective dates
+      // Archive Past Days Work (Sessions from yesterday / earlier days)
+      if (pastDurationToArchive > 0) {
+        let hasLoggedPastSession = false;
+
+        // Check if dailySessions already partitioned past dates
         if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object') {
           for (const [sessDate, sessSecs] of Object.entries(targetTask.dailySessions)) {
             if (sessDate !== todayStr && Number(sessSecs) > 0) {
+              hasLoggedPastSession = true;
+              updatedDailySessions[sessDate] = Number(sessSecs);
               const alreadyLoggedOnDate = allTimesheets
                 .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date === sessDate)
                 .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
@@ -2489,53 +2522,71 @@ export const WorkProvider = ({ children }) => {
                   totalDurationSeconds: unloggedOnDate,
                   date: sessDate,
                   employeeId: assignedEmpId,
+                  employeeCode: targetTask.assignedToCode || '',
                   employeeName: assignedEmpName,
-                  memo: `Session worked on ${sessDate}`
+                  memo: `Work session completed on ${sessDate}`
                 }).catch(err => console.warn('Archive past date timesheet error:', err));
               }
             }
           }
-        } else if (targetTask.sessionDate && targetTask.sessionDate !== todayStr) {
-          const sessDate = targetTask.sessionDate;
-          const prevDaySecs = Math.max(0, durationSecs - todayElapsedSecs);
-          if (prevDaySecs > 0) {
-            const alreadyLoggedOnDate = allTimesheets
-              .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date === sessDate)
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
-            const unloggedOnDate = Math.max(0, prevDaySecs - alreadyLoggedOnDate);
-            if (unloggedOnDate > 0) {
-              workService.stopTimer({
-                taskId: targetTask._id || taskId,
-                taskCode: targetTask.taskCode,
-                taskTitle: targetTask.title,
-                projectName: targetTask.projectName,
-                totalDurationSeconds: unloggedOnDate,
-                date: sessDate,
-                employeeId: assignedEmpId,
-                employeeName: assignedEmpName,
-                memo: `Session worked on ${sessDate}`
-              }).catch(() => {});
-            }
-          }
         }
 
-        if (durationToLogToday > 0) {
-          try {
-            await workService.stopTimer({
+        // If dailySessions was empty or didn't capture past dates, attribute pastDurationToArchive to the task's past date
+        if (!hasLoggedPastSession) {
+          const pastDate = (targetTask.sessionDate && targetTask.sessionDate < todayStr)
+            ? targetTask.sessionDate
+            : (targetTask.startDate && targetTask.startDate < todayStr
+              ? targetTask.startDate
+              : (targetTask.createdAt ? targetTask.createdAt.split('T')[0] : ''));
+          const effectivePastDate = (pastDate && pastDate < todayStr) ? pastDate : (() => {
+            const y = new Date();
+            y.setDate(y.getDate() - 1);
+            return y.toISOString().split('T')[0];
+          })();
+
+          updatedDailySessions[effectivePastDate] = pastDurationToArchive;
+          const alreadyLoggedOnPastDate = allTimesheets
+            .filter(ts => (String(ts.taskId) === String(targetTask._id || taskId) || (targetTask.taskCode && ts.taskCode === targetTask.taskCode)) && ts.date === effectivePastDate)
+            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+          const unloggedPast = Math.max(0, pastDurationToArchive - alreadyLoggedOnPastDate);
+          if (unloggedPast > 0) {
+            workService.stopTimer({
               taskId: targetTask._id || taskId,
               taskCode: targetTask.taskCode,
               taskTitle: targetTask.title,
               projectName: targetTask.projectName,
-              totalDurationSeconds: durationToLogToday,
-              date: todayStr,
+              totalDurationSeconds: unloggedPast,
+              date: effectivePastDate,
               employeeId: assignedEmpId,
+              employeeCode: targetTask.assignedToCode || '',
               employeeName: assignedEmpName,
-              memo: customMemo || `Completed task: ${targetTask.title}${isForOtherEmployee ? ` (completed by ${currentUser?.name || 'Admin'})` : ''}`
-            });
-          } catch (stopErr) {
-            console.warn('Timesheet log error during task completion:', stopErr);
+              memo: `Work session completed on ${effectivePastDate}`
+            }).catch(() => {});
           }
         }
+      }
+
+      // Log Today's Work to Timesheets ONLY if work was actually done today!
+      if (durationToLogToday > 0) {
+        updatedDailySessions[todayStr] = durationToLogToday;
+        try {
+          await workService.stopTimer({
+            taskId: targetTask._id || taskId,
+            taskCode: targetTask.taskCode,
+            taskTitle: targetTask.title,
+            projectName: targetTask.projectName,
+            totalDurationSeconds: durationToLogToday,
+            date: todayStr,
+            employeeId: assignedEmpId,
+            employeeCode: targetTask.assignedToCode || '',
+            employeeName: assignedEmpName,
+            memo: customMemo || `Completed task: ${targetTask.title}${isForOtherEmployee ? ` (completed by ${currentUser?.name || 'Admin'})` : ''}`
+          });
+        } catch (stopErr) {
+          console.warn('Timesheet log error during task completion:', stopErr);
+        }
+      } else {
+        updatedDailySessions[todayStr] = 0;
       }
 
       // Clear active timer for target employee
@@ -2595,10 +2646,6 @@ export const WorkProvider = ({ children }) => {
         details: `Task completed by ${currentUser?.name || 'User'}${isForOtherEmployee ? ` (for ${assignedEmpName})` : ''}. Final duration logged: ${hoursLoggedFormatted} (${durationSecs}s)`
       };
 
-      const updatedDailySessions = { ...(targetTask.dailySessions || {}) };
-      if (durationToLogToday > 0) {
-        updatedDailySessions[todayStr] = durationToLogToday;
-      }
       const updatedAll = allTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           const hist = Array.isArray(t.history) ? [...t.history, completionHistory] : [completionHistory];

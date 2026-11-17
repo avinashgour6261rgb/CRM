@@ -137,7 +137,12 @@ exports.createTimesheet = async (req, res, next) => {
     if (payload.employee && !mongoose.Types.ObjectId.isValid(payload.employee)) {
       delete payload.employee; // Don't set invalid ObjectId
     } else if (!payload.employee && user && mongoose.Types.ObjectId.isValid(user._id)) {
-      payload.employee = user._id;
+      const isTargetingSelf = !payload.employeeId ||
+        String(payload.employeeId) === String(user._id) ||
+        (user.employeeCode && String(payload.employeeCode || payload.employeeId) === String(user.employeeCode));
+      if (isTargetingSelf) {
+        payload.employee = user._id;
+      }
     }
 
     // Clean ObjectId-typed refs — remove invalid ones so Mongoose doesn't throw CastError
@@ -170,8 +175,10 @@ exports.createTimesheet = async (req, res, next) => {
       if (payload.employeeId) empConditions.push({ employeeId: String(payload.employeeId) });
       if (payload.employeeCode) empConditions.push({ employeeCode: String(payload.employeeCode) });
       if (payload.employee && mongoose.Types.ObjectId.isValid(payload.employee)) empConditions.push({ employee: payload.employee });
-      if (user && user._id) empConditions.push({ employee: user._id });
-      if (user && user.employeeCode) empConditions.push({ employeeCode: user.employeeCode });
+      if (payload.employeeName) empConditions.push({ employeeName: new RegExp(`^${payload.employeeName.trim()}$`, 'i') });
+      const isForCurrentUser = !payload.employeeId || String(payload.employeeId) === String(user?._id) || (user?.employeeCode && String(payload.employeeCode || payload.employeeId) === String(user.employeeCode));
+      if (isForCurrentUser && user && user._id) empConditions.push({ employee: user._id });
+      if (isForCurrentUser && user && user.employeeCode) empConditions.push({ employeeCode: user.employeeCode });
 
       const existingTs = await Timesheet.findOne({
         date: targetDate,
@@ -262,6 +269,7 @@ exports.stopTimer = async (req, res, next) => {
     const empId = req.body.employeeId || task?.assignedToId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
     const empCode = req.body.employeeCode || task?.assignedToCode || user?.employeeCode || '';
     const empName = req.body.employeeName || task?.assignedToName || user?.name || 'Current User';
+    const isTargetingUser = !req.body.employeeId || String(req.body.employeeId) === String(user?._id) || (user?.employeeCode && (String(req.body.employeeCode || req.body.employeeId) === String(user.employeeCode)));
 
     // Check if a timesheet for this task on this date already exists for this employee
     const matchConditions = [
@@ -273,9 +281,10 @@ exports.stopTimer = async (req, res, next) => {
     const empConditions = [];
     if (empId) empConditions.push({ employeeId: String(empId) });
     if (empCode) empConditions.push({ employeeCode: String(empCode) });
+    if (empName) empConditions.push({ employeeName: new RegExp(`^${empName.trim()}$`, 'i') });
     if (task?.assignedTo && mongoose.Types.ObjectId.isValid(task.assignedTo)) {
       empConditions.push({ employee: task.assignedTo });
-    } else if (user && mongoose.Types.ObjectId.isValid(user._id) && (!task?.assignedToId || String(task.assignedToId) === String(user._id))) {
+    } else if (isTargetingUser && user && mongoose.Types.ObjectId.isValid(user._id) && (!task?.assignedToId || String(task.assignedToId) === String(user._id))) {
       empConditions.push({ employee: user._id });
     }
 
@@ -309,7 +318,7 @@ exports.stopTimer = async (req, res, next) => {
         project: task?.project || null,
         projectId: task?.projectId || '',
         projectName: task?.projectName || 'General Work',
-        employee: task?.assignedTo || (user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null),
+        employee: (empId && mongoose.Types.ObjectId.isValid(empId)) ? empId : (task?.assignedTo && mongoose.Types.ObjectId.isValid(task.assignedTo) ? task.assignedTo : (isTargetingUser && user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null)),
         employeeId: empId,
         employeeCode: empCode,
         employeeName: empName || task?.assignedToName || user?.name || 'Current User',

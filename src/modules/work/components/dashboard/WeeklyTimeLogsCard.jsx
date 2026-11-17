@@ -43,6 +43,11 @@ export const WeeklyTimeLogsCard = ({
         const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
         const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
 
+        // Disallow mismatched employee names
+        if (tsName && uName && tsName !== uName && !tsName.includes(uName) && !uName.includes(tsName)) {
+            return false;
+        }
+
         const matchesUser = Boolean(
             (uId && (tsId === uId || String(ts.employee) === uId)) ||
             (uCode && (tsId === uCode || tsCode === uCode)) ||
@@ -52,7 +57,8 @@ export const WeeklyTimeLogsCard = ({
 
         // Cross-verification: If timesheet references a known task, ensure it is assigned to effectiveUser
         if (ts.taskId || ts.taskCode) {
-            const refTask = (tasks || []).find(t =>
+            const allTasksList = (tasks && tasks.length > 0) ? tasks : (getCollection(KEYS.TASKS) || []);
+            const refTask = allTasksList.find(t =>
                 (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
                 (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
             );

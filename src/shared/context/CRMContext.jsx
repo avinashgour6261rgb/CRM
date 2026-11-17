@@ -1227,8 +1227,17 @@ export const CRMProvider = ({ children }) => {
       }
 
       matchingCompletedTasks.forEach(t => {
-        const secs = Number(t.timerSeconds) > 0 ? Number(t.timerSeconds) : 0;
-        if (secs <= 0) return; // Do not add fake entries for un-timed tasks
+        let secs = 0;
+        if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
+          secs = Number(t.dailySessions[dateStr]) || 0;
+        } else if (isCurrentDay) {
+          secs = Number(t.todayWorkSeconds || 0);
+        } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
+          secs = Number(t.todayWorkSeconds) || 0;
+        } else if (t.completedOn === dateStr && (t.startDate === dateStr || t.createdAt?.startsWith(dateStr))) {
+          secs = Number(t.timerSeconds) || 0;
+        }
+        if (secs <= 0) return; // Do not add fake or un-timed entries for this date
         const estH = t.estimatedHours || Math.round(secs / 3600) || 3;
         const loggedH = secs / 3600;
         const isOver = loggedH > estH;

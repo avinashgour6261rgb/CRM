@@ -447,9 +447,21 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (isTargetToday && task.sessionDate === targetDate && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
-    baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
+    const lifetime = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+    const todayVal = Number(task.accumulatedTodaySeconds);
+    if (todayVal === lifetime && task.startDate && task.startDate < targetDate && !task.timerRunning) {
+      baseSecs = 0;
+    } else {
+      baseSecs = Math.max(0, todayVal);
+    }
   } else if (isTargetToday && task.sessionDate === targetDate && task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null) {
-    baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
+    const lifetime = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
+    const todayVal = Number(task.todayWorkSeconds);
+    if (todayVal === lifetime && task.startDate && task.startDate < targetDate && !task.timerRunning) {
+      baseSecs = 0;
+    } else {
+      baseSecs = Math.max(0, todayVal);
+    }
   } else if (task.completedOn === targetDate && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate)) && !task.sessionDate && (!task.dailySessions || Object.keys(task.dailySessions).length === 0)) {
     // Single-day task created and completed exclusively on targetDate with no prior sessions
     baseSecs = Math.max(0, Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0));
@@ -488,18 +500,30 @@ export const sanitizeTaskDailySessions = (task) => {
   const sessionDates = Object.keys(rawSessions);
   const sumSessions = sessionDates.reduce((acc, d) => acc + (Number(rawSessions[d]) || 0), 0);
   const totalAccum = Math.max(Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0), sumSessions);
-  const todaySessionSecs = task.sessionDate === today
-    ? Math.max(
-        Number(task.todayWorkSeconds) || 0,
-        Number(task.accumulatedTodaySeconds) || 0,
-        Number(rawSessions[today]) || 0
-      )
-    : (Number(rawSessions[today]) || 0);
-
   const cleanSessions = { ...rawSessions };
-  if (todaySessionSecs > 0) {
-    cleanSessions[today] = todaySessionSecs;
+
+  const isStartedOnPastDay = task.startDate && task.startDate < today;
+  let todaySessionSecs = 0;
+  if (task.sessionDate === today) {
+    const rawToday = Math.max(
+      Number(task.todayWorkSeconds) || 0,
+      Number(task.accumulatedTodaySeconds) || 0,
+      Number(rawSessions[today]) || 0
+    );
+    if (isStartedOnPastDay && !task.timerRunning && rawToday >= totalAccum && totalAccum > 0) {
+      // Stale copy of total accumulated duration into today: heal by partitioning to past date
+      todaySessionSecs = 0;
+      if (!cleanSessions[task.startDate]) {
+        cleanSessions[task.startDate] = totalAccum;
+      }
+    } else {
+      todaySessionSecs = rawToday;
+    }
+  } else {
+    todaySessionSecs = Number(rawSessions[today]) || 0;
   }
+
+  cleanSessions[today] = todaySessionSecs;
 
   return {
     ...task,

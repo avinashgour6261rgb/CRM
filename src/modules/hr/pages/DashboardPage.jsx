@@ -1251,6 +1251,11 @@ export const DashboardPage = () => {
       const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
       const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
 
+      // Disallow mismatched employee names
+      if (tsName && uName && tsName !== uName && !tsName.includes(uName) && !uName.includes(tsName)) {
+        return false;
+      }
+
       const empMatches = Boolean(
         (uId && (tsId === uId || String(ts.employee) === uId)) ||
         (uCode && (tsId === uCode || tsCode === uCode)) ||
@@ -1262,7 +1267,8 @@ export const DashboardPage = () => {
       // it MUST actually be assigned to `emp`! If it belongs to another employee (e.g. TSK-8 belongs to Sandeep),
       // it must NEVER appear in another employee's Day Log!
       if (ts.taskId || ts.taskCode) {
-        const refTask = (tasks || []).find(t =>
+        const allTasksList = (tasks && tasks.length > 0) ? tasks : (getCollection(KEYS.TASKS) || []);
+        const refTask = allTasksList.find(t =>
           (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
           (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
         );
@@ -1820,7 +1826,25 @@ export const DashboardPage = () => {
       const isMine = (myId && tsEmpId === myId) ||
         (myCode && (tsEmpId === myCode || ts.employeeCode === myCode)) ||
         (myName && tsName && (tsName === myName || tsName.includes(myName) || myName.includes(tsName)));
-      return isToday && isMine;
+      if (!isToday || !isMine) return false;
+
+      // Disallow mismatched employee names
+      if (tsName && myName && tsName !== myName && !tsName.includes(myName) && !myName.includes(tsName)) {
+        return false;
+      }
+
+      // Cross-verification: If timesheet references a known task, ensure it is assigned to effectiveTargetUser
+      if (ts.taskId || ts.taskCode) {
+        const allTasksList = (tasks && tasks.length > 0) ? tasks : (getCollection(KEYS.TASKS) || []);
+        const refTask = allTasksList.find(t =>
+          (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
+          (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
+        );
+        if (refTask && !isTaskAssignedToUser(refTask, effectiveTargetUser)) {
+          return false;
+        }
+      }
+      return true;
     });
 
     // Deduplicate timesheets by canonical task identifier for today to prevent multi-save duration inflation
