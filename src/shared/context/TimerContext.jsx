@@ -202,7 +202,14 @@ export const TimerProvider = ({ children }) => {
         const at = JSON.parse(rawActiveTimer);
         if (at && (at.date === today || at.sessionDate === today)) {
           // Strictly take today's session seconds, NOT all-time lifetime accumulatedSeconds!
-          let atSecs = Number(at.todayWorkSeconds) || Number(at.dailySessions?.[today]) || 0;
+          let atSecs = 0;
+          if (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null) {
+            atSecs = Number(at.accumulatedTodaySeconds) || 0;
+          } else if (at.dailySessions?.[today] !== undefined) {
+            atSecs = Number(at.dailySessions[today]) || 0;
+          } else {
+            atSecs = Number(at.todayWorkSeconds) || 0;
+          }
           if (at.timerRunning && at.startedAt) {
             const todayMidnight = new Date();
             todayMidnight.setHours(0, 0, 0, 0);
@@ -275,11 +282,19 @@ export const TimerProvider = ({ children }) => {
   // ── 1. Daily Clock In / Out State (User-Scoped & Validated against Today) ──
   const [sessionDate, setSessionDate] = useState(() => {
     const today = getTodayStr();
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
     const mirrorKeys = getTimerMirrorKeys(userKey, targetEmpId, targetEmpCode);
     let hasStaleSession = false;
     for (const mk of mirrorKeys) {
       const stored = localStorage.getItem(`ems_timer_${mk}_work_session_date`);
+      const storedInTs = Number(localStorage.getItem(`ems_timer_${mk}_clock_in_timestamp`));
       if (stored && stored !== today) {
+        hasStaleSession = true;
+        break;
+      }
+      if (storedInTs > 0 && storedInTs < todayMidnightMs) {
         hasStaleSession = true;
         break;
       }
@@ -287,6 +302,7 @@ export const TimerProvider = ({ children }) => {
     if (hasStaleSession) {
       for (const mk of mirrorKeys) {
         localStorage.removeItem(`ems_timer_${mk}_login_time`);
+        localStorage.removeItem(`ems_timer_${mk}_first_clock_in_of_day`);
         localStorage.removeItem(`ems_timer_${mk}_clockout_time`);
         localStorage.removeItem(`ems_timer_${mk}_clock_out`);
         localStorage.removeItem(`ems_timer_${mk}_clock_in_timestamp`);
@@ -316,15 +332,24 @@ export const TimerProvider = ({ children }) => {
 
   const [loginTime, setLoginTime] = useState(() => {
     if (!currentUser || !userKey || !isTodaySession) return null;
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    const storedClockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
     const scoped = localStorage.getItem(`ems_timer_${userKey}_login_time`);
-    if (scoped) return scoped;
+    if (scoped && storedClockInTs >= todayMidnightMs) return scoped;
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
       if (attRaw) {
         const att = JSON.parse(attRaw);
         const today = new Date().toISOString().split('T')[0];
         const rec = att.find(a => isRecordForUser(a, today));
-        if (rec?.clockInTime || rec?.clockIn) return rec.clockInTime || rec.clockIn;
+        if (rec?.clockInTime || rec?.clockIn) {
+          const recInTs = Number(rec?.clockInTimestamp);
+          if (!recInTs || recInTs >= todayMidnightMs) {
+            return rec.clockInTime || rec.clockIn;
+          }
+        }
       }
     } catch {}
     return null;
@@ -358,15 +383,27 @@ export const TimerProvider = ({ children }) => {
 
   const [isClockedIn, setIsClockedIn] = useState(() => {
     if (!isTodaySession) return false;
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    const storedClockInTs = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
+    const hadOut = localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true';
     const saved = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`);
-    if (saved !== null) return JSON.parse(saved);
+
+    if (hadOut) return false;
+
+    // Strict validation: must have actually clocked in today!
+    if (saved === 'true' && storedClockInTs >= todayMidnightMs) {
+      return true;
+    }
+
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
       if (attRaw) {
         const att = JSON.parse(attRaw);
         const today = new Date().toISOString().split('T')[0];
         const rec = att.find(a => isRecordForUser(a, today));
-        if (rec && rec.date === today && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false && rec.status !== 'on_leave') {
+        if (rec && rec.date === today && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn === true && rec.status !== 'on_leave' && rec.status !== 'absent') {
           return true;
         }
       }
@@ -1729,16 +1766,18 @@ export const TimerProvider = ({ children }) => {
     existingSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
 
     const userPunchSessions = (existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnight.getTime());
-    const storedFirstIn = (storedSessionDate === today ? (localStorage.getItem(`ems_timer_${userKey}_first_clock_in_of_day`) || storedLogin) : null);
     const storedClockInTsForUser = Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`));
+    const storedFirstIn = (storedSessionDate === today && storedClockInTsForUser >= todayMidnight.getTime())
+      ? (localStorage.getItem(`ems_timer_${userKey}_first_clock_in_of_day`) || storedLogin)
+      : null;
     const attFirstIn = (existingRec && existingRec.date === today && existingRec.clockInTime && existingRec.clockInTime !== '--' && existingRec.clockInTime !== '—') ? (existingRec.clockInTime || existingRec.clockIn) : null;
     const hasRecordedSessions = userPunchSessions.some(s => s.outTime || Number(s.durationSeconds) > 0);
 
-    // User has a prior clock-in today if they have existing punch sessions, or had previously clocked out today, or have an existing attendance clock-in today
+    // User has a prior clock-in today if they have existing punch sessions, or had previously clocked out today with a verified today timestamp
     const hasPriorClockInToday = Boolean(
       hasRecordedSessions ||
-      (storedFirstIn && storedFirstIn !== '--' && storedFirstIn !== '—' && (localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' || hasRecordedSessions)) ||
-      (attFirstIn && (existingRec?.clockOutTime || hasRecordedSessions || existingRec?.isClockedIn === false))
+      (storedFirstIn && storedFirstIn !== '--' && storedFirstIn !== '—' && storedClockInTsForUser >= todayMidnight.getTime() && (localStorage.getItem(`ems_timer_${userKey}_had_clocked_out`) === 'true' || hasRecordedSessions)) ||
+      (attFirstIn && existingRec?.clockInTimestamp >= todayMidnight.getTime() && (existingRec?.clockOutTime || hasRecordedSessions || existingRec?.isClockedIn === false))
     );
 
     const isFirstClockIn = !hasPriorClockInToday;
@@ -1991,16 +2030,7 @@ export const TimerProvider = ({ children }) => {
     return () => clearInterval(hbInterval);
   }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, workSeconds, breakSeconds, breakType]);
 
-    // ── Auto Clock-In Event Listener (called when employee starts a task timer) ──
-  useEffect(() => {
-    const handleRequestClockIn = () => {
-      if (!isClockedIn) {
-        handleClockIn();
-      }
-    };
-    window.addEventListener('ems_request_clock_in', handleRequestClockIn);
-    return () => window.removeEventListener('ems_request_clock_in', handleRequestClockIn);
-  }, [isClockedIn, handleClockIn]);
+
 
   /**
    * Clock Out Handler

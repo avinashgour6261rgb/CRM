@@ -407,10 +407,18 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   if (!task) return 0;
   const targetDate = dateStr || new Date().toISOString().split('T')[0];
   const actualToday = new Date().toISOString().split('T')[0];
+  const isRunningToday = Boolean(task.timerRunning && targetDate === actualToday && isEffectiveClockedIn && !isEffectiveOnBreak);
+
+  // If liveTodaySeconds was already computed by WorkContext ticking loop, return directly to prevent double counting
+  if (isRunningToday && task.liveTodaySeconds !== undefined && task.liveTodaySeconds !== null) {
+    return Math.min(Math.max(0, Number(task.liveTodaySeconds) || 0), 14 * 3600);
+  }
 
   // 1. Base seconds worked on targetDate from closed / paused sessions
   let baseSecs = 0;
-  if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
+  if (task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
+    baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
+  } else if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
     baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
@@ -426,7 +434,7 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
 
   // 2. Live ticking elapsed timer: ONLY counts if task is actively running on actualToday
   let liveSecs = 0;
-  if (task.timerRunning && targetDate === actualToday && isEffectiveClockedIn && !isEffectiveOnBreak) {
+  if (isRunningToday) {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
@@ -506,7 +514,9 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
 
   const dailySessionsMap = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
   let priorTodaySecs = 0;
-  if (dailySessionsMap[today] !== undefined) {
+  if (task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
+    priorTodaySecs = Number(task.accumulatedTodaySeconds) || 0;
+  } else if (dailySessionsMap[today] !== undefined) {
     priorTodaySecs = Number(dailySessionsMap[today]) || 0;
   } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
     priorTodaySecs = Number(task.todayWorkSeconds) || 0;
@@ -520,8 +530,10 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
     timerRunning: false,
     startedAt: null,
     accumulatedSeconds: totalSecs,
+    accumulatedTodaySeconds: totalTodaySecs,
     timerSeconds: totalSecs,
     todayWorkSeconds: totalTodaySecs,
+    liveTodaySeconds: totalTodaySecs,
     dailySessions: dailySessionsMap,
     sessionDate: today,
     wasPausedForClockOut: Boolean(wasPausedForClockOut),

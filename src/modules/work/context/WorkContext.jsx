@@ -404,9 +404,9 @@ export const WorkProvider = ({ children }) => {
               ? Number(t.accumulatedSeconds)
               : (Number(t.timerSeconds) || 0));
 
-          const baseToday = (isActive && activeTimer.todayWorkSeconds !== undefined && activeTimer.todayWorkSeconds !== null)
-            ? Number(activeTimer.todayWorkSeconds)
-            : (Number(t.dailySessions?.[todayStr] || t.todayWorkSeconds || 0));
+          const baseToday = (isActive && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== undefined && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== null)
+            ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds)
+            : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
 
           const currentLifetimeSecs = baseLifetime + elapsed;
           const currentTodaySecs = baseToday + elapsed;
@@ -416,8 +416,11 @@ export const WorkProvider = ({ children }) => {
             timerRunning: true,
             timerSeconds: currentLifetimeSecs,
             accumulatedSeconds: baseLifetime,
+            accumulatedTodaySeconds: baseToday,
             todayWorkSeconds: currentTodaySecs,
+            liveTodaySeconds: currentTodaySecs,
             startedAt: startedAtTs,
+            dailySessions: { ...(t.dailySessions || {}), [todayStr]: baseToday },
             liveDurationText: formatSeconds(currentTodaySecs),
             hoursLoggedText: formatSeconds(currentLifetimeSecs)
           };
@@ -770,10 +773,10 @@ export const WorkProvider = ({ children }) => {
               ? Number(activeTimer.accumulatedSeconds)
               : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : 0);
 
-            // Fixed baseline today seconds (strictly from today's session)
-            const baseToday = (isMyActive && activeTimer.todayWorkSeconds !== undefined && activeTimer.todayWorkSeconds !== null)
-              ? Number(activeTimer.todayWorkSeconds)
-              : (Number(t.dailySessions?.[todayStr] || t.todayWorkSeconds || 0));
+            // Fixed baseline today seconds (strictly from frozen baseline before start)
+            const baseToday = (isMyActive && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== undefined && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== null)
+              ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds)
+              : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
 
             const liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
             const liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
@@ -785,10 +788,11 @@ export const WorkProvider = ({ children }) => {
               timerRunning: true,
               startedAt: startTs,
               accumulatedSeconds: baseLifetime,
+              accumulatedTodaySeconds: baseToday,
               timerSeconds: liveLifetimeSecs,
               todayWorkSeconds: liveTodaySecs,
               liveTodaySeconds: liveTodaySecs,
-              dailySessions: { ...(t.dailySessions || {}), [todayStr]: liveTodaySecs },
+              dailySessions: { ...(t.dailySessions || {}), [todayStr]: baseToday },
               liveDurationText: todayText,
               hoursLoggedText: lifetimeText,
               sessionDate: todayStr
@@ -1508,9 +1512,9 @@ export const WorkProvider = ({ children }) => {
       } catch (_) {}
     }
 
-    if (!isClockedIn && !options.skipClockInCheck) {
-      window.dispatchEvent(new CustomEvent('ems_request_clock_in', { detail: { taskId, userKey } }));
-      addToast('🟢 Shift started automatically as task timer began!', 'info');
+    if (!isClockedIn && !isForOtherEmployee) {
+      addToast('⚠️ Shift is not clocked in! Please Clock In to your shift before starting task timer.', 'warning');
+      return;
     }
 
     // 1. Break Guard: You cannot track task time while actively on break
@@ -1621,8 +1625,10 @@ export const WorkProvider = ({ children }) => {
       timerRunning: true,
       startedAt: now,
       accumulatedSeconds: existingSecs,
+      accumulatedTodaySeconds: existingTodaySecs,
       timerSeconds: existingSecs,
       todayWorkSeconds: existingTodaySecs,
+      liveTodaySeconds: existingTodaySecs,
       dailySessions: { ...(targetTask.dailySessions || {}), [today]: existingTodaySecs },
       date: today,
       sessionDate: today,
@@ -1654,8 +1660,10 @@ export const WorkProvider = ({ children }) => {
           timerRunning: true,
           startedAt: now,
           accumulatedSeconds: existingSecs,
+          accumulatedTodaySeconds: existingTodaySecs,
           timerSeconds: existingSecs,
           todayWorkSeconds: existingTodaySecs,
+          liveTodaySeconds: existingTodaySecs,
           dailySessions: updatedDailySessions,
           activeUserId: targetUserKey,
           activeUserName: assignedEmpName,
@@ -1743,8 +1751,10 @@ export const WorkProvider = ({ children }) => {
           timerRunning: true,
           startedAt: now,
           accumulatedSeconds: existingSecs,
+          accumulatedTodaySeconds: existingTodaySecs,
           timerSeconds: existingSecs,
           todayWorkSeconds: existingTodaySecs,
+          liveTodaySeconds: existingTodaySecs,
           dailySessions: updatedDailySessions,
           activeUserId: targetUserKey,
           activeUserName: assignedEmpName,
