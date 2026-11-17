@@ -973,9 +973,10 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     if (runningTask && runningTask.startedAt && isClockedIn && !isOnBreak) {
       const taskStart = Number(runningTask.startedAt);
       const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
-      const accum = Number(runningTask.accumulatedSeconds) || 0;
+      const accum = Number(runningTask.accumulatedTodaySeconds ?? runningTask.accumulatedSeconds ?? 0);
       runningTask = {
         ...runningTask,
+        accumulatedTodaySeconds: accum,
         liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
         timerRunning: true
       };

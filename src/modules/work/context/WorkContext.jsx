@@ -16,7 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -92,7 +92,7 @@ export const WorkProvider = ({ children }) => {
     return currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : '');
   }, [currentUser]);
 
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => getLocalDateString();
   const [workSessionDate, setWorkSessionDate] = useState(() => {
     return localStorage.getItem(`ems_work_session_date_${userKey}`) || getTodayStr();
   });
@@ -608,8 +608,101 @@ export const WorkProvider = ({ children }) => {
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
 
-    // Cross-tab real-time event subscription for 0ms latency sync (debounced to avoid connection flooding)
+    // Cross-tab & Cross-Browser real-time event subscription for 0ms latency sync
     const unsubscribeSync = subscribeToSyncEvents((ev) => {
+      if (!ev) return;
+
+      if (ev.type === SYNC_EVENTS.TASK_TIMER_STARTED && ev.payload) {
+        const { taskId: syncTaskId, empKey: syncEmpKey, startedAt: syncStartedAt, accumulatedSeconds: syncAccum, taskTitle: syncTitle } = ev.payload;
+        const targetId = String(syncTaskId || '');
+        const isMyEmp = String(syncEmpKey || '') === String(userKey) ||
+          (currentUser?.employeeCode && String(syncEmpKey || '') === String(currentUser.employeeCode)) ||
+          (currentUser?._id && String(syncEmpKey || '') === String(currentUser._id));
+
+        if (isMyEmp && targetId) {
+          const startTs = Number(syncStartedAt) || Date.now();
+          const accumSecs = Number(syncAccum) || 0;
+          const accumToday = Number(ev.payload.accumulatedTodaySeconds ?? 0);
+          saveActiveTimerSnapshot({
+            taskId: targetId,
+            taskCode: ev.payload.taskCode || 'TSK',
+            title: syncTitle || 'Task',
+            projectName: ev.payload.projectName || 'General Work',
+            startedAt: startTs,
+            accumulatedSeconds: accumSecs,
+            accumulatedTodaySeconds: accumToday,
+            todayWorkSeconds: accumToday,
+            timerRunning: true,
+            date: getTodayStr()
+          });
+        }
+
+        setTasks(prev => prev.map(t => {
+          const tId = String(t._id || t.id);
+          if (tId === targetId) {
+            return {
+              ...t,
+              timerRunning: true,
+              startedAt: Number(syncStartedAt) || Date.now(),
+              accumulatedSeconds: Number(syncAccum) || t.accumulatedSeconds || 0,
+              status: t.status === 'incomplete' ? 'in_progress' : t.status
+            };
+          }
+          if (isMyEmp && isTaskAssignedToMe(t) && t.timerRunning) {
+            return { ...t, timerRunning: false, startedAt: null };
+          }
+          return t;
+        }));
+      } else if (ev.type === SYNC_EVENTS.TASK_TIMER_PAUSED && ev.payload) {
+        const { taskId: syncTaskId, empKey: syncEmpKey, accumulatedSeconds: syncAccum } = ev.payload;
+        const targetId = String(syncTaskId || '');
+        const isMyEmp = String(syncEmpKey || '') === String(userKey) ||
+          (currentUser?.employeeCode && String(syncEmpKey || '') === String(currentUser.employeeCode)) ||
+          (currentUser?._id && String(syncEmpKey || '') === String(currentUser._id));
+
+        if (isMyEmp) {
+          saveActiveTimerSnapshot(null);
+        }
+
+        setTasks(prev => prev.map(t => {
+          const tId = String(t._id || t.id);
+          if (tId === targetId) {
+            const accum = Number(syncAccum) || t.accumulatedSeconds || 0;
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: accum,
+              timerSeconds: accum
+            };
+          }
+          return t;
+        }));
+      } else if ((ev.type === SYNC_EVENTS.TASK_TIMER_STOPPED || ev.type === SYNC_EVENTS.TASK_COMPLETED) && ev.payload) {
+        const { taskId: syncTaskId, empKey: syncEmpKey } = ev.payload;
+        const targetId = String(syncTaskId || '');
+        const isMyEmp = String(syncEmpKey || '') === String(userKey) ||
+          (currentUser?.employeeCode && String(syncEmpKey || '') === String(currentUser.employeeCode)) ||
+          (currentUser?._id && String(syncEmpKey || '') === String(currentUser._id));
+
+        if (isMyEmp) {
+          saveActiveTimerSnapshot(null);
+        }
+
+        setTasks(prev => prev.map(t => {
+          const tId = String(t._id || t.id);
+          if (tId === targetId) {
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              status: ev.type === SYNC_EVENTS.TASK_COMPLETED ? 'completed' : t.status
+            };
+          }
+          return t;
+        }));
+      }
+
       if ([
         SYNC_EVENTS.TASK_TIMER_STARTED,
         SYNC_EVENTS.TASK_TIMER_PAUSED,
@@ -1991,16 +2084,19 @@ export const WorkProvider = ({ children }) => {
       sessionElapsed = Math.max(0, getElapsedSeconds(activeTimer) - base);
     }
 
-    // Calculate today-only seconds using dailySessions as source of truth
+    // Calculate today-only seconds using dailySessions / accumulatedTodaySeconds as single source of truth
     let todaySessionSecs = 0;
-    if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
+    if (targetTask?.accumulatedTodaySeconds !== undefined && targetTask?.accumulatedTodaySeconds !== null) {
+      todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + sessionElapsed;
+    } else if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
       todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + sessionElapsed;
     } else if (targetTask?.sessionDate === todayStr && targetTask?.todayWorkSeconds !== undefined) {
-      todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + sessionElapsed;
-    } else if (targetTask?.timerRunning && targetTask?.startedAt) {
+      const baseSecs = targetTask.timerRunning
+        ? Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - sessionElapsed)
+        : (Number(targetTask.todayWorkSeconds) || 0);
+      todaySessionSecs = baseSecs + sessionElapsed;
+    } else {
       todaySessionSecs = sessionElapsed;
-    } else if (targetTask?.sessionDate === todayStr && (targetTask?.startDate === todayStr || targetTask?.createdAt?.startsWith(todayStr))) {
-      todaySessionSecs = Math.max(0, sessionElapsed);
     }
 
     const baseAccum = (targetTask?.accumulatedSeconds !== undefined && targetTask?.accumulatedSeconds !== null)
@@ -2163,16 +2259,19 @@ export const WorkProvider = ({ children }) => {
       }
       let todayElapsedSecs = liveSessionElapsed;
 
-      // Calculate strictly today's work portion using dailySessions as source of truth
+      // Calculate strictly today's work portion using accumulatedTodaySeconds / dailySessions as single source of truth
       let todaySessionSecs = 0;
-      if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
+      if (targetTask.accumulatedTodaySeconds !== undefined && targetTask.accumulatedTodaySeconds !== null) {
+        todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + todayElapsedSecs;
+      } else if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
         todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
       } else if (targetTask.sessionDate === todayStr && targetTask.todayWorkSeconds !== undefined) {
-        todaySessionSecs = (Number(targetTask.todayWorkSeconds) || 0) + todayElapsedSecs;
-      } else if (targetTask.timerRunning && targetTask.startedAt) {
+        const baseSecs = targetTask.timerRunning
+          ? Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - todayElapsedSecs)
+          : (Number(targetTask.todayWorkSeconds) || 0);
+        todaySessionSecs = baseSecs + todayElapsedSecs;
+      } else {
         todaySessionSecs = todayElapsedSecs;
-      } else if (!targetTask.dailySessions && targetTask.sessionDate === todayStr && (targetTask.startDate === todayStr || targetTask.createdAt?.startsWith(todayStr))) {
-        todaySessionSecs = Math.max(0, durationSecs);
       }
       const durationToLogToday = Number(todaySessionSecs) || 0;
 

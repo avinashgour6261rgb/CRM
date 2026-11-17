@@ -375,8 +375,8 @@ export const TeamOperationsPage = () => {
         const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
         const taskBase = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
-          : ((at.accumulatedSeconds !== undefined && at.accumulatedSeconds !== null) ? Number(at.accumulatedSeconds) : (Number(at.todayWorkSeconds) || 0));
-        const liveTaskSecs = Number(at.liveTaskSecs) || (taskBase + elapsed);
+          : ((at.accumulatedSeconds !== undefined && at.accumulatedSeconds !== null) ? Number(at.accumulatedSeconds) : 0);
+        const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -387,13 +387,15 @@ export const TeamOperationsPage = () => {
           timerRunning: true,
           startedAt: startedAtMs,
           accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          accumulatedTodaySeconds: taskBase,
           todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
       } else {
-        const taskBase = (at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0);
-        const liveTaskSecs = taskBase;
+        const liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
+          ? Number(at.accumulatedTodaySeconds)
+          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0));
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -404,6 +406,7 @@ export const TeamOperationsPage = () => {
           timerRunning: false,
           startedAt: null,
           accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          accumulatedTodaySeconds: liveTaskSecs,
           todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)

@@ -399,6 +399,18 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
 };
 
 /**
+ * Canonical format for local calendar date YYYY-MM-DD.
+ * Strictly immune to UTC offset skew / midnight rollover bugs.
+ */
+export const getLocalDateString = (d = new Date()) => {
+  const dateObj = d instanceof Date ? d : new Date(d);
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Single Source of Truth: Calculate task today seconds for any task on a given date.
  * Strictly guarantees:
  * - Past tasks not worked or completed today return strictly 0 today seconds (prevents leaking into Day Logs).
@@ -406,28 +418,27 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
  */
 export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffectiveClockedIn = true, isEffectiveOnBreak = false) => {
   if (!task) return 0;
-  const targetDate = dateStr || new Date().toISOString().split('T')[0];
-  const actualToday = new Date().toISOString().split('T')[0];
-  const isRunningToday = Boolean(task.timerRunning && targetDate === actualToday && isEffectiveClockedIn && !isEffectiveOnBreak);
+  const actualToday = getLocalDateString(new Date(nowMs));
+  const targetDate = dateStr || actualToday;
+  const isTargetToday = targetDate === actualToday;
+  const isRunningToday = Boolean(task.timerRunning && isTargetToday && isEffectiveClockedIn && !isEffectiveOnBreak);
 
-  // If liveTodaySeconds was already computed by WorkContext ticking loop, return directly to prevent double counting
+  // If liveTodaySeconds was already computed by WorkContext ticking loop for today, return directly
   if (isRunningToday && task.liveTodaySeconds !== undefined && task.liveTodaySeconds !== null) {
     return Math.min(Math.max(0, Number(task.liveTodaySeconds) || 0), 14 * 3600);
   }
 
   // 1. Base seconds worked on targetDate from closed / paused sessions
   let baseSecs = 0;
-  if (task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
-    baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
-  } else if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
+  if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
-  } else if (!isRunningToday && task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
-    baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
-  } else if (task.completedOn === targetDate && task.todayWorkSeconds !== undefined) {
+  } else if (isTargetToday && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
+    baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
+  } else if (isTargetToday && !isRunningToday && task.sessionDate === actualToday && task.todayWorkSeconds !== undefined) {
     baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
   } else if (task.completedOn === targetDate && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
     // Single-day task created and completed exclusively on targetDate
-    baseSecs = Math.max(0, Number(task.accumulatedSeconds ?? 0));
+    baseSecs = Math.max(0, Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0));
   } else {
     // STRICT: Past tasks not worked today have 0 seconds for today!
     baseSecs = 0;
@@ -436,7 +447,7 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   // 2. Live ticking elapsed timer: ONLY counts if task is actively running on actualToday
   let liveSecs = 0;
   if (isRunningToday) {
-    const todayMidnight = new Date();
+    const todayMidnight = new Date(nowMs);
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
     const startTs = task.startedAt ? Number(task.startedAt) : nowMs;
@@ -496,9 +507,9 @@ export const sanitizeTaskDailySessions = (task) => {
  */
 export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPausedForClockOut = false, wasPausedForBreak = false } = {}) => {
   if (!task) return null;
-  const today = todayStr || new Date().toISOString().split('T')[0];
+  const today = todayStr || getLocalDateString(new Date(nowMs));
 
-  const todayMidnight = new Date();
+  const todayMidnight = new Date(nowMs);
   todayMidnight.setHours(0, 0, 0, 0);
   const todayMidnightMs = todayMidnight.getTime();
 
@@ -520,7 +531,9 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
   } else if (dailySessionsMap[today] !== undefined) {
     priorTodaySecs = Number(dailySessionsMap[today]) || 0;
   } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
-    priorTodaySecs = Number(task.todayWorkSeconds) || 0;
+    priorTodaySecs = task.timerRunning
+      ? Math.max(0, (Number(task.todayWorkSeconds) || 0) - sessionElapsed)
+      : (Number(task.todayWorkSeconds) || 0);
   }
   // STRICT: Do NOT copy baseAccum into priorTodaySecs! If priorTodaySecs was 0, it means 0 prior seconds for today.
   const totalTodaySecs = priorTodaySecs + sessionElapsed;

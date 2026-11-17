@@ -1052,11 +1052,16 @@ export const CRMProvider = ({ children }) => {
 
           // Strictly calculate today's session duration, NOT all-time minus timesheets!
           let dayPortion = 0;
-          if (activeTimer.dailySessions && typeof activeTimer.dailySessions === 'object' && activeTimer.dailySessions[dateStr] !== undefined) {
+          if (activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null) {
+            dayPortion = Number(activeTimer.accumulatedTodaySeconds) + runningElapsed;
+          } else if (activeTimer.dailySessions && typeof activeTimer.dailySessions === 'object' && activeTimer.dailySessions[dateStr] !== undefined) {
             dayPortion = (Number(activeTimer.dailySessions[dateStr]) || 0) + runningElapsed;
           } else if (activeTimer.sessionDate === dateStr && activeTimer.todayWorkSeconds !== undefined) {
-            dayPortion = (Number(activeTimer.todayWorkSeconds) || 0) + runningElapsed;
-          } else if (activeTimer.timerRunning) {
+            const baseSecs = activeTimer.timerRunning
+              ? Math.max(0, (Number(activeTimer.todayWorkSeconds) || 0) - runningElapsed)
+              : (Number(activeTimer.todayWorkSeconds) || 0);
+            dayPortion = baseSecs + runningElapsed;
+          } else {
             dayPortion = runningElapsed;
           }
 
@@ -1075,7 +1080,11 @@ export const CRMProvider = ({ children }) => {
           allTasks.forEach(t => {
             if (!isTaskForMe(t)) return;
             const tId = String(t._id || t.id);
-            if (activeTimerTask && (String(activeTimerTask.taskId) === tId || String(activeTimerTask._id) === tId)) return;
+            if (activeTimerTask && (
+              String(activeTimerTask.taskId) === tId ||
+              String(activeTimerTask._id) === tId ||
+              (t.taskCode && activeTimerTask.taskCode === t.taskCode)
+            )) return;
 
             // Strict guard: Skip tasks completed on other days
             const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
@@ -1087,7 +1096,9 @@ export const CRMProvider = ({ children }) => {
             if (!isWorkedToday) return;
 
             let dayPortion = 0;
-            if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
+            if (t.accumulatedTodaySeconds !== undefined && t.accumulatedTodaySeconds !== null) {
+              dayPortion = Number(t.accumulatedTodaySeconds);
+            } else if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
               dayPortion = Number(t.dailySessions[dateStr]) || 0;
             } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
               dayPortion = Number(t.todayWorkSeconds) || 0;

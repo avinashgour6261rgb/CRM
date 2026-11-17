@@ -28,6 +28,7 @@ import {
   writeTimerStorage,
   removeTimerStorage,
   calculateShiftWorkSeconds,
+  getLocalDateString,
   getTaskTodaySeconds,
   syncTaskPauseState,
   performShiftClockOut
@@ -70,7 +71,7 @@ export const TimerProvider = ({ children }) => {
   const { currentUser: hrUser } = useHR();
   const currentUser = authUser || hrUser;
 
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => getLocalDateString();
 
   // Derive canonical userKey for multi-user storage isolation
   const userKey = useMemo(() => {
