@@ -479,40 +479,32 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
  */
 export const sanitizeTaskDailySessions = (task) => {
   if (!task) return task;
-  const totalAccum = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-  if (totalAccum <= 0) return task;
-
   const rawSessions = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : null;
-  if (!rawSessions || Object.keys(rawSessions).length <= 1) {
+  if (!rawSessions || Object.keys(rawSessions).length === 0) {
     return task;
   }
 
-  const sessionDates = Object.keys(rawSessions).sort();
-  let sumSessions = sessionDates.reduce((acc, d) => acc + (Number(rawSessions[d]) || 0), 0);
+  const today = getLocalDateString(new Date());
+  const sessionDates = Object.keys(rawSessions);
+  const sumSessions = sessionDates.reduce((acc, d) => acc + (Number(rawSessions[d]) || 0), 0);
+  const totalAccum = Math.max(Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0), sumSessions);
+  const todaySessionSecs = Math.max(
+    Number(task.todayWorkSeconds) || 0,
+    Number(task.accumulatedTodaySeconds) || 0,
+    Number(rawSessions[today]) || 0
+  );
 
-  // If daily sessions sum exceeds lifetime totalAccum by more than 10%, a day was mistakenly assigned lifetime seconds
-  if (sumSessions > totalAccum + 10) {
-    const cleanedSessions = { ...rawSessions };
-    let runningSum = 0;
-    for (const d of sessionDates) {
-      const daySecs = Number(cleanedSessions[d]) || 0;
-      if (daySecs >= totalAccum && sessionDates.length > 1 && runningSum > 0) {
-        cleanedSessions[d] = Math.max(0, totalAccum - runningSum);
-        runningSum += cleanedSessions[d];
-      } else if (runningSum + daySecs > totalAccum) {
-        cleanedSessions[d] = Math.max(0, totalAccum - runningSum);
-        runningSum = totalAccum;
-      } else {
-        runningSum += daySecs;
-      }
+  return {
+    ...task,
+    accumulatedSeconds: totalAccum,
+    timerSeconds: Math.max(Number(task.timerSeconds) || 0, totalAccum),
+    todayWorkSeconds: todaySessionSecs,
+    accumulatedTodaySeconds: todaySessionSecs,
+    dailySessions: {
+      ...rawSessions,
+      [today]: todaySessionSecs
     }
-    return {
-      ...task,
-      dailySessions: cleanedSessions
-    };
-  }
-
-  return task;
+  };
 };
 
 /**

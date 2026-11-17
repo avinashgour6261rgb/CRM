@@ -152,7 +152,14 @@ export const TeamOperationsPage = () => {
       setLiveTelemetryMap(prev => {
         const next = { ...prev };
         if (t.employeeId) next[String(t.employeeId)] = t;
-        if (t.employeeCode) next[String(t.employeeCode)] = t;
+        if (t.employeeCode) {
+          next[String(t.employeeCode)] = t;
+          next[String(t.employeeCode).toUpperCase()] = t;
+          next[String(t.employeeCode).toLowerCase()] = t;
+        }
+        if (t.employeeName) {
+          next[`name_${String(t.employeeName).trim().toLowerCase()}`] = t;
+        }
         return next;
       });
     };
@@ -342,9 +349,26 @@ export const TeamOperationsPage = () => {
       Boolean(storedClockOut)
     );
 
-    const telem = liveTelemetryMap[String(empId)] ||
-                  (emp.employeeCode && liveTelemetryMap[String(emp.employeeCode)]) ||
-                  (empKey && liveTelemetryMap[String(empKey)]) || null;
+    const empNameStr = String(emp.name || '').trim().toLowerCase();
+    const targetCodes = [
+      String(empId || ''),
+      String(emp.employeeCode || ''),
+      String(empKey || ''),
+      String(emp.id || ''),
+      String(emp._id || ''),
+      String(emp.email || '')
+    ].filter(Boolean);
+
+    let telem = null;
+    for (const code of targetCodes) {
+      if (liveTelemetryMap[code] || liveTelemetryMap[code.toUpperCase()] || liveTelemetryMap[code.toLowerCase()]) {
+        telem = liveTelemetryMap[code] || liveTelemetryMap[code.toUpperCase()] || liveTelemetryMap[code.toLowerCase()];
+        break;
+      }
+    }
+    if (!telem && empNameStr && liveTelemetryMap[`name_${empNameStr}`]) {
+      telem = liveTelemetryMap[`name_${empNameStr}`];
+    }
 
     // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
     const isClockedIn = telem ? Boolean(telem.isClockedIn) : (!isExplicitlyStoredClockedOut && (

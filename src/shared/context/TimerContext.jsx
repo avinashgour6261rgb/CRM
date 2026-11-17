@@ -1449,6 +1449,9 @@ export const TimerProvider = ({ children }) => {
         // Total working time = completed sessions + (current active session minus active & completed breaks in this session)
         let netWorkSecs = Math.min(maxPossibleNetWorkSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
         setWorkSeconds(netWorkSecs);
+        try {
+          window.dispatchEvent(new CustomEvent('ems_shift_tick', { detail: { workSeconds: netWorkSecs } }));
+        } catch (_) {}
 
         const nowTs = Date.now();
         const storedWorkVal = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`) || 0);

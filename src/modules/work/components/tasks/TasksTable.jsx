@@ -224,7 +224,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                         </button>
 
                         <span className="font-mono tracking-wide text-[11px]">
-                          ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || task.timerSeconds || 0)}
+                          ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || 0)}
                         </span>
                       </div>
                     ) : task.snoozed ? (
@@ -329,7 +329,12 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                         {task.timerRunning ? (
                           <span className="text-green-600 inline-flex items-center gap-1 font-extrabold">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" />
-                            ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || task.liveTodaySeconds || 0)} (Live)
+                            ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || 0)} today
+                            {Number(task.timerSeconds) > (Number(task.todayWorkSeconds) || 0) && (
+                              <span className="text-slate-500 font-normal text-[10px]">
+                                ({formatSeconds(task.timerSeconds)} total)
+                              </span>
+                            )}
                           </span>
                         ) : Number(task.todayWorkSeconds) > 0 ? (
                           <span className="text-sky-600 inline-flex items-center gap-1">

@@ -900,7 +900,13 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
   const cacheKey = targetCode || targetId;
   liveTelemetryCache.set(cacheKey, payload);
   if (targetId) liveTelemetryCache.set(String(targetId), payload);
-  if (targetCode) liveTelemetryCache.set(String(targetCode).toUpperCase(), payload);
+  if (targetCode) {
+    liveTelemetryCache.set(String(targetCode).toUpperCase(), payload);
+    liveTelemetryCache.set(String(targetCode).toLowerCase(), payload);
+  }
+  if (payload.employeeName) {
+    liveTelemetryCache.set(`name_${String(payload.employeeName).trim().toLowerCase()}`, payload);
+  }
 
   // Background upsert in MongoDB Atlas to persist live state
   try {
@@ -925,8 +931,17 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     if (orClauses.length > 0) {
       Attendance.findOneAndUpdate(
         { date: today, $or: orClauses },
-        { $set: updateObj },
-        { new: true }
+        { 
+          $set: updateObj,
+          $setOnInsert: {
+            employee: (targetId && mongoose.Types.ObjectId.isValid(targetId)) ? targetId : undefined,
+            employeeCode: targetCode,
+            employeeName: payload.employeeName || 'Administrator',
+            date: today,
+            status: 'present'
+          }
+        },
+        { new: true, upsert: true }
       ).catch(e => console.warn('[heartbeat] DB update notice:', e.message));
     }
 
@@ -1006,8 +1021,14 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     };
 
     telemetryMap[key] = state;
-    if (code) telemetryMap[code] = state;
+    if (code) {
+      telemetryMap[code] = state;
+      telemetryMap[code.toLowerCase()] = state;
+    }
     if (id) telemetryMap[id] = state;
+    if (r.employeeName) {
+      telemetryMap[`name_${String(r.employeeName).trim().toLowerCase()}`] = state;
+    }
   });
 
   // Merge in-memory live telemetry cache (captures real-time updates from active browsers)
@@ -1053,8 +1074,15 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       };
 
       if (cKey) telemetryMap[cKey] = mergedState;
-      if (cCode) telemetryMap[cCode] = mergedState;
+      if (cCode) {
+        telemetryMap[cCode] = mergedState;
+        telemetryMap[cCode.toLowerCase()] = mergedState;
+      }
       if (cId) telemetryMap[cId] = mergedState;
+      const cEmpName = mergedState.employeeName;
+      if (cEmpName) {
+        telemetryMap[`name_${String(cEmpName).trim().toLowerCase()}`] = mergedState;
+      }
     }
   }
 

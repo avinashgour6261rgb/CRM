@@ -86,6 +86,17 @@ export const WorkProvider = ({ children }) => {
   const isFetchingRef = useRef(false);
   const debounceTimerRef = useRef(null);
   const alertedTaskIdsRef = useRef(new Set());
+  const shiftWorkSecondsRef = useRef(0);
+
+  useEffect(() => {
+    const handleShiftTick = (e) => {
+      if (e?.detail?.workSeconds !== undefined) {
+        shiftWorkSecondsRef.current = Number(e.detail.workSeconds) || 0;
+      }
+    };
+    window.addEventListener('ems_shift_tick', handleShiftTick);
+    return () => window.removeEventListener('ems_shift_tick', handleShiftTick);
+  }, []);
 
   // Derive stable userKey matching TimerContext for seamless cross-module sync
   const userKey = useMemo(() => {
@@ -448,7 +459,16 @@ export const WorkProvider = ({ children }) => {
             : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
 
           const currentLifetimeSecs = baseLifetime + elapsed;
-          const currentTodaySecs = baseToday + elapsed;
+          let currentTodaySecs = baseToday + elapsed;
+          if (isAssignedToMe) {
+            const currentShiftWorkSecs = shiftWorkSecondsRef.current ||
+              Number(readTimerStorage(currentUser, 'work_seconds')) ||
+              Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
+              (currentUser?.employeeCode && Number(localStorage.getItem(`ems_timer_${currentUser.employeeCode}_work_seconds`))) || 0;
+            if (currentShiftWorkSecs > 0) {
+              currentTodaySecs = Math.min(currentTodaySecs, currentShiftWorkSecs);
+            }
+          }
 
           return {
             ...t,
@@ -960,8 +980,10 @@ export const WorkProvider = ({ children }) => {
 
             // Physical Invariant: For current user, today's task seconds cannot exceed net shift workSeconds!
             if (isAssignedToMe) {
-              const currentShiftWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
-                Number(readTimerStorage(currentUser, 'work_seconds')) || 0;
+              const currentShiftWorkSecs = shiftWorkSecondsRef.current ||
+                Number(readTimerStorage(currentUser, 'work_seconds')) ||
+                Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
+                (currentUser?.employeeCode && Number(localStorage.getItem(`ems_timer_${currentUser.employeeCode}_work_seconds`))) || 0;
               if (currentShiftWorkSecs > 0) {
                 liveTodaySecs = Math.min(liveTodaySecs, currentShiftWorkSecs);
               }
@@ -1837,7 +1859,7 @@ export const WorkProvider = ({ children }) => {
       if (targetEmpObj._id) localStorage.setItem(`ems_active_task_timer_${targetEmpObj._id}`, timerPayload);
     }
 
-    if (!isForOtherEmployee) {
+    if (!isForOtherEmployee || isTaskAssignedToMe(targetTask)) {
       saveActiveTimerSnapshot(newTimerState);
     }
 
@@ -2047,7 +2069,7 @@ export const WorkProvider = ({ children }) => {
       if (targetEmpObj._id) localStorage.setItem(`ems_active_task_timer_${targetEmpObj._id}`, timerPayload);
     }
 
-    if (!isForOtherEmployee) {
+    if (!isForOtherEmployee || isTaskAssignedToMe(targetTask)) {
       saveActiveTimerSnapshot(pausedTimerState);
     }
 
