@@ -67,6 +67,25 @@ if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     } catch (_) {}
   });
+
+  // 📡 Real-time permissions and access updates across all devices
+  subscribeSocketEvent('employee:permissions:updated', (data) => {
+    try {
+      if (data?.employeeId || data?.employeeCode || data?.email) {
+        // 1. Update local machine EMS_USER_PERMISSIONS map
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+        if (data.employeeId) parsedMap[String(data.employeeId)] = data.permissions || {};
+        if (data.employeeCode) parsedMap[String(data.employeeCode)] = data.permissions || {};
+        if (data.email) parsedMap[String(data.email).toLowerCase()] = data.permissions || {};
+        localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+
+        // 2. Dispatch browser events for immediate 0ms UI re-render
+        window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: data }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+      }
+    } catch (_) {}
+  });
 }
 
 /**

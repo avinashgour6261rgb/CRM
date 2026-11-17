@@ -211,6 +211,29 @@ const updateEmployee = asyncHandler(async (req, res) => {
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
+
+  // 📡 Real-Time Socket Broadcast on permission or role changes
+  if (payload.permissions !== undefined || payload.isDelegatedAdmin !== undefined || payload.systemRole !== undefined) {
+    try {
+      const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+      const empIdStr = employee._id.toString();
+      const socketPayload = {
+        employeeId: empIdStr,
+        employeeCode: employee.employeeCode,
+        email: employee.email,
+        permissions: employee.permissions || {},
+        isDelegatedAdmin: Boolean(employee.isDelegatedAdmin),
+        delegationExpiresAt: employee.delegationExpiresAt || null,
+        systemRole: employee.systemRole,
+        role: employee.role
+      };
+      emitToAll('employee:permissions:updated', socketPayload);
+      emitToUser(empIdStr, 'employee:permissions:updated', socketPayload);
+      if (employee.employeeCode) emitToUser(employee.employeeCode, 'employee:permissions:updated', socketPayload);
+      if (employee.email) emitToUser(employee.email.toLowerCase(), 'employee:permissions:updated', socketPayload);
+    } catch (_) {}
+  }
+
   res.json({ success: true, data: employee });
 });
 
@@ -245,6 +268,28 @@ const updateEmployeePermissions = asyncHandler(async (req, res) => {
 
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  // 📡 Real-Time Multi-Device Socket Broadcast to immediately apply new/revoked permissions
+  try {
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+    const empIdStr = employee._id.toString();
+    const socketPayload = {
+      employeeId: empIdStr,
+      employeeCode: employee.employeeCode,
+      email: employee.email,
+      permissions: employee.permissions || {},
+      isDelegatedAdmin: Boolean(employee.isDelegatedAdmin),
+      delegationExpiresAt: employee.delegationExpiresAt || null,
+      systemRole: employee.systemRole,
+      role: employee.role
+    };
+    emitToAll('employee:permissions:updated', socketPayload);
+    emitToUser(empIdStr, 'employee:permissions:updated', socketPayload);
+    if (employee.employeeCode) emitToUser(employee.employeeCode, 'employee:permissions:updated', socketPayload);
+    if (employee.email) emitToUser(employee.email.toLowerCase(), 'employee:permissions:updated', socketPayload);
+  } catch (socketErr) {
+    console.warn('[employeeController] Socket broadcast error:', socketErr.message);
   }
 
   res.json({

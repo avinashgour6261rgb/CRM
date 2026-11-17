@@ -478,6 +478,49 @@ export const EmployeePermissionsTab = () => {
           updated.manageSalaries = true;
         }
       } else {
+        if (categoryId === 'shift_attendance') {
+          updated.attendance = false;
+          updated.teamoperations = false;
+          updated.viewAllAttendance = false;
+          updated.liveOperations = false;
+          updated.editAttendance = false;
+          updated.forceClockOut = false;
+        } else if (categoryId === 'tasks_projects') {
+          updated.projects = false;
+          updated.manageProjects = false;
+          updated.viewAllProjects = false;
+          updated.deleteProjects = false;
+        } else if (categoryId === 'workforce_hr') {
+          updated.employees = false;
+          updated.leaves = false;
+          updated.manageEmployees = false;
+          updated.viewEmployeeDetails = false;
+          updated.deleteEmployees = false;
+          updated.approveLeaves = false;
+          updated.cancelLeaves = false;
+          updated.giveAppreciation = false;
+          updated.deleteAppreciations = false;
+        } else if (categoryId === 'crm_comms') {
+          updated.accessCRM = false;
+          updated.leads = false;
+          updated.createLeads = false;
+          updated.editLeads = false;
+          updated.deleteLeads = false;
+          updated.tickets = false;
+          updated.manageTickets = false;
+          updated.deleteTickets = false;
+          updated.postNotices = false;
+        } else if (categoryId === 'finance_admin') {
+          updated.payroll = false;
+          updated.finance = false;
+          updated.accessFinance = false;
+          updated.manageSalaries = false;
+          updated.approveExpenses = false;
+          updated.documentation = false;
+          updated.documents = false;
+          updated.reports = false;
+          updated.viewReports = false;
+        }
         // Run dependency sanitizer to cascade off any dependent actions
         updated = sanitizePermissionDependencies(updated);
       }
@@ -566,14 +609,16 @@ export const EmployeePermissionsTab = () => {
       localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(map));
 
       // 3. Dispatch Live Browser & Cross-Device Broadcast Sync Events
-      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { userKey, permissions: safePerms } }));
-      broadcastSyncEvent('PERMISSIONS_UPDATED', {
+      const syncPayload = {
         userKey,
         employeeId: selectedEmp._id,
         employeeCode: selectedEmp.employeeCode,
+        email: selectedEmp.email,
         permissions: safePerms,
         isDelegatedAdmin: Boolean(isDelegatedAdmin)
-      });
+      };
+      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: syncPayload }));
+      broadcastSyncEvent('PERMISSIONS_UPDATED', syncPayload);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
 
       setIsSaved(true);

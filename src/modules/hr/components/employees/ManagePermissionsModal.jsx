@@ -50,10 +50,77 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       addToast('Only Admin or authorized managers can alter permissions', 'error');
       return;
     }
-    setPermissions(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+    setPermissions(prev => {
+      const nextVal = !prev[key];
+      const updated = { ...prev, [key]: nextVal };
+
+      // Parent-to-child and child-to-parent synchronization
+      if (!nextVal) {
+        if (key === 'accessCRM' || key === 'leads') {
+          updated.accessCRM = false;
+          updated.leads = false;
+          updated.createLeads = false;
+          updated.editLeads = false;
+          updated.deleteLeads = false;
+          updated.export_leads = false;
+        } else if (key === 'manageEmployees' || key === 'employees') {
+          updated.manageEmployees = false;
+          updated.employees = false;
+          updated.viewEmployeeDetails = false;
+          updated.deleteEmployees = false;
+          updated.reviewResignations = false;
+        } else if (key === 'manageSalaries' || key === 'payroll') {
+          updated.manageSalaries = false;
+          updated.payroll = false;
+          updated.export_payroll = false;
+        } else if (key === 'accessFinance' || key === 'finance') {
+          updated.accessFinance = false;
+          updated.finance = false;
+          updated.approveExpenses = false;
+        } else if (key === 'liveOperations' || key === 'teamoperations') {
+          updated.liveOperations = false;
+          updated.teamoperations = false;
+          updated.forceClockOut = false;
+        } else if (key === 'viewAllAttendance') {
+          updated.viewAllAttendance = false;
+          updated.editAttendance = false;
+          updated.approveOvertime = false;
+          updated.export_attendance = false;
+        } else if (key === 'manageProjects') {
+          updated.manageProjects = false;
+          updated.deleteProjects = false;
+        }
+      } else {
+        if (key === 'createLeads' || key === 'editLeads' || key === 'deleteLeads' || key === 'export_leads') {
+          updated.accessCRM = true;
+          updated.leads = true;
+        } else if (key === 'accessCRM') {
+          updated.leads = true;
+        } else if (key === 'viewEmployeeDetails' || key === 'deleteEmployees' || key === 'reviewResignations') {
+          updated.manageEmployees = true;
+          updated.employees = true;
+        } else if (key === 'manageEmployees') {
+          updated.employees = true;
+        } else if (key === 'export_payroll') {
+          updated.manageSalaries = true;
+          updated.payroll = true;
+        } else if (key === 'manageSalaries') {
+          updated.payroll = true;
+        } else if (key === 'approveExpenses') {
+          updated.accessFinance = true;
+          updated.finance = true;
+        } else if (key === 'accessFinance') {
+          updated.finance = true;
+        } else if (key === 'forceClockOut') {
+          updated.liveOperations = true;
+          updated.teamoperations = true;
+        } else if (key === 'liveOperations') {
+          updated.teamoperations = true;
+        }
+      }
+
+      return updated;
+    });
   };
 
   const handleSelectAll = (grantAll) => {
@@ -66,6 +133,23 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     GRANULAR_PERMISSIONS_LIST.forEach(p => {
       updated[p.key] = grantAll;
     });
+    if (!grantAll) {
+      updated.leads = false;
+      updated.employees = false;
+      updated.payroll = false;
+      updated.finance = false;
+      updated.teamoperations = false;
+      updated.projects = false;
+      updated.documentation = false;
+      updated.documents = false;
+    } else {
+      updated.leads = true;
+      updated.employees = true;
+      updated.payroll = true;
+      updated.finance = true;
+      updated.teamoperations = true;
+      updated.projects = true;
+    }
     setPermissions(prev => ({ ...prev, ...updated }));
   };
 
@@ -80,6 +164,58 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     items.forEach(p => {
       updated[p.key] = grantAll;
     });
+
+    if (!grantAll) {
+      if (categoryId === 'crm_comms') {
+        updated.accessCRM = false;
+        updated.leads = false;
+        updated.createLeads = false;
+        updated.editLeads = false;
+        updated.deleteLeads = false;
+      } else if (categoryId === 'workforce_hr') {
+        updated.manageEmployees = false;
+        updated.employees = false;
+        updated.viewEmployeeDetails = false;
+        updated.deleteEmployees = false;
+      } else if (categoryId === 'finance_admin') {
+        updated.manageSalaries = false;
+        updated.payroll = false;
+        updated.accessFinance = false;
+        updated.finance = false;
+        updated.approveExpenses = false;
+      } else if (categoryId === 'shift_attendance') {
+        updated.liveOperations = false;
+        updated.teamoperations = false;
+        updated.forceClockOut = false;
+        updated.viewAllAttendance = false;
+        updated.editAttendance = false;
+      } else if (categoryId === 'tasks_projects') {
+        updated.manageProjects = false;
+        updated.projects = false;
+        updated.deleteProjects = false;
+      }
+    } else {
+      if (categoryId === 'crm_comms') {
+        updated.accessCRM = true;
+        updated.leads = true;
+      } else if (categoryId === 'workforce_hr') {
+        updated.manageEmployees = true;
+        updated.employees = true;
+      } else if (categoryId === 'finance_admin') {
+        updated.manageSalaries = true;
+        updated.payroll = true;
+        updated.accessFinance = true;
+        updated.finance = true;
+      } else if (categoryId === 'shift_attendance') {
+        updated.liveOperations = true;
+        updated.teamoperations = true;
+        updated.viewAllAttendance = true;
+      } else if (categoryId === 'tasks_projects') {
+        updated.manageProjects = true;
+        updated.projects = true;
+      }
+    }
+
     setPermissions(prev => ({ ...prev, ...updated }));
   };
 
@@ -119,15 +255,17 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     setIsSaving(true);
     try {
       const userKey = employee.employeeCode || employee._id;
+      const safePerms = sanitizePermissionDependencies({ ...permissions });
+
       // 1. Save to global permissions map
-      setUserPermissions(userKey, permissions);
-      if (employee._id) setUserPermissions(employee._id, permissions);
-      if (employee.email) setUserPermissions(employee.email, permissions);
+      setUserPermissions(userKey, safePerms);
+      if (employee._id) setUserPermissions(employee._id, safePerms);
+      if (employee.email) setUserPermissions(employee.email, safePerms);
 
       // 2. Persist directly onto the employee profile in database
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(employee._id, {
-          permissions,
+          permissions: safePerms,
           isDelegatedAdmin: employee.isDelegatedAdmin,
           delegationExpiresAt: employee.delegationExpiresAt,
           systemRole: employee.systemRole
@@ -135,11 +273,25 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       } else {
         await updateEmployee(employee._id, {
           ...employee,
-          permissions
+          permissions: safePerms
         });
       }
 
-      broadcastSyncEvent('PERMISSIONS_UPDATED', { userKey, employeeId: employee._id, employeeCode: employee.employeeCode, permissions });
+      const syncPayload = {
+        userKey,
+        employeeId: employee._id,
+        employeeCode: employee.employeeCode,
+        email: employee.email,
+        permissions: safePerms,
+        isDelegatedAdmin: Boolean(employee.isDelegatedAdmin),
+        delegationExpiresAt: employee.delegationExpiresAt || null,
+        systemRole: employee.systemRole
+      };
+
+      broadcastSyncEvent('PERMISSIONS_UPDATED', syncPayload);
+      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: syncPayload }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+
       addToast(`Access permissions updated for ${employee.name}!`, 'success');
       onClose();
     } catch (err) {

@@ -1206,92 +1206,101 @@ export const sanitizePermissionDependencies = (permissions = {}) => {
   }
 
   // Synchronize parent module mirrors
-  if (sanitized.accessCRM) {
-    sanitized.leads = true;
-  } else {
+  if (!sanitized.accessCRM || sanitized.leads === false) {
+    sanitized.accessCRM = false;
     sanitized.leads = false;
     sanitized.createLeads = false;
     sanitized.editLeads = false;
     sanitized.deleteLeads = false;
     sanitized.export_leads = false;
+  } else if (sanitized.accessCRM) {
+    sanitized.leads = true;
   }
 
-  if (sanitized.viewAllAttendance) {
-    sanitized.attendance = true;
-  } else {
+  if (sanitized.viewAllAttendance === false) {
     sanitized.editAttendance = false;
     sanitized.approveOvertime = false;
     sanitized.export_attendance = false;
+  } else if (sanitized.viewAllAttendance) {
+    sanitized.attendance = true;
   }
 
-  if (sanitized.liveOperations) {
-    sanitized.teamoperations = true;
-  } else {
+  if (!sanitized.liveOperations || sanitized.teamoperations === false) {
+    sanitized.liveOperations = false;
+    sanitized.teamoperations = false;
     sanitized.forceClockOut = false;
+  } else if (sanitized.liveOperations) {
+    sanitized.teamoperations = true;
   }
 
-  if (sanitized.manageEmployees) {
-    sanitized.employees = true;
-  } else {
+  if (!sanitized.manageEmployees || sanitized.employees === false) {
+    sanitized.manageEmployees = false;
+    sanitized.employees = false;
     sanitized.viewEmployeeDetails = false;
     sanitized.deleteEmployees = false;
     sanitized.reviewResignations = false;
+  } else if (sanitized.manageEmployees) {
+    sanitized.employees = true;
   }
 
-  if (sanitized.approveLeaves) {
-    sanitized.leaves = true;
-  } else {
+  if (sanitized.approveLeaves === false) {
     sanitized.cancelLeaves = false;
+  } else if (sanitized.approveLeaves) {
+    sanitized.leaves = true;
   }
 
-  if (sanitized.manageSalaries) {
-    sanitized.payroll = true;
-  } else {
+  if (!sanitized.manageSalaries || sanitized.payroll === false) {
+    sanitized.manageSalaries = false;
     sanitized.payroll = false;
     sanitized.export_payroll = false;
+  } else if (sanitized.manageSalaries) {
+    sanitized.payroll = true;
   }
 
-  if (sanitized.accessFinance) {
-    sanitized.finance = true;
-  } else {
+  if (!sanitized.accessFinance || sanitized.finance === false) {
+    sanitized.accessFinance = false;
     sanitized.finance = false;
     sanitized.approveExpenses = false;
+  } else if (sanitized.accessFinance) {
+    sanitized.finance = true;
   }
 
-  if (sanitized.manageProjects) {
-    sanitized.projects = true;
-  } else {
+  if (!sanitized.manageProjects || sanitized.projects === false) {
+    sanitized.manageProjects = false;
+    sanitized.projects = false;
     sanitized.deleteProjects = false;
+  } else if (sanitized.manageProjects) {
+    sanitized.projects = true;
   }
 
-  if (sanitized.createTasks) {
-    sanitized.tasks = true;
-  } else {
+  if (sanitized.createTasks === false) {
     sanitized.deleteTasks = false;
-  }
-
-  if (sanitized.viewAllTasks) {
+  } else if (sanitized.createTasks) {
     sanitized.tasks = true;
-  } else {
+  }
+
+  if (sanitized.viewAllTasks === false) {
     sanitized.editAnyTask = false;
+  } else if (sanitized.viewAllTasks) {
+    sanitized.tasks = true;
   }
 
-  if (sanitized.postNotices) {
-    sanitized.notices = true;
-  } else {
+  if (sanitized.postNotices === false) {
     sanitized.deleteNotices = false;
+  } else if (sanitized.postNotices) {
+    sanitized.notices = true;
   }
 
-  if (sanitized.manageTickets) {
-    sanitized.tickets = true;
-  } else {
+  if (sanitized.manageTickets === false) {
     sanitized.deleteTickets = false;
+  } else if (sanitized.manageTickets) {
+    sanitized.tickets = true;
   }
 
-  if (sanitized.giveAppreciation) {
-    sanitized.appreciation = true;
-  } else {
+  if (sanitized.giveAppreciation === false) {
     sanitized.deleteAppreciations = false;
+  } else if (sanitized.giveAppreciation) {
+    sanitized.appreciation = true;
   }
 
   return sanitized;
@@ -1370,30 +1379,64 @@ export const getUserModulePermissions = (user) => {
     Object.assign(basePerms, user.permissions);
   }
 
-  // Upward elevation: granting any granular capability enables the parent module view automatically
-  if (basePerms.manageEmployees || basePerms.deleteEmployees) {
+  // Upward elevation: granting any granular capability enables the parent module view automatically (unless explicitly revoked)
+  if (basePerms.manageEmployees !== false && basePerms.employees !== false && (basePerms.manageEmployees || basePerms.deleteEmployees)) {
     basePerms.employees = true;
+  } else if (basePerms.manageEmployees === false || basePerms.employees === false) {
+    basePerms.employees = false;
+    basePerms.manageEmployees = false;
+    basePerms.deleteEmployees = false;
+    basePerms.viewEmployeeDetails = false;
   }
-  if (basePerms.manageSalaries || basePerms.export_payroll) {
+
+  if (basePerms.manageSalaries !== false && basePerms.payroll !== false && (basePerms.manageSalaries || basePerms.export_payroll)) {
     basePerms.payroll = true;
+  } else if (basePerms.manageSalaries === false || basePerms.payroll === false) {
+    basePerms.payroll = false;
+    basePerms.manageSalaries = false;
+    basePerms.export_payroll = false;
   }
-  if (basePerms.accessFinance || basePerms.approveExpenses) {
+
+  if (basePerms.accessFinance !== false && basePerms.finance !== false && (basePerms.accessFinance || basePerms.approveExpenses)) {
     basePerms.finance = true;
+  } else if (basePerms.accessFinance === false || basePerms.finance === false) {
+    basePerms.finance = false;
+    basePerms.accessFinance = false;
+    basePerms.approveExpenses = false;
   }
-  if (basePerms.accessCRM || basePerms.viewAllLeads || basePerms.deleteLeads) {
+
+  if (basePerms.accessCRM !== false && basePerms.leads !== false && (basePerms.accessCRM || basePerms.viewAllLeads || basePerms.deleteLeads)) {
     basePerms.leads = true;
+  } else if (basePerms.accessCRM === false || basePerms.leads === false) {
+    basePerms.leads = false;
+    basePerms.accessCRM = false;
+    basePerms.createLeads = false;
+    basePerms.editLeads = false;
+    basePerms.deleteLeads = false;
+    basePerms.export_leads = false;
   }
-  if (basePerms.viewAllAttendance || basePerms.editAttendance || basePerms.forceClockOut) {
+
+  if (basePerms.viewAllAttendance !== false && (basePerms.viewAllAttendance || basePerms.editAttendance || basePerms.forceClockOut)) {
     basePerms.attendance = true;
   }
-  if (basePerms.liveOperations) {
+
+  if (basePerms.liveOperations !== false && basePerms.teamoperations !== false && basePerms.liveOperations) {
     basePerms.teamoperations = true;
+  } else if (basePerms.liveOperations === false || basePerms.teamoperations === false) {
+    basePerms.liveOperations = false;
+    basePerms.teamoperations = false;
+    basePerms.forceClockOut = false;
   }
+
   if (basePerms.approveLeaves || basePerms.viewAllLeaves) {
     basePerms.leaves = true;
   }
-  if (basePerms.manageProjects || basePerms.createProjects || basePerms.deleteProjects || basePerms.viewAllProjects) {
+  if (basePerms.manageProjects !== false && basePerms.projects !== false && (basePerms.manageProjects || basePerms.createProjects || basePerms.deleteProjects || basePerms.viewAllProjects)) {
     basePerms.projects = true;
+  } else if (basePerms.manageProjects === false || basePerms.projects === false) {
+    basePerms.projects = false;
+    basePerms.manageProjects = false;
+    basePerms.deleteProjects = false;
   }
   if (basePerms.createTasks || basePerms.viewAllTasks || basePerms.deleteTasks) {
     basePerms.tasks = true;
@@ -1401,8 +1444,10 @@ export const getUserModulePermissions = (user) => {
   if (basePerms.manageTickets || basePerms.deleteTickets) {
     basePerms.tickets = true;
   }
-  if (basePerms.documentation) {
+  if (basePerms.documentation !== false && basePerms.documentation) {
     basePerms.documents = true;
+  } else if (basePerms.documentation === false) {
+    basePerms.documents = false;
   }
   if (basePerms.reports) {
     basePerms.viewReports = true;
@@ -1572,7 +1617,7 @@ export const canAccessModule = (user, moduleId) => {
 
   // 1. Strict explicit rule for liveOperations
   if (permKey === 'liveOperations') {
-    if (perms?.liveOperations === false || user?.permissions?.liveOperations === false) {
+    if (perms?.liveOperations === false || user?.permissions?.liveOperations === false || perms?.teamoperations === false || user?.permissions?.teamoperations === false) {
       return false;
     }
     return Boolean(isAdmin(user) || isHR(user) || isDelegationActive(user) || perms?.liveOperations === true || perms?.teamoperations === true);
@@ -1582,16 +1627,37 @@ export const canAccessModule = (user, moduleId) => {
   if (perms?.[permKey] === false || (user?.permissions && user.permissions[permKey] === false)) {
     return false;
   }
-  if (permKey === 'appreciation' && (perms?.appreciation === false || user?.permissions?.appreciation === false)) {
+  if (permKey === 'appreciation' && (perms?.appreciation === false || user?.permissions?.appreciation === false || perms?.giveAppreciation === false)) {
     return false;
   }
-  if (permKey === 'payroll' && (perms?.payroll === false || user?.permissions?.payroll === false)) {
+  if (permKey === 'payroll' && (
+    perms?.payroll === false || user?.permissions?.payroll === false ||
+    perms?.manageSalaries === false || user?.permissions?.manageSalaries === false
+  )) {
     return false;
   }
-  if (permKey === 'employees' && (perms?.employees === false || user?.permissions?.employees === false)) {
+  if (permKey === 'finance' && (
+    perms?.finance === false || user?.permissions?.finance === false ||
+    perms?.accessFinance === false || user?.permissions?.accessFinance === false
+  )) {
     return false;
   }
-  if (permKey === 'leads' && (perms?.leads === false || user?.permissions?.leads === false)) {
+  if (permKey === 'employees' && (
+    perms?.employees === false || user?.permissions?.employees === false ||
+    perms?.manageEmployees === false || user?.permissions?.manageEmployees === false
+  )) {
+    return false;
+  }
+  if (permKey === 'leads' && (
+    perms?.leads === false || user?.permissions?.leads === false ||
+    perms?.accessCRM === false || user?.permissions?.accessCRM === false
+  )) {
+    return false;
+  }
+  if (permKey === 'projects' && (
+    perms?.projects === false || user?.permissions?.projects === false ||
+    perms?.manageProjects === false || user?.permissions?.manageProjects === false
+  )) {
     return false;
   }
   if (permKey === 'documentation' && (perms?.documentation === false || user?.permissions?.documentation === false)) {

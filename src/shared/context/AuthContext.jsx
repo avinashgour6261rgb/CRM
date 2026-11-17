@@ -177,6 +177,41 @@ export const AuthProvider = ({ children }) => {
       } catch (_) {}
     };
 
+    // Immediate reactive handler for live permissions grant / revocation
+    const handlePermissionsUpdated = (event) => {
+      const data = event?.detail || event?.payload;
+      if (!data) return;
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const targetId = data.employeeId || data.user?._id;
+        const targetCode = data.employeeCode || data.user?.employeeCode;
+        const targetEmail = data.email || data.user?.email;
+
+        const isTarget =
+          (targetId && String(prev._id) === String(targetId)) ||
+          (targetCode && String(prev.employeeCode).toUpperCase() === String(targetCode).toUpperCase()) ||
+          (targetEmail && String(prev.email).toLowerCase() === String(targetEmail).toLowerCase());
+
+        if (isTarget) {
+          const newPerms = data.permissions !== undefined ? (data.permissions || {}) : (data.user?.permissions || prev.permissions || {});
+          const updatedUser = {
+            ...prev,
+            permissions: newPerms,
+            isDelegatedAdmin: data.isDelegatedAdmin !== undefined ? Boolean(data.isDelegatedAdmin) : Boolean(prev.isDelegatedAdmin),
+            delegationExpiresAt: data.delegationExpiresAt !== undefined ? data.delegationExpiresAt : prev.delegationExpiresAt,
+            systemRole: data.systemRole || prev.systemRole
+          };
+          try {
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+          } catch (_) {}
+          return updatedUser;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('ems_permissions_updated', handlePermissionsUpdated);
+
     // Initial check on mount
     syncCurrentSessionUser();
 
@@ -192,6 +227,7 @@ export const AuthProvider = ({ children }) => {
     // Subscribe to cross-tab broadcast events (0ms latency across tabs)
     const unsubscribeSync = subscribeToSyncEvents((event) => {
       if (event?.type === 'PERMISSIONS_UPDATED') {
+        if (event?.payload) handlePermissionsUpdated({ detail: event.payload });
         syncCurrentSessionUser();
       }
     });
@@ -199,6 +235,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
       window.removeEventListener('focus', onWindowFocus);
+      window.removeEventListener('ems_permissions_updated', handlePermissionsUpdated);
       clearInterval(intervalId);
       unsubscribeSync();
     };

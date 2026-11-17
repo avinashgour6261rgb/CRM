@@ -449,7 +449,17 @@ export const hrService = {
       }
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
-      window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { employeeId, permissions } }));
+      window.dispatchEvent(new CustomEvent('ems_permissions_updated', {
+        detail: {
+          employeeId: updatedEmp?._id || employeeId,
+          employeeCode: updatedEmp?.employeeCode,
+          email: updatedEmp?.email,
+          permissions,
+          isDelegatedAdmin,
+          delegationExpiresAt,
+          systemRole
+        }
+      }));
     } catch (e) {
       console.warn('Error caching updated employee permissions:', e);
     }
