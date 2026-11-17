@@ -43,17 +43,31 @@ export const WeeklyTimeLogsCard = ({
         const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
         const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
 
-        if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
-        if (uCode && (tsId === uCode || tsCode === uCode)) return true;
-        if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
-        return false;
+        const matchesUser = Boolean(
+            (uId && (tsId === uId || String(ts.employee) === uId)) ||
+            (uCode && (tsId === uCode || tsCode === uCode)) ||
+            (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName)))
+        );
+        if (!matchesUser) return false;
+
+        // Cross-verification: If timesheet references a known task, ensure it is assigned to effectiveUser
+        if (ts.taskId || ts.taskCode) {
+            const refTask = (tasks || []).find(t =>
+                (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
+                (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
+            );
+            if (refTask && !isMyTask(refTask)) {
+                return false;
+            }
+        }
+        return true;
     };
 
     // Helper: check if task is assigned to effective user
     const isMyTask = (t) => {
         if (!effectiveUser || !t) return false;
         const tAssignedId = t.assignedToId || (typeof t.assignedTo === 'string' ? t.assignedTo : t.assignedTo?._id);
-        const tAssignedCode = t.assignedToCode || t.employeeCode;
+        const tAssignedCode = t.assignedToCode || '';
         const tAssignedName = t.assignedToName || (typeof t.assignedTo === 'object' ? t.assignedTo?.name : null);
 
         if (uId && String(tAssignedId).toLowerCase() === uId) return true;
@@ -61,7 +75,7 @@ export const WeeklyTimeLogsCard = ({
         if (uName && tAssignedName && tAssignedName.toLowerCase().trim() === uName) return true;
 
         if (Array.isArray(t.assignedToIds) && uId && t.assignedToIds.some(id => String(id).toLowerCase() === uId)) return true;
-        if (Array.isArray(t.assignees) && t.assignees.some(a => (uId && String(a._id).toLowerCase() === uId) || (uCode && String(a.employeeCode).toLowerCase() === uCode))) return true;
+        if (Array.isArray(t.assignees) && t.assignees.some(a => (uId && String(a._id).toLowerCase() === uId) || (uCode && String(a.employeeCode).toLowerCase() === uCode) || (uName && a.name && a.name.toLowerCase().trim() === uName))) return true;
         return false;
     };
 

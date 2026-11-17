@@ -93,34 +93,15 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
   const { liveTaskSecs, lifetimeTaskSecs } = useMemo(() => {
     if (!activeRunningTask) return { liveTaskSecs: 0, lifetimeTaskSecs: 0 };
-    const todayBase = Number(activeRunningTask.accumulatedTodaySeconds ?? activeRunningTask.todayWorkSeconds ?? 0);
-    const lifetimeBase = (activeRunningTask.accumulatedSeconds !== undefined && activeRunningTask.accumulatedSeconds !== null)
-      ? Number(activeRunningTask.accumulatedSeconds)
-      : (Number(activeRunningTask.timerSeconds) || todayBase);
-
-    if (!activeRunningTask.timerRunning) {
-      return {
-        liveTaskSecs: todayBase,
-        lifetimeTaskSecs: Math.max(lifetimeBase, todayBase)
-      };
-    }
-
-    const started = Number(activeRunningTask.startedAt) || Date.now();
-    const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
-    let totalToday = todayBase + elapsed;
-
-    // Physical Invariant: Task duration today cannot exceed today's net shift workSeconds
-    const currentShiftSecs = Number(workSeconds || 0);
-    if (currentShiftSecs > 0) {
-      totalToday = Math.min(totalToday, currentShiftSecs);
-    }
-    const totalLifetime = Math.max(lifetimeBase + elapsed, totalToday);
+    // Synchronize directly with task todayWorkSeconds (ticking live in WorkContext)
+    const todaySecs = Number(activeRunningTask.todayWorkSeconds ?? activeRunningTask.liveTodaySeconds ?? activeRunningTask.accumulatedTodaySeconds ?? 0);
+    const lifetimeSecs = Number(activeRunningTask.timerSeconds ?? activeRunningTask.accumulatedSeconds ?? todaySecs);
 
     return {
-      liveTaskSecs: totalToday,
-      lifetimeTaskSecs: totalLifetime
+      liveTaskSecs: todaySecs,
+      lifetimeTaskSecs: Math.max(lifetimeSecs, todaySecs)
     };
-  }, [activeRunningTask, taskTick, workSeconds]);
+  }, [activeRunningTask, taskTick]);
 
   // Dropdown States
   const [showNotifications, setShowNotifications] = useState(false);

@@ -86,7 +86,7 @@ export const TasksPage = () => {
       ? String(task.assignedTo._id || task.assignedTo.id || '')
       : String(task.assignedTo || '');
 
-    const directIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToCode, task.assignedToEmail]
+    const directIds = [task.assignedToId, directAssignedTo, task.assignedToCode, task.assignedToEmail]
       .filter(Boolean)
       .map(s => String(s).toLowerCase());
 

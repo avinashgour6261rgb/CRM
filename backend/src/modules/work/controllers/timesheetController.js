@@ -99,7 +99,28 @@ exports.createTimesheet = async (req, res, next) => {
     const payload = { ...req.body };
     const user = req.user;
 
-    // Enrich with authenticated user details if missing
+    // Enrich with task assignee first if available
+    let taskAssignee = null;
+    if (!payload.employeeId && (payload.taskId || payload.taskCode)) {
+      try {
+        taskAssignee = await Task.findOne({
+          $or: [
+            ...(payload.taskId ? [{ _id: mongoose.Types.ObjectId.isValid(payload.taskId) ? payload.taskId : undefined }, { taskId: payload.taskId }] : []),
+            ...(payload.taskCode ? [{ taskCode: payload.taskCode }] : [])
+          ].filter(Boolean)
+        });
+        if (taskAssignee) {
+          payload.employeeId = taskAssignee.assignedToId || (taskAssignee.assignedTo ? taskAssignee.assignedTo.toString() : '');
+          payload.employeeCode = taskAssignee.assignedToCode || '';
+          payload.employeeName = taskAssignee.assignedToName || '';
+          if (taskAssignee.assignedTo && mongoose.Types.ObjectId.isValid(taskAssignee.assignedTo)) {
+            payload.employee = taskAssignee.assignedTo;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Enrich with authenticated user details if still missing
     if (!payload.employeeId && user) {
       payload.employeeId = user._id ? user._id.toString() : (user.employeeCode || '');
     }
@@ -238,8 +259,9 @@ exports.stopTimer = async (req, res, next) => {
     const secs = String(totalDurationSeconds % 60).padStart(2, '0');
     const durationText = `${hrs}:${mins}:${secs}`;
 
-    const empId = task?.assignedToId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
-    const empCode = user?.employeeCode || task?.assignedToCode || '';
+    const empId = req.body.employeeId || task?.assignedToId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
+    const empCode = req.body.employeeCode || task?.assignedToCode || user?.employeeCode || '';
+    const empName = req.body.employeeName || task?.assignedToName || user?.name || 'Current User';
 
     // Check if a timesheet for this task on this date already exists for this employee
     const matchConditions = [
@@ -251,7 +273,11 @@ exports.stopTimer = async (req, res, next) => {
     const empConditions = [];
     if (empId) empConditions.push({ employeeId: String(empId) });
     if (empCode) empConditions.push({ employeeCode: String(empCode) });
-    if (user && mongoose.Types.ObjectId.isValid(user._id)) empConditions.push({ employee: user._id });
+    if (task?.assignedTo && mongoose.Types.ObjectId.isValid(task.assignedTo)) {
+      empConditions.push({ employee: task.assignedTo });
+    } else if (user && mongoose.Types.ObjectId.isValid(user._id) && (!task?.assignedToId || String(task.assignedToId) === String(user._id))) {
+      empConditions.push({ employee: user._id });
+    }
 
     let existingLog = await Timesheet.findOne({
       date: targetDate,
@@ -286,7 +312,7 @@ exports.stopTimer = async (req, res, next) => {
         employee: task?.assignedTo || (user && mongoose.Types.ObjectId.isValid(user._id) ? user._id : null),
         employeeId: empId,
         employeeCode: empCode,
-        employeeName: task?.assignedToName || user?.name || 'Current User',
+        employeeName: empName || task?.assignedToName || user?.name || 'Current User',
         employeeAvatar: task?.assignedToAvatar || user?.avatar || '',
         employeeRole: task?.assignedToRole || user?.role || '',
         date: targetDate,

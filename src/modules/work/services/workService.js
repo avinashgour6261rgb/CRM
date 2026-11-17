@@ -837,11 +837,29 @@ export const workService = {
 
   async createTimesheet(entryData) {
     const authUser = getAuthUser();
+    let resolvedEmpId = entryData.employeeId;
+    let resolvedEmpCode = entryData.employeeCode;
+    let resolvedEmpName = entryData.employeeName;
+
+    // Prioritize task's actual assignee over authenticated user if missing
+    if (!resolvedEmpId && (entryData.taskId || entryData.taskCode)) {
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const matched = allTasks.find(t =>
+        (entryData.taskId && String(t._id || t.id) === String(entryData.taskId)) ||
+        (entryData.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(entryData.taskCode).trim().toLowerCase())
+      );
+      if (matched) {
+        resolvedEmpId = matched.assignedToId || (typeof matched.assignedTo === 'string' ? matched.assignedTo : matched.assignedTo?._id) || '';
+        resolvedEmpCode = matched.assignedToCode || '';
+        resolvedEmpName = matched.assignedToName || '';
+      }
+    }
+
     const enrichedData = {
       ...entryData,
-      employeeId: entryData.employeeId || authUser?._id || authUser?.employeeCode || '',
-      employeeCode: entryData.employeeCode || authUser?.employeeCode || '',
-      employeeName: entryData.employeeName || authUser?.name || 'Employee'
+      employeeId: resolvedEmpId || authUser?._id || authUser?.employeeCode || '',
+      employeeCode: resolvedEmpCode || authUser?.employeeCode || '',
+      employeeName: resolvedEmpName || authUser?.name || 'Employee'
     };
 
     if (await isBackendAvailable()) {
@@ -979,7 +997,13 @@ export const workService = {
 
     const authUser = getAuthUser();
     const timesheets = getCollection(KEYS.TIMESHEETS) || [];
-    const targetEmpId = String(stopData.employeeId || authUser?._id || authUser?.employeeCode || task?.assignedToId || '');
+    const taskAssigneeId = task?.assignedToId || (typeof task?.assignedTo === 'string' ? task?.assignedTo : task?.assignedTo?._id) || '';
+    const taskAssigneeCode = task?.assignedToCode || '';
+    const taskAssigneeName = task?.assignedToName || '';
+
+    const targetEmpId = String(stopData.employeeId || taskAssigneeId || authUser?._id || authUser?.employeeCode || '');
+    const targetEmpCode = String(stopData.employeeCode || taskAssigneeCode || authUser?.employeeCode || '');
+    const targetEmpName = String(stopData.employeeName || taskAssigneeName || authUser?.name || 'Team Member');
 
     const existingIdx = timesheets.findIndex(ts => {
       if (ts.date !== targetDate) return false;
@@ -1028,10 +1052,10 @@ export const workService = {
         taskTitle: task?.title || stopData.taskTitle || 'Tracked Session',
         projectId: task?.projectId || '',
         employeeId: targetEmpId,
-        employeeCode: stopData.employeeCode || authUser?.employeeCode || '',
-        employeeName: stopData.employeeName || authUser?.name || task?.assignedToName || 'Team Member',
-        employeeAvatar: authUser?.avatar || task?.assignedToAvatar || '',
-        employeeRole: authUser?.role || task?.assignedToRole || '',
+        employeeCode: targetEmpCode,
+        employeeName: targetEmpName,
+        employeeAvatar: task?.assignedToAvatar || authUser?.avatar || '',
+        employeeRole: task?.assignedToRole || authUser?.role || '',
         date: targetDate,
         startTime: startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
         endTime: endTime || new Date().toTimeString().split(' ')[0],

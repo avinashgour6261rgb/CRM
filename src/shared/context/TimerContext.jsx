@@ -2160,7 +2160,7 @@ export const TimerProvider = ({ children }) => {
                           Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`)) || undefined;
         let activeTaskData = null;
         try {
-          const rawTask = localStorage.getItem(`ems_active_task_timer_${userKey}`) || localStorage.getItem('ems_active_task_timer');
+          const rawTask = localStorage.getItem(`ems_active_task_timer_${userKey}`);
           if (rawTask) {
             const p = JSON.parse(rawTask);
             if (p && p.taskId) activeTaskData = p;

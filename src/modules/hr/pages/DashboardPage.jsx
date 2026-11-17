@@ -437,7 +437,7 @@ export const DashboardPage = () => {
     const directAssignedTo = (task.assignedTo && typeof task.assignedTo === 'object')
       ? String(task.assignedTo._id || task.assignedTo.id || '')
       : String(task.assignedTo || '');
-    const taskAssigneeIds = [task.assignedToId, directAssignedTo, task.employeeId, task.assignedToEmail].filter(Boolean).map(s => String(s).toLowerCase());
+    const taskAssigneeIds = [task.assignedToId, directAssignedTo, task.assignedToCode, task.assignedToEmail].filter(Boolean).map(s => String(s).toLowerCase());
 
     if (userIds.some(uid => taskAssigneeIds.includes(uid))) return true;
 
@@ -466,10 +466,9 @@ export const DashboardPage = () => {
     const taskAssigneeName = (task.assignedToName || '').trim().toLowerCase();
     if (userName && taskAssigneeName) {
       if (userName === taskAssigneeName) return true;
-      if (userName.includes(taskAssigneeName) || taskAssigneeName.includes(userName)) return true;
       const userTokens = userName.split(/\s+/).filter(t => t.length >= 3);
       const assigneeTokens = taskAssigneeName.split(/\s+/).filter(t => t.length >= 3);
-      if (userTokens.some(ut => assigneeTokens.includes(ut))) return true;
+      if (userTokens.length > 0 && assigneeTokens.length > 0 && userTokens.some(ut => assigneeTokens.includes(ut))) return true;
     }
     return false;
   };
@@ -1274,10 +1273,26 @@ export const DashboardPage = () => {
       const tsCode = ts.employeeCode ? String(ts.employeeCode).toLowerCase() : '';
       const tsName = ts.employeeName ? ts.employeeName.toLowerCase().trim() : '';
 
-      if (uId && (tsId === uId || String(ts.employee) === uId)) return true;
-      if (uCode && (tsId === uCode || tsCode === uCode)) return true;
-      if (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName))) return true;
-      return false;
+      const empMatches = Boolean(
+        (uId && (tsId === uId || String(ts.employee) === uId)) ||
+        (uCode && (tsId === uCode || tsCode === uCode)) ||
+        (uName && tsName && (tsName === uName || tsName.includes(uName) || uName.includes(tsName)))
+      );
+      if (!empMatches) return false;
+
+      // Cross-verification: If timesheet references a task in the tasks list,
+      // it MUST actually be assigned to `emp`! If it belongs to another employee (e.g. TSK-8 belongs to Sandeep),
+      // it must NEVER appear in another employee's Day Log!
+      if (ts.taskId || ts.taskCode) {
+        const refTask = (tasks || []).find(t =>
+          (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
+          (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
+        );
+        if (refTask && !isTaskAssignedToUser(refTask, emp)) {
+          return false;
+        }
+      }
+      return true;
     });
 
     const dayTsMap = new Map();
@@ -1325,14 +1340,13 @@ export const DashboardPage = () => {
       let runningTaskId = null;
       if (empActiveTimer && empActiveTimer.timerRunning && empActiveTimer.date === todayStr && isClockedIn && !isOnBreak && !isClockedOut) {
         runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
-        const runningElapsed = empActiveTimer.startedAt
-          ? Math.max(0, Math.floor((Date.now() - empActiveTimer.startedAt) / 1000))
-          : 0;
-        const baseToday = Number(empActiveTimer.accumulatedTodaySeconds ?? empActiveTimer.todayWorkSeconds ?? 0);
-        const liveSecs = baseToday + runningElapsed;
+        const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
+        // Canonical calculation: Use getTaskTodaySeconds to prevent adding elapsed on top of already-ticked duration!
+        const liveSecs = targetTaskObj
+          ? getTaskTodaySeconds(targetTaskObj, todayStr, Date.now(), isClockedIn, isOnBreak)
+          : getTaskTodaySeconds(empActiveTimer, todayStr, Date.now(), isClockedIn, isOnBreak);
 
         tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId && t.taskCode !== empActiveTimer.taskCode);
-        const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
         tasksWorked.unshift({
           taskId: runningTaskId,
           taskCode: targetTaskObj?.taskCode || empActiveTimer.taskCode || 'TSK',

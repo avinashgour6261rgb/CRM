@@ -802,7 +802,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
   // 4. Auto-pause running task timers for this user
   try {
-    const activeTimerKeys = mirrorKeys.map(k => `ems_active_task_timer_${k}`).concat(['ems_active_task_timer']);
+    const activeTimerKeys = mirrorKeys.map(k => `ems_active_task_timer_${k}`);
     let pausedActiveTimer = null;
 
     for (const tk of activeTimerKeys) {

@@ -120,7 +120,7 @@ export const WorkProvider = ({ children }) => {
       ? String(t.assignedTo._id || t.assignedTo.id || '')
       : String(t.assignedTo || '');
 
-    const directIds = [t.assignedToId, directAssignedTo, t.employeeId, t.assignedToEmail]
+    const directIds = [t.assignedToId, directAssignedTo, t.assignedToCode, t.assignedToEmail]
       .filter(Boolean)
       .map(s => String(s).toLowerCase());
     if (myIds.some(uid => directIds.includes(uid))) return true;
@@ -577,8 +577,11 @@ export const WorkProvider = ({ children }) => {
           });
         }
       } else if (curSnapshot?.timerRunning) {
-        const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId));
-        if (matchTask && !matchTask.timerRunning) {
+        const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId) || (curSnapshot.taskCode && t.taskCode === curSnapshot.taskCode));
+        if (matchTask && !isTaskAssignedToMe(matchTask)) {
+          // CurSnapshot is for a task NOT assigned to me! Clear it immediately to prevent cross-account pollution
+          saveActiveTimerSnapshot(null);
+        } else if (matchTask && !matchTask.timerRunning) {
           saveActiveTimerSnapshot({
             ...curSnapshot,
             timerRunning: false,
@@ -588,10 +591,41 @@ export const WorkProvider = ({ children }) => {
         }
       }
 
+      // Self-heal corrupted timesheets where creator / admin was wrongly assigned instead of task assignee
+      let allTimesheets = times || getCollection(KEYS.TIMESHEETS) || [];
+      try {
+        let tsRepaired = false;
+        allTimesheets = allTimesheets.map(ts => {
+          if (!ts || (!ts.taskId && !ts.taskCode)) return ts;
+          const task = cleanMergedTasks.find(t =>
+            (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
+            (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
+          );
+          if (task && (task.assignedToId || task.assignedToName)) {
+            const correctEmpId = task.assignedToId || (typeof task.assignedTo === 'string' ? task.assignedTo : task.assignedTo?._id);
+            const correctEmpName = task.assignedToName;
+            const correctEmpCode = task.assignedToCode;
+            if (correctEmpId && ts.employeeId && String(ts.employeeId) !== String(correctEmpId) && (ts.employeeId === 'ADM-001' || ts.employeeName === 'Administrator' || ts.memo?.includes('Shift clock-out'))) {
+              tsRepaired = true;
+              return {
+                ...ts,
+                employeeId: correctEmpId,
+                employeeCode: correctEmpCode || ts.employeeCode,
+                employeeName: correctEmpName || ts.employeeName
+              };
+            }
+          }
+          return ts;
+        });
+        if (tsRepaired) {
+          localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(allTimesheets));
+        }
+      } catch (_) {}
+
       setProjects(prjs || []);
       setTasks(cleanMergedTasks);
-      setTimesheets(times || []);
-      if (Array.isArray(times) && times.length > 0) {
+      setTimesheets(allTimesheets);
+      if (Array.isArray(allTimesheets) && allTimesheets.length > 0) {
         try {
           const existingTimes = getCollection(KEYS.TIMESHEETS) || [];
           const tsMap = new Map();
@@ -600,7 +634,7 @@ export const WorkProvider = ({ children }) => {
             const k = String(t._id || `${t.date}_${t.taskId || t.taskCode}_${t.employeeId || t.employee || ''}`);
             if (k) tsMap.set(k, t);
           });
-          times.forEach(t => {
+          allTimesheets.forEach(t => {
             if (!t) return;
             const k = String(t._id || `${t.date}_${t.taskId || t.taskCode}_${t.employeeId || t.employee || ''}`);
             if (k) tsMap.set(k, { ...(tsMap.get(k) || {}), ...t });
@@ -911,13 +945,19 @@ export const WorkProvider = ({ children }) => {
 
         // Log session to timesheet if clock-out caused pause
         if (!isShiftClockedIn && currentSecs > 0) {
+          const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
+          const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
+          const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
+          const targetEmpName = activeTimer.assignedToName || matchedTask?.assignedToName || currentUser?.name || 'User';
+
           workService.createTimesheet({
             taskId: activeTimer.taskId,
             taskCode: activeTimer.taskCode,
             taskTitle: activeTimer.title,
             projectName: activeTimer.projectName,
-            employeeId: activeTimer.assignedToId || userKey,
-            employeeName: activeTimer.assignedToName || currentUser?.name || 'User',
+            employeeId: targetEmpId,
+            employeeCode: targetEmpCode,
+            employeeName: targetEmpName,
             date: activeTimer.date || today,
             totalDurationSeconds: currentSecs,
             totalDurationText: formatSeconds(currentSecs),
@@ -1219,19 +1259,25 @@ export const WorkProvider = ({ children }) => {
 
       // Automatically log today's task session duration to timesheets
       if (activeTimer && currentSecs > 0) {
-          workService.createTimesheet({
-            taskId: activeTimer.taskId,
-            taskCode: activeTimer.taskCode,
-            taskTitle: activeTimer.title,
-            projectName: activeTimer.projectName,
-            employeeId: activeTimer.assignedToId,
-            employeeName: activeTimer.assignedToName,
-            date: activeTimer.date || today,
-            totalDurationSeconds: currentSecs,
-            totalDurationText: formatSeconds(currentSecs),
-            memo: 'Shift clock-out session auto-save',
-            status: 'stopped'
-          }).catch(err => console.warn('Clock-out auto timesheet error:', err));
+        const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
+        const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
+        const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
+        const targetEmpName = activeTimer.assignedToName || matchedTask?.assignedToName || currentUser?.name || 'User';
+
+        workService.createTimesheet({
+          taskId: activeTimer.taskId,
+          taskCode: activeTimer.taskCode,
+          taskTitle: activeTimer.title,
+          projectName: activeTimer.projectName,
+          employeeId: targetEmpId,
+          employeeCode: targetEmpCode,
+          employeeName: targetEmpName,
+          date: activeTimer.date || today,
+          totalDurationSeconds: currentSecs,
+          totalDurationText: formatSeconds(currentSecs),
+          memo: 'Shift clock-out session auto-save',
+          status: 'stopped'
+        }).catch(err => console.warn('Clock-out auto timesheet error:', err));
       }
 
       if (activeTimer) {
@@ -1871,7 +1917,7 @@ export const WorkProvider = ({ children }) => {
       if (targetEmpObj._id) localStorage.setItem(`ems_active_task_timer_${targetEmpObj._id}`, timerPayload);
     }
 
-    if (!isForOtherEmployee || isTaskAssignedToMe(targetTask)) {
+    if (!isForOtherEmployee && isTaskAssignedToMe(targetTask)) {
       saveActiveTimerSnapshot(newTimerState);
     }
 
@@ -2081,7 +2127,7 @@ export const WorkProvider = ({ children }) => {
       if (targetEmpObj._id) localStorage.setItem(`ems_active_task_timer_${targetEmpObj._id}`, timerPayload);
     }
 
-    if (!isForOtherEmployee || isTaskAssignedToMe(targetTask)) {
+    if (!isForOtherEmployee && isTaskAssignedToMe(targetTask)) {
       saveActiveTimerSnapshot(pausedTimerState);
     }
 
@@ -2238,9 +2284,9 @@ export const WorkProvider = ({ children }) => {
           taskCode: targetTask?.taskCode || 'TSK',
           taskTitle: targetTask?.title || 'Task',
           projectName: targetTask?.projectName || 'General Work',
-          employeeId: currentUser?._id || userKey || targetTask?.assignedToId,
-          employeeCode: currentUser?.employeeCode || userKey,
-          employeeName: currentUser?.name || targetTask?.assignedToName || 'User',
+          employeeId: targetTask?.assignedToId || (typeof targetTask?.assignedTo === 'string' ? targetTask.assignedTo : targetTask?.assignedTo?._id) || currentUser?._id || userKey,
+          employeeCode: targetTask?.assignedToCode || currentUser?.employeeCode || userKey,
+          employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
           totalDurationSeconds: durationToLog,
           date: todayStr,
           memo: memo || `Work on ${targetTask?.title || 'Task'}`

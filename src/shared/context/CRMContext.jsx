@@ -914,6 +914,9 @@ export const CRMProvider = ({ children }) => {
         };
       }
 
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const userKey = currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
+
       // Find matching timesheet logs for this date strictly scoped to authenticated user (Strict date authority)
       const rawMatchingTimesheets = timesheets.filter(t => {
         const tsDate = t.date || (t.createdAt ? t.createdAt.split('T')[0] : '');
@@ -927,10 +930,30 @@ export const CRMProvider = ({ children }) => {
         const tEmpCode = t.employeeCode ? String(t.employeeCode).toLowerCase() : null;
         const tEmpName = t.employeeName ? t.employeeName.toLowerCase().trim() : null;
 
-        if (cId && (tEmpId === cId || String(t.employee) === cId)) return true;
-        if (cCode && (tEmpId === cCode || tEmpCode === cCode)) return true;
-        if (cName && tEmpName && (tEmpName === cName || tEmpName.includes(cName) || cName.includes(tEmpName))) return true;
-        return false;
+        const matchesUser = Boolean(
+          (cId && (tEmpId === cId || String(t.employee) === cId)) ||
+          (cCode && (tEmpId === cCode || tEmpCode === cCode)) ||
+          (cName && tEmpName && (tEmpName === cName || tEmpName.includes(cName) || cName.includes(tEmpName)))
+        );
+        if (!matchesUser) return false;
+
+        // Cross-verification: If timesheet references a known task, ensure task is assigned to currentUser
+        if (t.taskId || t.taskCode) {
+          const matchedTask = allTasks.find(pt =>
+            (t.taskId && String(pt._id || pt.id) === String(t.taskId)) ||
+            (t.taskCode && pt.taskCode && String(pt.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase())
+          );
+          if (matchedTask) {
+            const myAssignedIds = [currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase());
+            const targetAssignedId = matchedTask.assignedToId || (typeof matchedTask.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask.assignedTo?._id);
+            const isAssigned = (targetAssignedId && myAssignedIds.includes(String(targetAssignedId).toLowerCase())) ||
+              (Array.isArray(matchedTask.assignedToIds) && matchedTask.assignedToIds.some(id => myAssignedIds.includes(String(id).toLowerCase()))) ||
+              (Array.isArray(matchedTask.assignees) && matchedTask.assignees.some(a => myAssignedIds.includes(String(a._id || a.employeeCode).toLowerCase()) || (cName && a.name && a.name.toLowerCase().trim() === cName))) ||
+              (matchedTask.assignedToName && cName && matchedTask.assignedToName.trim().toLowerCase() === cName);
+            if (!isAssigned) return false;
+          }
+        }
+        return true;
       });
 
       // Deduplicate by task to prevent double-counting multiple auto-saves on the same day
@@ -953,9 +976,6 @@ export const CRMProvider = ({ children }) => {
       });
       const matchingTimesheets = Array.from(crmTaskMap.values());
       let timesheetTaskSeconds = matchingTimesheets.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
-
-      const allTasks = getCollection(KEYS.TASKS) || [];
-      const userKey = currentUser?.employeeCode || (currentUser?._id ? String(currentUser._id) : 'ADM-001');
 
       // Helper: match an attendance record to the current user
       const isMyAttRecord = (a) =>
@@ -1045,7 +1065,7 @@ export const CRMProvider = ({ children }) => {
         const activeTimerKey = `ems_active_task_timer_${userKey}`;
         let activeTimer = null;
         try {
-          activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || localStorage.getItem('ems_active_task_timer') || 'null');
+          activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || 'null');
         } catch (e) {}
 
         const todayMidnight = new Date();
