@@ -129,31 +129,39 @@ exports.createTimesheet = async (req, res, next) => {
 
     // Deduplication check: If auto-save or shift clock-out for a task today, check if timesheet already exists
     let timesheet = null;
-    if (payload.taskId) {
-      const matchConditions = [
-        { taskId: String(payload.taskId) }
-      ];
-      if (mongoose.Types.ObjectId.isValid(payload.taskId)) {
-        matchConditions.push({ task: payload.taskId });
+    if (payload.taskId || payload.taskCode || payload.taskTitle) {
+      const matchConditions = [];
+      if (payload.taskId) {
+        matchConditions.push({ taskId: String(payload.taskId) });
+        if (mongoose.Types.ObjectId.isValid(payload.taskId)) {
+          matchConditions.push({ task: payload.taskId });
+        }
       }
       if (payload.taskCode) {
         matchConditions.push({ taskCode: payload.taskCode });
+        matchConditions.push({ taskCode: new RegExp(`^${payload.taskCode}$`, 'i') });
+      }
+      if (payload.taskTitle) {
+        matchConditions.push({ taskTitle: payload.taskTitle });
       }
 
       const empConditions = [];
       if (payload.employeeId) empConditions.push({ employeeId: String(payload.employeeId) });
       if (payload.employeeCode) empConditions.push({ employeeCode: String(payload.employeeCode) });
       if (payload.employee && mongoose.Types.ObjectId.isValid(payload.employee)) empConditions.push({ employee: payload.employee });
+      if (user && user._id) empConditions.push({ employee: user._id });
+      if (user && user.employeeCode) empConditions.push({ employeeCode: user.employeeCode });
 
       const existingTs = await Timesheet.findOne({
         date: targetDate,
-        $or: matchConditions,
+        ...(matchConditions.length > 0 ? { $or: matchConditions } : {}),
         ...(empConditions.length > 0 ? { $and: [{ $or: empConditions }] } : {})
       });
 
       if (existingTs) {
-        // Update existing record rather than stacking duplicate rows
-        existingTs.totalDurationSeconds = durationSecs;
+        // Update existing record with maximum duration rather than stacking duplicate rows
+        const effectiveDuration = Math.max(Number(existingTs.totalDurationSeconds) || 0, durationSecs);
+        existingTs.totalDurationSeconds = effectiveDuration;
         if (payload.totalDurationText) existingTs.totalDurationText = payload.totalDurationText;
         if (payload.endTime) existingTs.endTime = payload.endTime;
         if (payload.memo) existingTs.memo = payload.memo;
@@ -295,9 +303,6 @@ exports.stopTimer = async (req, res, next) => {
     if (task) {
       task.timerRunning = false;
       task.startedAt = null;
-      task.timerSeconds = totalDurationSeconds;
-      task.durationSeconds = totalDurationSeconds;
-      task.accumulatedSeconds = totalDurationSeconds;
 
       const allTaskTimesheets = await Timesheet.find({
         $or: [
@@ -320,6 +325,9 @@ exports.stopTimer = async (req, res, next) => {
       const totalHrs = Math.floor(totalTaskSecs / 3600);
       const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
       task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+      task.timerSeconds = Math.max(task.timerSeconds || 0, totalTaskSecs);
+      task.accumulatedSeconds = Math.max(task.accumulatedSeconds || 0, totalTaskSecs);
+      task.durationSeconds = Math.max(task.durationSeconds || 0, totalTaskSecs);
       await task.save();
     }
 

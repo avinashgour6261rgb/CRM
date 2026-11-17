@@ -164,7 +164,16 @@ export const WeeklyTimeLogsCard = ({
       // Deduplicate timesheets by task (if multiple auto-saves exist today for same task, take latest/consolidated duration)
       const taskMap = new Map();
       rawDayTs.forEach(ts => {
-        const key = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
+        let key = null;
+        if (ts.taskCode && String(ts.taskCode).trim()) {
+          key = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+        } else if (ts.taskId && String(ts.taskId).trim()) {
+          key = `id_${String(ts.taskId).trim().toLowerCase()}`;
+        } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+          key = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+        } else {
+          key = `raw_${ts._id || Math.random()}`;
+        }
         const dur = Number(ts.totalDurationSeconds) || 0;
         if (!taskMap.has(key) || dur > (Number(taskMap.get(key).totalDurationSeconds) || 0)) {
           taskMap.set(key, ts);
@@ -211,7 +220,7 @@ export const WeeklyTimeLogsCard = ({
                     if (taskTodaySecs <= 0) return;
 
                     const alreadyLoggedToday = dayTs
-                        .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
+                        .filter(ts => (tId && String(ts.taskId) === tId) || (t.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase()) || (t.title && ts.taskTitle && String(ts.taskTitle).trim().toLowerCase() === String(t.title).trim().toLowerCase()))
                         .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
                     const unsubmitted = Math.max(0, taskTodaySecs - alreadyLoggedToday);

@@ -92,9 +92,18 @@ export const TimesheetPage = () => {
     const dedupeMap = new Map();
     list.forEach(ts => {
       const dateStr = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
-      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id || '');
-      const empKey = String(ts.employeeId || ts.employeeCode || ts.employee || '');
-      const key = `${dateStr}_${taskKey}_${empKey}`.toLowerCase();
+      let taskKey = null;
+      if (ts.taskCode && String(ts.taskCode).trim()) {
+        taskKey = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+      } else if (ts.taskId && String(ts.taskId).trim()) {
+        taskKey = `id_${String(ts.taskId).trim().toLowerCase()}`;
+      } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+        taskKey = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+      } else {
+        taskKey = `raw_${ts._id || Math.random()}`;
+      }
+      const empKey = String(ts.employeeId || ts.employeeCode || ts.employee || '').toLowerCase();
+      const key = `${dateStr}_${taskKey}_${empKey}`;
       const dur = Number(ts.totalDurationSeconds) || 0;
       if (!dedupeMap.has(key) || dur > (Number(dedupeMap.get(key).totalDurationSeconds) || 0)) {
         dedupeMap.set(key, ts);

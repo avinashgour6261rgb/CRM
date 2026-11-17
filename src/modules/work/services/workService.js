@@ -983,15 +983,19 @@ export const workService = {
 
     const existingIdx = timesheets.findIndex(ts => {
       if (ts.date !== targetDate) return false;
-      const isTaskMatch = (String(ts.taskId) === String(taskId)) ||
-        (task?.taskCode && ts.taskCode === task.taskCode) ||
-        (stopData.taskCode && ts.taskCode === stopData.taskCode) ||
-        (task?.title && ts.taskTitle === task.title);
+      const tsCode = ts.taskCode ? String(ts.taskCode).trim().toLowerCase() : '';
+      const targetCode = (task?.taskCode || stopData.taskCode) ? String(task?.taskCode || stopData.taskCode).trim().toLowerCase() : '';
+      const isTaskMatch = (tsCode && targetCode && tsCode === targetCode) ||
+        (String(ts.taskId) === String(taskId)) ||
+        (task?._id && String(ts.taskId) === String(task._id)) ||
+        (task?.title && ts.taskTitle && ts.taskTitle.toLowerCase().trim() === task.title.toLowerCase().trim()) ||
+        (stopData.taskTitle && ts.taskTitle && ts.taskTitle.toLowerCase().trim() === stopData.taskTitle.toLowerCase().trim());
       if (!isTaskMatch) return false;
       if (!targetEmpId) return true;
-      const tsEmp = String(ts.employeeId || ts.employeeCode || ts.employee || '');
-      if (tsEmp === targetEmpId) return true;
-      if (stopData.employeeCode && tsEmp === String(stopData.employeeCode)) return true;
+      const tsEmp = String(ts.employeeId || ts.employeeCode || ts.employee || '').toLowerCase();
+      const entEmp = targetEmpId.toLowerCase();
+      if (tsEmp === entEmp) return true;
+      if (stopData.employeeCode && tsEmp === String(stopData.employeeCode).toLowerCase()) return true;
       if (ts.employeeName && stopData.employeeName && ts.employeeName.toLowerCase().trim() === stopData.employeeName.toLowerCase().trim()) return true;
       return false;
     });

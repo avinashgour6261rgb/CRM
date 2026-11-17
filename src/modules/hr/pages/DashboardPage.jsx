@@ -1282,7 +1282,16 @@ export const DashboardPage = () => {
 
     const dayTsMap = new Map();
     rawDayTimesheets.forEach(ts => {
-      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
+      let taskKey = null;
+      if (ts.taskCode && String(ts.taskCode).trim()) {
+        taskKey = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+      } else if (ts.taskId && String(ts.taskId).trim()) {
+        taskKey = `id_${String(ts.taskId).trim().toLowerCase()}`;
+      } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+        taskKey = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+      } else {
+        taskKey = `raw_${ts._id || Math.random()}`;
+      }
       const dur = Number(ts.totalDurationSeconds) || 0;
       if (!dayTsMap.has(taskKey) || dur > (Number(dayTsMap.get(taskKey).totalDurationSeconds) || 0)) {
         dayTsMap.set(taskKey, ts);
@@ -1319,7 +1328,8 @@ export const DashboardPage = () => {
         const runningElapsed = empActiveTimer.startedAt
           ? Math.max(0, Math.floor((Date.now() - empActiveTimer.startedAt) / 1000))
           : 0;
-        const liveSecs = (Number(empActiveTimer.accumulatedSeconds) || 0) + runningElapsed;
+        const baseToday = Number(empActiveTimer.accumulatedTodaySeconds ?? empActiveTimer.todayWorkSeconds ?? 0);
+        const liveSecs = baseToday + runningElapsed;
 
         tasksWorked = tasksWorked.filter(t => String(t.taskId) !== runningTaskId && t.taskCode !== empActiveTimer.taskCode);
         const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
@@ -1340,16 +1350,14 @@ export const DashboardPage = () => {
       empTasks.forEach(pt => {
         const ptId = String(pt._id || pt.id);
         if (runningTaskId && ptId === runningTaskId) return;
-        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode === pt.taskCode));
+        const alreadyInTasksWorked = tasksWorked.some(t => String(t.taskId) === ptId || (pt.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(pt.taskCode).trim().toLowerCase()));
         if (alreadyInTasksWorked) return;
 
-        // Strict guard: only consider task if actually worked or completed today
-        const isCompletedToday = pt.completedOn === todayStr || (pt.completedAt && String(pt.completedAt).startsWith(todayStr));
-        const isWorkedToday = (pt.dailySessions && Number(pt.dailySessions[todayStr]) > 0) ||
-          (pt.sessionDate === todayStr && Number(pt.todayWorkSeconds) > 0) ||
-          isCompletedToday ||
-          (pt.timerRunning && isClockedIn);
-        if (!isWorkedToday) return;
+        // Strict guard: only consider task if actually worked today
+        const hasSessionToday = (pt.dailySessions && Number(pt.dailySessions[todayStr]) > 0) ||
+          (pt.sessionDate === todayStr && Number(pt.todayWorkSeconds) > 0);
+        const isRunningToday = pt.timerRunning && isClockedIn;
+        if (!hasSessionToday && !isRunningToday) return;
 
         const todaySecs = getTaskTodaySeconds(pt, todayStr, Date.now(), isClockedIn, isOnBreak);
         if (todaySecs > 0) {
@@ -1826,7 +1834,16 @@ export const DashboardPage = () => {
     // Deduplicate timesheets by canonical task identifier for today to prevent multi-save duration inflation
     const dedupeMap = new Map();
     rawList.forEach(ts => {
-      const taskKey = String(ts.taskId || ts.taskCode || ts.taskTitle || ts._id);
+      let taskKey = null;
+      if (ts.taskCode && String(ts.taskCode).trim()) {
+        taskKey = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+      } else if (ts.taskId && String(ts.taskId).trim()) {
+        taskKey = `id_${String(ts.taskId).trim().toLowerCase()}`;
+      } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+        taskKey = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+      } else {
+        taskKey = `raw_${ts._id || Math.random()}`;
+      }
       const dur = Number(ts.totalDurationSeconds) || 0;
       if (!dedupeMap.has(taskKey) || dur > (Number(dedupeMap.get(taskKey).totalDurationSeconds) || 0)) {
         dedupeMap.set(taskKey, ts);
@@ -1854,7 +1871,7 @@ export const DashboardPage = () => {
 
     const todayPortion = getTaskTodaySeconds(t, todayStr, Date.now(), displayedIsClockedIn, displayedIsOnBreak);
     const loggedForThisTaskToday = todayTimesheets
-      .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode) || (t.title && ts.taskTitle === t.title))
+      .filter(ts => (tId && String(ts.taskId) === tId) || (t.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase()) || (t.title && ts.taskTitle && String(ts.taskTitle).trim().toLowerCase() === String(t.title).trim().toLowerCase()))
       .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
     const unsubmitted = Math.max(0, todayPortion - loggedForThisTaskToday);
@@ -1968,14 +1985,33 @@ export const DashboardPage = () => {
         return false;
       });
 
-      let dayTotalSecs = dayTs.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
+      // Deduplicate timesheets by canonical task to prevent session stacking
+      const dayTsMap = new Map();
+      dayTs.forEach(ts => {
+        let taskKey = null;
+        if (ts.taskCode && String(ts.taskCode).trim()) {
+          taskKey = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+        } else if (ts.taskId && String(ts.taskId).trim()) {
+          taskKey = `id_${String(ts.taskId).trim().toLowerCase()}`;
+        } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+          taskKey = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+        } else {
+          taskKey = `raw_${ts._id || Math.random()}`;
+        }
+        const dur = Number(ts.totalDurationSeconds) || 0;
+        if (!dayTsMap.has(taskKey) || dur > (Number(dayTsMap.get(taskKey).totalDurationSeconds) || 0)) {
+          dayTsMap.set(taskKey, ts);
+        }
+      });
+      const dedupedDayTs = Array.from(dayTsMap.values());
+      let dayTotalSecs = dedupedDayTs.reduce((acc, curr) => acc + (Number(curr.totalDurationSeconds) || 0), 0);
 
-      // Check tasks completed on this date that might not be in timesheets (strictly isolate to this date)
+      // Check tasks worked on this date that might not be in timesheets (strictly isolate to this date)
       (tasks || []).forEach(t => {
         if (!isTaskAssignedToUser(t, effectiveWeekUser)) return;
-        const isCompletedOnDate = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
-        const alreadyInTs = dayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode === t.taskCode));
-        if (isCompletedOnDate && !alreadyInTs) {
+        const hasSessionOnDate = (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
+        const alreadyInTs = dedupedDayTs.some(ts => String(ts.taskId) === String(t._id || t.id) || (t.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase()));
+        if (hasSessionOnDate && !alreadyInTs) {
           const tSecs = getTaskTodaySeconds(t, dateStr, Date.now(), isCurrentDay && displayedIsClockedIn, isCurrentDay && displayedIsOnBreak);
           if (tSecs > 0) dayTotalSecs += tSecs;
         }

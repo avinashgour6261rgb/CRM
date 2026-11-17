@@ -454,9 +454,13 @@ export const WorkProvider = ({ children }) => {
               ? Number(t.accumulatedSeconds)
               : (Number(t.timerSeconds) || 0));
 
-          const baseToday = (isActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null)
+          const baseToday = (isActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr)
             ? Number(activeTimer.accumulatedTodaySeconds)
-            : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
+            : (t.dailySessions?.[todayStr] !== undefined
+              ? Number(t.dailySessions[todayStr])
+              : (t.sessionDate === todayStr && t.accumulatedTodaySeconds !== undefined
+                ? Number(t.accumulatedTodaySeconds)
+                : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined ? Number(t.todayWorkSeconds) : 0)));
 
           const currentLifetimeSecs = baseLifetime + elapsed;
           let currentTodaySecs = baseToday + elapsed;
@@ -491,7 +495,9 @@ export const WorkProvider = ({ children }) => {
 
         const staticToday = (t.dailySessions?.[todayStr] !== undefined)
           ? Number(t.dailySessions[todayStr])
-          : (Number(t.todayWorkSeconds) || 0);
+          : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined
+            ? Number(t.todayWorkSeconds)
+            : 0);
 
         return {
           ...t,
@@ -971,9 +977,13 @@ export const WorkProvider = ({ children }) => {
               : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : 0);
 
             // Fixed baseline today seconds (strictly from frozen baseline before start)
-            const baseToday = (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null)
+            const baseToday = (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr)
               ? Number(activeTimer.accumulatedTodaySeconds)
-              : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
+              : (t.dailySessions?.[todayStr] !== undefined
+                ? Number(t.dailySessions[todayStr])
+                : (t.sessionDate === todayStr && t.accumulatedTodaySeconds !== undefined
+                  ? Number(t.accumulatedTodaySeconds)
+                  : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined ? Number(t.todayWorkSeconds) : 0)));
 
             let liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
             let liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
@@ -1825,7 +1835,9 @@ export const WorkProvider = ({ children }) => {
       existingTodaySecs = Math.max(existingTodaySecs, activeToday);
     }
     // Cross-check with task todayWorkSeconds directly
-    const directTaskToday = Number(targetTask.accumulatedTodaySeconds ?? targetTask.dailySessions?.[today] ?? targetTask.todayWorkSeconds ?? 0);
+    const directTaskToday = targetTask.dailySessions?.[today] !== undefined
+      ? Number(targetTask.dailySessions[today])
+      : (targetTask.sessionDate === today && targetTask.todayWorkSeconds !== undefined ? Number(targetTask.todayWorkSeconds) : 0);
     existingTodaySecs = Math.max(existingTodaySecs, directTaskToday);
 
     const newTimerState = {
@@ -2197,12 +2209,12 @@ export const WorkProvider = ({ children }) => {
       sessionElapsed = Math.max(0, getElapsedSeconds(activeTimer) - base);
     }
 
-    // Calculate today-only seconds using dailySessions / accumulatedTodaySeconds as single source of truth
+    // Calculate today-only seconds using dailySessions as single source of truth
     let todaySessionSecs = 0;
-    if (targetTask?.accumulatedTodaySeconds !== undefined && targetTask?.accumulatedTodaySeconds !== null) {
-      todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + sessionElapsed;
-    } else if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
+    if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
       todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + sessionElapsed;
+    } else if (targetTask?.sessionDate === todayStr && targetTask?.accumulatedTodaySeconds !== undefined && targetTask?.accumulatedTodaySeconds !== null) {
+      todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + sessionElapsed;
     } else if (targetTask?.sessionDate === todayStr && targetTask?.todayWorkSeconds !== undefined) {
       const baseSecs = targetTask.timerRunning
         ? Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - sessionElapsed)
@@ -2372,13 +2384,13 @@ export const WorkProvider = ({ children }) => {
       }
       let todayElapsedSecs = liveSessionElapsed;
 
-      // Calculate strictly today's work portion using accumulatedTodaySeconds / dailySessions as single source of truth
+      // Calculate strictly today's work portion using dailySessions as single source of truth
       let todaySessionSecs = 0;
-      if (targetTask.accumulatedTodaySeconds !== undefined && targetTask.accumulatedTodaySeconds !== null) {
-        todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + todayElapsedSecs;
-      } else if (targetTask.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
+      if (targetTask?.dailySessions && typeof targetTask.dailySessions === 'object' && targetTask.dailySessions[todayStr] !== undefined) {
         todaySessionSecs = (Number(targetTask.dailySessions[todayStr]) || 0) + todayElapsedSecs;
-      } else if (targetTask.sessionDate === todayStr && targetTask.todayWorkSeconds !== undefined) {
+      } else if (targetTask?.sessionDate === todayStr && targetTask?.accumulatedTodaySeconds !== undefined && targetTask?.accumulatedTodaySeconds !== null) {
+        todaySessionSecs = Number(targetTask.accumulatedTodaySeconds) + todayElapsedSecs;
+      } else if (targetTask?.sessionDate === todayStr && targetTask?.todayWorkSeconds !== undefined) {
         const baseSecs = targetTask.timerRunning
           ? Math.max(0, (Number(targetTask.todayWorkSeconds) || 0) - todayElapsedSecs)
           : (Number(targetTask.todayWorkSeconds) || 0);
@@ -2518,7 +2530,10 @@ export const WorkProvider = ({ children }) => {
         details: `Task completed by ${currentUser?.name || 'User'}${isForOtherEmployee ? ` (for ${assignedEmpName})` : ''}. Final duration logged: ${hoursLoggedFormatted} (${durationSecs}s)`
       };
 
-      const updatedDailySessions = { ...(targetTask.dailySessions || {}), [todayStr]: durationToLogToday };
+      const updatedDailySessions = { ...(targetTask.dailySessions || {}) };
+      if (durationToLogToday > 0) {
+        updatedDailySessions[todayStr] = durationToLogToday;
+      }
       const updatedAll = allTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           const hist = Array.isArray(t.history) ? [...t.history, completionHistory] : [completionHistory];
@@ -2531,6 +2546,7 @@ export const WorkProvider = ({ children }) => {
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
             todayWorkSeconds: durationToLogToday,
+            accumulatedTodaySeconds: durationToLogToday,
             dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,

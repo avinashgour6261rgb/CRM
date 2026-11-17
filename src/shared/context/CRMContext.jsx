@@ -936,7 +936,16 @@ export const CRMProvider = ({ children }) => {
       // Deduplicate by task to prevent double-counting multiple auto-saves on the same day
       const crmTaskMap = new Map();
       rawMatchingTimesheets.forEach(ts => {
-        const key = String(ts.taskId || ts.taskCode || ts._id || Math.random());
+        let key = null;
+        if (ts.taskCode && String(ts.taskCode).trim()) {
+          key = `code_${String(ts.taskCode).trim().toLowerCase()}`;
+        } else if (ts.taskId && String(ts.taskId).trim()) {
+          key = `id_${String(ts.taskId).trim().toLowerCase()}`;
+        } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
+          key = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
+        } else {
+          key = `raw_${ts._id || Math.random()}`;
+        }
         const dur = Number(ts.totalDurationSeconds) || 0;
         if (!crmTaskMap.has(key) || dur > (Number(crmTaskMap.get(key).totalDurationSeconds) || 0)) {
           crmTaskMap.set(key, ts);
@@ -1068,8 +1077,8 @@ export const CRMProvider = ({ children }) => {
           activeTimerTask = activeTimer;
 
           const timesheetsForThisTask = matchingTimesheets
-            .filter(ts => String(ts.taskId) === String(activeTimer.taskId) || (activeTimer.taskCode && ts.taskCode === activeTimer.taskCode))
-            .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+            .filter(ts => (activeTimer.taskId && String(ts.taskId) === String(activeTimer.taskId)) || (activeTimer.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(activeTimer.taskCode).trim().toLowerCase()) || (activeTimer.title && ts.taskTitle && String(ts.taskTitle).trim().toLowerCase() === String(activeTimer.title).trim().toLowerCase()))
+            .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
           const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
           dayTotalTaskSeconds += unsubmitted;
@@ -1090,25 +1099,22 @@ export const CRMProvider = ({ children }) => {
             const isCompletedToday = t.completedOn === dateStr || (t.completedAt && String(t.completedAt).startsWith(dateStr));
             if (t.status === 'completed' && !isCompletedToday) return;
 
-            // Only consider tasks explicitly worked today or completed today
+            // Only consider tasks explicitly worked today
             const hasSessionToday = (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
-            const isWorkedToday = hasSessionToday || isCompletedToday;
-            if (!isWorkedToday) return;
+            if (!hasSessionToday) return;
 
             let dayPortion = 0;
-            if (t.accumulatedTodaySeconds !== undefined && t.accumulatedTodaySeconds !== null) {
-              dayPortion = Number(t.accumulatedTodaySeconds);
-            } else if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
+            if (t.dailySessions && typeof t.dailySessions === 'object' && t.dailySessions[dateStr] !== undefined) {
               dayPortion = Number(t.dailySessions[dateStr]) || 0;
+            } else if (t.sessionDate === dateStr && t.accumulatedTodaySeconds !== undefined && t.accumulatedTodaySeconds !== null) {
+              dayPortion = Number(t.accumulatedTodaySeconds);
             } else if (t.sessionDate === dateStr && t.todayWorkSeconds !== undefined) {
               dayPortion = Number(t.todayWorkSeconds) || 0;
-            } else if (isCompletedToday && (t.startDate === dateStr || t.createdAt?.startsWith(dateStr))) {
-              dayPortion = Number(t.timerSeconds) || Number(t.accumulatedSeconds) || 0;
             }
 
             const timesheetsForThisTask = matchingTimesheets
-              .filter(ts => String(ts.taskId) === tId || (t.taskCode && ts.taskCode === t.taskCode))
-              .reduce((s, ts) => s + (Number(ts.totalDurationSeconds) || 0), 0);
+              .filter(ts => (tId && String(ts.taskId) === tId) || (t.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase()) || (t.title && ts.taskTitle && String(ts.taskTitle).trim().toLowerCase() === String(t.title).trim().toLowerCase()))
+              .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
 
             const unsubmitted = Math.max(0, dayPortion - timesheetsForThisTask);
             dayTotalTaskSeconds += unsubmitted;
