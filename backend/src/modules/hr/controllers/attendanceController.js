@@ -899,6 +899,8 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
   // Update in-memory telemetry cache
   const cacheKey = targetCode || targetId;
   liveTelemetryCache.set(cacheKey, payload);
+  if (targetId) liveTelemetryCache.set(String(targetId), payload);
+  if (targetCode) liveTelemetryCache.set(String(targetCode).toUpperCase(), payload);
 
   // Background upsert in MongoDB Atlas to persist live state
   try {
@@ -978,7 +980,7 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         ...runningTask,
         accumulatedTodaySeconds: accum,
         liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
-        timerRunning: true
+        timerRunning: Boolean(runningTask.timerRunning !== false)
       };
     }
 
@@ -1007,6 +1009,54 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     if (code) telemetryMap[code] = state;
     if (id) telemetryMap[id] = state;
   });
+
+  // Merge in-memory live telemetry cache (captures real-time updates from active browsers)
+  for (const [cKey, cVal] of liveTelemetryCache.entries()) {
+    if (cVal && cVal.date === today) {
+      const cCode = String(cVal.employeeCode || '').trim().toUpperCase();
+      const cId = String(cVal.employeeId || '');
+      const existing = telemetryMap[cCode] || telemetryMap[cId] || telemetryMap[cKey];
+
+      let taskMerged = cVal.activeTask || existing?.activeTask || null;
+      if (taskMerged && taskMerged.startedAt && cVal.isClockedIn && !cVal.isOnBreak) {
+        const taskStart = Number(taskMerged.startedAt);
+        const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
+        const accum = Number(taskMerged.accumulatedTodaySeconds ?? taskMerged.accumulatedSeconds ?? 0);
+        taskMerged = {
+          ...taskMerged,
+          accumulatedTodaySeconds: accum,
+          liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
+          timerRunning: Boolean(taskMerged.timerRunning !== false)
+        };
+      }
+
+      const mergedState = {
+        ...(existing || {}),
+        employeeId: cId || existing?.employeeId,
+        employeeCode: cCode || existing?.employeeCode,
+        employeeName: cVal.employeeName || existing?.employeeName,
+        date: today,
+        status: existing?.status || 'present',
+        isClockedIn: Boolean(cVal.isClockedIn),
+        isClockedOut: Boolean(!cVal.isClockedIn && (cVal.clockOutTime || existing?.clockOutTime)),
+        isOnBreak: Boolean(cVal.isOnBreak),
+        breakType: cVal.breakType || existing?.breakType || null,
+        clockInTime: cVal.clockInTime || existing?.clockInTime,
+        clockInTimestamp: cVal.clockInTimestamp || existing?.clockInTimestamp,
+        clockOutTime: cVal.clockOutTime || existing?.clockOutTime,
+        clockOutTimestamp: cVal.clockOutTimestamp || existing?.clockOutTimestamp,
+        currentSessionStartTimestamp: cVal.currentSessionStartTimestamp || existing?.currentSessionStartTimestamp,
+        workSeconds: cVal.workSeconds !== undefined ? Number(cVal.workSeconds) : (existing?.workSeconds || 0),
+        totalWorkingHours: cVal.workSeconds !== undefined ? +(Number(cVal.workSeconds) / 3600).toFixed(2) : (existing?.totalWorkingHours || 0),
+        activeTask: taskMerged,
+        lastHeartbeatAt: cVal.lastHeartbeatAt || now
+      };
+
+      if (cKey) telemetryMap[cKey] = mergedState;
+      if (cCode) telemetryMap[cCode] = mergedState;
+      if (cId) telemetryMap[cId] = mergedState;
+    }
+  }
 
   res.json({
     success: true,

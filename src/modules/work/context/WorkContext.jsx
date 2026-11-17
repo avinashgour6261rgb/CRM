@@ -1865,11 +1865,15 @@ export const WorkProvider = ({ children }) => {
       hrService.sendHeartbeat({
         employeeId: targetUserKey,
         employeeCode: targetUserKey,
+        isClockedIn: true,
         activeTask: {
           taskId,
           taskCode: targetTask.taskCode,
           title: targetTask.title,
+          timerRunning: true,
           startedAt: now,
+          accumulatedTodaySeconds: existingTodaySecs,
+          todayWorkSeconds: existingTodaySecs,
           accumulatedSeconds: existingSecs
         }
       }).catch(() => {});
@@ -1878,10 +1882,13 @@ export const WorkProvider = ({ children }) => {
     // Instant cross-tab broadcast
     broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_STARTED, {
       taskId,
+      taskCode: targetTask.taskCode,
       empKey: targetUserKey,
       taskTitle: targetTask.title,
       startedAt: now,
       accumulatedSeconds: existingSecs,
+      accumulatedTodaySeconds: existingTodaySecs,
+      todayWorkSeconds: existingTodaySecs,
       startedBy: currentUser?.name || 'User',
       empName: assignedEmpName
     });
@@ -2007,7 +2014,16 @@ export const WorkProvider = ({ children }) => {
       hrService.sendHeartbeat({
         employeeId: targetUserKey,
         employeeCode: targetUserKey,
-        activeTask: null
+        activeTask: {
+          taskId: targetTask._id,
+          taskCode: targetTask.taskCode,
+          title: targetTask.title,
+          timerRunning: false,
+          startedAt: null,
+          accumulatedTodaySeconds: updatedTodaySecs,
+          todayWorkSeconds: updatedTodaySecs,
+          accumulatedSeconds: currentSecs
+        }
       }).catch(() => {});
     } catch (_) {}
 

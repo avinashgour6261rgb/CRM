@@ -1395,23 +1395,23 @@ export const TimerProvider = ({ children }) => {
             if (rawAtt) {
               const list = JSON.parse(rawAtt);
               const rec = list.find(a => isRecordForUser(a, today));
-              attInTs = Number(rec?.clockInTimestamp || rec?.currentSessionStartTimestamp || 0);
+              attInTs = Number(rec?.currentSessionStartTimestamp || 0);
             }
           } catch (_) {}
 
-          if (lastSessionOut > 0) {
-            sessStartTs = lastSessionOut;
+          if (attInTs && attInTs >= todayMidnightMs) {
+            sessStartTs = attInTs;
           } else if (clockInTs && clockInTs >= todayMidnightMs && storedSessions.length === 0) {
             sessStartTs = clockInTs;
-          } else if (attInTs && attInTs >= todayMidnightMs && storedSessions.length === 0) {
-            sessStartTs = attInTs;
           } else {
             sessStartTs = Date.now();
           }
           localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, sessStartTs.toString());
         }
+
+        // If sessStartTs is earlier than lastSessionOut, it's a stale timestamp from the prior session
         if (lastSessionOut > 0 && sessStartTs < lastSessionOut) {
-          sessStartTs = lastSessionOut;
+          sessStartTs = Date.now();
           localStorage.setItem(`ems_timer_${userKey}_current_session_start_timestamp`, sessStartTs.toString());
         }
 
@@ -1461,6 +1461,46 @@ export const TimerProvider = ({ children }) => {
           }
         }
 
+        // 📡 Transmit periodic live heartbeat pulse (every 3.5s) so other browsers/devices (Admin Live Operations) see continuous live ticking!
+        if (nowTs - lastHeartbeatPulseTs > 3500) {
+          lastHeartbeatPulseTs = nowTs;
+          let activeTaskPayload = null;
+          try {
+            const rawTaskTimer = localStorage.getItem(`ems_active_task_timer_${userKey}`);
+            if (rawTaskTimer) {
+              const parsed = JSON.parse(rawTaskTimer);
+              if (parsed && parsed.timerRunning && parsed.taskId) {
+                activeTaskPayload = {
+                  taskId: parsed.taskId,
+                  taskCode: parsed.taskCode || 'TSK',
+                  title: parsed.title || 'Live Task',
+                  timerRunning: true,
+                  startedAt: parsed.startedAt,
+                  accumulatedTodaySeconds: parsed.accumulatedTodaySeconds ?? parsed.todayWorkSeconds ?? 0,
+                  todayWorkSeconds: parsed.accumulatedTodaySeconds ?? parsed.todayWorkSeconds ?? 0,
+                  accumulatedSeconds: parsed.accumulatedSeconds ?? 0
+                };
+              }
+            }
+          } catch (_) {}
+
+          hrService.sendHeartbeat({
+            employeeId: targetEmpId || userKey,
+            employeeCode: targetEmpCode || userKey,
+            employeeName: currentUser?.name,
+            date: today,
+            isClockedIn: true,
+            clockInTime: loginTime,
+            clockInTimestamp: firstClockInTs,
+            currentSessionStartTimestamp: sessStartTs,
+            workSeconds: netWorkSecs,
+            isOnBreak: onBreakVal,
+            breakType: breakType,
+            breakStartTimestamp: onBreakVal ? breakStartTs : null,
+            activeTask: activeTaskPayload
+          }).catch(() => {});
+        }
+
         if (reclockStatus === 'pending') {
           const rBase = Number(localStorage.getItem(`ems_timer_${userKey}_saved_official_seconds`) || 0);
           const rSecs = Math.max(0, netWorkSecs - rBase);
@@ -1475,6 +1515,7 @@ export const TimerProvider = ({ children }) => {
     };
 
     let lastStorageWriteTs = 0;
+    let lastHeartbeatPulseTs = 0;
 
     tick();
     interval = setInterval(tick, 1000);

@@ -674,7 +674,7 @@ export const DashboardPage = () => {
 
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
-      const isTaskTimerActuallyRunning = Boolean(at.timerRunning);
+      const isTaskTimerActuallyRunning = Boolean(at.timerRunning !== false && at.startedAt);
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || Date.now();
         const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
