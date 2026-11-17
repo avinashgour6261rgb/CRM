@@ -1825,16 +1825,7 @@ export const DashboardPage = () => {
         isCurrentDay,
         isPastDay,
         isFutureDay,
-        tasksWorked: dayTs.map(ts => ({
-          taskId: ts.taskId,
-          taskCode: ts.taskCode || 'TSK',
-          taskTitle: ts.taskTitle || 'Assigned Work',
-          projectName: ts.projectName || 'General Work',
-          durationText: ts.totalDurationText || formatSeconds(ts.totalDurationSeconds || 0),
-          durationSeconds: ts.totalDurationSeconds || 0,
-          status: 'completed',
-          isCompleted: true
-        }))
+        tasksWorked: tasksWorked || []
       };
     });
   }, [effectiveWeekUser, timesheets, tasks, attendance, totalTaskTodaySecs, formatSeconds, isTaskAssignedToUser, syncTick]);
