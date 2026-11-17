@@ -13,11 +13,14 @@ function initSocket(server) {
 
   io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        // Dynamically allow client origin so credentials: true works seamlessly without wildcard CORS rejection
+        callback(null, origin || true);
+      },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
       credentials: true
     },
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     pingTimeout: 30000,
     pingInterval: 15000
   });

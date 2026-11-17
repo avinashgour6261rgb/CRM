@@ -31,12 +31,12 @@ export function getSocket() {
     const serverUrl = getSocketServerUrl();
     try {
       socket = io(serverUrl, {
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
         reconnection: true,
-        reconnectionAttempts: 15,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 10000,
-        timeout: 15000,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 3000,
+        reconnectionDelayMax: 15000,
+        timeout: 20000,
         autoConnect: true
       });
 
