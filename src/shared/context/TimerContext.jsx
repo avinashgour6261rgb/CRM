@@ -291,20 +291,27 @@ export const TimerProvider = ({ children }) => {
   // ── Admin Override Force Clock-Out Listener ──
   useEffect(() => {
     const handleForceClockOutEvent = (e) => {
-      const { employeeId, adminName, adminId, auditNote } = e.detail || {};
-      if (employeeId === userKey || employeeId === currentUser?._id || employeeId === currentUser?.employeeCode) {
+      const { employeeId, employeeCode, adminName, adminId, auditNote } = e.detail || {};
+      const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase());
+      const targetIds = [employeeId, employeeCode].filter(Boolean).map(s => String(s).toLowerCase());
+      const isForMe = myIds.some(id => targetIds.includes(id));
+      if (isForMe) {
         setIsRunning(false);
         setIsOnBreak(false);
         setIsClockedIn(false);
         setHadClockedOutToday(true);
-        const logoutStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const logoutStr = e.detail?.clockOutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         setClockOutTime(logoutStr);
 
-        localStorage.setItem(`ems_timer_${userKey}_is_clocked_in`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_is_running`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_is_on_break`, 'false');
-        localStorage.setItem(`ems_timer_${userKey}_clockout_time`, logoutStr);
-        localStorage.setItem(`ems_timer_${userKey}_had_clocked_out`, 'true');
+        const mirrorKeys = getTimerMirrorKeys(userKey, currentUser?._id, currentUser?.employeeCode);
+        mirrorKeys.forEach(k => {
+          localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+          localStorage.setItem(`ems_timer_${k}_clockout_time`, logoutStr);
+          localStorage.setItem(`ems_timer_${k}_clock_out`, logoutStr);
+          localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'true');
+        });
 
         addToast({
           title: '⚠️ Shift Forcefully Clocked Out',

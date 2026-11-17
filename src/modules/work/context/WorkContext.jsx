@@ -257,12 +257,11 @@ export const WorkProvider = ({ children }) => {
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
     if (startTs < todayMidnightMs) {
-      // Started on a previous day: cap to seconds before midnight so runaway ghost time is never added to today!
-      const elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnightMs - startTs) / 1000));
-      return base + Math.min(elapsedBeforeMidnight, 14 * 3600);
+      // Started on a previous day: do not add runaway ghost time to today
+      return base;
     }
 
-    const elapsedSinceStart = Math.min(Math.max(0, Math.floor((Date.now() - startTs) / 1000)), 14 * 3600);
+    const elapsedSinceStart = Math.max(0, Math.floor((Date.now() - startTs) / 1000));
     return base + elapsedSinceStart;
   }, []);
 
@@ -485,25 +484,26 @@ export const WorkProvider = ({ children }) => {
 
         if (isRunning) {
           const startedAtTs = (isActive && activeTimer.startedAt) ? activeTimer.startedAt : (t.startedAt || Date.now());
-          const safeStartTs = Math.max(Number(startedAtTs), todayMidnightMs);
-          const elapsed = Math.max(0, Math.floor((Date.now() - safeStartTs) / 1000));
+          const startNum = Number(startedAtTs) || 0;
+          let elapsed = 0;
+          if (startNum >= todayMidnightMs && startNum <= Date.now()) {
+            elapsed = Math.max(0, Math.floor((Date.now() - startNum) / 1000));
+          }
 
-          const baseLifetime = (isActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
-            ? Number(activeTimer.accumulatedSeconds)
-            : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-              ? Number(t.accumulatedSeconds)
-              : (Number(t.timerSeconds) || 0));
+          const baseLifetime = Math.max(
+            (isActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null) ? Number(activeTimer.accumulatedSeconds) : 0,
+            Number(t.accumulatedSeconds) || 0,
+            Number(t.timerSeconds) || 0
+          );
 
-          const baseToday = (isActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr)
-            ? Number(activeTimer.accumulatedTodaySeconds)
-            : (t.dailySessions?.[todayStr] !== undefined
-              ? Number(t.dailySessions[todayStr])
-              : (t.sessionDate === todayStr && t.accumulatedTodaySeconds !== undefined
-                ? Number(t.accumulatedTodaySeconds)
-                : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined ? Number(t.todayWorkSeconds) : 0)));
+          const baseToday = Math.max(
+            (isActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr) ? Number(activeTimer.accumulatedTodaySeconds) : 0,
+            Number(t.dailySessions?.[todayStr]) || 0,
+            (t.sessionDate === todayStr ? (Number(t.accumulatedTodaySeconds) || Number(t.todayWorkSeconds) || 0) : 0)
+          );
 
           const currentLifetimeSecs = baseLifetime + elapsed;
-          const currentTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
+          const currentTodaySecs = baseToday + elapsed;
 
           return {
             ...t,
@@ -1145,25 +1145,27 @@ export const WorkProvider = ({ children }) => {
             changed = true;
             const todayStr = getTodayStr();
             const startTs = (isMyActive && activeTimer.startedAt) ? Number(activeTimer.startedAt) : Number(t.startedAt);
-            const safeStartTs = Math.max(startTs, todayMidnightMs);
-            const elapsed = Math.min(Math.max(0, Math.floor((now - safeStartTs) / 1000)), 14 * 3600);
+            let elapsed = 0;
+            if (startTs >= todayMidnightMs && startTs <= now) {
+              elapsed = Math.max(0, Math.floor((now - startTs) / 1000));
+            }
 
             // Fixed baseline lifetime seconds (from snapshot or task baseline)
-            const baseLifetime = (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null)
-              ? Number(activeTimer.accumulatedSeconds)
-              : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : 0);
+            const baseLifetime = Math.max(
+              (isMyActive && activeTimer.accumulatedSeconds !== undefined && activeTimer.accumulatedSeconds !== null) ? Number(activeTimer.accumulatedSeconds) : 0,
+              Number(t.accumulatedSeconds) || 0,
+              Number(t.timerSeconds) || 0
+            );
 
             // Fixed baseline today seconds (strictly from frozen baseline before start)
-            const baseToday = (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr)
-              ? Number(activeTimer.accumulatedTodaySeconds)
-              : (t.dailySessions?.[todayStr] !== undefined
-                ? Number(t.dailySessions[todayStr])
-                : (t.sessionDate === todayStr && t.accumulatedTodaySeconds !== undefined
-                  ? Number(t.accumulatedTodaySeconds)
-                  : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined ? Number(t.todayWorkSeconds) : 0)));
+            const baseToday = Math.max(
+              (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null && activeTimer.date === todayStr) ? Number(activeTimer.accumulatedTodaySeconds) : 0,
+              Number(t.dailySessions?.[todayStr]) || 0,
+              (t.sessionDate === todayStr ? (Number(t.accumulatedTodaySeconds) || Number(t.todayWorkSeconds) || 0) : 0)
+            );
 
-            let liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
-            let liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
+            let liveLifetimeSecs = baseLifetime + elapsed;
+            let liveTodaySecs = baseToday + elapsed;
 
             const lifetimeText = formatSeconds(liveLifetimeSecs);
             const todayText = formatSeconds(liveTodaySecs);

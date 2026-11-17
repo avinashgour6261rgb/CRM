@@ -439,7 +439,7 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
 
   // If liveTodaySeconds was already computed by WorkContext ticking loop for today, return directly
   if (isRunningToday && task.liveTodaySeconds !== undefined && task.liveTodaySeconds !== null) {
-    return Math.min(Math.max(0, Number(task.liveTodaySeconds) || 0), 14 * 3600);
+    return Math.max(0, Number(task.liveTodaySeconds) || 0);
   }
 
   // 1. Base seconds worked on targetDate from closed / paused sessions
@@ -447,21 +447,9 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
   if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (isTargetToday && task.sessionDate === targetDate && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
-    const lifetime = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-    const todayVal = Number(task.accumulatedTodaySeconds);
-    if (todayVal === lifetime && task.startDate && task.startDate < targetDate && !task.timerRunning) {
-      baseSecs = 0;
-    } else {
-      baseSecs = Math.max(0, todayVal);
-    }
+    baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
   } else if (isTargetToday && task.sessionDate === targetDate && task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null) {
-    const lifetime = Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0);
-    const todayVal = Number(task.todayWorkSeconds);
-    if (todayVal === lifetime && task.startDate && task.startDate < targetDate && !task.timerRunning) {
-      baseSecs = 0;
-    } else {
-      baseSecs = Math.max(0, todayVal);
-    }
+    baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
   } else if (task.completedOn === targetDate && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate)) && !task.sessionDate && (!task.dailySessions || Object.keys(task.dailySessions).length === 0)) {
     // Single-day task created and completed exclusively on targetDate with no prior sessions
     baseSecs = Math.max(0, Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0));
@@ -476,12 +464,15 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
     const todayMidnight = new Date(nowMs);
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
-    const startTs = task.startedAt ? Number(task.startedAt) : nowMs;
-    const safeStart = Math.max(startTs, todayMidnightMs);
-    liveSecs = Math.max(0, Math.floor((nowMs - safeStart) / 1000));
+    const startTs = task.startedAt ? Number(task.startedAt) : 0;
+    // CRITICAL: If startTs was before midnight or invalid, it was started on a past day or uninitialized!
+    // It must NOT tick live today as runaway ghost time!
+    if (startTs >= todayMidnightMs && startTs <= nowMs) {
+      liveSecs = Math.max(0, Math.floor((nowMs - startTs) / 1000));
+    }
   }
 
-  return Math.min(baseSecs + liveSecs, 14 * 3600);
+  return baseSecs + liveSecs;
 };
 
 /**
@@ -549,8 +540,10 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
 
   let sessionElapsed = 0;
   if (task.timerRunning && task.startedAt) {
-    const safeStart = Math.max(Number(task.startedAt), todayMidnightMs);
-    sessionElapsed = Math.max(0, Math.floor((nowMs - safeStart) / 1000));
+    const startTs = Number(task.startedAt);
+    if (startTs >= todayMidnightMs && startTs <= nowMs) {
+      sessionElapsed = Math.max(0, Math.floor((nowMs - startTs) / 1000));
+    }
   }
 
   const baseAccum = (task.accumulatedSeconds !== undefined && task.accumulatedSeconds !== null)

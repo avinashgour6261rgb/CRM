@@ -39,12 +39,73 @@ if (typeof window !== 'undefined') {
       } else if (data?.isOnBreak === false) {
         window.dispatchEvent(new CustomEvent('ems_break_ended', { detail: data }));
       }
+      if (data?.employeeId || data?.employeeCode) {
+        window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: data }));
+      }
     } catch (_) {}
   });
 
   subscribeSocketEvent('attendance:force_clock_out', (data) => {
     try {
+      const empId = data?.employeeId || data?.targetEmpId;
+      const empCode = data?.employeeCode || data?.targetEmpCode;
+      const logoutStr = data?.clockOutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const targetKeys = [empId, empCode].filter(Boolean);
+
+      targetKeys.forEach(k => {
+        try {
+          localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+          localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+          localStorage.setItem(`ems_timer_${k}_clock_out`, logoutStr);
+          localStorage.setItem(`ems_timer_${k}_clockout_time`, logoutStr);
+          localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'true');
+          localStorage.removeItem(`ems_active_task_timer_${k}`);
+        } catch (_) {}
+      });
+
+      try {
+        const rawAtt = localStorage.getItem(KEYS.ATTENDANCE);
+        if (rawAtt) {
+          const today = new Date().toISOString().split('T')[0];
+          let attList = JSON.parse(rawAtt) || [];
+          let changed = false;
+          attList = attList.map(a => {
+            const matchesEmp = (empId && (String(a.employeeId) === String(empId) || String(a.employee) === String(empId))) ||
+              (empCode && (String(a.employeeCode) === String(empCode) || String(a.employeeId) === String(empCode)));
+            if (matchesEmp && a.date === today) {
+              changed = true;
+              return {
+                ...a,
+                isClockedIn: false,
+                clockOutTime: logoutStr,
+                clockOut: logoutStr,
+                status: 'present'
+              };
+            }
+            return a;
+          });
+          if (changed) {
+            localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(attList));
+          }
+        }
+      } catch (_) {}
+
+      // Instant telemetry update for 0ms Live Operations & Team Live Table sync across browsers
+      window.dispatchEvent(new CustomEvent('ems_telemetry_update', {
+        detail: {
+          employeeId: empId,
+          employeeCode: empCode,
+          isClockedIn: false,
+          isOnBreak: false,
+          clockOutTime: logoutStr,
+          status: 'present',
+          activeTask: null
+        }
+      }));
+
       window.dispatchEvent(new CustomEvent('ems_force_clock_out', { detail: data }));
+      window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: data }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
     } catch (_) {}
   });
