@@ -219,6 +219,7 @@ export const removeTimerStorage = (user, subKey) => {
 import { API_BASE } from '../config/apiConfig.js';
 import { hrService } from '../../modules/hr/services/hrService.js';
 import { workService } from '../../modules/work/services/workService.js';
+import { broadcastSyncEvent, SYNC_EVENTS } from '../services/realtimeSyncService.js';
 
 /**
  * Single Source of Truth: Calculate shift work seconds for an employee on a given date.
@@ -420,7 +421,7 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
     baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
   } else if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
-  } else if (task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
+  } else if (!isRunningToday && task.sessionDate === targetDate && task.todayWorkSeconds !== undefined) {
     baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
   } else if (task.completedOn === targetDate && task.todayWorkSeconds !== undefined) {
     baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
@@ -860,20 +861,24 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   } catch (_) {}
 
   // 5. Dispatch sync events
-  window.dispatchEvent(new CustomEvent('ems_clocked_out', {
-    detail: {
-      userKey: mirrorKeys[0],
-      employeeId: user._id,
-      employeeCode: user.employeeCode,
-      logoutTime: timeStr,
-      date: today,
-      reason
-    }
-  }));
-  window.dispatchEvent(new CustomEvent('ems_task_timer_paused', {
-    detail: { userKey: mirrorKeys[0] }
-  }));
+  const clockOutPayload = {
+    userKey: mirrorKeys[0],
+    employeeId: user._id,
+    employeeCode: user.employeeCode,
+    logoutTime: timeStr,
+    clockOutTime: timeStr,
+    workSeconds: finalVerifiedWorkSecs,
+    date: today,
+    reason
+  };
+
+  window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: clockOutPayload }));
+  window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { userKey: mirrorKeys[0] } }));
   window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+
+  try {
+    broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, clockOutPayload);
+  } catch (_) {}
 };
 
 

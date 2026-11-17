@@ -402,8 +402,8 @@ export const WorkProvider = ({ children }) => {
                 projectName: t.projectName,
                 startedAt: Number(t.startedAt),
                 accumulatedSeconds: Number(t.accumulatedSeconds) || 0,
-                accumulatedTodaySeconds: Number(t.accumulatedTodaySeconds ?? t.todayWorkSeconds) || 0,
-                todayWorkSeconds: Number(t.accumulatedTodaySeconds ?? t.todayWorkSeconds) || 0,
+                accumulatedTodaySeconds: Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? 0),
+                todayWorkSeconds: Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? 0),
                 timerRunning: true,
                 date: todayStr
               };
@@ -426,9 +426,9 @@ export const WorkProvider = ({ children }) => {
               ? Number(t.accumulatedSeconds)
               : (Number(t.timerSeconds) || 0));
 
-          const baseToday = (isActive && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== undefined && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== null)
-            ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds)
-            : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
+          const baseToday = (isActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null)
+            ? Number(activeTimer.accumulatedTodaySeconds)
+            : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? 0));
 
           const currentLifetimeSecs = baseLifetime + elapsed;
           const currentTodaySecs = baseToday + elapsed;
@@ -803,9 +803,9 @@ export const WorkProvider = ({ children }) => {
               : ((t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : 0);
 
             // Fixed baseline today seconds (strictly from frozen baseline before start)
-            const baseToday = (isMyActive && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== undefined && (activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds) !== null)
-              ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds)
-              : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
+            const baseToday = (isMyActive && activeTimer.accumulatedTodaySeconds !== undefined && activeTimer.accumulatedTodaySeconds !== null)
+              ? Number(activeTimer.accumulatedTodaySeconds)
+              : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? 0));
 
             const liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
             const liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);

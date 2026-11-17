@@ -839,8 +839,19 @@ export const TimerProvider = ({ children }) => {
       }
 
 
-      const isActuallyClockedIn = !localHadClockedOut && (remoteIsClockedIn || (localIsClockedIn && (!localSessionDate || localSessionDate === today)));
-      const isActuallyClockedOut = !isActuallyClockedIn && (Boolean(rec && rec.date === today && (rec.clockOutTime || rec.clockOut) && !rec.isClockedIn) || localHadClockedOut);
+      const remoteIsClockedOut = Boolean(
+        rec &&
+        rec.date === today &&
+        (rec.clockOutTime || rec.clockOut) &&
+        rec.isClockedIn === false
+      );
+
+      const isActuallyClockedIn = !remoteIsClockedOut && !localHadClockedOut && (
+        remoteIsClockedIn || (localIsClockedIn && (!localSessionDate || localSessionDate === today))
+      );
+      const isActuallyClockedOut = remoteIsClockedOut || localHadClockedOut || (
+        !isActuallyClockedIn && Boolean(rec && rec.date === today && (rec.clockOutTime || rec.clockOut))
+      );
 
       if (isActuallyClockedIn) {
         const inTime = rec?.clockInTime || rec?.clockIn || loginTime || localStorage.getItem(`ems_timer_${userKey}_login_time`);
@@ -984,18 +995,50 @@ export const TimerProvider = ({ children }) => {
       if (document.visibilityState === 'visible') syncLiveShiftState();
     };
 
+    const handleClockedOut = (e) => {
+      const isTarget = isEventForMe(e);
+      if (!isTarget) return;
+
+      const detail = e?.detail;
+      setIsClockedIn(false);
+      setIsRunning(false);
+      setIsOnBreak(false);
+      setHadClockedOutToday(true);
+      if (detail?.logoutTime || detail?.clockOutTime) {
+        setClockOutTime(detail.logoutTime || detail.clockOutTime);
+      }
+      if (detail?.workSeconds !== undefined) {
+        setWorkSeconds(Number(detail.workSeconds));
+      }
+
+      const mirrorKeys = getTimerMirrorKeys(currentUser);
+      for (const uk of mirrorKeys) {
+        localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'false');
+        localStorage.setItem(`ems_timer_${uk}_is_running`, 'false');
+        localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
+        localStorage.setItem(`ems_timer_${uk}_had_clocked_out`, 'true');
+        if (detail?.logoutTime || detail?.clockOutTime) {
+          localStorage.setItem(`ems_timer_${uk}_clockout_time`, detail.logoutTime || detail.clockOutTime);
+          localStorage.setItem(`ems_timer_${uk}_clock_out`, detail.logoutTime || detail.clockOutTime);
+        }
+        if (detail?.workSeconds !== undefined) {
+          localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(detail.workSeconds));
+        }
+      }
+    };
+
     window.addEventListener('focus', handleSync);
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('ems_clocked_in', handleSync);
-    window.addEventListener('ems_clocked_out', handleSync);
+    window.addEventListener('ems_clocked_out', handleClockedOut);
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleSync);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('ems_clocked_in', handleSync);
-      window.removeEventListener('ems_clocked_out', handleSync);
+      window.removeEventListener('ems_clocked_out', handleClockedOut);
     };
-  }, [syncLiveShiftState]);
+  }, [syncLiveShiftState, isEventForMe, currentUser]);
 
   // Listen for global reclock requests updates (e.g. from Admin in another tab or component)
   useEffect(() => {

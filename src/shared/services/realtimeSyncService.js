@@ -113,6 +113,18 @@ if (typeof window !== 'undefined') {
         if (payload?.key) {
           window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: payload.key } }));
         }
+      } else if (type === 'PERMISSIONS_UPDATED' && payload) {
+        try {
+          const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+          const parsedMap = rawMap ? JSON.parse(rawMap) : {};
+          if (payload.employeeId) parsedMap[String(payload.employeeId)] = payload.permissions || {};
+          if (payload.employeeCode) parsedMap[String(payload.employeeCode)] = payload.permissions || {};
+          if (payload.email) parsedMap[String(payload.email).toLowerCase()] = payload.permissions || {};
+          localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
+        } catch (_) {}
+
+        window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
       }
     } catch (_) {}
   });
