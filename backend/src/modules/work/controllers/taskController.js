@@ -280,6 +280,10 @@ exports.updateTaskStatus = async (req, res, next) => {
       if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;
       if (req.body.hoursLogged !== undefined) update.hoursLogged = req.body.hoursLogged;
       if (req.body.hoursLoggedText !== undefined) update.hoursLoggedText = req.body.hoursLoggedText;
+      if (req.body.todayWorkSeconds !== undefined) update.todayWorkSeconds = req.body.todayWorkSeconds;
+      if (req.body.accumulatedTodaySeconds !== undefined) update.accumulatedTodaySeconds = req.body.accumulatedTodaySeconds;
+      if (req.body.accumulatedSeconds !== undefined) update.accumulatedSeconds = req.body.accumulatedSeconds;
+      if (req.body.dailySessions !== undefined) update.dailySessions = req.body.dailySessions;
     }
 
     let task = null;

@@ -302,6 +302,8 @@ export const WorkProvider = ({ children }) => {
         if (id && !isLegacyTask(lt)) localMap.set(id, lt);
       });
 
+      const todayStr = getTodayStr();
+
       // 1. Map backend tasks with live timer overlay
       (rawTsks || []).forEach(bt => {
         const id = String(bt._id || bt.id);
@@ -324,13 +326,29 @@ export const WorkProvider = ({ children }) => {
             const effectiveRunning = isLocalActive || isBackendActive;
             const effectiveStartedAt = isLocalActive ? (existing.startedAt || activeTimer?.startedAt || Date.now()) : (isBackendActive ? bt.startedAt : null);
 
+            // CRITICAL: Protect today's sessions and accumulated today seconds from being wiped by backend zeros!
+            const mergedDailySessions = {
+              ...(bt.dailySessions && typeof bt.dailySessions === 'object' ? bt.dailySessions : {}),
+              ...(existing.dailySessions && typeof existing.dailySessions === 'object' ? existing.dailySessions : {})
+            };
+            const effectiveTodaySecs = Math.max(
+              Number(existing.todayWorkSeconds) || 0,
+              Number(bt.todayWorkSeconds) || 0,
+              Number(existing.accumulatedTodaySeconds) || 0,
+              Number(bt.accumulatedTodaySeconds) || 0,
+              Number(mergedDailySessions[todayStr]) || 0
+            );
+
             taskMap.set(id, {
-              ...existing,
               ...bt,
+              ...existing,
               timerRunning: effectiveRunning,
               startedAt: effectiveStartedAt,
               timerSeconds: Math.max(localSecs, backendSecs),
               accumulatedSeconds: Math.max(localAccum, backendAccum),
+              todayWorkSeconds: effectiveTodaySecs,
+              accumulatedTodaySeconds: effectiveTodaySecs,
+              dailySessions: mergedDailySessions,
               status: bt.status || existing.status
             });
           } else {
@@ -359,7 +377,6 @@ export const WorkProvider = ({ children }) => {
       const todayMidnight = new Date();
       todayMidnight.setHours(0, 0, 0, 0);
       const todayMidnightMs = todayMidnight.getTime();
-      const todayStr = getTodayStr();
 
       const mergedList = Array.from(taskMap.values()).map(t => {
         const tId = String(t._id || t.id);
@@ -483,13 +500,27 @@ export const WorkProvider = ({ children }) => {
           const isCurrentStub = String(t._id || '').startsWith('tsk_');
           const base = (!isCurrentStub && isExistingStub) ? t : existing;
           const other = (!isCurrentStub && isExistingStub) ? existing : t;
+          const mergedDaily = {
+            ...(existing.dailySessions && typeof existing.dailySessions === 'object' ? existing.dailySessions : {}),
+            ...(t.dailySessions && typeof t.dailySessions === 'object' ? t.dailySessions : {})
+          };
+          const maxToday = Math.max(
+            Number(existing.todayWorkSeconds) || 0,
+            Number(t.todayWorkSeconds) || 0,
+            Number(existing.accumulatedTodaySeconds) || 0,
+            Number(t.accumulatedTodaySeconds) || 0,
+            Number(mergedDaily[todayStr]) || 0
+          );
           finalTasksMap.set(canonicalKey, {
             ...other,
             ...base,
             timerRunning: existing.timerRunning || t.timerRunning,
             startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
             timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
-            accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+            accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
+            todayWorkSeconds: maxToday,
+            accumulatedTodaySeconds: maxToday,
+            dailySessions: mergedDaily
           });
         }
       });
@@ -924,8 +955,17 @@ export const WorkProvider = ({ children }) => {
               ? Number(activeTimer.accumulatedTodaySeconds)
               : (Number(t.accumulatedTodaySeconds ?? t.dailySessions?.[todayStr] ?? t.todayWorkSeconds ?? 0));
 
-            const liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
-            const liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
+            let liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
+            let liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
+
+            // Physical Invariant: For current user, today's task seconds cannot exceed net shift workSeconds!
+            if (isAssignedToMe) {
+              const currentShiftWorkSecs = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
+                Number(readTimerStorage(currentUser, 'work_seconds')) || 0;
+              if (currentShiftWorkSecs > 0) {
+                liveTodaySecs = Math.min(liveTodaySecs, currentShiftWorkSecs);
+              }
+            }
             const lifetimeText = formatSeconds(liveLifetimeSecs);
             const todayText = formatSeconds(liveTodaySecs);
 
@@ -1844,6 +1884,7 @@ export const WorkProvider = ({ children }) => {
         accumulatedSeconds: existingSecs,
         timerSeconds: existingSecs,
         todayWorkSeconds: existingTodaySecs,
+        accumulatedTodaySeconds: existingTodaySecs,
         dailySessions: updatedDailySessions,
         status: targetTask.status === 'incomplete' ? 'in_progress' : targetTask.status,
         sessionDate: today,
@@ -2076,6 +2117,7 @@ export const WorkProvider = ({ children }) => {
         accumulatedSeconds: currentSecs,
         timerSeconds: currentSecs,
         todayWorkSeconds: updatedTodaySecs,
+        accumulatedTodaySeconds: updatedTodaySecs,
         dailySessions: dailySessionsMap,
         sessionDate: today,
         hoursLogged: +(currentSecs / 3600).toFixed(2),

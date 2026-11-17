@@ -59,6 +59,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
   const {
     timeString,
+    workSeconds,
     isRunning,
     isClockedIn,
     hadClockedOutToday,
@@ -90,15 +91,36 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
     return () => clearInterval(interval);
   }, [activeRunningTask?.timerRunning, activeRunningTask?._id]);
 
-  const liveTaskSecs = useMemo(() => {
-    if (!activeRunningTask) return 0;
+  const { liveTaskSecs, lifetimeTaskSecs } = useMemo(() => {
+    if (!activeRunningTask) return { liveTaskSecs: 0, lifetimeTaskSecs: 0 };
+    const todayBase = Number(activeRunningTask.accumulatedTodaySeconds ?? activeRunningTask.todayWorkSeconds ?? 0);
+    const lifetimeBase = (activeRunningTask.accumulatedSeconds !== undefined && activeRunningTask.accumulatedSeconds !== null)
+      ? Number(activeRunningTask.accumulatedSeconds)
+      : (Number(activeRunningTask.timerSeconds) || todayBase);
+
     if (!activeRunningTask.timerRunning) {
-      return Number(activeRunningTask.accumulatedSeconds) || Number(activeRunningTask.timerSeconds) || 0;
+      return {
+        liveTaskSecs: todayBase,
+        lifetimeTaskSecs: Math.max(lifetimeBase, todayBase)
+      };
     }
+
     const started = Number(activeRunningTask.startedAt) || Date.now();
     const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
-    return (Number(activeRunningTask.accumulatedSeconds) || 0) + elapsed;
-  }, [activeRunningTask, taskTick]);
+    let totalToday = todayBase + elapsed;
+
+    // Physical Invariant: Task duration today cannot exceed today's net shift workSeconds
+    const currentShiftSecs = Number(workSeconds || 0);
+    if (currentShiftSecs > 0) {
+      totalToday = Math.min(totalToday, currentShiftSecs);
+    }
+    const totalLifetime = Math.max(lifetimeBase + elapsed, totalToday);
+
+    return {
+      liveTaskSecs: totalToday,
+      lifetimeTaskSecs: totalLifetime
+    };
+  }, [activeRunningTask, taskTick, workSeconds]);
 
   // Dropdown States
   const [showNotifications, setShowNotifications] = useState(false);
@@ -259,7 +281,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
           <div
             onClick={() => navigate('/tasks')}
             className="hidden xl:flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
-            title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Click to open Tasks)`}
+            title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Today: ${formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}${lifetimeTaskSecs > liveTaskSecs ? ` | Lifetime: ${formatSeconds ? formatSeconds(lifetimeTaskSecs) : '00:00:00'}` : ''} - Click to open Tasks)`}
           >
             <ListTodo size={14} className="text-blue-600 dark:text-blue-400 animate-pulse" />
             <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">

@@ -329,11 +329,15 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                         {task.timerRunning ? (
                           <span className="text-green-600 inline-flex items-center gap-1 font-extrabold">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" />
-                            ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || task.timerSeconds || 0)} (Live)
+                            ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || task.liveTodaySeconds || 0)} (Live)
                           </span>
-                        ) : Number(task.todayWorkSeconds || task.timerSeconds) > 0 ? (
+                        ) : Number(task.todayWorkSeconds) > 0 ? (
                           <span className="text-sky-600 inline-flex items-center gap-1">
-                            ⏸️ {formatSeconds(task.todayWorkSeconds || task.timerSeconds)} worked {Number(task.timerSeconds) > Number(task.todayWorkSeconds) && Number(task.todayWorkSeconds) > 0 ? `(${formatSeconds(task.timerSeconds)} total)` : ''}
+                            ⏸️ {formatSeconds(task.todayWorkSeconds)} today {Number(task.timerSeconds) > Number(task.todayWorkSeconds) ? `(${formatSeconds(task.timerSeconds)} total)` : ''}
+                          </span>
+                        ) : Number(task.timerSeconds) > 0 ? (
+                          <span className="text-slate-600 dark:text-slate-300 inline-flex items-center gap-1">
+                            {formatSeconds(task.timerSeconds)} total
                           </span>
                         ) : (
                           <span>{task.hoursLogged ? `${task.hoursLogged}h` : '0h'} / {task.isUntimed || !task.estimatedHours ? 'Open' : `${task.estimatedHours}h`}</span>

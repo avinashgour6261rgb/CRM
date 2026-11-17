@@ -206,6 +206,14 @@ const TaskSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    accumulatedTodaySeconds: {
+      type: Number,
+      default: 0
+    },
+    liveTodaySeconds: {
+      type: Number,
+      default: 0
+    },
     dailySessions: {
       type: mongoose.Schema.Types.Mixed,
       default: {}

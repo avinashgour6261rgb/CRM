@@ -680,10 +680,13 @@ export const DashboardPage = () => {
         const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
         const taskBase = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
-          : ((at.accumulatedSeconds !== undefined && at.accumulatedSeconds !== null)
-            ? Number(at.accumulatedSeconds)
+          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null)
+            ? Number(at.todayWorkSeconds)
             : 0);
-        const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
+        let liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
+        if (workSecs > 0) {
+          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
+        }
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -701,9 +704,12 @@ export const DashboardPage = () => {
           liveDurationText: formatSeconds(liveTaskSecs)
         };
       } else {
-        const liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
+        let liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
-          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0));
+          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
+        if (workSecs > 0) {
+          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
+        }
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -743,7 +749,10 @@ export const DashboardPage = () => {
         : null;
 
       if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave && !isTaskActuallyCompleted(baseRunningTask)) {
-        const liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, Date.now(), isClockedIn, effectiveOnBreak);
+        let liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, Date.now(), isClockedIn, effectiveOnBreak);
+        if (workSecs > 0) {
+          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
+        }
         runningTask = {
           ...baseRunningTask,
           liveTaskSecs,
