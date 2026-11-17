@@ -329,25 +329,54 @@ export const WorkProvider = ({ children }) => {
             const todayMidnight = new Date();
             todayMidnight.setHours(0, 0, 0, 0);
             const todayMidnightMs = todayMidnight.getTime();
-            const isStartedToday = bt.startedAt && Number(bt.startedAt) >= todayMidnightMs;
-            const isBackendActive = Boolean(bt.timerRunning && isStartedToday);
-            const isLocalActive = Boolean(existing.timerRunning || (activeTimer && String(activeTimer.taskId) === id && activeTimer.timerRunning));
 
-            // Keep timer running if actively running locally or on backend
-            const effectiveRunning = isLocalActive || isBackendActive;
-            const effectiveStartedAt = isLocalActive ? (existing.startedAt || activeTimer?.startedAt || Date.now()) : (isBackendActive ? bt.startedAt : null);
+            const isLocalActive = activeTimer && (String(activeTimer.taskId) === id || String(activeTimer._id) === id);
+            const isLocalTimerRunning = isLocalActive && Boolean(activeTimer.timerRunning);
+            const isLocalTimerPaused = isLocalActive && !activeTimer.timerRunning;
+
+            let effectiveRunning = false;
+            let effectiveStartedAt = null;
+
+            if (isLocalTimerRunning) {
+              effectiveRunning = true;
+              effectiveStartedAt = Number(activeTimer.startedAt) || Number(existing.startedAt) || Date.now();
+            } else if (isLocalTimerPaused) {
+              effectiveRunning = false;
+              effectiveStartedAt = null;
+            } else {
+              // Not current user's local active timer - check backend / existing
+              if (existing.timerRunning && !bt.timerRunning && existing.startedAt && Date.now() - Number(existing.startedAt) < 15000) {
+                effectiveRunning = true;
+                effectiveStartedAt = Number(existing.startedAt);
+              } else if (!existing.timerRunning && bt.timerRunning && (Number(existing.accumulatedSeconds) || 0) >= (Number(bt.accumulatedSeconds) || 0)) {
+                // Local paused with equal/higher duration, backend lagging
+                effectiveRunning = false;
+                effectiveStartedAt = null;
+              } else {
+                const isStartedToday = bt.startedAt && Number(bt.startedAt) >= todayMidnightMs;
+                effectiveRunning = Boolean(bt.timerRunning && isStartedToday);
+                effectiveStartedAt = effectiveRunning ? Number(bt.startedAt) : null;
+              }
+            }
 
             // CRITICAL: Protect today's sessions and accumulated today seconds from being wiped by backend zeros!
             const mergedDailySessions = {
               ...(bt.dailySessions && typeof bt.dailySessions === 'object' ? bt.dailySessions : {}),
               ...(existing.dailySessions && typeof existing.dailySessions === 'object' ? existing.dailySessions : {})
             };
+            if (isLocalActive) {
+              const activeToday = Number(activeTimer.todayWorkSeconds ?? activeTimer.accumulatedTodaySeconds ?? 0);
+              if (activeToday > 0) {
+                mergedDailySessions[todayStr] = Math.max(Number(mergedDailySessions[todayStr]) || 0, activeToday);
+              }
+            }
             const effectiveTodaySecs = Math.max(
               Number(existing.todayWorkSeconds) || 0,
               Number(bt.todayWorkSeconds) || 0,
               Number(existing.accumulatedTodaySeconds) || 0,
               Number(bt.accumulatedTodaySeconds) || 0,
-              Number(mergedDailySessions[todayStr]) || 0
+              Number(mergedDailySessions[todayStr]) || 0,
+              isLocalActive ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0) : 0
             );
 
             taskMap.set(id, {
@@ -463,16 +492,7 @@ export const WorkProvider = ({ children }) => {
                 : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined ? Number(t.todayWorkSeconds) : 0)));
 
           const currentLifetimeSecs = baseLifetime + elapsed;
-          let currentTodaySecs = baseToday + elapsed;
-          if (isAssignedToMe) {
-            const currentShiftWorkSecs = shiftWorkSecondsRef.current ||
-              Number(readTimerStorage(currentUser, 'work_seconds')) ||
-              Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
-              (currentUser?.employeeCode && Number(localStorage.getItem(`ems_timer_${currentUser.employeeCode}_work_seconds`))) || 0;
-            if (currentShiftWorkSecs > 0) {
-              currentTodaySecs = Math.min(currentTodaySecs, currentShiftWorkSecs);
-            }
-          }
+          const currentTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
 
           return {
             ...t,
@@ -537,44 +557,53 @@ export const WorkProvider = ({ children }) => {
             Number(t.accumulatedTodaySeconds) || 0,
             Number(mergedDaily[todayStr]) || 0
           );
-          finalTasksMap.set(canonicalKey, {
-            ...other,
-            ...base,
-            timerRunning: existing.timerRunning || t.timerRunning,
-            startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
-            timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
-            accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
-            todayWorkSeconds: maxToday,
-            accumulatedTodaySeconds: maxToday,
-            dailySessions: mergedDaily
-          });
-        }
-      });
-      const cleanMergedTasks = Array.from(finalTasksMap.values()).map(sanitizeTaskDailySessions);
+            const chosenRunning = Boolean(
+              (existing.timerRunning && existing.startedAt) || (t.timerRunning && t.startedAt)
+            );
+            const chosenStartedAt = chosenRunning
+              ? Math.max(Number(existing.startedAt) || 0, Number(t.startedAt) || 0) || null
+              : null;
 
-      // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
-      localStorage.setItem(KEYS.TASKS, JSON.stringify(cleanMergedTasks));
+            finalTasksMap.set(canonicalKey, {
+              ...other,
+              ...base,
+              timerRunning: chosenRunning,
+              startedAt: chosenStartedAt,
+              timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
+              accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0),
+              todayWorkSeconds: maxToday,
+              accumulatedTodaySeconds: maxToday,
+              dailySessions: mergedDaily
+            });
+          }
+        });
+        const cleanMergedTasks = Array.from(finalTasksMap.values()).map(sanitizeTaskDailySessions);
 
-      // Synchronize running task timer across devices / laptops
-      const remoteRunningTask = cleanMergedTasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
-      const curSnapshot = getActiveTimerSnapshot();
+        // Keep localStorage synchronized so tasks survive refreshes silently without recursive loop
+        localStorage.setItem(KEYS.TASKS, JSON.stringify(cleanMergedTasks));
 
-      if (remoteRunningTask) {
-        const rTaskId = String(remoteRunningTask._id || remoteRunningTask.id);
-        if (!curSnapshot || String(curSnapshot.taskId) !== rTaskId || !curSnapshot.timerRunning) {
-          saveActiveTimerSnapshot({
-            taskId: remoteRunningTask._id || remoteRunningTask.id,
-            taskCode: remoteRunningTask.taskCode || 'TSK',
-            title: remoteRunningTask.title,
-            projectName: remoteRunningTask.projectName || 'General Work',
-            assignedToId: userKey,
-            assignedToName: remoteRunningTask.assignedToName || currentUser?.name || 'User',
-            timerRunning: true,
-            startedAt: remoteRunningTask.startedAt || Date.now(),
-            accumulatedSeconds: remoteRunningTask.accumulatedSeconds !== undefined ? Number(remoteRunningTask.accumulatedSeconds) : (Number(remoteRunningTask.timerSeconds) || 0),
-            date: today,
-            lastUpdated: Date.now()
-          });
+        // Synchronize running task timer across devices / laptops
+        const remoteRunningTask = cleanMergedTasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
+        const curSnapshot = getActiveTimerSnapshot();
+
+        if (remoteRunningTask) {
+          const rTaskId = String(remoteRunningTask._id || remoteRunningTask.id);
+          if (!curSnapshot || String(curSnapshot.taskId) !== rTaskId || !curSnapshot.timerRunning) {
+            saveActiveTimerSnapshot({
+              taskId: remoteRunningTask._id || remoteRunningTask.id,
+              taskCode: remoteRunningTask.taskCode || 'TSK',
+              title: remoteRunningTask.title,
+              projectName: remoteRunningTask.projectName || 'General Work',
+              assignedToId: userKey,
+              assignedToName: remoteRunningTask.assignedToName || currentUser?.name || 'User',
+              timerRunning: true,
+              startedAt: remoteRunningTask.startedAt || Date.now(),
+              accumulatedSeconds: remoteRunningTask.accumulatedSeconds !== undefined ? Number(remoteRunningTask.accumulatedSeconds) : (Number(remoteRunningTask.timerSeconds) || 0),
+              accumulatedTodaySeconds: remoteRunningTask.accumulatedTodaySeconds !== undefined ? Number(remoteRunningTask.accumulatedTodaySeconds) : (Number(remoteRunningTask.todayWorkSeconds) || 0),
+              todayWorkSeconds: Number(remoteRunningTask.todayWorkSeconds) || Number(remoteRunningTask.accumulatedTodaySeconds) || 0,
+              date: today,
+              lastUpdated: Date.now()
+            });
         }
       } else if (curSnapshot?.timerRunning) {
         const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId) || (curSnapshot.taskCode && t.taskCode === curSnapshot.taskCode));
@@ -1028,16 +1057,6 @@ export const WorkProvider = ({ children }) => {
             let liveLifetimeSecs = Math.min(baseLifetime + elapsed, 14 * 3600);
             let liveTodaySecs = Math.min(baseToday + elapsed, 14 * 3600);
 
-            // Physical Invariant: For current user, today's task seconds cannot exceed net shift workSeconds!
-            if (isAssignedToMe) {
-              const currentShiftWorkSecs = shiftWorkSecondsRef.current ||
-                Number(readTimerStorage(currentUser, 'work_seconds')) ||
-                Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) ||
-                (currentUser?.employeeCode && Number(localStorage.getItem(`ems_timer_${currentUser.employeeCode}_work_seconds`))) || 0;
-              if (currentShiftWorkSecs > 0) {
-                liveTodaySecs = Math.min(liveTodaySecs, currentShiftWorkSecs);
-              }
-            }
             const lifetimeText = formatSeconds(liveLifetimeSecs);
             const todayText = formatSeconds(liveTodaySecs);
 

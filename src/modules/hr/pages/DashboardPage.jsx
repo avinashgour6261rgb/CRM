@@ -707,9 +707,6 @@ export const DashboardPage = () => {
             ? Number(at.todayWorkSeconds)
             : 0);
         let liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -773,9 +770,6 @@ export const DashboardPage = () => {
 
       if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave && !isTaskActuallyCompleted(baseRunningTask)) {
         let liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, Date.now(), isClockedIn, effectiveOnBreak);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
         runningTask = {
           ...baseRunningTask,
           liveTaskSecs,
@@ -893,30 +887,24 @@ export const DashboardPage = () => {
         const isTargetTask = (t.assignedToId === empId || t.assignedTo === empKey || t.assignedToName?.toLowerCase() === empName?.toLowerCase() || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empId)));
         if (isTargetTask && t.timerRunning) {
           taskChanged = true;
-          let currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-            ? Number(t.accumulatedSeconds)
-            : (Number(t.timerSeconds) || 0);
-          if (t.startedAt) {
-            currentSecs += Math.max(0, Math.floor((Date.now() - Number(t.startedAt)) / 1000));
-          }
+          const pausedTask = syncTaskPauseState(t, { nowMs: Date.now(), todayStr });
           // Persist paused state to MongoDB Atlas
           workService.updateTask(t._id || t.id, {
             timerRunning: false,
             startedAt: null,
-            accumulatedSeconds: currentSecs,
-            timerSeconds: currentSecs,
+            accumulatedSeconds: pausedTask.accumulatedSeconds,
+            timerSeconds: pausedTask.timerSeconds,
+            todayWorkSeconds: pausedTask.todayWorkSeconds,
+            accumulatedTodaySeconds: pausedTask.accumulatedTodaySeconds,
+            dailySessions: pausedTask.dailySessions,
             sessionDate: todayStr,
-            hoursLogged: +(currentSecs / 3600).toFixed(2),
-            hoursLoggedText: formatSeconds(currentSecs)
+            hoursLogged: +(pausedTask.accumulatedSeconds / 3600).toFixed(2),
+            hoursLoggedText: formatSeconds(pausedTask.accumulatedSeconds)
           }).catch(err => console.warn('Sync force clock-out task pause to DB:', err));
 
           return {
             ...t,
-            timerRunning: false,
-            startedAt: null,
-            accumulatedSeconds: currentSecs,
-            timerSeconds: currentSecs,
-            liveDurationText: formatSeconds(currentSecs)
+            ...pausedTask
           };
         }
         return t;
@@ -928,9 +916,8 @@ export const DashboardPage = () => {
         if (rawActiveTimer) {
           try {
             const parsed = JSON.parse(rawActiveTimer);
-            parsed.timerRunning = false;
-            parsed.startedAt = null;
-            localStorage.setItem(`ems_active_task_timer_${empKey}`, JSON.stringify(parsed));
+            const pausedSnapshot = syncTaskPauseState(parsed, { nowMs: Date.now(), todayStr });
+            localStorage.setItem(`ems_active_task_timer_${empKey}`, JSON.stringify(pausedSnapshot));
           } catch { }
         }
       }
@@ -968,21 +955,11 @@ export const DashboardPage = () => {
           (empKey && (t.assignedToId === empKey || t.assignedTo === empKey || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empKey))) && t.timerRunning);
         if (isMatch) {
           matchedTaskId = t._id || t.id;
-          currentSecs = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-            ? Number(t.accumulatedSeconds)
-            : (Number(t.timerSeconds) || 0);
-          if (t.timerRunning && t.startedAt) {
-            const elapsed = Math.max(0, Math.floor((now - Number(t.startedAt)) / 1000));
-            currentSecs = currentSecs + elapsed;
-          }
+          const pausedTask = syncTaskPauseState(t, { nowMs: now, todayStr });
+          currentSecs = pausedTask.accumulatedSeconds;
           return {
             ...t,
-            timerRunning: false,
-            startedAt: null,
-            timerSeconds: currentSecs,
-            accumulatedSeconds: currentSecs,
-            sessionDate: todayStr,
-            liveDurationText: formatSeconds(currentSecs)
+            ...pausedTask
           };
         }
         return t;
@@ -995,25 +972,26 @@ export const DashboardPage = () => {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
-            const sSecs = (Number(parsed.accumulatedSeconds) || 0) + (parsed.startedAt ? Math.max(0, Math.floor((now - Number(parsed.startedAt)) / 1000)) : 0);
-            parsed.timerRunning = false;
-            parsed.startedAt = null;
-            parsed.accumulatedSeconds = sSecs;
-            localStorage.setItem(timerKey, JSON.stringify(parsed));
+            const pausedSnapshot = syncTaskPauseState(parsed, { nowMs: now, todayStr });
+            localStorage.setItem(timerKey, JSON.stringify(pausedSnapshot));
           } catch { }
         }
       }
 
       // Persist to MongoDB Atlas backend!
       if (matchedTaskId) {
+        const pausedMatch = updatedTasks.find(t => String(t._id || t.id) === String(matchedTaskId));
         await workService.updateTask(matchedTaskId, {
           timerRunning: false,
           startedAt: null,
-          accumulatedSeconds: currentSecs,
-          timerSeconds: currentSecs,
+          accumulatedSeconds: pausedMatch?.accumulatedSeconds ?? currentSecs,
+          timerSeconds: pausedMatch?.timerSeconds ?? currentSecs,
+          todayWorkSeconds: pausedMatch?.todayWorkSeconds ?? 0,
+          accumulatedTodaySeconds: pausedMatch?.accumulatedTodaySeconds ?? 0,
+          dailySessions: pausedMatch?.dailySessions ?? {},
           sessionDate: todayStr,
-          hoursLogged: +(currentSecs / 3600).toFixed(2),
-          hoursLoggedText: formatSeconds(currentSecs)
+          hoursLogged: +((pausedMatch?.accumulatedSeconds ?? currentSecs) / 3600).toFixed(2),
+          hoursLoggedText: formatSeconds(pausedMatch?.accumulatedSeconds ?? currentSecs)
         }).catch(err => console.warn('Sync admin pause to DB:', err));
       }
 

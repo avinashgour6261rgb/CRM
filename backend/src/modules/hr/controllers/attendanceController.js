@@ -990,7 +990,7 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     if (runningTask && runningTask.startedAt && isClockedIn && !isOnBreak) {
       const taskStart = Number(runningTask.startedAt);
       const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
-      const accum = Number(runningTask.accumulatedTodaySeconds ?? runningTask.accumulatedSeconds ?? 0);
+      const accum = Number(runningTask.accumulatedTodaySeconds ?? runningTask.todayWorkSeconds ?? 0);
       runningTask = {
         ...runningTask,
         accumulatedTodaySeconds: accum,
@@ -1042,7 +1042,7 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       if (taskMerged && taskMerged.startedAt && cVal.isClockedIn && !cVal.isOnBreak) {
         const taskStart = Number(taskMerged.startedAt);
         const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
-        const accum = Number(taskMerged.accumulatedTodaySeconds ?? taskMerged.accumulatedSeconds ?? 0);
+        const accum = Number(taskMerged.accumulatedTodaySeconds ?? taskMerged.todayWorkSeconds ?? 0);
         taskMerged = {
           ...taskMerged,
           accumulatedTodaySeconds: accum,

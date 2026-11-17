@@ -471,9 +471,6 @@ export const TeamOperationsPage = () => {
 
       if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave) {
         let liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, effectiveOnBreak);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
         runningTask = {
           ...baseRunningTask,
           liveTaskSecs,

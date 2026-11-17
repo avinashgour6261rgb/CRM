@@ -308,11 +308,41 @@ export const workService = {
                 const localHoursLogged = Number(local.hoursLogged) || 0;
                 const remoteHoursLogged = Number(rt.hoursLogged) || 0;
 
-                const isRemoteActive = Boolean(rt.timerRunning && rt.startedAt);
-                const localStartedRecently = Boolean(local.timerRunning && local.startedAt && (Date.now() - Number(local.startedAt) < 4000));
+                const localTodaySecs = Number(local.todayWorkSeconds) || Number(local.accumulatedTodaySeconds) || 0;
+                const remoteTodaySecs = Number(rt.todayWorkSeconds) || Number(rt.accumulatedTodaySeconds) || 0;
+                const effectiveTodaySecs = Math.max(localTodaySecs, remoteTodaySecs);
 
-                const effectiveRunning = isRemoteActive ? true : (localStartedRecently ? true : false);
-                const effectiveStartedAt = isRemoteActive ? rt.startedAt : (localStartedRecently ? local.startedAt : null);
+                const mergedSessions = {
+                  ...(rt.dailySessions && typeof rt.dailySessions === 'object' ? rt.dailySessions : {}),
+                  ...(local.dailySessions && typeof local.dailySessions === 'object' ? local.dailySessions : {})
+                };
+
+                let effectiveRunning = false;
+                let effectiveStartedAt = null;
+
+                if (local.timerRunning && local.startedAt) {
+                  // Local is actively running
+                  effectiveRunning = true;
+                  effectiveStartedAt = rt.timerRunning && rt.startedAt
+                    ? Math.max(Number(local.startedAt), Number(rt.startedAt))
+                    : Number(local.startedAt);
+                } else if (!local.timerRunning && rt.timerRunning) {
+                  // Local is paused! Check if local has equal/higher accumulated seconds
+                  const localMaxSecs = Math.max(localTimerSecs, localAccum);
+                  const remoteMaxSecs = Math.max(remoteTimerSecs, remoteAccum);
+                  if (localMaxSecs >= remoteMaxSecs) {
+                    // Local paused state is authoritative! Backend has not processed PUT yet
+                    effectiveRunning = false;
+                    effectiveStartedAt = null;
+                  } else {
+                    effectiveRunning = Boolean(rt.timerRunning && rt.startedAt);
+                    effectiveStartedAt = effectiveRunning ? Number(rt.startedAt) : null;
+                  }
+                } else {
+                  effectiveRunning = Boolean(rt.timerRunning && rt.startedAt);
+                  effectiveStartedAt = effectiveRunning ? Number(rt.startedAt) : null;
+                }
+
                 // Invariant: Task timer seconds and accumulated seconds can never run backwards!
                 const effectiveSecs = Math.max(localTimerSecs, remoteTimerSecs);
                 const effectiveAccum = Math.max(localAccum, remoteAccum);
@@ -325,6 +355,9 @@ export const workService = {
                   startedAt: effectiveStartedAt,
                   timerSeconds: effectiveSecs,
                   accumulatedSeconds: effectiveAccum,
+                  todayWorkSeconds: effectiveTodaySecs,
+                  accumulatedTodaySeconds: effectiveTodaySecs,
+                  dailySessions: mergedSessions,
                   hoursLogged: maxHours,
                   hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
                   sessionDate: rt.sessionDate || local.sessionDate,
@@ -364,13 +397,36 @@ export const workService = {
                 const isCurrentStub = String(t._id || '').startsWith('tsk_');
                 const base = (!isCurrentStub && isExistingStub) ? t : existing;
                 const other = (!isCurrentStub && isExistingStub) ? existing : t;
+
+                const chosenRunning = Boolean(
+                  (existing.timerRunning && existing.startedAt) || (t.timerRunning && t.startedAt)
+                );
+                const chosenStartedAt = chosenRunning
+                  ? Math.max(Number(existing.startedAt) || 0, Number(t.startedAt) || 0) || null
+                  : null;
+
+                const maxSecs = Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0);
+                const maxAccum = Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0);
+                const maxToday = Math.max(
+                  Number(existing.todayWorkSeconds) || 0,
+                  Number(t.todayWorkSeconds) || 0,
+                  Number(existing.accumulatedTodaySeconds) || 0,
+                  Number(t.accumulatedTodaySeconds) || 0
+                );
+
                 taskDedupeMap.set(cKey, {
                   ...other,
                   ...base,
-                  timerRunning: existing.timerRunning || t.timerRunning,
-                  startedAt: existing.timerRunning ? existing.startedAt : t.startedAt,
-                  timerSeconds: Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0),
-                  accumulatedSeconds: Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0)
+                  timerRunning: chosenRunning,
+                  startedAt: chosenStartedAt,
+                  timerSeconds: maxSecs,
+                  accumulatedSeconds: maxAccum,
+                  todayWorkSeconds: maxToday,
+                  accumulatedTodaySeconds: maxToday,
+                  dailySessions: {
+                    ...(other.dailySessions || {}),
+                    ...(base.dailySessions || {})
+                  }
                 });
               }
             });
