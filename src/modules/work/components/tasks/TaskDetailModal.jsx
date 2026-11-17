@@ -24,7 +24,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
-import { canDeleteTask } from '../../../../shared/utils/permissionUtils';
+import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
 
 export const TaskDetailModal = ({ task, onClose }) => {
   const {
@@ -48,6 +48,14 @@ export const TaskDetailModal = ({ task, onClose }) => {
   if (!task) return null;
 
   const userCanDelete = canDeleteTask(currentUser, task);
+  const userCanEdit = React.useMemo(() => {
+    if (!currentUser || !task) return false;
+    if (canEditAnyTask(currentUser)) return true;
+    const myId = String(currentUser._id || currentUser.id || '').toLowerCase();
+    const myCode = String(currentUser.employeeCode || '').toLowerCase();
+    const creatorIds = [task.assignedById, task.assignedByCode, task.createdById, task.createdBy].filter(Boolean).map(s => String(s).toLowerCase());
+    return creatorIds.includes(myId) || creatorIds.includes(myCode);
+  }, [currentUser, task]);
 
   const handleReassign = async (newEmpId) => {
     const newAssignee = employees.find(e => e._id === newEmpId);
@@ -292,12 +300,14 @@ export const TaskDetailModal = ({ task, onClose }) => {
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Assigned To</div>
-                <button
-                  onClick={() => setIsReassigning(!isReassigning)}
-                  className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
-                >
-                  {isReassigning ? 'Cancel' : 'Reassign ↻'}
-                </button>
+                {userCanEdit && (
+                  <button
+                    onClick={() => setIsReassigning(!isReassigning)}
+                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
+                  >
+                    {isReassigning ? 'Cancel' : 'Reassign ↻'}
+                  </button>
+                )}
               </div>
 
               {!isReassigning ? (
@@ -373,12 +383,14 @@ export const TaskDetailModal = ({ task, onClose }) => {
             <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[10px] border border-slate-200 dark:border-slate-800">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="text-[11.5px] text-slate-500 dark:text-slate-400 font-semibold">Timeline & Schedule</div>
-                <button
-                  onClick={() => setIsRescheduling(!isRescheduling)}
-                  className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
-                >
-                  {isRescheduling ? 'Cancel' : 'Reschedule for Future 📅'}
-                </button>
+                {userCanEdit && (
+                  <button
+                    onClick={() => setIsRescheduling(!isRescheduling)}
+                    className="bg-transparent border-0 text-blue-600 dark:text-blue-400 text-[11.5px] font-semibold cursor-pointer p-0 hover:underline"
+                  >
+                    {isRescheduling ? 'Cancel' : 'Reschedule for Future 📅'}
+                  </button>
+                )}
               </div>
 
               {!isRescheduling ? (

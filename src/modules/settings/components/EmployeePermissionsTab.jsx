@@ -344,18 +344,16 @@ export const EmployeePermissionsTab = () => {
       if (nextVal) {
         // ── 1. FORWARD CASCADE (Auto-Enable Parent Prerequisite) ──
         // If enabling a child capability, automatically enable its required prerequisite parent!
-        const dep = PERMISSION_DEPENDENCIES[key];
-        if (dep && !prev[dep.parentKey]) {
-          updated[dep.parentKey] = true;
-          // Recursively check if the parent also has a prerequisite
-          let currentParent = dep;
-          while (currentParent && PERMISSION_DEPENDENCIES[currentParent.parentKey]) {
-            const nextParent = PERMISSION_DEPENDENCIES[currentParent.parentKey];
-            updated[nextParent.parentKey] = true;
-            currentParent = nextParent;
+        let curr = key;
+        while (PERMISSION_DEPENDENCIES[curr]) {
+          const parentKey = PERMISSION_DEPENDENCIES[curr].parentKey;
+          if (!updated[parentKey]) {
+            updated[parentKey] = true;
+            const parentDep = PERMISSION_DEPENDENCIES[curr];
+            const itemObj = GRANULAR_PERMISSIONS_LIST.find(p => p.key === key) || SPREADSHEET_EXPORTS_LIST.find(p => p.key === key);
+            addToast(`✓ Auto-enabled "${parentDep.parentLabel}" (required for ${itemObj?.label || key})`, 'info');
           }
-          const itemObj = GRANULAR_PERMISSIONS_LIST.find(p => p.key === key) || SPREADSHEET_EXPORTS_LIST.find(p => p.key === key);
-          addToast(`✓ Auto-enabled "${dep.parentLabel}" (required for ${itemObj?.label || key})`, 'info');
+          curr = parentKey;
         }
 
         // Automatic elevation: if turning on a capability, ensure parent module view is enabled
@@ -364,7 +362,7 @@ export const EmployeePermissionsTab = () => {
           updated.payroll = true;
           updated.finance = true;
         }
-        if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads') {
+        if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads' || key === 'createChannels') {
           updated.accessCRM = true;
           updated.leads = true;
         }

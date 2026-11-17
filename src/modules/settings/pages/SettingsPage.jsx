@@ -294,8 +294,8 @@ export const SettingsPage = () => {
             </div>
           )}
 
-          {/* Section: Employee Permissions Management (Admin Only) */}
-          {activeSection === 'permissions' && isUserAdmin && (
+          {/* Section: Employee Permissions Management (Admin & Authorized Accessers) */}
+          {activeSection === 'permissions' && canManagePerms && (
             <div>
               <EmployeePermissionsTab />
             </div>

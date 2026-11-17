@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, CheckCircle2, XCircle, Briefcase, User, Calendar, ShieldCheck, AlertCircle } from 'lucide-react';
 import { hrService } from '../../services/hrService';
-import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canApproveOvertime } from '../../../../shared/utils/permissionUtils';
 
 export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
 
-  const isPrivileged = isHRorAdmin(currentUser);
+  const canApprove = canApproveOvertime(currentUser);
 
   const fetchOvertimeData = useCallback(async () => {
     try {
@@ -58,8 +58,8 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
   const filtered = requests.filter(r => {
     const s = r.overtimeStatus || r.status || 'pending';
     if (filterStatus !== 'all' && s !== filterStatus) return false;
-    // Non-privileged users only see their own requests
-    if (!isPrivileged) {
+    // Non-approvers only see their own requests
+    if (!canApprove) {
       const myId = String(currentUser?._id || currentUser?.id || '');
       const myCode = String(currentUser?.employeeCode || '');
       const empId = String(r.employeeId || r.employee || '');
@@ -183,7 +183,7 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
                 </div>
 
                 {/* Right Actions */}
-                {isPrivileged && isPending && (
+                {canApprove && isPending && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleDecision(item._id || item.id, 'approved')}

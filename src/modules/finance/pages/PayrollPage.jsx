@@ -36,9 +36,9 @@ export const PayrollPage = () => {
   const { addToast } = useToast();
 
   const effectiveUser = currentUser || authUser;
-  const isPrivileged = isAuthHRorAdmin || isHRorAdmin(effectiveUser) || effectiveUser?.isDelegatedAdmin || canAccessModule(effectiveUser, 'payroll') || canAccessModule(effectiveUser, 'finance');
+  const isPrivileged = canAccessModule(effectiveUser, 'payroll') || canAccessModule(effectiveUser, 'finance');
   const canManageSalaries = useMemo(() => canManagePayroll(effectiveUser), [effectiveUser]);
-  const canExport = useMemo(() => canExportData(effectiveUser, 'payroll') || isHRorAdmin(effectiveUser), [effectiveUser]);
+  const canExport = useMemo(() => canExportData(effectiveUser, 'payroll'), [effectiveUser]);
 
   const [selectedMonth, setSelectedMonth] = useState('October 2026');
   const [searchTerm, setSearchTerm] = useState('');

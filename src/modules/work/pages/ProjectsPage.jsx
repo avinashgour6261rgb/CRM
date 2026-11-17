@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isHRorAdmin, getUserModulePermissions, canManageProjects, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, getUserModulePermissions, canManageProjects, canViewAllProjects as checkCanViewAllProjects, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ProjectsTable } from '../components/projects/ProjectsTable';
 import { AddProjectModal } from '../components/projects/AddProjectModal';
@@ -28,10 +28,9 @@ export const ProjectsPage = () => {
   const { projects, projectFilter, setProjectFilter, loading, approveProjectCompletion, reopenProject, submitProjectForCompletion } = useWork();
   const { currentUser } = useAuth();
 
-  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canAddProject = React.useMemo(() => canManageProjects(currentUser), [currentUser]);
-  const canViewAllProjects = isPrivileged || perms?.viewAllProjects;
+  const canViewAllProjects = React.useMemo(() => checkCanViewAllProjects(currentUser), [currentUser]);
 
   const canManageApprovals = React.useMemo(() => {
     if (!currentUser) return false;

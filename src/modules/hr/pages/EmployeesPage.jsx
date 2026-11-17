@@ -106,9 +106,7 @@ export const EmployeesPage = () => {
       (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
   };
 
-  const isActorAdmin = isAdmin(currentUser);
-  const isActorHR = isHRorAdmin(currentUser);
-  const canAccessEmployees = isActorHR || isActorAdmin || canAccessModule(currentUser, 'employees') || currentUser?.isDelegatedAdmin;
+  const canAccessEmployees = canAccessModule(currentUser, 'employees');
 
   const canManage = canManageEmployees(currentUser);
   const canViewSensitive = canViewEmployeeDetails(currentUser);

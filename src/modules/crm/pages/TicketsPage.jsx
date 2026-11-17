@@ -25,7 +25,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canDeleteTicket as checkCanDeleteTicket, canExportData } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canViewAllTickets as checkCanViewAllTickets, canDeleteTicket as checkCanDeleteTicket, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
@@ -38,10 +38,9 @@ export const TicketsPage = () => {
   const { addToast } = useToast();
   const { confirm } = useConfirm();
 
-  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canViewAllTickets = isPrivileged || perms?.viewAllTickets;
-  const canExport = useMemo(() => canExportData(currentUser, 'tickets') || isHRorAdmin(currentUser), [currentUser]);
+  const canViewAllTickets = useMemo(() => checkCanViewAllTickets(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'tickets'), [currentUser]);
 
   const [isRaiseModalOpen, setIsRaiseModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);

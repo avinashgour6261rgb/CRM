@@ -33,7 +33,7 @@ export const NoticeBoardPage = () => {
   const { addToast } = useToast();
   const { confirm, alert } = useConfirm();
   const { currentUser } = useAuth();
-  const canExport = useMemo(() => canExportData(currentUser, 'notices') || isHRorAdmin(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'notices'), [currentUser]);
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);

@@ -26,7 +26,7 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
-import { isHRorAdmin, getUserModulePermissions, canApproveExpenses, canExportData } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canApproveExpenses, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ExpenseKPIOverview } from '../components/ExpenseKPIOverview';
 import { AddExpenseModal } from '../components/AddExpenseModal';
@@ -39,11 +39,14 @@ export const ExpensesPage = () => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canViewAllExpenses = isPrivileged || perms?.accessFinance || perms?.viewAllExpenses;
-  const canApprove = useMemo(() => canApproveExpenses(currentUser) || isPrivileged, [currentUser, isPrivileged]);
-  const canExport = useMemo(() => canExportData(currentUser, 'expenses') || isPrivileged, [currentUser, isPrivileged]);
+  const canApprove = useMemo(() => canApproveExpenses(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'expenses'), [currentUser]);
+  const canViewAllExpenses = useMemo(() => {
+    if (isAdmin(currentUser)) return true;
+    if (perms?.accessFinance === false || perms?.finance === false) return false;
+    return Boolean(perms?.accessFinance || perms?.viewAllExpenses || isHR(currentUser));
+  }, [currentUser, perms]);
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);

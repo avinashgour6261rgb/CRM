@@ -216,38 +216,56 @@ export const isLeaderOrAbove = (user) => {
 // ── Feature-Specific Permission Gates ──
 export const canViewAllAttendance = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess === true || perms?.viewAllAttendance === true);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllAttendance === false) return false;
+  return Boolean(perms?.viewAllAttendance === true);
 };
 
 export const canEditAttendance = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess === true || perms?.editAttendance === true);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllAttendance === false || perms?.editAttendance === false) return false;
+  return Boolean(perms?.editAttendance === true);
 };
 
 export const canForceClockOut = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess === true || perms?.forceClockOut === true);
+  if (perms?.allAccess === true) return true;
+  if (perms?.liveOperations === false || perms?.teamoperations === false || perms?.forceClockOut === false) return false;
+  return Boolean(perms?.forceClockOut === true);
 };
 
 export const canManageEmployees = (user) => {
   if (!user) return false;
-  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.manageEmployees || perms?.employees);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageEmployees === false || perms?.employees === false) return false;
+  return Boolean(perms?.manageEmployees === true || perms?.employees === true);
 };
+
 export const canApproveLeaves = (user) => {
   if (!user) return false;
-  if (isAdmin(user)) return true;
-  const r = getUserRole(user);
-  if (r === ROLES.ADMIN || r === ROLES.HR || r === ROLES.TEAM_LEADER) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.approveLeaves || perms?.viewAllLeaves || perms?.allLeaves);
+  if (perms?.allAccess === true) return true;
+  if (perms?.approveLeaves === false) return false;
+  return Boolean(perms?.approveLeaves === true || perms?.viewAllLeaves === true);
+};
+
+export const canViewAllLeaves = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllLeaves === false) return false;
+  return Boolean(perms?.viewAllLeaves === true || perms?.approveLeaves === true);
 };
 
 /**
@@ -308,15 +326,18 @@ export const isLeaveDesignatedApprover = (leave, user) => {
  * Strictly:
  * 1. The employee who requested the leave (Applicant)
  * 2. The designated approver to whom the request was sent
- * 3. HR or Admin (System Authority)
+ * 3. HR or Admin (System Authority) unless explicitly revoked
  * NO ONE ELSE!
  */
 export const canCancelLeave = (leave, user) => {
   if (!leave || !user) return false;
-  if (isHRorAdmin(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   if (isLeaveApplicant(leave, user)) return true;
   if (isLeaveDesignatedApprover(leave, user)) return true;
-  return false;
+  const perms = getUserModulePermissions(user);
+  if (perms?.allAccess === true) return true;
+  if (perms?.approveLeaves === false || perms?.cancelLeaves === false) return false;
+  return Boolean(perms?.cancelLeaves === true);
 };
 
 /**
@@ -329,134 +350,167 @@ export const canCancelLeave = (leave, user) => {
 export const canReviewLeave = (leave, user) => {
   if (!leave || !user) return false;
   if (isLeaveApplicant(leave, user)) return false;
-  if (isHRorAdmin(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   if (isLeaveDesignatedApprover(leave, user)) return true;
   const perms = getUserModulePermissions(user);
-  if (perms?.approveLeaves) return true;
-  return false;
+  if (perms?.allAccess === true) return true;
+  if (perms?.approveLeaves === false) return false;
+  return Boolean(perms?.approveLeaves === true);
 };
+
 export const canManageCompanyHolidays = (user) => {
   if (!user) return false;
-  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.events || perms?.holidays);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageCompanyHolidays === false) return false;
+  return Boolean(perms?.manageCompanyHolidays === true || perms?.events === true || perms?.holidays === true);
 };
+
 export const canManagePayroll = (user) => {
   if (!user) return false;
-  if (isHRorAdmin(user) || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageSalaries && !perms?.payroll && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.manageSalaries || perms?.payroll);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageSalaries === false || perms?.payroll === false) return false;
+  return Boolean(perms?.manageSalaries === true || perms?.payroll === true);
 };
+
 export const canManageProjects = (user) => {
   if (!user) return false;
-  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.manageProjects || perms?.createProjects);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageProjects === false || perms?.projects === false) return false;
+  return Boolean(perms?.manageProjects === true || perms?.createProjects === true || perms?.projects === true);
 };
+
 export const canAssignRoles = (user) => isAdmin(user) || user?.isDelegatedAdmin;
 
 export const canCreateTasks = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isTeamLeader(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.createTasks || perms?.manageProjects);
+  if (perms?.allAccess === true) return true;
+  if (perms?.createTasks === false) return false;
+  return Boolean(perms?.createTasks === true);
 };
 
 export const canViewAllTasks = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.viewAllTasks);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllTasks === false) return false;
+  return Boolean(perms?.viewAllTasks === true);
 };
 
 export const canManageTickets = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.manageTickets);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageTickets === false || perms?.tickets === false) return false;
+  return Boolean(perms?.manageTickets === true || perms?.tickets === true);
+};
+
+export const canViewAllTickets = (user) => {
+  if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllTickets === false) return false;
+  return Boolean(perms?.viewAllTickets === true || perms?.manageTickets === true);
 };
 
 export const canAccessCRM = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.accessCRM || perms?.leads || perms?.viewAllLeads);
+  if (perms?.allAccess === true) return true;
+  if (perms?.accessCRM === false || perms?.leads === false) return false;
+  return Boolean(perms?.accessCRM === true || perms?.leads === true || perms?.viewAllLeads === true);
 };
 
 export const canManageDocumentation = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.documentation || perms?.documents);
+  if (perms?.allAccess === true) return true;
+  if (perms?.documentation === false || perms?.documents === false) return false;
+  return Boolean(perms?.documentation === true || perms?.documents === true);
 };
 
 export const canViewReports = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.reports || perms?.viewReports);
+  if (perms?.allAccess === true) return true;
+  if (perms?.reports === false || perms?.viewReports === false) return false;
+  return Boolean(perms?.reports === true || perms?.viewReports === true);
 };
 
 export const canPostNotices = (user) => {
   if (!user) return false;
-  if (isLeaderOrAbove(user) || user.isDelegatedAdmin) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.notices || perms?.postNotices || perms?.allAccess);
+  if (perms?.allAccess === true) return true;
+  if (perms?.postNotices === false || perms?.notices === false) return false;
+  return Boolean(perms?.postNotices === true || perms?.notices === true);
 };
+
 export const canGiveAppreciation = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || isHR(user)) return true;
-  if (isLeaderOrAbove(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.allAccess || perms?.giveAppreciation || perms?.manageAppreciations);
+  if (perms?.allAccess === true) return true;
+  if (perms?.giveAppreciation === false || perms?.appreciation === false) return false;
+  return Boolean(perms?.giveAppreciation === true || perms?.appreciation === true);
 };
 
 export const canDeleteAppreciation = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return !!(perms?.allAccess || perms?.deleteAppreciations);
+  if (perms?.allAccess === true) return true;
+  if (perms?.giveAppreciation === false || perms?.deleteAppreciations === false) return false;
+  return Boolean(perms?.deleteAppreciations === true);
 };
 
 export const canDeleteTask = (user, task = null) => {
   if (!user) return false;
-  // 1. Administrators have full delete authority
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || user.role === 'Administrator' || user.systemRole === 'admin') {
-    return true;
-  }
-  // 2. Strict permission check: user must explicitly have deleteTasks or allAccess granted
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.createTasks && !perms?.tasks && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess === true || perms?.deleteTasks === true || perms?.canDeleteTasks === true);
+  if (perms?.allAccess === true) return true;
+  if (perms?.createTasks === false || perms?.deleteTasks === false) return false;
+  return Boolean(perms?.deleteTasks === true || perms?.canDeleteTasks === true);
 };
 
 export const canDeleteProject = (user, project = null) => {
   if (!user) return false;
-  // 1. Administrators have full delete authority
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || user.role === 'Administrator' || user.systemRole === 'admin') {
-    return true;
-  }
-  // 2. Strict permission check: user must explicitly have deleteProjects or allAccess granted
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageProjects && !perms?.projects && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess === true || perms?.deleteProjects === true || perms?.canDeleteProjects === true);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageProjects === false || perms?.deleteProjects === false) return false;
+  return Boolean(perms?.deleteProjects === true || perms?.canDeleteProjects === true);
 };
 
 export const canDeleteEmployee = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
-  return !!(perms?.allAccess || perms?.deleteEmployees);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageEmployees === false || perms?.employees === false || perms?.deleteEmployees === false) return false;
+  return Boolean(perms?.deleteEmployees === true);
 };
 
 export const canDeleteLead = (user, lead = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
-  if (perms?.allAccess || perms?.deleteLeads || perms?.manageLeads) return true;
+  if (perms?.allAccess === true) return true;
+  if (perms?.accessCRM === false || perms?.leads === false || perms?.deleteLeads === false) return false;
+  if (perms?.deleteLeads === true) return true;
   if (lead) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -470,10 +524,11 @@ export const canDeleteLead = (user, lead = null) => {
 
 export const canDeleteNotice = (user, notice = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user) || isHR(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.postNotices && !perms?.notices && !perms?.allAccess) return false;
-  if (perms?.allAccess || perms?.deleteNotices) return true;
+  if (perms?.allAccess === true) return true;
+  if (perms?.postNotices === false || perms?.deleteNotices === false) return false;
+  if (perms?.deleteNotices === true) return true;
   if (notice) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -489,61 +544,71 @@ export const canEditAnyTask = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.viewAllTasks && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.editAnyTask);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllTasks === false || perms?.editAnyTask === false) return false;
+  return Boolean(perms?.editAnyTask === true);
 };
 
 export const canViewAllProjects = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.viewAllProjects);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllProjects === false) return false;
+  return Boolean(perms?.viewAllProjects === true || perms?.manageProjects === true);
 };
 
 export const canViewEmployeeDetails = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.viewEmployeeDetails || perms?.manageEmployees);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageEmployees === false || perms?.employees === false || perms?.viewEmployeeDetails === false) return false;
+  return Boolean(perms?.viewEmployeeDetails === true || perms?.manageEmployees === true);
 };
 
 export const canApproveOvertime = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.viewAllAttendance && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.approveOvertime || perms?.editAttendance);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllAttendance === false || perms?.approveOvertime === false) return false;
+  return Boolean(perms?.approveOvertime === true);
 };
 
 export const canRequestOvertime = (user) => {
   if (!user) return false;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.requestOvertime !== false);
+  if (perms?.requestOvertime === false) return false;
+  return true;
 };
 
 export const canReviewResignations = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageEmployees && !perms?.employees && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.reviewResignations || perms?.manageEmployees);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageEmployees === false || perms?.employees === false || perms?.reviewResignations === false) return false;
+  return Boolean(perms?.reviewResignations === true || perms?.manageEmployees === true);
 };
 
 export const canCreateLeads = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.createLeads);
+  if (perms?.allAccess === true) return true;
+  if (perms?.accessCRM === false || perms?.leads === false || perms?.createLeads === false) return false;
+  return Boolean(perms?.createLeads === true);
 };
 
 export const canEditLeads = (user, lead = null) => {
   if (!user) return false;
-  if (isAdmin(user) || isDelegationActive(user) || isTeamLeader(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
-  if (perms?.allAccess || perms?.editLeads) return true;
+  if (perms?.allAccess === true) return true;
+  if (perms?.accessCRM === false || perms?.leads === false || perms?.editLeads === false) return false;
+  if (perms?.editLeads === true) return true;
   if (lead) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -557,32 +622,38 @@ export const canEditLeads = (user, lead = null) => {
 
 export const canManageEvents = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.manageEvents || perms?.events);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageEvents === false || perms?.events === false) return false;
+  return Boolean(perms?.manageEvents === true || perms?.events === true);
 };
 
 export const canApproveExpenses = (user) => {
   if (!user) return false;
-  if (isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.accessFinance && !perms?.finance && !perms?.allAccess) return false;
-  return Boolean(perms?.allAccess || perms?.approveExpenses || perms?.accessFinance);
+  if (perms?.allAccess === true) return true;
+  if (perms?.accessFinance === false || perms?.finance === false || perms?.approveExpenses === false) return false;
+  return Boolean(perms?.approveExpenses === true);
 };
 
 export const canManageSettings = (user) => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  return Boolean(perms?.allAccess || perms?.manageSettings || perms?.settings);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageSettings === false || perms?.settings === false) return false;
+  return Boolean(perms?.manageSettings === true || perms?.settings === true);
 };
 
 export const canDeleteTicket = (user, ticket = null) => {
   if (!user) return false;
-  if (isAdmin(user) || user.isSuperAdmin || isDelegationActive(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (!perms?.manageTickets && !perms?.tickets && !perms?.allAccess) return false;
-  if (perms?.allAccess || perms?.deleteTickets || perms?.manageTickets) return true;
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageTickets === false || perms?.tickets === false || perms?.deleteTickets === false) return false;
+  if (perms?.deleteTickets === true) return true;
   if (ticket) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -610,9 +681,14 @@ export const isProjectVisibleToUser = (project, user) => {
   if (!user) return false;
 
   // 1. High Authority access
-  if (isHRorAdmin(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (perms?.viewAllProjects) return true;
+  if (perms?.allAccess === true || perms?.viewAllProjects === true) return true;
+  if (perms?.viewAllProjects === false) {
+    // Falls through to creator / lead / team member match below
+  } else if (isHR(user)) {
+    return true;
+  }
 
   const uId = String(user._id || user.id || '').toLowerCase().trim();
   const uCode = String(user.employeeCode || '').toLowerCase().trim();
@@ -756,9 +832,14 @@ export const isTaskVisibleToUser = (task, user) => {
   }
 
   // 2. High Authority access
-  if (isHRorAdmin(user)) return true;
+  if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (perms?.viewAllTasks) return true;
+  if (perms?.allAccess === true || perms?.viewAllTasks === true) return true;
+  if (perms?.viewAllTasks === false) {
+    // Falls through to assigned / creator match below
+  } else if (isHR(user)) {
+    return true;
+  }
 
   // 3. Regular User: strictly assigned or created by them
   return isAssigned || isCreatorOrAssigner;
@@ -1472,31 +1553,59 @@ export const canDeleteRecord = (user, module = 'tasks') => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
+  if (perms?.allAccess) return true;
   const modKey = String(module).toLowerCase();
   
-  if (modKey === 'tasks' || modKey === 'task') return !!(perms.deleteTasks || perms.canDeleteTasks || perms.allAccess);
-  if (modKey === 'projects' || modKey === 'project') return !!(perms.deleteProjects || perms.canDeleteProjects || perms.allAccess);
-  if (modKey === 'leads' || modKey === 'lead') return !!(perms.deleteLeads || perms.canDeleteLeads || perms.allAccess);
-  if (modKey === 'tickets' || modKey === 'ticket') return !!(perms.deleteTickets || perms.canDeleteTickets || perms.allAccess);
-  if (modKey === 'employees' || modKey === 'employee') return !!(perms.deleteEmployees || perms.canDeleteEmployees || perms.allAccess);
-  if (modKey === 'notices' || modKey === 'notice') return !!(perms.deleteNotices || perms.postNotices || perms.allAccess);
-  return !!perms.allAccess;
+  if (modKey === 'tasks' || modKey === 'task') {
+    if (perms?.createTasks === false || perms?.deleteTasks === false) return false;
+    return !!(perms.deleteTasks || perms.canDeleteTasks);
+  }
+  if (modKey === 'projects' || modKey === 'project') {
+    if (perms?.manageProjects === false || perms?.deleteProjects === false) return false;
+    return !!(perms.deleteProjects || perms.canDeleteProjects);
+  }
+  if (modKey === 'leads' || modKey === 'lead') {
+    if (perms?.accessCRM === false || perms?.deleteLeads === false) return false;
+    return !!(perms.deleteLeads || perms.canDeleteLeads);
+  }
+  if (modKey === 'tickets' || modKey === 'ticket') {
+    if (perms?.manageTickets === false || perms?.deleteTickets === false) return false;
+    return !!(perms.deleteTickets || perms.canDeleteTickets);
+  }
+  if (modKey === 'employees' || modKey === 'employee') {
+    if (perms?.manageEmployees === false || perms?.deleteEmployees === false) return false;
+    return !!(perms.deleteEmployees || perms.canDeleteEmployees);
+  }
+  if (modKey === 'notices' || modKey === 'notice') {
+    if (perms?.postNotices === false || perms?.deleteNotices === false) return false;
+    return !!(perms.deleteNotices);
+  }
+  if (modKey === 'appreciations' || modKey === 'appreciation') {
+    if (perms?.giveAppreciation === false || perms?.deleteAppreciations === false) return false;
+    return !!(perms.deleteAppreciations);
+  }
+  return false;
 };
 
 export const canExportData = (user, module = 'general') => {
   if (!user) return false;
   if (isAdmin(user) || isDelegationActive(user)) return true;
-  const r = getUserRole(user);
-  if (r === ROLES.HR) return true;
   const perms = getUserModulePermissions(user);
+  if (perms?.allAccess) return true;
   const modKey = String(module).toLowerCase();
 
   // Enforce parent prerequisite gates for export
-  if ((modKey === 'leads' || modKey === 'lead') && !perms?.accessCRM && !perms?.leads && !perms?.allAccess) return false;
-  if ((modKey === 'payroll' || modKey === 'salary') && !perms?.manageSalaries && !perms?.payroll && !perms?.allAccess) return false;
-  if ((modKey === 'attendance' || modKey === 'punch') && !perms?.viewAllAttendance && !perms?.allAccess) return false;
+  if ((modKey === 'leads' || modKey === 'lead') && (!perms?.accessCRM || perms?.accessCRM === false)) return false;
+  if ((modKey === 'payroll' || modKey === 'salary') && (!perms?.manageSalaries || perms?.manageSalaries === false)) return false;
+  if ((modKey === 'attendance' || modKey === 'punch') && (!perms?.viewAllAttendance || perms?.viewAllAttendance === false)) return false;
 
-  return !!(perms[`export_${modKey}`] || perms.exportData || perms.canExport || perms.allAccess);
+  if (perms?.[`export_${modKey}`] === false) return false;
+  if (perms?.[`export_${modKey}`] === true) return true;
+
+  const r = getUserRole(user);
+  if (r === ROLES.HR && perms?.[`export_${modKey}`] !== false) return true;
+
+  return !!(perms.exportData || perms.canExport);
 };
 
 export const getDataScope = (user, module = 'tasks') => {

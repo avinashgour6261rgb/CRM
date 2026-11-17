@@ -28,7 +28,7 @@ import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
 import { RejectLeaveModal } from '../../../shared/components/modals/RejectLeaveModal';
 import { CancelLeaveModal } from '../../../shared/components/modals/CancelLeaveModal';
 import { ResignationsListPanel } from '../components/resignations/ResignationsListPanel';
-import { canApproveLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
+import { canApproveLeaves, canViewAllLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 
@@ -86,7 +86,7 @@ export const LeavesPage = () => {
   }, []);
 
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const isPrivileged = isHRorAdmin(currentUser) || canApproveLeaves(currentUser) || perms?.viewAllLeaves;
+  const isPrivileged = canViewAllLeaves(currentUser) || canApproveLeaves(currentUser);
 
   // Scoped leaves strictly based on user role (Tenant isolation)
   const scopedLeaves = useMemo(() => {

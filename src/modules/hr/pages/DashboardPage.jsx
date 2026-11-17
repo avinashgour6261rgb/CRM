@@ -64,7 +64,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask, canViewAllTasks, canViewAllTickets, canPostNotices } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
@@ -1478,7 +1478,7 @@ export const DashboardPage = () => {
       if (taskScopeFilter === 'delegated') {
         return (t.assignedBy === currentUser?.name || t.assignedById === currentUser?._id) && !t.isPersonal;
       }
-      if (isUserAdminOrHR || perms.viewAllTasks) return true;
+      if (canViewAllTasks(currentUser)) return true;
       return isTaskAssignedToUser(t, currentUser);
     });
   }, [tasks, taskCategoryFilter, taskMemberFilter, taskScopeFilter, currentUser, isUserAdminOrHR, perms.viewAllTasks, isViewingOtherEmployee, activeViewUser]);
@@ -1551,7 +1551,7 @@ export const DashboardPage = () => {
   const scopedTickets = React.useMemo(() => {
     return (tickets || []).filter(t => {
       if (!t) return false;
-      if (isUserAdminOrHR || perms.viewAllTickets) return true;
+      if (canViewAllTickets(currentUser)) return true;
       return (
         (t.requestedById && String(t.requestedById) === String(currentUser?._id)) ||
         (t.requestedByName && t.requestedByName.toLowerCase() === currentUser?.name?.toLowerCase()) ||
@@ -1641,7 +1641,7 @@ export const DashboardPage = () => {
   const currentScopePool = React.useMemo(() => {
     if (dashboardTaskScope === 'delegated') return delegatedByMeTasks;
     if (dashboardTaskScope === 'all') {
-      if (isUserAdminOrHR || perms?.viewAllTasks) return allTeamTasks;
+      if (canViewAllTasks(currentUser)) return allTeamTasks;
       return myTasks;
     }
     return myTasks;
@@ -3665,7 +3665,7 @@ export const DashboardPage = () => {
               </p>
             </div>
             <div className="flex items-center gap-1.5">
-              {isUserAdminOrHR && (
+              {canPostNotices(currentUser) && (
                 <button
                   onClick={() => setIsAddNoticeOpen(true)}
                   className="flex items-center gap-1 bg-blue-600 text-white border-none py-1 px-2.5 rounded text-[11.5px] font-semibold cursor-pointer hover:bg-blue-700 transition-colors"

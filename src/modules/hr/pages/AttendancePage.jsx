@@ -26,7 +26,16 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { getUserModulePermissions, isHRorAdmin, getUserRole, ROLES, canExportData } from '../../../shared/utils/permissionUtils';
+import {
+  getUserModulePermissions,
+  isHRorAdmin,
+  getUserRole,
+  ROLES,
+  canExportData,
+  canViewAllAttendance as checkCanViewAllAttendance,
+  canEditAttendance as checkCanEditAttendance,
+  canForceClockOut as checkCanForceClockOut
+} from '../../../shared/utils/permissionUtils';
 import { matchesFilter } from '../../../shared/utils/filterUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
@@ -58,15 +67,13 @@ export const AttendancePage = () => {
   } = useHR();
 
   const currentUser = authUser || hrUser;
-  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const userRole = React.useMemo(() => getUserRole(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  // Can view team attendance if privileged, or explicitly granted viewAllAttendance / allAccess
-  const canViewAllAttendance = isPrivileged || perms?.viewAllAttendance === true || perms?.allAccess === true;
+  const canViewAllAttendance = React.useMemo(() => checkCanViewAllAttendance(currentUser), [currentUser]);
   const canExport = React.useMemo(() => canExportData(currentUser, 'attendance'), [currentUser]);
-  const hasForceClockOut = isPrivileged || perms?.forceClockOut === true || perms?.allAccess === true;
-  const hasEditAttendance = isPrivileged || perms?.editAttendance === true || perms?.allAccess === true;
-  const hasViewAuditTrail = isPrivileged || perms?.viewAuditTrail === true || perms?.allAccess === true;
+  const hasForceClockOut = React.useMemo(() => checkCanForceClockOut(currentUser), [currentUser]);
+  const hasEditAttendance = React.useMemo(() => checkCanEditAttendance(currentUser), [currentUser]);
+  const hasViewAuditTrail = canViewAllAttendance;
 
   const isEmployeeSelf = React.useCallback((emp) => {
     if (!currentUser || !emp) return false;

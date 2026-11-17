@@ -37,7 +37,7 @@ export const AppreciationPage = () => {
 
   const canGive = useMemo(() => canGiveAppreciation(currentUser), [currentUser]);
   const canDelete = useMemo(() => canDeleteAppreciation(currentUser), [currentUser]);
-  const canExport = useMemo(() => canExportData(currentUser, 'general') || isHRorAdmin(currentUser), [currentUser]);
+  const canExport = useMemo(() => canExportData(currentUser, 'general'), [currentUser]);
   const canAccess = useMemo(() => canAccessModule(currentUser, 'appreciation'), [currentUser]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

@@ -16,7 +16,7 @@ import {
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
-import { isHRorAdmin, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
+import { canAccessModule, canManageDocumentation } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { UploadDocumentModal } from '../components/documents/UploadDocumentModal';
 
@@ -25,9 +25,8 @@ export const DocumentationPage = () => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  const isPrivileged = isHRorAdmin(currentUser) || currentUser?.isDelegatedAdmin;
-  const perms = getUserModulePermissions(currentUser);
-  const canAccessDocs = isPrivileged || perms?.documentation || currentUser?.permissions?.documentation;
+  const canManage = canManageDocumentation(currentUser);
+  const canAccessDocs = canAccessModule(currentUser, 'documentation');
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,8 +92,8 @@ export const DocumentationPage = () => {
   }
 
   const filteredDocs = (documents || []).filter(doc => {
-    // Regular employees with access only see company policies or documents assigned to them
-    if (!isPrivileged) {
+    // Regular employees without management access only see company policies or documents assigned to them
+    if (!canManage) {
       const isPublicPolicy = doc.docType === 'Company Policy' || doc.docType === 'Handbook';
       const isMyDoc = doc.employeeCode === currentUser?.employeeCode || doc.employeeName?.toLowerCase() === currentUser?.name?.toLowerCase();
       if (!isPublicPolicy && !isMyDoc) return false;

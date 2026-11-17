@@ -49,7 +49,7 @@ export const CalendarPage = () => {
   const { tasks, projects } = useWork();
 
   const isPrivileged = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
-  const canAddPublicEvent = useMemo(() => canManageEvents(currentUser) || isHRorAdmin(currentUser), [currentUser]);
+  const canAddPublicEvent = useMemo(() => canManageEvents(currentUser), [currentUser]);
 
   const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic live current date
   const [currentView, setCurrentView] = useState('month'); // 'month' | 'week' | 'day' | 'list'

@@ -23,7 +23,7 @@ import {
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canCreateTasks, canExportData } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin, canCreateTasks, canViewAllTasks as checkCanViewAllTasks, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesAssignee, matchesProject, matchesSearch } from '../../../shared/utils/filterUtils';
 import { TasksTable } from '../components/tasks/TasksTable';
 import { TasksKanban } from '../components/tasks/TasksKanban';
@@ -45,9 +45,8 @@ export const TasksPage = () => {
   const { confirm } = useConfirm();
   const currentUser = authUser || workUser;
 
-  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canViewAllTasks = isPrivileged || perms?.viewAllTasks;
+  const canViewAllTasks = React.useMemo(() => checkCanViewAllTasks(currentUser), [currentUser]);
   const canCreate = React.useMemo(() => canCreateTasks(currentUser), [currentUser]);
   const canExport = React.useMemo(() => canExportData(currentUser, 'tasks'), [currentUser]);
 

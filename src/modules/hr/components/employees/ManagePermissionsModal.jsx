@@ -5,6 +5,8 @@ import { useToast } from '../../../../shared/context/ToastContext';
 import {
   GRANULAR_PERMISSIONS_LIST,
   PERMISSION_CATEGORIES,
+  PERMISSION_DEPENDENCIES,
+  getDependentChildPermissions,
   getUserModulePermissions,
   setUserPermissions,
   canUserGrantPermissions
@@ -54,68 +56,68 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       const nextVal = !prev[key];
       const updated = { ...prev, [key]: nextVal };
 
-      // Parent-to-child and child-to-parent synchronization
-      if (!nextVal) {
+      if (nextVal) {
+        // ── 1. FORWARD CASCADE: Automatically enable parent prerequisites ──
+        let curr = key;
+        while (PERMISSION_DEPENDENCIES[curr]) {
+          const parentKey = PERMISSION_DEPENDENCIES[curr].parentKey;
+          updated[parentKey] = true;
+          curr = parentKey;
+        }
+
+        // Automatic elevation: enable corresponding parent module views
+        if (key === 'manageEmployees' || key === 'deleteEmployees' || key === 'viewEmployeeDetails' || key === 'reviewResignations') updated.employees = true;
+        if (key === 'manageSalaries' || key === 'export_payroll' || key === 'accessFinance' || key === 'approveExpenses') {
+          updated.payroll = true;
+          updated.finance = true;
+        }
+        if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads' || key === 'createChannels') {
+          updated.accessCRM = true;
+          updated.leads = true;
+        }
+        if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut' || key === 'approveOvertime' || key === 'export_attendance') {
+          updated.attendance = true;
+        }
+        if (key === 'liveOperations' || key === 'forceClockOut') updated.teamoperations = true;
+        if (key === 'approveLeaves' || key === 'viewAllLeaves' || key === 'cancelLeaves') updated.leaves = true;
+        if (key === 'manageProjects' || key === 'createProjects' || key === 'deleteProjects' || key === 'viewAllProjects') updated.projects = true;
+        if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks' || key === 'editAnyTask') updated.tasks = true;
+        if (key === 'manageTickets' || key === 'deleteTickets') updated.tickets = true;
+        if (key === 'postNotices' || key === 'deleteNotices') updated.notices = true;
+        if (key === 'giveAppreciation' || key === 'deleteAppreciations') updated.appreciation = true;
+        if (key === 'documentation') updated.documents = true;
+        if (key === 'reports') updated.viewReports = true;
+      } else {
+        // ── 2. REVERSE CASCADE: Automatically disable all dependent children ──
+        const dependentChildren = getDependentChildPermissions(key);
+        dependentChildren.forEach(childKey => {
+          updated[childKey] = false;
+        });
+
+        // Synchronize parent module mirrors when parent is disabled
         if (key === 'accessCRM' || key === 'leads') {
           updated.accessCRM = false;
           updated.leads = false;
-          updated.createLeads = false;
-          updated.editLeads = false;
-          updated.deleteLeads = false;
-          updated.export_leads = false;
-        } else if (key === 'manageEmployees' || key === 'employees') {
+        }
+        if (key === 'manageEmployees' || key === 'employees') {
           updated.manageEmployees = false;
           updated.employees = false;
-          updated.viewEmployeeDetails = false;
-          updated.deleteEmployees = false;
-          updated.reviewResignations = false;
-        } else if (key === 'manageSalaries' || key === 'payroll') {
+        }
+        if (key === 'manageSalaries' || key === 'payroll') {
           updated.manageSalaries = false;
           updated.payroll = false;
-          updated.export_payroll = false;
-        } else if (key === 'accessFinance' || key === 'finance') {
+        }
+        if (key === 'accessFinance' || key === 'finance') {
           updated.accessFinance = false;
           updated.finance = false;
-          updated.approveExpenses = false;
-        } else if (key === 'liveOperations' || key === 'teamoperations') {
+        }
+        if (key === 'liveOperations' || key === 'teamoperations') {
           updated.liveOperations = false;
           updated.teamoperations = false;
-          updated.forceClockOut = false;
-        } else if (key === 'viewAllAttendance') {
-          updated.viewAllAttendance = false;
-          updated.editAttendance = false;
-          updated.approveOvertime = false;
-          updated.export_attendance = false;
-        } else if (key === 'manageProjects') {
-          updated.manageProjects = false;
-          updated.deleteProjects = false;
         }
-      } else {
-        if (key === 'createLeads' || key === 'editLeads' || key === 'deleteLeads' || key === 'export_leads') {
-          updated.accessCRM = true;
-          updated.leads = true;
-        } else if (key === 'accessCRM') {
-          updated.leads = true;
-        } else if (key === 'viewEmployeeDetails' || key === 'deleteEmployees' || key === 'reviewResignations') {
-          updated.manageEmployees = true;
-          updated.employees = true;
-        } else if (key === 'manageEmployees') {
-          updated.employees = true;
-        } else if (key === 'export_payroll') {
-          updated.manageSalaries = true;
-          updated.payroll = true;
-        } else if (key === 'manageSalaries') {
-          updated.payroll = true;
-        } else if (key === 'approveExpenses') {
-          updated.accessFinance = true;
-          updated.finance = true;
-        } else if (key === 'accessFinance') {
-          updated.finance = true;
-        } else if (key === 'forceClockOut') {
-          updated.liveOperations = true;
-          updated.teamoperations = true;
-        } else if (key === 'liveOperations') {
-          updated.teamoperations = true;
+        if (key === 'manageProjects' || key === 'projects') {
+          updated.manageProjects = false;
+          updated.projects = false;
         }
       }
 

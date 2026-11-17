@@ -55,9 +55,8 @@ export const LeadsPage = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
 
-  const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
   const perms = useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
-  const canViewAllLeads = isPrivileged || perms?.viewAllLeads;
+  const canViewAllLeads = useMemo(() => isAdmin(currentUser) || Boolean(perms?.allAccess || perms?.viewAllLeads), [currentUser, perms]);
   const canCreate = useMemo(() => canCreateLeads(currentUser), [currentUser]);
   const canExport = useMemo(() => canExportData(currentUser, 'leads'), [currentUser]);
   const canAccessLeads = canAccessModule(currentUser, 'leads');

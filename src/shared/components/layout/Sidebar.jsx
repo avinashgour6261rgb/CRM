@@ -518,7 +518,7 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
             {/* Submenu for Work */}
             {workExpanded && (
               <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
-                {(isLeaderOrAbove(currentUser) || canAccessModule(currentUser, 'projects') || canManageProjects(currentUser)) && (
+                {canAccessModule(currentUser, 'projects') && (
                   <NavLink
                     to="/projects"
                     className={({ isActive }) =>
