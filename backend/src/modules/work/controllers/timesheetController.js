@@ -99,9 +99,9 @@ exports.createTimesheet = async (req, res, next) => {
     const payload = { ...req.body };
     const user = req.user;
 
-    // Enrich with task assignee first if available
+    // Enrich with task assignee first if available - ALWAYS prioritize the task's actual assignee
     let taskAssignee = null;
-    if (!payload.employeeId && (payload.taskId || payload.taskCode)) {
+    if (payload.taskId || payload.taskCode) {
       try {
         taskAssignee = await Task.findOne({
           $or: [
@@ -110,9 +110,21 @@ exports.createTimesheet = async (req, res, next) => {
           ].filter(Boolean)
         });
         if (taskAssignee) {
-          payload.employeeId = taskAssignee.assignedToId || (taskAssignee.assignedTo ? taskAssignee.assignedTo.toString() : '');
-          payload.employeeCode = taskAssignee.assignedToCode || '';
-          payload.employeeName = taskAssignee.assignedToName || '';
+          // If the task has an assignee, strictly assign the timesheet to the task assignee,
+          // NEVER letting an admin action overwrite employee timesheets with Admin's identity!
+          const realAssigneeId = taskAssignee.assignedToId || (taskAssignee.assignedTo ? taskAssignee.assignedTo.toString() : '');
+          const realAssigneeCode = taskAssignee.assignedToCode || '';
+          const realAssigneeName = taskAssignee.assignedToName || '';
+
+          if (realAssigneeId) {
+            payload.employeeId = realAssigneeId;
+          }
+          if (realAssigneeCode) {
+            payload.employeeCode = realAssigneeCode;
+          }
+          if (realAssigneeName) {
+            payload.employeeName = realAssigneeName;
+          }
           if (taskAssignee.assignedTo && mongoose.Types.ObjectId.isValid(taskAssignee.assignedTo)) {
             payload.employee = taskAssignee.assignedTo;
           }
@@ -120,7 +132,7 @@ exports.createTimesheet = async (req, res, next) => {
       } catch (_) {}
     }
 
-    // Enrich with authenticated user details if still missing
+    // Enrich with authenticated user details ONLY if task had no assignee and employeeId is still missing
     if (!payload.employeeId && user) {
       payload.employeeId = user._id ? user._id.toString() : (user.employeeCode || '');
     }
@@ -266,10 +278,14 @@ exports.stopTimer = async (req, res, next) => {
     const secs = String(totalDurationSeconds % 60).padStart(2, '0');
     const durationText = `${hrs}:${mins}:${secs}`;
 
-    const empId = req.body.employeeId || task?.assignedToId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
-    const empCode = req.body.employeeCode || task?.assignedToCode || user?.employeeCode || '';
-    const empName = req.body.employeeName || task?.assignedToName || user?.name || 'Current User';
-    const isTargetingUser = !req.body.employeeId || String(req.body.employeeId) === String(user?._id) || (user?.employeeCode && (String(req.body.employeeCode || req.body.employeeId) === String(user.employeeCode)));
+    const realTaskAssigneeId = task?.assignedToId || (task?.assignedTo ? task.assignedTo.toString() : '');
+    const realTaskAssigneeCode = task?.assignedToCode || '';
+    const realTaskAssigneeName = task?.assignedToName || '';
+
+    const empId = realTaskAssigneeId || req.body.employeeId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
+    const empCode = realTaskAssigneeCode || req.body.employeeCode || user?.employeeCode || '';
+    const empName = realTaskAssigneeName || req.body.employeeName || user?.name || 'Current User';
+    const isTargetingUser = !empId || String(empId) === String(user?._id) || (user?.employeeCode && (String(empCode || empId) === String(user.employeeCode)));
 
     // Check if a timesheet for this task on this date already exists for this employee
     const matchConditions = [

@@ -16,7 +16,7 @@ import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -1079,24 +1079,28 @@ export const WorkProvider = ({ children }) => {
         // Log session to timesheet if clock-out caused pause (strictly log TODAY'S work portion)
         if (!isShiftClockedIn && todaySecs > 0) {
           const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
-          const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
-          const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
-          const targetEmpName = activeTimer.assignedToName || matchedTask?.assignedToName || currentUser?.name || 'User';
+          const targetEmpId = matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || activeTimer.assignedToId || userKey;
+          const targetEmpCode = matchedTask?.assignedToCode || activeTimer.assignedToCode || '';
+          const targetEmpName = matchedTask?.assignedToName || activeTimer.assignedToName || currentUser?.name || 'User';
 
-          workService.createTimesheet({
-            taskId: activeTimer.taskId,
-            taskCode: activeTimer.taskCode,
-            taskTitle: activeTimer.title,
-            projectName: activeTimer.projectName,
-            employeeId: targetEmpId,
-            employeeCode: targetEmpCode,
-            employeeName: targetEmpName,
-            date: today,
-            totalDurationSeconds: todaySecs,
-            totalDurationText: formatSeconds(todaySecs),
-            memo: 'Shift clock-out auto-save',
-            status: 'stopped'
-          }).catch(() => {});
+          // Strictly ensure that if the task belongs to someone else, we NEVER overwrite employeeId/Name with Admin's
+          const isTaskForMe = matchedTask ? isTaskAssignedToMe(matchedTask) : true;
+          if (isTaskForMe) {
+            workService.createTimesheet({
+              taskId: activeTimer.taskId,
+              taskCode: activeTimer.taskCode,
+              taskTitle: activeTimer.title,
+              projectName: activeTimer.projectName,
+              employeeId: targetEmpId,
+              employeeCode: targetEmpCode,
+              employeeName: targetEmpName,
+              date: today,
+              totalDurationSeconds: todaySecs,
+              totalDurationText: formatSeconds(todaySecs),
+              memo: 'Shift clock-out auto-save',
+              status: 'stopped'
+            }).catch(() => {});
+          }
         }
         return;
       }
@@ -1287,7 +1291,15 @@ export const WorkProvider = ({ children }) => {
 
         setTasks(prevTasks => prevTasks.map(t => {
           if (String(t._id || t.id) === String(activeTimer.taskId)) {
-            return { ...t, timerRunning: false, wasPausedForBreak: false, liveDurationText: formatSeconds(currentSecs) };
+            const todaySecs = Number(pausedState.todayWorkSeconds ?? t.todayWorkSeconds ?? 0);
+            return {
+              ...t,
+              timerRunning: false,
+              wasPausedForBreak: false,
+              todayWorkSeconds: todaySecs,
+              liveTodaySeconds: todaySecs,
+              liveDurationText: formatSeconds(todaySecs)
+            };
           }
           return t;
         }));
@@ -1323,11 +1335,14 @@ export const WorkProvider = ({ children }) => {
 
         setTasks(prev => prev.map(t => {
           if (t._id === activeTimer.taskId) {
+            const todaySecs = Number(activeTimer.todayWorkSeconds ?? t.todayWorkSeconds ?? 0);
             return {
               ...t,
               timerRunning: true,
               startedAt: now,
-              liveDurationText: formatSeconds(Number(activeTimer.accumulatedSeconds) || 0)
+              todayWorkSeconds: todaySecs,
+              liveTodaySeconds: todaySecs,
+              liveDurationText: formatSeconds(todaySecs)
             };
           }
           return t;
@@ -1383,24 +1398,27 @@ export const WorkProvider = ({ children }) => {
       // Automatically log today's task session duration to timesheets (strictly TODAY'S work portion)
       if (activeTimer && todaySecs > 0) {
         const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
-        const targetEmpId = activeTimer.assignedToId || matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || userKey;
-        const targetEmpCode = activeTimer.assignedToCode || matchedTask?.assignedToCode || '';
-        const targetEmpName = activeTimer.assignedToName || matchedTask?.assignedToName || currentUser?.name || 'User';
+        const isTaskForMe = matchedTask ? isTaskAssignedToMe(matchedTask) : true;
+        if (isTaskForMe) {
+          const targetEmpId = matchedTask?.assignedToId || (typeof matchedTask?.assignedTo === 'string' ? matchedTask.assignedTo : matchedTask?.assignedTo?._id) || activeTimer.assignedToId || userKey;
+          const targetEmpCode = matchedTask?.assignedToCode || activeTimer.assignedToCode || '';
+          const targetEmpName = matchedTask?.assignedToName || activeTimer.assignedToName || currentUser?.name || 'User';
 
-        workService.createTimesheet({
-          taskId: activeTimer.taskId,
-          taskCode: activeTimer.taskCode,
-          taskTitle: activeTimer.title,
-          projectName: activeTimer.projectName,
-          employeeId: targetEmpId,
-          employeeCode: targetEmpCode,
-          employeeName: targetEmpName,
-          date: today,
-          totalDurationSeconds: todaySecs,
-          totalDurationText: formatSeconds(todaySecs),
-          memo: 'Shift clock-out session auto-save',
-          status: 'stopped'
-        }).catch(err => console.warn('Clock-out auto timesheet error:', err));
+          workService.createTimesheet({
+            taskId: activeTimer.taskId,
+            taskCode: activeTimer.taskCode,
+            taskTitle: activeTimer.title,
+            projectName: activeTimer.projectName,
+            employeeId: targetEmpId,
+            employeeCode: targetEmpCode,
+            employeeName: targetEmpName,
+            date: today,
+            totalDurationSeconds: todaySecs,
+            totalDurationText: formatSeconds(todaySecs),
+            memo: 'Shift clock-out session auto-save',
+            status: 'stopped'
+          }).catch(err => console.warn('Clock-out auto timesheet error:', err));
+        }
       }
 
       if (activeTimer) {

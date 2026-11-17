@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
-import { getTaskTodaySeconds, readTimerStorage } from '../../../../shared/utils/timerUtils';
+import { getUserDailyTaskBreakdown, readTimerStorage } from '../../../../shared/utils/timerUtils';
 
 export const WeeklyTimeLogsCard = ({
     effectiveTargetUser,
@@ -174,109 +174,17 @@ export const WeeklyTimeLogsCard = ({
                 };
             }
 
-      // 1. Strictly filter timesheets recorded on this exact calendar date (prevent previous day leakage)
-      const rawDayTs = (timesheets || []).filter(ts => {
-        const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
-        if (tsDate !== dateStr) return false;
-        return isMyTimesheet(ts);
-      });
-
-      // Deduplicate timesheets by task (if multiple auto-saves exist today for same task, take latest/consolidated duration)
-      const taskMap = new Map();
-      rawDayTs.forEach(ts => {
-        let key = null;
-        if (ts.taskCode && String(ts.taskCode).trim()) {
-          key = `code_${String(ts.taskCode).trim().toLowerCase()}`;
-        } else if (ts.taskId && String(ts.taskId).trim()) {
-          key = `id_${String(ts.taskId).trim().toLowerCase()}`;
-        } else if (ts.taskTitle && String(ts.taskTitle).trim()) {
-          key = `title_${String(ts.taskTitle).trim().toLowerCase()}`;
-        } else {
-          key = `raw_${ts._id || Math.random()}`;
-        }
-        const dur = Number(ts.totalDurationSeconds) || 0;
-        if (!taskMap.has(key) || dur > (Number(taskMap.get(key).totalDurationSeconds) || 0)) {
-          taskMap.set(key, ts);
-        }
-      });
-      const dayTs = Array.from(taskMap.values());
-
-            let dayTotalSecs = dayTs.reduce((acc, curr) => {
-                const raw = Number(curr.totalDurationSeconds) || 0;
-                return acc + Math.min(raw, 12 * 3600);
-            }, 0);
-
-            // Map completed tasks from timesheets
-            const tasksWorked = dayTs.map(ts => {
-                const sSecs = Math.min(Number(ts.totalDurationSeconds) || 0, 12 * 3600);
-                return {
-                    taskId: ts.taskId,
-                    taskCode: ts.taskCode || 'TSK',
-                    taskTitle: ts.taskTitle || 'Assigned Work',
-                    projectName: ts.projectName || 'General Work',
-                    durationText: ts.totalDurationText || formatSeconds(sSecs),
-                    durationSeconds: sSecs,
-                    status: 'completed',
-                    isCompleted: true
-                };
+            // Canonical SSOT calculation for this day
+            const breakdown = getUserDailyTaskBreakdown(effectiveUser, dateStr, {
+                tasks,
+                timesheets,
+                activeTimer: activeRunningTask,
+                isClockedIn: isEffectiveClockedIn,
+                isOnBreak: false,
+                clampToShift: false
             });
-
-            // 2. Add unsubmitted work portions for tasks worked on this date
-            if (isCurrentDay && dateStr === currentTodayStr) {
-                const nowMs = Date.now();
-                (tasks || []).forEach(t => {
-                    if (!isMyTask(t)) return;
-                    const tId = String(t._id || t.id);
-
-                    const isRunning = Boolean(
-                        (t.timerRunning || (activeRunningTask && String(activeRunningTask.taskId || activeRunningTask._id) === tId)) &&
-                        isEffectiveClockedIn
-                    );
-
-                    const isWorkedToday = isRunning || (t.dailySessions && Number(t.dailySessions[dateStr]) > 0) || (t.sessionDate === dateStr && Number(t.todayWorkSeconds) > 0);
-                    if (!isWorkedToday) return;
-
-                    const taskTodaySecs = getTaskTodaySeconds(t, dateStr, nowMs, isEffectiveClockedIn, false);
-                    if (taskTodaySecs <= 0) return;
-
-                    const alreadyLoggedToday = dayTs
-                        .filter(ts => (tId && String(ts.taskId) === tId) || (t.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase()) || (t.title && ts.taskTitle && String(ts.taskTitle).trim().toLowerCase() === String(t.title).trim().toLowerCase()))
-                        .reduce((s, ts) => Math.max(s, Number(ts.totalDurationSeconds) || 0), 0);
-
-                    const unsubmitted = Math.max(0, taskTodaySecs - alreadyLoggedToday);
-                    if (unsubmitted > 0) {
-                        dayTotalSecs += unsubmitted;
-                        // Avoid duplicate task items in tasksWorked
-                        const existingIdx = tasksWorked.findIndex(tw => String(tw.taskId) === tId);
-                        if (existingIdx >= 0) {
-                            tasksWorked[existingIdx].durationSeconds = taskTodaySecs;
-                            tasksWorked[existingIdx].durationText = formatSeconds(taskTodaySecs);
-                            tasksWorked[existingIdx].status = isRunning ? 'in_progress' : (t.status || 'in_progress');
-                            tasksWorked[existingIdx].isLive = isRunning;
-                        } else {
-                            const taskEntry = {
-                                taskId: tId,
-                                taskCode: t.taskCode || 'TSK',
-                                taskTitle: t.title || 'Task',
-                                projectName: t.projectName || 'General Work',
-                                durationText: formatSeconds(taskTodaySecs),
-                                durationSeconds: taskTodaySecs,
-                                status: isRunning ? 'in_progress' : (t.status || 'in_progress'),
-                                isCompleted: Boolean(t.status === 'completed' || t.completedAt),
-                                isLive: isRunning
-                            };
-                            if (isRunning) {
-                                tasksWorked.unshift(taskEntry);
-                            } else {
-                                tasksWorked.push(taskEntry);
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Safety cap: a single day's task duration cannot exceed 14 hours
-            dayTotalSecs = Math.min(dayTotalSecs, 14 * 3600);
+            const dayTotalSecs = breakdown.totalTaskSeconds;
+            const tasksWorked = breakdown.tasksWorked;
 
             const hrs = Math.floor(dayTotalSecs / 3600);
             const mins = Math.floor((dayTotalSecs % 3600) / 60);

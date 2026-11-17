@@ -115,18 +115,39 @@ export const sanitizeRunawayTimers = () => {
       }
     } catch (_) {}
 
-    // 3. Sanitize timesheets collection in localStorage (filter out any multi-day corrupt entries)
+    // 3. Sanitize timesheets collection in localStorage (filter out any multi-day corrupt entries & cross-user leakages)
     try {
       const timesheetsRaw = localStorage.getItem(KEYS.TIMESHEETS);
       if (timesheetsRaw) {
         const timesheets = JSON.parse(timesheetsRaw);
         if (Array.isArray(timesheets)) {
-          // Remove runaway duplicate entries > 12 hours from previous buggy overflows
+          let tasksList = [];
+          try {
+            const tr = localStorage.getItem(KEYS.TASKS);
+            if (tr) tasksList = JSON.parse(tr) || [];
+          } catch (_) {}
+
+          let tsChanged = false;
           const cleanedTimesheets = timesheets.filter(ts => {
             const rawSecs = Number(ts.totalDurationSeconds) || 0;
-            return rawSecs <= 14 * 3600;
+            if (rawSecs > 14 * 3600) {
+              tsChanged = true;
+              return false;
+            }
+            // Purge timesheets mistakenly saved under Administrator for another employee's task (e.g. TSK-8 belongs to Sandeep)
+            if ((ts.employeeId === 'ADM-001' || ts.employeeName === 'Administrator') && (ts.taskId || ts.taskCode)) {
+              const matchedTask = tasksList.find(t =>
+                (ts.taskId && String(t._id || t.id) === String(ts.taskId)) ||
+                (ts.taskCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === String(ts.taskCode).trim().toLowerCase())
+              );
+              if (matchedTask && matchedTask.assignedToName && matchedTask.assignedToName.trim().toLowerCase() !== 'administrator') {
+                tsChanged = true;
+                return false;
+              }
+            }
+            return true;
           });
-          if (cleanedTimesheets.length !== timesheets.length) {
+          if (tsChanged || cleanedTimesheets.length !== timesheets.length) {
             localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(cleanedTimesheets));
           }
         }
