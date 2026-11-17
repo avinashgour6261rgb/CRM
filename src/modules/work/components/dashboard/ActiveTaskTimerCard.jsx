@@ -147,7 +147,7 @@ export const ActiveTaskTimerCard = ({
                               ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60' 
                               : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800'
                           }`}>
-                            ⏱️ Task: {displayActiveTask.timerRunning ? digitalTime : (todaySecs > 0 ? `${digitalTime} (paused)` : '00:00:00')}
+                            ⏱️ Today: {displayActiveTask.timerRunning ? digitalTime : (todaySecs > 0 ? `${digitalTime} (paused)` : '00:00:00')}
                           </span>
                         );
                       })()}

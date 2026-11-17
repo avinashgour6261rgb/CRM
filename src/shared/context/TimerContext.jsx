@@ -2023,6 +2023,8 @@ export const TimerProvider = ({ children }) => {
         clockOutTime: null,
         clockOut: null,
         clockInTimestamp: clockInTs || nowMs,
+        currentSessionStartTimestamp: nowMs,
+        currentSessionIn: nowStr,
         clockOutTimestamp: null,
         workSeconds: currentWorkSeconds,
         breakSeconds: existingRec?.breakSeconds || breakSeconds || 0,

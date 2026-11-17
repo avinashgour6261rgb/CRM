@@ -114,7 +114,13 @@ export const HRProvider = ({ children }) => {
         } catch (_) {}
         return null;
       })();
-      const isPrivileged = authUserObj?.isAdmin || ['admin', 'hr'].includes(authUserObj?.role?.toLowerCase()) || ['admin', 'hr'].includes(authUserObj?.systemRole?.toLowerCase());
+      const isPrivileged = authUserObj?.isAdmin ||
+        ['admin', 'hr'].includes(authUserObj?.role?.toLowerCase()) ||
+        ['admin', 'hr'].includes(authUserObj?.systemRole?.toLowerCase()) ||
+        authUserObj?.permissions?.liveOperations ||
+        authUserObj?.permissions?.teamoperations ||
+        authUserObj?.permissions?.viewAllAttendance ||
+        authUserObj?.permissions?.allAccess;
       const effectiveEmpId = isPrivileged ? selectedEmployeeId : (authUserObj?._id || authUserObj?.employeeCode || 'self');
 
       const results = await Promise.allSettled([

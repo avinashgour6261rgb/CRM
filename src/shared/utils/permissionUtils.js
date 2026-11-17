@@ -1736,10 +1736,13 @@ export const canAccessModule = (user, moduleId) => {
 
   // 1. Strict explicit rule for liveOperations
   if (permKey === 'liveOperations') {
-    if (perms?.liveOperations === false || user?.permissions?.liveOperations === false || perms?.teamoperations === false || user?.permissions?.teamoperations === false) {
+    if (perms?.liveOperations === true || user?.permissions?.liveOperations === true || perms?.teamoperations === true || user?.permissions?.teamoperations === true) {
+      return true;
+    }
+    if ((perms?.liveOperations === false || user?.permissions?.liveOperations === false) && (perms?.teamoperations === false || user?.permissions?.teamoperations === false)) {
       return false;
     }
-    return Boolean(isAdmin(user) || isHR(user) || isDelegationActive(user) || perms?.liveOperations === true || perms?.teamoperations === true);
+    return Boolean(isAdmin(user) || isHR(user) || isDelegationActive(user));
   }
 
   // 2. Strict explicit false checks (Explicit Revocation MUST override all fallbacks)

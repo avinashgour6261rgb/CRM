@@ -56,7 +56,7 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
   }
 
   // Tenant scoping: non-admin can only see own attendance
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations;
 
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
@@ -963,8 +963,8 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
 
     let liveWorkSecs = Number(r.workSeconds) || 0;
     if (isClockedIn && !isOnBreak && r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now) {
-      // Add live elapsed seconds since last heartbeat pulse (monotonic progression without doubling session duration)
-      const elapsedSinceHeartbeat = Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000));
+      // Add live elapsed seconds since last heartbeat pulse (monotonic progression without doubling session duration; cap to 120s if heartbeat paused)
+      const elapsedSinceHeartbeat = Math.min(120, Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000)));
       const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
       liveWorkSecs = Math.min(liveWorkSecs + elapsedSinceHeartbeat, maxPossibleGross);
     }

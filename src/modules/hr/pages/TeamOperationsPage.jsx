@@ -129,7 +129,7 @@ export const TeamOperationsPage = () => {
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
 
-  // ── Multi-User Live Telemetry Poller (Every 3.5s for real-time remote sync) ──
+  // ── Multi-User Live Telemetry Poller (Every 5s + Instant Socket for real-time remote sync) ──
   useEffect(() => {
     let isMounted = true;
     const fetchTelemetry = async () => {
@@ -142,15 +142,30 @@ export const TeamOperationsPage = () => {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 45000);
+    const interval = setInterval(fetchTelemetry, 5000);
     const handleFocus = () => fetchTelemetry();
+
+    // Instant Socket.IO telemetry reception for 0ms cross-device updates
+    const handleTelemUpdate = (e) => {
+      if (!isMounted || !e?.detail) return;
+      const t = e.detail;
+      setLiveTelemetryMap(prev => {
+        const next = { ...prev };
+        if (t.employeeId) next[String(t.employeeId)] = t;
+        if (t.employeeCode) next[String(t.employeeCode)] = t;
+        return next;
+      });
+    };
+
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('ems_telemetry_update', handleTelemUpdate);
     return () => {
       isMounted = false;
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('ems_telemetry_update', handleTelemUpdate);
     };
   }, [todayStr]);
 

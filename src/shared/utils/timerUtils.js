@@ -363,16 +363,30 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
       ? Math.max(...validTodaySessions.map(s => Number(s.outTimestamp || s.inTimestamp || 0)))
       : 0;
 
-    let sessStartTs = Number(readTimerStorage(userOrEmp, 'current_session_start_timestamp'));
+    let sessStartTs = Number(readTimerStorage(userOrEmp, 'current_session_start_timestamp')) ||
+                      Number(attRec?.currentSessionStartTimestamp) ||
+                      Number(options.telemetry?.currentSessionStartTimestamp);
+
     if (!sessStartTs || sessStartTs < todayMidnightMs) {
-      if (lastSessionOut > 0) {
-        sessStartTs = lastSessionOut;
+      if (validTodaySessions.length > 0) {
+        // User had prior completed session(s) today. Current session started when they re-clocked in!
+        // NEVER fall back to lastSessionOut or firstClockInTs because that would count the clocked-out gap as work!
+        const reclockTimeStr = readTimerStorage(userOrEmp, 'current_session_in') || attRec?.currentSessionIn;
+        if (reclockTimeStr) {
+          sessStartTs = todayMidnightMs + parseTimeToSeconds(reclockTimeStr) * 1000;
+        } else if (attRec?.updatedAt) {
+          sessStartTs = new Date(attRec.updatedAt).getTime();
+        } else {
+          sessStartTs = nowMs;
+        }
       } else {
         sessStartTs = firstClockInTs || nowMs;
       }
     }
+
+    // Strict guard: sessStartTs cannot be before lastSessionOut if previous completed sessions exist
     if (lastSessionOut > 0 && sessStartTs < lastSessionOut) {
-      sessStartTs = lastSessionOut;
+      sessStartTs = nowMs;
     }
     sessStartTs = Math.max(sessStartTs, todayMidnightMs);
 
@@ -434,7 +448,7 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (isTargetToday && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
     baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
-  } else if (isTargetToday && !isRunningToday && task.sessionDate === actualToday && task.todayWorkSeconds !== undefined) {
+  } else if (isTargetToday && task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null) {
     baseSecs = Math.max(0, Number(task.todayWorkSeconds) || 0);
   } else if (task.completedOn === targetDate && (task.startDate === targetDate || task.createdAt?.startsWith(targetDate))) {
     // Single-day task created and completed exclusively on targetDate

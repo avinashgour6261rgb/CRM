@@ -2875,7 +2875,7 @@ export const DashboardPage = () => {
       )}
 
       {/* ── 🛡️ ADMIN LIVE OPERATIONS SHORTCUT BANNER ── */}
-      {canAccessModule(effectiveTargetUser, 'liveOperations') && (
+      {(canAccessModule(effectiveTargetUser, 'liveOperations') || canAccessModule(currentUser, 'liveOperations') || canAccessModule(currentUser, 'teamoperations') || currentUser?.permissions?.liveOperations || currentUser?.permissions?.teamoperations) && (
         <div className="bg-orange-50 dark:bg-orange-950/40 rounded-[10px] border border-orange-200 dark:border-orange-800 py-3 px-[18px] flex items-center justify-between flex-wrap gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-[34px] h-[34px] rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
