@@ -373,8 +373,10 @@ export const TeamOperationsPage = () => {
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || nowMs;
         const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
-        const taskBase = (at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : (Number(at.accumulatedSeconds) || 0);
-        const liveTaskSecs = taskBase + elapsed;
+        const taskBase = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
+          ? Number(at.accumulatedTodaySeconds)
+          : ((at.accumulatedSeconds !== undefined && at.accumulatedSeconds !== null) ? Number(at.accumulatedSeconds) : (Number(at.todayWorkSeconds) || 0));
+        const liveTaskSecs = Number(at.liveTaskSecs) || (taskBase + elapsed);
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
