@@ -889,12 +889,84 @@ export const WorkProvider = ({ children }) => {
       }
     });
 
-    // Periodic synchronization from DB (every 60s fallback) + tab focus across laptops (Localhost vs Vercel Live)
+    // Periodic synchronization from DB (every 4s for instant cross-browser sync) + tab focus across laptops (Localhost vs Vercel Live)
     const syncInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         scheduleDebouncedLoad(true);
       }
-    }, 60000);
+    }, 4000);
+
+    const handleTelemetryUpdate = (e) => {
+      const data = e?.detail;
+      if (!data) return;
+      const isMyEmp = (data.employeeId && (String(data.employeeId) === String(userKey) || String(data.employeeId) === String(currentUser?._id))) ||
+        (data.employeeCode && currentUser?.employeeCode && String(data.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase());
+      if (!isMyEmp) return;
+
+      if (data.activeTask && data.activeTask.taskId) {
+        const at = data.activeTask;
+        const targetId = String(at.taskId);
+        if (at.timerRunning) {
+          const startTs = Number(at.startedAt) || Date.now();
+          const accumSecs = Number(at.accumulatedSeconds) || 0;
+          const todayDate = getTodayStr();
+          const curSnapshot = getActiveTimerSnapshot();
+
+          if (!curSnapshot || String(curSnapshot.taskId) !== targetId || !curSnapshot.timerRunning) {
+            saveActiveTimerSnapshot({
+              taskId: targetId,
+              taskCode: at.taskCode || 'TSK',
+              title: at.title || at.taskTitle || 'Task',
+              projectName: at.projectName || 'General Work',
+              startedAt: startTs,
+              accumulatedSeconds: accumSecs,
+              accumulatedTodaySeconds: Number(at.todayWorkSeconds || at.accumulatedTodaySeconds || 0),
+              todayWorkSeconds: Number(at.todayWorkSeconds || at.accumulatedTodaySeconds || 0),
+              timerRunning: true,
+              date: todayDate
+            });
+
+            setTasks(prev => prev.map(t => {
+              const tId = String(t._id || t.id);
+              if (tId === targetId) {
+                return {
+                  ...t,
+                  timerRunning: true,
+                  startedAt: startTs,
+                  accumulatedSeconds: accumSecs,
+                  status: t.status === 'incomplete' ? 'in_progress' : t.status
+                };
+              }
+              if (isTaskAssignedToMe(t) && t.timerRunning) {
+                return { ...t, timerRunning: false, startedAt: null };
+              }
+              return t;
+            }));
+          }
+        } else {
+          const cur = getActiveTimerSnapshot();
+          if (cur && String(cur.taskId) === targetId && cur.timerRunning) {
+            saveActiveTimerSnapshot({
+              ...cur,
+              timerRunning: false,
+              startedAt: null,
+              accumulatedSeconds: Number(at.accumulatedSeconds) || cur.accumulatedSeconds
+            });
+            setTasks(prev => prev.map(t => {
+              if (String(t._id || t.id) === targetId) {
+                return {
+                  ...t,
+                  timerRunning: false,
+                  startedAt: null,
+                  accumulatedSeconds: Number(at.accumulatedSeconds) || t.accumulatedSeconds
+                };
+              }
+              return t;
+            }));
+          }
+        }
+      }
+    };
 
     const handleFocus = () => scheduleDebouncedLoad(true);
     const handleVisibility = () => {
@@ -903,12 +975,14 @@ export const WorkProvider = ({ children }) => {
 
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('ems_telemetry_update', handleTelemetryUpdate);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       clearInterval(syncInterval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('ems_telemetry_update', handleTelemetryUpdate);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       unsubscribeSync();

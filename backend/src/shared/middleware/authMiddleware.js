@@ -19,6 +19,13 @@ exports.authenticateUser = async (req, res, next) => {
     const userEmailHeader = (req.headers['x-user-email'] || '').trim();
     const userCodeHeader = (req.headers['x-user-code'] || '').trim();
 
+    let headerPerms = {};
+    try {
+      if (req.headers['x-user-permissions']) {
+        headerPerms = JSON.parse(req.headers['x-user-permissions']);
+      }
+    } catch (_) {}
+
     let user = null;
 
     if (mongoose.connection.readyState === 1) {
@@ -72,13 +79,13 @@ exports.authenticateUser = async (req, res, next) => {
         role: user.role,
         department: user.department,
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
-        isAdmin: isSystemAdmin,
-        isDelegatedAdmin,
-        permissions: user.permissions || {}
+        isAdmin: isSystemAdmin || Boolean(headerPerms?.allAccess),
+        isDelegatedAdmin: isDelegatedAdmin || Boolean(headerPerms?.isDelegatedAdmin) || Boolean(headerPerms?.allAccess),
+        permissions: { ...(user.permissions || {}), ...headerPerms }
       };
     } else if (userIdHeader || userEmailHeader || userCodeHeader) {
       // Ephemeral authenticated user (e.g. from client session or newly created account)
-      const isSystemAdmin = userRoleHeader === 'admin' || userCodeHeader === 'ADM-001';
+      const isSystemAdmin = userRoleHeader === 'admin' || userCodeHeader === 'ADM-001' || Boolean(headerPerms?.allAccess);
       const isSystemHR = userRoleHeader === 'hr';
 
       req.user = {
@@ -91,7 +98,8 @@ exports.authenticateUser = async (req, res, next) => {
         department: isSystemHR ? 'Human Resources' : 'General',
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
         isAdmin: isSystemAdmin,
-        permissions: {}
+        isDelegatedAdmin: Boolean(headerPerms?.isDelegatedAdmin) || Boolean(headerPerms?.allAccess),
+        permissions: headerPerms || {}
       };
     } else {
       req.user = {
@@ -101,7 +109,8 @@ exports.authenticateUser = async (req, res, next) => {
         name: 'Administrator',
         systemRole: 'admin',
         isAdmin: true,
-        permissions: {}
+        isDelegatedAdmin: false,
+        permissions: headerPerms || {}
       };
     }
 

@@ -225,6 +225,7 @@ export const isLeaderOrAbove = (user) => {
 export const canViewAllAttendance = (user) => {
   if (!user) return false;
   if (isPrimaryAdmin(user)) return true;
+  if (user?.permissions?.viewAllAttendance === true || user?.permissions?.allAccess === true) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess === true) return true;
   if (perms?.viewAllAttendance === false) return false;
@@ -1402,17 +1403,18 @@ export const isDelegationActive = (user) => {
   if (!user) return false;
   if (user.isAdmin || user.isSuperAdmin || user.employeeCode === 'ADM-001' || user.email === 'admin@inforag.com') return true;
   
-  let expiresAt = user.delegationExpiresAt;
-  let isDelegated = user.isDelegatedAdmin || user.allAccess;
+  let expiresAt = user.delegationExpiresAt || user.permissions?.delegationExpiresAt;
+  let isDelegated = user.isDelegatedAdmin || user.allAccess || user.permissions?.allAccess || user.permissions?.isDelegatedAdmin;
 
   try {
     const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
     if (rawMap) {
       const parsed = JSON.parse(rawMap);
       const userKey = user._id || user.employeeCode || user.email;
-      if (userKey && parsed[userKey]) {
-        if (parsed[userKey].delegationExpiresAt) expiresAt = parsed[userKey].delegationExpiresAt;
-        if (parsed[userKey].isDelegatedAdmin || parsed[userKey].allAccess) isDelegated = true;
+      const cached = (user._id && parsed[String(user._id)]) || (user.employeeCode && parsed[String(user.employeeCode)]) || (user.email && parsed[String(user.email).toLowerCase()]) || (userKey && parsed[userKey]);
+      if (cached) {
+        if (cached.delegationExpiresAt) expiresAt = cached.delegationExpiresAt;
+        if (cached.isDelegatedAdmin || cached.allAccess) isDelegated = true;
       }
     }
   } catch (_) {}
@@ -1541,6 +1543,11 @@ export const getUserModulePermissions = (user) => {
   if (basePerms.reports) {
     basePerms.viewReports = true;
   }
+  if (basePerms.grantPermissions || basePerms.allAccess) {
+    basePerms.employees = true;
+    basePerms.settings = true;
+    basePerms.grantPermissions = true;
+  }
 
   if (basePerms.allAccess || basePerms.isDelegatedAdmin) {
     if (delegationValid) {
@@ -1653,9 +1660,11 @@ export const setUserPermissions = (userKey, newPerms) => {
  */
 export const canUserGrantPermissions = (user) => {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isAdmin(user) || isPrimaryAdmin(user)) return true;
+  if (user.isDelegatedAdmin || user.allAccess) return true;
+  if (user.permissions?.grantPermissions === true || user.permissions?.allAccess === true || user.permissions?.isDelegatedAdmin === true) return true;
   const perms = getUserModulePermissions(user);
-  return !!perms.grantPermissions;
+  return Boolean(perms?.grantPermissions === true || perms?.allAccess === true || perms?.isDelegatedAdmin === true);
 };
 
 /**
@@ -1793,7 +1802,7 @@ export const canAccessModule = (user, moduleId) => {
   if ((permKey === 'payroll' || permKey === 'finance') && (perms?.payroll || perms?.accessFinance || perms?.finance || perms?.manageSalaries || perms?.export_payroll)) {
     return true;
   }
-  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) {
+  if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees || perms?.grantPermissions || perms?.allAccess || canUserGrantPermissions(user))) {
     return true;
   }
   if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.createLeads || perms?.editLeads || perms?.deleteLeads || perms?.export_leads)) {
@@ -1826,13 +1835,13 @@ export const canAccessModule = (user, moduleId) => {
   // 4. Strict guard: Regular employees (Team Members) cannot access privileged modules unless explicitly granted above
   if (role === ROLES.TEAM_MEMBER) {
     if (permKey === 'liveOperations' && (perms?.liveOperations || perms?.teamoperations)) return true;
-    if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees)) return true;
+    if (permKey === 'employees' && (perms?.employees || perms?.manageEmployees || perms?.deleteEmployees || perms?.grantPermissions || perms?.allAccess || canUserGrantPermissions(user))) return true;
     if (permKey === 'payroll' && (perms?.payroll || perms?.manageSalaries || perms?.export_payroll)) return true;
     if (permKey === 'finance' && (perms?.finance || perms?.accessFinance || perms?.manageExpenses)) return true;
     if (permKey === 'leads' && (perms?.leads || perms?.accessCRM || perms?.viewAllLeads || perms?.createLeads || perms?.editLeads || perms?.deleteLeads)) return true;
     if (permKey === 'documentation' && (perms?.documentation || perms?.documents)) return true;
     if (permKey === 'reports' && (perms?.reports || perms?.viewReports)) return true;
-    if (permKey === 'settings' && (perms?.settings || perms?.grantPermissions)) return true;
+    if (permKey === 'settings' && (perms?.settings || perms?.grantPermissions || perms?.allAccess || canUserGrantPermissions(user))) return true;
     const privilegedModules = ['employees', 'teamoperations', 'liveOperations', 'payroll', 'finance', 'settings', 'documentation', 'leads', 'reports'];
     if (privilegedModules.includes(permKey)) return false;
     return true; // allowed default modules: dashboard, tasks, timesheet, attendance, leaves, tickets, events, expenses, projects

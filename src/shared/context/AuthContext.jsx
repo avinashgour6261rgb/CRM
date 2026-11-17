@@ -100,6 +100,23 @@ export const AuthProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+          try {
+            const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+            const pMap = rawMap ? JSON.parse(rawMap) : {};
+            const uKey = parsed._id || parsed.employeeCode || parsed.email;
+            const freshPerms = (parsed._id && pMap[String(parsed._id)]) ||
+              (parsed.employeeCode && pMap[String(parsed.employeeCode)]) ||
+              (parsed.email && pMap[String(parsed.email).toLowerCase()]) ||
+              (uKey && pMap[uKey]);
+            if (freshPerms) {
+              return {
+                ...parsed,
+                permissions: { ...(parsed.permissions || {}), ...freshPerms },
+                isDelegatedAdmin: freshPerms.isDelegatedAdmin !== undefined ? Boolean(freshPerms.isDelegatedAdmin) : Boolean(parsed.isDelegatedAdmin),
+                delegationExpiresAt: freshPerms.delegationExpiresAt !== undefined ? freshPerms.delegationExpiresAt : parsed.delegationExpiresAt
+              };
+            }
+          } catch (_) {}
           return parsed;
         }
       }
@@ -133,45 +150,64 @@ export const AuthProvider = ({ children }) => {
         const query = parsed?.email || parsed?.employeeCode;
         if (!query) return;
 
-        const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(3500) });
-        if (res.ok && isMounted) {
-          const json = await res.json();
-          const list = json.data || [];
-          const matched = list.find(e =>
+        let matched = null;
+        try {
+          const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(3500) });
+          if (res.ok && isMounted) {
+            const json = await res.json();
+            const list = json.data || [];
+            matched = list.find(e =>
+              (parsed.email && e.email?.toLowerCase().trim() === parsed.email.toLowerCase().trim()) ||
+              (parsed.employeeCode && e.employeeCode?.toUpperCase().trim() === parsed.employeeCode.toUpperCase().trim()) ||
+              (parsed._id && String(e._id) === String(parsed._id))
+            );
+          }
+        } catch (_) {}
+
+        // Fallback: check local storage if backend offline or employee not returned by search
+        if (!matched) {
+          const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+          matched = localEmps.find(e =>
             (parsed.email && e.email?.toLowerCase().trim() === parsed.email.toLowerCase().trim()) ||
             (parsed.employeeCode && e.employeeCode?.toUpperCase().trim() === parsed.employeeCode.toUpperCase().trim()) ||
-            (parsed._id && String(e._id) === String(parsed._id))
+            (parsed._id && (String(e._id) === String(parsed._id) || String(e.id) === String(parsed._id)))
           );
-          if (matched && isMounted) {
-            const hasPermsChanged = JSON.stringify(matched.permissions || {}) !== JSON.stringify(parsed.permissions || {}) ||
-              Boolean(matched.isDelegatedAdmin) !== Boolean(parsed.isDelegatedAdmin);
+        }
 
-            if (hasPermsChanged) {
-              const updatedUser = {
-                ...parsed,
-                ...matched,
-                permissions: matched.permissions || {},
-                isDelegatedAdmin: Boolean(matched.isDelegatedAdmin),
-                delegationExpiresAt: matched.delegationExpiresAt || null
-              };
-              setCurrentUser(updatedUser);
-              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+        if (matched && isMounted) {
+          const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+          const pMap = rawMap ? JSON.parse(rawMap) : {};
+          const freshPerms = (matched._id && pMap[String(matched._id)]) ||
+            (matched.employeeCode && pMap[String(matched.employeeCode)]) ||
+            (matched.email && pMap[String(matched.email).toLowerCase()]);
+          const effectivePerms = freshPerms || matched.permissions || {};
 
-              // Sync EMS_USER_PERMISSIONS cache
-              if (matched.permissions && typeof matched.permissions === 'object') {
-                try {
-                  const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
-                  const parsedMap = rawMap ? JSON.parse(rawMap) : {};
-                  if (matched._id) parsedMap[String(matched._id)] = matched.permissions;
-                  if (matched.employeeCode) parsedMap[String(matched.employeeCode)] = matched.permissions;
-                  if (matched.email) parsedMap[String(matched.email).toLowerCase()] = matched.permissions;
-                  localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(parsedMap));
-                } catch (_) {}
-              }
+          const hasPermsChanged = JSON.stringify(effectivePerms) !== JSON.stringify(parsed.permissions || {}) ||
+            Boolean(matched.isDelegatedAdmin) !== Boolean(parsed.isDelegatedAdmin);
 
-              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
-              window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { user: updatedUser } }));
+          if (hasPermsChanged) {
+            const updatedUser = {
+              ...parsed,
+              ...matched,
+              permissions: effectivePerms,
+              isDelegatedAdmin: Boolean(matched.isDelegatedAdmin),
+              delegationExpiresAt: matched.delegationExpiresAt || null
+            };
+            setCurrentUser(updatedUser);
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+
+            // Sync EMS_USER_PERMISSIONS cache
+            if (effectivePerms && typeof effectivePerms === 'object') {
+              try {
+                if (matched._id) pMap[String(matched._id)] = effectivePerms;
+                if (matched.employeeCode) pMap[String(matched.employeeCode)] = effectivePerms;
+                if (matched.email) pMap[String(matched.email).toLowerCase()] = effectivePerms;
+                localStorage.setItem('EMS_USER_PERMISSIONS', JSON.stringify(pMap));
+              } catch (_) {}
             }
+
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
+            window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: { user: updatedUser } }));
           }
         }
       } catch (_) {}
@@ -281,13 +317,36 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       const key = e?.detail?.key;
-      if (key === AUTH_STORAGE_KEY || key === 'ems_auth_session' || key === KEYS.EMPLOYEES) {
+      if (key === AUTH_STORAGE_KEY || key === 'ems_auth_session' || key === KEYS.EMPLOYEES || key === 'EMS_USER_PERMISSIONS') {
         try {
           const raw = localStorage.getItem(AUTH_STORAGE_KEY);
           if (raw) {
             const parsed = JSON.parse(raw);
-            if (parsed && (parsed.email || parsed._id)) {
-              setCurrentUser(prev => ({ ...prev, ...parsed }));
+            if (parsed && (parsed.email || parsed._id || parsed.employeeCode)) {
+              const localEmps = getCollection(KEYS.EMPLOYEES) || [];
+              const matchedEmp = localEmps.find(emp =>
+                (parsed._id && (String(emp._id) === String(parsed._id) || String(emp.id) === String(parsed._id))) ||
+                (parsed.employeeCode && emp.employeeCode && String(emp.employeeCode).toUpperCase() === String(parsed.employeeCode).toUpperCase()) ||
+                (parsed.email && emp.email && emp.email.toLowerCase() === parsed.email.toLowerCase())
+              );
+              const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+              const pMap = rawMap ? JSON.parse(rawMap) : {};
+              const freshPerms = (parsed._id && pMap[String(parsed._id)]) ||
+                (parsed.employeeCode && pMap[String(parsed.employeeCode)]) ||
+                (parsed.email && pMap[String(parsed.email).toLowerCase()]);
+
+              const updatedPermissions = freshPerms || matchedEmp?.permissions || parsed.permissions || {};
+              const isDelegated = matchedEmp?.isDelegatedAdmin !== undefined ? Boolean(matchedEmp.isDelegatedAdmin) : (freshPerms?.isDelegatedAdmin !== undefined ? Boolean(freshPerms.isDelegatedAdmin) : Boolean(parsed.isDelegatedAdmin));
+              const updatedUser = {
+                ...parsed,
+                ...(matchedEmp || {}),
+                permissions: updatedPermissions,
+                isDelegatedAdmin: isDelegated,
+                delegationExpiresAt: matchedEmp?.delegationExpiresAt || freshPerms?.delegationExpiresAt || parsed.delegationExpiresAt || null,
+                systemRole: matchedEmp?.systemRole || parsed.systemRole
+              };
+              setCurrentUser(updatedUser);
+              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
             }
           }
         } catch (_) {}

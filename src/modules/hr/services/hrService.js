@@ -22,7 +22,24 @@ const getAuthUser = () => {
     const s = localStorage.getItem('ems_auth_session');
     if (!s) return null;
     const parsed = JSON.parse(s);
-    return parsed?.user || parsed;
+    const u = parsed?.user || parsed;
+    if (u) {
+      try {
+        const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
+        const pMap = rawMap ? JSON.parse(rawMap) : {};
+        const uKey = u._id || u.id || u.employeeCode || u.email;
+        const freshPerms = (u._id && pMap[String(u._id)]) || (u.employeeCode && pMap[String(u.employeeCode)]) || (u.email && pMap[String(u.email).toLowerCase()]) || (uKey && pMap[uKey]);
+        if (freshPerms) {
+          return {
+            ...u,
+            permissions: { ...(u.permissions || {}), ...freshPerms },
+            isDelegatedAdmin: freshPerms.isDelegatedAdmin !== undefined ? Boolean(freshPerms.isDelegatedAdmin) : Boolean(u.isDelegatedAdmin),
+            delegationExpiresAt: freshPerms.delegationExpiresAt !== undefined ? freshPerms.delegationExpiresAt : u.delegationExpiresAt
+          };
+        }
+      } catch (_) {}
+    }
+    return u;
   } catch (e) {
     return null;
   }
@@ -35,7 +52,8 @@ const getAuthHeaders = () => {
       'x-user-id': String(u._id || u.id || u.employeeCode || u.email || ''),
       'x-user-email': String(u.email || ''),
       'x-user-code': String(u.employeeCode || ''),
-      'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
+      'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member'))),
+      'x-user-permissions': JSON.stringify(u.permissions || {})
     };
   }
   return {};

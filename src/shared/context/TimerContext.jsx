@@ -800,26 +800,45 @@ export const TimerProvider = ({ children }) => {
         }
       } catch {}
 
-      // 2. Query MongoDB Atlas backend for latest attendance record (daily attendance only)
+      // 2. Query MongoDB Atlas backend for latest attendance record & live telemetry
       try {
-        const remoteList = await hrService.getDailyAttendance(today);
-        if (Array.isArray(remoteList)) {
-          const remoteRec = remoteList.find(a => isRecordForUser(a, today));
+        const [remoteList, telemetryRes] = await Promise.allSettled([
+          hrService.getDailyAttendance(today),
+          hrService.getLiveTelemetry(today)
+        ]);
+
+        let telemetryMap = {};
+        if (telemetryRes.status === 'fulfilled' && telemetryRes.value) {
+          telemetryMap = telemetryRes.value?.data || telemetryRes.value || {};
+        }
+
+        const myTelem = (targetEmpCode && telemetryMap[targetEmpCode]) ||
+          (targetEmpCode && telemetryMap[targetEmpCode.toLowerCase()]) ||
+          (targetEmpId && telemetryMap[String(targetEmpId)]) ||
+          (userKey && telemetryMap[String(userKey)]) ||
+          (currentUser?.name && telemetryMap[`name_${currentUser.name.trim().toLowerCase()}`]);
+
+        if (remoteList.status === 'fulfilled' && Array.isArray(remoteList.value)) {
+          const remoteRec = remoteList.value.find(a => isRecordForUser(a, today));
           if (remoteRec) {
-            rec = remoteRec;
+            rec = { ...remoteRec, ...(myTelem || {}) };
             try {
               const attRaw = localStorage.getItem('hrms_attendance');
               let attList = attRaw ? JSON.parse(attRaw) : [];
               if (!Array.isArray(attList)) attList = [];
               const idx = attList.findIndex(a => isRecordForUser(a, today));
               if (idx !== -1) {
-                attList[idx] = { ...attList[idx], ...remoteRec };
+                attList[idx] = { ...attList[idx], ...rec };
               } else {
-                attList.unshift(remoteRec);
+                attList.unshift(rec);
               }
               localStorage.setItem('hrms_attendance', JSON.stringify(attList));
             } catch (_) {}
           }
+        }
+
+        if (!rec && myTelem) {
+          rec = myTelem;
         }
       } catch (err) {}
 
@@ -1025,13 +1044,46 @@ export const TimerProvider = ({ children }) => {
     }
   }, [userKey, targetEmpId, isRecordForUser]);
 
-  // Periodic and reactive sync for cross-device consistency (60s fallback to save bandwidth)
+  // Periodic and reactive sync for cross-device consistency (4s loop for instant multi-browser sync)
   useEffect(() => {
     syncLiveShiftState();
-    const interval = setInterval(syncLiveShiftState, 60000);
+    const interval = setInterval(syncLiveShiftState, 4000);
     const handleSync = () => syncLiveShiftState();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') syncLiveShiftState();
+    };
+
+    const handleTelemetryUpdate = (e) => {
+      const data = e?.detail;
+      if (!data) return;
+      const isForMe = (data.employeeId && (String(data.employeeId) === String(targetEmpId) || String(data.employeeId) === String(userKey))) ||
+        (data.employeeCode && targetEmpCode && String(data.employeeCode).toUpperCase() === String(targetEmpCode).toUpperCase());
+      if (!isForMe) return;
+
+      if (data.isClockedIn) {
+        setIsClockedIn(true);
+        setIsRunning(!data.isOnBreak);
+        setIsOnBreak(Boolean(data.isOnBreak));
+        if (data.breakType) setBreakType(data.breakType);
+        if (data.clockInTime) setLoginTime(data.clockInTime);
+        setClockOutTime(null);
+        setHadClockedOutToday(false);
+
+        const nowMs = Date.now();
+        const hbTs = Number(data.lastHeartbeatAt) || nowMs;
+        const elapsed = !data.isOnBreak ? Math.max(0, Math.floor((nowMs - hbTs) / 1000)) : 0;
+        const liveSecs = (Number(data.workSeconds) || 0) + elapsed;
+        if (liveSecs > 0) {
+          setWorkSeconds(prev => (Math.abs(prev - liveSecs) > 2 ? liveSecs : prev));
+        }
+      } else if (data.isClockedOut || data.clockOutTime) {
+        setIsClockedIn(false);
+        setIsRunning(false);
+        setIsOnBreak(false);
+        setHadClockedOutToday(true);
+        if (data.clockOutTime) setClockOutTime(data.clockOutTime);
+        if (data.workSeconds !== undefined) setWorkSeconds(Number(data.workSeconds));
+      }
     };
 
     const handleClockedOut = (e) => {
@@ -1070,12 +1122,16 @@ export const TimerProvider = ({ children }) => {
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('ems_clocked_in', handleSync);
     window.addEventListener('ems_clocked_out', handleClockedOut);
+    window.addEventListener('ems_telemetry_update', handleTelemetryUpdate);
+    window.addEventListener('hrms_storage_change', handleSync);
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleSync);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('ems_clocked_in', handleSync);
       window.removeEventListener('ems_clocked_out', handleClockedOut);
+      window.removeEventListener('ems_telemetry_update', handleTelemetryUpdate);
+      window.removeEventListener('hrms_storage_change', handleSync);
     };
   }, [syncLiveShiftState, isEventForMe, currentUser]);
 
@@ -2183,7 +2239,7 @@ export const TimerProvider = ({ children }) => {
     };
 
     pulseHeartbeat();
-    const hbInterval = setInterval(pulseHeartbeat, 60000);
+    const hbInterval = setInterval(pulseHeartbeat, 4000);
     return () => clearInterval(hbInterval);
   }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, workSeconds, breakSeconds, breakType]);
 

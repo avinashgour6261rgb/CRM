@@ -5,7 +5,8 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import {
   canGiveAppreciation,
   canDeleteAppreciation,
-  canDeleteEmployee
+  canDeleteEmployee,
+  canViewAllAttendance
 } from '../../../shared/utils/permissionUtils';
 
 const defaultHRContext = {
@@ -117,6 +118,7 @@ export const HRProvider = ({ children }) => {
       const isPrivileged = authUserObj?.isAdmin ||
         ['admin', 'hr'].includes(authUserObj?.role?.toLowerCase()) ||
         ['admin', 'hr'].includes(authUserObj?.systemRole?.toLowerCase()) ||
+        canViewAllAttendance(authUserObj) ||
         authUserObj?.permissions?.liveOperations ||
         authUserObj?.permissions?.teamoperations ||
         authUserObj?.permissions?.viewAllAttendance ||
