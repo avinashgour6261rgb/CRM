@@ -164,6 +164,44 @@ export const TimerProvider = ({ children }) => {
     return false;
   }, [targetEmpId, targetEmpCode, userKey, currentUser, targetEmpName]);
 
+  const isEventForMe = useCallback((e) => {
+    if (!e) return false;
+    const detail = e.detail || e;
+    const evKey = detail?.userKey || detail?.empKey || detail?.employeeKey || detail?.employeeCode || detail?.employeeId;
+    const evId = detail?.employeeId || detail?.userId || detail?._id;
+    const evCode = detail?.employeeCode;
+
+    if (!evKey && !evId && !evCode) return true; // generic broadcast event
+
+    const cId = currentUser?._id ? String(currentUser._id) : '';
+    const cCode = currentUser?.employeeCode ? String(currentUser.employeeCode).trim().toUpperCase() : '';
+    const uKey = String(userKey || '').trim().toUpperCase();
+    const tId = String(targetEmpId || '');
+    const tCode = String(targetEmpCode || '').trim().toUpperCase();
+
+    if (evKey) {
+      const normEvKey = String(evKey).trim().toUpperCase();
+      if (uKey && normEvKey === uKey) return true;
+      if (tCode && normEvKey === tCode) return true;
+      if (cCode && normEvKey === cCode) return true;
+      if (tId && String(evKey) === tId) return true;
+      if (cId && String(evKey) === cId) return true;
+    }
+    if (evId) {
+      const sEvId = String(evId);
+      if (cId && sEvId === cId) return true;
+      if (tId && sEvId === tId) return true;
+      if (uKey && sEvId.toUpperCase() === uKey) return true;
+    }
+    if (evCode) {
+      const normEvCode = String(evCode).trim().toUpperCase();
+      if (cCode && normEvCode === cCode) return true;
+      if (tCode && normEvCode === tCode) return true;
+      if (uKey && normEvCode === uKey) return true;
+    }
+    return false;
+  }, [userKey, targetEmpId, targetEmpCode, currentUser]);
+
   const k = useCallback((name) => `ems_timer_${userKey}_${name}`, [userKey]);
 
   // ── Helper to read state with userKey scoping ──

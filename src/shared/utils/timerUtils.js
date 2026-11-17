@@ -289,7 +289,7 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
           )
         ) || null;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const hasAttClockIn = Boolean(attRec && attRec.date === today && (attRec.clockInTime || attRec.clockIn));
@@ -315,7 +315,7 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   try {
     const raw = readTimerStorage(userOrEmp, 'punch_sessions');
     if (raw) rawSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch (_) {}
+  } catch (_) { }
   if ((!rawSessions || rawSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
     rawSessions = attRec.punchSessions;
   }
@@ -579,7 +579,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   try {
     const rawSessions = readTimerStorage(user, 'punch_sessions');
     if (rawSessions) existingSessions = typeof rawSessions === 'string' ? JSON.parse(rawSessions) : rawSessions;
-  } catch (_) {}
+  } catch (_) { }
   const todayMidnightMs = todayMidnight.getTime();
   existingSessions = normalizePunchSessions((existingSessions || []).filter(s => Number(s.inTimestamp || 0) >= todayMidnightMs));
 
@@ -773,7 +773,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
             employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
             status: matchedRecord.status || 'present'
-          }).catch(() => {});
+          }).catch(() => { });
 
           hrService.sendHeartbeat({
             employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
@@ -784,11 +784,11 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             clockOutTimestamp: nowTs,
             workSeconds: finalVerifiedWorkSecs,
             activeTask: null
-          }).catch(() => {});
-        } catch (_) {}
+          }).catch(() => { });
+        } catch (_) { }
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 4. Auto-pause running task timers for this user
   try {
@@ -849,7 +849,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
               dailySessions: pt.dailySessions,
               sessionDate: pt.sessionDate,
               wasPausedForClockOut: true
-            }).catch(() => {});
+            }).catch(() => { });
           }
         });
       }
@@ -867,11 +867,11 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             dailySessions: pausedActiveTimer.dailySessions,
             sessionDate: pausedActiveTimer.sessionDate,
             wasPausedForClockOut: true
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // 5. Dispatch sync events
   const clockOutPayload = {
@@ -891,7 +891,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
   try {
     broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, clockOutPayload);
-  } catch (_) {}
+  } catch (_) { }
 };
 
 
