@@ -23,12 +23,122 @@ try {
 }
 
 /**
+ * Safe single-item upsert/delete in localStorage mirror (never overwrites scoped collections)
+ */
+const applySingleItemMutation = (storageKey, payload, codeField = null) => {
+  try {
+    if (!storageKey || !payload) return;
+    const raw = localStorage.getItem(storageKey);
+    let list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) list = [];
+
+    const action = payload.action || (payload.item ? 'update' : null);
+    const item = payload.item || (payload._id ? payload : null);
+    const targetId = payload.id || item?._id || item?.id;
+    const targetCode = codeField ? (payload[codeField] || item?.[codeField]) : null;
+
+    const matchesItem = (entry) => {
+      if (!entry) return false;
+      if (targetId && (String(entry._id) === String(targetId) || String(entry.id) === String(targetId))) return true;
+      if (codeField && targetCode && entry[codeField] && String(entry[codeField]) === String(targetCode)) return true;
+      return false;
+    };
+
+    if (action === 'delete') {
+      const next = list.filter(entry => !matchesItem(entry));
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } else if (item && (action === 'create' || action === 'update' || action === 'comment')) {
+      const idx = list.findIndex(matchesItem);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...item };
+      } else {
+        list.unshift(item);
+      }
+      localStorage.setItem(storageKey, JSON.stringify(list));
+    }
+
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: storageKey, remote: true, action } }));
+    window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: storageKey, action, item, id: targetId } }));
+  } catch (err) {
+    console.warn(`[RealtimeSync] Failed applying mutation for ${storageKey}:`, err);
+  }
+};
+
+/**
+ * Sync incoming attendance record into localStorage + per-user live timer keys (0ms multi-device same-ID sync)
+ */
+const syncIncomingAttendanceToStorage = (data) => {
+  if (!data) return;
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const empId = data.employeeId || (typeof data.employee === 'object' ? data.employee?._id : data.employee);
+    const empCode = data.employeeCode;
+    const targetKeys = Array.from(new Set([empId, empCode].filter(Boolean).map(String)));
+
+    // 1. Upsert into KEYS.ATTENDANCE mirror
+    try {
+      const rawAtt = localStorage.getItem(KEYS.ATTENDANCE);
+      let attList = rawAtt ? JSON.parse(rawAtt) : [];
+      if (!Array.isArray(attList)) attList = [];
+      const recDate = data.date || today;
+      const idx = attList.findIndex(a => {
+        const sameEmp = (empId && (String(a.employeeId) === String(empId) || String(a.employee?._id || a.employee) === String(empId))) ||
+          (empCode && a.employeeCode && String(a.employeeCode).toUpperCase() === String(empCode).toUpperCase());
+        return sameEmp && a.date === recDate;
+      });
+      if (idx !== -1) {
+        attList[idx] = { ...attList[idx], ...data };
+      } else {
+        attList.unshift(data);
+      }
+      localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(attList));
+    } catch (_) {}
+
+    // 2. Sync per-employee live timer keys ONLY for today's shift
+    if (!data.date || data.date === today) {
+      targetKeys.forEach(k => {
+        try {
+          localStorage.setItem(`ems_timer_${k}_work_session_date`, today);
+          if (data.isClockedIn) {
+            localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'true');
+            localStorage.setItem(`ems_timer_${k}_is_running`, data.isOnBreak ? 'false' : 'true');
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, data.isOnBreak ? 'true' : 'false');
+            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'false');
+            if (data.clockInTime) localStorage.setItem(`ems_timer_${k}_login_time`, data.clockInTime);
+            if (data.clockInTimestamp) localStorage.setItem(`ems_timer_${k}_clock_in_timestamp`, String(data.clockInTimestamp));
+            if (data.currentSessionStartTimestamp) localStorage.setItem(`ems_timer_${k}_current_session_start_timestamp`, String(data.currentSessionStartTimestamp));
+            if (data.workSeconds !== undefined) localStorage.setItem(`ems_timer_${k}_work_seconds`, String(data.workSeconds));
+            if (data.breakSeconds !== undefined) localStorage.setItem(`ems_timer_${k}_break_seconds`, String(data.breakSeconds));
+            if (data.breakType) localStorage.setItem(`ems_timer_${k}_break_type`, data.breakType);
+            if (Array.isArray(data.punchSessions)) localStorage.setItem(`ems_timer_${k}_punch_sessions`, JSON.stringify(data.punchSessions));
+            if (Array.isArray(data.breakHistory)) localStorage.setItem(`ems_timer_${k}_break_history`, JSON.stringify(data.breakHistory));
+            localStorage.removeItem(`ems_timer_${k}_clock_out`);
+            localStorage.removeItem(`ems_timer_${k}_clockout_time`);
+          } else if (data.isClockedOut || data.clockOutTime) {
+            const outStr = data.clockOutTime || data.clockOut || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'true');
+            localStorage.setItem(`ems_timer_${k}_clock_out`, outStr);
+            localStorage.setItem(`ems_timer_${k}_clockout_time`, outStr);
+            if (data.workSeconds !== undefined) localStorage.setItem(`ems_timer_${k}_work_seconds`, String(data.workSeconds));
+            if (Array.isArray(data.punchSessions)) localStorage.setItem(`ems_timer_${k}_punch_sessions`, JSON.stringify(data.punchSessions));
+          }
+        } catch (_) {}
+      });
+    }
+  } catch (_) {}
+};
+
+/**
  * Bridge incoming Socket.IO events across different devices into the local app event bus
  */
 if (typeof window !== 'undefined') {
   subscribeSocketEvent('attendance:update', (data) => {
     try {
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      syncIncomingAttendanceToStorage(data);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       if (data?.isClockedIn) {
         window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: data }));
       } else if (data?.isClockedOut || data?.clockOutTime) {
@@ -112,7 +222,12 @@ if (typeof window !== 'undefined') {
 
   subscribeSocketEvent('task:updated', (data) => {
     try {
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      if (data && (data._id || data.id)) {
+        applySingleItemMutation(KEYS.TASKS, { action: 'update', item: data }, 'taskCode');
+      } else {
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS, remote: true } }));
+        window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.TASKS, action: 'update' } }));
+      }
       if (data?.timerRunning) {
         window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: data }));
       } else if (data?.status === 'completed') {
@@ -123,9 +238,93 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
+  subscribeSocketEvent('task:deleted', (data) => {
+    try {
+      applySingleItemMutation(KEYS.TASKS, { action: 'delete', id: data?._id || data?.id, taskCode: data?.taskCode }, 'taskCode');
+    } catch (_) {}
+  });
+
   subscribeSocketEvent('chat:message', (data) => {
     try {
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
+      const { conversationId, message, conversation } = data || {};
+      let foundConv = false;
+      if (conversationId && message) {
+        try {
+          const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
+          let convList = rawConvs ? JSON.parse(rawConvs) : [];
+          if (!Array.isArray(convList)) convList = [];
+          const idx = convList.findIndex(c => c.id === conversationId);
+          if (idx !== -1) {
+            foundConv = true;
+            if (!Array.isArray(convList[idx].messages)) convList[idx].messages = [];
+            const alreadyExists = convList[idx].messages.some(m => m && m.id && m.id === message.id);
+            if (!alreadyExists) {
+              convList[idx].messages.push(message);
+            }
+            convList[idx].lastMessage = message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment');
+            convList[idx].lastMessageTime = message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            convList[idx].updatedAt = Date.now();
+            localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convList));
+          } else if (conversation && conversation.id) {
+            foundConv = true;
+            convList.unshift(conversation);
+            localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convList));
+          }
+        } catch (_) {}
+
+        window.dispatchEvent(new CustomEvent('ems_chat_message_sent', { detail: { message, conversationId } }));
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS, remote: true } }));
+      if (!foundConv) {
+        window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.CONVERSATIONS, action: 'message' } }));
+      }
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('chat:conversation:updated', (data) => {
+    try {
+      const conv = data?.conversation || data;
+      if (conv && conv.id) {
+        try {
+          const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
+          let convList = rawConvs ? JSON.parse(rawConvs) : [];
+          if (!Array.isArray(convList)) convList = [];
+          const idx = convList.findIndex(c => c.id === conv.id);
+          if (idx !== -1) {
+            convList[idx] = { ...convList[idx], ...conv };
+          } else {
+            convList.unshift(conv);
+          }
+          localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convList));
+        } catch (_) {}
+      }
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS, remote: true } }));
+      window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.CONVERSATIONS, action: 'update' } }));
+    } catch (_) {}
+  });
+
+  // 📡 Real-time CRM, Work & HR Entity Synchronization across ALL devices (0ms latency)
+  subscribeSocketEvent('lead:updated', (data) => applySingleItemMutation(KEYS.LEADS, data, 'leadCode'));
+  subscribeSocketEvent('ticket:updated', (data) => applySingleItemMutation(KEYS.TICKETS, data, 'ticketCode'));
+  subscribeSocketEvent('notice:updated', (data) => applySingleItemMutation(KEYS.NOTICES, data, 'noticeCode'));
+  subscribeSocketEvent('event:updated', (data) => applySingleItemMutation(KEYS.EVENTS, data));
+  subscribeSocketEvent('expense:updated', (data) => applySingleItemMutation(KEYS.EXPENSES, data, 'expenseCode'));
+  subscribeSocketEvent('project:updated', (data) => applySingleItemMutation(KEYS.PROJECTS, data, 'projectCode'));
+  subscribeSocketEvent('timesheet:updated', (data) => applySingleItemMutation(KEYS.TIMESHEETS, data));
+  subscribeSocketEvent('leave:updated', (data) => {
+    applySingleItemMutation(KEYS.LEAVES, data);
+    window.dispatchEvent(new CustomEvent('ems_leaves_updated', { detail: data || {} }));
+  });
+  subscribeSocketEvent('holiday:updated', (data) => applySingleItemMutation(KEYS.HOLIDAYS, data));
+  subscribeSocketEvent('appreciation:updated', (data) => applySingleItemMutation(KEYS.APPRECIATIONS, data));
+  subscribeSocketEvent('employee:updated', (data) => applySingleItemMutation(KEYS.EMPLOYEES, data, 'employeeCode'));
+  subscribeSocketEvent('settings:updated', (data) => {
+    try {
+      if (data?.settings) {
+        localStorage.setItem('ems_company_settings', JSON.stringify(data.settings));
+      }
+      window.dispatchEvent(new CustomEvent('company-settings-updated', { detail: data?.settings || {} }));
     } catch (_) {}
   });
 
@@ -157,22 +356,26 @@ if (typeof window !== 'undefined') {
       const { type, payload } = message;
       if (type === SYNC_EVENTS.TASK_TIMER_STARTED) {
         window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: payload }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS, remote: true } }));
       } else if (type === SYNC_EVENTS.TASK_TIMER_PAUSED) {
         window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: payload }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS, remote: true } }));
       } else if (type === SYNC_EVENTS.TASK_TIMER_STOPPED || type === SYNC_EVENTS.TASK_COMPLETED) {
         window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: payload }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS, remote: true } }));
       } else if (type === SYNC_EVENTS.SHIFT_CLOCKED_IN) {
+        syncIncomingAttendanceToStorage({ ...payload, isClockedIn: true });
         window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: payload }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.SHIFT_CLOCKED_OUT) {
+        syncIncomingAttendanceToStorage({ ...payload, isClockedIn: false, isClockedOut: true });
         window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: payload }));
-        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.STORAGE_MUTATION) {
         if (payload?.key) {
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: payload.key } }));
+          // Trigger remote MongoDB refresh on other devices (role-scoped, safe from overwrites)
+          window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: payload.key, action: 'mutation' } }));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: payload.key, remote: true } }));
         }
       } else if (type === 'PERMISSIONS_UPDATED' && payload) {
         try {
@@ -190,9 +393,12 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
-  // 📡 Live Telemetry broadcast from server to instantly update Live Operations
+  // 📡 Live Telemetry broadcast from server to instantly update Live Operations & same-ID devices
   subscribeSocketEvent('attendance:telemetry', (data) => {
     try {
+      if (data && (data.employeeId || data.employeeCode)) {
+        syncIncomingAttendanceToStorage(data);
+      }
       window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: data }));
     } catch (_) {}
   });

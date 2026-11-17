@@ -61,11 +61,19 @@ const createHoliday = asyncHandler(async (req, res) => {
   let holiday = await Holiday.findOne({ date: req.body.date });
   if (holiday) {
     holiday = await Holiday.findOneAndUpdate({ date: req.body.date }, req.body, { new: true });
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('holiday:updated', { action: 'update', item: holiday });
+    } catch (_) {}
     return res.json({ success: true, data: holiday });
   }
 
   holiday = new Holiday(req.body);
   await holiday.save();
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('holiday:updated', { action: 'create', item: holiday });
+  } catch (_) {}
   res.status(201).json({ success: true, data: holiday });
 });
 
@@ -90,6 +98,10 @@ const updateHoliday = asyncHandler(async (req, res) => {
   if (!holiday) {
     return res.status(404).json({ success: false, message: 'Holiday not found' });
   }
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('holiday:updated', { action: 'update', item: holiday });
+  } catch (_) {}
   res.json({ success: true, data: holiday });
 });
 
@@ -116,6 +128,10 @@ const deleteHoliday = asyncHandler(async (req, res) => {
     // If not found in DB, return success true so frontend can cleanly remove from local cache
     return res.json({ success: true, message: 'Holiday not found or already removed', data: {} });
   }
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('holiday:updated', { action: 'delete', id: String(holiday._id) });
+  } catch (_) {}
   res.json({ success: true, message: 'Holiday removed', data: {} });
 });
 

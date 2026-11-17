@@ -8,7 +8,29 @@ import { io } from 'socket.io-client';
 import { API_BASE } from '../config/apiConfig';
 
 let socket = null;
+let hasConnectedOnce = false;
+let registeredUserPayload = null;
 const eventListeners = new Map();
+
+function buildUserJoinPayload(user) {
+  if (!user) return null;
+  const userId = user._id || user.id || null;
+  const employeeCode = user.employeeCode || null;
+  const email = user.email ? String(user.email).toLowerCase().trim() : null;
+  if (!userId && !employeeCode && !email) return null;
+  return { userId, employeeCode, email };
+}
+
+function getStoredUserJoinPayload() {
+  try {
+    const raw = localStorage.getItem('ems_auth_session');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return buildUserJoinPayload(parsed?.user || parsed);
+    }
+  } catch (_) {}
+  return null;
+}
 
 /**
  * Derive clean socket server URL from API_BASE
@@ -33,32 +55,35 @@ export function getSocket() {
       socket = io(serverUrl, {
         transports: ['polling', 'websocket'],
         reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 3000,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 2000,
         reconnectionDelayMax: 15000,
         timeout: 20000,
         autoConnect: true
       });
 
       socket.on('connect', () => {
-        // Automatically join user room if session exists
+        const isReconnect = hasConnectedOnce;
+        hasConnectedOnce = true;
+
+        // Automatically join user room (supports same ID on multiple devices)
         try {
-          const raw = localStorage.getItem('ems_auth_session');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const user = parsed?.user || parsed;
-            if (user) {
-              socket.emit('join:user', {
-                userId: user._id || user.id,
-                employeeCode: user.employeeCode
-              });
-            }
+          const payload = registeredUserPayload || getStoredUserJoinPayload();
+          if (payload) {
+            socket.emit('join:user', payload);
           }
         } catch (_) {}
+
+        // On reconnect after offline/sleep, notify contexts to pull any missed updates
+        if (isReconnect) {
+          try {
+            window.dispatchEvent(new CustomEvent('ems_socket_reconnected', { detail: { timestamp: Date.now() } }));
+          } catch (_) {}
+        }
       });
 
-      socket.on('connect_error', (err) => {
-        // Silent fallback - app continues seamlessly on LocalStorage
+      socket.on('connect_error', () => {
+        // Silent fallback - auto-reconnection keeps retrying until backend is reachable
       });
 
       // Hook registered listeners
@@ -79,15 +104,14 @@ export function getSocket() {
 }
 
 /**
- * Register user identity with the socket connection
+ * Register user identity with the socket connection (joins user-specific multi-device rooms)
  */
 export function registerSocketUser(user) {
+  const payload = buildUserJoinPayload(user);
+  registeredUserPayload = payload;
   const s = getSocket();
-  if (s && s.connected && user) {
-    s.emit('join:user', {
-      userId: user._id || user.id,
-      employeeCode: user.employeeCode
-    });
+  if (s && s.connected && payload) {
+    s.emit('join:user', payload);
   }
 }
 

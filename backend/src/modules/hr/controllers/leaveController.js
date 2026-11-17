@@ -216,6 +216,10 @@ const createLeave = asyncHandler(async (req, res) => {
     appliedOn: new Date()
   });
   await leave.save();
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('leave:updated', { action: 'create', item: leave });
+  } catch (_) {}
 
   res.status(201).json({
     success: true,
@@ -455,6 +459,11 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
     }
   }
 
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('leave:updated', { action: 'update', item: leave });
+  } catch (_) {}
+
   res.json({
     success: true,
     data: leave,
@@ -526,6 +535,10 @@ const deleteLeave = asyncHandler(async (req, res) => {
   }
 
   await Leave.findByIdAndDelete(req.params.id);
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('leave:updated', { action: 'delete', id: String(req.params.id) });
+  } catch (_) {}
   res.json({
     success: true,
     message: 'Leave record deleted',
@@ -565,6 +578,10 @@ const acknowledgeLeave = asyncHandler(async (req, res) => {
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
   leave.isAcknowledged = true;
   await leave.save();
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('leave:updated', { action: 'update', item: leave });
+  } catch (_) {}
   res.json({ success: true, data: leave });
 });
 

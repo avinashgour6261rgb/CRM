@@ -200,11 +200,19 @@ exports.createConversation = async (req, res) => {
       // Update metadata if exists
       Object.assign(conv, data);
       await conv.save();
+      try {
+        const { emitToAll } = require('../../../shared/socket/socketManager');
+        emitToAll('chat:conversation:updated', { conversation: conv });
+      } catch (_) {}
       return res.json({ success: true, data: conv, message: 'Conversation updated' });
     }
 
     conv = new Conversation(data);
     await conv.save();
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('chat:conversation:updated', { conversation: conv });
+    } catch (_) {}
     res.status(201).json({ success: true, data: conv });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -230,6 +238,10 @@ exports.sendMessage = async (req, res) => {
         lastMessageTime: message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
       await conv.save();
+      try {
+        const { emitToAll } = require('../../../shared/socket/socketManager');
+        emitToAll('chat:message', { conversationId: id, message, conversation: conv });
+      } catch (_) {}
       return res.status(201).json({ success: true, data: conv });
     }
 
@@ -298,6 +310,10 @@ exports.markAsRead = async (req, res) => {
 
     if (updated) {
       await conv.save();
+      try {
+        const { emitToAll } = require('../../../shared/socket/socketManager');
+        emitToAll('chat:conversation:updated', { conversation: conv });
+      } catch (_) {}
     }
 
     res.json({ success: true, data: conv });

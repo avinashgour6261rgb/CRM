@@ -141,6 +141,10 @@ const createEmployee = asyncHandler(async (req, res) => {
     email: cleanEmail
   });
   await employee.save();
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('employee:updated', { action: 'create', item: employee });
+  } catch (_) {}
   res.status(201).json({ success: true, data: employee });
 });
 
@@ -233,6 +237,11 @@ const updateEmployee = asyncHandler(async (req, res) => {
       if (employee.email) emitToUser(employee.email.toLowerCase(), 'employee:permissions:updated', socketPayload);
     } catch (_) {}
   }
+
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('employee:updated', { action: 'update', item: employee });
+  } catch (_) {}
 
   res.json({ success: true, data: employee });
 });
@@ -344,6 +353,10 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   }
 
   await Employee.deleteOne({ _id: employee._id });
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('employee:updated', { action: 'delete', id: String(employee._id), employeeCode: employee.employeeCode });
+  } catch (_) {}
   res.json({ success: true, message: 'Employee removed', data: {} });
 });
 

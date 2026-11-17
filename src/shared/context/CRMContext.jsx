@@ -109,6 +109,36 @@ const defaultCRMContext = {
 
 const CRMContext = createContext(defaultCRMContext);
 
+// Module-level backend availability circuit breaker (shared across all parallel loaders & re-renders)
+let crmBackendOnline = null;
+let lastCrmCheck = 0;
+let crmHealthInFlight = null;
+
+const isCrmBackendAvailable = async () => {
+  const now = Date.now();
+  if (crmBackendOnline !== null && (now - lastCrmCheck < 25000)) {
+    return crmBackendOnline;
+  }
+  if (crmHealthInFlight) return crmHealthInFlight;
+
+  crmHealthInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(8000) });
+      const ct = res.headers.get('content-type') || '';
+      crmBackendOnline = res.ok && ct.includes('application/json');
+    } catch {
+      crmBackendOnline = false;
+    }
+    lastCrmCheck = Date.now();
+    crmHealthInFlight = null;
+    return crmBackendOnline;
+  })();
+
+  return crmHealthInFlight;
+};
+
+const isMongoObjectId = (val) => typeof val === 'string' && /^[a-fA-F0-9]{24}$/.test(val);
+
 export const CRMProvider = ({ children }) => {
   const { addToast } = useToast();
   const { currentUser: authUser } = useAuth();
@@ -310,7 +340,7 @@ export const CRMProvider = ({ children }) => {
     }
 
     if (changed) {
-      saveCollection(KEYS.CONVERSATIONS, convs);
+      saveCollection(KEYS.CONVERSATIONS, convs, { broadcast: false });
     }
     return convs;
   };
@@ -473,25 +503,7 @@ export const CRMProvider = ({ children }) => {
     setStorageTick(prev => prev + 1);
   };
 
-  // Fast Circuit Breaker: Prevents repeated 503 CORS errors when backend is offline/suspended
-  let crmBackendOnline = null;
-  let lastCrmCheck = 0;
-  const isCrmBackendAvailable = async () => {
-    const now = Date.now();
-    if (crmBackendOnline !== null && (now - lastCrmCheck < 25000)) {
-      return crmBackendOnline;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
-      crmBackendOnline = res.ok;
-    } catch {
-      crmBackendOnline = false;
-    }
-    lastCrmCheck = Date.now();
-    return crmBackendOnline;
-  };
-
-  // Synchronize tickets with MongoDB backend
+  // Synchronize tickets with MongoDB backend (MongoDB is authoritative; never resurrect deleted items)
   const loadTickets = async () => {
     try {
       if (!(await isCrmBackendAvailable())) {
@@ -513,11 +525,13 @@ export const CRMProvider = ({ children }) => {
             ticketMap.set(key, t);
           });
 
+          // Only preserve unsynced offline-created temp tickets (non-ObjectId)
           local.forEach(t => {
+            const idStr = String(t._id || '');
             const key = String(t._id || t.ticketCode);
-            if (!ticketMap.has(key)) {
+            if (!ticketMap.has(key) && !isMongoObjectId(idStr)) {
               ticketMap.set(key, t);
-            } else {
+            } else if (ticketMap.has(key)) {
               const remote = ticketMap.get(key);
               if ((t.replies?.length || 0) > (remote.replies?.length || 0)) {
                 ticketMap.set(key, { ...remote, replies: t.replies });
@@ -526,7 +540,7 @@ export const CRMProvider = ({ children }) => {
           });
 
           const merged = Array.from(ticketMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-          saveCollection(KEYS.TICKETS, merged);
+          saveCollection(KEYS.TICKETS, merged, { broadcast: false });
           setTickets(merged);
           return;
         }
@@ -593,7 +607,7 @@ export const CRMProvider = ({ children }) => {
           });
 
           const merged = Array.from(map.values());
-          saveCollection(KEYS.CONVERSATIONS, merged);
+          saveCollection(KEYS.CONVERSATIONS, merged, { broadcast: false });
           setConversations(merged);
 
           if (hasUnsynced) {
@@ -632,12 +646,13 @@ export const CRMProvider = ({ children }) => {
             if (e._id) map.set(String(e._id), normalizeEvent(e));
           });
           local.forEach(e => {
-            if (e._id && !map.has(String(e._id))) {
-              map.set(String(e._id), normalizeEvent(e));
+            const idStr = String(e._id || '');
+            if (idStr && !map.has(idStr) && !isMongoObjectId(idStr)) {
+              map.set(idStr, normalizeEvent(e));
             }
           });
           const merged = Array.from(map.values());
-          saveCollection(KEYS.EVENTS, merged);
+          saveCollection(KEYS.EVENTS, merged, { broadcast: false });
           setEvents(merged);
         }
       }
@@ -667,13 +682,14 @@ export const CRMProvider = ({ children }) => {
             map.set(key, exp);
           });
           local.forEach(exp => {
+            const idStr = String(exp._id || '');
             const key = String(exp._id || exp.expenseCode || exp.idNumber);
-            if (!map.has(key)) {
+            if (!map.has(key) && !isMongoObjectId(idStr)) {
               map.set(key, exp);
             }
           });
           const merged = Array.from(map.values()).sort((a, b) => new Date(b.purchaseDate || b.date || b.createdAt || 0) - new Date(a.purchaseDate || a.date || a.createdAt || 0));
-          saveCollection(KEYS.EXPENSES, merged);
+          saveCollection(KEYS.EXPENSES, merged, { broadcast: false });
           setExpenses(merged);
         }
       }
@@ -703,13 +719,14 @@ export const CRMProvider = ({ children }) => {
             map.set(key, l);
           });
           local.forEach(l => {
+            const idStr = String(l._id || '');
             const key = String(l._id || l.leadCode || l.id);
-            if (!map.has(key)) {
+            if (!map.has(key) && !isMongoObjectId(idStr)) {
               map.set(key, l);
             }
           });
           const merged = Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-          saveCollection(KEYS.LEADS, merged);
+          saveCollection(KEYS.LEADS, merged, { broadcast: false });
           setLeads(merged);
         }
       }
@@ -739,13 +756,14 @@ export const CRMProvider = ({ children }) => {
             map.set(key, n);
           });
           local.forEach(n => {
+            const idStr = String(n._id || '');
             const key = String(n._id || n.id);
-            if (!map.has(key)) {
+            if (!map.has(key) && !isMongoObjectId(idStr)) {
               map.set(key, n);
             }
           });
           const merged = Array.from(map.values()).sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
-          saveCollection(KEYS.NOTICES, merged);
+          saveCollection(KEYS.NOTICES, merged, { broadcast: false });
           setNotices(merged);
         }
       }
@@ -763,33 +781,68 @@ export const CRMProvider = ({ children }) => {
     loadNotices();
   }, [currentUser]);
 
-  // ── Multi-User Real-time Chat Sync: Event/Focus driven with 60s fallback (Saves 95% bandwidth) ──
+  // ── Multi-User Real-time CRM & Chat Sync: Socket-driven + focus/visibility/reconnect sync ──
   useEffect(() => {
     if (!currentUser) return;
+    const timers = {};
+    const scheduleRefresh = (key, fn, delay = 350) => {
+      if (timers[key]) clearTimeout(timers[key]);
+      timers[key] = setTimeout(() => {
+        fn();
+      }, delay);
+    };
+
+    const refreshAllCRM = () => {
+      loadTickets();
+      loadConversations();
+      loadEvents();
+      loadExpenses();
+      loadLeads();
+      loadNotices();
+    };
+
     const syncIfVisible = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        loadConversations();
+        refreshAllCRM();
       }
     };
-    const interval = setInterval(syncIfVisible, 60000);
+
+    const handleRemoteSync = (e) => {
+      const key = e?.detail?.key;
+      if (!key) return;
+      if (key === KEYS.LEADS) scheduleRefresh('leads', loadLeads);
+      else if (key === KEYS.TICKETS) scheduleRefresh('tickets', loadTickets);
+      else if (key === KEYS.NOTICES) scheduleRefresh('notices', loadNotices);
+      else if (key === KEYS.EVENTS) scheduleRefresh('events', loadEvents);
+      else if (key === KEYS.EXPENSES) scheduleRefresh('expenses', loadExpenses);
+      else if (key === KEYS.CONVERSATIONS) scheduleRefresh('conversations', loadConversations);
+      else if (key === 'all') scheduleRefresh('all', refreshAllCRM);
+    };
+
+    const interval = setInterval(syncIfVisible, 45000);
     window.addEventListener('focus', syncIfVisible);
     document.addEventListener('visibilitychange', syncIfVisible);
+    window.addEventListener('ems_remote_sync', handleRemoteSync);
+    window.addEventListener('ems_socket_reconnected', refreshAllCRM);
     return () => {
       clearInterval(interval);
+      Object.values(timers).forEach(t => clearTimeout(t));
       window.removeEventListener('focus', syncIfVisible);
       document.removeEventListener('visibilitychange', syncIfVisible);
+      window.removeEventListener('ems_remote_sync', handleRemoteSync);
+      window.removeEventListener('ems_socket_reconnected', refreshAllCRM);
     };
   }, [currentUser]);
 
   useEffect(() => {
+    const crmWatchKeys = ['all', 'ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'];
     const handleStorageUpdate = (e) => {
-      // FIX: Use 'hrms_attendance' (not 'ems_attendance') to match TimerContext dispatch key
-      if (['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.detail?.key)) {
+      if (!e.detail?.key || crmWatchKeys.includes(e.detail?.key)) {
         syncWithStorage();
       }
     };
     const handleNativeStorage = (e) => {
-      if (!e.key || ['ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'].includes(e.key)) {
+      if (!e.key || crmWatchKeys.includes(e.key)) {
         syncWithStorage();
       }
     };
@@ -1442,14 +1495,16 @@ export const CRMProvider = ({ children }) => {
     };
 
     try {
+      const expensePayload = { ...newExpense };
+      delete expensePayload._id;
       const res = await fetch(`${API_BASE}/expenses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newExpense)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(expensePayload)
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.data?._id) newExpense._id = json.data._id;
+        if (json.data?._id) newExpense._id = String(json.data._id);
       }
     } catch (_) {}
 
@@ -1463,10 +1518,12 @@ export const CRMProvider = ({ children }) => {
 
   const updateExpense = async (expenseId, updateData) => {
     try {
+      const payload = { ...updateData };
+      delete payload._id;
       await fetch(`${API_BASE}/expenses/${expenseId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
@@ -1492,7 +1549,7 @@ export const CRMProvider = ({ children }) => {
     try {
       await fetch(`${API_BASE}/expenses/${expenseId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status })
       });
     } catch (_) {}
@@ -1511,7 +1568,10 @@ export const CRMProvider = ({ children }) => {
 
   const deleteExpense = async (expenseId) => {
     try {
-      await fetch(`${API_BASE}/expenses/${expenseId}`, { method: 'DELETE' });
+      await fetch(`${API_BASE}/expenses/${expenseId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EXPENSES);

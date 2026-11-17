@@ -5,6 +5,7 @@
 
 const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
+const { emitToAll } = require('../../../shared/socket/socketManager');
 
 // @desc    Get all leads with filtering & search
 // @route   GET /api/leads
@@ -65,6 +66,7 @@ exports.createLead = async (req, res, next) => {
     }
 
     const lead = await Lead.create(leadData);
+    emitToAll('lead:updated', { action: 'create', item: lead });
     res.status(201).json({ success: true, data: lead });
   } catch (error) {
     next(error);
@@ -89,6 +91,7 @@ exports.updateLead = async (req, res, next) => {
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
+    emitToAll('lead:updated', { action: 'update', item: lead });
     res.json({ success: true, data: lead });
   } catch (error) {
     next(error);
@@ -130,6 +133,7 @@ exports.deleteLead = async (req, res, next) => {
     }
 
     await Lead.findByIdAndDelete(lead._id);
+    emitToAll('lead:updated', { action: 'delete', id: String(lead._id), leadCode: lead.leadCode });
     res.json({ success: true, message: 'Lead deleted successfully' });
   } catch (error) {
     next(error);
@@ -151,15 +155,18 @@ exports.importLeads = async (req, res, next) => {
 
     const formatted = leads.map(l => {
       num++;
+      const copy = { ...l };
+      if (copy._id && !mongoose.Types.ObjectId.isValid(copy._id)) delete copy._id;
       return {
-        ...l,
+        ...copy,
         idNumber: num,
-        leadCode: l.leadCode || `LEAD-${1000 + num}`,
-        createdDate: l.createdDate || now.toLocaleDateString('en-GB').replace(/\//g, '-')
+        leadCode: copy.leadCode || `LEAD-${1000 + num}`,
+        createdDate: copy.createdDate || now.toLocaleDateString('en-GB').replace(/\//g, '-')
       };
     });
 
     const inserted = await Lead.insertMany(formatted);
+    emitToAll('lead:updated', { action: 'bulk_import', count: inserted.length });
     res.status(201).json({ success: true, count: inserted.length, data: inserted });
   } catch (error) {
     next(error);

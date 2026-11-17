@@ -3,6 +3,7 @@ import { getCollection, saveCollection, KEYS, syncDatabaseToStorage } from '../s
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
 import { API_BASE } from '../config/apiConfig';
 import { subscribeToSyncEvents } from '../services/realtimeSyncService';
+import { registerSocketUser } from '../services/socketService';
 import { performShiftClockOut } from '../utils/timerUtils';
 
 const AuthContext = createContext();
@@ -306,10 +307,11 @@ export const AuthProvider = ({ children }) => {
     } catch (_) {}
   }, []);
 
-  // Sync state with localStorage
+  // Sync state with localStorage & join Socket.IO multi-device user rooms
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
+      registerSocketUser(currentUser);
     }
   }, [currentUser]);
 

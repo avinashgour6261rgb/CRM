@@ -246,6 +246,11 @@ exports.createTimesheet = async (req, res, next) => {
       }
     }
 
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('timesheet:updated', { action: 'create', item: timesheet });
+    } catch (_) {}
+
     res.status(201).json({
       success: true,
       message: 'Time logged successfully',
@@ -382,6 +387,11 @@ exports.stopTimer = async (req, res, next) => {
       await task.save();
     }
 
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('timesheet:updated', { action: 'create', item: timesheetLog });
+    } catch (_) {}
+
     res.status(200).json({
       success: true,
       message: 'Timer stopped and duration logged to timesheet!',
@@ -400,6 +410,10 @@ exports.deleteTimesheet = async (req, res, next) => {
     if (!timesheet) {
       return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('timesheet:updated', { action: 'delete', id: String(timesheet._id) });
+    } catch (_) {}
     res.status(200).json({
       success: true,
       message: 'Timesheet entry deleted successfully'

@@ -21,6 +21,7 @@ function initSocket(server) {
       credentials: true
     },
     transports: ['polling', 'websocket'],
+    maxHttpBufferSize: 1e7,
     pingTimeout: 30000,
     pingInterval: 15000
   });
@@ -29,13 +30,15 @@ function initSocket(server) {
     // Automatically join the company-wide broadcast room
     socket.join('company');
 
-    // Register user-specific room
+    // Register user-specific room (supports userId, employeeCode, and email for multi-device same-ID sync)
     socket.on('join:user', (data) => {
       try {
         const uid = data?.userId ? String(data.userId) : null;
         const code = data?.employeeCode ? String(data.employeeCode).toUpperCase() : null;
+        const email = data?.email ? String(data.email).toLowerCase().trim() : null;
         if (uid) socket.join(`user:${uid}`);
         if (code) socket.join(`user:${code}`);
+        if (email) socket.join(`user:${email}`);
       } catch (err) {
         console.warn('[SocketManager] Error in join:user:', err.message);
       }

@@ -150,10 +150,6 @@ exports.getTaskById = async (req, res, next) => {
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
-    try {
-      const { emitToAll } = require('../../../shared/socket/socketManager');
-      emitToAll('task:updated', task);
-    } catch (_) {}
     res.status(200).json({ success: true, data: task });
   } catch (error) {
     next(error);
@@ -325,7 +321,7 @@ exports.deleteTask = async (req, res, next) => {
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
       task = await Task.findByIdAndDelete(req.params.id);
     } else {
-      task = await Task.findOneAndDelete({ $or: [{ taskCode: req.params.id }, { _id: req.params.id }] });
+      task = await Task.findOneAndDelete({ taskCode: req.params.id });
     }
 
     if (!task) {
@@ -333,7 +329,7 @@ exports.deleteTask = async (req, res, next) => {
     }
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
-      emitToAll('task:updated', task);
+      emitToAll('task:deleted', { _id: String(task._id), id: String(task._id), taskCode: task.taskCode });
     } catch (_) {}
     res.status(200).json({
       success: true,

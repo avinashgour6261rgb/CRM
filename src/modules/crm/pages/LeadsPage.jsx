@@ -34,7 +34,7 @@ import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { confirmDialog } from '../../../shared/context/ConfirmContext';
-import { getUserModulePermissions, isHRorAdmin, canDeleteLead, canCreateLeads, canExportData, canAccessModule } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isAdmin, isHRorAdmin, canDeleteLead, canCreateLeads, canExportData, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 
 // Components
@@ -681,7 +681,7 @@ export const LeadsPage = () => {
       {viewingLead && (
         <LeadDetailModal
           isOpen={!!viewingLead}
-          lead={viewingLead}
+          lead={leads.find(l => (l._id && viewingLead._id && String(l._id) === String(viewingLead._id)) || (l.leadCode && viewingLead.leadCode && l.leadCode === viewingLead.leadCode)) || viewingLead}
           onClose={() => setViewingLead(null)}
           onEdit={(lead) => {
             setViewingLead(null);

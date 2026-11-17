@@ -537,7 +537,7 @@ export const TicketsPage = () => {
 
       {selectedTicket && (
         <TicketDetailModal
-          ticket={selectedTicket}
+          ticket={tickets.find(t => (t._id && selectedTicket._id && String(t._id) === String(selectedTicket._id)) || (t.ticketCode && selectedTicket.ticketCode && t.ticketCode === selectedTicket.ticketCode)) || selectedTicket}
           isOpen={!!selectedTicket}
           onClose={() => setSelectedTicket(null)}
         />

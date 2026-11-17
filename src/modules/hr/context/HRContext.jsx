@@ -153,7 +153,7 @@ export const HRProvider = ({ children }) => {
       const resgRaw = resgRes.status === 'fulfilled' && resgRes.value ? resgRes.value : (getCollection(KEYS.RESIGNATIONS) || []);
       const resg = Array.isArray(resgRaw?.data) ? resgRaw.data : (Array.isArray(resgRaw) ? resgRaw : []);
       setResignations(resg);
-      saveCollection(KEYS.RESIGNATIONS, resg);
+      saveCollection(KEYS.RESIGNATIONS, resg, { broadcast: false });
 
       // Smart Merging: preserve any local leaves created recently or pending sync
       const localLeaves = getCollection(KEYS.LEAVES) || [];
@@ -250,11 +250,17 @@ export const HRProvider = ({ children }) => {
       }, 500);
     };
 
-    // Listen for storage events across tabs or internal updates
+    // Listen for storage events across tabs, remote socket updates, or reconnects
+    const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
     const handleStorageUpdate = (e) => {
       if (isFetchingRef.current) return;
-      const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'all'];
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
+        scheduleDebouncedLoad();
+      }
+    };
+    const handleRemoteSync = (e) => {
+      if (isFetchingRef.current) return;
+      if (!e.detail?.key || hrKeys.includes(e.detail.key)) {
         scheduleDebouncedLoad();
       }
     };
@@ -265,10 +271,14 @@ export const HRProvider = ({ children }) => {
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
+    window.addEventListener('ems_remote_sync', handleRemoteSync);
+    window.addEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
     window.addEventListener('storage', handleNativeStorage);
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+      window.removeEventListener('ems_remote_sync', handleRemoteSync);
+      window.removeEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
       window.removeEventListener('storage', handleNativeStorage);
     };
   }, [loadData]);

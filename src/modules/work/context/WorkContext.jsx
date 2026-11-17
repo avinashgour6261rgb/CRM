@@ -972,10 +972,18 @@ export const WorkProvider = ({ children }) => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') scheduleDebouncedLoad(true);
     };
+    const handleRemoteSync = (e) => {
+      const k = e?.detail?.key;
+      if (!k || k === 'all' || k === KEYS.TASKS || k === KEYS.PROJECTS || k === KEYS.TIMESHEETS) {
+        scheduleDebouncedLoad(true);
+      }
+    };
 
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('ems_telemetry_update', handleTelemetryUpdate);
+    window.addEventListener('ems_remote_sync', handleRemoteSync);
+    window.addEventListener('ems_socket_reconnected', handleFocus);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -983,6 +991,8 @@ export const WorkProvider = ({ children }) => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('ems_telemetry_update', handleTelemetryUpdate);
+      window.removeEventListener('ems_remote_sync', handleRemoteSync);
+      window.removeEventListener('ems_socket_reconnected', handleFocus);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       unsubscribeSync();

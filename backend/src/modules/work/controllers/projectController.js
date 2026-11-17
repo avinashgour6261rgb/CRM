@@ -107,7 +107,15 @@ exports.getProjectById = async (req, res, next) => {
 // @route   POST /api/projects
 exports.createProject = async (req, res, next) => {
   try {
-    const project = await Project.create(req.body);
+    const projectData = { ...req.body };
+    if (projectData._id && !mongoose.Types.ObjectId.isValid(projectData._id)) {
+      delete projectData._id;
+    }
+    const project = await Project.create(projectData);
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('project:updated', { action: 'create', item: project });
+    } catch (_) {}
     res.status(201).json({
       success: true,
       message: 'Project created successfully',
@@ -138,6 +146,10 @@ exports.updateProject = async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('project:updated', { action: 'update', item: project });
+    } catch (_) {}
     res.status(200).json({
       success: true,
       message: 'Project updated successfully',
@@ -163,11 +175,15 @@ exports.deleteProject = async (req, res, next) => {
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
       project = await Project.findByIdAndDelete(req.params.id);
     } else {
-      project = await Project.findOneAndDelete({ $or: [{ projectCode: req.params.id }, { _id: req.params.id }] });
+      project = await Project.findOneAndDelete({ projectCode: req.params.id });
     }
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('project:updated', { action: 'delete', id: String(project._id), projectCode: project.projectCode });
+    } catch (_) {}
 
     // Cleanup child tasks associated with this project
     try {

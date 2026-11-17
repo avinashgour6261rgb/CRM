@@ -267,19 +267,23 @@ export const syncDatabaseToStorage = async () => {
         try {
           const res = await fetch(url, {
             headers: authHeaders,
-            signal: AbortSignal.timeout(4000)
+            signal: AbortSignal.timeout(10000)
           });
           const ct = res.headers.get('content-type') || '';
           if (res.ok && ct.includes('application/json')) {
             const json = await res.json();
             const data = json.data !== undefined ? json.data : json;
-                        if (Array.isArray(data)) {
+            if (Array.isArray(data)) {
               if (key === KEYS.ATTENDANCE) {
                 const existing = getCollection(KEYS.ATTENDANCE) || [];
                 const attMap = new Map();
+                const isObjId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v);
+                // Only keep unsaved local records; remote MongoDB is authoritative for synced records
                 existing.forEach(a => {
-                  const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
-                  attMap.set(k, a);
+                  if (!isObjId(String(a._id || ''))) {
+                    const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
+                    attMap.set(k, a);
+                  }
                 });
                 data.forEach(a => {
                   const k = `${a.employeeId || a.employeeCode || (a.employee?._id || a.employee)}_${a.date}`;
@@ -288,11 +292,16 @@ export const syncDatabaseToStorage = async () => {
                 localStorage.setItem(key, JSON.stringify(Array.from(attMap.values())));
               } else if (key === KEYS.TASKS) {
                 const existing = getCollection(KEYS.TASKS) || [];
+                const isObjId = (v) => typeof v === 'string' && /^[a-fA-F0-9]{24}$/.test(v);
                 const tMap = new Map();
-                existing.forEach(t => tMap.set(String(t._id || t.id), t));
+                // Preserve only unsaved offline-created tasks; never resurrect tasks deleted in MongoDB
+                existing.forEach(t => {
+                  if (!isObjId(String(t._id || t.id || ''))) {
+                    tMap.set(String(t._id || t.id), t);
+                  }
+                });
                 data.forEach(t => {
-                  const ex = tMap.get(String(t._id || t.id));
-                  tMap.set(String(t._id || t.id), { ...ex, ...t });
+                  tMap.set(String(t._id || t.id), t);
                 });
                 localStorage.setItem(key, JSON.stringify(Array.from(tMap.values())));
               } else if (key === KEYS.CONVERSATIONS) {
@@ -374,12 +383,15 @@ export const getCollection = (key) => {
   }
 };
 
-// Generic write with instant cross-tab broadcast
-export const saveCollection = (key, data) => {
+// Generic write with instant cross-tab & cross-device broadcast
+export const saveCollection = (key, data, options = {}) => {
   try {
+    const { broadcast = true } = options;
     localStorage.setItem(key, JSON.stringify(data));
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key } }));
-    broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, { key });
+    if (broadcast) {
+      broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, { key });
+    }
   } catch (error) {
     console.error(`Error saving ${key} to storage:`, error);
   }

@@ -137,6 +137,11 @@ const createAppreciation = asyncHandler(async (req, res) => {
     .populate('givenTo', 'name email role avatar department employeeCode')
     .populate('givenBy', 'name email role avatar employeeCode');
 
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('appreciation:updated', { action: 'create', item: populated || appreciation });
+  } catch (_) {}
+
   res.status(201).json({ success: true, data: populated || appreciation });
 });
 
@@ -155,6 +160,10 @@ const deleteAppreciation = asyncHandler(async (req, res) => {
   if (!appreciation) {
     return res.status(404).json({ success: false, message: 'Appreciation not found' });
   }
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('appreciation:updated', { action: 'delete', id: String(appreciation._id) });
+  } catch (_) {}
   res.json({ success: true, message: 'Appreciation removed', data: {} });
 });
 

@@ -911,11 +911,12 @@ export const TimerProvider = ({ children }) => {
         rec.isClockedIn === false
       );
 
-      const isActuallyClockedIn = !remoteIsClockedOut && !localHadClockedOut && (
-        remoteIsClockedIn || (localIsClockedIn && (!localSessionDate || localSessionDate === today))
+      // Remote MongoDB active clock-in overrides stale local clock-out flags across devices
+      const isActuallyClockedIn = !remoteIsClockedOut && (
+        remoteIsClockedIn || (!localHadClockedOut && localIsClockedIn && (!localSessionDate || localSessionDate === today))
       );
-      const isActuallyClockedOut = remoteIsClockedOut || localHadClockedOut || (
-        !isActuallyClockedIn && Boolean(rec && rec.date === today && (rec.clockOutTime || rec.clockOut))
+      const isActuallyClockedOut = !isActuallyClockedIn && (
+        remoteIsClockedOut || localHadClockedOut || Boolean(rec && rec.date === today && (rec.clockOutTime || rec.clockOut))
       );
 
       if (isActuallyClockedIn) {
@@ -1131,6 +1132,7 @@ export const TimerProvider = ({ children }) => {
     window.addEventListener('ems_clocked_out', handleClockedOut);
     window.addEventListener('ems_telemetry_update', handleTelemetryUpdate);
     window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('ems_socket_reconnected', handleSync);
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleSync);
@@ -1139,6 +1141,7 @@ export const TimerProvider = ({ children }) => {
       window.removeEventListener('ems_clocked_out', handleClockedOut);
       window.removeEventListener('ems_telemetry_update', handleTelemetryUpdate);
       window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('ems_socket_reconnected', handleSync);
     };
   }, [syncLiveShiftState, isEventForMe, currentUser]);
 

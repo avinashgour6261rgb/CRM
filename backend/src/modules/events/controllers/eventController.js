@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { emitToAll } = require('../../../shared/socket/socketManager');
 
 // @desc    Get all events
 // @route   GET /api/events
@@ -17,6 +18,7 @@ exports.createEvent = asyncHandler(async (req, res) => {
     delete eventData._id;
   }
   const event = await Event.create(eventData);
+  emitToAll('event:updated', { action: 'create', item: event });
   res.status(201).json({ success: true, data: event });
 });
 
@@ -31,12 +33,13 @@ exports.updateEvent = asyncHandler(async (req, res) => {
   if (mongoose.Types.ObjectId.isValid(id)) {
     event = await Event.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });
   } else {
-    event = await Event.findOne({ $or: [{ _id: id }, { title: id }] });
+    event = await Event.findOneAndUpdate({ title: id }, updateData, { new: true, runValidators: false });
   }
 
   if (!event) {
     return res.status(404).json({ success: false, message: 'Event not found' });
   }
+  emitToAll('event:updated', { action: 'update', item: event });
   res.json({ success: true, data: event });
 });
 
@@ -48,12 +51,13 @@ exports.deleteEvent = asyncHandler(async (req, res) => {
   if (mongoose.Types.ObjectId.isValid(id)) {
     event = await Event.findByIdAndDelete(id);
   } else {
-    event = await Event.findOneAndDelete({ $or: [{ _id: id }, { title: id }] });
+    event = await Event.findOneAndDelete({ title: id });
   }
 
   if (!event) {
     return res.status(404).json({ success: false, message: 'Event not found' });
   }
+  emitToAll('event:updated', { action: 'delete', id: String(event._id) });
   res.json({ success: true, message: 'Event removed', data: {} });
 });
 

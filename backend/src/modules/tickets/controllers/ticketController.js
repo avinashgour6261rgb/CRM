@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { emitToAll } = require('../../../shared/socket/socketManager');
 
 // @desc    Get all tickets
 // @route   GET /api/tickets
@@ -62,6 +63,7 @@ exports.createTicket = asyncHandler(async (req, res) => {
   }
 
   const ticket = await Ticket.create(ticketData);
+  emitToAll('ticket:updated', { action: 'create', item: ticket });
   res.status(201).json({ success: true, data: ticket });
 });
 
@@ -82,6 +84,7 @@ exports.updateTicket = asyncHandler(async (req, res) => {
   if (!ticket) {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
+  emitToAll('ticket:updated', { action: 'update', item: ticket });
   res.json({ success: true, data: ticket });
 });
 
@@ -119,6 +122,7 @@ exports.addComment = asyncHandler(async (req, res) => {
   }
 
   await ticket.save();
+  emitToAll('ticket:updated', { action: 'comment', item: ticket });
   res.json({ success: true, data: ticket });
 });
 
@@ -158,5 +162,6 @@ exports.deleteTicket = asyncHandler(async (req, res) => {
   }
 
   await Ticket.findByIdAndDelete(ticket._id);
+  emitToAll('ticket:updated', { action: 'delete', id: String(ticket._id), ticketCode: ticket.ticketCode });
   res.json({ success: true, message: 'Ticket removed successfully', data: { id: ticket._id, ticketCode: ticket.ticketCode } });
 });

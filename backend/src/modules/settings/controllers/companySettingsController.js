@@ -31,6 +31,10 @@ exports.updateCompanySettings = async (req, res) => {
       Object.assign(settings, data);
     }
     await settings.save();
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('settings:updated', { settings });
+    } catch (_) {}
     res.json({
       success: true,
       data: settings,

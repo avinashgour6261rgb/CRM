@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Notice = require('../models/Notice');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { emitToAll } = require('../../../shared/socket/socketManager');
 
 // @desc    Get all notices
 // @route   GET /api/notices
@@ -43,6 +44,7 @@ exports.createNotice = asyncHandler(async (req, res) => {
   noticeData.noticeCode = noticeCode;
 
   const notice = await Notice.create(noticeData);
+  emitToAll('notice:updated', { action: 'create', item: notice });
   res.status(201).json({ success: true, data: notice });
 });
 
@@ -63,6 +65,7 @@ exports.updateNotice = asyncHandler(async (req, res) => {
   if (!notice) {
     return res.status(404).json({ success: false, message: 'Notice not found' });
   }
+  emitToAll('notice:updated', { action: 'update', item: notice });
   res.json({ success: true, data: notice });
 });
 
@@ -97,6 +100,7 @@ exports.deleteNotice = asyncHandler(async (req, res) => {
   }
 
   await Notice.deleteOne({ _id: notice._id });
+  emitToAll('notice:updated', { action: 'delete', id: String(notice._id), noticeCode: notice.noticeCode });
   res.json({ success: true, message: 'Notice removed', data: {} });
 });
 
