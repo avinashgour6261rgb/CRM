@@ -92,6 +92,22 @@ export function registerSocketUser(user) {
 }
 
 /**
+ * Emit an event across the socket connection
+ * @param {string} eventName
+ * @param {any} data
+ */
+export function emitSocketEvent(eventName, data) {
+  const s = getSocket();
+  if (s) {
+    try {
+      s.emit(eventName, data);
+    } catch (err) {
+      console.warn(`[SocketService] Failed to emit ${eventName}:`, err.message);
+    }
+  }
+}
+
+/**
  * Subscribe to a specific socket event
  * @param {string} eventName
  * @param {Function} callback

@@ -8,7 +8,7 @@
  * update with zero latency and maintain matching elapsed times.
  */
 
-import { subscribeSocketEvent } from './socketService';
+import { subscribeSocketEvent, emitSocketEvent } from './socketService';
 import { KEYS } from './storageService';
 
 const SYNC_CHANNEL_NAME = 'inforag_realtime_sync_v1';
@@ -86,6 +86,43 @@ if (typeof window !== 'undefined') {
       }
     } catch (_) {}
   });
+
+  // 📡 Real-time cross-device sync event relay from Socket.IO (0ms cross-browser synchronization)
+  subscribeSocketEvent('sync:event', (message) => {
+    try {
+      if (!message || message.sourceTabId === window.__ems_tab_id) return;
+      window.dispatchEvent(new CustomEvent('ems_realtime_sync', { detail: message }));
+
+      const { type, payload } = message;
+      if (type === SYNC_EVENTS.TASK_TIMER_STARTED) {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      } else if (type === SYNC_EVENTS.TASK_TIMER_PAUSED) {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      } else if (type === SYNC_EVENTS.TASK_TIMER_STOPPED || type === SYNC_EVENTS.TASK_COMPLETED) {
+        window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      } else if (type === SYNC_EVENTS.SHIFT_CLOCKED_IN) {
+        window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      } else if (type === SYNC_EVENTS.SHIFT_CLOCKED_OUT) {
+        window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+      } else if (type === SYNC_EVENTS.STORAGE_MUTATION) {
+        if (payload?.key) {
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: payload.key } }));
+        }
+      }
+    } catch (_) {}
+  });
+
+  // 📡 Live Telemetry broadcast from server to instantly update Live Operations
+  subscribeSocketEvent('attendance:telemetry', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: data }));
+    } catch (_) {}
+  });
 }
 
 /**
@@ -108,6 +145,11 @@ export const broadcastSyncEvent = (type, payload = {}) => {
       console.warn('Failed to postMessage on syncChannel:', e);
     }
   }
+
+  // Also emit through Socket.IO so other devices/browsers receive it in real-time!
+  try {
+    emitSocketEvent('sync:event', message);
+  } catch (e) {}
 
   // Also dispatch locally on current window so subscribers on the active tab get uniform handling
   try {

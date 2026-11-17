@@ -927,6 +927,12 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
         { new: true }
       ).catch(e => console.warn('[heartbeat] DB update notice:', e.message));
     }
+
+    // Instant Socket.IO broadcast of telemetry to all connected Admin dashboards
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('attendance:telemetry', payload);
+    } catch (_) {}
   } catch (_) {}
 
   res.json({ success: true, timestamp: Date.now() });

@@ -382,12 +382,34 @@ export const WorkProvider = ({ children }) => {
         }
 
         const isAssignedToMe = isTaskAssignedToMe(t);
-        const isActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
+        let isActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
 
         // For current user: ONLY the single active task timer is running!
         let isRunning = false;
         if (isAssignedToMe) {
-          isRunning = Boolean(isActive);
+          if (isActive) {
+            isRunning = true;
+          } else {
+            // Check if user started this task on another device / browser session
+            const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+            if (t.timerRunning && isStartedToday) {
+              isRunning = true;
+              isActive = true;
+              const hydratedTimer = {
+                taskId: t._id || t.id,
+                taskCode: t.taskCode,
+                title: t.title,
+                projectName: t.projectName,
+                startedAt: Number(t.startedAt),
+                accumulatedSeconds: Number(t.accumulatedSeconds) || 0,
+                accumulatedTodaySeconds: Number(t.accumulatedTodaySeconds ?? t.todayWorkSeconds) || 0,
+                todayWorkSeconds: Number(t.accumulatedTodaySeconds ?? t.todayWorkSeconds) || 0,
+                timerRunning: true,
+                date: todayStr
+              };
+              saveActiveTimerSnapshot(hydratedTimer);
+            }
+          }
         } else {
           const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
           isRunning = Boolean(t.timerRunning && isStartedToday);
@@ -754,12 +776,19 @@ export const WorkProvider = ({ children }) => {
           const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
 
-          if (isAssignedToMe && (!isMyActive || !isShiftClockedIn || isShiftOnBreak) && t.timerRunning) {
+          if (isAssignedToMe && (!isShiftClockedIn || isShiftOnBreak) && t.timerRunning) {
             changed = true;
             return { ...t, timerRunning: false, startedAt: null };
           }
 
-          const isTaskRunning = isAssignedToMe ? Boolean(isMyActive && isShiftClockedIn && !isShiftOnBreak) : false;
+          let isTaskRunning = false;
+          if (isAssignedToMe) {
+            isTaskRunning = Boolean(isMyActive && isShiftClockedIn && !isShiftOnBreak);
+          } else {
+            // For other employees' tasks: tick live so Admin / Team members see the time moving in real time!
+            const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
+            isTaskRunning = Boolean(t.timerRunning && isStartedToday);
+          }
 
           if (isTaskRunning) {
             changed = true;

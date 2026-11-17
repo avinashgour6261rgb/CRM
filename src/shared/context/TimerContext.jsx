@@ -16,6 +16,7 @@ import { useHR } from '../../modules/hr/context/HRContext';
 import { useAuth } from './AuthContext';
 import { hrService } from '../../modules/hr/services/hrService';
 import { getCompanySettings } from '../services/companySettingsService';
+import { broadcastSyncEvent, SYNC_EVENTS } from '../services/realtimeSyncService';
 import {
   getCanonicalTimerKey,
   getTimerMirrorKeys,
@@ -425,8 +426,6 @@ export const TimerProvider = ({ children }) => {
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
     const maxGrossToday = Math.max(0, Math.floor((Date.now() - todayMidnightMs) / 1000));
-    const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
-    if (saved) return Math.min(maxGrossToday, Math.max(0, parseInt(saved, 10)));
 
     try {
       const attRaw = localStorage.getItem('hrms_attendance');
@@ -442,12 +441,16 @@ export const TimerProvider = ({ children }) => {
           if (!inTs && rec.clockInTime) {
             inTs = todayMidnightMs + parseTimeToSeconds(rec.clockInTime) * 1000;
           }
-          if (inTs && inTs >= todayMidnightMs) {
-            return Math.min(maxGrossToday, Math.max(0, Math.floor((Date.now() - inTs) / 1000)));
+          if (inTs && inTs >= todayMidnightMs && rec.isClockedIn) {
+            const bSecs = Number(rec.breakSeconds) || 0;
+            return Math.min(maxGrossToday, Math.max(0, Math.floor((Date.now() - inTs) / 1000) - bSecs));
           }
         }
       }
     } catch (_) {}
+
+    const saved = localStorage.getItem(`ems_timer_${userKey}_work_seconds`);
+    if (saved) return Math.min(maxGrossToday, Math.max(0, parseInt(saved, 10)));
     return 0;
   });
 
@@ -896,8 +899,16 @@ export const TimerProvider = ({ children }) => {
           : (bSecs > 0 ? bSecs : localStoredBreakSecs);
         setBreakSeconds(prev => (effectiveOnBreak ? Math.max(prev, effectiveBreakSecs) : effectiveBreakSecs));
 
-        // 🌟 FLICKER PREVENTION: While timer is running, tick() is the single driver of workSeconds. Never overwrite live seconds!
-        setWorkSeconds(prev => (prev > 0 ? prev : effectiveWorkSecs));
+        // 🌟 MULTI-DEVICE SSOT SYNCHRONIZATION:
+        // If local prev is within 3 seconds of authoritative effectiveWorkSecs, preserve smooth local tick.
+        // If difference exceeds 3s (e.g. cross-device sync, fresh browser tab, or wake from sleep),
+        // instantly synchronize to the true physical wall-clock value!
+        setWorkSeconds(prev => {
+          if (Math.abs(prev - effectiveWorkSecs) > 3) {
+            return effectiveWorkSecs;
+          }
+          return prev > 0 ? prev : effectiveWorkSecs;
+        });
 
         if (rec?.breakType) setBreakType(rec.breakType);
         if (Array.isArray(rec?.breakHistory) && rec.breakHistory.length > 0) {
@@ -912,20 +923,13 @@ export const TimerProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${uk}_is_running`, effectiveOnBreak ? 'false' : 'true');
           localStorage.setItem(`ems_timer_${uk}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
           localStorage.setItem(`ems_timer_${uk}_login_time`, inTime);
-          if (!localStorage.getItem(`ems_timer_${uk}_clock_in_timestamp`)) {
-            localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(inTs));
-          }
-          if (!localStorage.getItem(`ems_timer_${uk}_current_session_start_timestamp`)) {
-            localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, String(sessStartTs));
-          }
+          localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(inTs));
+          localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, String(sessStartTs));
           localStorage.setItem(`ems_timer_${uk}_had_clocked_out`, 'false');
           const curStoredBreak = Number(localStorage.getItem(`ems_timer_${uk}_break_seconds`)) || 0;
           const breakToPersist = effectiveOnBreak ? Math.max(curStoredBreak, effectiveBreakSecs) : effectiveBreakSecs;
           localStorage.setItem(`ems_timer_${uk}_break_seconds`, String(breakToPersist));
-          const curLocalWorkSecs = Number(localStorage.getItem(`ems_timer_${uk}_work_seconds`)) || 0;
-          if (curLocalWorkSecs === 0 && effectiveWorkSecs > 0) {
-            localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(effectiveWorkSecs));
-          }
+          localStorage.setItem(`ems_timer_${uk}_work_seconds`, String(effectiveWorkSecs));
           localStorage.removeItem(`ems_timer_${uk}_clockout_time`);
           localStorage.removeItem(`ems_timer_${uk}_clock_out_timestamp`);
         }
@@ -1303,10 +1307,22 @@ export const TimerProvider = ({ children }) => {
         // 2. Active session start timestamp (starts freshly from now on each clock in)
         let sessStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`));
         if (!sessStartTs || sessStartTs < todayMidnightMs) {
+          let attInTs = 0;
+          try {
+            const rawAtt = localStorage.getItem('hrms_attendance');
+            if (rawAtt) {
+              const list = JSON.parse(rawAtt);
+              const rec = list.find(a => isRecordForUser(a, today));
+              attInTs = Number(rec?.clockInTimestamp || rec?.currentSessionStartTimestamp || 0);
+            }
+          } catch (_) {}
+
           if (lastSessionOut > 0) {
             sessStartTs = lastSessionOut;
           } else if (clockInTs && clockInTs >= todayMidnightMs && storedSessions.length === 0) {
             sessStartTs = clockInTs;
+          } else if (attInTs && attInTs >= todayMidnightMs && storedSessions.length === 0) {
+            sessStartTs = attInTs;
           } else {
             sessStartTs = Date.now();
           }
@@ -1329,6 +1345,17 @@ export const TimerProvider = ({ children }) => {
           if (loginStr && loginStr !== '--' && loginStr !== 'Active') {
             firstClockInTs = todayMidnightMs + parseTimeToSeconds(loginStr) * 1000;
           }
+        }
+        if (!firstClockInTs || firstClockInTs < todayMidnightMs) {
+          try {
+            const rawAtt = localStorage.getItem('hrms_attendance');
+            if (rawAtt) {
+              const list = JSON.parse(rawAtt);
+              const rec = list.find(a => isRecordForUser(a, today));
+              const attTs = Number(rec?.clockInTimestamp || 0);
+              if (attTs >= todayMidnightMs) firstClockInTs = attTs;
+            }
+          } catch (_) {}
         }
         if (!firstClockInTs || firstClockInTs < todayMidnightMs) {
           firstClockInTs = sessStartTs;
@@ -1937,6 +1964,8 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
       window.dispatchEvent(new CustomEvent('ems_attendance_updated', { detail: { record } }));
+      window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: record }));
+      broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_IN, record);
 
       // Immediately sync clock-in to MongoDB Atlas backend via hrService
       try {
@@ -2074,6 +2103,16 @@ export const TimerProvider = ({ children }) => {
       durationSeconds: finalSecs,
       durationText: formatHoursMinutes(finalSecs),
       details: `${targetEmpName} ended shift at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(finalSecs)}, Total Breaks: ${formatHoursMinutes(breakSeconds)}.`
+    });
+
+    window.dispatchEvent(new CustomEvent('ems_clocked_out', {
+      detail: { employeeId: targetEmpId, employeeCode: targetEmpCode, clockOutTime: logoutStr, workSeconds: finalSecs }
+    }));
+    broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, {
+      employeeId: targetEmpId,
+      employeeCode: targetEmpCode,
+      clockOutTime: logoutStr,
+      workSeconds: finalSecs
     });
 
     addToast({

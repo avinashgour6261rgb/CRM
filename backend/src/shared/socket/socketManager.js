@@ -46,6 +46,15 @@ function initSocket(server) {
       socket.emit('pong', { timestamp: Date.now() });
     });
 
+    // Cross-device / cross-browser real-time synchronization relay
+    socket.on('sync:event', (data) => {
+      try {
+        socket.to('company').emit('sync:event', data);
+      } catch (err) {
+        console.warn('[SocketManager] Error relaying sync:event:', err.message);
+      }
+    });
+
     socket.on('disconnect', () => {
       // Clean disconnect
     });

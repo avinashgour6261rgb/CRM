@@ -186,7 +186,7 @@ export const DashboardPage = () => {
   const todayStr = currentDateStr;
   const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
 
-  // ── Multi-User Live Telemetry: Visibility/Focus driven with 45s fallback (Saves 90% bandwidth) ──
+  // ── Multi-User Live Telemetry: Socket-driven 0ms sync with 20s fallback ──
   useEffect(() => {
     let isMounted = true;
     const fetchTelemetry = async () => {
@@ -200,15 +200,31 @@ export const DashboardPage = () => {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 45000);
+    const interval = setInterval(fetchTelemetry, 20000);
     const handleFocus = () => fetchTelemetry();
+
+    // Instant Socket.IO telemetry reception for 0ms cross-device Admin updates
+    const handleTelemUpdate = (e) => {
+      if (!isMounted || !e?.detail) return;
+      const t = e.detail;
+      setLiveTelemetryMap(prev => {
+        const next = { ...prev };
+        if (t.employeeId) next[String(t.employeeId)] = t;
+        if (t.employeeCode) next[String(t.employeeCode)] = t;
+        return next;
+      });
+    };
+
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('ems_telemetry_update', handleTelemUpdate);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('ems_telemetry_update', handleTelemUpdate);
     };
   }, [todayStr]);
 
