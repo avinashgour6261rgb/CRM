@@ -125,12 +125,39 @@ exports.reviewResignation = async (req, res) => {
     const empOrReview = [];
     if (resignation.employeeId && mongoose.Types.ObjectId.isValid(resignation.employeeId)) empOrReview.push({ _id: resignation.employeeId });
     if (resignation.employeeCode) empOrReview.push({ employeeCode: String(resignation.employeeCode).toUpperCase() });
+    let updatedEmp = null;
     if (empOrReview.length > 0) {
-      await Employee.findOneAndUpdate(
+      const updateOps = isRelieved
+        ? { $set: empUpdate, $inc: { tokenVersion: 1 } }
+        : { $set: empUpdate };
+      updatedEmp = await Employee.findOneAndUpdate(
         { $or: empOrReview },
-        { $set: empUpdate }
+        updateOps,
+        { new: true }
       );
     }
+
+    try {
+      const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+      if (updatedEmp) {
+        const safeObj = updatedEmp.toObject ? updatedEmp.toObject() : updatedEmp;
+        delete safeObj.password;
+        delete safeObj.adminVaultPassword;
+        emitToAll('employee:updated', { action: 'update', item: safeObj });
+        if (isRelieved) {
+          const revokePayload = {
+            employeeId: String(updatedEmp._id),
+            employeeCode: updatedEmp.employeeCode,
+            email: updatedEmp.email,
+            reason: 'Account relieved / archived by HR'
+          };
+          emitToUser(String(updatedEmp._id), 'session:revoked', revokePayload);
+          if (updatedEmp.employeeCode) emitToUser(updatedEmp.employeeCode, 'session:revoked', revokePayload);
+          if (updatedEmp.email) emitToUser(updatedEmp.email.toLowerCase(), 'session:revoked', revokePayload);
+          emitToAll('session:revoked', revokePayload);
+        }
+      }
+    } catch (_) {}
 
     res.json({
       success: true,

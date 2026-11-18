@@ -336,15 +336,6 @@ if (typeof window !== 'undefined') {
   subscribeSocketEvent('holiday:updated', (data) => applySingleItemMutation(KEYS.HOLIDAYS, data));
   subscribeSocketEvent('appreciation:updated', (data) => applySingleItemMutation(KEYS.APPRECIATIONS, data));
   subscribeSocketEvent('employee:updated', (data) => applySingleItemMutation(KEYS.EMPLOYEES, data, 'employeeCode'));
-  subscribeSocketEvent('settings:updated', (data) => {
-    try {
-      if (data?.settings) {
-        localStorage.setItem('ems_company_settings', JSON.stringify(data.settings));
-      }
-      window.dispatchEvent(new CustomEvent('company-settings-updated', { detail: data?.settings || {} }));
-    } catch (_) {}
-  });
-
   // 📡 Real-time Company Branding & Work Shift Policy sync across all devices (0ms)
   subscribeSocketEvent('settings:updated', (data) => {
     try {
@@ -358,7 +349,27 @@ if (typeof window !== 'undefined') {
         if (typeof document !== 'undefined' && merged.companyName) {
           document.title = `${merged.companyName} — Enterprise Management System`;
         }
-        window.dispatchEvent(new Event('company-settings-updated'));
+        window.dispatchEvent(new CustomEvent('company-settings-updated', { detail: merged }));
+      }
+    } catch (_) {}
+  });
+
+  // 🔒 Real-time session revocation when an employee is relieved / deactivated by Admin or HR
+  subscribeSocketEvent('session:revoked', (data) => {
+    try {
+      if (!data) return;
+      const rawSession = localStorage.getItem('ems_auth_session');
+      if (!rawSession) return;
+      const sessionUser = JSON.parse(rawSession);
+      if (String(sessionUser?.employeeCode || '').toUpperCase() === 'ADM-001') return;
+      const isMatch =
+        (data.employeeId && String(sessionUser?._id || sessionUser?.id) === String(data.employeeId)) ||
+        (data.employeeCode && String(sessionUser?.employeeCode || '').toUpperCase() === String(data.employeeCode).toUpperCase()) ||
+        (data.email && String(sessionUser?.email || '').toLowerCase() === String(data.email).toLowerCase());
+      if (isMatch) {
+        localStorage.removeItem('ems_auth_session');
+        localStorage.removeItem('ems_auth_token');
+        window.dispatchEvent(new CustomEvent('ems_force_logout', { detail: data }));
       }
     } catch (_) {}
   });

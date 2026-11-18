@@ -62,9 +62,11 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
   const currentUser = workUser || hrUser;
 
   const employees = React.useMemo(() => {
-    if (workEmployees && workEmployees.length > 0) return workEmployees;
-    if (hrEmployees && hrEmployees.length > 0) return hrEmployees;
-    return getCollection(KEYS.EMPLOYEES) || [];
+    const inactiveStatuses = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
+    const raw = (workEmployees && workEmployees.length > 0)
+      ? workEmployees
+      : (hrEmployees && hrEmployees.length > 0 ? hrEmployees : (getCollection(KEYS.EMPLOYEES) || []));
+    return raw.filter(e => !inactiveStatuses.has(String(e?.status || 'active').toLowerCase()));
   }, [workEmployees, hrEmployees]);
 
   const getTodayStr = () => {

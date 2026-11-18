@@ -602,9 +602,13 @@ export const TeamOperationsPage = () => {
     };
   }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap, isSelfEmployee, selfWorkSeconds, selfOvertimeSeconds, selfBreakSeconds, selfIsClockedIn, selfIsOnBreak, selfBreakType, selfLoginTime, selfClockOutTime]);
 
-  // Compute live states for all employees
+  // Compute live states for active employees only (exclude relieved/archived ex-employees from live operations)
   const teamTodayStates = useMemo(() => {
-    return (employees || []).map(emp => getEmployeeTodayState(emp)).filter(Boolean);
+    const inactiveStatuses = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
+    return (employees || [])
+      .filter(emp => !inactiveStatuses.has(String(emp?.status || 'active').toLowerCase()))
+      .map(emp => getEmployeeTodayState(emp))
+      .filter(Boolean);
   }, [employees, getEmployeeTodayState, syncTick]);
 
   // Overall KPI counts

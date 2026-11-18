@@ -279,7 +279,15 @@ export const AuthProvider = ({ children }) => {
       });
     };
 
+    const handleForceLogout = () => {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem('ems_auth_token');
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+    };
+
     window.addEventListener('ems_permissions_updated', handlePermissionsUpdated);
+    window.addEventListener('ems_force_logout', handleForceLogout);
 
     // Initial check on mount
     syncCurrentSessionUser();
@@ -305,6 +313,7 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       window.removeEventListener('focus', onWindowFocus);
       window.removeEventListener('ems_permissions_updated', handlePermissionsUpdated);
+      window.removeEventListener('ems_force_logout', handleForceLogout);
       clearInterval(intervalId);
       unsubscribeSync();
     };

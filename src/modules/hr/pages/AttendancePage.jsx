@@ -203,10 +203,11 @@ export const AttendancePage = () => {
 
   const todayStr = getLocalDateString();
 
-  // Scoped employees for calculations (admin looking at 'all' vs single employee)
+  // Scoped employees for calculations (admin looking at 'all' vs single employee; excludes relieved ex-employees from active roster)
   const targetEmployees = React.useMemo(() => {
+    const inactiveStatuses = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
     if (canViewAllAttendance && effectiveEmployeeId === 'all') {
-      return employees || [];
+      return (employees || []).filter(e => !inactiveStatuses.has(String(e?.status || 'active').toLowerCase()));
     }
     const filtered = (employees || []).filter(e => isEmployeeSelf(e) || String(e._id) === String(effectiveEmployeeId) || e.employeeCode === effectiveEmployeeId);
     if (filtered.length === 0 && currentUser) return [currentUser];

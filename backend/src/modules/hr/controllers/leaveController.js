@@ -89,10 +89,15 @@ const getLeaves = asyncHandler(async (req, res) => {
   if (leaveType && leaveType !== 'all') query.leaveType = leaveType;
 
   if (startDate && endDate) {
-    query.$or = [
-      { startDate: { $gte: startDate, $lte: endDate } },
-      { endDate: { $gte: startDate, $lte: endDate } },
-      { startDate: { $lte: startDate }, endDate: { $gte: endDate } }
+    query.$and = [
+      ...(query.$and || []),
+      {
+        $or: [
+          { startDate: { $gte: startDate, $lte: endDate } },
+          { endDate: { $gte: startDate, $lte: endDate } },
+          { startDate: { $lte: startDate }, endDate: { $gte: endDate } }
+        ]
+      }
     ];
   }
 
