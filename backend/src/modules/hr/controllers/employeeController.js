@@ -144,6 +144,17 @@ const createEmployee = asyncHandler(async (req, res) => {
     payload.adminVaultPassword = encryptVaultSecret(rawInitialPass);
   }
 
+  // Inherit default Company Shift Policy if shiftTiming not explicitly provided
+  if (!payload.shiftTiming || !String(payload.shiftTiming).trim()) {
+    try {
+      const CompanySettings = require('../../settings/models/CompanySettings');
+      const cfg = await CompanySettings.findOne().lean();
+      if (cfg?.shiftStartTime && cfg?.shiftEndTime) {
+        payload.shiftTiming = `${cfg.shiftStartTime} - ${cfg.shiftEndTime}`;
+      }
+    } catch (_) {}
+  }
+
   const employee = new Employee({
     ...payload,
     employeeCode: cleanCode,

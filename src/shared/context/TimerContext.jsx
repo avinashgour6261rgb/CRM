@@ -1649,7 +1649,8 @@ export const TimerProvider = ({ children }) => {
           clockInTime: loginTime,
           nowMs: Date.now(),
           shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
-          shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+          shiftEndTime: cfg?.shiftEndTime || '07:00 PM',
+          minOvertimeMinutes: Number(cfg?.minOvertimeMinutes ?? 0)
         });
         setOvertimeSeconds(prev => (prev === liveOvertimeSecs ? prev : liveOvertimeSecs));
 
@@ -2040,11 +2041,15 @@ export const TimerProvider = ({ children }) => {
   };
 
   const startTeaBreak = () => {
-    startBreak('Tea Break', '', 15);
+    const cfg = getCompanySettings();
+    const teaMins = Number(cfg?.teaBreakMinutes) > 0 ? Number(cfg.teaBreakMinutes) : 15;
+    startBreak('Tea Break', '', teaMins);
   };
 
   const startLunchBreak = () => {
-    startBreak('Lunch Break', '', 45);
+    const cfg = getCompanySettings();
+    const lunchMins = Number(cfg?.lunchDurationMinutes) > 0 ? Number(cfg.lunchDurationMinutes) : 45;
+    startBreak('Lunch Break', '', lunchMins);
   };
 
   /**
@@ -2254,8 +2259,8 @@ export const TimerProvider = ({ children }) => {
 
       // ⏱️ Dynamic Shift Policy Calculation from Company Settings
       const companySettings = getCompanySettings();
-      const shiftStartTime = companySettings.shiftStartTime || '09:30 AM';
-      const graceMins = Number(companySettings.gracePeriodMinutes) || 15;
+      const shiftStartTime = companySettings.shiftStartTime || '10:00 AM';
+      const graceMins = companySettings.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
       const shiftStartSecs = parseTimeToSeconds(shiftStartTime);
       const graceLimitSecs = shiftStartSecs + (graceMins * 60);
       const clockInSecs = parseTimeToSeconds(initialClockIn);
@@ -2486,28 +2491,31 @@ export const TimerProvider = ({ children }) => {
       breakHistory,
       clockInTime: loginTime,
       clockOutTime: logoutStr,
-      clockOutTimestamp: nowTs,
-      nowMs: nowTs,
+      clockOutTimestamp: logoutTs,
+      nowMs: logoutTs,
       shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
-      shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+      shiftEndTime: cfg?.shiftEndTime || '07:00 PM',
+      minOvertimeMinutes: Number(cfg?.minOvertimeMinutes ?? 0)
     });
     setOvertimeSeconds(finalOvertimeSecs);
     writeTimerStorage(currentUser, 'overtime_seconds', finalOvertimeSecs);
-    if (finalOvertimeSecs > 0) {
-      hrService.markAttendance({
-        employee: targetEmpId || userKey,
-        employeeId: targetEmpId || userKey,
-        employeeCode: targetEmpCode || userKey,
-        employeeName: targetEmpName,
-        date: getTodayStr(),
-        status: 'present',
-        clockInTime: loginTime,
-        clockOutTime: logoutStr,
-        workSeconds: finalSecs,
-        overtimeSeconds: finalOvertimeSecs,
-        isClockedIn: false
-      }).catch(() => {});
-    }
+    const halfDayHrs = cfg?.halfDayThresholdHours !== undefined ? Number(cfg.halfDayThresholdHours) : 4.5;
+    const finalWorkHrs = +(finalSecs / 3600).toFixed(2);
+    const clockOutStatus = (finalWorkHrs > 0 && finalWorkHrs < halfDayHrs) ? 'half_day' : 'present';
+    hrService.markAttendance({
+      employee: targetEmpId || userKey,
+      employeeId: targetEmpId || userKey,
+      employeeCode: targetEmpCode || userKey,
+      employeeName: targetEmpName,
+      date: getTodayStr(),
+      status: clockOutStatus,
+      clockInTime: loginTime,
+      clockOutTime: logoutStr,
+      clockOutTimestamp: logoutTs,
+      workSeconds: finalSecs,
+      overtimeSeconds: finalOvertimeSecs,
+      isClockedIn: false
+    }).catch(() => {});
 
     recordAuditLog({
       type: 'clock_out',

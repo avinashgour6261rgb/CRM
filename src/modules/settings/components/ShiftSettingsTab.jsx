@@ -16,15 +16,33 @@ import {
 import {
   getCompanySettings,
   saveCompanySettings,
-  fetchCompanySettingsFromDB
+  fetchCompanySettingsFromDB,
+  applyShiftPolicyToOrg,
+  getWeeklyOffDays,
+  formatWeeklyOffDescription,
+  time12To24,
+  time24To12,
+  computeHoursBetween12h
 } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
+
+const WEEKDAYS = [
+  { id: 0, label: 'Sun' },
+  { id: 1, label: 'Mon' },
+  { id: 2, label: 'Tue' },
+  { id: 3, label: 'Wed' },
+  { id: 4, label: 'Thu' },
+  { id: 5, label: 'Fri' },
+  { id: 6, label: 'Sat' }
+];
 
 export const ShiftSettingsTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [syncEmployeeShifts, setSyncEmployeeShifts] = useState(true);
+  const [recalculateScope, setRecalculateScope] = useState('today');
   const isDirtyRef = React.useRef(false);
 
   useEffect(() => {
@@ -44,6 +62,39 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
     setIsSaved(false);
   };
 
+  const handleTimePickerChange = (field, val24) => {
+    if (!val24) return;
+    const formatted12 = time24To12(val24);
+    isDirtyRef.current = true;
+    setFormData(prev => {
+      const next = { ...prev, [field]: formatted12 };
+      const computedHrs = computeHoursBetween12h(
+        field === 'shiftStartTime' ? formatted12 : (prev.shiftStartTime || '10:00 AM'),
+        field === 'shiftEndTime' ? formatted12 : (prev.shiftEndTime || '07:00 PM')
+      );
+      next.standardWorkHours = computedHrs;
+      return next;
+    });
+    setIsSaved(false);
+  };
+
+  const toggleWeeklyOffDay = (dayId) => {
+    isDirtyRef.current = true;
+    setFormData(prev => {
+      const current = getWeeklyOffDays(prev);
+      const exists = current.includes(dayId);
+      const nextDays = exists
+        ? current.filter(d => d !== dayId)
+        : [...current, dayId].sort((a, b) => a - b);
+      return {
+        ...prev,
+        weeklyOffDays: nextDays,
+        workDaysDescription: formatWeeklyOffDescription(nextDays)
+      };
+    });
+    setIsSaved(false);
+  };
+
   const applyPreset = (preset) => {
     isDirtyRef.current = true;
     setFormData(prev => ({
@@ -59,7 +110,7 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
     setIsSaved(false);
     addToast({
       title: 'Shift Preset Loaded',
-      message: `Preset "${preset.name}" loaded into form. Click "Save Shift Policy" to apply.`,
+      message: `Preset "${preset.name}" loaded into form. Click "Save & Apply Shift Policy" to activate.`,
       type: 'info'
     });
   };
@@ -69,12 +120,22 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
     setIsSaving(true);
     try {
       const saved = await saveCompanySettings(formData);
+      let applySummary = '';
+      if (syncEmployeeShifts || recalculateScope !== 'none') {
+        try {
+          const applied = await applyShiftPolicyToOrg({ syncEmployeeShifts, recalculateScope });
+          const d = applied?.data || {};
+          applySummary = ` • ${d.updatedEmployeesCount || 0} employee shifts synced, ${d.recalculatedAttendanceCount || 0} attendance record(s) recalculated.`;
+        } catch (applyErr) {
+          console.warn('Shift policy apply warning:', applyErr);
+        }
+      }
       isDirtyRef.current = false;
       setFormData(saved);
       setIsSaved(true);
       addToast({
-        title: 'Shift Policy Saved! ⏱️',
-        message: `Universal shift (${saved.shiftStartTime} - ${saved.shiftEndTime}) saved to MongoDB and synced live across all devices.`,
+        title: 'Shift Policy Saved & Applied! ⏱️',
+        message: `Universal shift (${saved.shiftStartTime} - ${saved.shiftEndTime}) live across all devices${applySummary}`,
         type: 'success'
       });
     } catch (err) {
@@ -89,11 +150,13 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
   };
 
   // Helper calculation for visual timeline
-  const gracePeriod = Number(formData.gracePeriodMinutes) || 15;
-  const halfDayHours = Number(formData.halfDayThresholdHours) || 4.5;
-  const lunchMins = Number(formData.lunchDurationMinutes) || 45;
-  const teaMins = Number(formData.teaBreakMinutes) || 15;
-  const workHours = Number(formData.standardWorkHours) || 9;
+  const gracePeriod = Number(formData.gracePeriodMinutes ?? 15);
+  const halfDayHours = Number(formData.halfDayThresholdHours ?? 4.5);
+  const lunchMins = Number(formData.lunchDurationMinutes ?? 45);
+  const teaMins = Number(formData.teaBreakMinutes ?? 15);
+  const workHours = Number(formData.standardWorkHours ?? 9);
+  const minOtMins = Number(formData.minOvertimeMinutes ?? 0);
+  const activeWeeklyOffs = getWeeklyOffDays(formData);
 
   return (
     <div className="flex flex-col gap-5 py-3">
@@ -207,15 +270,19 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Shift Start Time *
               </label>
-              <input
-                type="text"
-                value={formData.shiftStartTime || '09:30 AM'}
-                onChange={e => handleChange('shiftStartTime', e.target.value)}
-                placeholder="09:30 AM"
-                className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={time12To24(formData.shiftStartTime || '10:00 AM')}
+                  onChange={e => handleTimePickerChange('shiftStartTime', e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
+                />
+                <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 whitespace-nowrap bg-blue-50 dark:bg-blue-950/50 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                  {formData.shiftStartTime || '10:00 AM'}
+                </span>
+              </div>
               <span className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 block">
-                Official check-in starting time.
+                Official check-in starting time (drives Present vs Late).
               </span>
             </div>
 
@@ -223,15 +290,19 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Shift End Time *
               </label>
-              <input
-                type="text"
-                value={formData.shiftEndTime || '06:30 PM'}
-                onChange={e => handleChange('shiftEndTime', e.target.value)}
-                placeholder="06:30 PM"
-                className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={time12To24(formData.shiftEndTime || '07:00 PM')}
+                  onChange={e => handleTimePickerChange('shiftEndTime', e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
+                />
+                <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 whitespace-nowrap bg-blue-50 dark:bg-blue-950/50 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                  {formData.shiftEndTime || '07:00 PM'}
+                </span>
+              </div>
               <span className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 block">
-                Official shift completion time.
+                Official shift completion time (work past this = Overtime).
               </span>
             </div>
 
@@ -244,31 +315,54 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
                 min="4"
                 max="16"
                 step="0.5"
-                value={formData.standardWorkHours || 9}
+                value={formData.standardWorkHours ?? 9}
                 onChange={e => handleChange('standardWorkHours', Number(e.target.value) || 9)}
                 placeholder="9"
                 className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
               />
               <span className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 block">
-                Expected working duration (e.g. 9 hrs).
+                Auto-computed from start/end (editable). Drives shift target bar.
               </span>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Working Days Policy Description
-            </label>
+          {/* Interactive Weekly Off Days Picker */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <CalendarCheck size={14} className="text-blue-600" />
+                <span>Weekly Off Days (Automatically Marked Day Off in Attendance &amp; Payroll)</span>
+              </label>
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                {formData.workDaysDescription || formatWeeklyOffDescription(activeWeeklyOffs)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {WEEKDAYS.map(d => {
+                const isOff = activeWeeklyOffs.includes(d.id);
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => toggleWeeklyOffDay(d.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border transition-all ${
+                      isOff
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-blue-400'
+                    }`}
+                  >
+                    {d.label} {isOff ? '(Off)' : '(Work)'}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="text"
-              value={formData.workDaysDescription || 'Monday - Saturday (Sunday Weekly Off)'}
+              value={formData.workDaysDescription || ''}
               onChange={e => handleChange('workDaysDescription', e.target.value)}
-              placeholder="e.g. Monday - Saturday (Sunday Weekly Off)"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-medium outline-none focus:border-blue-500 transition-colors"
+              placeholder="e.g. Mon - Sat (Sunday Off)"
+              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium outline-none focus:border-blue-500 transition-colors"
             />
-            <span className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 block">
-              Displayed in employee shift card and employment handbook.
-            </span>
           </div>
         </div>
 
@@ -341,7 +435,9 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
                 className="w-full h-10 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none focus:border-blue-500 transition-colors shadow-xs"
               />
               <p className="text-[11px] text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 p-2 rounded-md mt-1.5 leading-snug">
-                Extra duty completed <strong>{formData.minOvertimeMinutes || 30}+ mins</strong> past {formData.shiftEndTime} qualifies for Overtime (OT).
+                {minOtMins > 0
+                  ? <>Extra duty completed <strong>{minOtMins}+ mins</strong> past {formData.shiftEndTime} qualifies for Overtime (OT).</>
+                  : <>Every minute worked outside <strong>{formData.shiftStartTime} – {formData.shiftEndTime}</strong> counts automatically as Overtime (OT).</>}
               </p>
             </div>
           </div>
@@ -470,21 +566,53 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
           </div>
         </div>
 
-        {/* ── Save Button ── */}
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Info size={14} className="text-blue-500" />
-            <span>Policy changes update auto-calculated metrics across Attendance, Timer, and Dashboard.</span>
+        {/* ── Apply Policy Controls & Save Button ── */}
+        <div className="bg-blue-50/70 dark:bg-blue-950/25 border border-blue-200 dark:border-blue-900/60 rounded-xl p-4 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={syncEmployeeShifts}
+                onChange={e => setSyncEmployeeShifts(e.target.checked)}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+              <span>Update all active employees&apos; shift schedule to {formData.shiftStartTime} – {formData.shiftEndTime}</span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <History size={14} className="text-blue-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">Recalculate Present / Late / Half-Day:</span>
+              <select
+                value={recalculateScope}
+                onChange={e => setRecalculateScope(e.target.value)}
+                className="h-8 px-2.5 rounded-lg border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-bold outline-none cursor-pointer"
+              >
+                <option value="today">Today&apos;s Attendance</option>
+                <option value="month">This Entire Month</option>
+                <option value="none">Future Clock-ins Only</option>
+              </select>
+            </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-all hover:shadow-lg active:scale-[0.99]"
-          >
-            <CheckCircle2 size={16} />
-            <span>{isSaving ? 'Saving to Server...' : 'Save Shift Policy'}</span>
-          </button>
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-blue-200/70 dark:border-blue-900/40 flex-wrap">
+            <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+              <Info size={14} className="text-blue-500 shrink-0" />
+              <span>
+                {isSaved && !isSaving
+                  ? '✓ Active policy synced live across Attendance, Timer, Breaks & all devices.'
+                  : 'Saving immediately enforces these timings for Present, Late, Half-Day, Overtime & Break limits.'}
+              </span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-all hover:shadow-lg active:scale-[0.99]"
+            >
+              <CheckCircle2 size={16} />
+              <span>{isSaving ? 'Saving & Applying...' : 'Save & Apply Shift Policy'}</span>
+            </button>
+          </div>
         </div>
 
       </form>

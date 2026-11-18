@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useHR } from '../../context/HRContext';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { matchesFilter } from '../../../../shared/utils/filterUtils';
+import { getCompanySettings, getWeeklyOffDays } from '../../../../shared/services/companySettingsService';
 
 export const MonthlyMatrixTable = ({
   month = 9,
@@ -14,6 +15,19 @@ export const MonthlyMatrixTable = ({
   const { employees, attendance, currentUser: hrUser } = useHR();
   const currentUser = propCurrentUser || hrUser;
   const [activeRecordModal, setActiveRecordModal] = useState(null);
+  const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
+
+  useEffect(() => {
+    const onSettingsUpdate = () => setCompanySettings(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
+
+  const weeklyOffDays = useMemo(() => getWeeklyOffDays(companySettings), [companySettings]);
+  const isWeeklyOffDay = (day) => {
+    const d = new Date(year, month - 1, day);
+    return weeklyOffDays.includes(d.getDay());
+  };
 
   const isPrivileged = currentUser?.isAdmin || ['admin', 'hr'].includes(currentUser?.role?.toLowerCase()) || ['admin', 'hr'].includes(currentUser?.systemRole?.toLowerCase());
   const canEdit = isPrivileged || currentUser?.permissions?.editAttendance;
@@ -111,7 +125,7 @@ export const MonthlyMatrixTable = ({
               {/* Day Columns */}
               {daysArray.map((day) => {
                 const dayName = getDayName(day);
-                const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+                const isWeekend = isWeeklyOffDay(day);
                 return (
                   <th
                     key={day}
@@ -177,8 +191,7 @@ export const MonthlyMatrixTable = ({
                   {/* Day Status Cells */}
                   {daysArray.map((day) => {
                     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dayName = getDayName(day);
-                    const isWeekend = dayName === 'Sat' || dayName === 'Sun';
+                    const isWeekend = isWeeklyOffDay(day);
                     const isFuture = dateStr > todayStr;
 
                     const record = empRecords.find(a => a.date === dateStr);

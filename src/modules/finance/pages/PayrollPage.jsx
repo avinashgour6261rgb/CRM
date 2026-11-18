@@ -29,6 +29,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { isHRorAdmin, canAccessModule, canManagePayroll, canExportData } from '../../../shared/utils/permissionUtils';
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const PayrollPage = () => {
   const { employees, currentUser, updateEmployee, attendance, leaves } = useHR();
@@ -416,6 +417,8 @@ export const PayrollPage = () => {
           employee={myEmp}
           month={selectedMonth}
           salaryData={mySalary}
+          attendance={attendance}
+          leaves={leaves}
         />
       </div>
     );
@@ -459,11 +462,15 @@ export const PayrollPage = () => {
         `"${isCurrentMonthDisbursed ? 'Disbursed' : 'Pending'}"`
       ].join(',');
     });
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const cfg = getCompanySettings();
+    const companyLabel = (cfg.companyName || 'Company').replace(/"/g, '""');
+    const companySlug = (cfg.shortName || cfg.companyName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    const titleBanner = `"${companyLabel} — Payroll Register (${selectedMonth})"`;
+    const csvContent = 'data:text/csv;charset=utf-8,' + [titleBanner, headers.join(','), ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`);
+    link.setAttribute('download', `${companySlug}_payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -789,6 +796,8 @@ export const PayrollPage = () => {
         employee={activeEmployeeForPayslip}
         month={selectedMonth}
         salaryData={activeEmployeeForPayslip ? resolveEmployeeSalary(activeEmployeeForPayslip) : null}
+        attendance={attendance}
+        leaves={leaves}
       />
 
       {/* Salary Revision & Compensation Modal */}

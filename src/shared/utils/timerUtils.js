@@ -450,7 +450,8 @@ export const calculateAutoOvertimeSeconds = ({
   clockOutTime = null,
   nowMs = Date.now(),
   shiftStartTime = '10:00 AM',
-  shiftEndTime = '07:00 PM'
+  shiftEndTime = '07:00 PM',
+  minOvertimeMinutes = 0
 } = {}) => {
   try {
     const dayMidnight = new Date(nowMs);
@@ -545,7 +546,9 @@ export const calculateAutoOvertimeSeconds = ({
       });
     }
 
-    return Math.max(0, Math.floor(grossOvertimeSecs - overtimeBreakSecs));
+    const rawOtSecs = Math.max(0, Math.floor(grossOvertimeSecs - overtimeBreakSecs));
+    const minOtSecs = Math.max(0, Number(minOvertimeMinutes) || 0) * 60;
+    return rawOtSecs >= minOtSecs ? rawOtSecs : 0;
   } catch {
     return 0;
   }
@@ -898,13 +901,24 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
         if (matchesUser) {
           attChanged = true;
-          // Standard shift: 10:00 AM - 07:00 PM (9 hours). Work beyond 9h is Overtime (OT)
-          const standardShiftSecs = 9 * 3600;
-          const overtimeSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+          let companyCfg = {};
+          try { companyCfg = JSON.parse(localStorage.getItem('EMS_COMPANY_SETTINGS') || '{}') || {}; } catch (_) {}
+          const stdHours = companyCfg.standardWorkHours !== undefined ? Number(companyCfg.standardWorkHours) : 9;
+          const halfDayHrs = companyCfg.halfDayThresholdHours !== undefined ? Number(companyCfg.halfDayThresholdHours) : 4.5;
+          const minOtMins = companyCfg.minOvertimeMinutes !== undefined ? Number(companyCfg.minOvertimeMinutes) : 0;
+          const standardShiftSecs = Math.round(stdHours * 3600);
+          const rawOtSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+          const overtimeSecs = rawOtSecs >= (minOtMins * 60) ? rawOtSecs : 0;
           const overtimeHrs = +(overtimeSecs / 3600).toFixed(2);
+          const finalWorkHrs = +(finalVerifiedWorkSecs / 3600).toFixed(2);
+          let nextStatus = a.status || 'present';
+          if (finalWorkHrs > 0 && finalWorkHrs < halfDayHrs && !['on_leave', 'holiday', 'day_off'].includes(nextStatus)) {
+            nextStatus = 'half_day';
+          }
 
           const updated = {
             ...a,
+            status: nextStatus,
             // Preserve immutable First Clock-In of the day
             clockInTime: a.clockInTime || a.clockIn || readTimerStorage(user, 'login_time') || timeStr,
             clockIn: a.clockInTime || a.clockIn || readTimerStorage(user, 'login_time') || timeStr,
@@ -915,7 +929,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             isClockedIn: false,
             isOnBreak: false,
             workSeconds: finalVerifiedWorkSecs,
-            totalWorkingHours: +(finalVerifiedWorkSecs / 3600).toFixed(2),
+            totalWorkingHours: finalWorkHrs,
             overtimeSeconds: overtimeSecs,
             overtimeHours: overtimeHrs,
             hasOvertime: overtimeSecs > 0,
@@ -929,10 +943,18 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
       if (!attChanged) {
         // Fallback: Create today's attendance record with First In and Last Out
+        let companyCfg = {};
+        try { companyCfg = JSON.parse(localStorage.getItem('EMS_COMPANY_SETTINGS') || '{}') || {}; } catch (_) {}
+        const stdHours = companyCfg.standardWorkHours !== undefined ? Number(companyCfg.standardWorkHours) : 9;
+        const halfDayHrs = companyCfg.halfDayThresholdHours !== undefined ? Number(companyCfg.halfDayThresholdHours) : 4.5;
+        const minOtMins = companyCfg.minOvertimeMinutes !== undefined ? Number(companyCfg.minOvertimeMinutes) : 0;
         const firstClockIn = readTimerStorage(user, 'login_time') || timeStr;
-        const standardShiftSecs = 9 * 3600;
-        const overtimeSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+        const standardShiftSecs = Math.round(stdHours * 3600);
+        const rawOtSecs = Math.max(0, finalVerifiedWorkSecs - standardShiftSecs);
+        const overtimeSecs = rawOtSecs >= (minOtMins * 60) ? rawOtSecs : 0;
         const overtimeHrs = +(overtimeSecs / 3600).toFixed(2);
+        const finalWorkHrs = +(finalVerifiedWorkSecs / 3600).toFixed(2);
+        const computedStatus = (finalWorkHrs > 0 && finalWorkHrs < halfDayHrs) ? 'half_day' : 'present';
 
         const newRecord = {
           _id: `att_${user._id || mirrorKeys[0]}_${Date.now()}`,
@@ -940,7 +962,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
           employeeCode: user.employeeCode || mirrorKeys[0],
           employeeName: user.name || 'Team Member',
           date: today,
-          status: 'present',
+          status: computedStatus,
           clockInTime: firstClockIn,
           clockIn: firstClockIn,
           clockOutTime: timeStr,
@@ -949,7 +971,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
           isClockedIn: false,
           isOnBreak: false,
           workSeconds: finalVerifiedWorkSecs,
-          totalWorkingHours: +(finalVerifiedWorkSecs / 3600).toFixed(2),
+          totalWorkingHours: finalWorkHrs,
           overtimeSeconds: overtimeSecs,
           overtimeHours: overtimeHrs,
           hasOvertime: overtimeSecs > 0,

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../shared/context/ToastContext';
-import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
 
 /**
  * Converts Indian currency numbers to words (Lakhs, Crores, Thousands)
@@ -62,7 +62,9 @@ export const PayslipModal = ({
   onClose,
   employee,
   month = 'October 2026',
-  salaryData = null
+  salaryData = null,
+  attendance = [],
+  leaves = []
 }) => {
   const { addToast } = useToast();
   const navigate = useNavigate();
@@ -229,14 +231,62 @@ export const PayslipModal = ({
 
   if (!isOpen || !employee || !resolvedSalary) return null;
 
-  // Days in selected month
+  // Days in selected month & real attendance summary (synced with company weekly off policy)
   const monthIdx = MONTH_OPTIONS.indexOf(selectedMonthName);
   const yearNum = parseInt(selectedYear, 10) || 2026;
   const daysInMonth = monthIdx >= 0 ? new Date(yearNum, monthIdx + 1, 0).getDate() : 30;
   const currentSlipPeriod = `${selectedMonthName} ${selectedYear}`;
+  const monthPrefix = `${yearNum}-${String(monthIdx + 1).padStart(2, '0')}`;
+
+  const attendanceSummary = (() => {
+    const empId = String(employee?._id || employee?.id || '').toLowerCase();
+    const empCode = String(employee?.employeeCode || '').toLowerCase();
+    const empName = (employee?.name || '').trim().toLowerCase();
+    const empAtt = (attendance || []).filter(a => {
+      if (!a?.date || !a.date.startsWith(monthPrefix)) return false;
+      const aId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '').toLowerCase();
+      const aCode = String(a.employeeCode || '').toLowerCase();
+      const aName = (a.employeeName || '').trim().toLowerCase();
+      return (empId && aId === empId) || (empCode && aCode === empCode) || (empName && aName === empName);
+    });
+    if (empAtt.length === 0) {
+      return { paidDays: daysInMonth, lopDays: 0, presentDays: daysInMonth, halfDays: 0, hasRealData: false };
+    }
+    const weeklyOffs = getWeeklyOffDays(companyInfo);
+    let weekOffCount = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (weeklyOffs.includes(new Date(yearNum, monthIdx, d).getDay())) weekOffCount++;
+    }
+    const fullPresent = empAtt.filter(a => ['present', 'late'].includes(a.status)).length;
+    const halfDays = empAtt.filter(a => a.status === 'half_day').length;
+    const absentExplicit = empAtt.filter(a => a.status === 'absent').length;
+    const unpaidLeaveDays = (leaves || []).filter(l =>
+      l.status === 'approved' &&
+      String(l.leaveType || l.type || '').toLowerCase().includes('unpaid') &&
+      l.startDate && l.startDate.startsWith(monthPrefix) && (
+        (empId && String(l.employeeId || l.employee || '').toLowerCase() === empId) ||
+        (empCode && String(l.employeeCode || '').toLowerCase() === empCode)
+      )
+    ).reduce((sum, l) => sum + (Number(l.days) || 1), 0);
+    const lopDays = +(absentExplicit + (halfDays * 0.5) + unpaidLeaveDays).toFixed(1);
+    const paidDays = Math.max(0, +(daysInMonth - lopDays).toFixed(1));
+    return {
+      paidDays,
+      lopDays,
+      presentDays: +(fullPresent + halfDays * 0.5).toFixed(1),
+      halfDays,
+      weekOffCount,
+      hasRealData: true
+    };
+  })();
 
   const handlePrint = () => {
+    const prevTitle = document.title;
+    const cleanCompany = (companyInfo.shortName || companyInfo.companyName || 'Company').replace(/[^\w\s-]/g, '').trim();
+    const cleanEmp = (employee.name || 'Employee').replace(/[^\w\s-]/g, '').trim();
+    document.title = `${cleanCompany} - Salary Slip - ${cleanEmp} - ${currentSlipPeriod}`;
     window.print();
+    setTimeout(() => { document.title = prevTitle; }, 800);
   };
 
   const handleSendEmail = () => {
@@ -364,19 +414,34 @@ export const PayslipModal = ({
             
             {/* 1. Official Corporate Header */}
             <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-4 mb-5">
-              <div className="flex-1 pr-5">
-                <h1 className="text-[22px] font-extrabold text-blue-900 m-0 uppercase tracking-wide">
-                  {companyInfo.companyName || 'ENTERPRISE TECHNOLOGY SOLUTIONS'}
-                </h1>
-                <p className="text-[11.5px] text-slate-600 mt-1 m-0 leading-snug">
-                  {companyInfo.address || 'Corporate Headquarters & Registered Office'}
-                </p>
-                <div className="flex flex-wrap gap-3 text-[11px] text-slate-500 mt-1">
-                  {companyInfo.hrEmail && <span>Email: <strong>{companyInfo.hrEmail}</strong></span>}
-                  {companyInfo.phone && <span>Phone: <strong>{companyInfo.phone}</strong></span>}
-                  {companyInfo.cin && <span>CIN: <strong>{companyInfo.cin}</strong></span>}
-                  {companyInfo.gstin && <span>GSTIN: <strong>{companyInfo.gstin}</strong></span>}
-                  {companyInfo.pan && <span>PAN: <strong>{companyInfo.pan}</strong></span>}
+              <div className="flex-1 pr-5 flex items-start gap-3.5">
+                {companyInfo.companyLogo && (
+                  <img
+                    src={companyInfo.companyLogo}
+                    alt={companyInfo.companyName || 'Company Logo'}
+                    className="h-14 max-w-[110px] object-contain rounded border border-slate-200 bg-white p-1 shrink-0"
+                  />
+                )}
+                <div>
+                  <h1 className="text-[22px] font-extrabold text-blue-900 m-0 uppercase tracking-wide leading-tight">
+                    {companyInfo.companyName || 'ENTERPRISE TECHNOLOGY SOLUTIONS'}
+                  </h1>
+                  {companyInfo.tagline && (
+                    <p className="text-[11px] font-semibold text-slate-500 m-0 mt-0.5">
+                      {companyInfo.tagline}
+                    </p>
+                  )}
+                  <p className="text-[11.5px] text-slate-600 mt-1 m-0 leading-snug">
+                    {companyInfo.address || 'Corporate Headquarters & Registered Office'}
+                  </p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500 mt-1">
+                    {(companyInfo.hrEmail || companyInfo.email) && <span>Email: <strong>{companyInfo.hrEmail || companyInfo.email}</strong></span>}
+                    {companyInfo.phone && <span>Phone: <strong>{companyInfo.phone}</strong></span>}
+                    {companyInfo.website && <span>Web: <strong>{companyInfo.website}</strong></span>}
+                    {companyInfo.cin && <span>CIN: <strong>{companyInfo.cin}</strong></span>}
+                    {companyInfo.gstin && <span>GSTIN: <strong>{companyInfo.gstin}</strong></span>}
+                    {companyInfo.pan && <span>PAN: <strong>{companyInfo.pan}</strong></span>}
+                  </div>
                 </div>
               </div>
 
@@ -435,8 +500,10 @@ export const PayslipModal = ({
                   <span className="font-semibold font-mono">{panNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Days Paid / Worked:</span>
-                  <span className="font-extrabold text-green-600">{daysInMonth} / {daysInMonth} Days (LOP: 0)</span>
+                  <span className="text-slate-500">Days Paid / Month:</span>
+                  <span className="font-extrabold text-green-600">
+                    {attendanceSummary.paidDays} / {daysInMonth} Days (LOP: {attendanceSummary.lopDays})
+                  </span>
                 </div>
               </div>
             </div>

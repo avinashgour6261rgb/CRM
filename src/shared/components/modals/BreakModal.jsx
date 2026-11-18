@@ -28,14 +28,19 @@ import {
   Plus
 } from 'lucide-react';
 import { useTimer } from '../../context/TimerContext';
+import { getCompanySettings } from '../../services/companySettingsService';
 
-const PRESET_BREAKS = [
-  { id: 'Tea / Coffee Break', label: 'Tea / Coffee Break', icon: Coffee, defaultMinutes: 15, activeBorder: 'border-sky-500', activeBg: 'bg-sky-50 dark:bg-sky-950/60', iconColor: 'text-sky-600', iconBg: 'bg-sky-50 dark:bg-sky-900/40' },
-  { id: 'Lunch Break', label: 'Lunch Break', icon: Utensils, defaultMinutes: 45, activeBorder: 'border-orange-500', activeBg: 'bg-orange-50 dark:bg-orange-950/60', iconColor: 'text-orange-600', iconBg: 'bg-orange-50 dark:bg-orange-900/40' },
-  { id: 'Quick Rest / Stretch', label: 'Quick Rest / Stretch', icon: Clock, defaultMinutes: 10, activeBorder: 'border-green-500', activeBg: 'bg-green-50 dark:bg-green-950/60', iconColor: 'text-green-600', iconBg: 'bg-green-50 dark:bg-green-900/40' },
-  { id: 'Personal Break', label: 'Personal Break', icon: User, defaultMinutes: 15, activeBorder: 'border-purple-500', activeBg: 'bg-purple-50 dark:bg-purple-950/60', iconColor: 'text-purple-600', iconBg: 'bg-purple-50 dark:bg-purple-900/40' },
-  { id: 'Wellness & Prayer', label: 'Wellness & Prayer', icon: Heart, defaultMinutes: 20, activeBorder: 'border-pink-500', activeBg: 'bg-pink-50 dark:bg-pink-950/60', iconColor: 'text-pink-600', iconBg: 'bg-pink-50 dark:bg-pink-900/40' }
-];
+const buildPresetBreaks = (cfg) => {
+  const teaMins = Number(cfg?.teaBreakMinutes) > 0 ? Number(cfg.teaBreakMinutes) : 15;
+  const lunchMins = Number(cfg?.lunchDurationMinutes) > 0 ? Number(cfg.lunchDurationMinutes) : 45;
+  return [
+    { id: 'Tea / Coffee Break', label: 'Tea / Coffee Break', icon: Coffee, defaultMinutes: teaMins, activeBorder: 'border-sky-500', activeBg: 'bg-sky-50 dark:bg-sky-950/60', iconColor: 'text-sky-600', iconBg: 'bg-sky-50 dark:bg-sky-900/40' },
+    { id: 'Lunch Break', label: 'Lunch Break', icon: Utensils, defaultMinutes: lunchMins, activeBorder: 'border-orange-500', activeBg: 'bg-orange-50 dark:bg-orange-950/60', iconColor: 'text-orange-600', iconBg: 'bg-orange-50 dark:bg-orange-900/40' },
+    { id: 'Quick Rest / Stretch', label: 'Quick Rest / Stretch', icon: Clock, defaultMinutes: 10, activeBorder: 'border-green-500', activeBg: 'bg-green-50 dark:bg-green-950/60', iconColor: 'text-green-600', iconBg: 'bg-green-50 dark:bg-green-900/40' },
+    { id: 'Personal Break', label: 'Personal Break', icon: User, defaultMinutes: 15, activeBorder: 'border-purple-500', activeBg: 'bg-purple-50 dark:bg-purple-950/60', iconColor: 'text-purple-600', iconBg: 'bg-purple-50 dark:bg-purple-900/40' },
+    { id: 'Wellness & Prayer', label: 'Wellness & Prayer', icon: Heart, defaultMinutes: 20, activeBorder: 'border-pink-500', activeBg: 'bg-pink-50 dark:bg-pink-950/60', iconColor: 'text-pink-600', iconBg: 'bg-pink-50 dark:bg-pink-900/40' }
+  ];
+};
 
 const DURATION_PILLS = [5, 10, 15, 20, 30, 45, 60];
 
@@ -62,9 +67,17 @@ export const BreakModal = ({ isOpen, onClose }) => {
     clearTodayBreaks
   } = useTimer() || {};
 
+  const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
+  useEffect(() => {
+    const onSettingsUpdate = () => setCompanySettings(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
+  const PRESET_BREAKS = buildPresetBreaks(companySettings);
+
   const [activeTab, setActiveTab] = useState(isOnBreak ? 'active' : 'choose');
   const [selectedType, setSelectedType] = useState('Tea / Coffee Break');
-  const [customMinutes, setCustomMinutes] = useState(15);
+  const [customMinutes, setCustomMinutes] = useState(() => Number(getCompanySettings()?.teaBreakMinutes) || 15);
   const [breakNotes, setBreakNotes] = useState('');
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customBreakTitle, setCustomBreakTitle] = useState('');

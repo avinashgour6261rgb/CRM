@@ -11,6 +11,7 @@ export const DEFAULT_COMPANY_SETTINGS = {
   companyName: 'Inforag Technology',
   shortName: 'Inforag',
   tagline: 'Enterprise Management System & CRM',
+  companyLogo: '',
   address: '',
   email: '',
   hrEmail: '',
@@ -31,10 +32,67 @@ export const DEFAULT_COMPANY_SETTINGS = {
   shiftEndTime: '07:00 PM', // Shift end time (work after this counts as Overtime)
   gracePeriodMinutes: 15, // Grace period before marked Late (e.g. 15 mins)
   halfDayThresholdHours: 4.5, // Work hours below which is marked Half Day
-  minOvertimeMinutes: 0, // Every minute outside 10 AM - 7 PM counts automatically as overtime
+  minOvertimeMinutes: 0, // Every minute outside shift window above this counts as overtime
   lunchDurationMinutes: 45,
   teaBreakMinutes: 15,
+  weeklyOffDays: [0], // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
   workDaysDescription: 'Mon - Sat (Sunday Off)'
+};
+
+const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export const getWeeklyOffDays = (settings) => {
+  const cfg = settings || getCompanySettings();
+  if (Array.isArray(cfg?.weeklyOffDays) && cfg.weeklyOffDays.length > 0) {
+    return cfg.weeklyOffDays.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6);
+  }
+  return [0];
+};
+
+export const formatWeeklyOffDescription = (offDays = [0]) => {
+  const normalized = [...new Set((offDays || []).map(Number).filter(n => n >= 0 && n <= 6))].sort((a, b) => a - b);
+  if (normalized.length === 0) return 'All 7 Days Active (No Weekly Off)';
+  if (normalized.length === 1 && normalized[0] === 0) return 'Mon - Sat (Sunday Off)';
+  if (normalized.length === 2 && normalized[0] === 0 && normalized[1] === 6) return 'Mon - Fri (Sat & Sun Off)';
+  const working = [1, 2, 3, 4, 5, 6, 0].filter(d => !normalized.includes(d));
+  const workStr = working.map(d => DAY_NAMES_SHORT[d]).join(', ');
+  const offStr = normalized.map(d => DAY_NAMES_FULL[d]).join(' & ');
+  return `${workStr} (${offStr} Off)`;
+};
+
+export const time12To24 = (timeStr = '10:00 AM') => {
+  if (!timeStr) return '10:00';
+  const s = String(timeStr).trim().toUpperCase();
+  const match = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/);
+  if (!match) return '10:00';
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const mer = match[3];
+  if (mer === 'PM' && h < 12) h += 12;
+  if (mer === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+export const time24To12 = (time24 = '10:00') => {
+  if (!time24 || !String(time24).includes(':')) return '10:00 AM';
+  const [hRaw, mRaw] = String(time24).split(':').map(Number);
+  const h24 = Number.isFinite(hRaw) ? hRaw : 10;
+  const mins = Number.isFinite(mRaw) ? mRaw : 0;
+  const mer = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${String(h12).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${mer}`;
+};
+
+export const computeHoursBetween12h = (startStr, endStr) => {
+  const toMins = (str) => {
+    const t24 = time12To24(str);
+    const [h, m] = t24.split(':').map(Number);
+    return (h * 60) + m;
+  };
+  let diff = toMins(endStr) - toMins(startStr);
+  if (diff <= 0) diff += 24 * 60;
+  return Math.max(1, Math.min(16, +(diff / 60).toFixed(1)));
 };
 
 export const getCompanySettings = () => {
@@ -120,4 +178,25 @@ export const saveCompanySettings = async (newSettings) => {
   window.dispatchEvent(new Event('company-settings-updated'));
   window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: STORAGE_KEY } }));
   return saved;
+};
+
+export const applyShiftPolicyToOrg = async ({ syncEmployeeShifts = true, recalculateScope = 'today' } = {}) => {
+  const res = await fetch(`${API_BASE}/company-settings/apply-shift-policy`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ syncEmployeeShifts, recalculateScope })
+  });
+  if (!res.ok) {
+    let errMsg = `Failed to apply shift policy (${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson?.message) errMsg = errJson.message;
+    } catch (_) {}
+    throw new Error(errMsg);
+  }
+  const json = await res.json();
+  window.dispatchEvent(new Event('company-settings-updated'));
+  window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+  window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_employees' } }));
+  return json;
 };

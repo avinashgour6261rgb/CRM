@@ -185,7 +185,13 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
               className="flex items-center gap-2.5 overflow-hidden flex-1 cursor-pointer hover:bg-white/[0.04] p-1.5 -ml-1 rounded-lg transition-colors"
               title="Click to view profile options"
             >
-              {currentUser?.avatar ? (
+              {companyInfo?.companyLogo ? (
+                <img
+                  src={companyInfo.companyLogo}
+                  alt={companyInfo.companyName || 'Company Logo'}
+                  className="w-9 h-9 rounded-[10px] object-contain bg-white p-0.5 border border-white/20 shadow-md shrink-0"
+                />
+              ) : currentUser?.avatar ? (
                 <img
                   src={currentUser.avatar}
                   alt={currentUser.name || 'User'}

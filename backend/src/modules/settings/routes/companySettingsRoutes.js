@@ -7,11 +7,13 @@ const express = require('express');
 const router = express.Router();
 const {
   getCompanySettings,
-  updateCompanySettings
+  updateCompanySettings,
+  applyShiftPolicyToOrg
 } = require('../controllers/companySettingsController');
 
 router.get('/', getCompanySettings);
 router.put('/', updateCompanySettings);
+router.post('/apply-shift-policy', applyShiftPolicyToOrg);
 
 module.exports = router;
 

@@ -573,7 +573,8 @@ export const TeamOperationsPage = () => {
       clockOutTime,
       nowMs,
       shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
-      shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+      shiftEndTime: cfg?.shiftEndTime || '07:00 PM',
+      minOvertimeMinutes: Number(cfg?.minOvertimeMinutes ?? 0)
     });
     const overtimeSecs = isSelf
       ? Math.max(Number(selfOvertimeSeconds) || 0, computedOtSecs)

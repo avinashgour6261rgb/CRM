@@ -5,15 +5,14 @@ import {
   Phone,
   Globe,
   MapPin,
-  ShieldCheck,
   CheckCircle2,
   FileText,
-  Printer,
   Sparkles,
-  Edit3,
   Clock,
   ArrowRight,
-  Info
+  Upload,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { getCompanySettings, saveCompanySettings, fetchCompanySettingsFromDB } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -24,6 +23,7 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isDirtyRef = React.useRef(false);
+  const logoInputRef = React.useRef(null);
 
   useEffect(() => {
     fetchCompanySettingsFromDB().then(data => {
@@ -40,6 +40,43 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
     isDirtyRef.current = true;
     setFormData(prev => ({ ...prev, [field]: value }));
     setIsSaved(false);
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      addToast('Please select a valid PNG, JPG, SVG, or WebP image file.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxH = 160;
+          const maxW = 420;
+          let w = img.width;
+          let h = img.height;
+          const ratio = Math.min(1, maxW / w, maxH / h);
+          w = Math.max(1, Math.round(w * ratio));
+          h = Math.max(1, Math.round(h * ratio));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+          handleChange('companyLogo', dataUrl);
+          addToast('Company logo loaded! Click "Save Company Settings" to publish across Payslips & Sidebar.', 'info');
+        } catch {
+          handleChange('companyLogo', String(reader.result || ''));
+        }
+      };
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSave = async (e) => {
@@ -102,7 +139,59 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
         
         {/* Left Side: Admin Form */}
         <form onSubmit={handleSave} className="flex flex-col gap-4">
-          
+
+          {/* Company Logo Upload */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              {formData.companyLogo ? (
+                <img
+                  src={formData.companyLogo}
+                  alt="Company Logo"
+                  className="h-12 max-w-[120px] object-contain rounded-lg border border-slate-200 dark:border-slate-700 bg-white p-1"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <ImageIcon size={20} />
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-slate-800 dark:text-slate-100">
+                  Official Company Logo
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Printed on Salary Slips, Appraisal/Promotion Letters, Sidebar &amp; Login screen.
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              >
+                <Upload size={13} />
+                <span>{formData.companyLogo ? 'Change Logo' : 'Upload Logo'}</span>
+              </button>
+              {formData.companyLogo && (
+                <button
+                  type="button"
+                  onClick={() => handleChange('companyLogo', '')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-bold cursor-pointer hover:bg-red-100 transition-colors"
+                  title="Remove logo"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Company Legal Name */}
           <div>
             <label className="block text-[12.5px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -331,10 +420,25 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
                 />
               </div>
             </div>
+            <div>
+              <label className="text-[11px] text-slate-500 dark:text-slate-400 block mb-1">Payslip &amp; Document Footer Note</label>
+              <input
+                type="text"
+                value={formData.footerNote || ''}
+                onChange={e => handleChange('footerNote', e.target.value)}
+                placeholder="* This is an electronic record and does not require a physical signature."
+                className="w-full h-9 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-2.5 mt-1">
+          <div className="flex justify-end items-center gap-3 mt-1">
+            {isSaved && !isSaving && (
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                ✓ Live synced across all payslips &amp; devices
+              </span>
+            )}
             <button
               type="submit"
               disabled={isSaving}
@@ -350,25 +454,48 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700 dark:text-slate-300">
             <FileText size={16} className="text-blue-600" />
-            <span>Live Payslip Header Preview</span>
+            <span>Live Payslip Letterhead Preview</span>
           </div>
 
           <div className="border-2 border-dashed border-blue-300 dark:border-blue-800/80 rounded-xl p-5 bg-white dark:bg-slate-900 shadow-xs">
             {/* Live Header Render */}
             <div className="flex flex-col sm:flex-row justify-between items-start gap-2 border-b-2 border-blue-600 dark:border-blue-500 pb-3 mb-4">
-              <div>
-                <h3 className="text-base font-extrabold text-blue-950 dark:text-blue-200 m-0">
-                  {formData.companyName || 'YOUR COMPANY NAME'}
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-[3px] m-0 leading-snug">
-                  {formData.address || 'Registered Office Address'}
-                </p>
-                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 m-0">
-                  {formData.hrEmail || formData.email || 'hr@company.com'} {formData.phone ? `• ${formData.phone}` : ''}
-                </p>
+              <div className="flex items-start gap-3">
+                {formData.companyLogo && (
+                  <img
+                    src={formData.companyLogo}
+                    alt="Logo"
+                    className="h-11 max-w-[90px] object-contain rounded bg-white p-0.5 border border-slate-200 shrink-0"
+                  />
+                )}
+                <div>
+                  <h3 className="text-base font-extrabold text-blue-950 dark:text-blue-200 m-0 uppercase">
+                    {formData.companyName || 'YOUR COMPANY NAME'}
+                  </h3>
+                  {formData.tagline && (
+                    <p className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 m-0">
+                      {formData.tagline}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-[3px] m-0 leading-snug">
+                    {formData.address || 'Registered Office Address'}
+                  </p>
+                  <p className="text-[10.5px] text-blue-600 dark:text-blue-400 mt-0.5 m-0 flex flex-wrap gap-x-2 gap-y-0.5">
+                    <span>{formData.hrEmail || formData.email || 'hr@company.com'}</span>
+                    {formData.phone && <span>• {formData.phone}</span>}
+                    {formData.website && <span>• {formData.website}</span>}
+                  </p>
+                  {(formData.cin || formData.gstin || formData.pan) && (
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 m-0 flex flex-wrap gap-x-2">
+                      {formData.cin && <span>CIN: <strong>{formData.cin}</strong></span>}
+                      {formData.gstin && <span>GSTIN: <strong>{formData.gstin}</strong></span>}
+                      {formData.pan && <span>PAN: <strong>{formData.pan}</strong></span>}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="px-2 py-[3px] rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 text-[10.5px] font-bold whitespace-nowrap self-start">
-                SAMPLE PAYSLIP
+                SALARY SLIP
               </div>
             </div>
 

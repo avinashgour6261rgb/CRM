@@ -44,13 +44,24 @@ import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAudi
 import { AdminForceClockOutModal } from '../components/attendance/AdminForceClockOutModal';
 import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
 import { useToast } from '../../../shared/context/ToastContext';
-import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
 import { readTimerStorage, parseTimeToSeconds } from '../../../shared/utils/timerUtils';
 
 export const AttendancePage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const companySettings = getCompanySettings();
+  const [companySettings, setCompanySettings] = React.useState(() => getCompanySettings());
+  React.useEffect(() => {
+    const onSettingsUpdate = () => setCompanySettings(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
+  const weeklyOffDays = React.useMemo(() => getWeeklyOffDays(companySettings), [companySettings]);
+  const shiftLateThresholdSecs = React.useMemo(() => {
+    const startSecs = parseTimeToSeconds(companySettings?.shiftStartTime || '10:00 AM');
+    const graceMins = companySettings?.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
+    return startSecs + (graceMins * 60);
+  }, [companySettings]);
   const { currentUser: authUser } = useAuth();
   const {
     employees,
@@ -185,7 +196,7 @@ export const AttendancePage = () => {
   let workingDaysCount = 0;
   for (let day = 1; day <= daysInSelectedMonth; day++) {
     const d = new Date(selectedYear, selectedMonth - 1, day);
-    if (d.getDay() !== 0 && d.getDay() !== 6) {
+    if (!weeklyOffDays.includes(d.getDay())) {
       workingDaysCount++;
     }
   }
@@ -246,7 +257,7 @@ export const AttendancePage = () => {
         onLeave++;
       } else if (isPresent) {
         present++;
-        if (att?.status === 'late' || (att?.clockInTime && parseTimeToSeconds(att.clockInTime) > 34200)) {
+        if (att?.status === 'late' || (att?.clockInTime && parseTimeToSeconds(att.clockInTime) > shiftLateThresholdSecs)) {
           late++;
         } else if (att?.status === 'half_day') {
           halfDay++;
@@ -271,7 +282,7 @@ export const AttendancePage = () => {
       workingLive,
       clockedOut
     };
-  }, [targetEmployees, attendance, leaves, todayStr]);
+  }, [targetEmployees, attendance, leaves, todayStr, shiftLateThresholdSecs]);
 
   // 2. MONTHLY ACCUMULATED ATTENDANCE METRICS
   const onTimeCount = currentMonthRecords.filter(a => a.status === 'present' && a.date <= todayStr).length;
@@ -292,8 +303,8 @@ export const AttendancePage = () => {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       // Exclude today and future dates! Today's workday is active and incomplete.
       if (dateStr >= todayStr) break;
-      // Skip weekends
-      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      // Skip company configured weekly off days
+      if (weeklyOffDays.includes(d.getDay())) continue;
       // Skip recognized company/gazetted holidays
       const isHoliday = (holidays || []).some(h => (h.date === dateStr || h.holidayDate === dateStr) && h.status !== 'cancelled');
       if (isHoliday) continue;
@@ -503,7 +514,7 @@ export const AttendancePage = () => {
           </div>
           <div className="kpi-value text-purple-600 dark:text-purple-400">{halfDayCount}</div>
           <div className="kpi-subtext text-purple-600 dark:text-purple-400">
-            <span>🌟 4-hour shifts</span>
+            <span>🌟 &lt;{companySettings.halfDayThresholdHours ?? 4.5}h shifts</span>
           </div>
         </div>
 
@@ -516,7 +527,7 @@ export const AttendancePage = () => {
           </div>
           <div className="kpi-value text-amber-600 dark:text-amber-400">{lateCount}</div>
           <div className="kpi-subtext text-amber-600 dark:text-amber-400">
-            <span>⚠️ Past grace period</span>
+            <span>⚠️ Past {companySettings.shiftStartTime || '10:00 AM'} (+{companySettings.gracePeriodMinutes ?? 15}m)</span>
           </div>
         </div>
 

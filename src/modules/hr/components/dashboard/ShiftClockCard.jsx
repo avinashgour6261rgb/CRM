@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Square, Coffee, Utensils, Clock, Eye } from 'lucide-react';
 import { useTimer } from '../../../../shared/context/TimerContext';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
@@ -35,9 +35,17 @@ export const ShiftClockCard = ({
 }) => {
   const { overtimeSeconds: myLiveOvertimeSeconds } = useTimer();
   const [showBreakDropdown, setShowBreakDropdown] = useState(false);
+  const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
 
-  const companySettings = getCompanySettings();
+  useEffect(() => {
+    const onSettingsUpdate = () => setCompanySettings(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
+
   const shiftWindowLabel = `${companySettings.shiftStartTime || '10:00 AM'} - ${companySettings.shiftEndTime || '07:00 PM'}`;
+  const teaBreakMins = Number(companySettings.teaBreakMinutes) > 0 ? Number(companySettings.teaBreakMinutes) : 15;
+  const lunchBreakMins = Number(companySettings.lunchDurationMinutes) > 0 ? Number(companySettings.lunchDurationMinutes) : 45;
 
   const effectiveOvertimeSecs = isViewingOtherEmployee
     ? (Number(activeEmpState?.overtimeSecs) || 0)
@@ -213,7 +221,7 @@ export const ShiftClockCard = ({
                         className="flex items-center gap-2 py-2 px-3 rounded-md border-none bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-bold text-xs cursor-pointer text-left hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
                       >
                         <Coffee size={13} color="#b45309" />
-                        <span>☕ Quick Tea Break (15 Min)</span>
+                        <span>☕ Quick Tea Break ({teaBreakMins} Min)</span>
                       </button>
                       <button
                         id="btn-menu-lunch-break"
@@ -221,7 +229,7 @@ export const ShiftClockCard = ({
                         className="flex items-center gap-2 py-2 px-3 rounded-md border-none bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold text-xs cursor-pointer text-left hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                       >
                         <Utensils size={13} color="#1d4ed8" />
-                        <span>🍱 Lunch Break (45 Min)</span>
+                        <span>🍱 Lunch Break ({lunchBreakMins} Min)</span>
                       </button>
                       <button
                         id="btn-menu-custom-break"

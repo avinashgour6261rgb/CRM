@@ -9,6 +9,7 @@ const CompanySettingsSchema = new mongoose.Schema({
   companyName: { type: String, default: 'Inforag Technology' },
   shortName: { type: String, default: 'Inforag' },
   tagline: { type: String, default: 'Enterprise Management System & CRM' },
+  companyLogo: { type: String, default: '' }, // Base64 PNG/JPG/WebP or URL (printed on Payslips, Letters, Sidebar, Login)
   address: { type: String, default: '' },
   email: { type: String, default: '' },
   hrEmail: { type: String, default: '' },
@@ -32,6 +33,7 @@ const CompanySettingsSchema = new mongoose.Schema({
   minOvertimeMinutes: { type: Number, default: 0 }, // Auto-track all work outside 10:00 AM - 07:00 PM
   lunchDurationMinutes: { type: Number, default: 45 },
   teaBreakMinutes: { type: Number, default: 15 },
+  weeklyOffDays: { type: [Number], default: [0] }, // 0=Sun, 1=Mon ... 6=Sat (default: Sunday Off)
   workDaysDescription: { type: String, default: 'Mon - Sat (Sunday Off)' }
 }, {
   timestamps: true

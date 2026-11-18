@@ -31,7 +31,12 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   const [showLetterPreview, setShowLetterPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const companyInfo = getCompanySettings();
+  const [companyInfo, setCompanyInfo] = useState(() => getCompanySettings());
+  useEffect(() => {
+    const onSettingsUpdate = () => setCompanyInfo(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
 
   // Actor status
   const isActorAdmin = currentUser?.isAdmin || currentUser?.role?.toLowerCase().includes('admin') || currentUser?.systemRole === 'admin';
@@ -370,13 +375,22 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
             <div className="border-2 border-blue-600 dark:border-blue-500 rounded-xl py-6 px-[30px] bg-white dark:bg-slate-900 shadow-sm">
               {/* Header */}
               <div className="flex justify-between border-b-2 border-blue-600 pb-3.5 mb-[18px]">
-                <div>
-                  <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
-                    {companyInfo.companyName}
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5 m-0">
-                    {companyInfo.address} • {companyInfo.hrEmail || companyInfo.email}
-                  </p>
+                <div className="flex items-start gap-3">
+                  {companyInfo.companyLogo && (
+                    <img
+                      src={companyInfo.companyLogo}
+                      alt={companyInfo.companyName || 'Logo'}
+                      className="h-11 max-w-[90px] object-contain rounded border border-slate-200 bg-white p-0.5 shrink-0"
+                    />
+                  )}
+                  <div>
+                    <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
+                      {companyInfo.companyName}
+                    </h2>
+                    <p className="text-[11px] text-slate-500 mt-0.5 m-0">
+                      {[companyInfo.address, companyInfo.hrEmail || companyInfo.email, companyInfo.phone].filter(Boolean).join(' • ')}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-slate-500">Date: {new Date().toLocaleDateString()}</span>
@@ -414,6 +428,9 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
               <div className="flex justify-between items-end pt-5 border-t border-slate-200 mt-4">
                 <div>
                   <div className="text-xs font-bold text-slate-900">{companyInfo.signatoryTitle}</div>
+                  {companyInfo.signatoryName && (
+                    <div className="text-[11px] font-semibold text-slate-700">({companyInfo.signatoryName})</div>
+                  )}
                   <div className="text-[11px] text-slate-500">{companyInfo.companyName}</div>
                 </div>
                 <div className="py-1 px-2.5 rounded bg-green-100 text-green-700 text-[11px] font-bold">

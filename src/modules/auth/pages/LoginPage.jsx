@@ -172,9 +172,17 @@ export const LoginPage = () => {
           <div>
             {/* Logo & Brand Header */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-600/40 shrink-0">
-                <Building2 size={24} className="text-white" />
-              </div>
+              {companySettings?.showCompanyNameOnLogin && companySettings?.companyLogo ? (
+                <img
+                  src={companySettings.companyLogo}
+                  alt={displayCompanyName}
+                  className="h-11 max-w-[110px] object-contain rounded-xl bg-white p-1.5 shadow-lg shrink-0"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-600/40 shrink-0">
+                  <Building2 size={24} className="text-white" />
+                </div>
+              )}
               <div>
                 <h1 className="text-xl font-extrabold tracking-tight text-white m-0">
                   {displayCompanyName}

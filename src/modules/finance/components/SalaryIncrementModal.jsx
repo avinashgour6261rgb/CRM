@@ -588,13 +588,22 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
               <div className={`flex justify-between border-b-2 pb-3.5 mb-[18px] ${
                 isHike ? 'border-blue-600' : 'border-amber-500'
               }`}>
-                <div>
-                  <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
-                    {companyInfo.companyName || 'ORGANIZATION'}
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5 m-0">
-                    {companyInfo.address} • {companyInfo.hrEmail || companyInfo.email}
-                  </p>
+                <div className="flex items-start gap-3">
+                  {companyInfo.companyLogo && (
+                    <img
+                      src={companyInfo.companyLogo}
+                      alt={companyInfo.companyName || 'Logo'}
+                      className="h-11 max-w-[90px] object-contain rounded border border-slate-200 bg-white p-0.5 shrink-0"
+                    />
+                  )}
+                  <div>
+                    <h2 className="text-lg font-extrabold text-blue-900 m-0 uppercase">
+                      {companyInfo.companyName || 'ORGANIZATION'}
+                    </h2>
+                    <p className="text-[11px] text-slate-500 mt-0.5 m-0">
+                      {[companyInfo.address, companyInfo.hrEmail || companyInfo.email, companyInfo.phone].filter(Boolean).join(' • ')}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-slate-500">Date: {new Date().toLocaleDateString()}</span>

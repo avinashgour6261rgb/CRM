@@ -12,6 +12,14 @@ const liveTelemetryCache = new Map();
 const autoClosePastDayShifts = async () => {
   try {
     const todayStr = getIstDateString();
+    let cfg = null;
+    try {
+      const CompanySettings = require('../../settings/models/CompanySettings');
+      cfg = await CompanySettings.findOne().lean();
+    } catch (_) {}
+    const shiftEnd = cfg?.shiftEndTime || '07:00 PM';
+    const stdHours = cfg?.standardWorkHours !== undefined ? Number(cfg.standardWorkHours) : 9;
+    const stdSecs = Math.round(stdHours * 3600);
     await Attendance.updateMany(
       {
         date: { $lt: todayStr },
@@ -22,11 +30,11 @@ const autoClosePastDayShifts = async () => {
         $set: {
           isClockedIn: false,
           isOnBreak: false,
-          clockOutTime: '07:00 PM',
-          clockOut: '07:00 PM',
-          workSeconds: 32400, // Standard 9 hrs
-          totalWorkingHours: 9.0,
-          notes: 'Auto-closed at midnight (daily shift reset)'
+          clockOutTime: shiftEnd,
+          clockOut: shiftEnd,
+          workSeconds: stdSecs,
+          totalWorkingHours: stdHours,
+          notes: `Auto-closed at midnight (${shiftEnd} company shift end)`
         }
       }
     );
@@ -237,10 +245,13 @@ const markAttendance = asyncHandler(async (req, res) => {
     console.warn('[attendanceController] Could not fetch CompanySettings, using defaults:', err.message);
   }
 
-  const shiftStartTime = companySettings?.shiftStartTime || '09:30 AM';
+  const shiftStartTime = companySettings?.shiftStartTime || '10:00 AM';
+  const shiftEndTime = companySettings?.shiftEndTime || '07:00 PM';
+  const shiftWindowLabel = `${shiftStartTime} - ${shiftEndTime}`;
   const graceMins = companySettings?.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
   const standardWorkHours = companySettings?.standardWorkHours !== undefined ? Number(companySettings.standardWorkHours) : 9;
   const halfDayThresholdHours = companySettings?.halfDayThresholdHours !== undefined ? Number(companySettings.halfDayThresholdHours) : 4.5;
+  const minOvertimeMinutes = companySettings?.minOvertimeMinutes !== undefined ? Number(companySettings.minOvertimeMinutes) : 0;
 
   const shiftStartSecs = parseTimeStringToSeconds(shiftStartTime);
   const graceLimitSecs = shiftStartSecs + (graceMins * 60);
@@ -278,11 +289,12 @@ const markAttendance = asyncHandler(async (req, res) => {
     calculatedStatus = 'half_day';
   }
 
-  // Calculate Overtime if employee worked beyond standard work hours
+  // Calculate Overtime if employee worked beyond standard work hours & meets minOvertimeMinutes
   let overtimeHours = 0;
   let overtimeSeconds = 0;
-  if (effectiveWorkHours > standardWorkHours) {
-    overtimeHours = +(effectiveWorkHours - standardWorkHours).toFixed(2);
+  const rawOtMins = Math.max(0, Math.round((effectiveWorkHours - standardWorkHours) * 60));
+  if (rawOtMins > 0 && rawOtMins >= minOvertimeMinutes) {
+    overtimeHours = +(rawOtMins / 60).toFixed(2);
     overtimeSeconds = Math.round(overtimeHours * 3600);
   }
 
@@ -332,12 +344,13 @@ const markAttendance = asyncHandler(async (req, res) => {
   if (req.body.breakStartTimestamp !== undefined) updateFields.breakStartTimestamp = Number(req.body.breakStartTimestamp) || null;
   if ('activeTask' in req.body) updateFields.activeTask = req.body.activeTask;
   if (req.body.overtimeSeconds !== undefined) {
-    const otSecs = Math.max(0, Number(req.body.overtimeSeconds) || 0);
+    const rawOtSecs = Math.max(0, Number(req.body.overtimeSeconds) || 0);
+    const otSecs = rawOtSecs >= (minOvertimeMinutes * 60) ? rawOtSecs : 0;
     updateFields.overtimeSeconds = otSecs;
     updateFields.overtimeHours = +(otSecs / 3600).toFixed(2);
     if (otSecs > 0) {
       updateFields.overtimeStatus = 'auto_recorded';
-      if (!updateFields.overtimeReason) updateFields.overtimeReason = 'Auto-tracked (outside 10:00 AM - 07:00 PM shift)';
+      if (!updateFields.overtimeReason) updateFields.overtimeReason = `Auto-tracked (outside ${shiftWindowLabel} shift)`;
     }
   }
   updateFields.lastHeartbeatAt = Date.now();
@@ -731,12 +744,23 @@ const forceClockOut = asyncHandler(async (req, res) => {
     attRecord.workSeconds = finalWorkSecs;
     attRecord.totalWorkingHours = finalWorkHours;
     attRecord.punchSessions = updatedSessions;
-    if (finalWorkHours >= 4.5 && attRecord.status === 'half_day') {
-      attRecord.status = 'present';
+    let policyCfg = null;
+    try {
+      const CompanySettings = require('../../settings/models/CompanySettings');
+      policyCfg = await CompanySettings.findOne().lean();
+    } catch (_) {}
+    const halfDayThreshold = policyCfg?.halfDayThresholdHours !== undefined ? Number(policyCfg.halfDayThresholdHours) : 4.5;
+    const standardWorkHours = policyCfg?.standardWorkHours !== undefined ? Number(policyCfg.standardWorkHours) : 9;
+    const minOtMins = policyCfg?.minOvertimeMinutes !== undefined ? Number(policyCfg.minOvertimeMinutes) : 0;
+
+    if (finalWorkHours > 0 && finalWorkHours < halfDayThreshold && !['on_leave', 'holiday', 'day_off'].includes(attRecord.status)) {
+      attRecord.status = 'half_day';
+    } else if (finalWorkHours >= halfDayThreshold && attRecord.status === 'half_day') {
+      attRecord.status = attRecord.isLate ? 'late' : 'present';
     }
-    const standardWorkHours = 9;
-    if (finalWorkHours > standardWorkHours) {
-      attRecord.overtimeHours = +(finalWorkHours - standardWorkHours).toFixed(2);
+    const rawOtMins = Math.max(0, Math.round((finalWorkHours - standardWorkHours) * 60));
+    if (rawOtMins > 0 && rawOtMins >= minOtMins) {
+      attRecord.overtimeHours = +(rawOtMins / 60).toFixed(2);
       attRecord.overtimeSeconds = Math.round(attRecord.overtimeHours * 3600);
     }
     attRecord.notes = `Manual Clock-Out by Admin ${adminName}: "${noteText}"`;
@@ -1149,7 +1173,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
       updateObj.overtimeSeconds = resolvedOvertimeSecs;
       updateObj.overtimeHours = +(resolvedOvertimeSecs / 3600).toFixed(2);
       updateObj.overtimeStatus = 'auto_recorded';
-      updateObj.overtimeReason = 'Auto-tracked (outside 10:00 AM - 07:00 PM shift)';
+      updateObj.overtimeReason = 'Auto-tracked (outside company shift hours)';
     }
     if (hasExplicitBreak) updateObj.isOnBreak = payload.isOnBreak;
     if (breakType !== undefined) updateObj.breakType = payload.breakType;

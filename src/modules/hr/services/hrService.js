@@ -1086,8 +1086,8 @@ export const hrService = {
           computedHours = +(diffSecs / 3600).toFixed(2);
 
           const companySettings = getCompanySettings();
-          const shiftStartTime = companySettings.shiftStartTime || '09:30 AM';
-          const graceMins = Number(companySettings.gracePeriodMinutes) || 15;
+          const shiftStartTime = companySettings.shiftStartTime || '10:00 AM';
+          const graceMins = companySettings.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
           const shiftStartSecs = parseToSecs(shiftStartTime);
           const graceLimitSecs = shiftStartSecs + (graceMins * 60);
 
