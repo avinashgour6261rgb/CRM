@@ -5,6 +5,10 @@
  */
 
 const crypto = require('crypto');
+let bcrypt = null;
+try {
+  bcrypt = require('bcryptjs');
+} catch (_) {}
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim().length >= 16) {
@@ -54,6 +58,15 @@ const verifyPassword = (plain, stored) => {
       const expected = Buffer.from(hashHex, 'hex');
       if (derived.length !== expected.length) return false;
       return crypto.timingSafeEqual(derived, expected);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Legacy bcrypt ($2a$ / $2b$ / $2y$) verification support
+  if (bcrypt && /^\$2[aby]\$\d{2}\$/.test(cleanStored)) {
+    try {
+      return bcrypt.compareSync(cleanPlain, cleanStored);
     } catch (_) {
       return false;
     }
