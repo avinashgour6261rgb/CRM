@@ -4,16 +4,40 @@ import { RefreshCw, Home, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false };
+    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false, isChunkError: false };
+  }
+
+  static isChunkError(error) {
+    const msg = error?.message || String(error || '');
+    return (
+      /Failed to fetch dynamically imported module/i.test(msg) ||
+      /Importing a module script failed/i.test(msg) ||
+      /error loading dynamically imported module/i.test(msg) ||
+      /MIME type of "text\/html"/i.test(msg)
+    );
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, error };
+    const isChunk = ErrorBoundary.isChunkError(error);
+    if (isChunk && typeof window !== 'undefined') {
+      const lastReload = Number(sessionStorage.getItem('ems_chunk_reload_ts') || 0);
+      const now = Date.now();
+      if (now - lastReload > 15000) {
+        sessionStorage.setItem('ems_chunk_reload_ts', String(now));
+        window.location.reload();
+      }
+    }
+    return { hasError: true, isChunkError: isChunk, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    this.setState({ errorInfo });
+    const isChunk = ErrorBoundary.isChunkError(error);
+    if (isChunk) {
+      console.warn('ErrorBoundary intercepted deployment chunk discrepancy:', error?.message);
+    } else {
+      console.error('ErrorBoundary caught an error:', error, errorInfo);
+    }
+    this.setState({ errorInfo, isChunkError: isChunk });
     try {
       localStorage.setItem('ems_last_boundary_error', JSON.stringify({
         message: error?.message,
@@ -45,6 +69,7 @@ export class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const isChunk = this.state.isChunkError;
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 font-sans">
           <div className="max-w-[500px] w-full bg-slate-800 rounded-2xl p-8 sm:p-9 text-center shadow-2xl ring-1 ring-white/10 border border-slate-700">
@@ -54,11 +79,13 @@ export class ErrorBoundary extends React.Component {
             </div>
 
             <h2 className="text-xl font-bold m-0 mb-2 text-slate-50 tracking-tight">
-              Session Sync & Recovery
+              {isChunk ? 'New Update Available' : 'Session Sync & Recovery'}
             </h2>
 
             <p className="text-[13.5px] text-slate-400 leading-relaxed m-0 mb-6">
-              Your workspace data and timelogs are safely preserved. A quick view refresh will restore full dashboard functionality.
+              {isChunk
+                ? 'Inforag Management System has been updated with the latest enhancements. A quick refresh will load the latest version. All your active shifts, timers, and data are safely preserved.'
+                : 'Your workspace data and timelogs are safely preserved. A quick view refresh will restore full dashboard functionality.'}
             </p>
 
             <div className="flex gap-2.5 justify-center flex-wrap mb-[18px]">
@@ -67,7 +94,7 @@ export class ErrorBoundary extends React.Component {
                 className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-0 py-2.5 px-[22px] rounded-[9px] text-[13px] font-semibold cursor-pointer shadow-md shadow-blue-600/35 transition-colors"
               >
                 <RefreshCw size={15} />
-                Refresh Application
+                {isChunk ? 'Update & Refresh Now' : 'Refresh Application'}
               </button>
 
               <button

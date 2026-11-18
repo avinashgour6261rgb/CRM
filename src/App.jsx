@@ -16,28 +16,59 @@ import { HRProvider } from './modules/hr/context/HRContext';
 import { WorkProvider } from './modules/work/context/WorkContext';
 import { CRMProvider } from './shared/context/CRMContext';
 
-// Route-Level Code Splitting (lazy-loads each page chunk on demand for fast initial load)
-const lazyNamed = (importer, name) => lazy(() => importer().then(m => ({ default: m[name] })));
+// Route-Level Code Splitting with Automatic Deployment Chunk-Refresh Recovery
+const isChunkLoadError = (err) => {
+  const msg = err?.message || String(err || '');
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg) ||
+    /MIME type of "text\/html"/i.test(msg)
+  );
+};
 
-const ProjectsPage       = lazyNamed(() => import('./modules/work/pages/ProjectsPage'), 'ProjectsPage');
-const TasksPage          = lazyNamed(() => import('./modules/work/pages/TasksPage'), 'TasksPage');
-const TimesheetPage      = lazyNamed(() => import('./modules/work/pages/TimesheetPage'), 'TimesheetPage');
-const LeavesPage         = lazyNamed(() => import('./modules/hr/pages/LeavesPage'), 'LeavesPage');
-const AttendancePage     = lazyNamed(() => import('./modules/hr/pages/AttendancePage'), 'AttendancePage');
-const HolidayPage        = lazyNamed(() => import('./modules/hr/pages/HolidayPage'), 'HolidayPage');
-const AppreciationPage   = lazyNamed(() => import('./modules/hr/pages/AppreciationPage'), 'AppreciationPage');
-const DashboardPage      = lazyNamed(() => import('./modules/hr/pages/DashboardPage'), 'DashboardPage');
-const EmployeesPage      = lazyNamed(() => import('./modules/hr/pages/EmployeesPage'), 'EmployeesPage');
-const TeamOperationsPage = lazyNamed(() => import('./modules/hr/pages/TeamOperationsPage'), 'TeamOperationsPage');
-const DocumentationPage  = lazyNamed(() => import('./modules/hr/pages/DocumentationPage'), 'DocumentationPage');
-const TicketsPage        = lazyNamed(() => import('./modules/crm/pages/TicketsPage'), 'TicketsPage');
-const CalendarPage       = lazyNamed(() => import('./modules/crm/pages/CalendarPage'), 'CalendarPage');
-const NoticeBoardPage    = lazyNamed(() => import('./modules/crm/pages/NoticeBoardPage'), 'NoticeBoardPage');
-const LeadsPage          = lazyNamed(() => import('./modules/crm/pages/LeadsPage'), 'LeadsPage');
-const MessagesPage       = lazyNamed(() => import('./modules/crm/pages/MessagesPage'), 'MessagesPage');
-const ExpensesPage       = lazyNamed(() => import('./modules/finance/pages/ExpensesPage'), 'ExpensesPage');
-const PayrollPage        = lazyNamed(() => import('./modules/finance/pages/PayrollPage'), 'PayrollPage');
-const SettingsPage       = lazyNamed(() => import('./modules/settings/pages/SettingsPage'), 'SettingsPage');
+const lazyWithRetry = (importer, name) =>
+  lazy(async () => {
+    try {
+      const module = await importer();
+      try {
+        sessionStorage.removeItem('ems_chunk_reload_ts');
+      } catch (_) {}
+      return { default: name ? module[name] : (module.default || module) };
+    } catch (error) {
+      if (isChunkLoadError(error) && typeof window !== 'undefined') {
+        const lastReload = Number(sessionStorage.getItem('ems_chunk_reload_ts') || 0);
+        const now = Date.now();
+        if (now - lastReload > 15000) {
+          sessionStorage.setItem('ems_chunk_reload_ts', String(now));
+          window.location.reload();
+          // Return pending promise so React doesn't try to render an error boundary while reloading
+          return new Promise(() => {});
+        }
+      }
+      throw error;
+    }
+  });
+
+const ProjectsPage       = lazyWithRetry(() => import('./modules/work/pages/ProjectsPage'), 'ProjectsPage');
+const TasksPage          = lazyWithRetry(() => import('./modules/work/pages/TasksPage'), 'TasksPage');
+const TimesheetPage      = lazyWithRetry(() => import('./modules/work/pages/TimesheetPage'), 'TimesheetPage');
+const LeavesPage         = lazyWithRetry(() => import('./modules/hr/pages/LeavesPage'), 'LeavesPage');
+const AttendancePage     = lazyWithRetry(() => import('./modules/hr/pages/AttendancePage'), 'AttendancePage');
+const HolidayPage        = lazyWithRetry(() => import('./modules/hr/pages/HolidayPage'), 'HolidayPage');
+const AppreciationPage   = lazyWithRetry(() => import('./modules/hr/pages/AppreciationPage'), 'AppreciationPage');
+const DashboardPage      = lazyWithRetry(() => import('./modules/hr/pages/DashboardPage'), 'DashboardPage');
+const EmployeesPage      = lazyWithRetry(() => import('./modules/hr/pages/EmployeesPage'), 'EmployeesPage');
+const TeamOperationsPage = lazyWithRetry(() => import('./modules/hr/pages/TeamOperationsPage'), 'TeamOperationsPage');
+const DocumentationPage  = lazyWithRetry(() => import('./modules/hr/pages/DocumentationPage'), 'DocumentationPage');
+const TicketsPage        = lazyWithRetry(() => import('./modules/crm/pages/TicketsPage'), 'TicketsPage');
+const CalendarPage       = lazyWithRetry(() => import('./modules/crm/pages/CalendarPage'), 'CalendarPage');
+const NoticeBoardPage    = lazyWithRetry(() => import('./modules/crm/pages/NoticeBoardPage'), 'NoticeBoardPage');
+const LeadsPage          = lazyWithRetry(() => import('./modules/crm/pages/LeadsPage'), 'LeadsPage');
+const MessagesPage       = lazyWithRetry(() => import('./modules/crm/pages/MessagesPage'), 'MessagesPage');
+const ExpensesPage       = lazyWithRetry(() => import('./modules/finance/pages/ExpensesPage'), 'ExpensesPage');
+const PayrollPage        = lazyWithRetry(() => import('./modules/finance/pages/PayrollPage'), 'PayrollPage');
+const SettingsPage       = lazyWithRetry(() => import('./modules/settings/pages/SettingsPage'), 'SettingsPage');
 
 const RouteFallback = () => (
   <div className="flex items-center justify-center min-h-[260px] text-xs font-semibold text-slate-500 dark:text-slate-400">
