@@ -119,6 +119,7 @@ app.use('/api/leaves',       require('./src/modules/hr/routes/leaveRoutes'));
 app.use('/api/attendance',   require('./src/modules/hr/routes/attendanceRoutes'));
 app.use('/api/holidays',     require('./src/modules/hr/routes/holidayRoutes'));
 app.use('/api/appreciations', require('./src/modules/hr/routes/appreciationRoutes'));
+app.use('/api/documents',    require('./src/modules/hr/routes/documentRoutes'));
 
 // Work Module (Projects, Tasks, Timesheets)
 app.use('/api/projects',     require('./src/modules/work/routes/projectRoutes'));

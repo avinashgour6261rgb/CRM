@@ -336,6 +336,9 @@ if (typeof window !== 'undefined') {
   subscribeSocketEvent('holiday:updated', (data) => applySingleItemMutation(KEYS.HOLIDAYS, data));
   subscribeSocketEvent('appreciation:updated', (data) => applySingleItemMutation(KEYS.APPRECIATIONS, data));
   subscribeSocketEvent('employee:updated', (data) => applySingleItemMutation(KEYS.EMPLOYEES, data, 'employeeCode'));
+  subscribeSocketEvent('document:updated', (data) => {
+    window.dispatchEvent(new CustomEvent('ems_documents_updated', { detail: data || {} }));
+  });
   // 📡 Real-time Company Branding & Work Shift Policy sync across all devices (0ms)
   subscribeSocketEvent('settings:updated', (data) => {
     try {
