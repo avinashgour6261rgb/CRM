@@ -719,7 +719,7 @@ export const workService = {
       };
 
       if (status === 'completed') {
-        tasks[index].completedOn = new Date().toISOString().split('T')[0];
+        tasks[index].completedOn = getLocalDateString();
         tasks[index].completedAt = nowIso;
         tasks[index].timerRunning = false;
       }
@@ -1175,7 +1175,10 @@ export const workService = {
   async deleteTimesheet(id) {
     if (await isBackendAvailable()) {
       try {
-        const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, {
+          method: 'DELETE',
+          headers: buildJwtAuthHeaders()
+        });
         if (res.ok) return true;
       } catch (err) {
         console.warn('Backend timesheet delete failed, using local storage:', err);

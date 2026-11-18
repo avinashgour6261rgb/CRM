@@ -3,6 +3,7 @@ const Leave = require('../models/Leave');
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // ─── GET /api/leaves ─────────────────────────────────────────────────────────
 const getLeaves = asyncHandler(async (req, res) => {
@@ -343,7 +344,7 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
     employee = await Employee.findOne({ name: leave.employeeName });
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getIstDateString();
 
   // 1. If transitioning TO 'approved' from cancelled/rejected (or if previousStatus was not pending/approved):
   // Deduct employee leave balance only if not already deducted on application
@@ -530,7 +531,7 @@ const deleteLeave = asyncHandler(async (req, res) => {
       const start = new Date(leave.startDate);
       const end = new Date(leave.endDate || leave.startDate);
       const cur = new Date(start);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getIstDateString();
       while (cur <= end) {
         const dateStr = cur.toISOString().split('T')[0];
         if (dateStr > todayStr) {

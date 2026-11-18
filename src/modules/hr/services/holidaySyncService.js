@@ -5,7 +5,7 @@
  */
 
 import { KEYS } from '../../../shared/services/storageService';
-import { API_BASE } from '../../../shared/config/apiConfig';
+import { API_BASE, getAuthHeaders } from '../../../shared/config/apiConfig';
 
 // Master Curated Major Indian Festivals & National Holidays Across All 12 Months
 export const MAJOR_INDIAN_HOLIDAYS_MASTER = {
@@ -632,7 +632,7 @@ export const holidaySyncService = {
     try {
       const res = await fetch(`${API_BASE}/holidays`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       if (res.ok) {
@@ -692,7 +692,7 @@ export const holidaySyncService = {
         try {
           fetch(`${API_BASE}/holidays`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(newRecord)
           }).catch(() => {});
         } catch {}
@@ -722,7 +722,8 @@ export const holidaySyncService = {
     const delId = target?._id || holidayIdentifier;
     try {
       await fetch(`${API_BASE}/holidays/${delId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
     } catch {}
 

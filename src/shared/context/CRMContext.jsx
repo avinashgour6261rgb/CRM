@@ -23,7 +23,8 @@ import {
   canDeleteNotice,
   canDeleteLead
 } from '../utils/permissionUtils';
-import { readTimerStorage } from '../utils/timerUtils';
+import { readTimerStorage, getLocalDateString } from '../utils/timerUtils';
+import { isSocketConnected } from '../services/socketService';
 
 const DEFAULT_WEEKLY_TIMELOGS = [
   { day: 'Monday', shortDay: 'Mo', date: '', durationText: '0h 00m', durationHours: 0, loginTime: '--', logoutTime: '--', breakDuration: '0m', isCompleted: false },
@@ -165,9 +166,9 @@ export const CRMProvider = ({ children }) => {
     title: e.title || e.eventName || 'Company Event',
     eventType: e.eventType || e.type || 'Company Event',
     type: e.type || e.eventType || 'Company Event',
-    startDate: e.startDate || e.date || new Date().toISOString().split('T')[0],
-    date: e.date || e.startDate || new Date().toISOString().split('T')[0],
-    endDate: e.endDate || e.startDate || e.date || new Date().toISOString().split('T')[0],
+    startDate: e.startDate || e.date || getLocalDateString(),
+    date: e.date || e.startDate || getLocalDateString(),
+    endDate: e.endDate || e.startDate || e.date || getLocalDateString(),
     startTime: e.startTime || e.time || '10:00 AM',
     time: e.time || e.startTime || '10:00 AM',
     location: e.location || 'Headquarters / Main Office',
@@ -759,6 +760,7 @@ export const CRMProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    if (!currentUser) return;
     loadTickets();
     loadConversations();
     loadEvents();
@@ -805,7 +807,14 @@ export const CRMProvider = ({ children }) => {
       else if (key === 'all') scheduleRefresh('all', refreshAllCRM);
     };
 
-    const interval = setInterval(syncIfVisible, 45000);
+    const pollIfNeeded = () => {
+      // Socket.IO handles instant updates; poll only as safety fallback when socket is down
+      if (!isSocketConnected()) {
+        syncIfVisible();
+      }
+    };
+
+    const interval = setInterval(pollIfNeeded, 45000);
     window.addEventListener('focus', syncIfVisible);
     document.addEventListener('visibilitychange', syncIfVisible);
     window.addEventListener('ems_remote_sync', handleRemoteSync);

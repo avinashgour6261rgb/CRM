@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getCollection, saveCollection, KEYS } from '../../services/storageService';
-import { API_BASE } from '../../config/apiConfig';
+import { API_BASE, getAuthHeaders } from '../../config/apiConfig';
 
 export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
   const { currentUser = null, setCurrentUser = () => {} } = useAuth() || {};
@@ -160,7 +160,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
       if (targetId) {
         fetch(`${API_BASE}/employees/${targetId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             password: newPassword,
             passwordHistory: finalHistory,

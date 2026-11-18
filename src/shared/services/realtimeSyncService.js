@@ -11,6 +11,9 @@
 import { subscribeSocketEvent, emitSocketEvent } from './socketService';
 import { KEYS } from './storageService';
 
+const getLocalDateStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const SYNC_CHANNEL_NAME = 'inforag_realtime_sync_v1';
 
 let syncChannel = null;
@@ -70,7 +73,7 @@ const applySingleItemMutation = (storageKey, payload, codeField = null) => {
 const syncIncomingAttendanceToStorage = (data) => {
   if (!data) return;
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     const empId = data.employeeId || (typeof data.employee === 'object' ? data.employee?._id : data.employee);
     const empCode = data.employeeCode;
     const targetKeys = Array.from(new Set([empId, empCode].filter(Boolean).map(String)));
@@ -191,7 +194,7 @@ if (typeof window !== 'undefined') {
       try {
         const rawAtt = localStorage.getItem(KEYS.ATTENDANCE);
         if (rawAtt) {
-          const today = new Date().toISOString().split('T')[0];
+          const today = getLocalDateStr();
           let attList = JSON.parse(rawAtt) || [];
           let changed = false;
           attList = attList.map(a => {

@@ -172,7 +172,7 @@ exports.createTimesheet = async (req, res, next) => {
     if (payload.task && !mongoose.Types.ObjectId.isValid(payload.task)) delete payload.task;
     if (payload.project && !mongoose.Types.ObjectId.isValid(payload.project)) delete payload.project;
 
-    const targetDate = payload.date || new Date().toISOString().split('T')[0];
+    const targetDate = payload.date || getIstDateString();
     payload.date = targetDate;
     const durationSecs = Number(payload.totalDurationSeconds) || 0;
 

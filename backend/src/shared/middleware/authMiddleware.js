@@ -102,13 +102,12 @@ exports.authenticateUser = async (req, res, next) => {
         authenticatedViaJwt: Boolean(jwtPayload)
       };
     } else {
-      // Unauthenticated request: NEVER auto-grant Administrator!
+      // Unauthenticated request: NEVER auto-grant Administrator and NEVER leak private workspace data!
       req.user = null;
-      // Block unauthenticated state-mutating requests immediately
-      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      if (req.method !== 'OPTIONS') {
         return res.status(401).json({
           success: false,
-          message: 'Authentication required. Please sign in to perform this action.'
+          message: 'Authentication required. Please sign in to access this resource.'
         });
       }
     }

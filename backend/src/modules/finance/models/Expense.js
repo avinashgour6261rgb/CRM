@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 const ExpenseSchema = new mongoose.Schema(
   {
@@ -30,7 +31,7 @@ const ExpenseSchema = new mongoose.Schema(
     },
     date: {
       type: String,
-      default: () => new Date().toISOString().split('T')[0]
+      default: () => getIstDateString()
     },
     employeeId: {
       type: String,

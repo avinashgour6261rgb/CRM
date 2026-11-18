@@ -281,35 +281,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Seamless migration of default passwords to emp12345 / admin123
-  useEffect(() => {
-    try {
-      const empsRaw = localStorage.getItem('hrms_employees');
-      if (empsRaw) {
-        const emps = JSON.parse(empsRaw);
-        let changed = false;
-        const updated = emps.map(emp => {
-          const isAdm = emp.isAdmin || emp.systemRole === 'admin' || emp.employeeCode === 'ADM-001' || emp.email === 'admin@inforag.com';
-          if (isAdm) {
-            if (!emp.password || emp.password !== 'admin123') {
-              changed = true;
-              return { ...emp, password: 'admin123' };
-            }
-          } else {
-            if (!emp.password || emp.password === 'emp123') {
-              changed = true;
-              return { ...emp, password: 'emp12345' };
-            }
-          }
-          return emp;
-        });
-        if (changed) {
-          localStorage.setItem('hrms_employees', JSON.stringify(updated));
-        }
-      }
-    } catch (_) {}
-  }, []);
-
   // Sync state with localStorage & join Socket.IO multi-device user rooms
   useEffect(() => {
     if (currentUser) {
@@ -442,7 +413,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await fetch(`${API_BASE}/employees/switch/${userOrId}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           signal: AbortSignal.timeout(2500)
         });
         if (res.ok) {
@@ -572,31 +543,14 @@ export const AuthProvider = ({ children }) => {
       return finalizedAdmin;
     }
 
-    // 2. Search registered employees in storage
+    // 2. Offline fallback: search registered employees in local storage cache
     let matchedUser = employees.find(e =>
       (e.email && e.email.toLowerCase().trim() === inputId) ||
       (e.employeeCode && e.employeeCode.toLowerCase().trim() === inputId) ||
       (e._id && String(e._id).toLowerCase().trim() === inputId)
     );
 
-        // 3. Guaranteed fresh database lookup (overrides stale local cache on any device)
-    try {
-      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(inputId)}`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        const json = await res.json();
-        const list = json.data || [];
-        const freshUser = list.find(e =>
-          (e.email && e.email.toLowerCase().trim() === inputId) ||
-          (e.employeeCode && e.employeeCode.toLowerCase().trim() === inputId) ||
-          (e._id && String(e._id) === inputId)
-        );
-        if (freshUser) {
-          matchedUser = { ...(matchedUser || {}), ...freshUser };
-        }
-      }
-    } catch (e) {}
-
-    // 4. Check Presets
+    // 3. Check Presets (offline dev fallback only)
     if (!matchedUser) {
       if (inputId === 'janvi@inforag.com' || inputId === 'janvi' || inputId === 'hr@inforag.com' || inputId === 'hr-001' || inputId === 'emp-003' || role === 'hr') {
         matchedUser = PRESET_USERS.janvi || PRESET_USERS.hr;

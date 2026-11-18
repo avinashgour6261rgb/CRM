@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 const { emitToAll } = require('../../../shared/socket/socketManager');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // @desc    Get all tickets
 // @route   GET /api/tickets
@@ -57,7 +58,7 @@ exports.createTicket = asyncHandler(async (req, res) => {
   ticketData.createdByRole = ticketData.requestedByRole;
   ticketData.createdByAvatar = ticketData.requestedByAvatar;
   ticketData.category = ticketData.category || ticketData.department || 'General Support';
-  ticketData.requestedOn = ticketData.requestedOn || new Date().toISOString().split('T')[0];
+  ticketData.requestedOn = ticketData.requestedOn || getIstDateString();
   if (!ticketData.description) {
     ticketData.description = 'Support ticket raised.';
   }

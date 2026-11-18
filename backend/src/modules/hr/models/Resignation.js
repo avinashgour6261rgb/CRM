@@ -4,6 +4,7 @@
  */
 
 const mongoose = require('mongoose');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 const ResignationSchema = new mongoose.Schema({
   id: {
@@ -45,7 +46,7 @@ const ResignationSchema = new mongoose.Schema({
   },
   submissionDate: {
     type: String,
-    default: () => new Date().toISOString().split('T')[0]
+    default: () => getIstDateString()
   },
   proposedLastWorkingDay: {
     type: String,

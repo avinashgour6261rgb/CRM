@@ -50,7 +50,8 @@ const PROD_CLEAN_VERSION = 'ems_clean_multiuser_prod_v6';
  */
 export const sanitizeRunawayTimers = () => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
@@ -227,6 +228,11 @@ export const purgeStaleMockData = () => {
  */
 export const syncDatabaseToStorage = async () => {
   try {
+    // Skip protected backend fetches until a user session is authenticated (avoids 401 noise on /login)
+    if (typeof localStorage === 'undefined' || !localStorage.getItem('ems_auth_session')) {
+      return;
+    }
+
     const endpoints = [
       { key: KEYS.EMPLOYEES, url: `${API_BASE}/employees` },
       { key: KEYS.PROJECTS, url: `${API_BASE}/projects` },

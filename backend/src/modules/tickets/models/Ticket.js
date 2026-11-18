@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 const CommentSchema = new mongoose.Schema({
   authorName: { type: String, default: 'Employee' },
@@ -93,7 +94,7 @@ const TicketSchema = new mongoose.Schema(
     },
     requestedOn: {
       type: String,
-      default: () => new Date().toISOString().split('T')[0]
+      default: () => getIstDateString()
     },
     createdBy: {
       type: String,

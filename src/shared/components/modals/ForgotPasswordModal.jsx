@@ -6,20 +6,17 @@
 
 import React, { useState } from 'react';
 import {
-  Key,
-  Mail,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  RefreshCw,
   X,
-  ShieldCheck,
-  LifeBuoy
+  ShieldCheck
 } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../services/storageService';
+import { getLocalDateString } from '../../utils/timerUtils';
 import { useToast } from '../../context/ToastContext';
 
-export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
+export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   const { addToast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [status, setStatus] = useState(null); // null | 'success' | 'admin_reset' | 'not_found'
@@ -74,7 +71,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
           requestedById: found._id,
           requestedByName: found.name,
           requestedByEmail: found.email,
-          requestedOn: new Date().toISOString().split('T')[0],
+          requestedOn: getLocalDateString(),
           description: `Employee ${found.name} (${found.employeeCode}, ${found.role}) has requested a password reset. Please open the Employee Directory and click 'Access Rights' or 'Reset Password' to generate a new password.`
         };
         saveCollection(KEYS.TICKETS, [newTicket, ...tickets]);
@@ -88,59 +85,6 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
       setStatus('not_found');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const [newAdminPass, setNewAdminPass] = useState('');
-
-  const handleSetAdminPassword = async () => {
-    const finalPass = newAdminPass.trim() || 'Admin@2026';
-    try {
-      localStorage.removeItem('ems_master_password');
-      const employees = getCollection(KEYS.EMPLOYEES, []);
-      let targetAdminId = null;
-      const updated = employees.map(e => {
-        if (e.isAdmin || e.employeeCode === 'ADM-001' || e.email === 'admin@inforag.com' || e.systemRole === 'admin') {
-          targetAdminId = e._id;
-          return { ...e, password: finalPass };
-        }
-        return e;
-      });
-      saveCollection(KEYS.EMPLOYEES, updated);
-
-      try {
-        const s = JSON.parse(localStorage.getItem('ems_auth_session') || '{}');
-        if (s && (s.isAdmin || s.employeeCode === 'ADM-001' || s.email === 'admin@inforag.com')) {
-          localStorage.setItem('ems_auth_session', JSON.stringify({ ...s, password: finalPass }));
-        }
-      } catch {}
-
-      try {
-        const logs = JSON.parse(localStorage.getItem('ems_credential_backup_log') || '[]');
-        logs.unshift({
-          action: 'MASTER_ADMIN_PASSWORD_RESET',
-          timestamp: new Date().toISOString(),
-          restoredBy: 'Forgot Password Modal'
-        });
-        localStorage.setItem('ems_credential_backup_log', JSON.stringify(logs.slice(0, 50)));
-      } catch {}
-
-      try {
-        if (targetAdminId) {
-          fetch(`/api/employees/${targetAdminId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: finalPass })
-          }).catch(() => {});
-        }
-      } catch {}
-
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
-      addToast?.('Admin password updated successfully!', 'success');
-      onAutoFillAdmin?.();
-      onClose();
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -198,39 +142,23 @@ export const ForgotPasswordModal = ({ isOpen, onClose, onAutoFillAdmin }) => {
             </div>
           ) : status === 'admin_reset' ? (
             <div className="flex flex-col gap-3.5">
-              <div className="p-3 px-3.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-[12.5px] text-blue-800 dark:text-blue-200 leading-relaxed">
-                👑 <strong>Master Administrator Account Detected</strong>
-                <p className="m-0 mt-1 text-[11.5px] text-blue-700 dark:text-blue-300">
-                  Please enter your new secure password below to reset your Administrator credentials.
-                </p>
-                <div className="mt-3">
-                  <label className="block text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">
-                    New Admin Password:
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Enter new secure password (e.g. Admin@2026)"
-                    value={newAdminPass}
-                    onChange={e => setNewAdminPass(e.target.value)}
-                    className="w-full p-2 px-3 rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-[13px] text-slate-900 dark:text-slate-100 outline-none focus:ring-1 focus:ring-blue-600 box-border"
-                  />
+              <div className="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[12.5px] text-amber-900 dark:text-amber-200 leading-relaxed">
+                <div className="flex items-center gap-2 font-bold mb-1.5">
+                  <ShieldCheck size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Protected Administrator Account</span>
                 </div>
+                <p className="m-0 text-[12px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                  For workspace security, Administrator passwords cannot be reset directly from the public login screen. Please contact your Super Admin or IT Infrastructure team to update credentials securely through the authenticated Admin panel.
+                </p>
               </div>
 
               <div className="flex gap-2 justify-end mt-1.5">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3.5 py-2 rounded-[7px] border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSetAdminPassword}
                   className="px-4 py-2 rounded-[7px] border-0 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors"
                 >
-                  Set New Password & Apply
+                  Back to Sign In
                 </button>
               </div>
             </div>

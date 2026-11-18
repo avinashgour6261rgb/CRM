@@ -127,7 +127,7 @@ exports.getTasks = async (req, res, next) => {
     }
 
     const tasks = await Task.find(query).sort({ createdAt: -1 });
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getIstDateString();
 
     const mappedTasks = tasks.map(t => {
       const doc = t.toObject ? t.toObject() : { ...t };

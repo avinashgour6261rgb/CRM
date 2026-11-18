@@ -1415,7 +1415,7 @@ export const TimerProvider = ({ children }) => {
         // Auto-close yesterday's attendance record in background before resetting today's session
         try {
           const inDate = (clockInTs && clockInTs < todayMidnightMs)
-            ? new Date(clockInTs).toISOString().split('T')[0]
+            ? getLocalDateString(new Date(clockInTs))
             : (storedSessionDate || '');
           const rawAtt = localStorage.getItem('hrms_attendance');
           if (rawAtt && inDate) {

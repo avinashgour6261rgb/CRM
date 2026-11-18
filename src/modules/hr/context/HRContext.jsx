@@ -100,21 +100,23 @@ export const HRProvider = ({ children }) => {
 
   // Load all initial data from MongoDB Atlas / LocalStorage fallback
   const loadData = useCallback(async () => {
+    const authUserObj = currentUser || (() => {
+      try {
+        const s = localStorage.getItem('ems_auth_session');
+        if (s) {
+          const parsed = JSON.parse(s);
+          return parsed?.user || parsed;
+        }
+      } catch (_) {}
+      return null;
+    })();
+    if (!authUserObj) return; // Skip protected API calls while logged out (/login)
+
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
       setLoading(true);
 
-      const authUserObj = currentUser || (() => {
-        try {
-          const s = localStorage.getItem('ems_auth_session');
-          if (s) {
-            const parsed = JSON.parse(s);
-            return parsed?.user || parsed;
-          }
-        } catch (_) {}
-        return null;
-      })();
       const isPrivileged = authUserObj?.isAdmin ||
         ['admin', 'hr'].includes(authUserObj?.role?.toLowerCase()) ||
         ['admin', 'hr'].includes(authUserObj?.systemRole?.toLowerCase()) ||

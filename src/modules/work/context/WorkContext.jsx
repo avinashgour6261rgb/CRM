@@ -284,6 +284,7 @@ export const WorkProvider = ({ children }) => {
 
   // Load all Work module data and merge active persistent timer
   const loadWorkData = useCallback(async (isSilent = false) => {
+    if (!currentUser && !localStorage.getItem('ems_auth_session')) return;
     if (isFetchingRef.current) return;
     try {
       isFetchingRef.current = true;
@@ -827,7 +828,7 @@ export const WorkProvider = ({ children }) => {
       const changedKey = e?.key || e?.detail?.key;
       if (
         !changedKey ||
-        ['ems_projects', 'ems_tasks', 'ems_timesheets', activeTimerKey, 'ems_active_task_timer'].includes(changedKey) ||
+        ['ems_auth_session', 'all', 'ems_projects', 'ems_tasks', 'ems_timesheets', activeTimerKey, 'ems_active_task_timer'].includes(changedKey) ||
         changedKey.startsWith('ems_active_task_timer') ||
         changedKey.startsWith('ems_timer_')
       ) {
@@ -1912,7 +1913,7 @@ export const WorkProvider = ({ children }) => {
         hrService.createAttendanceAuditLog({
           type: 'project_final_approved',
           action: 'project_final_approved',
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayStr(),
           employeeId: currentUser?._id || 'admin',
           employeeName: approverName,
           note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" officially finalized and approved by ${approverName}`
@@ -1950,7 +1951,7 @@ export const WorkProvider = ({ children }) => {
         hrService.createAttendanceAuditLog({
           type: 'project_reopened',
           action: 'project_reopened',
-          date: new Date().toISOString().split('T')[0],
+          date: getTodayStr(),
           employeeId: currentUser?._id || 'admin',
           employeeName: adminName,
           note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" reopened by ${adminName}: ${reason}`
@@ -2994,7 +2995,7 @@ export const WorkProvider = ({ children }) => {
           const effectivePastDate = (pastDate && pastDate < todayStr) ? pastDate : (() => {
             const y = new Date();
             y.setDate(y.getDate() - 1);
-            return y.toISOString().split('T')[0];
+            return getLocalDateString(y);
           })();
 
           updatedDailySessions[effectivePastDate] = pastDurationToArchive;
@@ -3479,7 +3480,7 @@ export const WorkProvider = ({ children }) => {
   // 🔗 HR & CRM CROSS-CONNECTION INTELLIGENCE
   // =========================================================================
   // Check if an employee is currently on approved leave for a specific date
-  const isEmployeeOnLeave = (empId, checkDate = new Date().toISOString().split('T')[0]) => {
+  const isEmployeeOnLeave = (empId, checkDate = getTodayStr()) => {
     if (!leaves || !leaves.length) return false;
     return leaves.some(l => {
       if (l.employeeId !== empId && l.employee !== empId) return false;

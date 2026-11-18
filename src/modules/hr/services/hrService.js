@@ -13,6 +13,7 @@ import { getCollection, saveCollection, KEYS, initStorage } from '../../../share
 import { API_BASE, getAuthHeaders as buildJwtAuthHeaders } from '../../../shared/config/apiConfig';
 import { holidaySyncService } from './holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 // Ensure storage is initialized
 initStorage();
@@ -277,7 +278,7 @@ export const hrService = {
         role: employeeData.role || 'Team Member',
         department: employeeData.department || 'General',
         status: employeeData.status || 'active',
-        joiningDate: employeeData.joiningDate || new Date().toISOString().split('T')[0],
+        joiningDate: employeeData.joiningDate || getLocalDateString(),
         dob: employeeData.dob || '',
         phone: employeeData.phone || '',
         gender: employeeData.gender || 'Other',
@@ -742,7 +743,7 @@ export const hrService = {
 
       // Synchronize Attendance Matrix in local mirror
       try {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
         let attendance = getCollection(KEYS.ATTENDANCE) || [];
         const start = new Date(targetLeave.startDate);
         const end = new Date(targetLeave.endDate || targetLeave.startDate);
@@ -900,7 +901,7 @@ export const hrService = {
 
       // 2. Clean up attendance matrix if leave was approved
       if (targetLeave.status === 'approved') {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getLocalDateString();
         let attendance = getCollection(KEYS.ATTENDANCE) || [];
         const start = new Date(targetLeave.startDate);
         const end = new Date(targetLeave.endDate || targetLeave.startDate);
@@ -1004,7 +1005,7 @@ export const hrService = {
   async getDailyAttendance(date = null) {
     const authUser = getAuthUser();
     const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.liveOperations || authUser?.permissions?.teamoperations || authUser?.permissions?.allAccess;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getLocalDateString();
     const query = new URLSearchParams({ date: targetDate });
 
     return fetchWithFallback(`${API_BASE}/attendance/daily?${query.toString()}`, { method: 'GET' }, async () => {
@@ -1171,7 +1172,7 @@ export const hrService = {
   async sendHeartbeat(telemetryData) {
     if (!telemetryData) return;
     const authUser = getAuthUser();
-    const today = telemetryData.date || new Date().toISOString().split('T')[0];
+    const today = telemetryData.date || getLocalDateString();
 
     const payload = {
       ...telemetryData,
@@ -1197,7 +1198,7 @@ export const hrService = {
   },
 
   async getLiveTelemetry(dateStr) {
-    const today = dateStr || new Date().toISOString().split('T')[0];
+    const today = dateStr || getLocalDateString();
     return fetchWithFallback(`${API_BASE}/attendance/live-telemetry?date=${today}`, {
       method: 'GET'
     }, async () => {
@@ -1287,7 +1288,7 @@ export const hrService = {
     const enriched = {
       _id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
-      date: auditData.date || new Date().toISOString().split('T')[0],
+      date: auditData.date || getLocalDateString(),
       timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       actor: auditData.actor || (authUser?.isAdmin ? 'admin' : 'employee'),
       actorId: auditData.actorId || authUser?._id || authUser?.employeeCode || 'unknown',
@@ -1320,7 +1321,7 @@ export const hrService = {
     const authUser = getAuthUser();
     const payload = {
       employeeId,
-      date: targetDate || new Date().toISOString().split('T')[0],
+      date: targetDate || getLocalDateString(),
       auditNote
     };
 
@@ -1329,7 +1330,7 @@ export const hrService = {
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(payload)
     }, async () => {
-      const today = targetDate || new Date().toISOString().split('T')[0];
+      const today = targetDate || getLocalDateString();
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       const adminId = authUser?._id || authUser?.employeeCode || 'ADMIN';
       const adminName = authUser?.name || 'Administrator';
@@ -1470,7 +1471,7 @@ export const hrService = {
 
       // Also update attendance collection record for that day
       let attendance = getCollection(KEYS.ATTENDANCE) || [];
-      const targetDate = enriched.date || new Date().toISOString().split('T')[0];
+      const targetDate = enriched.date || getLocalDateString();
       const idx = attendance.findIndex(a => a.date === targetDate && (
         String(a.employeeId) === String(enriched.employeeId) ||
         (a.employeeCode && a.employeeCode === enriched.employeeCode)
@@ -1751,7 +1752,7 @@ export const hrService = {
       const newRes = {
         id: `res_${Date.now()}`,
         status: 'pending',
-        submissionDate: new Date().toISOString().split('T')[0],
+        submissionDate: getLocalDateString(),
         ...resignationData
       };
       resignations.unshift(newRes);
@@ -1821,7 +1822,7 @@ export const hrService = {
           emps[empIdx] = {
             ...emps[empIdx],
             status: 'resigned',
-            relievedDate: new Date().toISOString().split('T')[0]
+            relievedDate: getLocalDateString()
           };
           saveCollection(KEYS.EMPLOYEES, emps);
           window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));

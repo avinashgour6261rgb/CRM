@@ -6,6 +6,7 @@
 const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const { emitToAll } = require('../../../shared/socket/socketManager');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // @desc    Get all leads with filtering & search
 // @route   GET /api/leads
@@ -50,8 +51,8 @@ exports.createLead = async (req, res, next) => {
     const count = await Lead.countDocuments();
     const nextNum = count + 1;
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const nextMonthStr = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+    const todayStr = getIstDateString(now);
+    const nextMonthStr = getIstDateString(new Date(Date.now() + 30 * 86400000));
 
     const leadData = {
       ...req.body,

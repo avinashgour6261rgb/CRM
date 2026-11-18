@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Appreciation = require('../models/Appreciation');
 const Employee = require('../models/Employee');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // @desc    Get all appreciations
 // @route   GET /api/appreciations
@@ -129,7 +130,7 @@ const createAppreciation = asyncHandler(async (req, res) => {
     givenByName: givenByName || giverEmp?.name || req.user?.name || 'Administrator',
     awardName: awardName || 'Star Performer of the Month',
     awardBadgeIcon: awardBadgeIcon || 'trophy',
-    givenOn: givenOn || new Date().toISOString().split('T')[0],
+    givenOn: givenOn || getIstDateString(),
     rewardPointsOrCash: rewardPointsOrCash || '',
     appreciationNote: appreciationNote || ''
   });

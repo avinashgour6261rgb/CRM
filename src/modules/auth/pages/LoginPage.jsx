@@ -452,7 +452,6 @@ export const LoginPage = () => {
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
-        onAutoFillAdmin={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
       />
     </div>
   );

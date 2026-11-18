@@ -594,7 +594,7 @@ const createAuditLog = asyncHandler(async (req, res) => {
     employeeName,
     type,
     action,
-    date: auditData.date || new Date().toISOString().split('T')[0],
+    date: auditData.date || getIstDateString(),
     timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
     actor,
     actorId: auditData.actorId || req.user?.id || req.user?._id || 'unknown',
@@ -632,7 +632,7 @@ const forceClockOut = asyncHandler(async (req, res) => {
   }
 
   const { employeeId, date, auditNote } = req.body;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getIstDateString();
 
   if (!employeeId) {
     return res.status(400).json({ success: false, message: 'employeeId is required' });
@@ -875,7 +875,7 @@ const getOvertimeRequests = asyncHandler(async (req, res) => {
 // ─── POST /api/attendance/overtime ────────────────────────────────────────────
 const requestOvertime = asyncHandler(async (req, res) => {
   const { employeeId, employeeCode, employeeName, date, overtimeHours, overtimeSeconds, overtimeReason, overtimeTasks, requestedToId, requestedToName, isSelfApproved } = req.body;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getIstDateString();
 
   const mongoose = require('mongoose');
   let attRecord = await Attendance.findOne({

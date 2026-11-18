@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 const NoticeSchema = new mongoose.Schema(
   {
@@ -74,11 +75,11 @@ const NoticeSchema = new mongoose.Schema(
     },
     date: {
       type: String,
-      default: () => new Date().toISOString().split('T')[0]
+      default: () => getIstDateString()
     },
     expiryDate: {
       type: String,
-      default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      default: () => getIstDateString(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
     },
     attachment: {
       type: String,

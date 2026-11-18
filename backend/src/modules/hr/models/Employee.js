@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 const EmployeeSchema = new mongoose.Schema(
   {
@@ -85,7 +86,7 @@ const EmployeeSchema = new mongoose.Schema(
     },
     joiningDate: {
       type: String,
-      default: () => new Date().toISOString().split('T')[0]
+      default: () => getIstDateString()
     },
     systemRole: {
       type: String,
