@@ -3,6 +3,9 @@ const AttendanceAudit = require('../models/AttendanceAudit');
 const Task = require('../../work/models/Task');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
+// In-memory cache of live telemetry for sub-millisecond response to Live Operations dashboard
+const liveTelemetryCache = new Map();
+
 // ⏱️ Auto-close past-day unclosed shifts (runs daily at midnight or upon request)
 const autoClosePastDayShifts = async () => {
   try {
@@ -395,6 +398,47 @@ const markAttendance = asyncHandler(async (req, res) => {
 
   const resObj = record.toObject ? record.toObject() : { ...record };
   resObj.employeeId = String(resObj.employee || targetEmpId);
+
+  // Keep in-memory liveTelemetryCache strictly aligned with authoritative DB clock-in / clock-out records
+  const todayIst = new Date(Date.now() + 330 * 60000).toISOString().split('T')[0];
+  if (date === todayStr || date === todayIst) {
+    try {
+      const normCode = String(resObj.employeeCode || targetEmpCode || '').trim().toUpperCase();
+      const normId = String(resObj.employee || targetEmpId || '');
+      const telemEntry = {
+        employeeId: normId,
+        employeeCode: normCode,
+        employeeName: resObj.employeeName || targetEmpName || '',
+        date,
+        status: resObj.status,
+        isClockedIn: Boolean(resObj.isClockedIn && !resObj.clockOutTime),
+        isClockedOut: Boolean(resObj.clockOutTime || resObj.clockOut),
+        clockInTime: resObj.clockInTime || resObj.clockIn || null,
+        clockInTimestamp: resObj.clockInTimestamp ? Number(resObj.clockInTimestamp) : null,
+        currentSessionStartTimestamp: resObj.currentSessionStartTimestamp ? Number(resObj.currentSessionStartTimestamp) : (resObj.clockInTimestamp ? Number(resObj.clockInTimestamp) : null),
+        clockOutTime: resObj.clockOutTime || resObj.clockOut || null,
+        clockOutTimestamp: resObj.clockOutTimestamp ? Number(resObj.clockOutTimestamp) : null,
+        workSeconds: Number(resObj.workSeconds) || 0,
+        overtimeSeconds: Number(resObj.overtimeSeconds) || 0,
+        overtimeHours: Number(resObj.overtimeHours) || +((Number(resObj.overtimeSeconds) || 0) / 3600).toFixed(2),
+        overtimeStatus: resObj.overtimeStatus || (Number(resObj.overtimeSeconds) > 0 ? 'auto_recorded' : 'none'),
+        isOnBreak: Boolean(resObj.isOnBreak),
+        breakType: resObj.breakType || null,
+        breakStartTimestamp: resObj.breakStartTimestamp ? Number(resObj.breakStartTimestamp) : null,
+        activeTask: resObj.activeTask || null,
+        lastHeartbeatAt: Date.now()
+      };
+      if (normId) liveTelemetryCache.set(normId, telemEntry);
+      if (normCode) {
+        liveTelemetryCache.set(normCode, telemEntry);
+        liveTelemetryCache.set(normCode.toLowerCase(), telemEntry);
+      }
+      if (telemEntry.employeeName) {
+        liveTelemetryCache.set(`name_${String(telemEntry.employeeName).trim().toLowerCase()}`, telemEntry);
+      }
+    } catch (_) {}
+  }
+
   try {
     const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
     emitToAll('attendance:update', resObj);
@@ -905,9 +949,6 @@ const updateOvertimeStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
 });
 
-// In-memory cache of live telemetry for sub-millisecond response to Live Operations dashboard
-const liveTelemetryCache = new Map();
-
 // ─── POST /api/attendance/heartbeat ──────────────────────────────────────────
 // Lightweight telemetry pulse sent by employee client while shift or task is active
 const updateLiveHeartbeat = asyncHandler(async (req, res) => {
@@ -995,7 +1036,31 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     } catch (_) {}
   }
 
+  // STRICT GUARD: A heartbeat pulse MUST NEVER fabricate or resurrect a clock-in for an employee
+  // who has NOT explicitly clocked in today via POST /api/attendance/mark!
+  const hasExistingTodayRecord = Boolean(existing && existing.date === today && (existing.clockInTime || existing.clockInTimestamp));
+  if (!hasExistingTodayRecord) {
+    return res.json({ success: true, ignored: true, reason: 'No active clock-in record for today', timestamp: Date.now() });
+  }
+
+  // If cached/DB record shows employee already clocked out, verify DB before accepting any stale isClockedIn: true pulse
   const hasExplicitClockIn = 'isClockedIn' in req.body && isClockedIn !== undefined && !taskOnly;
+  if (!existing.isClockedIn && existing.clockOutTime && hasExplicitClockIn && Boolean(isClockedIn)) {
+    try {
+      const orCheck = [];
+      if (targetId && mongoose.Types.ObjectId.isValid(targetId)) orCheck.push({ employee: targetId });
+      if (targetCode) orCheck.push({ employeeCode: targetCode });
+      const freshDb = orCheck.length > 0 ? await Attendance.findOne({ date: today, $or: orCheck }).lean() : null;
+      if (!freshDb || !freshDb.isClockedIn || freshDb.clockOutTime) {
+        return res.json({ success: true, ignored: true, reason: 'Shift already clocked out', timestamp: Date.now() });
+      }
+      existing.isClockedIn = true;
+      existing.clockOutTime = null;
+    } catch (_) {
+      return res.json({ success: true, ignored: true, reason: 'Shift already clocked out', timestamp: Date.now() });
+    }
+  }
+
   const hasExplicitWorkSecs = 'workSeconds' in req.body && workSeconds !== undefined && workSeconds !== null;
   const hasExplicitBreak = 'isOnBreak' in req.body && isOnBreak !== undefined;
   const hasExplicitActiveTask = 'activeTask' in req.body;
@@ -1031,8 +1096,9 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     employeeName: targetName || existing?.employeeName || '',
     date: today,
     isClockedIn: resolvedClockedIn,
-    clockInTime: clockInTime || existing?.clockInTime || null,
-    clockInTimestamp: clockInTimestamp ? Number(clockInTimestamp) : (existing?.clockInTimestamp || null),
+    // Immutable First Clock-In: NEVER allow a heartbeat to overwrite an existing clockInTime / clockInTimestamp!
+    clockInTime: existing?.clockInTime || clockInTime || null,
+    clockInTimestamp: existing?.clockInTimestamp || (clockInTimestamp ? Number(clockInTimestamp) : null),
     currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : (existing?.currentSessionStartTimestamp || null),
     workSeconds: resolvedWorkSecs,
     overtimeSeconds: resolvedOvertimeSecs,
@@ -1058,7 +1124,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     liveTelemetryCache.set(`name_${String(payload.employeeName).trim().toLowerCase()}`, payload);
   }
 
-  // Background persist in MongoDB Atlas (NEVER ghost-upsert an attendance record on taskOnly pulse!)
+  // Background persist in MongoDB Atlas (STRICTLY upsert: false — heartbeats NEVER create new attendance docs!)
   try {
     const updateObj = {
       lastHeartbeatAt: payload.lastHeartbeatAt
@@ -1077,8 +1143,6 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     if (hasExplicitBreak) updateObj.isOnBreak = payload.isOnBreak;
     if (breakType !== undefined) updateObj.breakType = payload.breakType;
     if (hasExplicitActiveTask) updateObj.activeTask = payload.activeTask;
-    if (payload.clockInTime) updateObj.clockInTime = payload.clockInTime;
-    if (payload.clockInTimestamp) updateObj.clockInTimestamp = payload.clockInTimestamp;
     if (payload.currentSessionStartTimestamp) updateObj.currentSessionStartTimestamp = payload.currentSessionStartTimestamp;
     if (payload.breakStartTimestamp) updateObj.breakStartTimestamp = payload.breakStartTimestamp;
     if (targetCode) updateObj.employeeCode = targetCode;
@@ -1089,24 +1153,10 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     if (targetCode) orClauses.push({ employeeCode: targetCode });
 
     if (orClauses.length > 0) {
-      const shouldUpsert = !taskOnly && hasExplicitClockIn && payload.isClockedIn;
-      const updateOp = shouldUpsert
-        ? {
-            $set: updateObj,
-            $setOnInsert: {
-              employee: (targetId && mongoose.Types.ObjectId.isValid(targetId)) ? targetId : undefined,
-              employeeCode: targetCode,
-              employeeName: targetName || 'Employee',
-              date: today,
-              status: 'present'
-            }
-          }
-        : { $set: updateObj };
-
       Attendance.findOneAndUpdate(
         { date: today, $or: orClauses },
-        updateOp,
-        { new: true, upsert: shouldUpsert }
+        { $set: updateObj },
+        { new: true, upsert: false }
       ).catch(e => console.warn('[heartbeat] DB update notice:', e.message));
     }
 

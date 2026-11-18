@@ -252,7 +252,23 @@ export const HRProvider = ({ children }) => {
 
     // Listen for storage events across tabs, remote socket updates, or reconnects
     const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
+    const syncAuthSessionUser = () => {
+      try {
+        const s = localStorage.getItem('ems_auth_session');
+        if (!s) {
+          setCurrentUser(null);
+        } else {
+          const parsed = JSON.parse(s);
+          setCurrentUser(parsed?.user || parsed || null);
+        }
+      } catch (_) {
+        setCurrentUser(null);
+      }
+    };
     const handleStorageUpdate = (e) => {
+      if (e.detail?.key === 'ems_auth_session') {
+        syncAuthSessionUser();
+      }
       if (isFetchingRef.current) return;
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
         scheduleDebouncedLoad();
@@ -265,6 +281,9 @@ export const HRProvider = ({ children }) => {
       }
     };
     const handleNativeStorage = (e) => {
+      if (e.key === 'ems_auth_session') {
+        syncAuthSessionUser();
+      }
       if (isFetchingRef.current) return;
       if (e.key === 'ems_auth_session' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
         scheduleDebouncedLoad();

@@ -177,7 +177,7 @@ const SESSION_SCOPED_KEYS = new Set([
  */
 export const readTimerStorage = (user, subKey, fallback = null) => {
   if (typeof localStorage === 'undefined') return fallback;
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const isSessionScoped = SESSION_SCOPED_KEYS.has(subKey);
   const keys = getTimerMirrorKeys(user);
   for (const k of keys) {
@@ -232,7 +232,7 @@ import { broadcastSyncEvent, SYNC_EVENTS } from '../services/realtimeSyncService
  */
 export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now(), options = {}) => {
   if (!userOrEmp || typeof localStorage === 'undefined') return 0;
-  const today = dateStr || new Date().toISOString().split('T')[0];
+  const today = dateStr || getLocalDateString(new Date(nowMs));
 
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
@@ -719,9 +719,34 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
 export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.now(), nowStr } = {}) => {
   if (!user || typeof localStorage === 'undefined') return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString(new Date(nowTs));
   const timeStr = nowStr || new Date(nowTs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const mirrorKeys = getTimerMirrorKeys(user);
+
+  // GUARD: Never fabricate a ghost clock-in/clock-out record if this user is NOT actually clocked in today!
+  const storedSessionDate = readTimerStorage(user, 'work_session_date');
+  const isStoredClockedIn = storedSessionDate === today && (
+    readTimerStorage(user, 'is_clocked_in') === 'true' ||
+    readTimerStorage(user, 'is_clocked_in') === true
+  );
+  let isAttClockedIn = false;
+  try {
+    const rawAttCheck = localStorage.getItem('hrms_attendance');
+    if (rawAttCheck) {
+      const attListCheck = JSON.parse(rawAttCheck) || [];
+      const keysLower = mirrorKeys.map(k => String(k).toLowerCase());
+      const attCheck = attListCheck.find(a => a.date === today && (
+        (a.employeeId && keysLower.includes(String(a.employeeId).toLowerCase())) ||
+        (a.employee && keysLower.includes(String(a.employee._id || a.employee).toLowerCase())) ||
+        (a.employeeCode && keysLower.includes(String(a.employeeCode).toLowerCase()))
+      ));
+      isAttClockedIn = Boolean(attCheck && attCheck.isClockedIn === true && !attCheck.clockOutTime && (attCheck.clockInTime || attCheck.clockIn));
+    }
+  } catch (_) {}
+
+  if (!isStoredClockedIn && !isAttClockedIn) {
+    return;
+  }
 
   // 1. Calculate final verified shift duration & record punch session
   const todayMidnight = new Date();
