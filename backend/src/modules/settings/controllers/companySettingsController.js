@@ -28,21 +28,27 @@ exports.updateCompanySettings = async (req, res) => {
     if (!canEdit) {
       return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can update company settings.' });
     }
-    const data = req.body;
+    const rawData = { ...(req.body || {}) };
+    delete rawData._id;
+    delete rawData.__v;
+    delete rawData.createdAt;
+    delete rawData.updatedAt;
+
     let settings = await CompanySettings.findOne();
     if (!settings) {
-      settings = new CompanySettings(data);
+      settings = new CompanySettings(rawData);
     } else {
-      Object.assign(settings, data);
+      Object.assign(settings, rawData);
     }
     await settings.save();
+    const plainSettings = settings.toObject ? settings.toObject() : settings;
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
-      emitToAll('settings:updated', { settings });
+      emitToAll('settings:updated', { settings: plainSettings });
     } catch (_) {}
     res.json({
       success: true,
-      data: settings,
+      data: plainSettings,
       message: 'Company settings updated successfully in database'
     });
   } catch (err) {

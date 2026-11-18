@@ -22,30 +22,48 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isDirtyRef = React.useRef(false);
 
   useEffect(() => {
     fetchCompanySettingsFromDB().then(data => {
-      if (data) setFormData(data);
+      if (data && !isDirtyRef.current) setFormData(data);
     });
-    const handleUpdate = () => setFormData(getCompanySettings());
+    const handleUpdate = () => {
+      if (!isDirtyRef.current) setFormData(getCompanySettings());
+    };
     window.addEventListener('company-settings-updated', handleUpdate);
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
   }, []);
 
   const handleChange = (field, value) => {
+    isDirtyRef.current = true;
     setFormData(prev => ({ ...prev, [field]: value }));
     setIsSaved(false);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    saveCompanySettings(formData);
-    setIsSaved(true);
-    addToast({
-      title: 'Company Settings Saved! 🏢',
-      message: `Updated to "${formData.companyName}". Settings and document branding updated immediately.`,
-      type: 'success'
-    });
+    setIsSaving(true);
+    try {
+      const saved = await saveCompanySettings(formData);
+      isDirtyRef.current = false;
+      setFormData(saved);
+      setIsSaved(true);
+      addToast({
+        title: 'Company Settings Saved! 🏢',
+        message: `Updated to "${saved.companyName}". Synced to MongoDB and live across all devices.`,
+        type: 'success'
+      });
+    } catch (err) {
+      addToast({
+        title: 'Failed to Save Company Settings',
+        message: err?.message || 'Could not save to database. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -319,10 +337,11 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
           <div className="flex justify-end gap-2.5 mt-1">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-colors"
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-colors"
             >
               <CheckCircle2 size={16} />
-              Save Company Settings
+              {isSaving ? 'Saving to Server...' : 'Save Company Settings'}
             </button>
           </div>
         </form>

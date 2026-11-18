@@ -86,6 +86,13 @@ export const TimerProvider = ({ children }) => {
   const prevUserKeyRef = useRef(userKey);
   const isHydratingRef = useRef(false);
   const [hydratedUserKey, setHydratedUserKey] = useState(userKey);
+  const [, setCompanySettingsTick] = useState(0);
+
+  useEffect(() => {
+    const onSettingsChange = () => setCompanySettingsTick(t => t + 1);
+    window.addEventListener('company-settings-updated', onSettingsChange);
+    return () => window.removeEventListener('company-settings-updated', onSettingsChange);
+  }, []);
 
   // Resolve canonical employee profile from storage to bridge _id, employeeCode, and name
   const resolvedEmp = useMemo(() => {
@@ -2707,10 +2714,12 @@ export const TimerProvider = ({ children }) => {
     }
   };
 
-  // ── Format Helpers & Target Calculations ──
-  const TARGET_SHIFT_SECONDS = 8.5 * 3600; // Standard 8 hours 30 mins daily shift target
+  // ── Format Helpers & Dynamic Shift Target Calculations (Synced with Company Shift Policy) ──
+  const liveCompanyCfg = getCompanySettings();
+  const configuredHours = Math.max(1, Number(liveCompanyCfg?.standardWorkHours) || 9);
+  const TARGET_SHIFT_SECONDS = Math.round(configuredHours * 3600);
   const targetShiftSeconds = TARGET_SHIFT_SECONDS;
-  const targetShiftHoursText = '8h 30m';
+  const targetShiftHoursText = `${Math.floor(configuredHours)}h ${String(Math.round((configuredHours % 1) * 60)).padStart(2, '0')}m`;
   const shiftProgressPercent = Math.min(100, Math.round((workSeconds / TARGET_SHIFT_SECONDS) * 100));
   const isShiftTargetReached = workSeconds >= TARGET_SHIFT_SECONDS;
   const remainingShiftSeconds = Math.max(0, TARGET_SHIFT_SECONDS - workSeconds);
@@ -2747,7 +2756,18 @@ export const TimerProvider = ({ children }) => {
 
   const grossSeconds = workSeconds + breakSeconds;
 
-  const activeBreakLimit = (customBreakLimitMinutes > 0 ? customBreakLimitMinutes * 60 : (BREAK_THRESHOLDS[breakType] || 20 * 60));
+  const dynamicBreakLimit = (() => {
+    if (customBreakLimitMinutes > 0) return customBreakLimitMinutes * 60;
+    const bt = String(breakType || '').toLowerCase();
+    if (bt.includes('lunch') && Number(liveCompanyCfg?.lunchDurationMinutes) > 0) {
+      return Number(liveCompanyCfg.lunchDurationMinutes) * 60;
+    }
+    if ((bt.includes('tea') || bt.includes('coffee')) && Number(liveCompanyCfg?.teaBreakMinutes) > 0) {
+      return Number(liveCompanyCfg.teaBreakMinutes) * 60;
+    }
+    return BREAK_THRESHOLDS[breakType] || 20 * 60;
+  })();
+  const activeBreakLimit = dynamicBreakLimit;
   const activeBreakProgress = Math.min(100, Math.round((currentBreakSeconds / activeBreakLimit) * 100));
   const isBreakOverdue = currentBreakSeconds > activeBreakLimit;
   const breakRemainingSeconds = Math.max(0, activeBreakLimit - currentBreakSeconds);
@@ -2786,8 +2806,8 @@ export const TimerProvider = ({ children }) => {
       isShiftTargetReached,
       remainingShiftSeconds,
       remainingShiftText: isShiftTargetReached
-        ? '🎉 8h 30m Shift Target Completed!'
-        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to 8h 30m target`,
+        ? `🎉 ${targetShiftHoursText} Shift Target Completed!`
+        : `${formatHoursMinutes(remainingShiftSeconds)} remaining to ${targetShiftHoursText} target`,
       timeString: (!isClockedIn && !hadClockedOutToday) ? '00:00:00' : formatSeconds(workSeconds),
       breakTimeString: formatSeconds(breakSeconds),
       currentBreakTimeString: formatSeconds(currentBreakSeconds),

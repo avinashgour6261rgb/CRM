@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../context/WorkContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isHRorAdmin, canExportData } from '../../../shared/utils/permissionUtils';
+import { isHRorAdmin, canExportData, canViewAllTimesheets } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesProject, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { ActiveTimerCard } from '../components/timesheet/ActiveTimerCard';
 import { TimesheetTable } from '../components/timesheet/TimesheetTable';
@@ -37,7 +37,7 @@ export const TimesheetPage = () => {
     activeRunningTask
   } = useWork();
   const { currentUser } = useAuth();
-  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser), [currentUser]);
+  const isPrivileged = React.useMemo(() => isHRorAdmin(currentUser) || canViewAllTimesheets(currentUser), [currentUser]);
   const canExport = React.useMemo(() => canExportData(currentUser, 'tasks') || isPrivileged, [currentUser, isPrivileged]);
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);

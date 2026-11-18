@@ -39,6 +39,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import {
   ROLES,
+  DEFAULT_MODULE_PERMISSIONS,
   getUserRole,
   getUserModulePermissions,
   GRANULAR_PERMISSIONS_LIST,
@@ -422,6 +423,16 @@ export const EmployeePermissionsTab = () => {
 
       if (key === 'allAccess') {
         setIsDelegatedAdmin(nextVal);
+        if (nextVal) {
+          return {
+            ...DEFAULT_MODULE_PERMISSIONS.admin,
+            allAccess: true,
+            isDelegatedAdmin: true,
+            export_attendance: true,
+            export_payroll: true,
+            export_leads: true
+          };
+        }
       }
 
       return updated;
@@ -546,11 +557,23 @@ export const EmployeePermissionsTab = () => {
 
     const nextVal = !isDelegatedAdmin;
     setIsDelegatedAdmin(nextVal);
-    setPermissions(prev => ({
-      ...prev,
-      allAccess: nextVal,
-      isDelegatedAdmin: nextVal
-    }));
+    if (nextVal) {
+      // Grant 100% identical capabilities as Administrator across EVERY module & export
+      setPermissions({
+        ...DEFAULT_MODULE_PERMISSIONS.admin,
+        allAccess: true,
+        isDelegatedAdmin: true,
+        export_attendance: true,
+        export_payroll: true,
+        export_leads: true
+      });
+    } else {
+      setPermissions(prev => ({
+        ...prev,
+        allAccess: false,
+        isDelegatedAdmin: false
+      }));
+    }
     setIsSaved(false);
   };
 
@@ -568,12 +591,24 @@ export const EmployeePermissionsTab = () => {
     setIsSaving(true);
     try {
       const userKey = selectedEmp.employeeCode || selectedEmp._id;
-      const safePerms = sanitizePermissionDependencies({ ...permissions });
+      const isFullAdminGrant = Boolean(isDelegatedAdmin || permissions?.allAccess);
+      const safePerms = isFullAdminGrant
+        ? {
+            ...DEFAULT_MODULE_PERMISSIONS.admin,
+            ...permissions,
+            allAccess: true,
+            isDelegatedAdmin: true,
+            forceClockOut: true,
+            manageSettings: true,
+            manageCredentials: true,
+            grantPermissions: true,
+            export_attendance: true,
+            export_payroll: true,
+            export_leads: true
+          }
+        : sanitizePermissionDependencies({ ...permissions });
 
-      if (isDelegatedAdmin) {
-        safePerms.allAccess = true;
-        safePerms.isDelegatedAdmin = true;
-      } else {
+      if (!isFullAdminGrant) {
         delete safePerms.allAccess;
         delete safePerms.isDelegatedAdmin;
       }
@@ -585,7 +620,7 @@ export const EmployeePermissionsTab = () => {
       }
 
       // 1. Authoritative Save directly to MongoDB Atlas Cloud Database
-      const nextSystemRole = isDelegatedAdmin
+      const nextSystemRole = isFullAdminGrant
         ? ROLES.ADMIN
         : (selectedSystemRole && selectedSystemRole !== ROLES.ADMIN ? selectedSystemRole : ROLES.TEAM_MEMBER);
 

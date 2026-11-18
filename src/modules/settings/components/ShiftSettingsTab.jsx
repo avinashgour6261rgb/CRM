@@ -24,22 +24,28 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isDirtyRef = React.useRef(false);
 
   useEffect(() => {
     fetchCompanySettingsFromDB().then(data => {
-      if (data) setFormData(data);
+      if (data && !isDirtyRef.current) setFormData(data);
     });
-    const handleUpdate = () => setFormData(getCompanySettings());
+    const handleUpdate = () => {
+      if (!isDirtyRef.current) setFormData(getCompanySettings());
+    };
     window.addEventListener('company-settings-updated', handleUpdate);
     return () => window.removeEventListener('company-settings-updated', handleUpdate);
   }, []);
 
   const handleChange = (field, value) => {
+    isDirtyRef.current = true;
     setFormData(prev => ({ ...prev, [field]: value }));
     setIsSaved(false);
   };
 
   const applyPreset = (preset) => {
+    isDirtyRef.current = true;
     setFormData(prev => ({
       ...prev,
       shiftStartTime: preset.shiftStartTime,
@@ -58,15 +64,28 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
     });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    saveCompanySettings(formData);
-    setIsSaved(true);
-    addToast({
-      title: 'Shift Policy Saved! ⏱️',
-      message: `Universal shift (${formData.shiftStartTime} - ${formData.shiftEndTime}) saved and enforced across attendance and employee records.`,
-      type: 'success'
-    });
+    setIsSaving(true);
+    try {
+      const saved = await saveCompanySettings(formData);
+      isDirtyRef.current = false;
+      setFormData(saved);
+      setIsSaved(true);
+      addToast({
+        title: 'Shift Policy Saved! ⏱️',
+        message: `Universal shift (${saved.shiftStartTime} - ${saved.shiftEndTime}) saved to MongoDB and synced live across all devices.`,
+        type: 'success'
+      });
+    } catch (err) {
+      addToast({
+        title: 'Failed to Save Shift Policy',
+        message: err?.message || 'Could not save shift policy to database.',
+        type: 'error'
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Helper calculation for visual timeline
@@ -460,10 +479,11 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
 
           <button
             type="submit"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-all hover:shadow-lg active:scale-[0.99]"
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-bold cursor-pointer shadow-md shadow-blue-600/30 transition-all hover:shadow-lg active:scale-[0.99]"
           >
             <CheckCircle2 size={16} />
-            <span>Save Shift Policy</span>
+            <span>{isSaving ? 'Saving to Server...' : 'Save Shift Policy'}</span>
           </button>
         </div>
 

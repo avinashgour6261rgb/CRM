@@ -9,6 +9,7 @@ import { EditProfileModal } from '../../../../shared/components/modals/EditProfi
 import { SalaryIncrementModal } from '../../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from './ManagePermissionsModal';
 import { EmployeeCredentialsModal } from './EmployeeCredentialsModal';
+import { canManageCredentials } from '../../../../shared/utils/permissionUtils';
 
 export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
   const { employees, deleteEmployee, currentUser } = useHR();
@@ -207,14 +208,16 @@ export const EmployeeDirectoryModal = ({ isOpen, onClose }) => {
                         <span>Promote</span>
                       </button>
 
-                      <button
-                        onClick={() => setSelectedCredentialsEmp(emp)}
-                        className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-amber-100"
-                        title="View & Copy Employee Login Credentials / Password Vault"
-                      >
-                        <Key size={12} color="#d97706" />
-                        <span>Pass</span>
-                      </button>
+                      {canManageCredentials(currentUser) && (
+                        <button
+                          onClick={() => setSelectedCredentialsEmp(emp)}
+                          className="inline-flex items-center gap-1 py-1 px-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold cursor-pointer mr-1.5 hover:bg-amber-100"
+                          title="View & Copy Employee Login Credentials / Password Vault"
+                        >
+                          <Key size={12} color="#d97706" />
+                          <span>Pass</span>
+                        </button>
+                      )}
 
                       {!isEmployeeSelf(emp) && (
                         <button

@@ -22,13 +22,14 @@ import { ShiftSettingsTab } from '../components/ShiftSettingsTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isAdmin, canUserGrantPermissions } from '../../../shared/utils/permissionUtils';
+import { isAdmin, canUserGrantPermissions, canManageSettings } from '../../../shared/utils/permissionUtils';
 
 export const SettingsPage = () => {
   const { timeString, isClockedIn, isOnBreak } = useTimer();
   const { currentUser } = useAuth();
   const isUserAdmin = isAdmin(currentUser);
   const canManagePerms = isUserAdmin || canUserGrantPermissions(currentUser);
+  const canManageCompanyPolicy = isUserAdmin || canManageSettings(currentUser);
 
   const [activeSection, setActiveSection] = useState('profile');
   const [profileSubTab, setProfileSubTab] = useState('profile');
@@ -54,7 +55,7 @@ export const SettingsPage = () => {
       );
     }
 
-    if (isUserAdmin) {
+    if (canManageCompanyPolicy) {
       baseItems.push(
         { id: 'company', label: 'Company Profile & Branding', icon: Building2, desc: 'Legal identity, address, tax IDs & payslips' },
         { id: 'shifts', label: 'Work Shift & Timing Policy', icon: Clock, desc: 'Office timings, grace period & breaks' }
@@ -62,17 +63,17 @@ export const SettingsPage = () => {
     }
 
     return baseItems;
-  }, [isUserAdmin, canManagePerms]);
+  }, [canManageCompanyPolicy, canManagePerms]);
 
   // Fallback if employee lands on restricted admin tab
   React.useEffect(() => {
     if (!canManagePerms && activeSection === 'permissions') {
       setActiveSection('profile');
     }
-    if (!isUserAdmin && (activeSection === 'company' || activeSection === 'shifts')) {
+    if (!canManageCompanyPolicy && (activeSection === 'company' || activeSection === 'shifts')) {
       setActiveSection('profile');
     }
-  }, [canManagePerms, isUserAdmin, activeSection]);
+  }, [canManagePerms, canManageCompanyPolicy, activeSection]);
 
   const filteredMenuItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchMenu.toLowerCase())
@@ -296,15 +297,15 @@ export const SettingsPage = () => {
             </div>
           )}
 
-          {/* Section: Company & Payslip Branding (Admin Only) */}
-          {activeSection === 'company' && isUserAdmin && (
+          {/* Section: Company & Payslip Branding (Admin & Manage Settings) */}
+          {activeSection === 'company' && canManageCompanyPolicy && (
             <div>
               <CompanyBrandingTab onNavigateTab={setActiveSection} />
             </div>
           )}
 
-          {/* Section: Work Shift & Timing Policy (Admin Only) */}
-          {activeSection === 'shifts' && isUserAdmin && (
+          {/* Section: Work Shift & Timing Policy (Admin & Manage Settings) */}
+          {activeSection === 'shifts' && canManageCompanyPolicy && (
             <div>
               <ShiftSettingsTab onNavigateTab={setActiveSection} />
             </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
-import { ShieldCheck, Check, Sparkles, AlertCircle, Key, RefreshCw, Copy, Lock } from 'lucide-react';
+import { ShieldCheck, Check, Sparkles, AlertCircle, Key, RefreshCw, Copy, Lock, Search, Crown } from 'lucide-react';
 import { useToast } from '../../../../shared/context/ToastContext';
 import {
+  DEFAULT_MODULE_PERMISSIONS,
   GRANULAR_PERMISSIONS_LIST,
   PERMISSION_CATEGORIES,
   PERMISSION_DEPENDENCIES,
@@ -21,6 +22,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
   const { updateEmployee = () => {}, updateEmployeePermissions, currentUser = null } = useHR() || {};
 
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [permissions, setPermissions] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [generatedPass, setGeneratedPass] = useState('');
@@ -55,6 +57,23 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     }
     setPermissions(prev => {
       const nextVal = !prev[key];
+      if (key === 'allAccess') {
+        if (nextVal) {
+          return {
+            ...DEFAULT_MODULE_PERMISSIONS.admin,
+            allAccess: true,
+            isDelegatedAdmin: true,
+            forceClockOut: true,
+            manageSettings: true,
+            manageCredentials: true,
+            grantPermissions: true,
+            export_attendance: true,
+            export_payroll: true,
+            export_leads: true
+          };
+        }
+        return { ...prev, allAccess: false, isDelegatedAdmin: false };
+      }
       const updated = { ...prev, [key]: nextVal };
 
       if (nextVal) {
@@ -145,15 +164,25 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       updated.projects = false;
       updated.documentation = false;
       updated.documents = false;
+      updated.allAccess = false;
+      updated.isDelegatedAdmin = false;
+      setPermissions(prev => ({ ...prev, ...updated }));
     } else {
-      updated.leads = true;
-      updated.employees = true;
-      updated.payroll = true;
-      updated.finance = true;
-      updated.teamoperations = true;
-      updated.projects = true;
+      // Grant 100% identical capabilities as Administrator across EVERY module & export
+      setPermissions({
+        ...DEFAULT_MODULE_PERMISSIONS.admin,
+        ...updated,
+        allAccess: true,
+        isDelegatedAdmin: true,
+        forceClockOut: true,
+        manageSettings: true,
+        manageCredentials: true,
+        grantPermissions: true,
+        export_attendance: true,
+        export_payroll: true,
+        export_leads: true
+      });
     }
-    setPermissions(prev => ({ ...prev, ...updated }));
   };
 
   const handleSelectCategory = (categoryId, grantAll) => {
@@ -258,7 +287,29 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
     setIsSaving(true);
     try {
       const userKey = employee.employeeCode || employee._id;
-      const safePerms = sanitizePermissionDependencies({ ...permissions });
+      const isFullAdminGrant = Boolean(permissions?.allAccess || permissions?.isDelegatedAdmin);
+      const safePerms = isFullAdminGrant
+        ? {
+            ...DEFAULT_MODULE_PERMISSIONS.admin,
+            ...permissions,
+            allAccess: true,
+            isDelegatedAdmin: true,
+            forceClockOut: true,
+            manageSettings: true,
+            manageCredentials: true,
+            grantPermissions: true,
+            export_attendance: true,
+            export_payroll: true,
+            export_leads: true
+          }
+        : sanitizePermissionDependencies({ ...permissions });
+      if (!isFullAdminGrant) {
+        delete safePerms.allAccess;
+        delete safePerms.isDelegatedAdmin;
+      }
+      const nextSystemRole = isFullAdminGrant
+        ? 'admin'
+        : (employee.systemRole === 'admin' ? 'team_member' : (employee.systemRole || 'team_member'));
 
       // 1. Save to global permissions map
       setUserPermissions(userKey, safePerms);
@@ -269,13 +320,15 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(employee._id, {
           permissions: safePerms,
-          isDelegatedAdmin: employee.isDelegatedAdmin,
-          delegationExpiresAt: employee.delegationExpiresAt,
-          systemRole: employee.systemRole
+          isDelegatedAdmin: isFullAdminGrant,
+          delegationExpiresAt: isFullAdminGrant ? (employee.delegationExpiresAt || null) : null,
+          systemRole: nextSystemRole
         });
       } else {
         await updateEmployee(employee._id, {
           ...employee,
+          isDelegatedAdmin: isFullAdminGrant,
+          systemRole: nextSystemRole,
           permissions: safePerms
         });
       }
@@ -286,9 +339,9 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         employeeCode: employee.employeeCode,
         email: employee.email,
         permissions: safePerms,
-        isDelegatedAdmin: Boolean(employee.isDelegatedAdmin),
-        delegationExpiresAt: employee.delegationExpiresAt || null,
-        systemRole: employee.systemRole
+        isDelegatedAdmin: isFullAdminGrant,
+        delegationExpiresAt: isFullAdminGrant ? (employee.delegationExpiresAt || null) : null,
+        systemRole: nextSystemRole
       };
 
       broadcastSyncEvent('PERMISSIONS_UPDATED', syncPayload);
@@ -310,7 +363,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       onClose={onClose}
       title={`Access & Permissions: ${employee.name}`}
       subtitle={`Configure granular module access for ${employee.role} (#${employee.employeeCode || employee._id})`}
-      maxWidth="680px"
+      maxWidth="840px"
     >
       <div className="flex flex-col gap-4">
         {/* User Summary Pill */}
@@ -426,6 +479,43 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           </div>
         )}
 
+        {/* 👑 1-Click Full Admin Access Toggle + Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {!isPrimaryAdmin && (
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => handleToggle('allAccess')}
+              className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all flex-1 ${
+                permissions?.allAccess || permissions?.isDelegatedAdmin
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 text-amber-900 dark:text-amber-200 shadow-xs'
+                  : 'bg-slate-50 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-amber-300'
+              } ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Crown size={16} className={permissions?.allAccess || permissions?.isDelegatedAdmin ? 'text-amber-500 shrink-0' : 'text-slate-400 shrink-0'} />
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold truncate">Full Admin Access (Same as Admin)</div>
+                  <div className="text-[10.5px] opacity-80 truncate">Grants 100% unrestricted access to all modules, settings &amp; controls</div>
+                </div>
+              </div>
+              <div className={`w-[38px] h-5 rounded-full relative transition-colors duration-200 shrink-0 ${permissions?.allAccess || permissions?.isDelegatedAdmin ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                <div className={`w-[14px] h-[14px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${permissions?.allAccess || permissions?.isDelegatedAdmin ? 'left-[21px]' : 'left-[3px]'}`} />
+              </div>
+            </button>
+          )}
+          <div className="relative sm:w-60 shrink-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search permissions..."
+              className="w-full h-10 pl-8 pr-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 box-border"
+            />
+          </div>
+        </div>
+
         {/* Category Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
           <button
@@ -455,31 +545,37 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           ))}
         </div>
 
-        {/* Granular Toggles List Grouped by Category */}
-        <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1">
+        {/* Granular Toggles List Grouped by Category (Clean 2-Column Readable Grid) */}
+        <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
           {PERMISSION_CATEGORIES
             .filter(cat => activeCategoryTab === 'all' || activeCategoryTab === cat.id)
             .map(cat => {
-              const items = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === cat.id);
+              const q = searchQuery.trim().toLowerCase();
+              const allCatItems = GRANULAR_PERMISSIONS_LIST.filter(p => p.category === cat.id);
+              const items = q
+                ? allCatItems.filter(p => p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q))
+                : allCatItems;
               if (items.length === 0) return null;
 
-              const enabledCount = items.filter(p => !!permissions[p.key]).length;
+              const enabledCount = allCatItems.filter(p => !!permissions[p.key]).length;
 
               return (
                 <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60 dark:border-slate-800/60">
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                        {cat.label} ({enabledCount}/{items.length} enabled)
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-extrabold text-slate-900 dark:text-slate-100">
+                        {cat.label}
                       </div>
-                      <div className="text-[10.5px] text-slate-400">{cat.desc}</div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${enabledCount > 0 ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200/80 dark:bg-slate-800 text-slate-500'}`}>
+                        {enabledCount}/{allCatItems.length} ON
+                      </span>
                     </div>
                     {canEdit && !isPrimaryAdmin && (
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleSelectCategory(cat.id, true)}
-                          className="text-[10px] font-bold text-blue-600 dark:text-sky-400 hover:underline bg-transparent border-0 cursor-pointer p-0"
+                          className="text-[10.5px] font-bold text-blue-600 dark:text-sky-400 hover:underline bg-transparent border-0 cursor-pointer p-0"
                         >
                           Enable All
                         </button>
@@ -487,7 +583,7 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
                         <button
                           type="button"
                           onClick={() => handleSelectCategory(cat.id, false)}
-                          className="text-[10px] font-bold text-slate-400 hover:text-red-500 hover:underline bg-transparent border-0 cursor-pointer p-0"
+                          className="text-[10.5px] font-bold text-slate-400 hover:text-red-500 hover:underline bg-transparent border-0 cursor-pointer p-0"
                         >
                           Disable All
                         </button>
@@ -495,34 +591,34 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     {items.map(item => {
                       const isChecked = !!permissions[item.key];
                       return (
                         <div
                           key={item.key}
                           onClick={() => handleToggle(item.key)}
-                          className={`flex items-center justify-between p-2.5 px-3 rounded-xl transition-all duration-150 border ${
+                          className={`flex items-center justify-between gap-2 p-2.5 px-3 rounded-xl transition-all duration-150 border ${
                             isChecked
                               ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200'
                               : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                           } ${canEdit ? 'cursor-pointer hover:border-blue-400' : 'cursor-default'}`}
                         >
-                          <div className="flex items-start gap-2.5">
-                            <span className="text-base leading-none">{item.icon}</span>
-                            <div>
-                              <div className={`text-xs font-bold ${isChecked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                          <div className="flex items-start gap-2 min-w-0">
+                            <span className="text-sm leading-none mt-0.5 shrink-0">{item.icon}</span>
+                            <div className="min-w-0">
+                              <div className={`text-[11.5px] font-bold leading-snug ${isChecked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-slate-200'}`}>
                                 {item.label}
                               </div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
                                 {item.desc}
                               </div>
                             </div>
                           </div>
 
                           {/* Custom Toggle Switch */}
-                          <div className={`w-[38px] h-5 rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
-                            <div className={`w-[14px] h-[14px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${isChecked ? 'left-[21px]' : 'left-[3px]'}`} />
+                          <div className={`w-[36px] h-5 rounded-full relative transition-colors duration-200 shrink-0 ${isChecked ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                            <div className={`w-[14px] h-[14px] rounded-full bg-white absolute top-[3px] transition-[left] duration-200 shadow-sm ${isChecked ? 'left-[19px]' : 'left-[3px]'}`} />
                           </div>
                         </div>
                       );

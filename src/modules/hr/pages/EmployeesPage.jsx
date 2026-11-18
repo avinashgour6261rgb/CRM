@@ -39,6 +39,7 @@ import {
   canDeleteEmployee,
   canManageEmployees,
   canViewEmployeeDetails,
+  canManageCredentials,
   canUserGrantPermissions,
   canManagePayroll
 } from '../../../shared/utils/permissionUtils';
@@ -460,8 +461,8 @@ export const EmployeesPage = () => {
                                                                 </button>
                                                               )}
 
-                                                              {/* Button 3.5: View Login Credentials & Access Pass (Admin & HR) */}
-                                                              {canViewSensitive && (
+                                                              {/* Button 3.5: View Login Credentials & Access Pass (Admin & Manage Credentials) */}
+                                                              {canManageCredentials(currentUser) && (
                                                                 <button
                                                                   onClick={() => setSelectedCredentialsEmp(emp)}
                                                                   className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"

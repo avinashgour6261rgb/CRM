@@ -438,7 +438,7 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 // ─── GET /api/employees/:id/credentials (Admin-Only Credential Vault) ─────────
 const getEmployeeCredentials = asyncHandler(async (req, res) => {
   const actor = req.user;
-  const canViewCreds = Boolean(actor && (actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.allAccess));
+  const canViewCreds = Boolean(actor && (actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.manageCredentials === true || actor.permissions?.allAccess === true));
   if (!canViewCreds) {
     return res.status(403).json({
       success: false,

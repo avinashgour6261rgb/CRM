@@ -617,7 +617,8 @@ const createAuditLog = asyncHandler(async (req, res) => {
 // Admin Override: Forcefully clock out an active employee with mandatory audit note
 const forceClockOut = asyncHandler(async (req, res) => {
   const isPrimaryAdminUser = req.user?.isSuperAdmin || String(req.user?.employeeCode || '').toUpperCase() === 'ADM-001';
-  const explicitlyDenied = !isPrimaryAdminUser && req.user?.permissions?.forceClockOut === false;
+  const isFullAdminActor = Boolean(isPrimaryAdminUser || req.user?.isDelegatedAdmin || req.user?.permissions?.allAccess === true);
+  const explicitlyDenied = !isFullAdminActor && req.user?.permissions?.forceClockOut === false;
   const isPrivileged = !explicitlyDenied && (
     isPrimaryAdminUser ||
     req.user?.isAdmin ||

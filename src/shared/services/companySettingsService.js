@@ -50,15 +50,26 @@ export const getCompanySettings = () => {
   return DEFAULT_COMPANY_SETTINGS;
 };
 
+const applyCompanyTitle = (settings) => {
+  try {
+    if (typeof document !== 'undefined' && settings?.companyName) {
+      document.title = `${settings.companyName} — Enterprise Management System`;
+    }
+  } catch (_) {}
+};
+
 // Fetch from MongoDB database on app start and cache in localStorage
 export const fetchCompanySettingsFromDB = async () => {
   try {
-    const res = await fetch(`${API_BASE}/company-settings`);
+    const res = await fetch(`${API_BASE}/company-settings`, {
+      cache: 'no-store'
+    });
     if (res.ok) {
       const json = await res.json();
       if (json.data) {
         const merged = { ...DEFAULT_COMPANY_SETTINGS, ...json.data };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        applyCompanyTitle(merged);
         window.dispatchEvent(new Event('company-settings-updated'));
         return merged;
       }
@@ -66,27 +77,47 @@ export const fetchCompanySettingsFromDB = async () => {
   } catch (err) {
     console.warn('[companySettingsService] Offline fallback for company settings:', err);
   }
-  return getCompanySettings();
+  const local = getCompanySettings();
+  applyCompanyTitle(local);
+  return local;
 };
 
 export const saveCompanySettings = async (newSettings) => {
-  try {
-    const updated = { ...getCompanySettings(), ...newSettings };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('company-settings-updated'));
+  const merged = { ...getCompanySettings(), ...newSettings };
+  // Strip MongoDB metadata before PUT
+  const payload = { ...merged };
+  delete payload._id;
+  delete payload.__v;
+  delete payload.createdAt;
+  delete payload.updatedAt;
 
-    // Persist directly to MongoDB Atlas backend
+  // Persist directly to MongoDB Atlas backend first so failures are surfaced clearly
+  const res = await fetch(`${API_BASE}/company-settings`, {
+    method: 'PUT',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    let errMsg = `Failed to save company settings (${res.status})`;
     try {
-      fetch(`${API_BASE}/company-settings`, {
-        method: 'PUT',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(updated)
-      }).catch(err => console.warn('[companySettingsService] Offline queued:', err));
+      const errJson = await res.json();
+      if (errJson?.message) errMsg = errJson.message;
     } catch (_) {}
-
-    return updated;
-  } catch (err) {
-    console.error('Error saving company settings:', err);
-    return DEFAULT_COMPANY_SETTINGS;
+    throw new Error(errMsg);
   }
+
+  let saved = merged;
+  try {
+    const json = await res.json();
+    if (json?.data) {
+      saved = { ...DEFAULT_COMPANY_SETTINGS, ...json.data };
+    }
+  } catch (_) {}
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  applyCompanyTitle(saved);
+  window.dispatchEvent(new Event('company-settings-updated'));
+  window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: STORAGE_KEY } }));
+  return saved;
 };

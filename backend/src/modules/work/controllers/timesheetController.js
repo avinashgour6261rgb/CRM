@@ -25,6 +25,7 @@ exports.getTimesheets = async (req, res, next) => {
       user.permissions?.liveOperations === true ||
       user.permissions?.teamoperations === true ||
       user.permissions?.viewAllTasks === true ||
+      user.permissions?.viewAllTimesheets === true ||
       user.permissions?.allAccess === true
     );
 

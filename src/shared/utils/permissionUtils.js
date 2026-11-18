@@ -116,12 +116,13 @@ export const ROLE_CONFIGS = {
 export const getUserRole = (user) => {
   if (!user) return ROLES.TEAM_MEMBER;
   
-  // 0. Primary Administrator Immutable Rule (Cannot be demoted, root system protection)
+  // 0. Primary Administrator & Active Full-Access / Co-Admin Delegation (100% Admin parity!)
   if (
     user.employeeCode === 'ADM-001' ||
     user.isSuperAdmin ||
     user.email === 'admin@inforag.com' ||
-    user.isAdmin
+    user.isAdmin ||
+    isDelegationActive(user)
   ) {
     return ROLES.ADMIN;
   }
@@ -243,13 +244,13 @@ export const canEditAttendance = (user) => {
 
 export const canForceClockOut = (user) => {
   if (!user) return false;
-  if (isPrimaryAdmin(user)) return true;
+  if (isPrimaryAdmin(user) || isDelegationActive(user) || user?.permissions?.allAccess === true) return true;
   const perms = getUserModulePermissions(user);
-  // Explicit deny ALWAYS wins (even if delegated/allAccess) so Admin can grant Live Ops view-only without Force Clock-Out!
+  if (perms?.allAccess === true) return true;
+  // Explicit deny wins for standard/granular users so Admin can grant Live Ops view-only without Force Clock-Out!
   if (perms?.liveOperations === false || perms?.teamoperations === false || perms?.forceClockOut === false) return false;
   if (perms?.forceClockOut === true) return true;
-  if (perms?.allAccess === true) return true;
-  return Boolean(isAdmin(user) || isDelegationActive(user));
+  return Boolean(isAdmin(user));
 };
 
 export const canManageEmployees = (user) => {
@@ -651,11 +652,31 @@ export const canApproveExpenses = (user) => {
 
 export const canManageSettings = (user) => {
   if (!user) return false;
-  if (isPrimaryAdmin(user)) return true;
+  if (isPrimaryAdmin(user) || isDelegationActive(user)) return true;
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess === true) return true;
-  if (perms?.manageSettings === false || perms?.settings === false) return false;
-  return Boolean(perms?.manageSettings === true || perms?.settings === true || isAdmin(user) || isDelegationActive(user));
+  if (perms?.manageSettings === false) return false;
+  if (perms?.manageSettings === true) return true;
+  if (perms?.settings === false) return false;
+  return Boolean(perms?.settings === true || isAdmin(user));
+};
+
+export const canManageCredentials = (user) => {
+  if (!user) return false;
+  if (isPrimaryAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.allAccess === true) return true;
+  if (perms?.manageCredentials === false) return false;
+  return Boolean(perms?.manageCredentials === true || isAdmin(user));
+};
+
+export const canViewAllTimesheets = (user) => {
+  if (!user) return false;
+  if (isPrimaryAdmin(user) || isDelegationActive(user)) return true;
+  const perms = getUserModulePermissions(user);
+  if (perms?.allAccess === true) return true;
+  if (perms?.viewAllTimesheets === false) return false;
+  return Boolean(perms?.viewAllTimesheets === true || perms?.viewAllTasks === true || perms?.liveOperations === true || isAdmin(user) || isHR(user));
 };
 
 export const canDeleteTicket = (user, ticket = null) => {
@@ -908,6 +929,21 @@ export const DEFAULT_MODULE_PERMISSIONS = {
     manageEvents: true,
     approveExpenses: true,
     manageSettings: true,
+    manageCredentials: true,
+    viewAllTimesheets: true,
+    forceClockOut: true,
+    manageCompanyHolidays: true,
+    manageTickets: true,
+    createChannels: true,
+    screenShare: true,
+    reports: true,
+    viewReports: true,
+    settings: true,
+    teamoperations: true,
+    documents: true,
+    export_attendance: true,
+    export_payroll: true,
+    export_leads: true,
     accessCRM: true,
     accessFinance: true,
     manageEmployees: true,
@@ -1090,6 +1126,7 @@ export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'viewAllTasks', category: 'tasks_projects', label: 'View All Tasks', icon: '📋', desc: 'View company-wide tasks beyond assigned items' },
   { key: 'editAnyTask', category: 'tasks_projects', label: 'Edit & Reassign Any Task', icon: '✏️', desc: 'Modify, reassign, or update deadline of tasks across all departments' },
   { key: 'deleteTasks', category: 'tasks_projects', label: 'Delete Tasks', icon: '🗑️', desc: 'Permanently delete tasks and associated task timelogs' },
+  { key: 'viewAllTimesheets', category: 'tasks_projects', label: 'View All Team Timesheets', icon: '⏱️', desc: 'View and audit logged work timesheets across all employees' },
   { key: 'manageProjects', category: 'tasks_projects', label: 'Create & Manage Projects', icon: '📁', desc: 'Create projects, define sprint milestones, and assign project leads' },
   { key: 'viewAllProjects', category: 'tasks_projects', label: 'View All Projects', icon: '📂', desc: 'View all organization projects and sprint roadmaps' },
   { key: 'deleteProjects', category: 'tasks_projects', label: 'Delete Projects', icon: '🗑️', desc: 'Permanently delete projects and sprint boards' },
@@ -1097,7 +1134,9 @@ export const GRANULAR_PERMISSIONS_LIST = [
   // ── 3. Workforce & Leaves ──
   { key: 'manageEmployees', category: 'workforce_hr', label: 'Manage Employees', icon: '👥', desc: 'Add, update employee profiles, documents, and department assignments' },
   { key: 'viewEmployeeDetails', category: 'workforce_hr', label: 'View Sensitive Employee Data', icon: '🔍', desc: 'Access PAN, Aadhaar, bank details, emergency contacts, and private profile info' },
+  { key: 'manageCredentials', category: 'workforce_hr', label: 'View & Reset Employee Passwords', icon: '🔑', desc: 'View employee login credentials in Password Vault and reset passwords' },
   { key: 'deleteEmployees', category: 'workforce_hr', label: 'Delete Employees', icon: '🗑️', desc: 'Permanently remove employee records from the organization' },
+  { key: 'viewAllLeaves', category: 'workforce_hr', label: 'View Team Leaves (Read-Only)', icon: '👀', desc: 'View leave applications and leave calendar of all team members' },
   { key: 'approveLeaves', category: 'workforce_hr', label: 'Approve & Reject Leaves', icon: '🌴', desc: 'Review, approve, or reject employee leave applications' },
   { key: 'cancelLeaves', category: 'workforce_hr', label: 'Cancel & Revoke Leaves', icon: '❌', desc: 'Cancel approved leaves or revoke pending leave requests' },
   { key: 'reviewResignations', category: 'workforce_hr', label: 'Review Resignations', icon: '🚪', desc: 'Process and manage employee resignation requests and exit workflows' },
@@ -1110,6 +1149,7 @@ export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'createLeads', category: 'crm_comms', label: 'Create CRM Leads', icon: '🎯', desc: 'Create new prospect entries, leads, and sales deals' },
   { key: 'editLeads', category: 'crm_comms', label: 'Edit CRM Leads', icon: '✍️', desc: 'Update lead status, values, customer contact information, and pipeline stages' },
   { key: 'deleteLeads', category: 'crm_comms', label: 'Delete CRM Leads', icon: '🗑️', desc: 'Permanently delete sales leads from the CRM' },
+  { key: 'viewAllTickets', category: 'crm_comms', label: 'View All Support Tickets', icon: '👁️', desc: 'View helpdesk support tickets across all employees (read-only)' },
   { key: 'manageTickets', category: 'crm_comms', label: 'Manage Support Tickets', icon: '🎫', desc: 'Assign, update priority, and resolve helpdesk support tickets' },
   { key: 'deleteTickets', category: 'crm_comms', label: 'Delete Support Tickets', icon: '🗑️', desc: 'Permanently delete customer or employee support tickets' },
   { key: 'manageEvents', category: 'crm_comms', label: 'Manage Calendar Events', icon: '📅', desc: 'Create, schedule, edit, or remove company-wide calendar events and meetings' },
@@ -1548,6 +1588,9 @@ export const getUserModulePermissions = (user) => {
   }
   if (basePerms.reports) {
     basePerms.viewReports = true;
+  }
+  if (basePerms.manageSettings) {
+    basePerms.settings = true;
   }
   if (basePerms.grantPermissions || basePerms.allAccess) {
     basePerms.employees = true;

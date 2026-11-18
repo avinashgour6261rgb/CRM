@@ -345,6 +345,24 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
+  // 📡 Real-time Company Branding & Work Shift Policy sync across all devices (0ms)
+  subscribeSocketEvent('settings:updated', (data) => {
+    try {
+      const settings = data?.settings || data;
+      if (settings && typeof settings === 'object') {
+        const existing = (() => {
+          try { return JSON.parse(localStorage.getItem('EMS_COMPANY_SETTINGS') || '{}'); } catch { return {}; }
+        })();
+        const merged = { ...existing, ...settings };
+        localStorage.setItem('EMS_COMPANY_SETTINGS', JSON.stringify(merged));
+        if (typeof document !== 'undefined' && merged.companyName) {
+          document.title = `${merged.companyName} — Enterprise Management System`;
+        }
+        window.dispatchEvent(new Event('company-settings-updated'));
+      }
+    } catch (_) {}
+  });
+
   // 📡 Real-time permissions and access updates across all devices
   subscribeSocketEvent('employee:permissions:updated', (data) => {
     try {

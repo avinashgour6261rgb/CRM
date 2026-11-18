@@ -1,5 +1,6 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { fetchCompanySettingsFromDB } from './shared/services/companySettingsService';
 
 // Shared Providers & Layout (kept eager for instant app shell)
 import { ToastProvider } from './shared/context/ToastContext';
@@ -46,6 +47,10 @@ const RouteFallback = () => (
 
 
 export function App() {
+  useEffect(() => {
+    fetchCompanySettingsFromDB().catch(() => {});
+  }, []);
+
   return (
     <ErrorBoundary>
       <ToastProvider>
