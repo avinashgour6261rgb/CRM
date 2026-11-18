@@ -621,12 +621,13 @@ export const sanitizeTaskDailySessions = (task) => {
 
   const isStartedOnPastDay = task.startDate && task.startDate < today;
   let todaySessionSecs = 0;
-  if (task.sessionDate === today) {
-    const rawToday = Math.max(
-      Number(task.todayWorkSeconds) || 0,
-      Number(task.accumulatedTodaySeconds) || 0,
-      Number(rawSessions[today]) || 0
-    );
+  if (rawSessions[today] !== undefined && rawSessions[today] !== null) {
+    // Authoritative dailySessions[today] exists: NEVER let stale/yesterday accumulatedTodaySeconds override an explicit 0!
+    todaySessionSecs = Math.max(0, Number(rawSessions[today]) || 0);
+  } else if (task.sessionDate === today) {
+    const rawToday = (task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null)
+      ? Math.max(0, Number(task.todayWorkSeconds) || 0)
+      : Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
     if (isStartedOnPastDay && !task.timerRunning && rawToday >= totalAccum && totalAccum > 0) {
       // Stale copy of total accumulated duration into today: heal by partitioning to past date
       todaySessionSecs = 0;
@@ -637,7 +638,7 @@ export const sanitizeTaskDailySessions = (task) => {
       todaySessionSecs = rawToday;
     }
   } else {
-    todaySessionSecs = Number(rawSessions[today]) || 0;
+    todaySessionSecs = 0;
   }
 
   cleanSessions[today] = todaySessionSecs;
@@ -1160,7 +1161,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     isClockedIn = true,
     isOnBreak = false,
     shiftSeconds = 0,
-    clampToShift = true
+    clampToShift = false
   } = options;
 
   const actualToday = getLocalDateString(new Date());
@@ -1337,25 +1338,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
 
   const rawTotalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
 
-  // 4. Physical shift clamping (strictly for today):
-  // Today's task time can NEVER exceed physical shift time clocked in today!
+  // Task time is STRICTLY independent of Shift Working Time!
+  // NEVER clamp/copy live ticking shiftSeconds into task time (otherwise task time ticks alongside shift working time).
   let effectiveTotalSecs = rawTotalSecs;
-  if (isToday && clampToShift && shiftSeconds > 0) {
-    effectiveTotalSecs = Math.min(rawTotalSecs, shiftSeconds);
-    if (rawTotalSecs > shiftSeconds) {
-      // Clamp any individual inflated task duration that exceeded today's physical shift duration
-      tasksWorked = tasksWorked.map(tw => {
-        if (Number(tw.durationSeconds) > shiftSeconds) {
-          return {
-            ...tw,
-            durationSeconds: shiftSeconds,
-            durationText: formatSecondsToDigital(shiftSeconds)
-          };
-        }
-        return tw;
-      });
-    }
-  } else if (clampToShift && !isClockedIn && shiftSeconds === 0 && tasksWorked.length === 0) {
+  if (!isClockedIn && shiftSeconds === 0 && tasksWorked.length === 0) {
     effectiveTotalSecs = 0;
   }
 

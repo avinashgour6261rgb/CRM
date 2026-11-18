@@ -411,15 +411,26 @@ export const WorkProvider = ({ children }) => {
               mergedDailySessions[bt.sessionDate] = Math.max(Number(mergedDailySessions[bt.sessionDate]) || 0, Number(bt.todayWorkSeconds));
             }
 
-            // Today's work is strictly work performed on todayStr
+            // Today's work is strictly work performed on todayStr (NEVER use `0 || accumulatedTodaySeconds` which leaks past days!)
             const existingIsToday = existing.sessionDate === todayStr;
             const backendIsToday = bt.sessionDate === todayStr;
-            const effectiveTodaySecs = Math.max(
-              existingIsToday ? (Number(existing.todayWorkSeconds) || Number(existing.accumulatedTodaySeconds) || 0) : 0,
-              backendIsToday ? (Number(bt.todayWorkSeconds) || Number(bt.accumulatedTodaySeconds) || 0) : 0,
-              Number(mergedDailySessions[todayStr]) || 0,
-              (isLocalActive && activeTimer.date === todayStr) ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0) : 0
-            );
+            const hasExplicitDailyToday = mergedDailySessions[todayStr] !== undefined && mergedDailySessions[todayStr] !== null;
+            const activeSnapToday = (isLocalActive && activeTimer.date === todayStr)
+              ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0)
+              : 0;
+            const existingTodayStrict = existingIsToday
+              ? (existing.todayWorkSeconds !== undefined && existing.todayWorkSeconds !== null
+                  ? Number(existing.todayWorkSeconds)
+                  : Number(existing.accumulatedTodaySeconds || 0))
+              : 0;
+            const backendTodayStrict = backendIsToday
+              ? (bt.todayWorkSeconds !== undefined && bt.todayWorkSeconds !== null
+                  ? Number(bt.todayWorkSeconds)
+                  : Number(bt.accumulatedTodaySeconds || 0))
+              : 0;
+            const effectiveTodaySecs = hasExplicitDailyToday
+              ? Math.max(Number(mergedDailySessions[todayStr]) || 0, activeSnapToday)
+              : Math.max(existingTodayStrict, backendTodayStrict, activeSnapToday);
 
             taskMap.set(id, {
               ...bt,

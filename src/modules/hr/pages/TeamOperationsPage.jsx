@@ -460,10 +460,7 @@ export const TeamOperationsPage = () => {
         const taskBase = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
           : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
-        let liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
+        const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -480,12 +477,9 @@ export const TeamOperationsPage = () => {
           liveDurationText: formatSeconds(liveTaskSecs)
         };
       } else {
-        let liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
+        const liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
           : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
         runningTask = {
           _id: at.taskId,
           id: at.taskId,

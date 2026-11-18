@@ -757,12 +757,9 @@ export const DashboardPage = () => {
           liveDurationText: formatSeconds(liveTaskSecs)
         };
       } else {
-        let liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
+        const liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
           ? Number(at.accumulatedTodaySeconds)
           : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
-        if (workSecs > 0) {
-          liveTaskSecs = Math.min(liveTaskSecs, workSecs);
-        }
         runningTask = {
           _id: at.taskId,
           id: at.taskId,
@@ -1743,7 +1740,7 @@ export const DashboardPage = () => {
     ? (activeEmpState?.isClockedIn || false)
     : (displayedIsClockedIn || false));
 
-  // Canonical Single Source of Truth Task Time Calculation
+  // Canonical Single Source of Truth Task Time Calculation (100% independent of Shift Working Time)
   const todayTaskBreakdown = React.useMemo(() => {
     return getUserDailyTaskBreakdown(effectiveTargetUser, todayStr, {
       tasks: cleanTasks,
@@ -1751,7 +1748,7 @@ export const DashboardPage = () => {
       isClockedIn: currentIsClockedIn,
       isOnBreak: displayedIsOnBreak,
       shiftSeconds: currentShiftSecs,
-      clampToShift: true
+      clampToShift: false
     });
   }, [effectiveTargetUser, todayStr, cleanTasks, timesheets, currentIsClockedIn, displayedIsOnBreak, currentShiftSecs, syncTick]);
 
