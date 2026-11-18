@@ -110,7 +110,7 @@ const getAttendanceSummary = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
 
   // Tenant scoping: non-admin can only see own attendance summary
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.systemRole === 'hr' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations || req.user?.permissions?.allAccess;
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
     const myCode = req.user?.employeeCode;
@@ -522,7 +522,7 @@ const deleteAttendanceRecord = asyncHandler(async (req, res) => {
 // ─── GET /api/attendance/audit ───────────────────────────────────────────────
 const getAuditLogs = asyncHandler(async (req, res) => {
   const { employeeId, date, month, year, type, onlyOverrides } = req.query;
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAuditTrail || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations || req.user?.permissions?.allAccess;
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.systemRole === 'hr' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.viewAuditTrail || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations || req.user?.permissions?.allAccess;
 
   const query = {};
 

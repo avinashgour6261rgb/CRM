@@ -118,7 +118,7 @@ exports.deleteLead = async (req, res, next) => {
     // Permission Check: Admin, HR, Delegated Admin, or Lead Owner/Creator can delete
     const u = req.user;
     if (u) {
-      const isAdminOrPrivileged = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin;
+      const isAdminOrPrivileged = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.deleteLeads === true || u.permissions?.allAccess === true;
       const isOwnerOrCreator =
         String(lead.leadOwnerId) === String(u._id) ||
         String(lead.leadOwnerId) === String(u.id) ||

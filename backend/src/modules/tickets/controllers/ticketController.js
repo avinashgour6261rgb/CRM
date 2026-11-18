@@ -146,7 +146,7 @@ exports.deleteTicket = asyncHandler(async (req, res) => {
   // Admin, HR, or the user who created/generated this ticket can delete it!
   const u = req.user;
   if (u) {
-    const isAdminOrHR = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr';
+    const isAdminOrHR = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.deleteTickets === true || u.permissions?.manageTickets === true || u.permissions?.allAccess === true;
     const isCreator =
       String(ticket.requestedById) === String(u._id) ||
       String(ticket.requestedById) === String(u.id) ||

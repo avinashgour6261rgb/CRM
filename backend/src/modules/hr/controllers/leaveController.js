@@ -11,7 +11,16 @@ const getLeaves = asyncHandler(async (req, res) => {
 
   const query = {};
   const user = req.user;
-  const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+  const isPrivileged = user && (
+    user.isAdmin ||
+    user.systemRole === 'admin' ||
+    user.systemRole === 'hr' ||
+    user.role === 'Administrator' ||
+    user.role === 'HR Manager' ||
+    user.permissions?.viewAllLeaves === true ||
+    user.permissions?.approveLeaves === true ||
+    user.permissions?.allAccess === true
+  );
 
   // Tenant / User Scoping: Non-admins view leaves where they are either applicant or designated reviewer
   if (!isPrivileged && user) {
@@ -253,7 +262,16 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
   const leave = await Leave.findById(req.params.id);
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
-  const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+  const isPrivileged = user && (
+    user.isAdmin ||
+    user.systemRole === 'admin' ||
+    user.systemRole === 'hr' ||
+    user.role === 'Administrator' ||
+    user.role === 'HR Manager' ||
+    user.permissions?.viewAllLeaves === true ||
+    user.permissions?.approveLeaves === true ||
+    user.permissions?.allAccess === true
+  );
   const uId = String(user?._id || user?.id || '').trim();
   const uCode = String(user?.employeeCode || '').trim();
   const uName = String(user?.name || '').trim().toLowerCase();
@@ -492,7 +510,16 @@ const deleteLeave = asyncHandler(async (req, res) => {
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
   const user = req.user;
-  const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+  const isPrivileged = user && (
+    user.isAdmin ||
+    user.systemRole === 'admin' ||
+    user.systemRole === 'hr' ||
+    user.role === 'Administrator' ||
+    user.role === 'HR Manager' ||
+    user.permissions?.viewAllLeaves === true ||
+    user.permissions?.approveLeaves === true ||
+    user.permissions?.allAccess === true
+  );
   const isDesignatedApprover = user && (
     (leave.appliedToId && String(leave.appliedToId) === String(user._id)) ||
     (leave.appliedToName && user.name && leave.appliedToName.trim().toLowerCase() === user.name.trim().toLowerCase())

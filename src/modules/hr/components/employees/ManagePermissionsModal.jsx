@@ -7,6 +7,7 @@ import {
   PERMISSION_CATEGORIES,
   PERMISSION_DEPENDENCIES,
   getDependentChildPermissions,
+  sanitizePermissionDependencies,
   getUserModulePermissions,
   setUserPermissions,
   canUserGrantPermissions

@@ -66,7 +66,23 @@ export const AttendancePage = () => {
     currentUser: hrUser
   } = useHR();
 
-  const currentUser = authUser || hrUser;
+  const baseUser = authUser || hrUser;
+  const currentUser = React.useMemo(() => {
+    if (!baseUser) return null;
+    const matched = (employees || []).find(e =>
+      (baseUser._id && String(e._id) === String(baseUser._id)) ||
+      (baseUser.employeeCode && String(e.employeeCode).toUpperCase() === String(baseUser.employeeCode).toUpperCase())
+    );
+    if (!matched) return baseUser;
+    const hasDbPerms = matched.permissions && typeof matched.permissions === 'object' && Object.keys(matched.permissions).length > 0;
+    return {
+      ...baseUser,
+      ...matched,
+      permissions: hasDbPerms ? matched.permissions : (baseUser.permissions || {}),
+      systemRole: matched.systemRole || baseUser.systemRole,
+      isDelegatedAdmin: matched.isDelegatedAdmin !== undefined ? Boolean(matched.isDelegatedAdmin) : Boolean(baseUser.isDelegatedAdmin)
+    };
+  }, [baseUser, employees]);
   const userRole = React.useMemo(() => getUserRole(currentUser), [currentUser]);
   const perms = React.useMemo(() => getUserModulePermissions(currentUser), [currentUser]);
   const canViewAllAttendance = React.useMemo(() => checkCanViewAllAttendance(currentUser), [currentUser]);
@@ -82,12 +98,20 @@ export const AttendancePage = () => {
       (emp.email && currentUser.email && emp.email.toLowerCase() === currentUser.email.toLowerCase());
   }, [currentUser]);
 
-  // Automatically lock selectedEmployeeId to currentUser when not permitted to view all attendance
+  // Track whether we auto-locked selectedEmployeeId to self; unlock back to 'all' when View Team Attendance is granted!
+  const didAutoInitAllRef = React.useRef(false);
   React.useEffect(() => {
-    if (!canViewAllAttendance && currentUser) {
-      const myId = currentUser._id || currentUser.employeeCode;
+    if (!currentUser) return;
+    const myId = currentUser._id || currentUser.employeeCode;
+    if (!canViewAllAttendance) {
+      didAutoInitAllRef.current = false;
       if (myId && selectedEmployeeId !== myId) {
         setSelectedEmployeeId(myId);
+      }
+    } else if (!didAutoInitAllRef.current) {
+      didAutoInitAllRef.current = true;
+      if (selectedEmployeeId === myId || selectedEmployeeId === 'self') {
+        setSelectedEmployeeId('all');
       }
     }
   }, [canViewAllAttendance, currentUser, selectedEmployeeId, setSelectedEmployeeId]);

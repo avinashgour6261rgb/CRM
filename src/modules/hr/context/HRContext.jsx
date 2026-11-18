@@ -83,7 +83,15 @@ export const HRProvider = ({ children }) => {
       if (s) {
         const parsed = JSON.parse(s);
         const u = parsed?.user || parsed;
-        const isPriv = u?.isAdmin || ['admin', 'hr'].includes(u?.role?.toLowerCase()) || ['admin', 'hr'].includes(u?.systemRole?.toLowerCase());
+        const isPriv = u?.isAdmin ||
+          ['admin', 'hr'].includes(u?.role?.toLowerCase()) ||
+          ['admin', 'hr'].includes(u?.systemRole?.toLowerCase()) ||
+          canViewAllAttendance(u) ||
+          u?.permissions?.viewAllAttendance ||
+          u?.permissions?.viewAllLeaves ||
+          u?.permissions?.liveOperations ||
+          u?.permissions?.teamoperations ||
+          u?.permissions?.allAccess;
         if (!isPriv && u) {
           return u._id || u.employeeCode || 'self';
         }
@@ -124,8 +132,10 @@ export const HRProvider = ({ children }) => {
         authUserObj?.permissions?.liveOperations ||
         authUserObj?.permissions?.teamoperations ||
         authUserObj?.permissions?.viewAllAttendance ||
+        authUserObj?.permissions?.viewAllLeaves ||
+        authUserObj?.permissions?.approveLeaves ||
         authUserObj?.permissions?.allAccess;
-      const effectiveEmpId = isPrivileged ? selectedEmployeeId : (authUserObj?._id || authUserObj?.employeeCode || 'self');
+      const effectiveEmpId = isPrivileged ? (selectedEmployeeId === 'self' ? 'all' : selectedEmployeeId) : (authUserObj?._id || authUserObj?.employeeCode || 'self');
 
       const results = await Promise.allSettled([
         hrService.getEmployees(),
@@ -253,7 +263,7 @@ export const HRProvider = ({ children }) => {
     };
 
     // Listen for storage events across tabs, remote socket updates, or reconnects
-    const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
+    const hrKeys = ['ems_auth_session', 'EMS_USER_PERMISSIONS', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
     const syncAuthSessionUser = () => {
       try {
         const s = localStorage.getItem('ems_auth_session');
@@ -261,20 +271,41 @@ export const HRProvider = ({ children }) => {
           setCurrentUser(null);
         } else {
           const parsed = JSON.parse(s);
-          setCurrentUser(parsed?.user || parsed || null);
+          const u = parsed?.user || parsed || null;
+          setCurrentUser(u);
+          if (u) {
+            const hasTeamView = u.isAdmin ||
+              ['admin', 'hr'].includes(u.role?.toLowerCase()) ||
+              ['admin', 'hr'].includes(u.systemRole?.toLowerCase()) ||
+              canViewAllAttendance(u) ||
+              u.permissions?.viewAllAttendance ||
+              u.permissions?.viewAllLeaves ||
+              u.permissions?.approveLeaves ||
+              u.permissions?.liveOperations ||
+              u.permissions?.teamoperations ||
+              u.permissions?.allAccess;
+            if (hasTeamView) {
+              const myId = u._id || u.employeeCode;
+              setSelectedEmployeeId(prev => (prev === myId || prev === 'self') ? 'all' : prev);
+            }
+          }
         }
       } catch (_) {
         setCurrentUser(null);
       }
     };
     const handleStorageUpdate = (e) => {
-      if (e.detail?.key === 'ems_auth_session') {
+      if (e.detail?.key === 'ems_auth_session' || e.detail?.key === 'EMS_USER_PERMISSIONS') {
         syncAuthSessionUser();
       }
       if (isFetchingRef.current) return;
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
         scheduleDebouncedLoad();
       }
+    };
+    const handlePermissionsLive = () => {
+      syncAuthSessionUser();
+      scheduleDebouncedLoad();
     };
     const handleRemoteSync = (e) => {
       if (isFetchingRef.current) return;
@@ -292,12 +323,14 @@ export const HRProvider = ({ children }) => {
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
+    window.addEventListener('ems_permissions_updated', handlePermissionsLive);
     window.addEventListener('ems_remote_sync', handleRemoteSync);
     window.addEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
     window.addEventListener('storage', handleNativeStorage);
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
+      window.removeEventListener('ems_permissions_updated', handlePermissionsLive);
       window.removeEventListener('ems_remote_sync', handleRemoteSync);
       window.removeEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
       window.removeEventListener('storage', handleNativeStorage);

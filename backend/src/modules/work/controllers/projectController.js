@@ -42,7 +42,16 @@ exports.getProjects = async (req, res, next) => {
     }
 
     const user = req.user;
-    const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+    const isPrivileged = user && (
+      user.isAdmin ||
+      user.systemRole === 'admin' ||
+      user.systemRole === 'hr' ||
+      user.role === 'Administrator' ||
+      user.role === 'HR Manager' ||
+      user.permissions?.viewAllProjects === true ||
+      user.permissions?.manageProjects === true ||
+      user.permissions?.allAccess === true
+    );
 
     // Role-based tenant isolation: Regular employees can strictly access:
     // 1. Projects where they are an assigned member (teamIds, visibleToIds, members._id, members.employeeCode)
