@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 import { ShieldAlert, AlertCircle, Info } from 'lucide-react';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 const toTimeInput = (timeStr, fallback = '09:30') => {
   if (!timeStr) return fallback;
@@ -22,6 +24,7 @@ const toTimeInput = (timeStr, fallback = '09:30') => {
 
 export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => {
   const { employees, markAttendanceRecord, currentUser } = useHR();
+  const { addToast } = useToast();
   const companySettings = getCompanySettings();
   const defaultInTime = toTimeInput(companySettings.shiftStartTime, '09:30') + ':00';
   const defaultOutTime = toTimeInput(companySettings.shiftEndTime, '18:30') + ':00';
@@ -33,7 +36,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
 
   const [formData, setFormData] = useState({
     employeeId: defaultEmpId,
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     status: 'present',
     clockInTime: defaultInTime,
     clockOutTime: defaultOutTime,
@@ -45,7 +48,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
     if (initialData) {
       setFormData({
         employeeId: initialData.employeeId || initialData.employee || defaultEmpId,
-        date: initialData.date || new Date().toISOString().split('T')[0],
+        date: initialData.date || getLocalDateString(),
         status: initialData.status || 'present',
         clockInTime: initialData.clockInTime || defaultInTime,
         clockOutTime: initialData.clockOutTime || defaultOutTime,
@@ -59,14 +62,14 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     if (formData.date > todayStr && ['present', 'late', 'half_day', 'absent'].includes(formData.status)) {
-      alert(`Cannot mark attendance as '${formData.status}' for a future date (${formData.date}). Attendance can only be recorded for today or past dates.`);
+      addToast(`Cannot mark attendance as '${formData.status}' for a future date (${formData.date}). Attendance can only be recorded for today or past dates.`, 'error');
       return;
     }
 
     if (isPrivileged && initialData && !formData.auditNote.trim()) {
-      alert('Administrator Override Note is required. Please explain why this record is being modified.');
+      addToast('Administrator Override Note is required. Please explain why this record is being modified.', 'error');
       return;
     }
 
@@ -127,7 +130,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             <input
               type="date"
               value={formData.date}
-              max={new Date().toISOString().split('T')[0]}
+              max={getLocalDateString()}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="filter-input w-full h-10 pl-3"
               required

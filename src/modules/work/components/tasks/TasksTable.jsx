@@ -24,6 +24,7 @@ import { canDeleteTask } from '../../../../shared/utils/permissionUtils';
 import { useConfirm, confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { SnoozeTaskModal } from './SnoozeTaskModal';
 import { Pagination } from '../../../../shared/components/common/Pagination';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 const STATUS_CONFIG = {
   incomplete: { label: 'Incomplete', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
@@ -54,7 +55,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [snoozeTargetTask, setSnoozeTargetTask] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);

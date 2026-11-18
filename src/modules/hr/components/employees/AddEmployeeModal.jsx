@@ -19,7 +19,13 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import { getRoles } from '../../../../shared/services/roleManagementService';
+import {
+  getRoles,
+  getCustomDepartments,
+  addCustomDepartment,
+  getCustomDesignations,
+  addCustomDesignation
+} from '../../../../shared/services/roleManagementService';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
 import { KEYS } from '../../../../shared/services/storageService';
 import { API_BASE, getAuthHeaders } from '../../../../shared/config/apiConfig';
@@ -119,30 +125,16 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     'General Manager'
   ];
 
-  const [customDepartments, setCustomDepartments] = useState(() => {
-    try {
-      const saved = localStorage.getItem('EMS_CUSTOM_DEPARTMENTS');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return DEFAULT_DEPARTMENTS;
-  });
+  const [customDepartments, setCustomDepartments] = useState(() =>
+    getCustomDepartments(DEFAULT_DEPARTMENTS)
+  );
 
   const [showNewDeptInput, setShowNewDeptInput] = useState(false);
   const [newDeptInput, setNewDeptInput] = useState('');
 
-  const [customRoles, setCustomRoles] = useState(() => {
-    try {
-      const saved = localStorage.getItem('EMS_CUSTOM_ROLES');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return DEFAULT_ROLES;
-  });
+  const [customRoles, setCustomRoles] = useState(() =>
+    getCustomDesignations(DEFAULT_ROLES)
+  );
 
   const [showNewRoleInput, setShowNewRoleInput] = useState(false);
   const [newRoleInput, setNewRoleInput] = useState('');
@@ -276,38 +268,28 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     }));
   };
 
-  // Add a new department dynamically
+  // Add a new department dynamically (synced to MongoDB CompanySettings)
   const handleAddDepartment = () => {
     const trimmed = newDeptInput.trim();
     if (!trimmed) return;
-    if (!customDepartments.includes(trimmed)) {
-      const updated = [...customDepartments, trimmed];
-      setCustomDepartments(updated);
-      try {
-        localStorage.setItem('EMS_CUSTOM_DEPARTMENTS', JSON.stringify(updated));
-      } catch (e) {}
-    }
+    const updated = addCustomDepartment(trimmed, DEFAULT_DEPARTMENTS);
+    setCustomDepartments(updated);
     setFormData(prev => ({ ...prev, department: trimmed }));
     setNewDeptInput('');
     setShowNewDeptInput(false);
-    addToast(`New department "${trimmed}" added!`, 'success');
+    addToast(`New department "${trimmed}" saved!`, 'success');
   };
 
-  // Dynamic Role / Designation Handler
+  // Dynamic Role / Designation Handler (synced to MongoDB CompanySettings)
   const handleAddRole = () => {
     const trimmed = newRoleInput.trim();
     if (!trimmed) return;
-    if (!customRoles.includes(trimmed)) {
-      const updated = [...customRoles, trimmed];
-      setCustomRoles(updated);
-      try {
-        localStorage.setItem('EMS_CUSTOM_ROLES', JSON.stringify(updated));
-      } catch (e) {}
-    }
+    const updated = addCustomDesignation(trimmed, DEFAULT_ROLES);
+    setCustomRoles(updated);
     setFormData(prev => ({ ...prev, role: trimmed }));
     setNewRoleInput('');
     setShowNewRoleInput(false);
-    addToast(`New role/designation "${trimmed}" selected!`, 'success');
+    addToast(`New role/designation "${trimmed}" saved!`, 'success');
   };
 
   // Check for duplicate code in real-time

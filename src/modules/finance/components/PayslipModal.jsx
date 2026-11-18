@@ -57,11 +57,16 @@ const MONTH_OPTIONS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const getCurrentMonthLabel = () => {
+  const now = new Date();
+  return `${MONTH_OPTIONS[now.getMonth()]} ${now.getFullYear()}`;
+};
+
 export const PayslipModal = ({
   isOpen,
   onClose,
   employee,
-  month = 'October 2026',
+  month = '',
   salaryData = null,
   attendance = [],
   leaves = []
@@ -72,10 +77,12 @@ export const PayslipModal = ({
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
 
-  // Interactive Month & Year selector state
-  const initialMonthParts = month ? month.split(' ') : ['October', '2026'];
-  const [selectedMonthName, setSelectedMonthName] = useState(initialMonthParts[0] || 'October');
-  const [selectedYear, setSelectedYear] = useState(initialMonthParts[1] || '2026');
+  // Interactive Month & Year selector state (dynamic current month/year default)
+  const resolvedInitial = (month || getCurrentMonthLabel()).split(' ');
+  const nowYear = new Date().getFullYear();
+  const yearOptions = [String(nowYear - 2), String(nowYear - 1), String(nowYear), String(nowYear + 1)];
+  const [selectedMonthName, setSelectedMonthName] = useState(resolvedInitial[0] || MONTH_OPTIONS[new Date().getMonth()]);
+  const [selectedYear, setSelectedYear] = useState(resolvedInitial[1] || String(nowYear));
 
   useEffect(() => {
     const updateInfo = () => setCompanyInfo(getCompanySettings());
@@ -290,10 +297,23 @@ export const PayslipModal = ({
   };
 
   const handleSendEmail = () => {
+    const recipient = employee.email || '';
+    const companyName = companyInfo.companyName || 'Company';
+    const subject = encodeURIComponent(`Salary Slip - ${currentSlipPeriod} - ${companyName}`);
+    const body = encodeURIComponent(
+      `Hi ${employee.name || 'Team Member'},\n\n` +
+      `Please find your salary summary for ${currentSlipPeriod}:\n` +
+      `• Gross Earnings: Rs. ${Number(resolvedSalary.gross || 0).toLocaleString('en-IN')}\n` +
+      `• Total Deductions: Rs. ${Number(resolvedSalary.deductions || 0).toLocaleString('en-IN')}\n` +
+      `• Net Take-Home Pay: Rs. ${Number(resolvedSalary.netSalary || 0).toLocaleString('en-IN')}\n\n` +
+      `(Note: Please attach the PDF exported via "Print / Save PDF".)\n\n` +
+      `Regards,\n${companyName} Payroll Team`
+    );
+    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
     addToast({
-      title: 'Payslip Dispatched via Email 📧',
-      message: `Official Salary Slip for ${currentSlipPeriod} sent to ${employee.email || employee.name.toLowerCase() + '@company.com'} from ${companyInfo.hrEmail || companyInfo.email || 'hr@company.com'}`,
-      type: 'success'
+      title: 'Email Draft Opened',
+      message: `Prepared email draft for ${recipient || employee.name}. Export via "Print / Save PDF" to attach the slip.`,
+      type: 'info'
     });
   };
 
@@ -302,15 +322,15 @@ export const PayslipModal = ({
     navigate('/settings');
   };
 
-  // Mask bank account for security
+  // Mask bank account for security (never display fabricated bank/PAN numbers)
   const rawAcct = employee.bankDetails?.accountNumber || employee.accountNumber || '';
   const maskedAcct = rawAcct.length > 4
     ? `•••• •••• ${rawAcct.slice(-4)}`
-    : (rawAcct || '•••• •••• 4892');
+    : (rawAcct || 'Not Provided');
 
-  const bankName = employee.bankDetails?.bankName || employee.bankName || 'HDFC Bank';
-  const ifscCode = employee.bankDetails?.ifsc || employee.ifsc || 'HDFC0001234';
-  const panNumber = employee.bankDetails?.pan || employee.pan || 'ABCDE1234F';
+  const bankName = employee.bankDetails?.bankName || employee.bankName || 'Not Provided';
+  const ifscCode = employee.bankDetails?.ifsc || employee.ifsc || 'Not Provided';
+  const panNumber = employee.bankDetails?.pan || employee.pan || 'Not Provided';
 
   return (
     <>
@@ -369,7 +389,7 @@ export const PayslipModal = ({
                 onChange={e => setSelectedYear(e.target.value)}
                 className="h-8 rounded-md border border-slate-300 dark:border-slate-700 px-2 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none cursor-pointer focus:border-blue-500 transition-colors"
               >
-                {['2025', '2026', '2027'].map(y => (
+                {yearOptions.map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
@@ -390,7 +410,7 @@ export const PayslipModal = ({
                 onClick={handleSendEmail}
                 className="inline-flex items-center gap-[5px] px-[11px] py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs font-semibold cursor-pointer transition-colors"
               >
-                <Mail size={13} /> <span>Email Slip</span>
+                <Mail size={13} /> <span>Email Draft</span>
               </button>
 
               <button

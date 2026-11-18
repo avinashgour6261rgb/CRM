@@ -33,6 +33,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 import { confirmDialog } from '../../../shared/context/ConfirmContext';
 import { getUserModulePermissions, isAdmin, isHRorAdmin, canDeleteLead, canCreateLeads, canExportData, canAccessModule } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
@@ -325,7 +326,7 @@ export const LeadsPage = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `leads_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `leads_export_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

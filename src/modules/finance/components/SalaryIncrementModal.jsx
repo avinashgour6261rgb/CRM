@@ -22,6 +22,7 @@ import {
 import { useToast } from '../../../shared/context/ToastContext';
 import { useHR } from '../../hr/context/HRContext';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryData, onSalaryUpdated }) => {
   const { addToast } = useToast();
@@ -40,7 +41,7 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
   const [mode, setMode] = useState('fixed'); // 'fixed' | 'percentage'
   const [percentageValue, setPercentageValue] = useState(15);
   const [targetFixedSalary, setTargetFixedSalary] = useState(0);
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [effectiveDate, setEffectiveDate] = useState(getLocalDateString());
   const [reason, setReason] = useState('Annual Performance Appraisal');
   const [remarks, setRemarks] = useState('');
   const [showLetterPreview, setShowLetterPreview] = useState(false);

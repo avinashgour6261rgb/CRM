@@ -18,6 +18,7 @@ import {
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 const LEAD_STAGES = [
   { id: 'new', label: 'New Lead' },
@@ -51,8 +52,8 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
     status: 'new',
     leadSource: 'Website Inquiry',
     assignedToId: currentUser?._id || employees[0]?._id || '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+    startDate: getLocalDateString(),
+    endDate: getLocalDateString(new Date(Date.now() + 30 * 86400000)),
     notes: ''
   });
 

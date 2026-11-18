@@ -23,6 +23,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getLocalDateString } from '../../utils/timerUtils';
 
 export const PendingTasksModal = ({
   isOpen,
@@ -40,7 +41,7 @@ export const PendingTasksModal = ({
   const [filterTab, setFilterTab] = useState(initialFilter || 'all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
 
   // Sync filter tab whenever initialFilter or isOpen changes
   React.useEffect(() => {

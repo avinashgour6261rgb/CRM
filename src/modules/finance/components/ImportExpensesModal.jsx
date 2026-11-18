@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const ImportExpensesModal = ({ isOpen, onClose }) => {
   const { importExpensesBatch } = useCRM();
@@ -55,7 +56,7 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
       const text = event.target.result;
       const lines = text.split('\n').filter(line => line.trim() !== '');
       if (lines.length <= 1) {
-        alert('File is empty or only contains headers');
+        addToast('File is empty or only contains headers.', 'error');
         return;
       }
 
@@ -67,7 +68,7 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
           price: Number(cols[1]) || 5000,
           category: cols[2] || 'Utilities & Office',
           purchasedFrom: cols[3] || 'Vendor Supplier',
-          purchaseDate: cols[4] || new Date().toISOString().split('T')[0],
+          purchaseDate: cols[4] || getLocalDateString(),
           status: cols[5] || 'approved',
           description: cols[6] || 'Batch imported expense record.'
         };

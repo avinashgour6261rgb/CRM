@@ -30,6 +30,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
   const { tasks, projects, employees } = useWork();
@@ -201,7 +202,7 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EMS_Project_Task_History_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `EMS_Project_Task_History_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

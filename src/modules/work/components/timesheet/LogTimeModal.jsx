@@ -22,6 +22,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { isHRorAdmin, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const LogTimeModal = ({ isOpen, onClose }) => {
   const {
@@ -53,7 +54,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
     customTaskName: '',
     customProjectName: 'General Work',
     employeeId: currentUser?._id || employees[0]?._id || '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     startTime: '09:30:00',
     endTime: '17:30:00',
     memo: '',

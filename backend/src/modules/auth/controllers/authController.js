@@ -93,6 +93,7 @@ const buildSessionUser = (employee) => {
     bankDetails: employee.bankDetails,
     emergencyContact: employee.emergencyContact || {},
     emergencyContacts: Array.isArray(employee.emergencyContacts) ? employee.emergencyContacts : [],
+    workPreferences: (employee.workPreferences && typeof employee.workPreferences === 'object') ? employee.workPreferences : {},
     permissions: dbPerms
   };
 };

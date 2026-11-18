@@ -3,6 +3,7 @@ import { X, CheckCircle2, XCircle, UserCheck, ShieldAlert, Calendar, FileText, A
 import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) => {
   const { currentUser: hrUser, reviewResignation } = useHR();
@@ -10,7 +11,7 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
   const { addToast } = useToast();
   const currentUser = authUser || hrUser;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
 
   const [decision, setDecision] = useState('approved'); // 'approved' | 'rejected' | 'relieved'
   const [approvedLastDay, setApprovedLastDay] = useState(resignation?.proposedLastWorkingDay || today);

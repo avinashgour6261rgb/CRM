@@ -20,8 +20,9 @@ import { useHR } from '../../../modules/hr/context/HRContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
-import { getRoles, canUserAssignRole, recordPromotion } from '../../services/roleManagementService';
+import { getRoles, getCustomDesignations, canUserAssignRole, recordPromotion } from '../../services/roleManagementService';
 import { getCompanySettings } from '../../services/companySettingsService';
+import { getLocalDateString } from '../../utils/timerUtils';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 const PRESET_AVATARS = [
@@ -276,7 +277,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           newRole: formData.role,
           previousDepartment: targetEmp.department,
           newDepartment: formData.department,
-          effectiveDate: new Date().toISOString().split('T')[0],
+          effectiveDate: getLocalDateString(),
           promotedBy: currentUser?.name || (isActorAdmin ? 'Super Admin' : 'HR Manager'),
           reason: 'Role Updated via Profile Management'
         });
@@ -473,15 +474,9 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                     className="w-full px-3 py-2 rounded-lg border border-blue-500 bg-white dark:bg-slate-800 text-[13.5px] outline-none font-semibold text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-500"
                   />
                   <datalist id="edit-profile-role-options">
-                    {(() => {
-                      try {
-                        const saved = JSON.parse(localStorage.getItem('EMS_CUSTOM_ROLES') || '[]');
-                        if (Array.isArray(saved)) {
-                          return saved.map(r => <option key={r} value={r}>Custom Company Role</option>);
-                        }
-                      } catch (e) {}
-                      return null;
-                    })()}
+                    {getCustomDesignations().map(r => (
+                      <option key={r} value={r}>Custom Company Role</option>
+                    ))}
                     {availableRoles
                       .filter(r => isActorAdmin || !r.id.toLowerCase().includes('admin'))
                       .map(r => (

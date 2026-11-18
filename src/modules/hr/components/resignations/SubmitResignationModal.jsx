@@ -3,6 +3,7 @@ import { X, AlertTriangle, Send, Calendar, FileText, CheckCircle2 } from 'lucide
 import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const SubmitResignationModal = ({ isOpen, onClose }) => {
   const { currentUser: hrUser = null, submitResignation = () => {}, resignations = [] } = useHR() || {};
@@ -10,9 +11,9 @@ export const SubmitResignationModal = ({ isOpen, onClose }) => {
   const { addToast = () => {} } = useToast() || {};
   const currentUser = authUser || hrUser;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   // Standard 30 days notice
-  const defaultLastDay = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const defaultLastDay = getLocalDateString(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
   const [formData, setFormData] = useState({
     reason: 'Career Growth / Better Opportunity',

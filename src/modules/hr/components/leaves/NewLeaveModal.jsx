@@ -4,6 +4,7 @@ import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { canApproveLeaves, isAdmin } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { UserCheck, ShieldAlert, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 export const NewLeaveModal = ({ isOpen, onClose }) => {
@@ -49,7 +50,7 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
   };
 
   const getInitialFormData = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const myId = activeUser?._id || (employees && employees[0]?._id) || '';
     const approvers = (employees || []).filter(e => String(e._id) !== String(myId) && canApproveLeaves(e));
     const best = getBestApprover(approvers) || (employees || []).find(e => String(e._id) !== String(myId) && (e.isAdmin || e.employeeCode === 'ADM-001'));

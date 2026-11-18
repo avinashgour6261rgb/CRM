@@ -37,7 +37,11 @@ export const DEFAULT_COMPANY_SETTINGS = {
   teaBreakMinutes: 15,
   weeklyOffDays: [0], // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
   workDaysDescription: 'Mon - Sat (Sunday Off)',
-  disbursedPayrollMonths: []
+  disbursedPayrollMonths: [],
+  customRoles: [],
+  customDesignations: [],
+  customDepartments: [],
+  promotionHistory: []
 };
 
 const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -130,6 +134,8 @@ export const fetchCompanySettingsFromDB = async () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         applyCompanyTitle(merged);
         window.dispatchEvent(new Event('company-settings-updated'));
+        window.dispatchEvent(new Event('ems_roles_updated'));
+        window.dispatchEvent(new Event('ems_promotions_updated'));
         return merged;
       }
     }
@@ -178,6 +184,8 @@ export const saveCompanySettings = async (newSettings) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
   applyCompanyTitle(saved);
   window.dispatchEvent(new Event('company-settings-updated'));
+  window.dispatchEvent(new Event('ems_roles_updated'));
+  window.dispatchEvent(new Event('ems_promotions_updated'));
   window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: STORAGE_KEY } }));
   return saved;
 };

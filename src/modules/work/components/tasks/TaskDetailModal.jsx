@@ -25,6 +25,7 @@ import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const TaskDetailModal = ({ task, onClose }) => {
   const {
@@ -80,7 +81,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
   const handleQuickReschedule = async (days) => {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    const newDateStr = d.toISOString().split('T')[0];
+    const newDateStr = getLocalDateString(d);
     await rescheduleTaskForFuture(task._id, newDateStr, `Assigned +${days} day${days > 1 ? 's' : ''} ahead`);
     setIsRescheduling(false);
   };
@@ -123,7 +124,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
         <div className="p-7 flex flex-col gap-5">
           {/* Overdue Task Banner */}
           {(() => {
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = getLocalDateString();
             const isOverdue = !!(task.dueDate && !task.hasNoDueDate && task.dueDate < todayStr && task.status !== 'completed');
             if (!isOverdue) return null;
             return (
@@ -144,7 +145,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                   onClick={async () => {
                     const baseDate = new Date();
                     baseDate.setDate(baseDate.getDate() + 3);
-                    const newDate = baseDate.toISOString().split('T')[0];
+                    const newDate = getLocalDateString(baseDate);
                     await updateTask(task._id, { dueDate: newDate, hasNoDueDate: false });
                   }}
                   className="px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white border-0 text-[11.5px] font-bold cursor-pointer whitespace-nowrap transition-colors"

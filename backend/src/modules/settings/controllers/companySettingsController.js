@@ -50,16 +50,32 @@ exports.updateCompanySettings = async (req, res) => {
 
     const payloadKeys = Object.keys(rawData);
     const isPayrollDisbursementOnly = payloadKeys.length === 1 && payloadKeys[0] === 'disbursedPayrollMonths';
+    const HR_META_KEYS = new Set(['customDesignations', 'customDepartments', 'promotionHistory']);
+    const isHrMetaOnly = payloadKeys.length > 0 && payloadKeys.every(k => HR_META_KEYS.has(k));
+    const isRolesOnly = payloadKeys.length > 0 && payloadKeys.every(k => k === 'customRoles' || HR_META_KEYS.has(k));
 
     const canEditSettings = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.manageSettings || u.permissions?.allAccess));
     const canDisbursePayroll = Boolean(canEditSettings || (u && (u.systemRole === 'hr' || u.permissions?.managePayroll)));
+    const canManageHrMeta = Boolean(canEditSettings || (u && (u.systemRole === 'hr' || u.permissions?.manageEmployees)));
+    const canManageRoles = Boolean(canEditSettings || (u && u.permissions?.grantPermissions));
 
-    if (!(canEditSettings || (isPayrollDisbursementOnly && canDisbursePayroll))) {
+    if (!(
+      canEditSettings ||
+      (isPayrollDisbursementOnly && canDisbursePayroll) ||
+      (isHrMetaOnly && canManageHrMeta) ||
+      (isRolesOnly && canManageRoles)
+    )) {
       return res.status(403).json({ success: false, message: 'Access denied: Insufficient permissions to update company settings.' });
     }
 
     if (Array.isArray(rawData.disbursedPayrollMonths)) {
       rawData.disbursedPayrollMonths = [...new Set(rawData.disbursedPayrollMonths.map(m => String(m || '').trim()).filter(Boolean))];
+    }
+    if (Array.isArray(rawData.customDesignations)) {
+      rawData.customDesignations = [...new Set(rawData.customDesignations.map(v => String(v || '').trim()).filter(Boolean))];
+    }
+    if (Array.isArray(rawData.customDepartments)) {
+      rawData.customDepartments = [...new Set(rawData.customDepartments.map(v => String(v || '').trim()).filter(Boolean))];
     }
 
     if (typeof rawData.companyLogo === 'string' && rawData.companyLogo.length > 600000) {

@@ -16,6 +16,7 @@ import { useHR } from '../../context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getRoles, canUserAssignRole, recordPromotion } from '../../../../shared/services/roleManagementService';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   const { employees = [], updateEmployee = () => {}, currentUser = null } = useHR() || {};
@@ -25,7 +26,7 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
   const [selectedRole, setSelectedRole] = useState('');
   const [customRoleTitle, setCustomRoleTitle] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+  const [effectiveDate, setEffectiveDate] = useState(getLocalDateString());
   const [reason, setReason] = useState('Merit-based Performance & Leadership');
   const [remarks, setRemarks] = useState('');
   const [showLetterPreview, setShowLetterPreview] = useState(false);

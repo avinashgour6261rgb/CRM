@@ -6,6 +6,7 @@ import { TopNavbar } from './TopNavbar';
 import { useAuth } from '../../context/AuthContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
 import { canAccessModule } from '../../utils/permissionUtils';
+import { playTimerChime } from '../../utils/soundUtils';
 
 // Map protected URL paths to their RBAC module key
 const getRequiredModuleForPath = (pathname) => {
@@ -38,6 +39,25 @@ export const Layout = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  // Subtle Web Audio chimes on shift & task timer events (respects Settings -> Timer Audio Chimes)
+  useEffect(() => {
+    const onStart = () => playTimerChime('start');
+    const onPause = () => playTimerChime('pause');
+    const onStop = () => playTimerChime('stop');
+    window.addEventListener('ems_clocked_in', onStart);
+    window.addEventListener('ems_clocked_out', onStop);
+    window.addEventListener('ems_task_timer_started', onStart);
+    window.addEventListener('ems_task_timer_paused', onPause);
+    window.addEventListener('ems_task_timer_stopped', onStop);
+    return () => {
+      window.removeEventListener('ems_clocked_in', onStart);
+      window.removeEventListener('ems_clocked_out', onStop);
+      window.removeEventListener('ems_task_timer_started', onStart);
+      window.removeEventListener('ems_task_timer_paused', onPause);
+      window.removeEventListener('ems_task_timer_stopped', onStop);
+    };
+  }, []);
 
   // Re-evaluate route access immediately whenever permissions change live
   useEffect(() => {

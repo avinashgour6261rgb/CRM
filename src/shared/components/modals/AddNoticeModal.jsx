@@ -18,14 +18,15 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
 import { useToast } from '../../context/ToastContext';
+import { getLocalDateString } from '../../utils/timerUtils';
 
 export const AddNoticeModal = ({ isOpen, onClose }) => {
   const { createNotice = async () => {} } = useCRM() || {};
   const { currentUser = null } = useHR() || {};
   const { addToast = () => {} } = useToast() || {};
 
-  const now = new Date().toISOString().split('T')[0];
-  const defaultExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const now = getLocalDateString();
+  const defaultExpiry = getLocalDateString(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
   const [formData, setFormData] = useState({
     title: '',

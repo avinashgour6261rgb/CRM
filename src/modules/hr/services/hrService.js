@@ -742,13 +742,13 @@ export const hrService = {
       try {
         const todayStr = getLocalDateString();
         let attendance = getCollection(KEYS.ATTENDANCE) || [];
-        const start = new Date(targetLeave.startDate);
-        const end = new Date(targetLeave.endDate || targetLeave.startDate);
+        const start = new Date(`${String(targetLeave.startDate).slice(0, 10)}T00:00:00`);
+        const end = new Date(`${String(targetLeave.endDate || targetLeave.startDate).slice(0, 10)}T00:00:00`);
         const cur = new Date(start);
 
         if (status === 'approved') {
           while (cur <= end) {
-            const dStr = cur.toISOString().split('T')[0];
+            const dStr = getLocalDateString(cur);
             const existingIdx = attendance.findIndex(a =>
               a.date === dStr && (
                 String(a.employeeId) === String(targetEmpKey) ||
@@ -772,7 +772,7 @@ export const hrService = {
           }
         } else if (status === 'cancelled' || status === 'rejected') {
           while (cur <= end) {
-            const dStr = cur.toISOString().split('T')[0];
+            const dStr = getLocalDateString(cur);
             attendance = attendance.filter(a => {
               const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
                 String(a.employee) === String(targetEmpKey) ||
@@ -900,11 +900,11 @@ export const hrService = {
       if (targetLeave.status === 'approved') {
         const todayStr = getLocalDateString();
         let attendance = getCollection(KEYS.ATTENDANCE) || [];
-        const start = new Date(targetLeave.startDate);
-        const end = new Date(targetLeave.endDate || targetLeave.startDate);
+        const start = new Date(`${String(targetLeave.startDate).slice(0, 10)}T00:00:00`);
+        const end = new Date(`${String(targetLeave.endDate || targetLeave.startDate).slice(0, 10)}T00:00:00`);
         const cur = new Date(start);
         while (cur <= end) {
-          const dStr = cur.toISOString().split('T')[0];
+          const dStr = getLocalDateString(cur);
           attendance = attendance.filter(a => {
             const matchesEmp = String(a.employeeId) === String(targetEmpKey) ||
               String(a.employee) === String(targetEmpKey) ||

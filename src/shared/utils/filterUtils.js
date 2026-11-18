@@ -31,7 +31,10 @@ export const normalizeDate = (val) => {
     return val.trim();
   }
   if (val instanceof Date && !isNaN(val)) {
-    return val.toISOString().split('T')[0];
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
   return '';
 };

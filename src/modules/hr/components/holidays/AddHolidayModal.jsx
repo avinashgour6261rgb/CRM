@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { ShieldCheck } from 'lucide-react';
 
 export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
   const { addHoliday, currentUser } = useHR();
+  const { addToast } = useToast();
   const canManageHolidays = isHRorAdmin(currentUser);
 
   const [formData, setFormData] = useState({
     name: '',
-    date: selectedDate || new Date().toISOString().split('T')[0],
+    date: selectedDate || getLocalDateString(),
     type: 'National Holiday',
     description: '',
     isRecurringYearly: true
@@ -19,11 +22,11 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canManageHolidays) {
-      alert('🔒 Access Denied: Only HR and Admin administrators have authorization to publish company holidays.');
+      addToast('Access Denied: Only HR and Admin administrators have authorization to publish company holidays.', 'error');
       return;
     }
     if (!formData.name.trim()) {
-      alert('Please enter holiday name');
+      addToast('Please enter holiday name.', 'error');
       return;
     }
 

@@ -2044,7 +2044,7 @@ export const TeamOperationsPage = () => {
                       date: (() => {
                         const d = new Date();
                         d.setDate(d.getDate() - 1);
-                        return d.toISOString().split('T')[0];
+                        return getLocalDateString(d);
                       })()
                     },
                     {
@@ -2052,7 +2052,7 @@ export const TeamOperationsPage = () => {
                       date: (() => {
                         const d = new Date();
                         d.setDate(d.getDate() - 2);
-                        return d.toISOString().split('T')[0];
+                        return getLocalDateString(d);
                       })()
                     }
                   ].map(pill => (

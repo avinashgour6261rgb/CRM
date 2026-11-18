@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 import { ShieldAlert, AlertTriangle, LogOut, Clock, User } from 'lucide-react';
 
 export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null }) => {
   const { employees, adminForceClockOut, currentUser, attendance } = useHR();
+  const { addToast } = useToast();
 
   const [selectedEmpId, setSelectedEmpId] = useState(targetEmployee?._id || 'emp_003');
   const [auditNote, setAuditNote] = useState('');
@@ -19,7 +21,7 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
   const handleForceClockOut = async (e) => {
     e.preventDefault();
     if (!auditNote.trim()) {
-      alert('Audit note explaining why shift is being forcefully closed is mandatory.');
+      addToast('Audit note explaining why shift is being forcefully closed is mandatory.', 'error');
       return;
     }
 

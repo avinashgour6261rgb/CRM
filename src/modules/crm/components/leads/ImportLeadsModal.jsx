@@ -63,7 +63,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
         const lines = text.split(/\r\n|\n/).filter(line => line.trim().length > 0);
 
         if (lines.length < 2) {
-          alert('CSV file is empty or does not contain header and data rows.');
+          addToast('CSV file is empty or does not contain header and data rows.', 'error');
           return;
         }
 
@@ -130,7 +130,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
         setParsedRows(dataRows);
       } catch (err) {
         console.error('Error parsing CSV:', err);
-        alert('Failed to parse file. Please verify CSV format.');
+        addToast('Failed to parse file. Please verify CSV format.', 'error');
       }
     };
 
@@ -140,7 +140,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
   const handleConfirmImport = async () => {
     const validRows = parsedRows.filter(r => r.isValid);
     if (validRows.length === 0) {
-      alert('No valid lead rows to import. Please check validation errors in the preview table.');
+      addToast('No valid lead rows to import. Please check validation errors in the preview table.', 'error');
       return;
     }
 

@@ -19,6 +19,7 @@ import { HolidayCalendar } from '../components/holidays/HolidayCalendar';
 import { AddHolidayModal } from '../components/holidays/AddHolidayModal';
 import { isHRorAdmin, canManageCompanyHolidays } from '../../../shared/utils/permissionUtils';
 import { holidaySyncService } from '../services/holidaySyncService';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const HolidayPage = () => {
   const { addToast } = useToast();
@@ -32,8 +33,8 @@ export const HolidayPage = () => {
   // Access Control: Admin & HR or explicit granular permission
   const canManageHolidays = canManageCompanyHolidays(currentUser);
 
-  // Dynamic today's date
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Dynamic today's date (local/IST safe)
+  const todayStr = getLocalDateString();
   const currentYear = new Date().getFullYear();
 
   // Load Pan-India suggested festivals and national holidays
@@ -134,7 +135,7 @@ export const HolidayPage = () => {
 
   const handleExportCSV = () => {
     if (holidays.length === 0) {
-      alert('No holiday records to export.');
+      addToast('No holiday records to export.', 'info');
       return;
     }
     const headers = ['Holiday Name', 'Date', 'Day of Week', 'Type', 'Description'];

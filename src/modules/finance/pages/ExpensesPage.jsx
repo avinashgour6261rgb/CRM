@@ -33,6 +33,7 @@ import { AddExpenseModal } from '../components/AddExpenseModal';
 import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
 import { ImportExpensesModal } from '../components/ImportExpensesModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const ExpensesPage = () => {
   const { expenses, updateExpenseStatus, deleteExpense } = useCRM();
@@ -125,7 +126,7 @@ export const ExpensesPage = () => {
   // Export to CSV
   const handleExport = () => {
     if (filteredExpenses.length === 0) {
-      alert('No expense records available to export');
+      addToast('No expense records available to export.', 'info');
       return;
     }
 
@@ -138,7 +139,7 @@ export const ExpensesPage = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `company_expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `company_expenses_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -25,6 +25,7 @@ import { ActiveTimerCard } from '../components/timesheet/ActiveTimerCard';
 import { TimesheetTable } from '../components/timesheet/TimesheetTable';
 import { LogTimeModal } from '../components/timesheet/LogTimeModal';
 import { TaskDetailModal } from '../components/tasks/TaskDetailModal';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const TimesheetPage = () => {
   const {
@@ -140,7 +141,7 @@ export const TimesheetPage = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EMS_Timesheets_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `EMS_Timesheets_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

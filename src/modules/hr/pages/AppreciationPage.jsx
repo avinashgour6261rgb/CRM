@@ -29,6 +29,7 @@ import {
   canAccessModule
 } from '../../../shared/utils/permissionUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -53,8 +54,8 @@ export const AppreciationPage = () => {
     setCurrentPage(1);
   }, [searchQuery, selectedEmployeeFilter]);
 
-  // 1. Exact Dynamic Mathematical KPI metrics
-  const currentMonthPrefix = new Date().toISOString().slice(0, 7);
+  // 1. Exact Dynamic Mathematical KPI metrics (local/IST safe)
+  const currentMonthPrefix = getLocalDateString().slice(0, 7);
   const currentMonthName = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const totalAppreciationsCount = appreciations.length;
   const thisMonthAppreciations = appreciations.filter(a => a.givenOn?.startsWith(currentMonthPrefix));
@@ -139,7 +140,7 @@ export const AppreciationPage = () => {
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const link = document.createElement('a');
     link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `Appreciations_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Appreciations_Report_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

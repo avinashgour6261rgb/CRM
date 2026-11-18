@@ -27,6 +27,7 @@ import { canPostNotices, canDeleteNotice, isHRorAdmin, canExportData } from '../
 import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice } = useCRM();
@@ -87,7 +88,7 @@ export const NoticeBoardPage = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `notice_board_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `notice_board_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

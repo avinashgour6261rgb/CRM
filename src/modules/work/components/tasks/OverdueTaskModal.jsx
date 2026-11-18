@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Calendar, Clock, CheckCircle2, Play, X, ArrowRight } from 'lucide-react';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const OverdueTaskModal = ({
   task,
@@ -34,7 +35,7 @@ export const OverdueTaskModal = ({
     if (!customDate) return;
     setSubmitting(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       if (customDate < today) {
         addToast('Please choose a future date for the new deadline.', 'warning');
         return;
@@ -149,7 +150,7 @@ export const OverdueTaskModal = ({
                 type="date"
                 value={customDate}
                 onChange={e => setCustomDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
+                min={getLocalDateString()}
                 className="flex-1 h-8 px-2 rounded-md border border-slate-300 dark:border-slate-700 text-xs outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500"
               />
               <button

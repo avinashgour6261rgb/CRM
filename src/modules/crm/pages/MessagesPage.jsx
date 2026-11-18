@@ -39,6 +39,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
 import { useTimer } from '../../../shared/context/TimerContext';
@@ -374,7 +375,7 @@ export const MessagesPage = () => {
     if (!partner) return null;
 
     const empKey = partner.employeeCode || (partner._id ? String(partner._id) : '');
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const hrAttendance = (attendance || []).find(a =>
       a.date === today && (
         String(a.employeeId) === String(partner._id) ||

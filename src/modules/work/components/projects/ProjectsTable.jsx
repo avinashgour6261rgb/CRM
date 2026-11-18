@@ -21,6 +21,7 @@ import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteProject } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 const STATUS_CONFIG = {
   in_progress: {
@@ -67,7 +68,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
     currentUser.permissions?.manageProjects
   );
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();

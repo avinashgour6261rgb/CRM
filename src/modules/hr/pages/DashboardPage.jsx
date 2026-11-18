@@ -564,7 +564,7 @@ export const DashboardPage = () => {
       isStaleFromPreviousDay = true;
       inDate = storedSessionDate;
     } else if (rawClockInTs > 0) {
-      inDate = new Date(rawClockInTs).toISOString().split('T')[0];
+      inDate = getLocalDateString(new Date(rawClockInTs));
       if (inDate !== todayStr) {
         isStaleFromPreviousDay = true;
       }
@@ -1958,7 +1958,7 @@ export const DashboardPage = () => {
   }, [pendingLeaveRequestsForMe, dismissedTopAlerts]);
 
   const activeTopNotices = React.useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const targetUid = String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || '');
     const targetCode = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
     const targetDept = String(effectiveTargetUser?.department || currentUser?.department || '').toLowerCase();
@@ -2329,7 +2329,7 @@ export const DashboardPage = () => {
                     onClick={async () => {
                       const tomorrow = new Date();
                       tomorrow.setDate(tomorrow.getDate() + 1);
-                      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                      const tomorrowStr = getLocalDateString(tomorrow);
                       if (rescheduleTaskForFuture) {
                         await rescheduleTaskForFuture(currentLeftover._id, tomorrowStr, 'Rescheduled to tomorrow from Leftover Reminder');
                         addToast(`📅 Task rescheduled to tomorrow (${tomorrowStr})`, 'success');
@@ -2346,7 +2346,7 @@ export const DashboardPage = () => {
                     onClick={async () => {
                       const nextWeek = new Date();
                       nextWeek.setDate(nextWeek.getDate() + 7);
-                      const nextWeekStr = nextWeek.toISOString().split('T')[0];
+                      const nextWeekStr = getLocalDateString(nextWeek);
                       if (rescheduleTaskForFuture) {
                         await rescheduleTaskForFuture(currentLeftover._id, nextWeekStr, 'Rescheduled to next week (+7d)');
                         addToast(`📅 Task rescheduled to next week (${nextWeekStr})`, 'success');

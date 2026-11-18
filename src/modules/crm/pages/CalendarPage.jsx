@@ -33,6 +33,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { AddEventModal } from '../../../shared/components/modals/AddEventModal';
 import { DateMemoryModal } from '../components/calendar/DateMemoryModal';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 import { dateMemoryService } from '../services/dateMemoryService';
 import { holidaySyncService } from '../../hr/services/holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
@@ -253,12 +254,12 @@ export const CalendarPage = () => {
 
       if (!isPrivilegedUser && !isMine) return;
 
-      const start = new Date(l.startDate);
-      const end = new Date(l.endDate);
+      const start = new Date(`${String(l.startDate).slice(0, 10)}T00:00:00`);
+      const end = new Date(`${String(l.endDate).slice(0, 10)}T00:00:00`);
       const cur = new Date(start);
 
       while (cur <= end) {
-        const dStr = cur.toISOString().split('T')[0];
+        const dStr = getLocalDateString(cur);
         approvedLeaveEvents.push({
           _id: `leave_cal_${l._id}_${dStr}`,
           title: `🌴 ${l.leaveType || 'Leave'}: ${l.employeeName || 'Team Member'}`,
@@ -281,7 +282,7 @@ export const CalendarPage = () => {
     });
 
     // 6. Dynamic Tasks Due Dates (Scoped by user role & personal task isolation)
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const taskEvents = (tasks || [])
       .filter(t => t?.dueDate && isTaskVisibleToUser(t, currentUser))
       .map(t => {
@@ -453,7 +454,7 @@ export const CalendarPage = () => {
   }, [computedBirthdays, computedAnniversaries]);
 
   // Next Upcoming Major Festival or Holiday Countdown
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const nextFestivalOrHoliday = useMemo(() => {
     const combined = [
       ...(suggestedHolidays || []),
@@ -1146,15 +1147,15 @@ export const CalendarPage = () => {
                 Events for {currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
               </div>
               <button
-                onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                onClick={() => handleOpenDateMemory(getLocalDateString(currentDate))}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-purple-600 text-white text-xs font-bold cursor-pointer hover:bg-purple-700 transition-colors"
               >
                 <Lock size={11} />
                 <span>+ Add Note for this Day</span>
               </button>
             </div>
-            {filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).length > 0 ? (
-              filteredEvents.filter(e => e.date === currentDate.toISOString().split('T')[0] || e.isRecurring).map((ev, evIdx) => (
+            {filteredEvents.filter(e => e.date === getLocalDateString(currentDate) || e.isRecurring).length > 0 ? (
+              filteredEvents.filter(e => e.date === getLocalDateString(currentDate) || e.isRecurring).map((ev, evIdx) => (
                 <div
                   key={ev._id ? `${ev._id}_${evIdx}` : `day_ev_${evIdx}`}
                   onClick={() => {
@@ -1199,7 +1200,7 @@ export const CalendarPage = () => {
                 <CalendarIcon size={32} className="mx-auto mb-2 opacity-50" />
                 <div className="text-[13.5px]">No events scheduled for this day</div>
                 <button
-                  onClick={() => handleOpenDateMemory(currentDate.toISOString().split('T')[0])}
+                  onClick={() => handleOpenDateMemory(getLocalDateString(currentDate))}
                   className="mt-3 px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold cursor-pointer hover:bg-blue-700"
                 >
                   + Add First Note / Task

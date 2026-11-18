@@ -373,7 +373,7 @@ export const AttendancePage = () => {
 
   const handleExportCSV = () => {
     if (currentMonthRecords.length === 0) {
-      alert('No attendance data to export for selected period.');
+      addToast('No attendance data to export for selected period.', 'info');
       return;
     }
     const headers = ['Employee ID', 'Employee Name', 'Date', 'Status', 'Clock In', 'Clock Out', 'Hours', 'Notes'];

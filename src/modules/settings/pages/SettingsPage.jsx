@@ -22,24 +22,62 @@ import { ShiftSettingsTab } from '../components/ShiftSettingsTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useHR } from '../../hr/context/HRContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { isAdmin, canUserGrantPermissions, canManageSettings } from '../../../shared/utils/permissionUtils';
+import { playTimerChime } from '../../../shared/utils/soundUtils';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const SettingsPage = () => {
   const { timeString, isClockedIn, isOnBreak } = useTimer();
-  const { currentUser } = useAuth();
+  const { currentUser, setCurrentUser } = useAuth();
+  const { updateEmployee } = useHR();
+  const { addToast } = useToast();
   const isUserAdmin = isAdmin(currentUser);
   const canManagePerms = isUserAdmin || canUserGrantPermissions(currentUser);
   const canManageCompanyPolicy = isUserAdmin || canManageSettings(currentUser);
+  const companyCfg = getCompanySettings();
+  const teaLimit = companyCfg?.teaBreakMinutes ?? 15;
+  const lunchLimit = companyCfg?.lunchDurationMinutes ?? 45;
 
   const [activeSection, setActiveSection] = useState('profile');
   const [profileSubTab, setProfileSubTab] = useState('profile');
   const [searchMenu, setSearchMenu] = useState('');
 
-  // Personal preferences state for employees
-  const [emailAlerts, setEmailAlerts] = useState(() => localStorage.getItem('ems_pref_email_alerts') !== 'false');
-  const [taskReminders, setTaskReminders] = useState(() => localStorage.getItem('ems_pref_task_reminders') !== 'false');
-  const [breakReminders, setBreakReminders] = useState(() => localStorage.getItem('ems_pref_break_reminders') !== 'false');
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('ems_pref_sound') !== 'false');
+  // Personal in-app work preferences (cloud-synced to employee.workPreferences + localStorage)
+  const savedPrefs = currentUser?.workPreferences || {};
+  const [taskReminders, setTaskReminders] = useState(() =>
+    savedPrefs.taskReminders !== undefined ? !!savedPrefs.taskReminders : localStorage.getItem('ems_pref_task_reminders') !== 'false'
+  );
+  const [breakReminders, setBreakReminders] = useState(() =>
+    savedPrefs.breakReminders !== undefined ? !!savedPrefs.breakReminders : localStorage.getItem('ems_pref_break_reminders') !== 'false'
+  );
+  const [soundEnabled, setSoundEnabled] = useState(() =>
+    savedPrefs.soundEnabled !== undefined ? !!savedPrefs.soundEnabled : localStorage.getItem('ems_pref_sound') !== 'false'
+  );
+
+  const persistWorkPreference = async (key, nextVal, lsKey) => {
+    localStorage.setItem(lsKey, String(nextVal));
+    const nextPrefs = {
+      taskReminders: key === 'taskReminders' ? nextVal : taskReminders,
+      breakReminders: key === 'breakReminders' ? nextVal : breakReminders,
+      soundEnabled: key === 'soundEnabled' ? nextVal : soundEnabled
+    };
+    if (key === 'soundEnabled' && nextVal) {
+      playTimerChime('start');
+    }
+    if (currentUser?._id) {
+      try {
+        await updateEmployee(currentUser._id, { workPreferences: nextPrefs });
+        const updatedAuth = { ...currentUser, workPreferences: nextPrefs };
+        delete updatedAuth.password;
+        localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
+        if (setCurrentUser) setCurrentUser(updatedAuth);
+      } catch (_) {
+        addToast('Preference saved locally (sync pending).', 'info');
+      }
+    }
+  };
 
   // Role-based menu items (Unified, clean single RBAC tab for Employee Access & Permissions)
   const menuItems = React.useMemo(() => {
@@ -222,17 +260,6 @@ export const SettingsPage = () => {
               <div className="flex flex-col gap-3">
                 {[
                   {
-                    id: 'email',
-                    title: 'Email Notifications',
-                    desc: 'Receive task assignment, leave decision, and company announcements in email.',
-                    value: emailAlerts,
-                    toggle: () => {
-                      const next = !emailAlerts;
-                      setEmailAlerts(next);
-                      localStorage.setItem('ems_pref_email_alerts', String(next));
-                    }
-                  },
-                  {
                     id: 'tasks',
                     title: 'Task Due Reminders',
                     desc: 'Show in-app reminders for upcoming and overdue sprint tasks.',
@@ -240,29 +267,29 @@ export const SettingsPage = () => {
                     toggle: () => {
                       const next = !taskReminders;
                       setTaskReminders(next);
-                      localStorage.setItem('ems_pref_task_reminders', String(next));
+                      persistWorkPreference('taskReminders', next, 'ems_pref_task_reminders');
                     }
                   },
                   {
                     id: 'breaks',
                     title: 'Tea & Lunch Break Overdue Alerts',
-                    desc: 'Notify when tea break exceeds 15 mins or lunch exceeds 45 mins.',
+                    desc: `Highlight break warnings when tea break exceeds ${teaLimit} mins or lunch exceeds ${lunchLimit} mins.`,
                     value: breakReminders,
                     toggle: () => {
                       const next = !breakReminders;
                       setBreakReminders(next);
-                      localStorage.setItem('ems_pref_break_reminders', String(next));
+                      persistWorkPreference('breakReminders', next, 'ems_pref_break_reminders');
                     }
                   },
                   {
                     id: 'sound',
                     title: 'Timer Audio Chimes',
-                    desc: 'Play subtle audio chimes when starting or pausing shift timers.',
+                    desc: 'Play subtle audio chimes when starting, pausing, or stopping shift and task timers.',
                     value: soundEnabled,
                     toggle: () => {
                       const next = !soundEnabled;
                       setSoundEnabled(next);
-                      localStorage.setItem('ems_pref_sound', String(next));
+                      persistWorkPreference('soundEnabled', next, 'ems_pref_sound');
                     }
                   }
                 ].map(pref => (

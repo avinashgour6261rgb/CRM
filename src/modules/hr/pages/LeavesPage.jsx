@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { NewLeaveModal } from '../components/leaves/NewLeaveModal';
 import { LeaveDetailModal } from '../components/leaves/LeaveDetailModal';
@@ -35,6 +36,7 @@ import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
+  const { addToast } = useToast();
   const {
     leaves,
     employees,
@@ -179,7 +181,7 @@ export const LeavesPage = () => {
 
   const handleExportCSV = () => {
     if (filteredLeaves.length === 0) {
-      alert('No leave records to export');
+      addToast('No leave records to export.', 'info');
       return;
     }
     const headers = ['ID', 'Employee Name', 'Role', 'Leave Type', 'Start Date', 'End Date', 'Duration', 'Status', 'Paid', 'Reason'];
@@ -200,7 +202,7 @@ export const LeavesPage = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Leaves_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Leaves_Report_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

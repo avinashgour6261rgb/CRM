@@ -80,6 +80,10 @@ const EmployeeSchema = new mongoose.Schema(
       type: Array,
       default: []
     },
+    workPreferences: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     workMode: {
       type: String,
       default: 'Office'

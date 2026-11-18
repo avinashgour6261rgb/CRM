@@ -21,10 +21,12 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 
 export const EditLeadModal = ({ lead, isOpen, onClose }) => {
   const { updateLead } = useCRM();
   const { employees, currentUser } = useHR();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -77,7 +79,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) {
-      alert('Please provide at least a Lead Name and Work Email');
+      addToast('Please provide at least a Lead Name and Work Email.', 'error');
       return;
     }
 

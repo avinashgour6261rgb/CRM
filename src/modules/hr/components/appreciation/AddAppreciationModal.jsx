@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../common/Modal';
 import { useHR } from '../../context/HRContext';
+import { useToast } from '../../../../shared/context/ToastContext';
 import { canGiveAppreciation } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const AddAppreciationModal = ({ isOpen, onClose }) => {
   const { employees, currentUser, addAppreciation } = useHR();
+  const { addToast } = useToast();
   const canGive = useMemo(() => canGiveAppreciation(currentUser), [currentUser]);
 
   const recipientOptions = useMemo(() => {
@@ -22,7 +25,7 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
     givenToId: '',
     awardName: 'Star Performer of the Month',
     awardBadgeIcon: 'trophy',
-    givenOn: new Date().toISOString().split('T')[0],
+    givenOn: getLocalDateString(),
     rewardPointsOrCash: '₹5,000 Bonus / Gift Voucher',
     appreciationNote: ''
   });
@@ -39,7 +42,7 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.appreciationNote.trim()) {
-      alert('Please enter an appreciation message or reason for the award.');
+      addToast('Please enter an appreciation message or reason for the award.', 'error');
       return;
     }
 
@@ -49,7 +52,7 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
     ) || recipientOptions[0];
 
     if (!selectedEmp) {
-      alert('Please select an employee to recognize.');
+      addToast('Please select an employee to recognize.', 'error');
       return;
     }
 
@@ -59,7 +62,7 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
     );
 
     if (isSelf) {
-      alert('Self-recognition is not permitted. Please select a colleague to appreciate.');
+      addToast('Self-recognition is not permitted. Please select a colleague to appreciate.', 'error');
       return;
     }
 

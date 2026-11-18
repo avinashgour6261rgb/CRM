@@ -31,6 +31,7 @@ import { Pagination } from '../../../shared/components/common/Pagination';
 import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketModal';
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
@@ -133,7 +134,7 @@ export const TicketsPage = () => {
 
   const handleExport = () => {
     if (filteredTickets.length === 0) {
-      alert('No tickets available to export');
+      addToast('No tickets available to export.', 'info');
       return;
     }
 
@@ -146,7 +147,7 @@ export const TicketsPage = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `support_tickets_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `support_tickets_${getLocalDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -2113,7 +2113,7 @@ export const WorkProvider = ({ children }) => {
       if (!target) return;
       const baseDate = new Date();
       baseDate.setDate(baseDate.getDate() + days);
-      const newDueDate = baseDate.toISOString().split('T')[0];
+      const newDueDate = getLocalDateString(baseDate);
 
       await rescheduleTaskForFuture(taskId, newDueDate, `Extended +${days} day${days > 1 ? 's' : ''}`);
       // Auto start timer once deadline extended

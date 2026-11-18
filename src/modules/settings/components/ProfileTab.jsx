@@ -15,6 +15,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getRoles, canUserAssignRole, recordPromotion } from '../../../shared/services/roleManagementService';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 const COUNTRIES = [
   { code: 'AF', name: 'Afghanistan', dial: '+93', flag: '🇦🇫' },
@@ -208,7 +209,7 @@ export const ProfileTab = () => {
           newRole: formData.role,
           previousDepartment: currentUser.department,
           newDepartment: currentUser.department,
-          effectiveDate: new Date().toISOString().split('T')[0],
+          effectiveDate: getLocalDateString(),
           promotedBy: currentUser.name || (isActorAdmin ? 'Super Admin' : 'HR Manager'),
           reason: 'Role Updated via Profile Settings'
         });

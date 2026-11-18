@@ -18,6 +18,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { getLocalDateString } from '../../utils/timerUtils';
 
 const EVENT_TYPES = [
   { value: 'Personal Reminder', label: '⏰ Personal Reminder / Task Reminder', color: '#d97706', bg: '#fffbeb' },
@@ -36,7 +37,7 @@ export const AddEventModal = ({ isOpen, onClose }) => {
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  const now = new Date().toISOString().split('T')[0];
+  const now = getLocalDateString();
 
   const [formData, setFormData] = useState({
     eventName: '',

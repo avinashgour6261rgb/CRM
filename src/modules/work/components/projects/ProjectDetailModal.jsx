@@ -27,6 +27,7 @@ import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteProject } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onExtendDeadline }) => {
   const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion, deleteProject } = useWork();
@@ -44,7 +45,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
     currentUser.permissions?.manageProjects
   );
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const isOverdue = project.deadline && !project.hasNoDeadline && project.deadline < todayStr && project.status !== 'completed';
   const overdueDays = isOverdue
     ? Math.max(1, Math.ceil((new Date(todayStr) - new Date(project.deadline)) / (1000 * 60 * 60 * 24)))

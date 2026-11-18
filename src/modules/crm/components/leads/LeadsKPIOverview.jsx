@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import {
   Users,
   Sparkles,
@@ -25,7 +26,7 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
   const convertedLeads = leads.filter(l => l.status === 'converted').length;
   const lostLeads = leads.filter(l => l.status === 'lost').length;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const overdueLeads = leads.filter(l => l.status !== 'converted' && l.status !== 'lost' && l.endDate && l.endDate < todayStr).length;
 
   const totalPipelineValue = leads.reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0);

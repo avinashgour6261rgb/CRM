@@ -23,15 +23,18 @@ import {
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useHR } from '../../hr/context/HRContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { isHRorAdmin } from '../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const AddExpenseModal = ({ isOpen, onClose }) => {
   const { createExpense } = useCRM();
   const { currentUser } = useAuth();
   const { employees } = useHR();
+  const { addToast } = useToast();
 
   const isPrivileged = useMemo(() => isHRorAdmin(currentUser), [currentUser]);
-  const now = new Date().toISOString().split('T')[0];
+  const now = getLocalDateString();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -71,7 +74,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size exceeds 5MB limit. Please upload a smaller receipt or invoice.');
+      addToast('File size exceeds 5MB limit. Please upload a smaller receipt or invoice.', 'error');
       return;
     }
 
@@ -98,7 +101,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.itemName.trim() || !formData.price) {
-      alert('Please enter an Expense Item Name and Price');
+      addToast('Please enter an Expense Item Name and Price.', 'error');
       return;
     }
 
