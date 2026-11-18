@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useTimer } from '../../../shared/context/TimerContext';
 import { useHR } from '../context/HRContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useCRM } from '../../../shared/context/CRMContext';
@@ -41,12 +42,22 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
   const { currentUser, isHRorAdmin } = useAuth();
+  const {
+    workSeconds: selfWorkSeconds,
+    overtimeSeconds: selfOvertimeSeconds,
+    breakSeconds: selfBreakSeconds,
+    isClockedIn: selfIsClockedIn,
+    isOnBreak: selfIsOnBreak,
+    breakType: selfBreakType,
+    loginTime: selfLoginTime,
+    clockOutTime: selfClockOutTime
+  } = useTimer();
   const { employees, attendance, leaves, auditLogs, loadHRData, loadData } = useHR();
   const refreshData = loadHRData || loadData || (() => {});
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
@@ -137,10 +148,10 @@ export const TeamOperationsPage = () => {
     }
   };
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
   const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
 
-  // ── Multi-User Live Telemetry Poller (Every 5s + Instant Socket for real-time remote sync) ──
+  // ── Multi-User Live Telemetry Poller (Every 15s + Instant Socket for real-time remote sync) ──
   useEffect(() => {
     let isMounted = true;
     const fetchTelemetry = async () => {
@@ -152,13 +163,24 @@ export const TeamOperationsPage = () => {
           : (res && typeof res === 'object' && !Array.isArray(res) ? res : null);
         if (isMounted && telemMap) {
           const recvTs = Date.now();
-          const stamped = {};
-          Object.keys(telemMap).forEach(k => {
-            if (telemMap[k] && typeof telemMap[k] === 'object') {
-              stamped[k] = { ...telemMap[k], receivedAt: recvTs };
-            }
+          setLiveTelemetryMap(prev => {
+            const stamped = {};
+            Object.keys(telemMap).forEach(k => {
+              const inc = telemMap[k];
+              if (inc && typeof inc === 'object') {
+                const old = prev[k];
+                // Anti-flicker monotonic merge: while clocked in, never let a poll pull workSeconds backwards
+                let safeWork = Number(inc.workSeconds) || 0;
+                if (inc.isClockedIn && !inc.isOnBreak && old && old.isClockedIn && !old.isOnBreak) {
+                  const oldElapsed = Math.max(0, Math.floor((recvTs - (Number(old.receivedAt) || recvTs)) / 1000));
+                  const oldLive = (Number(old.workSeconds) || 0) + oldElapsed;
+                  safeWork = Math.max(safeWork, oldLive);
+                }
+                stamped[k] = { ...inc, workSeconds: safeWork, receivedAt: recvTs };
+              }
+            });
+            return stamped;
           });
-          setLiveTelemetryMap(stamped);
         }
       } catch (_) {}
     };
@@ -249,6 +271,7 @@ export const TeamOperationsPage = () => {
       window.removeEventListener('ems_clocked_out', handleStorage);
       window.removeEventListener('ems_force_clock_out', handleStorage);
       window.removeEventListener('ems_task_timer_started', handleStorage);
+      window.removeEventListener('ems_task_timer_paused', handleStorage);
     };
   }, []);
 
@@ -417,106 +440,122 @@ export const TeamOperationsPage = () => {
       telem = liveTelemetryMap[`name_${empNameStr}`];
     }
 
-    // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
-    const isClockedIn = telem ? Boolean(telem.isClockedIn) : (!isExplicitlyStoredClockedOut && (
-      (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
-      (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
-    ));
+    const isSelf = isSelfEmployee(emp);
 
-    const isClockedOut = telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && (
-      isExplicitlyStoredClockedOut ||
-      (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
-      (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
-    ));
+    // Strict Clock-In validation: For the logged-in user (You), read directly from live TimerContext so Header === Live Operations 100%!
+    const isClockedIn = isSelf
+      ? Boolean(selfIsClockedIn)
+      : (telem ? Boolean(telem.isClockedIn) : (!isExplicitlyStoredClockedOut && (
+          (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
+          (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
+        )));
 
-    const effectiveOnBreak = telem ? Boolean(telem.isOnBreak) : storedOnBreak;
-    const effectiveBreakType = telem ? (telem.breakType || 'Break') : storedBreakType;
+    const isClockedOut = isSelf
+      ? Boolean(!selfIsClockedIn && (selfClockOutTime || hasTodayAttClockOut || isExplicitlyStoredClockedOut))
+      : (telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && (
+          isExplicitlyStoredClockedOut ||
+          (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
+          (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+        )));
+
+    const effectiveOnBreak = isSelf ? Boolean(selfIsOnBreak) : (telem ? Boolean(telem.isOnBreak) : storedOnBreak);
+    const effectiveBreakType = isSelf ? (selfBreakType || 'Break') : (telem ? (telem.breakType || 'Break') : storedBreakType);
 
     const loginTime = isClockedIn
-      ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
-      : (isClockedOut ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
+      ? ((isSelf && selfLoginTime) || telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
+      : (isClockedOut ? ((isSelf && selfLoginTime) || telem?.clockInTime || attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
 
     const clockOutTime = isClockedOut
-      ? (telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || '--')
+      ? ((isSelf && selfClockOutTime) || telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || '--')
       : null;
 
     const nowMs = Date.now();
-    const workSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs, {
+    const computedWorkSecs = calculateShiftWorkSeconds(emp, todayStr, nowMs, {
       isClockedIn,
       isClockedOut,
       isOnBreak: effectiveOnBreak,
       attRec,
       telemetry: telem
     });
+    const workSecs = isSelf ? Math.max(Number(selfWorkSeconds) || 0, isClockedIn ? 0 : computedWorkSecs) : computedWorkSecs;
 
-    // Active Running Task (prioritize live telemetry from Atlas for multi-device/incognito sync)
+    // Active Running Task vs Paused Task (strictly separated so paused tasks show Amber Paused + Resume, NEVER green dot + Pause!)
     let runningTask = null;
+    let pausedTask = null;
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
 
-    if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
-      const at = telem.activeTask;
-      const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
-      if (isTaskTimerActuallyRunning) {
-        const startedAtMs = Number(at.startedAt) || nowMs;
-        const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
-        const taskBase = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
-          ? Number(at.accumulatedTodaySeconds)
-          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
+    if (isClockedIn && !isClockedOut && !isOnLeave) {
+      // 1. Check live WorkContext tasks first (0ms Socket.IO task:updated truth!)
+      const liveRunningFromWork = empTasks.find(t => t.timerRunning === true && t.status !== 'completed' && !t.completedAt);
+      const telemAt = telem?.activeTask?.taskId ? telem.activeTask : null;
+      const matchedWorkTaskForTelem = telemAt
+        ? empTasks.find(t => String(t._id || t.id) === String(telemAt.taskId) || (telemAt.taskCode && t.taskCode === telemAt.taskCode))
+        : null;
+
+      if (liveRunningFromWork) {
+        const liveTaskSecs = getTaskTodaySeconds(liveRunningFromWork, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+        runningTask = {
+          ...liveRunningFromWork,
+          timerRunning: true,
+          liveTaskSecs,
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      } else if (telemAt && telemAt.timerRunning === true && telemAt.startedAt && (!matchedWorkTaskForTelem || matchedWorkTaskForTelem.timerRunning !== false)) {
+        const startedAtMs = Number(telemAt.startedAt) || nowMs;
+        const elapsed = effectiveOnBreak ? 0 : Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
+        const taskBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
+          ? Number(telemAt.accumulatedTodaySeconds)
+          : ((telemAt.todayWorkSeconds !== undefined && telemAt.todayWorkSeconds !== null) ? Number(telemAt.todayWorkSeconds) : 0);
         const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
         runningTask = {
-          _id: at.taskId,
-          id: at.taskId,
-          taskId: at.taskId,
-          taskCode: at.taskCode || 'TSK',
-          title: at.title || 'Live Task',
-          projectName: at.projectName || 'General Work',
+          _id: telemAt.taskId,
+          id: telemAt.taskId,
+          taskId: telemAt.taskId,
+          taskCode: telemAt.taskCode || 'TSK',
+          title: telemAt.title || 'Live Task',
+          projectName: telemAt.projectName || 'General Work',
           timerRunning: true,
           startedAt: startedAtMs,
-          accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
+          accumulatedSeconds: Number(telemAt.accumulatedSeconds) || 0,
           accumulatedTodaySeconds: taskBase,
           todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
-      } else {
-        const liveTaskSecs = (at.accumulatedTodaySeconds !== undefined && at.accumulatedTodaySeconds !== null)
-          ? Number(at.accumulatedTodaySeconds)
-          : ((at.todayWorkSeconds !== undefined && at.todayWorkSeconds !== null) ? Number(at.todayWorkSeconds) : 0);
-        runningTask = {
-          _id: at.taskId,
-          id: at.taskId,
-          taskId: at.taskId,
-          taskCode: at.taskCode || 'TSK',
-          title: at.title || 'Task (Paused)',
-          projectName: at.projectName || 'General Work',
+      } else if (telemAt) {
+        // Explicitly paused task: surface as pausedTask (amber badge + Resume button) instead of fake runningTask!
+        const liveTaskSecs = matchedWorkTaskForTelem
+          ? getTaskTodaySeconds(matchedWorkTaskForTelem, todayStr, nowMs, false, true)
+          : Number(telemAt.accumulatedTodaySeconds ?? telemAt.todayWorkSeconds ?? 0);
+        pausedTask = {
+          _id: telemAt.taskId,
+          id: telemAt.taskId,
+          taskId: telemAt.taskId,
+          taskCode: telemAt.taskCode || matchedWorkTaskForTelem?.taskCode || 'TSK',
+          title: telemAt.title || matchedWorkTaskForTelem?.title || 'Task',
+          projectName: telemAt.projectName || matchedWorkTaskForTelem?.projectName || 'General Work',
           timerRunning: false,
           startedAt: null,
-          accumulatedSeconds: Number(at.accumulatedSeconds) || 0,
-          accumulatedTodaySeconds: liveTaskSecs,
-          todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
-      }
-    } else {
-      let activeTimer = null;
-      try {
-        const rawTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`) ||
-                         localStorage.getItem(`ems_active_task_timer_${empId}`);
-        if (rawTimer) activeTimer = JSON.parse(rawTimer);
-      } catch {}
+      } else {
+        let activeTimer = null;
+        try {
+          const rawTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`) ||
+                           localStorage.getItem(`ems_active_task_timer_${empId}`);
+          if (rawTimer) activeTimer = JSON.parse(rawTimer);
+        } catch {}
 
-      const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
-        ? (empTasks.find(t => t.timerRunning) || (activeTimer?.timerRunning ? activeTimer : null))
-        : null;
-
-      if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave) {
-        let liveTaskSecs = getTaskTodaySeconds(baseRunningTask, todayStr, nowMs, isClockedIn, effectiveOnBreak);
-        runningTask = {
-          ...baseRunningTask,
-          liveTaskSecs,
-          liveDurationText: formatSeconds(liveTaskSecs)
-        };
+        if (activeTimer?.timerRunning && (!activeTimer.date || activeTimer.date === todayStr)) {
+          const liveTaskSecs = getTaskTodaySeconds(activeTimer, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+          runningTask = {
+            ...activeTimer,
+            timerRunning: true,
+            liveTaskSecs,
+            liveDurationText: formatSeconds(liveTaskSecs)
+          };
+        }
       }
     }
 
@@ -536,7 +575,9 @@ export const TeamOperationsPage = () => {
       shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
       shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
     });
-    const overtimeSecs = Math.max(computedOtSecs, Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0);
+    const overtimeSecs = isSelf
+      ? Math.max(Number(selfOvertimeSeconds) || 0, computedOtSecs)
+      : Math.max(computedOtSecs, Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0);
 
     return {
       emp,
@@ -553,11 +594,12 @@ export const TeamOperationsPage = () => {
       clockOutTime,
       workSecs,
       overtimeSecs,
-      breakSecs: storedBreakSecs,
+      breakSecs: isSelf ? (Number(selfBreakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || storedBreakSecs),
       runningTask,
+      pausedTask,
       empTasks
     };
-  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap]);
+  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap, isSelfEmployee, selfWorkSeconds, selfOvertimeSeconds, selfBreakSeconds, selfIsClockedIn, selfIsOnBreak, selfBreakType, selfLoginTime, selfClockOutTime]);
 
   // Compute live states for all employees
   const teamTodayStates = useMemo(() => {
@@ -1806,16 +1848,16 @@ export const TeamOperationsPage = () => {
 
                       {/* Currently Running Task */}
                       <td className="px-4 py-3">
-                        {item.runningTask ? (
+                        {item.runningTask && item.runningTask.timerRunning ? (
                           <div className="max-w-[240px]">
                             <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
                               <strong className="text-[11.5px] text-slate-900 dark:text-slate-100 truncate">
                                 #{item.runningTask.taskCode || 'TSK'}: {item.runningTask.title}
                               </strong>
                             </div>
                             <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
-                              <span>⏱️ <strong className="text-sky-600 dark:text-sky-400">{item.runningTask.liveDurationText}</strong></span>
+                              <span>⏱️ <strong className="text-sky-600 dark:text-sky-400 font-mono tabular-nums">{item.runningTask.liveDurationText}</strong></span>
                               {(hasShiftControlPermission || isSelfEmployee(emp)) && (
                                 <button
                                   onClick={() => pauseTaskTimer(item.runningTask._id)}
@@ -1823,6 +1865,30 @@ export const TeamOperationsPage = () => {
                                   title="Pause task timer for employee"
                                 >
                                   Pause ⏸️
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : item.pausedTask ? (
+                          <div className="max-w-[240px]">
+                            <div className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                              <strong className="text-[11.5px] text-slate-700 dark:text-slate-300 truncate">
+                                #{item.pausedTask.taskCode || 'TSK'}: {item.pausedTask.title}
+                              </strong>
+                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0">
+                                Paused
+                              </span>
+                            </div>
+                            <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                              <span>⏱️ <strong className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">{item.pausedTask.liveDurationText}</strong></span>
+                              {(hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                <button
+                                  onClick={() => startTaskTimer(item.pausedTask._id)}
+                                  className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
+                                  title="Resume paused task timer"
+                                >
+                                  <Play size={9} className="fill-green-600" /> Resume
                                 </button>
                               )}
                             </div>

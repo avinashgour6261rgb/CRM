@@ -1206,15 +1206,21 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     let liveWorkSecs = Number(r.workSeconds) || 0;
     const effectiveStartTs = sessStart > 0 ? sessStart : inTs;
     const breakSecs = Number(r.breakSeconds) || 0;
+    const pastSessionsSecs = Array.isArray(r.punchSessions)
+      ? r.punchSessions.reduce((sum, s) => sum + (Number(s?.durationSeconds) || 0), 0)
+      : 0;
     if (isClockedIn && !isOnBreak) {
       const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
-      if (liveWorkSecs === 0 && effectiveStartTs > 0 && effectiveStartTs <= now) {
-        // Self-heal: if workSeconds was wiped to 0 while actively clocked in, compute directly from shift start minus breaks
-        liveWorkSecs = Math.min(Math.max(0, Math.floor((now - effectiveStartTs) / 1000) - breakSecs), maxPossibleGross);
-      } else if (r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now) {
-        // Add live elapsed seconds since last heartbeat pulse smoothly (no 120s freeze cutoff while shift is open)
+      // Wall-clock SSOT: compute exact elapsed time since shift/session start minus breaks so stale/throttled heartbeats NEVER fall behind Header!
+      let wallClockSecs = 0;
+      if (effectiveStartTs > 0 && effectiveStartTs <= now) {
+        wallClockSecs = pastSessionsSecs + Math.max(0, Math.floor((now - effectiveStartTs) / 1000) - breakSecs);
+      }
+      if (r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now && liveWorkSecs > 0) {
         const elapsedSinceHeartbeat = Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000));
-        liveWorkSecs = Math.min(liveWorkSecs + elapsedSinceHeartbeat, maxPossibleGross);
+        liveWorkSecs = Math.min(Math.max(liveWorkSecs + elapsedSinceHeartbeat, wallClockSecs), maxPossibleGross);
+      } else {
+        liveWorkSecs = Math.min(Math.max(liveWorkSecs, wallClockSecs), maxPossibleGross);
       }
     }
 
@@ -1256,6 +1262,8 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       clockOutTime: r.clockOutTime || r.clockOut || null,
       clockOutTimestamp: r.clockOutTimestamp || null,
       currentSessionStartTimestamp: sessStart,
+      breakSeconds: breakSecs,
+      punchSessions: Array.isArray(r.punchSessions) ? r.punchSessions : [],
       workSeconds: liveWorkSecs,
       totalWorkingHours: +(liveWorkSecs / 3600).toFixed(2),
       overtimeSeconds: Number(r.overtimeSeconds) || 0,
@@ -1312,14 +1320,20 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       const mergedIsOnBreak = Boolean(cVal.isOnBreak);
       const cachedWork = Number(cVal.workSeconds) || 0;
       const dbWork = Number(existing?.workSeconds) || 0;
+      const mergedBreakSecs = Math.max(Number(cVal.breakSeconds) || 0, Number(existing?.breakSeconds) || 0);
+      const mergedPunchSessions = Array.isArray(existing?.punchSessions) ? existing.punchSessions : [];
+      const mergedPastSessionsSecs = mergedPunchSessions.reduce((sum, s) => sum + (Number(s?.durationSeconds) || 0), 0);
       let mergedWorkSecs = mergedIsClockedIn ? Math.max(cachedWork, dbWork) : (cachedWork || dbWork);
       if (mergedIsClockedIn && !mergedIsOnBreak) {
         const maxPossibleGross = mergedClockInTs > 0 ? Math.max(0, Math.floor((now - mergedClockInTs) / 1000)) : 14 * 3600;
-        if (mergedWorkSecs === 0 && mergedSessStartTs > 0 && mergedSessStartTs <= now) {
-          mergedWorkSecs = Math.min(Math.max(0, Math.floor((now - mergedSessStartTs) / 1000)), maxPossibleGross);
-        } else if (cachedWork >= dbWork && cVal.lastHeartbeatAt && Number(cVal.lastHeartbeatAt) <= now) {
+        const wallClockMerged = (mergedSessStartTs > 0 && mergedSessStartTs <= now)
+          ? mergedPastSessionsSecs + Math.max(0, Math.floor((now - mergedSessStartTs) / 1000) - mergedBreakSecs)
+          : 0;
+        if (cachedWork >= dbWork && cVal.lastHeartbeatAt && Number(cVal.lastHeartbeatAt) <= now) {
           const elapsedCache = Math.max(0, Math.floor((now - Number(cVal.lastHeartbeatAt)) / 1000));
-          mergedWorkSecs = Math.min(cachedWork + elapsedCache, maxPossibleGross);
+          mergedWorkSecs = Math.min(Math.max(cachedWork + elapsedCache, wallClockMerged), maxPossibleGross);
+        } else {
+          mergedWorkSecs = Math.min(Math.max(mergedWorkSecs, wallClockMerged), maxPossibleGross);
         }
       }
 

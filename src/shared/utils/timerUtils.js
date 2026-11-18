@@ -239,17 +239,37 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   const todayMidnightMs = todayMidnight.getTime();
   const maxPossibleGrossToday = Math.max(0, Math.floor((nowMs - todayMidnightMs) / 1000));
 
-  // Multi-User Live Telemetry Support (cross-browser / incognito realtime sync)
+  // Multi-User Live Telemetry Support (cross-browser / incognito realtime sync with Wall-Clock SSOT)
   if (options.telemetry) {
     const telem = options.telemetry;
     if (telem.isClockedIn) {
       if (telem.isOnBreak) {
         return Number(telem.workSeconds) || 0;
       }
-      // Smoothly tick forward using local client receivedAt timestamp (eliminates server-vs-client clock-skew flicker!)
+      // Smoothly tick forward using local client receivedAt timestamp AND wall-clock session start (eliminates drift & flicker!)
       const refTs = Number(telem.receivedAt) || Number(telem.lastHeartbeatAt) || Number(telem.timestamp) || nowMs;
       const elapsedSinceHeartbeat = Math.max(0, Math.floor((nowMs - refTs) / 1000));
-      return Math.min(maxPossibleGrossToday, (Number(telem.workSeconds) || 0) + elapsedSinceHeartbeat);
+      const heartbeatSecs = (Number(telem.workSeconds) || 0) + elapsedSinceHeartbeat;
+
+      const sessStart = Number(telem.currentSessionStartTimestamp || telem.clockInTimestamp || options.attRec?.currentSessionStartTimestamp || options.attRec?.clockInTimestamp || 0);
+      const breakSecs = Number(telem.breakSeconds ?? options.attRec?.breakSeconds ?? 0) || 0;
+      const punchSessions = Array.isArray(telem.punchSessions) && telem.punchSessions.length > 0
+        ? telem.punchSessions
+        : (Array.isArray(options.attRec?.punchSessions) ? options.attRec.punchSessions : []);
+      const pastSessionsSecs = punchSessions
+        .filter(s => Number(s?.inTimestamp || 0) >= todayMidnightMs)
+        .reduce((sum, s) => sum + (Number(s?.durationSeconds) || 0), 0);
+
+      let wallClockSecs = 0;
+      if (sessStart >= todayMidnightMs && sessStart <= nowMs) {
+        wallClockSecs = pastSessionsSecs + Math.max(0, Math.floor((nowMs - sessStart) / 1000) - breakSecs);
+      }
+      const inTs = Number(telem.clockInTimestamp || options.attRec?.clockInTimestamp || 0);
+      const upperBound = (inTs >= todayMidnightMs && inTs <= nowMs)
+        ? Math.max(0, Math.floor((nowMs - inTs) / 1000))
+        : maxPossibleGrossToday;
+
+      return Math.min(upperBound, Math.max(heartbeatSecs, wallClockSecs));
     } else if (telem.clockOutTime) {
       return Number(telem.workSeconds) || 0;
     } else {
