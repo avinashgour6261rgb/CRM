@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock, Eye } from 'lucide-react';
 import { getCollection, saveCollection, KEYS } from '../../../../shared/services/storageService';
-import { getUserDailyTaskBreakdown, readTimerStorage } from '../../../../shared/utils/timerUtils';
+import { getUserDailyTaskBreakdown, readTimerStorage, calculateShiftWorkSeconds } from '../../../../shared/utils/timerUtils';
 
 export const WeeklyTimeLogsCard = ({
     effectiveTargetUser,
@@ -174,14 +174,21 @@ export const WeeklyTimeLogsCard = ({
                 };
             }
 
-            // Canonical SSOT calculation for this day
+            // Canonical SSOT calculation for this day (strictly clamped to physical shift duration on today!)
+            const dayShiftSecs = isCurrentDay
+                ? calculateShiftWorkSeconds(effectiveUser, dateStr, Date.now(), {
+                    attRec,
+                    isClockedIn: isEffectiveClockedIn
+                })
+                : (Number(attRec?.workSeconds) || 0);
             const breakdown = getUserDailyTaskBreakdown(effectiveUser, dateStr, {
                 tasks,
                 timesheets,
-                activeTimer: activeRunningTask,
-                isClockedIn: isEffectiveClockedIn,
+                activeTimer: isCurrentDay ? activeRunningTask : null,
+                isClockedIn: isCurrentDay ? isEffectiveClockedIn : false,
                 isOnBreak: false,
-                clampToShift: false
+                shiftSeconds: dayShiftSecs,
+                clampToShift: isCurrentDay && dayShiftSecs > 0
             });
             const dayTotalSecs = breakdown.totalTaskSeconds;
             const tasksWorked = breakdown.tasksWorked;

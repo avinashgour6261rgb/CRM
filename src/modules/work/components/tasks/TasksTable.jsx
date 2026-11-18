@@ -250,15 +250,23 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                       </div>
                     ) : (
                       <button
-                        title="Start Tracking Work"
+                        title={(Number(task.todayWorkSeconds) > 0 || Number(task.timerSeconds) > 0) ? 'Resume Tracking Work' : 'Start Tracking Work'}
                         onClick={(e) => {
                           e.stopPropagation();
                           startTaskTimer(task._id);
                         }}
-                        className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-300 py-0.5 px-2 rounded-full text-[11px] font-semibold cursor-pointer transition-colors hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                        className={`inline-flex items-center gap-1 border py-0.5 px-2 rounded-full text-[11px] font-semibold cursor-pointer transition-colors ${
+                          Number(task.todayWorkSeconds) > 0
+                            ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                            : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300'
+                        }`}
                       >
-                        <Play size={9} fill="#475569" />
-                        <span>Start</span>
+                        <Play size={9} fill="currentColor" />
+                        <span>
+                          {Number(task.todayWorkSeconds) > 0
+                            ? `Resume (${formatSeconds(task.todayWorkSeconds)})`
+                            : (Number(task.timerSeconds) > 0 ? 'Resume' : 'Start')}
+                        </span>
                       </button>
                     )}
                   </td>

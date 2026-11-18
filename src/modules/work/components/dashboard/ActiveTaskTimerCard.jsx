@@ -214,8 +214,10 @@ export const ActiveTaskTimerCard = ({
                   return;
                 }
                 if (displayActiveTask?.timerRunning) {
+                  setActiveSelectedTaskId(displayActiveTask._id);
                   pauseTaskTimer(displayActiveTask._id);
                 } else {
+                  setActiveSelectedTaskId(displayActiveTask._id);
                   startTaskTimer(displayActiveTask._id);
                 }
               }}
@@ -229,7 +231,7 @@ export const ActiveTaskTimerCard = ({
               <span>
                 {displayActiveTask?.timerRunning
                   ? 'Pause'
-                  : (displayActiveTask?.timerSeconds > 0 ? 'Resume' : 'Start Timer')}
+                  : ((Number(displayActiveTask?.todayWorkSeconds) > 0 || Number(displayActiveTask?.timerSeconds) > 0) ? 'Resume' : 'Start Timer')}
               </span>
             </button>
 

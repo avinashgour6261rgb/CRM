@@ -88,10 +88,10 @@ export const ActiveTimerCard = ({ onSelectTask }) => {
       <div className="flex items-center gap-3.5 flex-wrap">
         <div className="text-right">
           <div className="text-[10px] text-sky-100 uppercase tracking-wider font-semibold">
-            Running Duration
+            Today&apos;s Duration
           </div>
           <div className="text-lg font-extrabold font-mono tracking-wide leading-tight">
-            {formatSeconds(activeRunningTask.timerSeconds || 0)}
+            {activeRunningTask.liveDurationText || formatSeconds(activeRunningTask.liveTodaySeconds ?? activeRunningTask.todayWorkSeconds ?? 0)}
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export const ActiveTimerCard = ({ onSelectTask }) => {
               onClick={() => startTaskTimer(activeRunningTask._id)}
               className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white border-none px-2 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer h-7 transition-colors"
             >
-              <Play size={12} className="fill-white" /> {activeRunningTask?.timerSeconds > 0 ? 'Resume' : 'Start'}
+              <Play size={12} className="fill-white" /> {(activeRunningTask?.todayWorkSeconds > 0 || activeRunningTask?.timerSeconds > 0) ? 'Resume' : 'Start'}
             </button>
           )}
 

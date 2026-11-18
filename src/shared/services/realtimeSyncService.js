@@ -243,11 +243,11 @@ if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.TASKS, action: 'update' } }));
       }
       if (data?.timerRunning) {
-        window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: data }));
+        window.dispatchEvent(new CustomEvent('ems_task_timer_started', { detail: { ...data, remote: true } }));
       } else if (data?.status === 'completed') {
-        window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: data }));
+        window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: { ...data, remote: true } }));
       } else {
-        window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: data }));
+        window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { ...data, remote: true } }));
       }
     } catch (_) {}
   });

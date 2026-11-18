@@ -1337,11 +1337,24 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
 
   const rawTotalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
 
-  // 4. Physical shift clamping:
-  // If shiftSeconds > 0 and clampToShift is true, task time cannot exceed physical shift time.
+  // 4. Physical shift clamping (strictly for today):
+  // Today's task time can NEVER exceed physical shift time clocked in today!
   let effectiveTotalSecs = rawTotalSecs;
-  if (clampToShift && shiftSeconds > 0) {
+  if (isToday && clampToShift && shiftSeconds > 0) {
     effectiveTotalSecs = Math.min(rawTotalSecs, shiftSeconds);
+    if (rawTotalSecs > shiftSeconds) {
+      // Clamp any individual inflated task duration that exceeded today's physical shift duration
+      tasksWorked = tasksWorked.map(tw => {
+        if (Number(tw.durationSeconds) > shiftSeconds) {
+          return {
+            ...tw,
+            durationSeconds: shiftSeconds,
+            durationText: formatSecondsToDigital(shiftSeconds)
+          };
+        }
+        return tw;
+      });
+    }
   } else if (clampToShift && !isClockedIn && shiftSeconds === 0 && tasksWorked.length === 0) {
     effectiveTotalSecs = 0;
   }

@@ -305,10 +305,14 @@ export const DashboardTasksSection = ({
                                   setActiveSelectedTaskId(task._id);
                                   setSelectedTask(task);
                                 }}
-                                className="flex items-center gap-1 bg-sky-600 text-white border-none py-[3px] px-[7px] rounded-[5px] text-[10.5px] font-bold cursor-pointer hover:bg-sky-700 transition-colors"
-                                title="Start timer for this task"
+                                className={`flex items-center gap-1 text-white border-none py-[3px] px-[7px] rounded-[5px] text-[10.5px] font-bold cursor-pointer transition-colors ${
+                                  (Number(task.todayWorkSeconds) > 0 || Number(task.timerSeconds) > 0)
+                                    ? 'bg-amber-600 hover:bg-amber-700'
+                                    : 'bg-sky-600 hover:bg-sky-700'
+                                }`}
+                                title={(Number(task.todayWorkSeconds) > 0 || Number(task.timerSeconds) > 0) ? 'Resume timer for this task' : 'Start timer for this task'}
                               >
-                                <Play size={10} /> Start
+                                <Play size={10} /> {(Number(task.todayWorkSeconds) > 0 || Number(task.timerSeconds) > 0) ? 'Resume' : 'Start'}
                               </button>
                             )
                           )}

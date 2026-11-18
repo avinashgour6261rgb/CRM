@@ -2368,7 +2368,19 @@ export const TimerProvider = ({ children }) => {
           const rawTask = localStorage.getItem(`ems_active_task_timer_${userKey}`);
           if (rawTask) {
             const p = JSON.parse(rawTask);
-            if (p && p.taskId) activeTaskData = p;
+            // ONLY transmit activeTask when actively running — NEVER echo a paused task as active!
+            if (p && p.taskId && p.timerRunning === true && p.startedAt) {
+              activeTaskData = {
+                taskId: p.taskId,
+                taskCode: p.taskCode || 'TSK',
+                title: p.title || 'Live Task',
+                timerRunning: true,
+                startedAt: p.startedAt,
+                accumulatedTodaySeconds: p.accumulatedTodaySeconds ?? p.todayWorkSeconds ?? 0,
+                todayWorkSeconds: p.accumulatedTodaySeconds ?? p.todayWorkSeconds ?? 0,
+                accumulatedSeconds: p.accumulatedSeconds ?? 0
+              };
+            }
           }
         } catch (_) {}
 

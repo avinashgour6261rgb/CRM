@@ -1209,7 +1209,7 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     }
 
     let runningTask = r.activeTask || null;
-    if (runningTask && runningTask.startedAt && isClockedIn && !isOnBreak) {
+    if (runningTask && runningTask.timerRunning === true && runningTask.startedAt && isClockedIn && !isOnBreak) {
       const taskStart = Number(runningTask.startedAt);
       const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
       const accum = Number(runningTask.accumulatedTodaySeconds ?? runningTask.todayWorkSeconds ?? 0);
@@ -1217,7 +1217,17 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         ...runningTask,
         accumulatedTodaySeconds: accum,
         liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
-        timerRunning: Boolean(runningTask.timerRunning !== false)
+        timerRunning: true
+      };
+    } else if (runningTask && runningTask.timerRunning === false) {
+      const frozenToday = Number(runningTask.accumulatedTodaySeconds ?? runningTask.todayWorkSeconds ?? 0);
+      runningTask = {
+        ...runningTask,
+        startedAt: null,
+        accumulatedTodaySeconds: frozenToday,
+        todayWorkSeconds: frozenToday,
+        liveTaskSecs: frozenToday,
+        timerRunning: false
       };
     }
 
@@ -1263,8 +1273,8 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       const cId = String(cVal.employeeId || '');
       const existing = telemetryMap[cCode] || telemetryMap[cId] || telemetryMap[cKey];
 
-      let taskMerged = cVal.activeTask || existing?.activeTask || null;
-      if (taskMerged && taskMerged.startedAt && cVal.isClockedIn && !cVal.isOnBreak) {
+      let taskMerged = ('activeTask' in cVal) ? cVal.activeTask : (existing?.activeTask || null);
+      if (taskMerged && taskMerged.timerRunning === true && taskMerged.startedAt && cVal.isClockedIn && !cVal.isOnBreak) {
         const taskStart = Number(taskMerged.startedAt);
         const elapsedTask = Math.max(0, Math.floor((now - taskStart) / 1000));
         const accum = Number(taskMerged.accumulatedTodaySeconds ?? taskMerged.todayWorkSeconds ?? 0);
@@ -1272,7 +1282,17 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
           ...taskMerged,
           accumulatedTodaySeconds: accum,
           liveTaskSecs: Math.min(accum + elapsedTask, 14 * 3600),
-          timerRunning: Boolean(taskMerged.timerRunning !== false)
+          timerRunning: true
+        };
+      } else if (taskMerged && taskMerged.timerRunning === false) {
+        const frozenToday = Number(taskMerged.accumulatedTodaySeconds ?? taskMerged.todayWorkSeconds ?? 0);
+        taskMerged = {
+          ...taskMerged,
+          startedAt: null,
+          accumulatedTodaySeconds: frozenToday,
+          todayWorkSeconds: frozenToday,
+          liveTaskSecs: frozenToday,
+          timerRunning: false
         };
       }
 
