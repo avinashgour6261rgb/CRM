@@ -5,6 +5,7 @@ const {
   getCurrentUser,
   switchCurrentUser,
   getEmployeeById,
+  getEmployeeCredentials,
   createEmployee,
   updateEmployee,
   updateEmployeePermissions,
@@ -14,6 +15,7 @@ const { authenticateUser } = require('../../../shared/middleware/authMiddleware'
 
 router.get('/current', getCurrentUser);
 router.post('/switch/:id', switchCurrentUser);
+router.get('/:id/credentials', authenticateUser, getEmployeeCredentials);
 router.put('/:id/permissions', authenticateUser, updateEmployeePermissions);
 router.route('/')
   .get(getEmployees)

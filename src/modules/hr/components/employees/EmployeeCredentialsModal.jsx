@@ -4,7 +4,7 @@
  * Allows Admin and HR to view, copy, and print login credentials for any employee.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Key,
@@ -23,16 +23,46 @@ import {
   Share2
 } from 'lucide-react';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { API_BASE, getAuthHeaders } from '../../../../shared/config/apiConfig';
 
 export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   const { addToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showHistPass, setShowHistPass] = useState({});
   const [copiedField, setCopiedField] = useState(null);
+  const [vaultCreds, setVaultCreds] = useState(null);
+  const [loadingCreds, setLoadingCreds] = useState(false);
+
+  const empLookupId = employee?._id || employee?.employeeCode || '';
+
+  useEffect(() => {
+    if (!isOpen || !empLookupId) {
+      setVaultCreds(null);
+      setShowPassword(false);
+      return;
+    }
+    let active = true;
+    setLoadingCreds(true);
+    fetch(`${API_BASE}/employees/${encodeURIComponent(empLookupId)}/credentials`, {
+      method: 'GET',
+      headers: getAuthHeaders()
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => {
+        if (active && json?.success && json.data) {
+          setVaultCreds(json.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoadingCreds(false);
+      });
+    return () => { active = false; };
+  }, [isOpen, empLookupId]);
 
   if (!isOpen || !employee) return null;
 
-  // Real-time lookup of freshest employee data from localStorage so updated passwords & history appear instantly
+  // Real-time lookup of freshest employee metadata
   const targetEmp = (() => {
     try {
       const emps = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
@@ -48,16 +78,24 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
   })();
 
   const loginUrl = `${window.location.origin}/login`;
-  const empCode = targetEmp.employeeCode || targetEmp.idNumber || 'EMP-001';
-  const email = targetEmp.email || 'employee@inforag.com';
-  const password = targetEmp.password || 'emp12345';
+  const empCode = vaultCreds?.employeeCode || targetEmp.employeeCode || targetEmp.idNumber || 'EMP-001';
+  const email = vaultCreds?.email || targetEmp.email || 'employee@inforag.com';
+  const isRawHash = (v) => typeof v === 'string' && (v.startsWith('scrypt$') || /^\$2[aby]\$\d{2}\$/.test(v));
+  const localCleanPass = targetEmp.password && !isRawHash(targetEmp.password) ? targetEmp.password : null;
+  const resolvedPassword = vaultCreds?.password || localCleanPass || null;
+  const password = loadingCreds
+    ? 'Loading...'
+    : (resolvedPassword || 'Encrypted (Use Reset Password in Access & Permissions)');
+  const hasRealPassword = Boolean(resolvedPassword);
   const name = targetEmp.name || 'Team Member';
   const role = targetEmp.role || targetEmp.systemRole || 'Team Member';
   const department = targetEmp.department || 'General Operations';
   const shiftTiming = targetEmp.shiftTiming || '10:00 AM - 07:00 PM';
   const avatar = targetEmp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120';
-  const passwordHistory = Array.isArray(targetEmp.passwordHistory) ? targetEmp.passwordHistory : [];
-  const passwordUpdatedAt = targetEmp.passwordUpdatedAt;
+  const passwordHistory = Array.isArray(vaultCreds?.passwordHistory)
+    ? vaultCreds.passwordHistory
+    : (Array.isArray(targetEmp.passwordHistory) ? targetEmp.passwordHistory.filter(h => h?.password && !isRawHash(h.password)) : []);
+  const passwordUpdatedAt = vaultCreds?.passwordUpdatedAt || targetEmp.passwordUpdatedAt;
 
   const handleCopy = (text, fieldName) => {
     navigator.clipboard.writeText(text);
@@ -245,18 +283,19 @@ export const EmployeeCredentialsModal = ({ isOpen, onClose, employee }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleCopy(password, 'Password')}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer bg-transparent border-0 text-xs"
+                    disabled={!hasRealPassword}
+                    onClick={() => hasRealPassword && handleCopy(resolvedPassword, 'Password')}
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer bg-transparent border-0 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {copiedField === 'Password' ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
                     {copiedField === 'Password' ? 'Copied' : 'Copy'}
                   </button>
                 </div>
               </div>
-              <div className="font-mono text-sm text-blue-950 dark:text-blue-100 font-black bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800/60 flex items-center justify-between">
-                <span>{showPassword ? password : '••••••••••••'}</span>
-                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">
-                  Live DB Password
+              <div className="font-mono text-sm text-blue-950 dark:text-blue-100 font-black bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800/60 flex items-center justify-between gap-2">
+                <span className="truncate">{loadingCreds ? 'Loading...' : (!hasRealPassword ? password : (showPassword ? resolvedPassword : '••••••••••••'))}</span>
+                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider shrink-0">
+                  {hasRealPassword ? 'Live DB Password' : 'Encrypted'}
                 </span>
               </div>
             </div>

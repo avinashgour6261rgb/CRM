@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
-const { hashPassword, isPasswordHashed, sanitizeEmployeeForResponse } = require('../../../shared/utils/authCrypto');
+const { hashPassword, isPasswordHashed, encryptVaultSecret, decryptVaultSecret, sanitizeEmployeeForResponse } = require('../../../shared/utils/authCrypto');
 
 // ─── GET /api/employees ───────────────────────────────────────────────────────
 const getEmployees = asyncHandler(async (req, res) => {
@@ -136,9 +136,13 @@ const createEmployee = asyncHandler(async (req, res) => {
     delete payload._id;
   }
 
-  // Hash initial password securely using salted scrypt before saving
+  // Hash initial password securely using salted scrypt and store encrypted Admin Vault copy
   const rawInitialPass = (payload.password && String(payload.password).trim()) || 'emp12345';
-  payload.password = isPasswordHashed(rawInitialPass) ? rawInitialPass : hashPassword(rawInitialPass);
+  const alreadyHashed = isPasswordHashed(rawInitialPass) || /^\$2[aby]\$\d{2}\$/.test(rawInitialPass);
+  payload.password = alreadyHashed ? rawInitialPass : hashPassword(rawInitialPass);
+  if (!alreadyHashed) {
+    payload.adminVaultPassword = encryptVaultSecret(rawInitialPass);
+  }
 
   const employee = new Employee({
     ...payload,
@@ -229,22 +233,38 @@ const updateEmployee = asyncHandler(async (req, res) => {
     delete payload.status;
   }
 
-  // Hash new password securely and never store plaintext passwords in passwordHistory
+  // Hash new password securely and maintain AES-256-GCM encrypted Super Admin Vault + history
   if (payload.password && String(payload.password).trim() && payload.password !== existingEmployee.password) {
     const newPassRaw = String(payload.password).trim();
-    const hashedNew = isPasswordHashed(newPassRaw) ? newPassRaw : hashPassword(newPassRaw);
+    const alreadyHashed = isPasswordHashed(newPassRaw) || /^\$2[aby]\$\d{2}\$/.test(newPassRaw);
+    const hashedNew = alreadyHashed ? newPassRaw : hashPassword(newPassRaw);
+
+    const prevVaultSecret = existingEmployee.adminVaultPassword ||
+      (!isPasswordHashed(existingEmployee.password) && !/^\$2[aby]\$\d{2}\$/.test(String(existingEmployee.password || '')) && existingEmployee.password
+        ? encryptVaultSecret(existingEmployee.password)
+        : '');
+
     const historyEntry = {
+      vaultSecret: prevVaultSecret,
       changedAt: new Date().toISOString(),
       changedBy: req.user?.name || req.user?.email || 'User'
     };
     const prevHistory = Array.isArray(existingEmployee.passwordHistory)
-      ? existingEmployee.passwordHistory.map(h => ({ changedAt: h.changedAt, changedBy: h.changedBy }))
+      ? existingEmployee.passwordHistory.map(h => ({
+          vaultSecret: h.vaultSecret || (h.password && !isPasswordHashed(h.password) && !/^\$2[aby]\$\d{2}\$/.test(String(h.password)) ? encryptVaultSecret(h.password) : ''),
+          changedAt: h.changedAt,
+          changedBy: h.changedBy
+        }))
       : [];
     payload.password = hashedNew;
+    if (!alreadyHashed) {
+      payload.adminVaultPassword = encryptVaultSecret(newPassRaw);
+    }
     payload.passwordHistory = [historyEntry, ...prevHistory.slice(0, 9)];
     payload.passwordUpdatedAt = new Date().toISOString();
   } else {
     delete payload.password;
+    delete payload.adminVaultPassword;
     delete payload.passwordHistory;
   }
 
@@ -415,11 +435,67 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Employee removed', data: {} });
 });
 
+// ─── GET /api/employees/:id/credentials (Admin-Only Credential Vault) ─────────
+const getEmployeeCredentials = asyncHandler(async (req, res) => {
+  const actor = req.user;
+  const canViewCreds = Boolean(actor && (actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.allAccess));
+  if (!canViewCreds) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied: Only Administrators can view employee login credentials.'
+    });
+  }
+
+  const { id } = req.params;
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? { _id: id }
+    : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
+
+  const employee = await Employee.findOne(query).lean();
+  if (!employee) {
+    return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  let activePassword = decryptVaultSecret(employee.adminVaultPassword);
+  if (!activePassword && employee.password) {
+    const raw = String(employee.password);
+    if (!isPasswordHashed(raw) && !/^\$2[aby]\$\d{2}\$/.test(raw)) {
+      activePassword = raw;
+    }
+  }
+
+  const history = Array.isArray(employee.passwordHistory)
+    ? employee.passwordHistory
+        .map(h => ({
+          password: h.vaultSecret
+            ? decryptVaultSecret(h.vaultSecret)
+            : (h.password && !isPasswordHashed(h.password) && !/^\$2[aby]\$\d{2}\$/.test(String(h.password)) ? String(h.password) : null),
+          changedAt: h.changedAt || null,
+          changedBy: h.changedBy || 'User'
+        }))
+        .filter(h => h.password)
+    : [];
+
+  res.json({
+    success: true,
+    data: {
+      employeeId: String(employee._id),
+      employeeCode: employee.employeeCode,
+      email: employee.email,
+      password: activePassword || null,
+      isEncryptedOnly: !activePassword,
+      passwordHistory: history,
+      passwordUpdatedAt: employee.passwordUpdatedAt || null
+    }
+  });
+});
+
 module.exports = {
   getEmployees,
   getCurrentUser,
   switchCurrentUser,
   getEmployeeById,
+  getEmployeeCredentials,
   createEmployee,
   updateEmployee,
   updateEmployeePermissions,

@@ -11,6 +11,8 @@ const {
   hashPassword,
   isPasswordHashed,
   verifyPassword,
+  encryptVaultSecret,
+  decryptVaultSecret,
   signJwt,
   verifyJwt
 } = require('../../../shared/utils/authCrypto');
@@ -56,11 +58,15 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  // Seamlessly migrate legacy plaintext password to salted scrypt hash in MongoDB on successful login
-  if (!isPasswordHashed(employee.password)) {
+  // Seamlessly migrate legacy plaintext/bcrypt password to salted scrypt hash & sync encrypted Admin Vault copy
+  const currentVaultDecrypted = decryptVaultSecret(employee.adminVaultPassword);
+  if (!isPasswordHashed(employee.password) || currentVaultDecrypted !== password) {
     try {
-      employee.password = hashPassword(password);
-      employee.passwordMigratedAt = new Date().toISOString();
+      if (!isPasswordHashed(employee.password)) {
+        employee.password = hashPassword(password);
+        employee.passwordMigratedAt = new Date().toISOString();
+      }
+      employee.adminVaultPassword = encryptVaultSecret(password);
       await employee.save();
     } catch (_) {}
   }

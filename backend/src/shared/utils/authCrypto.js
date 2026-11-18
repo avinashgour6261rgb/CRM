@@ -130,14 +130,45 @@ const verifyJwt = (token) => {
 };
 
 /**
+ * Encrypt/decrypt secret for Super Admin Credential Vault using AES-256-GCM.
+ */
+const getVaultKey = () => crypto.createHash('sha256').update(`ems_vault_v1_${getJwtSecret()}`).digest();
+
+const encryptVaultSecret = (plain) => {
+  if (!plain) return '';
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getVaultKey(), iv);
+  const enc = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1$${iv.toString('hex')}$${tag.toString('hex')}$${enc.toString('hex')}`;
+};
+
+const decryptVaultSecret = (stored) => {
+  if (!stored || typeof stored !== 'string') return null;
+  if (!stored.startsWith('v1$')) return null;
+  const parts = stored.split('$');
+  if (parts.length !== 4) return null;
+  try {
+    const [, ivHex, tagHex, encHex] = parts;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getVaultKey(), Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    const dec = Buffer.concat([decipher.update(Buffer.from(encHex, 'hex')), decipher.final()]);
+    return dec.toString('utf8');
+  } catch (_) {
+    return null;
+  }
+};
+
+/**
  * Strip passwords and restrict sensitive financial/PII fields from employee API responses.
  */
 const sanitizeEmployeeForResponse = (empDoc, viewerUser = null) => {
   if (!empDoc) return empDoc;
   const obj = typeof empDoc.toObject === 'function' ? empDoc.toObject() : { ...empDoc };
 
-  // NEVER expose passwords or password hashes to any API client
+  // NEVER expose passwords, hashes, or vault secrets in general directory endpoints
   delete obj.password;
+  delete obj.adminVaultPassword;
   delete obj.passwordHistory;
   delete obj.passwordMigratedAt;
 
@@ -176,6 +207,8 @@ module.exports = {
   hashPassword,
   isPasswordHashed,
   verifyPassword,
+  encryptVaultSecret,
+  decryptVaultSecret,
   signJwt,
   verifyJwt,
   sanitizeEmployeeForResponse

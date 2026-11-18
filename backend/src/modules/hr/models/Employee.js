@@ -96,6 +96,10 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       default: 'emp12345'
     },
+    adminVaultPassword: {
+      type: String,
+      default: ''
+    },
     passwordHistory: {
       type: Array,
       default: []
