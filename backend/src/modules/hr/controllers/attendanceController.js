@@ -1237,8 +1237,6 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       clockOutTimestamp: r.clockOutTimestamp || null,
       currentSessionStartTimestamp: sessStart,
       workSeconds: liveWorkSecs,
-      breakSeconds: breakSecs,
-      punchSessions: Array.isArray(r.punchSessions) ? r.punchSessions : [],
       totalWorkingHours: +(liveWorkSecs / 3600).toFixed(2),
       overtimeSeconds: Number(r.overtimeSeconds) || 0,
       overtimeHours: Number(r.overtimeHours) || +((Number(r.overtimeSeconds) || 0) / 3600).toFixed(2),

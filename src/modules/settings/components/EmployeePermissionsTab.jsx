@@ -358,8 +358,10 @@ export const EmployeePermissionsTab = () => {
 
         // Automatic elevation: if turning on a capability, ensure parent module view is enabled
         if (key === 'manageEmployees' || key === 'deleteEmployees' || key === 'viewEmployeeDetails' || key === 'reviewResignations') updated.employees = true;
-        if (key === 'manageSalaries' || key === 'export_payroll') updated.payroll = true;
-        if (key === 'accessFinance' || key === 'approveExpenses') updated.finance = true;
+        if (key === 'manageSalaries' || key === 'export_payroll' || key === 'accessFinance' || key === 'approveExpenses') {
+          updated.payroll = true;
+          updated.finance = true;
+        }
         if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads' || key === 'createChannels') {
           updated.accessCRM = true;
           updated.leads = true;
@@ -367,10 +369,7 @@ export const EmployeePermissionsTab = () => {
         if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut' || key === 'approveOvertime' || key === 'export_attendance') {
           updated.attendance = true;
         }
-        if (key === 'liveOperations' || key === 'forceClockOut') {
-          updated.liveOperations = true;
-          updated.teamoperations = true;
-        }
+        if (key === 'liveOperations' || key === 'forceClockOut') updated.teamoperations = true;
         if (key === 'approveLeaves' || key === 'viewAllLeaves' || key === 'cancelLeaves') updated.leaves = true;
         if (key === 'manageProjects' || key === 'createProjects' || key === 'deleteProjects' || key === 'viewAllProjects') updated.projects = true;
         if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks' || key === 'editAnyTask') updated.tasks = true;
@@ -379,11 +378,6 @@ export const EmployeePermissionsTab = () => {
         if (key === 'giveAppreciation' || key === 'deleteAppreciations') updated.appreciation = true;
         if (key === 'documentation') updated.documents = true;
         if (key === 'reports') updated.viewReports = true;
-        if (key === 'manageSettings') updated.settings = true;
-        if (key === 'grantPermissions') {
-          updated.employees = true;
-          updated.settings = true;
-        }
       } else {
         // ── 2. REVERSE CASCADE (Auto-Disable Dependent Child Capabilities) ──
         // If turning off a parent prerequisite, automatically turn off all dependent child capabilities!
@@ -403,34 +397,18 @@ export const EmployeePermissionsTab = () => {
         if (key === 'accessCRM') {
           updated.leads = false;
         }
-        if (key === 'liveOperations') {
-          updated.teamoperations = false;
-          updated.forceClockOut = false;
-        }
         if (key === 'viewAllAttendance') {
           updated.editAttendance = false;
           updated.approveOvertime = false;
           updated.export_attendance = false;
         }
         if (key === 'manageEmployees') {
-          updated.employees = false;
           updated.viewEmployeeDetails = false;
           updated.deleteEmployees = false;
           updated.reviewResignations = false;
         }
         if (key === 'manageSalaries') {
-          updated.payroll = false;
           updated.export_payroll = false;
-        }
-        if (key === 'accessFinance') {
-          updated.finance = false;
-          updated.approveExpenses = false;
-        }
-        if (key === 'documentation') {
-          updated.documents = false;
-        }
-        if (key === 'reports') {
-          updated.viewReports = false;
         }
 
         if (disabledChildCount > 0) {

@@ -608,36 +608,44 @@ export const sanitizeTaskDailySessions = (task) => {
     return task;
   }
 
-  const rawSessions = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
+  const rawSessions = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : null;
+  if (!rawSessions || Object.keys(rawSessions).length === 0) {
+    return task;
+  }
+
   const today = getLocalDateString(new Date());
   const sessionDates = Object.keys(rawSessions);
   const sumSessions = sessionDates.reduce((acc, d) => acc + (Number(rawSessions[d]) || 0), 0);
   const totalAccum = Math.max(Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0), sumSessions);
   const cleanSessions = { ...rawSessions };
 
-  // NEVER delete or zero out today's recorded work on a task just because task.startDate < today!
-  // Employees routinely work on previously created tasks today, and pausing/resuming MUST accumulate today's work!
+  const isStartedOnPastDay = task.startDate && task.startDate < today;
   let todaySessionSecs = 0;
   if (task.sessionDate === today) {
-    todaySessionSecs = Math.max(
+    const rawToday = Math.max(
       Number(task.todayWorkSeconds) || 0,
       Number(task.accumulatedTodaySeconds) || 0,
       Number(rawSessions[today]) || 0
     );
+    if (isStartedOnPastDay && !task.timerRunning && rawToday >= totalAccum && totalAccum > 0) {
+      // Stale copy of total accumulated duration into today: heal by partitioning to past date
+      todaySessionSecs = 0;
+      if (!cleanSessions[task.startDate]) {
+        cleanSessions[task.startDate] = totalAccum;
+      }
+    } else {
+      todaySessionSecs = rawToday;
+    }
   } else {
     todaySessionSecs = Number(rawSessions[today]) || 0;
   }
 
-  // Bound todaySessionSecs cleanly to totalAccum (and ensure totalAccum is at least todaySessionSecs)
-  const finalTotalAccum = Math.max(totalAccum, todaySessionSecs);
-  if (todaySessionSecs > 0 || rawSessions[today] !== undefined) {
-    cleanSessions[today] = todaySessionSecs;
-  }
+  cleanSessions[today] = todaySessionSecs;
 
   return {
     ...task,
-    accumulatedSeconds: finalTotalAccum,
-    timerSeconds: Math.max(Number(task.timerSeconds) || 0, finalTotalAccum),
+    accumulatedSeconds: totalAccum,
+    timerSeconds: Math.max(Number(task.timerSeconds) || 0, totalAccum),
     todayWorkSeconds: todaySessionSecs,
     accumulatedTodaySeconds: todaySessionSecs,
     dailySessions: cleanSessions
@@ -667,30 +675,30 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
   const baseAccum = (task.accumulatedSeconds !== undefined && task.accumulatedSeconds !== null)
     ? Number(task.accumulatedSeconds)
     : Math.max(0, (Number(task.timerSeconds) || 0) - sessionElapsed);
-  const totalSecs = Math.max(baseAccum + sessionElapsed, Number(task.accumulatedSeconds) || 0);
+  const totalSecs = baseAccum + sessionElapsed;
 
   const dailySessionsMap = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
-  const fromDaily = dailySessionsMap[today] !== undefined ? (Number(dailySessionsMap[today]) || 0) : 0;
-  const fromAccumToday = (task.sessionDate === today && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null)
-    ? (Number(task.accumulatedTodaySeconds) || 0)
-    : 0;
-  const fromTodayWork = (task.sessionDate === today && task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null)
-    ? (task.timerRunning ? Math.max(0, (Number(task.todayWorkSeconds) || 0) - sessionElapsed) : (Number(task.todayWorkSeconds) || 0))
-    : 0;
-
-  // Preserve the highest verified prior same-day baseline so pause NEVER loses prior sessions worked today!
-  const priorTodaySecs = Math.max(fromDaily, fromAccumToday, fromTodayWork);
+  let priorTodaySecs = 0;
+  if (dailySessionsMap[today] !== undefined) {
+    priorTodaySecs = Number(dailySessionsMap[today]) || 0;
+  } else if (task.sessionDate === today && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
+    priorTodaySecs = Number(task.accumulatedTodaySeconds) || 0;
+  } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
+    priorTodaySecs = task.timerRunning
+      ? Math.max(0, (Number(task.todayWorkSeconds) || 0) - sessionElapsed)
+      : (Number(task.todayWorkSeconds) || 0);
+  }
+  // STRICT: Do NOT copy baseAccum into priorTodaySecs! If priorTodaySecs was 0, it means 0 prior seconds for today.
   const totalTodaySecs = priorTodaySecs + sessionElapsed;
   dailySessionsMap[today] = totalTodaySecs;
-  const safeTotalSecs = Math.max(totalSecs, totalTodaySecs);
 
   return {
     ...task,
     timerRunning: false,
     startedAt: null,
-    accumulatedSeconds: safeTotalSecs,
+    accumulatedSeconds: totalSecs,
     accumulatedTodaySeconds: totalTodaySecs,
-    timerSeconds: safeTotalSecs,
+    timerSeconds: totalSecs,
     todayWorkSeconds: totalTodaySecs,
     liveTodaySeconds: totalTodaySecs,
     dailySessions: dailySessionsMap,
@@ -698,8 +706,8 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
     wasPausedForClockOut: Boolean(wasPausedForClockOut),
     wasPausedForBreak: Boolean(wasPausedForBreak),
     liveDurationText: formatSecondsToDigital(totalTodaySecs),
-    hoursLogged: +(safeTotalSecs / 3600).toFixed(2),
-    hoursLoggedText: formatSecondsToDigital(safeTotalSecs)
+    hoursLogged: +(totalSecs / 3600).toFixed(2),
+    hoursLoggedText: formatSecondsToDigital(totalSecs)
   };
 };
 

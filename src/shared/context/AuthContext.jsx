@@ -240,22 +240,6 @@ export const AuthProvider = ({ children }) => {
           };
           try {
             localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
-            // Also keep KEYS.EMPLOYEES local mirror aligned so no downstream check sees stale permissions
-            const emps = getCollection(KEYS.EMPLOYEES) || [];
-            const empIdx = emps.findIndex(emp =>
-              (updatedUser._id && String(emp._id) === String(updatedUser._id)) ||
-              (updatedUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(updatedUser.employeeCode).toUpperCase())
-            );
-            if (empIdx >= 0) {
-              emps[empIdx] = {
-                ...emps[empIdx],
-                permissions: newPerms,
-                isDelegatedAdmin: updatedUser.isDelegatedAdmin,
-                delegationExpiresAt: updatedUser.delegationExpiresAt,
-                systemRole: updatedUser.systemRole
-              };
-              localStorage.setItem(KEYS.EMPLOYEES, JSON.stringify(emps));
-            }
           } catch (_) {}
           return updatedUser;
         }

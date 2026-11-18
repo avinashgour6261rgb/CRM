@@ -96,17 +96,12 @@ export const HRProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
   const isFetchingRef = React.useRef(false);
-  const pendingReloadRef = React.useRef(false);
   const debounceTimerRef = React.useRef(null);
 
   // Load all initial data from MongoDB Atlas / LocalStorage fallback
   const loadData = useCallback(async () => {
-    if (isFetchingRef.current) {
-      pendingReloadRef.current = true;
-      return;
-    }
+    if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-    pendingReloadRef.current = false;
     try {
       setLoading(true);
 
@@ -242,11 +237,6 @@ export const HRProvider = ({ children }) => {
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
-      // Never drop a real-time socket update that arrived mid-fetch!
-      if (pendingReloadRef.current) {
-        pendingReloadRef.current = false;
-        setTimeout(() => loadData(), 150);
-      }
     }
   }, [selectedEmployeeId, searchQuery, dateRange, selectedMonth, selectedYear]);
 
@@ -257,11 +247,11 @@ export const HRProvider = ({ children }) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
         loadData();
-      }, 300);
+      }, 500);
     };
 
     // Listen for storage events across tabs, remote socket updates, or reconnects
-    const hrKeys = ['ems_auth_session', 'EMS_USER_PERMISSIONS', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
+    const hrKeys = ['ems_auth_session', 'hrms_employees', 'ems_employees', 'hrms_leaves', 'ems_leaves', 'hrms_attendance', 'ems_attendance', 'hrms_holidays', 'hrms_holiday_confirmations', 'hrms_appreciations', 'ems_attendance_audit_logs', 'hrms_resignations', 'all'];
     const syncAuthSessionUser = () => {
       try {
         const s = localStorage.getItem('ems_auth_session');
@@ -275,98 +265,38 @@ export const HRProvider = ({ children }) => {
         setCurrentUser(null);
       }
     };
-    const applyOptimisticListUpdate = (setter, action, item, id) => {
-      if (action === 'delete' && id) {
-        setter(prev => (prev || []).filter(x => String(x._id || x.id) !== String(id)));
-      } else if (item && (item._id || item.id)) {
-        const itemId = String(item._id || item.id);
-        setter(prev => {
-          const list = Array.isArray(prev) ? prev : [];
-          const idx = list.findIndex(x => String(x._id || x.id) === itemId);
-          if (idx >= 0) {
-            const copy = [...list];
-            copy[idx] = { ...copy[idx], ...item };
-            return copy;
-          }
-          return [item, ...list];
-        });
-      }
-    };
     const handleStorageUpdate = (e) => {
-      if (e.detail?.key === 'ems_auth_session' || e.detail?.key === 'EMS_USER_PERMISSIONS') {
+      if (e.detail?.key === 'ems_auth_session') {
         syncAuthSessionUser();
       }
+      if (isFetchingRef.current) return;
       if (e.detail?.key && hrKeys.includes(e.detail.key)) {
-        if (isFetchingRef.current) {
-          pendingReloadRef.current = true;
-        } else {
-          scheduleDebouncedLoad();
-        }
+        scheduleDebouncedLoad();
       }
     };
     const handleRemoteSync = (e) => {
-      const k = e?.detail?.key;
-      const action = e?.detail?.action;
-      const item = e?.detail?.item;
-      const id = e?.detail?.id;
-
-      // Instant 0ms optimistic UI updates from Socket.IO before background refetch
-      if (k === KEYS.EMPLOYEES || k === 'ems_employees') applyOptimisticListUpdate(setEmployees, action, item, id);
-      else if (k === KEYS.LEAVES || k === 'ems_leaves') applyOptimisticListUpdate(setLeaves, action, item, id);
-      else if (k === KEYS.HOLIDAYS) applyOptimisticListUpdate(setHolidays, action, item, id);
-      else if (k === KEYS.APPRECIATIONS) applyOptimisticListUpdate(setAppreciations, action, item, id);
-      else if (k === KEYS.ATTENDANCE_AUDIT) applyOptimisticListUpdate(setAuditLogs, action, item, id);
-      else if (k === KEYS.ATTENDANCE || k === 'ems_attendance') applyOptimisticListUpdate(setAttendance, action, item, id);
-
-      if (!k || hrKeys.includes(k)) {
-        if (isFetchingRef.current) {
-          pendingReloadRef.current = true;
-        } else {
-          scheduleDebouncedLoad();
-        }
+      if (isFetchingRef.current) return;
+      if (!e.detail?.key || hrKeys.includes(e.detail.key)) {
+        scheduleDebouncedLoad();
       }
-    };
-    const handlePermissionsUpdated = (e) => {
-      syncAuthSessionUser();
-      const d = e?.detail;
-      if (d && (d.employeeId || d.employeeCode || d.email)) {
-        setEmployees(prev => (prev || []).map(emp => {
-          const isMatch = (d.employeeId && String(emp._id) === String(d.employeeId)) ||
-            (d.employeeCode && String(emp.employeeCode).toUpperCase() === String(d.employeeCode).toUpperCase()) ||
-            (d.email && String(emp.email).toLowerCase() === String(d.email).toLowerCase());
-          if (isMatch) {
-            return {
-              ...emp,
-              permissions: d.permissions !== undefined ? (d.permissions || {}) : emp.permissions,
-              isDelegatedAdmin: d.isDelegatedAdmin !== undefined ? Boolean(d.isDelegatedAdmin) : emp.isDelegatedAdmin,
-              delegationExpiresAt: d.delegationExpiresAt !== undefined ? d.delegationExpiresAt : emp.delegationExpiresAt,
-              systemRole: d.systemRole || emp.systemRole
-            };
-          }
-          return emp;
-        }));
-      }
-      scheduleDebouncedLoad();
     };
     const handleNativeStorage = (e) => {
-      if (e.key === 'ems_auth_session' || e.key === 'EMS_USER_PERMISSIONS') {
+      if (e.key === 'ems_auth_session') {
         syncAuthSessionUser();
       }
-      if (e.key === 'ems_auth_session' || e.key === 'EMS_USER_PERMISSIONS' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
-        if (isFetchingRef.current) pendingReloadRef.current = true;
-        else scheduleDebouncedLoad();
+      if (isFetchingRef.current) return;
+      if (e.key === 'ems_auth_session' || e.key === 'hrms_employees' || e.key === 'hrms_leaves') {
+        scheduleDebouncedLoad();
       }
     };
     window.addEventListener('hrms_storage_change', handleStorageUpdate);
     window.addEventListener('ems_remote_sync', handleRemoteSync);
-    window.addEventListener('ems_permissions_updated', handlePermissionsUpdated);
     window.addEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
     window.addEventListener('storage', handleNativeStorage);
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('ems_remote_sync', handleRemoteSync);
-      window.removeEventListener('ems_permissions_updated', handlePermissionsUpdated);
       window.removeEventListener('ems_socket_reconnected', scheduleDebouncedLoad);
       window.removeEventListener('storage', handleNativeStorage);
     };

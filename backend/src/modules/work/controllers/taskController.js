@@ -242,76 +242,8 @@ exports.updateTask = async (req, res, next) => {
       updateData.project = null;
     }
 
-    // Fetch existing task first to enforce monotonic duration protection (NEVER allow a stale browser to delete/shrink logged work time!)
-    let existingTask = null;
-    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      existingTask = await Task.findById(req.params.id).lean();
-    }
-    if (!existingTask) {
-      existingTask = await Task.findOne({ taskCode: req.params.id }).lean();
-    }
-
-    if (existingTask) {
-      const hasTimerPayload = (
-        updateData.accumulatedSeconds !== undefined ||
-        updateData.timerSeconds !== undefined ||
-        updateData.todayWorkSeconds !== undefined ||
-        updateData.accumulatedTodaySeconds !== undefined ||
-        updateData.dailySessions !== undefined
-      );
-
-      if (hasTimerPayload) {
-        const existingDaily = (existingTask.dailySessions && typeof existingTask.dailySessions === 'object') ? existingTask.dailySessions : {};
-        const incomingDaily = (updateData.dailySessions && typeof updateData.dailySessions === 'object') ? updateData.dailySessions : {};
-        const mergedDaily = { ...existingDaily };
-        for (const [dKey, dVal] of Object.entries(incomingDaily)) {
-          const prevVal = Number(mergedDaily[dKey]) || 0;
-          const nextVal = Math.max(0, Number(dVal) || 0);
-          mergedDaily[dKey] = Math.max(prevVal, nextVal);
-        }
-
-        const activeDate = updateData.sessionDate || existingTask.sessionDate || new Date().toISOString().split('T')[0];
-        const prevDateSecs = existingTask.sessionDate === activeDate
-          ? Math.max(Number(existingTask.accumulatedTodaySeconds) || 0, Number(existingTask.todayWorkSeconds) || 0, Number(mergedDaily[activeDate]) || 0)
-          : (Number(mergedDaily[activeDate]) || 0);
-        const incomingDateSecs = Math.max(
-          Number(updateData.accumulatedTodaySeconds) || 0,
-          Number(updateData.todayWorkSeconds) || 0,
-          Number(incomingDaily[activeDate]) || 0
-        );
-        const safeDateSecs = Math.max(prevDateSecs, incomingDateSecs);
-        if (safeDateSecs > 0 || mergedDaily[activeDate] !== undefined) {
-          mergedDaily[activeDate] = safeDateSecs;
-        }
-
-        const safeAccum = Math.max(
-          Number(existingTask.accumulatedSeconds) || 0,
-          Number(updateData.accumulatedSeconds) || 0,
-          safeDateSecs
-        );
-        const safeTimer = Math.max(
-          Number(existingTask.timerSeconds) || 0,
-          Number(updateData.timerSeconds) || 0,
-          safeAccum
-        );
-
-        updateData.dailySessions = mergedDaily;
-        updateData.accumulatedSeconds = safeAccum;
-        updateData.timerSeconds = safeTimer;
-        updateData.accumulatedTodaySeconds = safeDateSecs;
-        updateData.todayWorkSeconds = safeDateSecs;
-        updateData.liveTodaySeconds = safeDateSecs;
-        updateData.hoursLogged = +(safeAccum / 3600).toFixed(2);
-      }
-    }
-
     let task = null;
-    if (existingTask?._id) {
-      task = await Task.findByIdAndUpdate(existingTask._id, updateData, {
-        new: true,
-        runValidators: true
-      });
-    } else if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
       task = await Task.findByIdAndUpdate(req.params.id, updateData, {
         new: true,
         runValidators: true
