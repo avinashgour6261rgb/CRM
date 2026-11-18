@@ -18,6 +18,7 @@ import {
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { DateRangePicker } from '../components/common/DateRangePicker';
 import { AddAppreciationModal } from '../components/appreciation/AddAppreciationModal';
 import {
@@ -32,7 +33,8 @@ import { Pagination } from '../../../shared/components/common/Pagination';
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
   const { appreciations, employees, currentUser: hrUser, searchQuery, setSearchQuery, deleteAppreciation } = useHR();
-  const { confirm, alert } = useConfirm();
+  const { confirm } = useConfirm();
+  const { addToast } = useToast();
   const currentUser = authUser || hrUser;
 
   const canGive = useMemo(() => canGiveAppreciation(currentUser), [currentUser]);
@@ -120,11 +122,7 @@ export const AppreciationPage = () => {
 
   const handleExportCSV = () => {
     if (filteredAppreciations.length === 0) {
-      alert({
-        title: 'Export Appreciations',
-        message: 'No appreciation records to export.',
-        variant: 'primary'
-      });
+      addToast('No appreciation records to export.', 'info');
       return;
     }
     const headers = ['Employee Name', 'Role', 'Award / Reason', 'Given On', 'Given By', 'Reward', 'Appreciation Message'];

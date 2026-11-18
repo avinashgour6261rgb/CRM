@@ -183,12 +183,14 @@ export const ProfileTab = () => {
 
         await updateEmployee(currentUser._id, profileUpdatePayload);
 
-        // Sync AuthContext and session immediately
+        // Sync AuthContext and session immediately (never persist plaintext password in localStorage!)
+        const { password: _stripProfilePass, ...safeProfileUpdate } = profileUpdatePayload;
         const updatedAuth = {
           ...(authUser || currentUser),
-          ...profileUpdatePayload,
+          ...safeProfileUpdate,
           isCurrentUser: true
         };
+        delete updatedAuth.password;
         setAuthCurrentUser?.(updatedAuth);
         localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));

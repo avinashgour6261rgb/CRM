@@ -42,15 +42,25 @@ exports.getCompanySettings = async (req, res) => {
 exports.updateCompanySettings = async (req, res) => {
   try {
     const u = req.user;
-    const canEdit = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.manageSettings || u.permissions?.allAccess));
-    if (!canEdit) {
-      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can update company settings.' });
-    }
     const rawData = { ...(req.body || {}) };
     delete rawData._id;
     delete rawData.__v;
     delete rawData.createdAt;
     delete rawData.updatedAt;
+
+    const payloadKeys = Object.keys(rawData);
+    const isPayrollDisbursementOnly = payloadKeys.length === 1 && payloadKeys[0] === 'disbursedPayrollMonths';
+
+    const canEditSettings = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.manageSettings || u.permissions?.allAccess));
+    const canDisbursePayroll = Boolean(canEditSettings || (u && (u.systemRole === 'hr' || u.permissions?.managePayroll)));
+
+    if (!(canEditSettings || (isPayrollDisbursementOnly && canDisbursePayroll))) {
+      return res.status(403).json({ success: false, message: 'Access denied: Insufficient permissions to update company settings.' });
+    }
+
+    if (Array.isArray(rawData.disbursedPayrollMonths)) {
+      rawData.disbursedPayrollMonths = [...new Set(rawData.disbursedPayrollMonths.map(m => String(m || '').trim()).filter(Boolean))];
+    }
 
     if (typeof rawData.companyLogo === 'string' && rawData.companyLogo.length > 600000) {
       return res.status(400).json({ success: false, message: 'Company logo is too large. Please upload an image under 400KB.' });

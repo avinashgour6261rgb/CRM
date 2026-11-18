@@ -91,6 +91,8 @@ const buildSessionUser = (employee) => {
     startingSalary: employee.startingSalary,
     salary: employee.salary,
     bankDetails: employee.bankDetails,
+    emergencyContact: employee.emergencyContact || {},
+    emergencyContacts: Array.isArray(employee.emergencyContacts) ? employee.emergencyContacts : [],
     permissions: dbPerms
   };
 };
@@ -223,5 +225,66 @@ exports.getMe = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: buildSessionUser(employee)
+  });
+});
+
+// @desc    Revoke all other active sessions by bumping tokenVersion & issuing a fresh JWT for current device
+// @route   POST /api/auth/logout-other-devices
+exports.logoutOtherDevices = asyncHandler(async (req, res) => {
+  let userId = null;
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const decoded = verifyJwt(authHeader.slice(7).trim());
+    if (decoded?.sub) userId = decoded.sub;
+  }
+  if (!userId) {
+    userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+  }
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+
+  let employee = null;
+  if (mongoose.Types.ObjectId.isValid(userId)) {
+    employee = await Employee.findById(userId);
+  }
+  if (!employee) {
+    employee = await Employee.findOne({ employeeCode: String(userId).toUpperCase() });
+  }
+  if (!employee) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  const nextVersion = (Number(employee.tokenVersion) || 1) + 1;
+  employee.tokenVersion = nextVersion;
+  await employee.save();
+
+  const freshToken = signJwt({
+    sub: employee._id.toString(),
+    employeeCode: employee.employeeCode,
+    email: employee.email,
+    tokenVersion: nextVersion
+  });
+
+  try {
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+    const revokePayload = {
+      employeeId: employee._id.toString(),
+      employeeCode: employee.employeeCode,
+      email: employee.email,
+      minTokenVersion: nextVersion,
+      reason: 'Logged out from another device'
+    };
+    emitToUser(employee._id.toString(), 'session:revoked', revokePayload);
+    if (employee.employeeCode) emitToUser(employee.employeeCode, 'session:revoked', revokePayload);
+    if (employee.email) emitToUser(employee.email.toLowerCase(), 'session:revoked', revokePayload);
+    emitToAll('session:revoked', revokePayload);
+  } catch (_) {}
+
+  res.json({
+    success: true,
+    token: freshToken,
+    tokenVersion: nextVersion,
+    message: 'All other active sessions have been signed out.'
   });
 });

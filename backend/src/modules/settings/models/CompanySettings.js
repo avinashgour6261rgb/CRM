@@ -34,7 +34,8 @@ const CompanySettingsSchema = new mongoose.Schema({
   lunchDurationMinutes: { type: Number, default: 45 },
   teaBreakMinutes: { type: Number, default: 15 },
   weeklyOffDays: { type: [Number], default: [0] }, // 0=Sun, 1=Mon ... 6=Sat (default: Sunday Off)
-  workDaysDescription: { type: String, default: 'Mon - Sat (Sunday Off)' }
+  workDaysDescription: { type: String, default: 'Mon - Sat (Sunday Off)' },
+  disbursedPayrollMonths: { type: [String], default: [] }
 }, {
   timestamps: true
 });

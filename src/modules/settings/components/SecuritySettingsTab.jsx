@@ -1,273 +1,204 @@
 /**
  * @file SecuritySettingsTab.jsx
- * @description Security & Two-Factor Authentication settings matching Screenshot 7.
+ * @description Real Account Security & Session Management:
+ * - Backend-verified password change (never stores plaintext password in localStorage)
+ * - Real current device session details (no fake devices or dummy 2FA)
+ * - Real "Logout All Other Devices" via backend JWT tokenVersion revocation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ShieldCheck,
-  Mail,
-  Smartphone,
   KeyRound,
   Laptop,
   LogOut,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  QrCode,
-  Lock
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useHR } from '../../hr/context/HRContext';
-import { useCRM } from '../../../shared/context/CRMContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { API_BASE, getAuthHeaders } from '../../../shared/config/apiConfig';
+
+const detectCurrentDeviceLabel = () => {
+  try {
+    const ua = navigator.userAgent || '';
+    const os = /Windows/i.test(ua)
+      ? 'Windows'
+      : /Mac OS X|Macintosh/i.test(ua)
+      ? 'macOS'
+      : /Android/i.test(ua)
+      ? 'Android'
+      : /iPhone|iPad|iPod/i.test(ua)
+      ? 'iOS'
+      : /Linux/i.test(ua)
+      ? 'Linux'
+      : 'Desktop';
+    const browser = /Edg\//i.test(ua)
+      ? 'Microsoft Edge'
+      : /Chrome\//i.test(ua)
+      ? 'Chrome Browser'
+      : /Firefox\//i.test(ua)
+      ? 'Firefox'
+      : /Safari\//i.test(ua)
+      ? 'Safari'
+      : 'Web Browser';
+    return `${os} (${browser})`;
+  } catch {
+    return 'Current Browser Session';
+  }
+};
 
 export const SecuritySettingsTab = () => {
-  const { currentUser, updateEmployee } = useHR();
-  const { userSettings, updateUserSettings } = useCRM();
+  const { currentUser: hrUser } = useHR();
+  const { currentUser: authUser, setCurrentUser } = useAuth();
   const { addToast } = useToast();
 
-  const [email2FA, setEmail2FA] = useState(userSettings?.twoFactorEmail || false);
-  const [google2FA, setGoogle2FA] = useState(userSettings?.twoFactorAuth || false);
-  const [showQRModal, setShowQRModal] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
+  const currentUser = authUser || hrUser;
 
-  // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
   const [passwordUpdating, setPasswordUpdating] = useState(false);
+  const [revokingOthers, setRevokingOthers] = useState(false);
 
-  // Active Sessions state
-  const [sessions, setSessions] = useState([
-    {
-      id: 'sess_1',
-      device: 'Windows 11 (Chrome Browser)',
-      ip: '192.168.1.45 (Mumbai, India)',
-      lastActive: 'Active Now (Current Session)',
-      isCurrent: true
-    },
-    {
-      id: 'sess_2',
-      device: 'Apple iPhone 14 (Safari Mobile)',
-      ip: '49.36.120.18 (Mumbai, India)',
-      lastActive: 'Yesterday at 08:30 PM',
-      isCurrent: false
-    }
-  ]);
-
-  const handleToggleEmail2FA = async () => {
-    const next = !email2FA;
-    setEmail2FA(next);
-    await updateUserSettings({ twoFactorEmail: next });
-    addToast(next ? 'Email 2FA Enabled' : 'Email 2FA Disabled', 'info');
-  };
-
-  const handleGoogle2FAToggle = () => {
-    if (google2FA) {
-      setGoogle2FA(false);
-      updateUserSettings({ twoFactorAuth: false });
-      addToast('Google Authenticator 2FA Disabled', 'info');
-    } else {
-      setShowQRModal(true);
-    }
-  };
-
-  const verifyAndEnableGoogle2FA = () => {
-    if (verificationCode.length !== 6) {
-      addToast('Please enter a valid 6-digit code', 'error');
-      return;
-    }
-    setGoogle2FA(true);
-    setShowQRModal(false);
-    setVerificationCode('');
-    updateUserSettings({ twoFactorAuth: true });
-    addToast('Google Authenticator 2FA enabled successfully!', 'success');
-  };
+  const currentDeviceLabel = useMemo(() => detectCurrentDeviceLabel(), []);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     if (!currentPassword) {
-      addToast('Please enter current password to verify identity', 'error');
+      addToast('Please enter your current password to verify identity.', 'error');
       return;
     }
-
-    // Security Verification: If a password exists on user, verify it
-    const actualPassword = currentUser?.password || localStorage.getItem('ems_master_password');
-    if (actualPassword && currentPassword !== actualPassword) {
-      addToast('🔒 Security Verification Failed: Current password incorrect.', 'error');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      addToast('New password must be at least 8 characters', 'error');
+    if (newPassword.length < 6) {
+      addToast('New password must be at least 6 characters long.', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
-      addToast('New passwords do not match', 'error');
+      addToast('New password and confirm password do not match.', 'error');
       return;
     }
 
     setPasswordUpdating(true);
     try {
-      const oldPass = currentUser?.password || localStorage.getItem('ems_master_password') || currentPassword;
-      const historyEntry = {
-        password: oldPass,
-        changedAt: new Date().toISOString(),
-        changedBy: `${currentUser?.name || 'User'} (Self-Service)`
-      };
-      const prevHist = Array.isArray(currentUser?.passwordHistory) ? currentUser.passwordHistory : [];
-      const updatedHistory = [historyEntry, ...prevHist];
+      // 1. Verify current password directly against backend authentication
+      const identifier = currentUser?.email || currentUser?.employeeCode;
+      if (!identifier) {
+        throw new Error('Could not identify your account. Please sign in again.');
+      }
 
-      if (currentUser?._id && updateEmployee) {
-        await updateEmployee(currentUser._id, {
+      const verifyRes = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier, password: currentPassword })
+      });
+      if (!verifyRes.ok) {
+        addToast('Incorrect current password. Please verify and try again.', 'error');
+        return;
+      }
+
+      // 2. Persist new password to MongoDB (backend hashes via scrypt + updates encrypted Admin Vault)
+      const targetId = currentUser?._id || currentUser?.employeeCode;
+      const nowIso = new Date().toISOString();
+      const updateRes = await fetch(`${API_BASE}/employees/${targetId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
           password: newPassword,
-          passwordHistory: updatedHistory,
-          passwordUpdatedAt: new Date().toISOString()
-        });
+          passwordUpdatedAt: nowIso
+        })
+      });
+      if (!updateRes.ok) {
+        const errJson = await updateRes.json().catch(() => null);
+        throw new Error(errJson?.message || `Failed to update password (${updateRes.status})`);
       }
 
-      // Update active auth session
-      const savedAuth = localStorage.getItem('ems_auth_session');
-      if (savedAuth) {
-        const parsed = JSON.parse(savedAuth);
-        parsed.password = newPassword;
-        parsed.passwordHistory = updatedHistory;
-        parsed.passwordUpdatedAt = new Date().toISOString();
-        localStorage.setItem('ems_auth_session', JSON.stringify(parsed));
-      }
-      localStorage.setItem('ems_master_password', newPassword);
-
-      // Audit and backup trail
+      // 3. Clean any legacy plaintext password from localStorage & update session metadata only
       try {
-        const logs = JSON.parse(localStorage.getItem('ems_credential_backup_log') || '[]');
-        logs.unshift({
-          action: 'PASSWORD_UPDATED',
-          userId: currentUser?._id,
-          employeeCode: currentUser?.employeeCode || 'ADM-001',
-          email: currentUser?.email || 'admin@inforag.com',
-          name: currentUser?.name || 'Administrator',
-          timestamp: new Date().toISOString(),
-          note: 'Password updated by user'
-        });
-        localStorage.setItem('ems_credential_backup_log', JSON.stringify(logs.slice(0, 50)));
-      } catch {}
+        localStorage.removeItem('ems_master_password');
+        const savedAuth = localStorage.getItem('ems_auth_session');
+        if (savedAuth) {
+          const parsed = JSON.parse(savedAuth);
+          delete parsed.password;
+          parsed.passwordUpdatedAt = nowIso;
+          localStorage.setItem('ems_auth_session', JSON.stringify(parsed));
+          setCurrentUser?.(parsed);
+        }
+      } catch (_) {}
 
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      addToast('🔒 Password updated successfully! Your account is secured with your new password.', 'success');
+      addToast('Password updated securely in database!', 'success');
     } catch (err) {
-      addToast('Failed to update password', 'error');
+      addToast(err?.message || 'Failed to update password. Please try again.', 'error');
     } finally {
       setPasswordUpdating(false);
     }
   };
 
-  const handleLogoutOtherDevices = () => {
-    setSessions(prev => prev.filter(s => s.isCurrent));
-    addToast('Logged out from all other active devices!', 'success');
+  const handleLogoutOtherDevices = async () => {
+    setRevokingOthers(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/logout-other-devices`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.message || `Failed to revoke sessions (${res.status})`);
+      }
+      if (json?.token) {
+        localStorage.setItem('ems_auth_token', json.token);
+      }
+      addToast('All other logged-in devices have been signed out immediately!', 'success');
+    } catch (err) {
+      addToast(err?.message || 'Could not revoke other sessions right now.', 'error');
+    } finally {
+      setRevokingOthers(false);
+    }
   };
 
   return (
-    <div className="flex flex-col gap-6 py-6">
-      
-      {/* ── Tab Header (Matching Screenshot 7) ── */}
-      <div className="border-b-2 border-blue-600 inline-flex items-center gap-2 pb-2 w-fit">
-        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">Two-Factor Authentication</span>
-        <span className={`w-2 h-2 rounded-full ${email2FA || google2FA ? 'bg-emerald-500' : 'bg-red-500'}`} />
-      </div>
+    <div className="flex flex-col gap-6 py-4">
 
-      {/* ── Alert Banners (Matching Screenshot 7) ── */}
-      <div className="flex flex-col gap-2.5">
-        {/* Info Banner */}
-        <div className="p-3 px-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-[13px] flex items-center gap-2">
-          <span className="font-bold">ℹ</span>
-          <span>Increase your account's security by enabling Two-Factor Authentication (2FA)</span>
-        </div>
-
-        {/* Warning Banner */}
-        <div className="p-3 px-4 rounded-lg bg-pink-50 dark:bg-pink-950/40 border border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300 text-[13px] flex items-center gap-2">
-          <span className="font-bold">ℹ</span>
-          <span>Email SMTP settings not configured.</span>
-        </div>
-      </div>
-
-      {/* ── Section 1: Setup Using Email (Matching Screenshot 7) ── */}
-      <div className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
-            <Mail size={20} />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
-              Setup Using Email
-            </h4>
-            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0 leading-snug">
-              Enabling this feature will send code on your email account <strong>{currentUser?.email || 'user@company.com'}</strong> for log in.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleToggleEmail2FA}
-          className={`w-full sm:w-auto px-[18px] py-2 sm:py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors text-center ${
-            email2FA
-              ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
-              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white shadow-xs'
-          }`}
-        >
-          {email2FA ? 'Disable' : 'Enable'}
-        </button>
-      </div>
-
-      {/* ── Section 2: Setup Using Google Authenticator (Matching Screenshot 7) ── */}
-      <div className="p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-            <Smartphone size={20} />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
-              Setup Using Google Authenticator
-            </h4>
-            <p className="text-[12.5px] text-slate-500 m-0 leading-snug">
-              Use the Authenticator app to get free verification codes, even when your phone is offline. Available for Android and iPhone.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleGoogle2FAToggle}
-          className={`w-full sm:w-auto px-[18px] py-2 sm:py-1.5 rounded-lg text-[13px] font-bold cursor-pointer transition-colors text-center ${
-            google2FA
-              ? 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60'
-              : 'border-0 bg-sky-600 hover:bg-sky-700 text-white shadow-xs'
-          }`}
-        >
-          {google2FA ? 'Disable' : 'Enable'}
-        </button>
-      </div>
-
-      {/* ── Section 3: Change Password ── */}
+      {/* ── Section 1: Change Password ── */}
       <div className="p-[22px] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="flex items-center gap-2.5 mb-4">
-          <KeyRound size={18} className="text-blue-600" />
-          <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 m-0">
-            Change Password
-          </h4>
+        <div className="flex items-center justify-between gap-2.5 mb-4 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <KeyRound size={18} className="text-blue-600" />
+            <div>
+              <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 m-0">
+                Change Account Password
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">
+                Signed in as <strong>{currentUser?.name || 'User'}</strong> ({currentUser?.employeeCode || currentUser?.email || ''})
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPasswords(v => !v)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            {showPasswords ? <EyeOff size={13} /> : <Eye size={13} />}
+            <span>{showPasswords ? 'Hide' : 'Show'}</span>
+          </button>
         </div>
 
-        <form onSubmit={handleUpdatePassword} className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 items-end">
+        <form onSubmit={handleUpdatePassword} className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4 items-end">
           <div>
             <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
               Current Password *
             </label>
             <input
-              type="password"
+              type={showPasswords ? 'text' : 'password'}
               required
               value={currentPassword}
               onChange={e => setCurrentPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter current password"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
@@ -277,21 +208,21 @@ export const SecuritySettingsTab = () => {
               New Password *
             </label>
             <input
-              type="password"
+              type={showPasswords ? 'text' : 'password'}
               required
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder="Min. 8 characters"
+              placeholder="Min. 6 characters"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-[13px] outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           <div>
             <label className="block text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
-              Confirm Password *
+              Confirm New Password *
             </label>
             <input
-              type="password"
+              type={showPasswords ? 'text' : 'password'}
               required
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
@@ -311,120 +242,59 @@ export const SecuritySettingsTab = () => {
           </div>
         </form>
 
-        {/* Master Admin Anti-Lockout Safeguard Notice */}
-        <div className="mt-3.5 p-3 px-3.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
+        <div className="mt-4 p-3 px-3.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
           <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
           <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-            <strong>🛡️ Secure Enterprise Authentication:</strong><br />
-            Your account password is encrypted and securely stored. When you change your password, only your newly configured password can be used to log in. Keep your credentials confidential.
+            <strong>Encrypted Server Authentication:</strong> Your current password is verified directly on the server, and your new password is stored hashed in MongoDB Atlas (never saved in plain text in your browser).
+            {currentUser?.passwordUpdatedAt && (
+              <span className="block mt-1 text-[11px] opacity-85">
+                Last updated: {new Date(currentUser.passwordUpdatedAt).toLocaleString()}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Section 4: Active Sessions & Device Management ── */}
+      {/* ── Section 2: Active Session & Remote Sign-Out ── */}
       <div className="p-[22px] rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-3.5">
         <div className="flex items-center justify-between flex-wrap gap-2.5">
           <div>
             <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 mb-1">
-              Active Sessions & Device Management
+              Active Session Control
             </h4>
-            <p className="text-[12.5px] text-slate-500 m-0">
-              Manage devices currently logged into your CRM account.
+            <p className="text-[12.5px] text-slate-500 dark:text-slate-400 m-0">
+              Sign out your account from all other browsers, laptops, or phones while staying signed in here.
             </p>
           </div>
 
           <button
+            type="button"
             onClick={handleLogoutOtherDevices}
-            className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-[12.5px] font-semibold cursor-pointer transition-colors"
+            disabled={revokingOthers}
+            className="inline-flex items-center gap-1.5 px-3.5 py-[7px] rounded-lg bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-[12.5px] font-semibold cursor-pointer disabled:opacity-60 transition-colors"
           >
             <LogOut size={14} />
-            Logout from Other Devices
+            {revokingOthers ? 'Signing out others...' : 'Logout from All Other Devices'}
           </button>
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          {sessions.map(s => (
-            <div
-              key={s.id}
-              className="flex items-center justify-between px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
-            >
-              <div className="flex items-center gap-3">
-                <Laptop size={18} className="text-slate-500" />
-                <div>
-                  <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
-                    {s.device} {s.isCurrent && <span className="text-[11px] text-green-600 dark:text-green-400 font-semibold bg-green-50 dark:bg-green-950/60 px-1.5 py-0.5 rounded">Current Device</span>}
-                  </div>
-                  <div className="text-[11.5px] text-slate-500 mt-0.5">
-                    IP: {s.ip} • {s.lastActive}
-                  </div>
-                </div>
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <Laptop size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
+            <div>
+              <div className="text-[13px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                <span>{currentDeviceLabel}</span>
+                <span className="text-[11px] text-green-600 dark:text-green-400 font-semibold bg-green-50 dark:bg-green-950/60 px-1.5 py-0.5 rounded">
+                  Current Session
+                </span>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── 2FA QR Code Setup Modal ── */}
-      {showQRModal && (
-        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[440px] p-6 shadow-xl border border-slate-200 dark:border-slate-800 text-center">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">
-                Setup Google Authenticator
-              </h3>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="bg-transparent border-0 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-[12.5px] text-slate-500 mb-4">
-              Scan this QR code with Google Authenticator or Microsoft Authenticator app on your phone:
-            </p>
-
-            <div className="w-40 h-40 mx-auto mb-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center shadow-inner">
-              <QrCode size={120} className="text-slate-900 dark:text-slate-100" />
-            </div>
-
-            <div className="text-xs text-slate-500 mb-3">
-              Secret Key: <code className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 px-1.5 py-0.5 rounded font-bold">EMS-NOVAI-9842-SEC</code>
-            </div>
-
-            <div className="mb-[18px]">
-              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Enter 6-digit Code from Authenticator:
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="123456"
-                value={verificationCode}
-                onChange={e => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                className="w-44 p-[9px] text-lg font-bold text-center tracking-[4px] rounded-lg border-[1.5px] border-blue-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 outline-none"
-              />
-            </div>
-
-            <div className="flex justify-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowQRModal(false)}
-                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[13px] font-semibold cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={verifyAndEnableGoogle2FA}
-                className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white border-0 text-[13px] font-bold cursor-pointer transition-colors"
-              >
-                Verify & Activate
-              </button>
+              <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {currentUser?.email || currentUser?.employeeCode || 'Authenticated'} • Active Now
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
     </div>
   );

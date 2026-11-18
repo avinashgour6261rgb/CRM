@@ -31,7 +31,7 @@ import { ResponsiveDurationFilter } from '../../../shared/components/common/Resp
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice } = useCRM();
   const { addToast } = useToast();
-  const { confirm, alert } = useConfirm();
+  const { confirm } = useConfirm();
   const { currentUser } = useAuth();
   const canExport = useMemo(() => canExportData(currentUser, 'notices'), [currentUser]);
 
@@ -74,11 +74,7 @@ export const NoticeBoardPage = () => {
 
   const handleExport = () => {
     if (filteredNotices.length === 0) {
-      alert({
-        title: 'Export Notices',
-        message: 'No notices are available to export for the current filter.',
-        variant: 'info'
-      });
+      addToast('No notices are available to export for the current filter.', 'info');
       return;
     }
 

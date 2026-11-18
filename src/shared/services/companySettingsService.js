@@ -36,7 +36,8 @@ export const DEFAULT_COMPANY_SETTINGS = {
   lunchDurationMinutes: 45,
   teaBreakMinutes: 15,
   weeklyOffDays: [0], // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  workDaysDescription: 'Mon - Sat (Sunday Off)'
+  workDaysDescription: 'Mon - Sat (Sunday Off)',
+  disbursedPayrollMonths: []
 };
 
 const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -142,8 +143,9 @@ export const fetchCompanySettingsFromDB = async () => {
 
 export const saveCompanySettings = async (newSettings) => {
   const merged = { ...getCompanySettings(), ...newSettings };
-  // Strip MongoDB metadata before PUT
-  const payload = { ...merged };
+  // Send only the updated fields (stripped of MongoDB metadata) so partial updates
+  // like Payroll disbursement don't overwrite unrelated fields or re-send large logos
+  const payload = { ...(newSettings || {}) };
   delete payload._id;
   delete payload.__v;
   delete payload.createdAt;

@@ -4,11 +4,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, Heart, MapPin, Check } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
+import { useToast } from '../../../shared/context/ToastContext';
 
-export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null }) => {
+export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null, onSaveContact = null }) => {
   const { addEmergencyContact, updateEmergencyContact } = useCRM();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -49,7 +51,9 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
     e.preventDefault();
     setSaving(true);
     try {
-      if (contactToEdit) {
+      if (onSaveContact) {
+        await onSaveContact(formData, contactToEdit);
+      } else if (contactToEdit) {
         await updateEmergencyContact(contactToEdit._id, formData);
       } else {
         await addEmergencyContact(formData);
@@ -57,6 +61,7 @@ export const AddEmergencyContactModal = ({ isOpen, onClose, contactToEdit = null
       onClose();
     } catch (err) {
       console.error(err);
+      addToast(err?.message || 'Could not save emergency contact. Please try again.', 'error');
     } finally {
       setSaving(false);
     }

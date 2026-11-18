@@ -357,23 +357,38 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
-  // 🔒 Real-time session revocation when an employee is relieved / deactivated by Admin or HR
+  // 🔒 Real-time session revocation when an employee is relieved / deactivated OR logged out from other devices
   subscribeSocketEvent('session:revoked', (data) => {
     try {
       if (!data) return;
       const rawSession = localStorage.getItem('ems_auth_session');
       if (!rawSession) return;
       const sessionUser = JSON.parse(rawSession);
-      if (String(sessionUser?.employeeCode || '').toUpperCase() === 'ADM-001') return;
       const isMatch =
         (data.employeeId && String(sessionUser?._id || sessionUser?.id) === String(data.employeeId)) ||
         (data.employeeCode && String(sessionUser?.employeeCode || '').toUpperCase() === String(data.employeeCode).toUpperCase()) ||
         (data.email && String(sessionUser?.email || '').toLowerCase() === String(data.email).toLowerCase());
-      if (isMatch) {
-        localStorage.removeItem('ems_auth_session');
-        localStorage.removeItem('ems_auth_token');
-        window.dispatchEvent(new CustomEvent('ems_force_logout', { detail: data }));
+      if (!isMatch) return;
+
+      // If this revocation specifies minTokenVersion ("Logout Other Devices"), keep the device that already holds the fresh token!
+      if (data.minTokenVersion) {
+        try {
+          const tok = localStorage.getItem('ems_auth_token') || '';
+          const parts = tok.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            if (Number(payload?.tokenVersion || 0) >= Number(data.minTokenVersion)) {
+              return;
+            }
+          }
+        } catch (_) {}
+      } else if (String(sessionUser?.employeeCode || '').toUpperCase() === 'ADM-001') {
+        return;
       }
+
+      localStorage.removeItem('ems_auth_session');
+      localStorage.removeItem('ems_auth_token');
+      window.dispatchEvent(new CustomEvent('ems_force_logout', { detail: data }));
     } catch (_) {}
   });
 

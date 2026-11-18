@@ -1,19 +1,108 @@
 /**
  * @file EmergencyContactsTab.jsx
- * @description Emergency Contacts list matching Screenshot 8.
+ * @description Per-employee cloud-synced Emergency Contacts stored on the logged-in Employee record in MongoDB.
  */
 
-import React, { useState } from 'react';
-import { Plus, Edit3, Trash2, Phone, Mail, UserCheck, List } from 'lucide-react';
-import { useCRM } from '../../../shared/context/CRMContext';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit3, Trash2, List, Cloud } from 'lucide-react';
+import { useAuth } from '../../../shared/context/AuthContext';
+import { useHR } from '../../hr/context/HRContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
+import { useToast } from '../../../shared/context/ToastContext';
 import { AddEmergencyContactModal } from './AddEmergencyContactModal';
 
 export const EmergencyContactsTab = () => {
-  const { emergencyContacts, deleteEmergencyContact } = useCRM();
+  const { currentUser: authUser, setCurrentUser: setAuthCurrentUser } = useAuth();
+  const { employees, currentUser: hrUser, updateEmployee } = useHR();
   const { confirm } = useConfirm();
+  const { addToast } = useToast();
+
+  const currentUser = authUser || hrUser;
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contactToEdit, setContactToEdit] = useState(null);
+
+  const myEmployeeRecord = useMemo(() => {
+    if (!currentUser) return null;
+    return (employees || []).find(emp =>
+      (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && String(emp.email).toLowerCase() === String(currentUser.email).toLowerCase())
+    ) || currentUser;
+  }, [employees, currentUser]);
+
+  const emergencyContacts = useMemo(() => {
+    if (Array.isArray(myEmployeeRecord?.emergencyContacts)) {
+      return myEmployeeRecord.emergencyContacts;
+    }
+    const legacy = myEmployeeRecord?.emergencyContact;
+    if (legacy && typeof legacy === 'object' && (legacy.name || legacy.phone || legacy.mobile)) {
+      return [{
+        _id: 'legacy_primary',
+        name: legacy.name || 'Primary Contact',
+        email: legacy.email || '',
+        mobile: legacy.mobile || legacy.phone || '',
+        alternateNumber: legacy.alternateNumber || '',
+        relationship: legacy.relationship || legacy.relation || 'Family',
+        address: legacy.address || ''
+      }];
+    }
+    return [];
+  }, [myEmployeeRecord]);
+
+  const persistContacts = async (nextList, successMsg) => {
+    const targetId = myEmployeeRecord?._id || currentUser?._id;
+    if (!targetId) {
+      addToast('Unable to identify your employee profile. Please refresh and try again.', 'error');
+      return false;
+    }
+    const primary = nextList[0] || {};
+    await updateEmployee(targetId, {
+      emergencyContacts: nextList,
+      emergencyContact: primary.name || primary.mobile
+        ? {
+            name: primary.name || '',
+            phone: primary.mobile || '',
+            relation: primary.relationship || ''
+          }
+        : {}
+    });
+
+    const updatedAuth = {
+      ...(authUser || currentUser),
+      emergencyContacts: nextList
+    };
+    delete updatedAuth.password;
+    try {
+      localStorage.setItem('ems_auth_session', JSON.stringify(updatedAuth));
+    } catch (_) {}
+    if (setAuthCurrentUser) {
+      setAuthCurrentUser(updatedAuth);
+    }
+    addToast(successMsg, 'success');
+    return true;
+  };
+
+  const handleSaveContact = async (formData, editingContact) => {
+    const cleanEntry = {
+      _id: editingContact?._id || `ec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: (formData.name || '').trim(),
+      email: (formData.email || '').trim(),
+      mobile: (formData.mobile || '').trim(),
+      alternateNumber: (formData.alternateNumber || '').trim(),
+      relationship: formData.relationship || 'Father',
+      address: (formData.address || '').trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const nextList = editingContact
+      ? emergencyContacts.map(c => (c._id === editingContact._id ? cleanEntry : c))
+      : [...emergencyContacts, cleanEntry];
+
+    await persistContacts(
+      nextList,
+      editingContact ? 'Emergency contact updated.' : 'Emergency contact saved to your profile.'
+    );
+  };
 
   const handleEdit = (contact) => {
     setContactToEdit(contact);
@@ -28,15 +117,20 @@ export const EmergencyContactsTab = () => {
       variant: 'danger'
     });
     if (ok) {
-      deleteEmergencyContact(id);
+      try {
+        const nextList = emergencyContacts.filter(c => c._id !== id);
+        await persistContacts(nextList, 'Emergency contact removed.');
+      } catch (err) {
+        addToast(err?.message || 'Failed to remove emergency contact.', 'error');
+      }
     }
   };
 
   return (
     <div className="flex flex-col gap-3.5 py-3">
-      
-      {/* Top Action Button */}
-      <div>
+
+      {/* Top Action Bar */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <button
           onClick={() => {
             setContactToEdit(null);
@@ -47,9 +141,14 @@ export const EmergencyContactsTab = () => {
           <Plus size={14} />
           Create New
         </button>
+
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          <Cloud size={13} className="text-sky-600 dark:text-sky-400" />
+          Synced privately to your employee profile
+        </span>
       </div>
 
-      {/* Table Container Matching Screenshot 8 */}
+      {/* Table Container */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
@@ -63,7 +162,7 @@ export const EmergencyContactsTab = () => {
               </tr>
             </thead>
             <tbody>
-              {(emergencyContacts || []).length > 0 ? (
+              {emergencyContacts.length > 0 ? (
                 emergencyContacts.map(contact => (
                   <tr
                     key={contact._id}
@@ -107,7 +206,7 @@ export const EmergencyContactsTab = () => {
                 <tr>
                   <td colSpan={5} className="text-center py-12 px-[18px] text-slate-400">
                     <List size={28} className="mx-auto mb-2 opacity-50" />
-                    <div className="text-[13.5px]">- No record found. -</div>
+                    <div className="text-[13.5px]">- No emergency contacts added yet. -</div>
                   </td>
                 </tr>
               )}
@@ -121,6 +220,7 @@ export const EmergencyContactsTab = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         contactToEdit={contactToEdit}
+        onSaveContact={handleSaveContact}
       />
 
     </div>

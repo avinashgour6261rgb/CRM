@@ -29,7 +29,27 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { isHRorAdmin, canAccessModule, canManagePayroll, canExportData } from '../../../shared/utils/permissionUtils';
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
-import { getCompanySettings } from '../../../shared/services/companySettingsService';
+import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
+
+const PAYROLL_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const getCurrentMonthLabel = () => {
+  const now = new Date();
+  return `${PAYROLL_MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+};
+
+const getRecentPayrollMonths = (count = 12) => {
+  const now = new Date();
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    list.push(`${PAYROLL_MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`);
+  }
+  return list;
+};
 
 export const PayrollPage = () => {
   const { employees, currentUser, updateEmployee, attendance, leaves } = useHR();
@@ -41,7 +61,8 @@ export const PayrollPage = () => {
   const canManageSalaries = useMemo(() => canManagePayroll(effectiveUser), [effectiveUser]);
   const canExport = useMemo(() => canExportData(effectiveUser, 'payroll'), [effectiveUser]);
 
-  const [selectedMonth, setSelectedMonth] = useState('October 2026');
+  const payrollMonthOptions = useMemo(() => getRecentPayrollMonths(12), []);
+  const [selectedMonth, setSelectedMonth] = useState(() => getCurrentMonthLabel());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [activeEmployeeForPayslip, setActiveEmployeeForPayslip] = useState(null);
@@ -50,14 +71,22 @@ export const PayrollPage = () => {
   const [activeEmployeeForRevision, setActiveEmployeeForRevision] = useState(null);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
 
-  // Track batch disbursed months
+  // Track batch disbursed months synced with MongoDB CompanySettings
   const [disbursedMonths, setDisbursedMonths] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('EMS_DISBURSED_PAYROLLS') || '["September 2026", "August 2026"]');
-    } catch (_) {
-      return ['September 2026', 'August 2026'];
-    }
+    const cfg = getCompanySettings();
+    return Array.isArray(cfg?.disbursedPayrollMonths) ? cfg.disbursedPayrollMonths : [];
   });
+
+  useEffect(() => {
+    const onSettingsUpdate = () => {
+      const cfg = getCompanySettings();
+      if (Array.isArray(cfg?.disbursedPayrollMonths)) {
+        setDisbursedMonths(cfg.disbursedPayrollMonths);
+      }
+    };
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
 
   const isCurrentMonthDisbursed = disbursedMonths.includes(selectedMonth);
 
@@ -197,11 +226,11 @@ export const PayrollPage = () => {
     setIsPayslipOpen(true);
   };
 
-  const handleDisburseAll = () => {
+  const handleDisburseAll = async () => {
     if (isCurrentMonthDisbursed) {
       addToast({
         title: 'Payroll Already Disbursed',
-        message: `Salaries for ${selectedMonth} have already been officially transferred to bank accounts.`,
+        message: `Salaries for ${selectedMonth} have already been recorded as disbursed.`,
         type: 'info'
       });
       return;
@@ -210,14 +239,20 @@ export const PayrollPage = () => {
     const updated = Array.from(new Set([...disbursedMonths, selectedMonth]));
     setDisbursedMonths(updated);
     try {
-      localStorage.setItem('EMS_DISBURSED_PAYROLLS', JSON.stringify(updated));
-    } catch (_) {}
-
-    addToast({
-      title: 'Batch Payroll Processed & Disbursed 🚀',
-      message: `Direct bank salary transfer successfully executed for all employees for ${selectedMonth}.`,
-      type: 'success'
-    });
+      await saveCompanySettings({ disbursedPayrollMonths: updated });
+      addToast({
+        title: 'Batch Payroll Disbursed & Saved 🚀',
+        message: `Payroll for ${selectedMonth} recorded in MongoDB and synced live across devices.`,
+        type: 'success'
+      });
+    } catch (err) {
+      setDisbursedMonths(disbursedMonths);
+      addToast({
+        title: 'Failed to Save Payroll Status',
+        message: err?.message || 'Could not save disbursement status to database.',
+        type: 'error'
+      });
+    }
   };
 
   // =========================================================================
@@ -258,10 +293,9 @@ export const PayrollPage = () => {
               onChange={e => setSelectedMonth(e.target.value)}
               className="px-3 h-[32px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500 transition-colors flex-1 sm:flex-initial"
             >
-              <option value="October 2026">October 2026</option>
-              <option value="September 2026">September 2026</option>
-              <option value="August 2026">August 2026</option>
-              <option value="July 2026">July 2026</option>
+              {payrollMonthOptions.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
             </select>
 
             <button
@@ -427,9 +461,12 @@ export const PayrollPage = () => {
   // =========================================================================
   // VIEW 2: ADMIN & HR ENTERPRISE PAYROLL MATRIX & COMPENSATION HUB
   // =========================================================================
-  const departments = ['all', ...Array.from(new Set(employees.map(e => e.department).filter(Boolean)))];
+  // Active employees only for monthly payroll disbursal (exclude relieved/archived ex-employees)
+  const inactivePayrollStatuses = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
+  const activePayrollEmployees = (employees || []).filter(emp => !inactivePayrollStatuses.has(String(emp?.status || 'active').toLowerCase()));
+  const departments = ['all', ...Array.from(new Set(activePayrollEmployees.map(e => e.department).filter(Boolean)))];
 
-  const filteredEmployees = employees.filter(emp => {
+  const filteredEmployees = activePayrollEmployees.filter(emp => {
     const matchesSearch =
       (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (emp.role || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -442,7 +479,7 @@ export const PayrollPage = () => {
 
   const handleExportPayroll = () => {
     if (!filteredEmployees || filteredEmployees.length === 0) {
-      alert('No employee payroll records to export');
+      addToast('No employee payroll records to export.', 'info');
       return;
     }
     const headers = ['Employee Code', 'Name', 'Department', 'Designation', 'Gross Salary', 'Deductions', 'Net Pay', 'Status'];
@@ -529,10 +566,9 @@ export const PayrollPage = () => {
             onChange={e => setSelectedMonth(e.target.value)}
             className="px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-slate-100 cursor-pointer outline-none focus:border-blue-500 transition-colors flex-1 sm:flex-initial"
           >
-            <option value="October 2026">October 2026</option>
-            <option value="September 2026">September 2026</option>
-            <option value="August 2026">August 2026</option>
-            <option value="July 2026">July 2026</option>
+            {payrollMonthOptions.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
           </select>
 
           {canExport && (

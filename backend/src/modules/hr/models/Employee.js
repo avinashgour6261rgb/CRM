@@ -76,6 +76,10 @@ const EmployeeSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {}
     },
+    emergencyContacts: {
+      type: Array,
+      default: []
+    },
     workMode: {
       type: String,
       default: 'Office'
