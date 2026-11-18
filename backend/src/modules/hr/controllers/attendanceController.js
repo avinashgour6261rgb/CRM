@@ -886,13 +886,43 @@ const forceClockOut = asyncHandler(async (req, res) => {
 
 // ─── GET /api/attendance/overtime ─────────────────────────────────────────────
 const getOvertimeRequests = asyncHandler(async (req, res) => {
-  const query = {
+  const otFilter = {
     $or: [
       { overtimeSeconds: { $gt: 0 } },
       { overtimeHours: { $gt: 0 } },
       { overtimeStatus: { $in: ['auto_recorded', 'pending', 'approved', 'rejected'] } }
     ]
   };
+
+  // Strict server-side scoping: non-privileged employees ONLY see their own overtime records
+  const u = req.user;
+  const canViewAll = Boolean(
+    u && (
+      u.isAdmin ||
+      u.isDelegatedAdmin ||
+      u.role === 'admin' ||
+      u.role === 'hr' ||
+      u.systemRole === 'admin' ||
+      u.permissions?.allAccess ||
+      u.permissions?.viewAllAttendance ||
+      u.permissions?.liveOperations ||
+      u.permissions?.teamoperations
+    )
+  );
+
+  let query = otFilter;
+  if (!canViewAll && u) {
+    const myId = u.id || u._id;
+    const myCode = u.employeeCode ? String(u.employeeCode).toUpperCase() : '';
+    const selfConditions = [];
+    if (myId && mongoose.Types.ObjectId.isValid(myId)) selfConditions.push({ employee: myId });
+    if (myId) selfConditions.push({ employeeId: String(myId) });
+    if (myCode) selfConditions.push({ employeeCode: myCode });
+    if (selfConditions.length > 0) {
+      query = { $and: [otFilter, { $or: selfConditions }] };
+    }
+  }
+
   const records = await Attendance.find(query).sort({ date: -1, updatedAt: -1 });
   res.json({ success: true, count: records.length, data: records });
 });

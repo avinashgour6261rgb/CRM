@@ -1117,9 +1117,7 @@ export const GRANULAR_PERMISSIONS_LIST = [
   { key: 'liveOperations', category: 'shift_attendance', label: 'Shift Monitor & Live Ops (View All)', icon: '⚡', desc: 'View live shifts, working time, and active tasks for all employees (Admin, HR & Team)' },
   { key: 'viewAllAttendance', category: 'shift_attendance', label: 'View Team Attendance', icon: '🕒', desc: 'View monthly attendance matrix, daily punch logs, and shift histories of all employees' },
   { key: 'editAttendance', category: 'shift_attendance', label: 'Mark & Edit Attendance', icon: '✍️', desc: 'Manually mark, adjust, or correct attendance records for team members' },
-  { key: 'forceClockOut', category: 'shift_attendance', label: 'Live Ops: Force Clock-Out & Shift Control', icon: '🛑', desc: 'Allow Force Clock-Out, manual Clock-In, and starting/pausing other employees\' timers in Live Operations (full actor audit)' },
-  { key: 'requestOvertime', category: 'shift_attendance', label: 'Request Shift Overtime', icon: '⏱️', desc: 'Submit overtime request logs for working post 7:00 PM standard shift' },
-  { key: 'approveOvertime', category: 'shift_attendance', label: 'Approve Overtime Claims', icon: '✅', desc: 'Review, approve, or reject team members overtime hour submissions' },
+  { key: 'forceClockOut', category: 'shift_attendance', label: 'Live Ops: Force Clock-Out & Shift Control', icon: '🛑', desc: 'Allow Force Clock-Out, manual Clock-In, and starting/pausing other employees\' timers in Live Operations' },
 
   // ── 2. Tasks & Projects ──
   { key: 'createTasks', category: 'tasks_projects', label: 'Create & Assign Tasks', icon: '➕', desc: 'Create tasks and delegate them to any team member' },

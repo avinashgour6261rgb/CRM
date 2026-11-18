@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Zap } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { isHRorAdmin, getUserModulePermissions } from '../../../../shared/utils/permissionUtils';
+import { getCompanySettings } from '../../../../shared/services/companySettingsService';
 
 const formatOtDuration = (secs = 0, fallbackHours = 0) => {
   const s = Math.max(0, Math.floor(Number(secs) || Math.round((Number(fallbackHours) || 0) * 3600)));
@@ -16,6 +17,18 @@ const formatOtDuration = (secs = 0, fallbackHours = 0) => {
 export const OvertimeManagementPanel = ({ currentUser }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [companyCfg, setCompanyCfg] = useState(() => getCompanySettings());
+
+  useEffect(() => {
+    const onSettingsUpdate = () => setCompanyCfg(getCompanySettings());
+    window.addEventListener('company-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('company-settings-updated', onSettingsUpdate);
+  }, []);
+
+  const shiftStart = companyCfg?.shiftStartTime || '10:00 AM';
+  const shiftEnd = companyCfg?.shiftEndTime || '07:00 PM';
+  const stdHours = companyCfg?.standardWorkHours ?? 9;
+  const minOtMins = Number(companyCfg?.minOvertimeMinutes ?? 0);
 
   const perms = getUserModulePermissions(currentUser);
   const canViewAll = isHRorAdmin(currentUser) || Boolean(perms?.viewAllAttendance || perms?.liveOperations || perms?.teamoperations || perms?.allAccess);
@@ -75,7 +88,7 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
               Automatic Overtime Tracker (Live Synced)
             </h3>
             <p className="m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
-              Standard Shift: 10:00 AM – 07:00 PM (9h incl. breaks) • Work before 10:00 AM or after 07:00 PM is auto-saved as Overtime — no request or permission needed.
+              Standard Shift: {shiftStart} – {shiftEnd} ({stdHours}h) • Work outside this window{minOtMins > 0 ? ` (${minOtMins}+ mins)` : ''} is automatically tracked and saved as Overtime.
             </p>
           </div>
         </div>
@@ -96,7 +109,7 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
             No Overtime Logged Yet
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Any work done before 10:00 AM or after 07:00 PM is automatically tracked, saved, and live synced here without any request or approval.
+            Any work done before {shiftStart} or after {shiftEnd}{minOtMins > 0 ? ` (${minOtMins}+ mins)` : ''} is automatically tracked, saved, and live synced here.
           </div>
         </div>
       ) : (
