@@ -157,6 +157,16 @@ export const AuthProvider = ({ children }) => {
             headers: getAuthHeaders(),
             signal: AbortSignal.timeout(3500)
           });
+          if (res.status === 401 && isMounted) {
+            const errJson = await res.json().catch(() => null);
+            if (errJson?.code === 'ACCOUNT_INACTIVE' || errJson?.code === 'SESSION_REVOKED') {
+              localStorage.removeItem(AUTH_STORAGE_KEY);
+              localStorage.removeItem('ems_auth_token');
+              setCurrentUser(null);
+              setIsAuthenticated(false);
+              return;
+            }
+          }
           if (res.ok && isMounted) {
             const json = await res.json();
             const list = json.data || [];
@@ -165,6 +175,14 @@ export const AuthProvider = ({ children }) => {
               (parsed.employeeCode && e.employeeCode?.toUpperCase().trim() === parsed.employeeCode.toUpperCase().trim()) ||
               (parsed._id && String(e._id) === String(parsed._id))
             );
+            // If employee was relieved/deactivated in DB, immediately log them out
+            if (matched && String(matched.employeeCode || '').toUpperCase() !== 'ADM-001' && ['resigned', 'inactive', 'terminated', 'suspended', 'archived'].includes(String(matched.status || 'active').toLowerCase())) {
+              localStorage.removeItem(AUTH_STORAGE_KEY);
+              localStorage.removeItem('ems_auth_token');
+              setCurrentUser(null);
+              setIsAuthenticated(false);
+              return;
+            }
           }
         } catch (_) {}
 

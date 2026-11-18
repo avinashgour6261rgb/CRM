@@ -84,6 +84,10 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       default: 'active'
     },
+    tokenVersion: {
+      type: Number,
+      default: 1
+    },
     joiningDate: {
       type: String,
       default: () => getIstDateString()

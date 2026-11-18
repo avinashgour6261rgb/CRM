@@ -61,7 +61,29 @@ exports.authenticateUser = async (req, res, next) => {
       }
     }
 
+const INACTIVE_ACCOUNT_STATUSES = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
+
     if (user) {
+      // Block relieved / inactive / terminated ex-employees on all protected API routes (never block ADM-001)
+      const isDeactivated = String(user.employeeCode || '').toUpperCase() !== 'ADM-001' &&
+        INACTIVE_ACCOUNT_STATUSES.has(String(user.status || 'active').toLowerCase().trim());
+      if (isDeactivated && req.method !== 'OPTIONS') {
+        return res.status(401).json({
+          success: false,
+          code: 'ACCOUNT_INACTIVE',
+          message: 'Your account has been deactivated or relieved. Please contact HR or Administrator.'
+        });
+      }
+
+      // Enforce JWT tokenVersion revocation (if Admin/HR revoked active sessions)
+      if (jwtPayload?.tokenVersion && user.tokenVersion && Number(jwtPayload.tokenVersion) < Number(user.tokenVersion) && req.method !== 'OPTIONS') {
+        return res.status(401).json({
+          success: false,
+          code: 'SESSION_REVOKED',
+          message: 'Your session has been revoked. Please sign in again.'
+        });
+      }
+
       let isDelegatedAdmin = !!user.isDelegatedAdmin;
       if (isDelegatedAdmin && user.delegationExpiresAt) {
         const expTime = new Date(user.delegationExpiresAt).getTime();
@@ -81,11 +103,24 @@ exports.authenticateUser = async (req, res, next) => {
         isDelegatedAdmin ||
         dbPerms.allAccess === true
       );
-      const isSystemHR = !!(
-        user.systemRole === 'hr' ||
-        user.department === 'Human Resources' ||
-        user.role?.toLowerCase().includes('hr')
-      );
+      const explicitSysRole = String(user.systemRole || '').toLowerCase().trim();
+      const isExplicitValidRole = ['admin', 'hr', 'team_leader', 'team_member'].includes(explicitSysRole);
+      const roleStr = String(user.role || '');
+
+      let resolvedSystemRole = 'team_member';
+      if (isSystemAdmin) {
+        resolvedSystemRole = 'admin';
+      } else if (isExplicitValidRole) {
+        if (explicitSysRole === 'team_member' && /\bhr\b|human resource/i.test(roleStr)) {
+          resolvedSystemRole = 'hr';
+        } else {
+          resolvedSystemRole = explicitSysRole;
+        }
+      } else if (user.department === 'Human Resources' || /\bhr\b|human resource/i.test(roleStr)) {
+        resolvedSystemRole = 'hr';
+      } else if (/leader|lead|manager/i.test(roleStr)) {
+        resolvedSystemRole = 'team_leader';
+      }
 
       req.user = {
         _id: user._id.toString(),
@@ -95,7 +130,8 @@ exports.authenticateUser = async (req, res, next) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
+        status: user.status || 'active',
+        systemRole: resolvedSystemRole,
         isAdmin: isSystemAdmin,
         isDelegatedAdmin,
         permissions: dbPerms,
