@@ -21,6 +21,7 @@ import { ForgotPasswordModal } from '../../../shared/components/modals/ForgotPas
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login, currentUser, isAuthenticated } = useAuth();
+  const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const { addToast } = useToast();
   const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
 
@@ -185,10 +186,13 @@ export const LoginPage = () => {
             </div>
 
             <p className="text-[13px] text-slate-400 leading-relaxed mb-5">
-              Sign in with your registered account, or use 1-click demo accounts below for instant testing.
+              {isLocalDev
+                ? 'Sign in with your registered account, or use 1-click demo accounts below for local testing.'
+                : 'Sign in with your company work email or Employee ID and password to access your live workspace.'}
             </p>
 
-            {/* 1-Click Demo Accounts Container */}
+            {/* 1-Click Demo Accounts Container (Strictly Localhost Dev Only — Hidden in Production) */}
+            {isLocalDev && (
             <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 mb-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -249,6 +253,7 @@ export const LoginPage = () => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Role Access Security Notice */}
             <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 px-3.5 text-xs text-slate-300">
@@ -279,11 +284,14 @@ export const LoginPage = () => {
               Sign In to Your Workspace
             </h2>
             <p className="text-[13.5px] text-slate-500 m-0">
-              Click any quick demo account or enter your credentials to open your workspace.
+              {isLocalDev
+                ? 'Click any quick demo account or enter your credentials to open your workspace.'
+                : 'Enter your registered work email / Employee ID and password to sign in.'}
             </p>
           </div>
 
-          {/* Fast 1-Click Demo Buttons Bar (Direct Tap to Open) */}
+          {/* Fast 1-Click Demo Buttons Bar (Strictly Localhost Dev Only — Hidden in Production) */}
+          {isLocalDev && (
           <div className="mb-5 p-3 px-3.5 bg-emerald-50/60 border border-emerald-300 rounded-xl">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
@@ -325,6 +333,7 @@ export const LoginPage = () => {
               </button>
             </div>
           </div>
+          )}
 
           {loginError && (
             <div className="bg-red-50 border border-red-300 rounded-[10px] p-2.5 px-3.5 text-red-700 text-[13px] font-semibold mb-4">
@@ -358,31 +367,35 @@ export const LoginPage = () => {
                   Password *
                 </label>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400">Fill:</span>
-                  <span
-                    className="text-[11px] text-blue-600 cursor-pointer font-bold hover:underline"
-                    onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
-                    title="Fill Admin"
-                  >
-                    Admin
-                  </span>
-                  <span className="text-slate-300 text-[10px]">•</span>
-                  <span
-                    className="text-[11px] text-pink-600 cursor-pointer font-bold hover:underline"
-                    onClick={() => fillCredentials('janvi@inforag.com', 'emp12345')}
-                    title="Fill Janvi"
-                  >
-                    Janvi
-                  </span>
-                  <span className="text-slate-300 text-[10px]">•</span>
-                  <span
-                    className="text-[11px] text-sky-600 cursor-pointer font-bold hover:underline"
-                    onClick={() => fillCredentials('sandeep@inforag.com', 'emp12345')}
-                    title="Fill Sandeep"
-                  >
-                    Sandeep
-                  </span>
-                  <span className="text-slate-300 text-[10px]">•</span>
+                  {isLocalDev && (
+                    <>
+                      <span className="text-[11px] text-slate-400">Fill:</span>
+                      <span
+                        className="text-[11px] text-blue-600 cursor-pointer font-bold hover:underline"
+                        onClick={() => fillCredentials(currentAdmin.email || 'admin@inforag.com', currentAdmin.password || 'admin123')}
+                        title="Fill Admin"
+                      >
+                        Admin
+                      </span>
+                      <span className="text-slate-300 text-[10px]">•</span>
+                      <span
+                        className="text-[11px] text-pink-600 cursor-pointer font-bold hover:underline"
+                        onClick={() => fillCredentials('janvi@inforag.com', 'emp12345')}
+                        title="Fill Janvi"
+                      >
+                        Janvi
+                      </span>
+                      <span className="text-slate-300 text-[10px]">•</span>
+                      <span
+                        className="text-[11px] text-sky-600 cursor-pointer font-bold hover:underline"
+                        onClick={() => fillCredentials('sandeep@inforag.com', 'emp12345')}
+                        title="Fill Sandeep"
+                      >
+                        Sandeep
+                      </span>
+                      <span className="text-slate-300 text-[10px]">•</span>
+                    </>
+                  )}
                   <span
                     className="text-[11px] text-red-600 cursor-pointer font-semibold hover:underline"
                     onClick={() => setIsForgotModalOpen(true)}

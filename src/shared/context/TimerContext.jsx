@@ -16,6 +16,7 @@ import { useAuth } from './AuthContext';
 import { hrService } from '../../modules/hr/services/hrService';
 import { getCompanySettings } from '../services/companySettingsService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../services/realtimeSyncService';
+import { isSocketConnected } from '../services/socketService';
 import {
   getCanonicalTimerKey,
   getTimerMirrorKeys,
@@ -1115,11 +1116,17 @@ export const TimerProvider = ({ children }) => {
     }
   }, [userKey, hydratedUserKey, currentUser, targetEmpId, targetEmpCode, isRecordForUser]);
 
-  // Periodic and reactive sync for cross-device consistency (4s loop for instant multi-browser sync)
+  // Socket-aware periodic sync (0ms live sync via Socket.IO; 20s safety-net poll when connected, 5s fallback when offline)
   useEffect(() => {
     if (!userKey || hydratedUserKey !== userKey) return;
     syncLiveShiftState();
-    const interval = setInterval(syncLiveShiftState, 4000);
+    let pollCounter = 0;
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      pollCounter += 1;
+      if (isSocketConnected() && pollCounter % 4 !== 0) return;
+      syncLiveShiftState();
+    }, 5000);
     const handleSync = () => syncLiveShiftState();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') syncLiveShiftState();

@@ -7,6 +7,13 @@
 const mongoose = require('mongoose');
 const Employee = require('../../hr/models/Employee');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const {
+  hashPassword,
+  isPasswordHashed,
+  verifyPassword,
+  signJwt,
+  verifyJwt
+} = require('../../../shared/utils/authCrypto');
 
 // @desc    Universal Login endpoint (supports Email or Employee Code with Password)
 // @route   POST /api/auth/login
@@ -16,6 +23,9 @@ exports.login = asyncHandler(async (req, res) => {
 
   if (!input) {
     return res.status(400).json({ success: false, message: 'Employee ID or Email is required.' });
+  }
+  if (!password) {
+    return res.status(400).json({ success: false, message: 'Password is required.' });
   }
 
   // Find employee in MongoDB Atlas
@@ -33,20 +43,26 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  // Password verification
+  // Strict password verification (supports scrypt hashes + seamless auto-upgrade from legacy plaintext)
   const isMasterAdmin = employee.employeeCode === 'ADM-001' || employee.role === 'Administrator' || employee.isAdmin;
-  const expectedPassword = employee.password || (isMasterAdmin ? 'admin123' : 'emp12345');
+  const storedPassword = employee.password || (isMasterAdmin ? 'admin123' : 'emp12345');
 
-  const isPasswordValid = !password || password === '••••••••' ||
-    (isMasterAdmin
-      ? (password === expectedPassword || password === 'admin123')
-      : (password === expectedPassword || password === 'emp12345' || (expectedPassword === 'emp123' && password === 'emp12345') || password === 'emp123'));
+  const isPasswordValid = verifyPassword(password, storedPassword);
 
   if (!isPasswordValid) {
     return res.status(401).json({
       success: false,
       message: 'Incorrect password. Please verify credentials or contact Admin.'
     });
+  }
+
+  // Seamlessly migrate legacy plaintext password to salted scrypt hash in MongoDB on successful login
+  if (!isPasswordHashed(employee.password)) {
+    try {
+      employee.password = hashPassword(password);
+      employee.passwordMigratedAt = new Date().toISOString();
+      await employee.save();
+    } catch (_) {}
   }
 
   let isDelegatedAdmin = !!employee.isDelegatedAdmin;
@@ -80,10 +96,17 @@ exports.login = asyncHandler(async (req, res) => {
     permissions: employee.permissions || {}
   };
 
+  const signedToken = signJwt({
+    sub: employee._id.toString(),
+    employeeCode: employee.employeeCode,
+    email: employee.email,
+    tokenVersion: employee.tokenVersion || 1
+  });
+
   res.status(200).json({
     success: true,
     message: 'Login successful',
-    token: `ems_token_${employee._id}`,
+    token: signedToken,
     user: userObj
   });
 });
@@ -91,7 +114,15 @@ exports.login = asyncHandler(async (req, res) => {
 // @desc    Get authenticated user session profile
 // @route   GET /api/auth/me
 exports.getMe = asyncHandler(async (req, res) => {
-  const userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+  let userId = null;
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const decoded = verifyJwt(authHeader.slice(7).trim());
+    if (decoded?.sub) userId = decoded.sub;
+  }
+  if (!userId) {
+    userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+  }
   if (!userId) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
   }

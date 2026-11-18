@@ -5,6 +5,7 @@
 
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 const Timesheet = require('../models/Timesheet');
 
 // @desc    Get all tasks with filters
@@ -280,7 +281,7 @@ exports.updateTaskStatus = async (req, res, next) => {
     const { status } = req.body;
     const update = { status };
     if (status === 'completed') {
-      update.completedOn = new Date().toISOString().split('T')[0];
+      update.completedOn = getIstDateString();
       update.timerRunning = false;
       if (req.body.timerSeconds !== undefined) update.timerSeconds = req.body.timerSeconds;
       if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;

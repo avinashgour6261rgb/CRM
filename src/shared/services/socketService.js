@@ -167,6 +167,10 @@ export function subscribeSocketEvent(eventName, callback) {
   };
 }
 
+export function isSocketConnected() {
+  return Boolean(socket && socket.connected);
+}
+
 // Automatically start socket connection in browser environments
 if (typeof window !== 'undefined') {
   getSocket();

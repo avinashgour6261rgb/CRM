@@ -10,7 +10,7 @@
  */
 
 import { getCollection, saveCollection, KEYS, initStorage } from '../../../shared/services/storageService';
-import { API_BASE } from '../../../shared/config/apiConfig';
+import { API_BASE, getAuthHeaders as buildJwtAuthHeaders } from '../../../shared/config/apiConfig';
 import { holidaySyncService } from './holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
@@ -46,17 +46,7 @@ const getAuthUser = () => {
 };
 
 const getAuthHeaders = () => {
-  const u = getAuthUser();
-  if (u) {
-    return {
-      'x-user-id': String(u._id || u.id || u.employeeCode || u.email || ''),
-      'x-user-email': String(u.email || ''),
-      'x-user-code': String(u.employeeCode || ''),
-      'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member'))),
-      'x-user-permissions': JSON.stringify(u.permissions || {})
-    };
-  }
-  return {};
+  return buildJwtAuthHeaders();
 };
 
 let hrBackendOnline = null;

@@ -210,7 +210,9 @@ export const DashboardPage = () => {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 10000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchTelemetry();
+    }, 20000);
     const handleFocus = () => fetchTelemetry();
 
     // Instant Socket.IO telemetry reception for 0ms cross-device updates (anti-flicker monotonic merge + client receivedAt)

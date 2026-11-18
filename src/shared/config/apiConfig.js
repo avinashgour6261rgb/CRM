@@ -28,3 +28,33 @@ export function getApiBaseUrl() {
 }
 
 export const API_BASE = getApiBaseUrl();
+
+/**
+ * Centralized Auth Header Builder (attaches signed JWT Bearer token + canonical user identifiers).
+ */
+export function getAuthHeaders(extra = {}) {
+  const headers = { ...extra };
+  if (typeof localStorage === 'undefined') return headers;
+  try {
+    const token = localStorage.getItem('ems_auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const raw = localStorage.getItem('ems_auth_session');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const u = parsed?.user || parsed;
+      if (!headers['Authorization'] && (parsed?.token || u?.token)) {
+        headers['Authorization'] = `Bearer ${parsed?.token || u?.token}`;
+      }
+      if (u) {
+        if (u._id || u.id || u.employeeCode || u.email) {
+          headers['x-user-id'] = String(u._id || u.id || u.employeeCode || u.email || '');
+        }
+        if (u.employeeCode) headers['x-user-code'] = String(u.employeeCode);
+        if (u.email) headers['x-user-email'] = String(u.email).toLowerCase().trim();
+      }
+    }
+  } catch (_) {}
+  return headers;
+}

@@ -1,15 +1,17 @@
+const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const AttendanceAudit = require('../models/AttendanceAudit');
 const Task = require('../../work/models/Task');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // In-memory cache of live telemetry for sub-millisecond response to Live Operations dashboard
 const liveTelemetryCache = new Map();
 
-// ⏱️ Auto-close past-day unclosed shifts (runs daily at midnight or upon request)
+// ⏱️ Auto-close past-day unclosed shifts (runs daily at midnight IST or upon request)
 const autoClosePastDayShifts = async () => {
   try {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getIstDateString();
     await Attendance.updateMany(
       {
         date: { $lt: todayStr },
@@ -183,7 +185,7 @@ const markAttendance = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'employee, date, and status are required' });
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getIstDateString();
   if (date > todayStr && ['present', 'late', 'half_day', 'absent'].includes(status)) {
     return res.status(400).json({
       success: false,
@@ -451,7 +453,7 @@ const markAttendance = asyncHandler(async (req, res) => {
 // ─── GET /api/attendance/daily ───────────────────────────────────────────────
 const getAttendanceByDate = asyncHandler(async (req, res) => {
   const { date } = req.query;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getIstDateString();
   const mongoose = require('mongoose');
 
   const query = { date: targetDate };
@@ -500,6 +502,14 @@ const bulkMarkAttendance = asyncHandler(async (req, res) => {
 
 // ─── DELETE /api/attendance/:id ───────────────────────────────────────────────
 const deleteAttendanceRecord = asyncHandler(async (req, res) => {
+  const u = req.user;
+  const isPrivileged = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.editAttendance || u.permissions?.allAccess));
+  if (!isPrivileged) {
+    return res.status(403).json({ success: false, message: 'Access denied: Admin or HR authority required to delete attendance records.' });
+  }
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Attendance record not found' });
+  }
   const record = await Attendance.findByIdAndDelete(req.params.id);
   if (!record) return res.status(404).json({ success: false, message: 'Attendance record not found' });
   res.json({ success: true, message: 'Record deleted', data: {} });
@@ -972,7 +982,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
 
   const rawId = String(employeeId || req.user?.id || req.user?._id || '').trim();
   const rawCode = String(employeeCode || '').trim();
-  const today = req.body.date || new Date().toISOString().split('T')[0];
+  const today = req.body.date || getIstDateString();
 
   if (!rawId && !rawCode) {
     return res.status(400).json({ success: false, message: 'employeeId or employeeCode is required' });
@@ -1173,7 +1183,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
 // ─── GET /api/attendance/live-telemetry ────────────────────────────────────────
 // Returns live status of all active employees for Live Operations & Admin Dashboard
 const getLiveTelemetry = asyncHandler(async (req, res) => {
-  const today = req.query.date || new Date().toISOString().split('T')[0];
+  const today = req.query.date || getIstDateString();
   const now = Date.now();
 
   // Load all today's attendance records from MongoDB

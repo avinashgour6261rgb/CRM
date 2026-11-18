@@ -1,61 +1,61 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
+const { hashPassword, isPasswordHashed, sanitizeEmployeeForResponse } = require('../../../shared/utils/authCrypto');
 
 // ─── GET /api/employees ───────────────────────────────────────────────────────
 const getEmployees = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required to view employee directory.' });
+  }
   const { status, department, search } = req.query;
 
   const query = {};
   if (status) query.status = status;
   if (department) query.department = department;
   if (search) {
+    const safeSearch = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.$or = [
-      { name: new RegExp(search, 'i') },
-      { email: new RegExp(search, 'i') },
-      { role: new RegExp(search, 'i') },
-      { employeeCode: new RegExp(search, 'i') }
+      { name: new RegExp(safeSearch, 'i') },
+      { email: new RegExp(safeSearch, 'i') },
+      { role: new RegExp(safeSearch, 'i') },
+      { employeeCode: new RegExp(safeSearch, 'i') }
     ];
   }
 
-  const employees = await Employee.find(query).sort({ createdAt: 1 });
+  const employees = await Employee.find(query).select('-password -passwordHistory').sort({ createdAt: 1 });
+  const sanitized = employees.map(e => sanitizeEmployeeForResponse(e, req.user));
 
   res.json({
     success: true,
-    count: employees.length,
-    data: employees
+    count: sanitized.length,
+    data: sanitized
   });
 });
 
 // ─── GET /api/employees/current ───────────────────────────────────────────────
 const getCurrentUser = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
   let user = null;
   if (req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
-    user = await Employee.findById(req.user._id);
+    user = await Employee.findById(req.user._id).select('-password -passwordHistory');
   }
   if (!user && req.user?.employeeCode) {
-    user = await Employee.findOne({ employeeCode: req.user.employeeCode });
-  }
-  if (!user) {
-    user = await Employee.findOne({ isCurrentUser: true });
-  }
-  if (!user) {
-    user = (await Employee.findOne({ employeeCode: 'ADM-001' })) ||
-           (await Employee.findOne({ isAdmin: true })) ||
-           (await Employee.findOne());
-    if (user) {
-      user.isCurrentUser = true;
-      await user.save();
-    }
+    user = await Employee.findOne({ employeeCode: req.user.employeeCode }).select('-password -passwordHistory');
   }
   if (!user) {
     return res.status(404).json({ success: false, message: 'No current user found in database' });
   }
-  res.json({ success: true, data: user });
+  res.json({ success: true, data: sanitizeEmployeeForResponse(user, req.user) });
 });
 
 // ─── POST /api/employees/switch/:id ──────────────────────────────────────────
 const switchCurrentUser = asyncHandler(async (req, res) => {
+  if (!req.user || (!req.user.isAdmin && req.user.systemRole !== 'admin')) {
+    return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can switch user sessions.' });
+  }
   const { id } = req.params;
   let target = null;
   if (id === 'admin') {
@@ -78,31 +78,32 @@ const switchCurrentUser = asyncHandler(async (req, res) => {
   target.isCurrentUser = true;
   await target.save();
 
-  res.json({ success: true, data: target });
+  res.json({ success: true, data: sanitizeEmployeeForResponse(target, req.user) });
 });
 
 // ─── GET /api/employees/:id ───────────────────────────────────────────────────
 const getEmployeeById = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
   const { id } = req.params;
   const query = mongoose.Types.ObjectId.isValid(id)
     ? { _id: id }
     : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
 
-  const employee = await Employee.findOne(query);
+  const employee = await Employee.findOne(query).select('-password -passwordHistory');
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
-  res.json({ success: true, data: employee });
+  res.json({ success: true, data: sanitizeEmployeeForResponse(employee, req.user) });
 });
 
 // ─── POST /api/employees ──────────────────────────────────────────────────────
 const createEmployee = asyncHandler(async (req, res) => {
   const u = req.user;
-  if (u) {
-    const canCreate = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.allAccess;
-    if (!canCreate) {
-      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to add employees.' });
-    }
+  const canCreate = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.allAccess));
+  if (!canCreate) {
+    return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to add employees.' });
   }
 
   const { employeeCode, email } = req.body;
@@ -135,17 +136,22 @@ const createEmployee = asyncHandler(async (req, res) => {
     delete payload._id;
   }
 
+  // Hash initial password securely using salted scrypt before saving
+  const rawInitialPass = (payload.password && String(payload.password).trim()) || 'emp12345';
+  payload.password = isPasswordHashed(rawInitialPass) ? rawInitialPass : hashPassword(rawInitialPass);
+
   const employee = new Employee({
     ...payload,
     employeeCode: cleanCode,
     email: cleanEmail
   });
   await employee.save();
+  const safeEmp = sanitizeEmployeeForResponse(employee, req.user);
   try {
     const { emitToAll } = require('../../../shared/socket/socketManager');
-    emitToAll('employee:updated', { action: 'create', item: employee });
+    emitToAll('employee:updated', { action: 'create', item: sanitizeEmployeeForResponse(employee, null) });
   } catch (_) {}
-  res.status(201).json({ success: true, data: employee });
+  res.status(201).json({ success: true, data: safeEmp });
 });
 
 // ─── PUT /api/employees/:id ───────────────────────────────────────────────────
@@ -191,20 +197,55 @@ const updateEmployee = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Employee not found' });
   }
 
-  // Password History Audit for Super Admin (Save previous passwords whenever updated)
-  if (payload.password && payload.password !== existingEmployee.password) {
+  // Strict authorization: non-privileged users can ONLY edit their own non-privileged profile fields
+  const actor = req.user;
+  if (!actor) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  const isSelfUpdate = String(actor._id) === String(existingEmployee._id) ||
+    (actor.employeeCode && existingEmployee.employeeCode && String(actor.employeeCode).toUpperCase() === String(existingEmployee.employeeCode).toUpperCase());
+  const canManageEmps = Boolean(actor.isAdmin || actor.systemRole === 'admin' || actor.systemRole === 'hr' || actor.isDelegatedAdmin || actor.permissions?.manageEmployees || actor.permissions?.allAccess);
+  const canGrantPerms = Boolean(actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.grantPermissions || actor.permissions?.allAccess);
+
+  if (!isSelfUpdate && !canManageEmps && !canGrantPerms) {
+    return res.status(403).json({ success: false, message: 'Access denied: You can only update your own profile.' });
+  }
+
+  // Prevent privilege escalation by non-admin users (even on their own profile!)
+  if (!canGrantPerms) {
+    delete payload.permissions;
+    delete payload.isAdmin;
+    delete payload.isSuperAdmin;
+    delete payload.isDelegatedAdmin;
+    delete payload.delegationExpiresAt;
+    delete payload.systemRole;
+  }
+  if (!canManageEmps) {
+    delete payload.salary;
+    delete payload.annualCTC;
+    delete payload.startingSalary;
+    delete payload.salaryBasis;
+    delete payload.employeeCode;
+    delete payload.status;
+  }
+
+  // Hash new password securely and never store plaintext passwords in passwordHistory
+  if (payload.password && String(payload.password).trim() && payload.password !== existingEmployee.password) {
+    const newPassRaw = String(payload.password).trim();
+    const hashedNew = isPasswordHashed(newPassRaw) ? newPassRaw : hashPassword(newPassRaw);
     const historyEntry = {
-      password: existingEmployee.password,
       changedAt: new Date().toISOString(),
       changedBy: req.user?.name || req.user?.email || 'User'
     };
     const prevHistory = Array.isArray(existingEmployee.passwordHistory)
-      ? existingEmployee.passwordHistory
+      ? existingEmployee.passwordHistory.map(h => ({ changedAt: h.changedAt, changedBy: h.changedBy }))
       : [];
-    payload.passwordHistory = [historyEntry, ...prevHistory];
+    payload.password = hashedNew;
+    payload.passwordHistory = [historyEntry, ...prevHistory.slice(0, 9)];
     payload.passwordUpdatedAt = new Date().toISOString();
-  } else if (payload.passwordHistory === undefined && Array.isArray(existingEmployee.passwordHistory)) {
-    payload.passwordHistory = existingEmployee.passwordHistory;
+  } else {
+    delete payload.password;
+    delete payload.passwordHistory;
   }
 
   const employee = await Employee.findByIdAndUpdate(
@@ -240,20 +281,18 @@ const updateEmployee = asyncHandler(async (req, res) => {
 
   try {
     const { emitToAll } = require('../../../shared/socket/socketManager');
-    emitToAll('employee:updated', { action: 'update', item: employee });
+    emitToAll('employee:updated', { action: 'update', item: sanitizeEmployeeForResponse(employee, null) });
   } catch (_) {}
 
-  res.json({ success: true, data: employee });
+  res.json({ success: true, data: sanitizeEmployeeForResponse(employee, req.user) });
 });
 
 // ─── PUT /api/employees/:id/permissions ─────────────────────────────────────
 const updateEmployeePermissions = asyncHandler(async (req, res) => {
   const u = req.user;
-  if (u) {
-    const canGrant = u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.grantPermissions || u.permissions?.allAccess;
-    if (!canGrant) {
-      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can modify employee permissions.' });
-    }
+  const canGrant = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.grantPermissions || u.permissions?.allAccess));
+  if (!canGrant) {
+    return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can modify employee permissions.' });
   }
 
   const { id } = req.params;
@@ -304,18 +343,16 @@ const updateEmployeePermissions = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Permissions updated successfully in database',
-    data: employee
+    data: sanitizeEmployeeForResponse(employee, req.user)
   });
 });
 
 // ─── DELETE /api/employees/:id ───────────────────────────────────────────────
 const deleteEmployee = asyncHandler(async (req, res) => {
   const u = req.user;
-  if (u) {
-    const canDelete = u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.deleteEmployees || u.permissions?.allAccess;
-    if (!canDelete) {
-      return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can delete employees.' });
-    }
+  const canDelete = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.deleteEmployees || u.permissions?.allAccess));
+  if (!canDelete) {
+    return res.status(403).json({ success: false, message: 'Access denied: Only Administrators can delete employees.' });
   }
 
   const { id } = req.params;

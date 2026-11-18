@@ -5,7 +5,7 @@
  */
 
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
-import { API_BASE as API_BASE_URL } from '../../../shared/config/apiConfig';
+import { API_BASE as API_BASE_URL, getAuthHeaders as buildJwtAuthHeaders } from '../../../shared/config/apiConfig';
 import { getUserModulePermissions, isHRorAdmin, isProjectVisibleToUser } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesAssignee, matchesProject, matchesSearch, matchesDateRange } from '../../../shared/utils/filterUtils';
 
@@ -58,16 +58,7 @@ const getAuthUser = () => {
 };
 
 const getAuthHeaders = () => {
-  const u = getAuthUser();
-  if (u) {
-    return {
-      'x-user-id': String(u._id || u.id || u.employeeCode || u.email || ''),
-      'x-user-email': String(u.email || ''),
-      'x-user-code': String(u.employeeCode || ''),
-      'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
-    };
-  }
-  return {};
+  return buildJwtAuthHeaders();
 };
 
 export const workService = {

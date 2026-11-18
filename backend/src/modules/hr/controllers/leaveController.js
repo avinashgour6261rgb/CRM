@@ -117,6 +117,9 @@ const getLeaves = asyncHandler(async (req, res) => {
 
 // ─── GET /api/leaves/:id ─────────────────────────────────────────────────────
 const getLeaveById = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Leave not found' });
+  }
   const leave = await Leave.findById(req.params.id);
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
   res.json({ success: true, data: leave });
@@ -243,6 +246,9 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: `Status must be one of: ${allowedStatuses.join(', ')}` });
   }
 
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Leave not found' });
+  }
   const leave = await Leave.findById(req.params.id);
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
@@ -478,6 +484,9 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
 
 // ─── DELETE /api/leaves/:id ───────────────────────────────────────────────────
 const deleteLeave = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Leave not found' });
+  }
   const leave = await Leave.findById(req.params.id);
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
 
@@ -574,6 +583,9 @@ const getLeaveStats = asyncHandler(async (req, res) => {
 
 // ─── PATCH /api/leaves/:id/acknowledge ───────────────────────────────────────
 const acknowledgeLeave = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Leave not found' });
+  }
   const leave = await Leave.findById(req.params.id);
   if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
   leave.isAcknowledged = true;

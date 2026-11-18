@@ -9,15 +9,10 @@ import {
   ShieldCheck,
   Search,
   Settings as SettingsIcon,
-  Sparkles,
-  Phone,
   KeyRound,
-  Bell,
   Building2,
   Clock,
-  Layers,
-  Sliders,
-  Check
+  Sliders
 } from 'lucide-react';
 import { ProfileTab } from '../components/ProfileTab';
 import { EmergencyContactsTab } from '../components/EmergencyContactsTab';

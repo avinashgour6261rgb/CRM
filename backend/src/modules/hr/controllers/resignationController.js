@@ -3,8 +3,10 @@
  * @description Controller for Employee Resignations, Higher Authority Approvals & Ex-Employee Archiving.
  */
 
+const mongoose = require('mongoose');
 const Resignation = require('../models/Resignation');
 const Employee = require('../models/Employee');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 exports.getResignations = async (req, res) => {
   try {
@@ -31,17 +33,22 @@ exports.submitResignation = async (req, res) => {
     await resignation.save();
 
     // Mark employee resignation flag as pending
-    await Employee.findOneAndUpdate(
-      { $or: [{ _id: data.employeeId }, { employeeCode: data.employeeCode }] },
-      {
-        $set: {
-          'resignation.status': 'pending',
-          'resignation.submittedAt': data.submissionDate || new Date().toISOString().split('T')[0],
-          'resignation.requestedLastWorkingDay': data.proposedLastWorkingDay,
-          'resignation.reason': data.reason
+    const empOr = [];
+    if (data.employeeId && mongoose.Types.ObjectId.isValid(data.employeeId)) empOr.push({ _id: data.employeeId });
+    if (data.employeeCode) empOr.push({ employeeCode: String(data.employeeCode).toUpperCase() });
+    if (empOr.length > 0) {
+      await Employee.findOneAndUpdate(
+        { $or: empOr },
+        {
+          $set: {
+            'resignation.status': 'pending',
+            'resignation.submittedAt': data.submissionDate || getIstDateString(),
+            'resignation.requestedLastWorkingDay': data.proposedLastWorkingDay,
+            'resignation.reason': data.reason
+          }
         }
-      }
-    );
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -55,6 +62,11 @@ exports.submitResignation = async (req, res) => {
 
 exports.reviewResignation = async (req, res) => {
   try {
+    const u = req.user;
+    const isPrivileged = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.manageEmployees || u.permissions?.allAccess));
+    if (!isPrivileged) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only Admin or HR can review resignations.' });
+    }
     const { id } = req.params;
     const {
       status, // 'approved' | 'rejected'
@@ -79,7 +91,7 @@ exports.reviewResignation = async (req, res) => {
     if (isRelieved || status === 'approved') {
       resignation.isRelieved = !!isRelieved;
       if (isRelieved) {
-        resignation.relievedDate = new Date().toISOString().split('T')[0];
+        resignation.relievedDate = getIstDateString();
       }
     }
 
@@ -95,16 +107,21 @@ exports.reviewResignation = async (req, res) => {
 
     if (isRelieved) {
       empUpdate.status = 'resigned'; // Archived as Ex-Employee in DB
-      empUpdate.relievedDate = new Date().toISOString().split('T')[0];
+      empUpdate.relievedDate = getIstDateString();
     } else if (status === 'rejected') {
       empUpdate['resignation.status'] = 'rejected';
       empUpdate.status = 'active';
     }
 
-    await Employee.findOneAndUpdate(
-      { $or: [{ _id: resignation.employeeId }, { employeeCode: resignation.employeeCode }] },
-      { $set: empUpdate }
-    );
+    const empOrReview = [];
+    if (resignation.employeeId && mongoose.Types.ObjectId.isValid(resignation.employeeId)) empOrReview.push({ _id: resignation.employeeId });
+    if (resignation.employeeCode) empOrReview.push({ employeeCode: String(resignation.employeeCode).toUpperCase() });
+    if (empOrReview.length > 0) {
+      await Employee.findOneAndUpdate(
+        { $or: empOrReview },
+        { $set: empUpdate }
+      );
+    }
 
     res.json({
       success: true,

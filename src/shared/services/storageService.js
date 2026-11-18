@@ -9,7 +9,7 @@
  * 3. Reactive Browser Synchronization: Syncs seamlessly across browser tabs and devices.
  */
 
-import { API_BASE } from '../config/apiConfig';
+import { API_BASE, getAuthHeaders } from '../config/apiConfig';
 import { ensureHistoricalData } from '../utils/historicalDataSeeder';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from './realtimeSyncService';
 
@@ -244,23 +244,7 @@ export const syncDatabaseToStorage = async () => {
       { key: KEYS.CONVERSATIONS, url: `${API_BASE}/conversations` }
     ];
 
-    const authHeaders = (() => {
-      try {
-        const s = localStorage.getItem('ems_auth_session');
-        if (!s) return {};
-        const parsed = JSON.parse(s);
-        const u = parsed?.user || parsed;
-        if (u) {
-          return {
-            'x-user-id': String(u._id || u.id || u.employeeCode || ''),
-            'x-user-code': String(u.employeeCode || ''),
-            'x-user-email': String(u.email || '').toLowerCase().trim(),
-            'x-user-role': String(u.systemRole || (u.isAdmin ? 'admin' : (u.department === 'Human Resources' ? 'hr' : 'team_member')))
-          };
-        }
-      } catch {}
-      return {};
-    })();
+    const authHeaders = getAuthHeaders();
 
     await Promise.all(
       endpoints.map(async ({ key, url }) => {

@@ -164,7 +164,9 @@ export const TeamOperationsPage = () => {
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchTelemetry();
+    }, 15000);
     const handleFocus = () => fetchTelemetry();
 
     // Instant Socket.IO telemetry reception for 0ms cross-device updates (anti-flicker monotonic merge + client receivedAt)

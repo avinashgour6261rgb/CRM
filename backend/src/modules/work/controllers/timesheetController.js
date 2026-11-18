@@ -6,6 +6,7 @@
 const mongoose = require('mongoose');
 const Timesheet = require('../models/Timesheet');
 const Task = require('../models/Task');
+const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 // @desc    Get timesheet entries with filters
 // @route   GET /api/timesheet
@@ -276,7 +277,7 @@ exports.createTimesheet = async (req, res, next) => {
 exports.stopTimer = async (req, res, next) => {
   try {
     const { taskId, totalDurationSeconds = 0, endTime, memo } = req.body;
-    const targetDate = req.body.date || new Date().toISOString().split('T')[0];
+    const targetDate = req.body.date || getIstDateString();
     const user = req.user;
     
     // Update task safely
@@ -416,6 +417,23 @@ exports.stopTimer = async (req, res, next) => {
 // @route   DELETE /api/timesheet/:id
 exports.deleteTimesheet = async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
+    }
+    const existing = await Timesheet.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
+    }
+    const u = req.user;
+    const isPriv = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.deleteTasks || u.permissions?.allAccess));
+    const isOwner = Boolean(u && (
+      String(existing.employeeId) === String(u._id) ||
+      String(existing.employee) === String(u._id) ||
+      (u.employeeCode && (String(existing.employeeCode).toUpperCase() === String(u.employeeCode).toUpperCase() || String(existing.employeeId).toUpperCase() === String(u.employeeCode).toUpperCase()))
+    ));
+    if (!isPriv && !isOwner) {
+      return res.status(403).json({ success: false, message: 'Access denied: You can only delete your own timesheet entries.' });
+    }
     const timesheet = await Timesheet.findByIdAndDelete(req.params.id);
     if (!timesheet) {
       return res.status(404).json({ success: false, message: 'Timesheet entry not found' });

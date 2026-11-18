@@ -42,17 +42,18 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (
       allowedOrigins.includes(origin) ||
-      origin.includes('vercel.app') ||
       origin.endsWith('.vercel.app') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
       process.env.NODE_ENV !== 'production'
     ) {
       return callback(null, true);
     }
-    return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-email', 'x-user-code', 'x-user-role', 'x-user-permissions', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-email', 'x-user-code', 'x-user-role', 'x-user-permissions', 'x-seed-secret', 'Accept']
 }));
 app.options('*', cors());
 app.use(express.json());
@@ -102,8 +103,9 @@ app.post('/api/seed', async (req, res) => {
   }
 });
 
-// ─── Public Authentication Routes (Login strictly against MongoDB Atlas) ────
+// ─── Public Authentication & Public Branding Routes ─────────────────────────
 app.use('/api/auth', require('./src/modules/auth/routes/authRoutes'));
+app.get('/api/company-settings', require('./src/modules/settings/controllers/companySettingsController').getCompanySettings);
 
 // Authenticate user & tenant scoping middleware
 app.use('/api', authenticateUser);

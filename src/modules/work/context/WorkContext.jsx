@@ -15,6 +15,7 @@ import { hrService } from '../../hr/services/hrService';
 import { API_BASE } from '../../../shared/config/apiConfig';
 import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
+import { isSocketConnected } from '../../../shared/services/socketService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
 import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser } from '../../../shared/utils/timerUtils';
 
@@ -968,12 +969,14 @@ export const WorkProvider = ({ children }) => {
       }
     });
 
-    // Periodic synchronization from DB (every 4s for instant cross-browser sync) + tab focus across laptops (Localhost vs Vercel Live)
+    // Socket-aware periodic safety-net sync (0ms live sync via Socket.IO; 25s poll when connected, 5s fallback when disconnected)
+    let pollTick = 0;
     const syncInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        scheduleDebouncedLoad(true);
-      }
-    }, 4000);
+      if (document.visibilityState !== 'visible') return;
+      pollTick += 1;
+      if (isSocketConnected() && pollTick % 5 !== 0) return;
+      scheduleDebouncedLoad(true);
+    }, 5000);
 
     const handleTelemetryUpdate = (e) => {
       const data = e?.detail;

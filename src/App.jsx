@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-// Shared Providers & Layout
+// Shared Providers & Layout (kept eager for instant app shell)
 import { ToastProvider } from './shared/context/ToastContext';
 import { ConfirmProvider } from './shared/context/ConfirmContext';
 import { AuthProvider } from './shared/context/AuthContext';
@@ -10,35 +10,39 @@ import { Layout } from './shared/components/layout/Layout';
 import { ErrorBoundary } from './shared/components/common/ErrorBoundary';
 import { LoginPage } from './modules/auth/pages/LoginPage';
 
-// HR Module Provider
+// Module Providers
 import { HRProvider } from './modules/hr/context/HRContext';
-
-// Work Module Provider & Pages
 import { WorkProvider } from './modules/work/context/WorkContext';
-import { ProjectsPage } from './modules/work/pages/ProjectsPage';
-import { TasksPage } from './modules/work/pages/TasksPage';
-import { TimesheetPage } from './modules/work/pages/TimesheetPage';
-
-// HR Module Pages
-import { LeavesPage } from './modules/hr/pages/LeavesPage';
-import { AttendancePage } from './modules/hr/pages/AttendancePage';
-import { HolidayPage } from './modules/hr/pages/HolidayPage';
-import { AppreciationPage } from './modules/hr/pages/AppreciationPage';
-import { DashboardPage } from './modules/hr/pages/DashboardPage';
-import { EmployeesPage } from './modules/hr/pages/EmployeesPage';
-import { TeamOperationsPage } from './modules/hr/pages/TeamOperationsPage';
-
-// CRM Module Provider & Pages
 import { CRMProvider } from './shared/context/CRMContext';
-import { TicketsPage } from './modules/crm/pages/TicketsPage';
-import { CalendarPage } from './modules/crm/pages/CalendarPage';
-import { NoticeBoardPage } from './modules/crm/pages/NoticeBoardPage';
-import { LeadsPage } from './modules/crm/pages/LeadsPage';
-import { MessagesPage } from './modules/crm/pages/MessagesPage';
-import { ExpensesPage } from './modules/finance/pages/ExpensesPage';
-import { PayrollPage } from './modules/finance/pages/PayrollPage';
-import { DocumentationPage } from './modules/hr/pages/DocumentationPage';
-import { SettingsPage } from './modules/settings/pages/SettingsPage';
+
+// Route-Level Code Splitting (lazy-loads each page chunk on demand for fast initial load)
+const lazyNamed = (importer, name) => lazy(() => importer().then(m => ({ default: m[name] })));
+
+const ProjectsPage       = lazyNamed(() => import('./modules/work/pages/ProjectsPage'), 'ProjectsPage');
+const TasksPage          = lazyNamed(() => import('./modules/work/pages/TasksPage'), 'TasksPage');
+const TimesheetPage      = lazyNamed(() => import('./modules/work/pages/TimesheetPage'), 'TimesheetPage');
+const LeavesPage         = lazyNamed(() => import('./modules/hr/pages/LeavesPage'), 'LeavesPage');
+const AttendancePage     = lazyNamed(() => import('./modules/hr/pages/AttendancePage'), 'AttendancePage');
+const HolidayPage        = lazyNamed(() => import('./modules/hr/pages/HolidayPage'), 'HolidayPage');
+const AppreciationPage   = lazyNamed(() => import('./modules/hr/pages/AppreciationPage'), 'AppreciationPage');
+const DashboardPage      = lazyNamed(() => import('./modules/hr/pages/DashboardPage'), 'DashboardPage');
+const EmployeesPage      = lazyNamed(() => import('./modules/hr/pages/EmployeesPage'), 'EmployeesPage');
+const TeamOperationsPage = lazyNamed(() => import('./modules/hr/pages/TeamOperationsPage'), 'TeamOperationsPage');
+const DocumentationPage  = lazyNamed(() => import('./modules/hr/pages/DocumentationPage'), 'DocumentationPage');
+const TicketsPage        = lazyNamed(() => import('./modules/crm/pages/TicketsPage'), 'TicketsPage');
+const CalendarPage       = lazyNamed(() => import('./modules/crm/pages/CalendarPage'), 'CalendarPage');
+const NoticeBoardPage    = lazyNamed(() => import('./modules/crm/pages/NoticeBoardPage'), 'NoticeBoardPage');
+const LeadsPage          = lazyNamed(() => import('./modules/crm/pages/LeadsPage'), 'LeadsPage');
+const MessagesPage       = lazyNamed(() => import('./modules/crm/pages/MessagesPage'), 'MessagesPage');
+const ExpensesPage       = lazyNamed(() => import('./modules/finance/pages/ExpensesPage'), 'ExpensesPage');
+const PayrollPage        = lazyNamed(() => import('./modules/finance/pages/PayrollPage'), 'PayrollPage');
+const SettingsPage       = lazyNamed(() => import('./modules/settings/pages/SettingsPage'), 'SettingsPage');
+
+const RouteFallback = () => (
+  <div className="flex items-center justify-center min-h-[260px] text-xs font-semibold text-slate-500 dark:text-slate-400">
+    Loading workspace...
+  </div>
+);
 
 
 export function App() {
@@ -52,6 +56,7 @@ export function App() {
                 <WorkProvider>
                   <CRMProvider>
                   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Suspense fallback={<RouteFallback />}>
                     <Routes>
                       {/* ── Public Auth Routes ── */}
                       <Route path="/login" element={<LoginPage />} />
@@ -114,6 +119,7 @@ export function App() {
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Route>
                   </Routes>
+                  </Suspense>
                 </BrowserRouter>
               </CRMProvider>
             </WorkProvider>

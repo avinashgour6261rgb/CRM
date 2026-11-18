@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCollection, saveCollection, KEYS, syncDatabaseToStorage } from '../services/storageService';
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
-import { API_BASE } from '../config/apiConfig';
+import { API_BASE, getAuthHeaders } from '../config/apiConfig';
 import { subscribeToSyncEvents } from '../services/realtimeSyncService';
 import { registerSocketUser } from '../services/socketService';
 import { performShiftClockOut } from '../utils/timerUtils';
@@ -153,7 +153,10 @@ export const AuthProvider = ({ children }) => {
 
         let matched = null;
         try {
-          const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(3500) });
+          const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, {
+            headers: getAuthHeaders(),
+            signal: AbortSignal.timeout(3500)
+          });
           if (res.ok && isMounted) {
             const json = await res.json();
             const list = json.data || [];
@@ -394,7 +397,10 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(2500) });
+      const res = await fetch(`${API_BASE}/employees?search=${encodeURIComponent(query)}`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(2500)
+      });
       if (res.ok) {
         const json = await res.json();
         const list = json.data || [];
@@ -489,8 +495,12 @@ export const AuthProvider = ({ children }) => {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.user) {
+          if (json.token) {
+            localStorage.setItem('ems_auth_token', json.token);
+          }
           const dbUser = {
             ...json.user,
+            token: json.token || undefined,
             isCurrentUser: true,
             isAdmin: json.user.systemRole === 'admin' || json.user.isAdmin
           };
@@ -652,6 +662,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem('ems_auth_token');
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
   }, [currentUser]);
 

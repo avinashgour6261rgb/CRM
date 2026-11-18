@@ -10,7 +10,7 @@ import { useToast } from './ToastContext';
 import { useAuth } from './AuthContext';
 import { useHR } from '../../modules/hr/context/HRContext';
 import { getCompanySettings } from '../services/companySettingsService';
-import { API_BASE } from '../config/apiConfig';
+import { API_BASE, getAuthHeaders as buildJwtAuthHeaders } from '../config/apiConfig';
 
 import { calculateComputedBirthdays, calculateComputedAnniversaries } from '../../modules/crm/utils/celebrationUtils';
 import {
@@ -469,21 +469,7 @@ export const CRMProvider = ({ children }) => {
   };
 
   const getAuthHeaders = () => {
-    try {
-      const s = localStorage.getItem('ems_auth_session');
-      if (!s) return { 'Content-Type': 'application/json' };
-      const parsed = JSON.parse(s);
-      const u = parsed?.user || parsed;
-      return {
-        'Content-Type': 'application/json',
-        'x-user-id': String(u?._id || u?.id || u?.employeeCode || ''),
-        'x-user-code': String(u?.employeeCode || ''),
-        'x-user-email': String(u?.email || '').toLowerCase().trim(),
-        'x-user-role': String(u?.systemRole || (u?.isAdmin ? 'admin' : (u?.department === 'Human Resources' ? 'hr' : 'team_member')))
-      };
-    } catch {
-      return { 'Content-Type': 'application/json' };
-    }
+    return buildJwtAuthHeaders({ 'Content-Type': 'application/json' });
   };
 
   const [storageTick, setStorageTick] = useState(0);

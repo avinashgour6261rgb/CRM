@@ -3,7 +3,7 @@
  * @description Centralized Company Branding, Anniversary & Payslip/Shift Policy Configuration Layer in MongoDB Atlas.
  */
 
-import { API_BASE } from '../config/apiConfig';
+import { API_BASE, getAuthHeaders } from '../config/apiConfig';
 
 const STORAGE_KEY = 'EMS_COMPANY_SETTINGS';
 
@@ -79,7 +79,7 @@ export const saveCompanySettings = async (newSettings) => {
     try {
       fetch(`${API_BASE}/company-settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(updated)
       }).catch(err => console.warn('[companySettingsService] Offline queued:', err));
     } catch (_) {}

@@ -93,7 +93,13 @@ exports.getProjects = async (req, res, next) => {
 // @route   GET /api/projects/:id
 exports.getProjectById = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.id);
+    let project = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      project = await Project.findById(req.params.id);
+    }
+    if (!project) {
+      project = await Project.findOne({ projectCode: String(req.params.id).toUpperCase() });
+    }
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }

@@ -48,6 +48,9 @@ const getAppreciations = asyncHandler(async (req, res) => {
 // @desc    Get single appreciation
 // @route   GET /api/appreciations/:id
 const getAppreciationById = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Appreciation not found' });
+  }
   const appreciation = await Appreciation.findById(req.params.id)
     .populate('givenTo', 'name email role avatar department employeeCode')
     .populate('givenBy', 'name email role avatar employeeCode');
@@ -156,6 +159,9 @@ const deleteAppreciation = asyncHandler(async (req, res) => {
     }
   }
 
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Appreciation not found' });
+  }
   const appreciation = await Appreciation.findByIdAndDelete(req.params.id);
   if (!appreciation) {
     return res.status(404).json({ success: false, message: 'Appreciation not found' });

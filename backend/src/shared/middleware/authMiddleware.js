@@ -7,54 +7,57 @@
 
 const mongoose = require('mongoose');
 const Employee = require('../../modules/hr/models/Employee');
+const { verifyJwt } = require('../utils/authCrypto');
 
 /**
- * Extracts and sets req.user based on request headers (x-user-id / x-user-role)
- * or active MongoDB employee (isCurrentUser: true).
+ * Extracts and sets req.user strictly from a verified JWT Bearer token (primary)
+ * or verified MongoDB employee lookup (graceful migration for existing sessions).
+ * SECURITY:
+ * - NEVER trusts client-forged x-user-role or x-user-permissions headers to grant Admin/RBAC privileges.
+ * - NEVER defaults unauthenticated requests to ADM-001 Administrator.
  */
 exports.authenticateUser = async (req, res, next) => {
   try {
+    const authHeader = (req.headers.authorization || '').trim();
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const jwtPayload = bearerToken ? verifyJwt(bearerToken) : null;
+
     const userIdHeader = (req.headers['x-user-id'] || '').trim();
-    const userRoleHeader = (req.headers['x-user-role'] || '').trim();
     const userEmailHeader = (req.headers['x-user-email'] || '').trim();
     const userCodeHeader = (req.headers['x-user-code'] || '').trim();
-
-    let headerPerms = {};
-    try {
-      if (req.headers['x-user-permissions']) {
-        headerPerms = JSON.parse(req.headers['x-user-permissions']);
-      }
-    } catch (_) {}
 
     let user = null;
 
     if (mongoose.connection.readyState === 1) {
-      if (userIdHeader) {
+      // 1. Primary (authoritative): Signed JWT subject lookup
+      if (jwtPayload?.sub) {
+        if (mongoose.Types.ObjectId.isValid(jwtPayload.sub)) {
+          user = await Employee.findById(jwtPayload.sub);
+        }
+        if (!user && jwtPayload.employeeCode) {
+          user = await Employee.findOne({ employeeCode: String(jwtPayload.employeeCode).toUpperCase() });
+        }
+      }
+
+      // 2. Graceful fallback lookup by real DB employee identifier (still strictly uses DB role & DB permissions ONLY!)
+      if (!user && userIdHeader) {
         if (mongoose.Types.ObjectId.isValid(userIdHeader)) {
           user = await Employee.findById(userIdHeader);
         }
         if (!user) {
-          user = await Employee.findOne({ employeeCode: userIdHeader });
+          user = await Employee.findOne({ employeeCode: userIdHeader.toUpperCase() });
         }
         if (!user) {
-          user = await Employee.findOne({ email: new RegExp(`^${userIdHeader}$`, 'i') });
+          user = await Employee.findOne({ email: new RegExp(`^${userIdHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
         }
       }
 
       if (!user && userEmailHeader) {
-        user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader}$`, 'i') });
+        user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
       }
 
       if (!user && userCodeHeader) {
-        user = await Employee.findOne({ employeeCode: userCodeHeader });
-      }
-
-      // Only fallback to DB isCurrentUser or ADM-001 if NO client identifiers were provided
-      if (!user && !userIdHeader && !userEmailHeader && !userCodeHeader) {
-        user = await Employee.findOne({ isCurrentUser: true });
-        if (!user) {
-          user = (await Employee.findOne({ employeeCode: 'ADM-001' })) || (await Employee.findOne());
-        }
+        user = await Employee.findOne({ employeeCode: userCodeHeader.toUpperCase() });
       }
     }
 
@@ -67,8 +70,22 @@ exports.authenticateUser = async (req, res, next) => {
         }
       }
 
-      const isSystemAdmin = !!(user.isAdmin || user.role === 'Administrator' || user.employeeCode === 'ADM-001' || userRoleHeader === 'admin' || isDelegatedAdmin);
-      const isSystemHR = !!(user.department === 'Human Resources' || user.role?.toLowerCase().includes('hr') || userRoleHeader === 'hr');
+      // Strictly derive systemRole, isAdmin, and permissions ONLY from MongoDB Employee document!
+      const dbPerms = (user.permissions && typeof user.permissions === 'object') ? user.permissions : {};
+      const isSystemAdmin = !!(
+        user.isAdmin ||
+        user.isSuperAdmin ||
+        user.systemRole === 'admin' ||
+        user.role === 'Administrator' ||
+        user.employeeCode === 'ADM-001' ||
+        isDelegatedAdmin ||
+        dbPerms.allAccess === true
+      );
+      const isSystemHR = !!(
+        user.systemRole === 'hr' ||
+        user.department === 'Human Resources' ||
+        user.role?.toLowerCase().includes('hr')
+      );
 
       req.user = {
         _id: user._id.toString(),
@@ -79,45 +96,44 @@ exports.authenticateUser = async (req, res, next) => {
         role: user.role,
         department: user.department,
         systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
-        isAdmin: isSystemAdmin || Boolean(headerPerms?.allAccess),
-        isDelegatedAdmin: isDelegatedAdmin || Boolean(headerPerms?.isDelegatedAdmin) || Boolean(headerPerms?.allAccess),
-        permissions: { ...(user.permissions || {}), ...headerPerms }
-      };
-    } else if (userIdHeader || userEmailHeader || userCodeHeader) {
-      // Ephemeral authenticated user (e.g. from client session or newly created account)
-      const isSystemAdmin = userRoleHeader === 'admin' || userCodeHeader === 'ADM-001' || Boolean(headerPerms?.allAccess);
-      const isSystemHR = userRoleHeader === 'hr';
-
-      req.user = {
-        _id: userIdHeader || userCodeHeader || 'user_client',
-        id: userIdHeader || userCodeHeader || 'user_client',
-        employeeCode: userCodeHeader || userIdHeader || '',
-        name: userEmailHeader ? userEmailHeader.split('@')[0] : (userIdHeader || 'User'),
-        email: userEmailHeader || '',
-        role: isSystemAdmin ? 'Administrator' : (isSystemHR ? 'HR Manager' : 'Team Member'),
-        department: isSystemHR ? 'Human Resources' : 'General',
-        systemRole: isSystemAdmin ? 'admin' : (isSystemHR ? 'hr' : 'team_member'),
         isAdmin: isSystemAdmin,
-        isDelegatedAdmin: Boolean(headerPerms?.isDelegatedAdmin) || Boolean(headerPerms?.allAccess),
-        permissions: headerPerms || {}
+        isDelegatedAdmin,
+        permissions: dbPerms,
+        authenticatedViaJwt: Boolean(jwtPayload)
       };
     } else {
-      req.user = {
-        _id: 'adm_001',
-        id: 'adm_001',
-        employeeCode: 'ADM-001',
-        name: 'Administrator',
-        systemRole: 'admin',
-        isAdmin: true,
-        isDelegatedAdmin: false,
-        permissions: headerPerms || {}
-      };
+      // Unauthenticated request: NEVER auto-grant Administrator!
+      req.user = null;
+      // Block unauthenticated state-mutating requests immediately
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required. Please sign in to perform this action.'
+        });
+      }
     }
 
     next();
   } catch (err) {
     next(err);
   }
+};
+
+exports.requireAuth = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  return next();
+};
+
+exports.requireAdminOrHR = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  if (req.user.isAdmin || req.user.systemRole === 'admin' || req.user.systemRole === 'hr' || req.user.isDelegatedAdmin) {
+    return next();
+  }
+  return res.status(403).json({ success: false, message: 'Access denied: Admin or HR authority required.' });
 };
 
 /**
