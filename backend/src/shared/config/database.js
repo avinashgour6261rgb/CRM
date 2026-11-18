@@ -22,7 +22,6 @@ const connectDB = async () => {
     try {
       const Employee = require('../../modules/hr/models/Employee');
       const Holiday = require('../../modules/hr/models/Holiday');
-      const Task = require('../../modules/work/models/Task');
 
       // 1. Ensure Master Admin exists if none present
       const adminExists = await Employee.findOne({ $or: [{ employeeCode: 'ADM-001' }, { role: 'Administrator' }, { isAdmin: true }] });
@@ -45,11 +44,7 @@ const connectDB = async () => {
         console.log('✅ Master Admin account initialized in MongoDB Atlas.');
       }
 
-      // 2. Safely remove ONLY legacy mock records without touching user data
-      await Employee.deleteMany({ $or: [{ name: /Avinash/i }, { name: /Pooja Sharma/i }, { name: /Aarav Patel/i }] });
-      await Task.deleteMany({ $or: [{ assignedToName: /Avinash/i }, { title: /Bookmarking 20/i }] });
-
-      // 3. Ensure official holidays are present if collection is empty
+      // 2. Ensure official holidays are present if collection is empty
       const holidayCount = await Holiday.countDocuments();
       if (holidayCount === 0) {
         const { HOLIDAYS } = require('../../seeders/seed');

@@ -80,8 +80,19 @@ app.get('/api/health', async (req, res) => {
   });
 });
 
-// Database Seed / Reset Endpoint
+// Database Seed / Reset Endpoint (STRICTLY LOCKED in production to protect live MongoDB data)
 app.post('/api/seed', async (req, res) => {
+  const allowSeed = process.env.ALLOW_DB_SEED === 'true';
+  const configuredSecret = process.env.SEED_SECRET;
+  const providedSecret = req.headers['x-seed-secret'] || req.body?.seedSecret;
+
+  if (!allowSeed || !configuredSecret || providedSecret !== configuredSecret) {
+    return res.status(403).json({
+      success: false,
+      message: 'Database seed/reset endpoint is disabled to protect live production data.'
+    });
+  }
+
   try {
     const { seedDatabase } = require('./src/seeders/seed');
     await seedDatabase();
