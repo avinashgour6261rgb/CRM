@@ -245,9 +245,11 @@ export const canForceClockOut = (user) => {
   if (!user) return false;
   if (isPrimaryAdmin(user)) return true;
   const perms = getUserModulePermissions(user);
-  if (perms?.allAccess === true) return true;
+  // Explicit deny ALWAYS wins (even if delegated/allAccess) so Admin can grant Live Ops view-only without Force Clock-Out!
   if (perms?.liveOperations === false || perms?.teamoperations === false || perms?.forceClockOut === false) return false;
-  return Boolean(perms?.forceClockOut === true || isAdmin(user) || isDelegationActive(user));
+  if (perms?.forceClockOut === true) return true;
+  if (perms?.allAccess === true) return true;
+  return Boolean(isAdmin(user) || isDelegationActive(user));
 };
 
 export const canManageEmployees = (user) => {
@@ -1076,10 +1078,10 @@ export const PERMISSION_CATEGORIES = [
  */
 export const GRANULAR_PERMISSIONS_LIST = [
   // ── 1. Shift & Attendance ──
-  { key: 'liveOperations', category: 'shift_attendance', label: 'Shift Monitor & Live Ops', icon: '⚡', desc: 'Monitor live shifts, team clock-in states and perform real-time shift actions' },
+  { key: 'liveOperations', category: 'shift_attendance', label: 'Shift Monitor & Live Ops (View All)', icon: '⚡', desc: 'View live shifts, working time, and active tasks for all employees (Admin, HR & Team)' },
   { key: 'viewAllAttendance', category: 'shift_attendance', label: 'View Team Attendance', icon: '🕒', desc: 'View monthly attendance matrix, daily punch logs, and shift histories of all employees' },
   { key: 'editAttendance', category: 'shift_attendance', label: 'Mark & Edit Attendance', icon: '✍️', desc: 'Manually mark, adjust, or correct attendance records for team members' },
-  { key: 'forceClockOut', category: 'shift_attendance', label: 'Admin Force Clock-Out', icon: '🛑', desc: 'Forcefully clock out active employee shifts with required audit logs' },
+  { key: 'forceClockOut', category: 'shift_attendance', label: 'Live Ops: Force Clock-Out & Shift Control', icon: '🛑', desc: 'Allow Force Clock-Out, manual Clock-In, and starting/pausing other employees\' timers in Live Operations (full actor audit)' },
   { key: 'requestOvertime', category: 'shift_attendance', label: 'Request Shift Overtime', icon: '⏱️', desc: 'Submit overtime request logs for working post 7:00 PM standard shift' },
   { key: 'approveOvertime', category: 'shift_attendance', label: 'Approve Overtime Claims', icon: '✅', desc: 'Review, approve, or reject team members overtime hour submissions' },
 

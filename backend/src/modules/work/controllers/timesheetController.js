@@ -15,7 +15,17 @@ exports.getTimesheets = async (req, res, next) => {
     let query = {};
 
     const user = req.user;
-    const isPrivileged = user && (user.isAdmin || user.systemRole === 'admin' || user.systemRole === 'hr' || user.role === 'Administrator' || user.role === 'HR Manager');
+    const isPrivileged = user && (
+      user.isAdmin ||
+      user.systemRole === 'admin' ||
+      user.systemRole === 'hr' ||
+      user.role === 'Administrator' ||
+      user.role === 'HR Manager' ||
+      user.permissions?.liveOperations === true ||
+      user.permissions?.teamoperations === true ||
+      user.permissions?.viewAllTasks === true ||
+      user.permissions?.allAccess === true
+    );
 
     // Tenant / User Scoping: Non-admins strictly only view their own personal timesheets
     if (!isPrivileged && user) {

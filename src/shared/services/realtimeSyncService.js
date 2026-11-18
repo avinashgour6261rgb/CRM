@@ -87,7 +87,15 @@ const syncIncomingAttendanceToStorage = (data) => {
         return sameEmp && a.date === recDate;
       });
       if (idx !== -1) {
-        attList[idx] = { ...attList[idx], ...data };
+        const prevAtt = attList[idx];
+        const incomingWork = Number(data.workSeconds) || 0;
+        const prevWork = Number(prevAtt.workSeconds) || 0;
+        attList[idx] = {
+          ...prevAtt,
+          ...data,
+          // Never let a partial telemetry packet overwrite positive workSeconds with 0 while clocked in
+          workSeconds: (data.isClockedIn && incomingWork === 0 && prevWork > 0) ? prevWork : (data.workSeconds !== undefined ? incomingWork : prevWork)
+        };
       } else {
         attList.unshift(data);
       }
@@ -107,7 +115,13 @@ const syncIncomingAttendanceToStorage = (data) => {
             if (data.clockInTime) localStorage.setItem(`ems_timer_${k}_login_time`, data.clockInTime);
             if (data.clockInTimestamp) localStorage.setItem(`ems_timer_${k}_clock_in_timestamp`, String(data.clockInTimestamp));
             if (data.currentSessionStartTimestamp) localStorage.setItem(`ems_timer_${k}_current_session_start_timestamp`, String(data.currentSessionStartTimestamp));
-            if (data.workSeconds !== undefined) localStorage.setItem(`ems_timer_${k}_work_seconds`, String(data.workSeconds));
+            if (data.workSeconds !== undefined) {
+              const curW = Number(localStorage.getItem(`ems_timer_${k}_work_seconds`)) || 0;
+              const incW = Number(data.workSeconds) || 0;
+              if (incW > 0 || curW === 0) {
+                localStorage.setItem(`ems_timer_${k}_work_seconds`, String(incW));
+              }
+            }
             if (data.breakSeconds !== undefined) localStorage.setItem(`ems_timer_${k}_break_seconds`, String(data.breakSeconds));
             if (data.breakType) localStorage.setItem(`ems_timer_${k}_break_type`, data.breakType);
             if (Array.isArray(data.punchSessions)) localStorage.setItem(`ems_timer_${k}_punch_sessions`, JSON.stringify(data.punchSessions));
@@ -400,6 +414,15 @@ if (typeof window !== 'undefined') {
         syncIncomingAttendanceToStorage(data);
       }
       window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: data }));
+    } catch (_) {}
+  });
+
+  // 📡 Real-time Actor Audit Trail broadcast (tracks WHO clocked in/out or ran/paused tasks for WHOM)
+  subscribeSocketEvent('attendance:audit:created', (record) => {
+    try {
+      if (record) {
+        applySingleItemMutation(KEYS.ATTENDANCE_AUDIT, { action: 'create', item: record });
+      }
     } catch (_) {}
   });
 }

@@ -1499,6 +1499,7 @@ export const WorkProvider = ({ children }) => {
         hrService.sendHeartbeat({
           employeeId: empK,
           employeeCode: empK,
+          taskOnly: true,
           activeTask: null
         }).catch(() => {});
       } catch (_) {}
@@ -2163,11 +2164,15 @@ export const WorkProvider = ({ children }) => {
         }).catch(() => {});
       }
 
-      // Transmit real-time live telemetry to backend for cross-window / multi-device Live Operations
+      // Transmit real-time task-only telemetry (NEVER overwrite shift workSeconds/isClockedIn or employeeName!)
+      const realEmpId = targetEmpObj?._id || targetUserKey;
+      const realEmpCode = targetEmpObj?.employeeCode || (!/^[a-fA-F0-9]{24}$/.test(String(targetUserKey)) ? targetUserKey : '');
+      const realEmpName = targetEmpObj?.name || assignedEmpName;
       hrService.sendHeartbeat({
-        employeeId: targetUserKey,
-        employeeCode: targetUserKey,
-        isClockedIn: true,
+        employeeId: realEmpId,
+        employeeCode: realEmpCode,
+        employeeName: realEmpName,
+        taskOnly: true,
         activeTask: {
           taskId,
           taskCode: targetTask.taskCode,
@@ -2179,6 +2184,24 @@ export const WorkProvider = ({ children }) => {
           accumulatedSeconds: existingSecs
         }
       }).catch(() => {});
+
+      // Mandatory Actor Audit Log whenever someone starts a task on behalf of ANOTHER employee
+      if (isForOtherEmployee && currentUser) {
+        hrService.createAttendanceAuditLog({
+          type: 'remote_task_started',
+          action: `Task Started by ${currentUser.name || 'User'}`,
+          date: today,
+          employeeId: String(realEmpId),
+          employeeCode: realEmpCode,
+          employeeName: realEmpName,
+          actor: `${currentUser.name || 'User'} (${currentUser.employeeCode || currentUser.role || 'Staff'})`,
+          actorId: String(currentUser._id || currentUser.id || currentUser.employeeCode || ''),
+          actorName: currentUser.name || 'User',
+          actorCode: currentUser.employeeCode || '',
+          actorRole: currentUser.role || currentUser.systemRole || 'Staff',
+          details: `${currentUser.name} (${currentUser.employeeCode || currentUser.role || 'Staff'}) started task #${targetTask.taskCode || 'TSK'} "${targetTask.title}" for ${realEmpName}`
+        }).catch(() => {});
+      }
     } catch (e) {}
 
     // Instant cross-tab broadcast
@@ -2313,9 +2336,14 @@ export const WorkProvider = ({ children }) => {
     }
 
     try {
+      const realEmpId = targetEmpObj?._id || targetUserKey;
+      const realEmpCode = targetEmpObj?.employeeCode || (!/^[a-fA-F0-9]{24}$/.test(String(targetUserKey)) ? targetUserKey : '');
+      const realEmpName = targetEmpObj?.name || targetTask.assignedToName || '';
       hrService.sendHeartbeat({
-        employeeId: targetUserKey,
-        employeeCode: targetUserKey,
+        employeeId: realEmpId,
+        employeeCode: realEmpCode,
+        employeeName: realEmpName,
+        taskOnly: true,
         activeTask: {
           taskId: targetTask._id,
           taskCode: targetTask.taskCode,
@@ -2327,6 +2355,23 @@ export const WorkProvider = ({ children }) => {
           accumulatedSeconds: currentSecs
         }
       }).catch(() => {});
+
+      if (isForOtherEmployee && currentUser) {
+        hrService.createAttendanceAuditLog({
+          type: 'remote_task_paused',
+          action: `Task Paused by ${currentUser.name || 'User'}`,
+          date: today,
+          employeeId: String(realEmpId),
+          employeeCode: realEmpCode,
+          employeeName: realEmpName,
+          actor: `${currentUser.name || 'User'} (${currentUser.employeeCode || currentUser.role || 'Staff'})`,
+          actorId: String(currentUser._id || currentUser.id || currentUser.employeeCode || ''),
+          actorName: currentUser.name || 'User',
+          actorCode: currentUser.employeeCode || '',
+          actorRole: currentUser.role || currentUser.systemRole || 'Staff',
+          details: `${currentUser.name} (${currentUser.employeeCode || currentUser.role || 'Staff'}) paused task #${targetTask.taskCode || 'TSK'} "${targetTask.title}" for ${realEmpName}`
+        }).catch(() => {});
+      }
     } catch (_) {}
 
     // Save in storage collection
@@ -2486,6 +2531,7 @@ export const WorkProvider = ({ children }) => {
         hrService.sendHeartbeat({
           employeeId: empK,
           employeeCode: empK,
+          taskOnly: true,
           activeTask: null
         }).catch(() => {});
       } catch (_) {}

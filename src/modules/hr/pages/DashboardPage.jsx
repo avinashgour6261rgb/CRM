@@ -64,7 +64,7 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask, canViewAllTasks, canViewAllTickets, canPostNotices } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask, canViewAllTasks, canViewAllTickets, canPostNotices, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
@@ -193,30 +193,48 @@ export const DashboardPage = () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       try {
         const res = await hrService.getLiveTelemetry(todayStr);
-        if (isMounted && res && res.data) {
-          setLiveTelemetryMap(res.data);
+        const telemMap = (res && res.data && typeof res.data === 'object' && !Array.isArray(res.data))
+          ? res.data
+          : (res && typeof res === 'object' && !Array.isArray(res) ? res : null);
+        if (isMounted && telemMap) {
+          setLiveTelemetryMap(telemMap);
         }
       } catch (_) {}
     };
 
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 20000);
+    const interval = setInterval(fetchTelemetry, 10000);
     const handleFocus = () => fetchTelemetry();
 
-    // Instant Socket.IO telemetry reception for 0ms cross-device Admin updates
+    // Instant Socket.IO telemetry reception for 0ms cross-device updates (merges safely without zeroing workSeconds)
     const handleTelemUpdate = (e) => {
       if (!isMounted || !e?.detail) return;
       const t = e.detail;
       setLiveTelemetryMap(prev => {
         const next = { ...prev };
-        if (t.employeeId) next[String(t.employeeId)] = t;
+        const existing =
+          (t.employeeCode && (prev[String(t.employeeCode).toUpperCase()] || prev[String(t.employeeCode).toLowerCase()])) ||
+          (t.employeeId && prev[String(t.employeeId)]) ||
+          (t.employeeName && prev[`name_${String(t.employeeName).trim().toLowerCase()}`]) ||
+          {};
+        const incWork = Number(t.workSeconds) || 0;
+        const prevWork = Number(existing.workSeconds) || 0;
+        const safeMerged = {
+          ...existing,
+          ...t,
+          workSeconds: (t.isClockedIn && incWork === 0 && prevWork > 0) ? prevWork : (t.workSeconds !== undefined ? incWork : prevWork),
+          clockInTime: t.clockInTime || existing.clockInTime || null,
+          clockInTimestamp: t.clockInTimestamp || existing.clockInTimestamp || null,
+          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null
+        };
+        if (t.employeeId) next[String(t.employeeId)] = safeMerged;
         if (t.employeeCode) {
-          next[String(t.employeeCode)] = t;
-          next[String(t.employeeCode).toUpperCase()] = t;
-          next[String(t.employeeCode).toLowerCase()] = t;
+          next[String(t.employeeCode)] = safeMerged;
+          next[String(t.employeeCode).toUpperCase()] = safeMerged;
+          next[String(t.employeeCode).toLowerCase()] = safeMerged;
         }
         if (t.employeeName) {
-          next[`name_${String(t.employeeName).trim().toLowerCase()}`] = t;
+          next[`name_${String(t.employeeName).trim().toLowerCase()}`] = safeMerged;
         }
         return next;
       });
@@ -225,6 +243,7 @@ export const DashboardPage = () => {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('ems_telemetry_update', handleTelemUpdate);
+    window.addEventListener('ems_socket_reconnected', handleFocus);
 
     return () => {
       isMounted = false;
@@ -232,6 +251,7 @@ export const DashboardPage = () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('ems_telemetry_update', handleTelemUpdate);
+      window.removeEventListener('ems_socket_reconnected', handleFocus);
     };
   }, [todayStr]);
 
@@ -840,8 +860,8 @@ export const DashboardPage = () => {
   // Admin Force Clock Out function
   const handleAdminClockOut = async (empId, empName) => {
     if (!empId) return;
-    if (!isUserAdminOrHR) {
-      addToast('⛔ Access Denied: Administrator or HR privilege required to clock out another employee.', 'error');
+    if (!canForceClockOut(currentUser)) {
+      addToast('⛔ Access Denied: Force Clock-Out permission is required to clock out another employee.', 'error');
       return;
     }
     const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
@@ -940,8 +960,8 @@ export const DashboardPage = () => {
 
   // Admin Pause Employee Task function
   const handleAdminPauseTask = async (taskId, empKey, empName) => {
-    if (!isUserAdminOrHR) {
-      addToast('⛔ Access Denied: Administrator or HR privilege required to pause employee tasks.', 'error');
+    if (!canForceClockOut(currentUser)) {
+      addToast('⛔ Access Denied: Shift Control / Force Clock-Out permission is required to pause another employee\'s task.', 'error');
       return;
     }
     try {

@@ -458,7 +458,7 @@ export const workService = {
     const authUser = getAuthUser();
     const isPrivileged = authUser && isHRorAdmin(authUser);
     const perms = getUserModulePermissions(authUser);
-    const canViewAll = isPrivileged || perms?.viewAllTasks;
+    const canViewAll = isPrivileged || perms?.viewAllTasks || perms?.liveOperations || perms?.teamoperations;
 
     // Strict tenant isolation: regular employees can ONLY view tasks assigned to or created by them unless granted viewAllTasks
     if (!canViewAll && authUser) {
@@ -863,7 +863,18 @@ export const workService = {
     // LocalStorage Fallback
     let list = getCollection(KEYS.TIMESHEETS) || [];
     const authUser = getAuthUser();
-    const isPrivileged = authUser && (authUser.isAdmin || authUser.systemRole === 'admin' || authUser.systemRole === 'hr' || authUser.role === 'Administrator' || authUser.role === 'HR Manager');
+    const perms = getUserModulePermissions(authUser);
+    const isPrivileged = authUser && (
+      authUser.isAdmin ||
+      authUser.systemRole === 'admin' ||
+      authUser.systemRole === 'hr' ||
+      authUser.role === 'Administrator' ||
+      authUser.role === 'HR Manager' ||
+      perms?.liveOperations === true ||
+      perms?.teamoperations === true ||
+      perms?.viewAllTasks === true ||
+      perms?.allAccess === true
+    );
 
     // Strict tenant isolation: regular employees can ONLY view their own personal timesheets
     if (!isPrivileged && authUser) {

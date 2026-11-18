@@ -402,7 +402,7 @@ const getAttendanceByDate = asyncHandler(async (req, res) => {
   const mongoose = require('mongoose');
 
   const query = { date: targetDate };
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.allAccess;
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAllAttendance || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations || req.user?.permissions?.allAccess;
   if (!isPrivileged) {
     const myId = req.user?.id || req.user?._id;
     const myCode = req.user?.employeeCode;
@@ -459,7 +459,7 @@ const deleteAttendanceRecord = asyncHandler(async (req, res) => {
 // ─── GET /api/attendance/audit ───────────────────────────────────────────────
 const getAuditLogs = asyncHandler(async (req, res) => {
   const { employeeId, date, month, year, type, onlyOverrides } = req.query;
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAuditTrail || req.user?.permissions?.allAccess;
+  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.viewAuditTrail || req.user?.permissions?.liveOperations || req.user?.permissions?.teamoperations || req.user?.permissions?.allAccess;
 
   const query = {};
 
@@ -543,15 +543,29 @@ const createAuditLog = asyncHandler(async (req, res) => {
   });
 
   await record.save();
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('attendance:audit:created', record);
+  } catch (_) {}
   res.status(201).json({ success: true, data: record });
 });
 
 // ─── POST /api/attendance/force-clock-out ─────────────────────────────────────
 // Admin Override: Forcefully clock out an active employee with mandatory audit note
 const forceClockOut = asyncHandler(async (req, res) => {
-  const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.systemRole === 'admin' || req.user?.permissions?.forceClockOut || req.user?.permissions?.allAccess;
+  const isPrimaryAdminUser = req.user?.isSuperAdmin || String(req.user?.employeeCode || '').toUpperCase() === 'ADM-001';
+  const explicitlyDenied = !isPrimaryAdminUser && req.user?.permissions?.forceClockOut === false;
+  const isPrivileged = !explicitlyDenied && (
+    isPrimaryAdminUser ||
+    req.user?.isAdmin ||
+    req.user?.role === 'admin' ||
+    req.user?.role === 'hr' ||
+    req.user?.systemRole === 'admin' ||
+    req.user?.permissions?.forceClockOut === true ||
+    req.user?.permissions?.allAccess === true
+  );
   if (!isPrivileged) {
-    return res.status(403).json({ success: false, message: 'Unauthorized. Administrator or HR access required.' });
+    return res.status(403).json({ success: false, message: 'Unauthorized. Force Clock-Out permission is required.' });
   }
 
   const { employeeId, date, auditNote } = req.body;
@@ -743,11 +757,36 @@ const forceClockOut = asyncHandler(async (req, res) => {
     console.warn('Could not save auditEntry in forceClockOut:', auditErr);
   }
 
+  // Update live telemetry cache immediately so Live Operations reflects clock-out with 0ms delay
+  try {
+    const outPayload = {
+      employeeId: String(targetEmpId),
+      employeeCode: String(targetEmpCode || '').toUpperCase(),
+      employeeName: targetEmpName,
+      date: targetDate,
+      isClockedIn: false,
+      isClockedOut: true,
+      isOnBreak: false,
+      clockInTime: attRecord?.clockInTime || null,
+      clockOutTime: nowStr,
+      workSeconds: Number(attRecord?.workSeconds) || 0,
+      activeTask: null,
+      lastHeartbeatAt: Date.now()
+    };
+    if (targetEmpId) liveTelemetryCache.set(String(targetEmpId), outPayload);
+    if (targetEmpCode) {
+      liveTelemetryCache.set(String(targetEmpCode).toUpperCase(), outPayload);
+      liveTelemetryCache.set(String(targetEmpCode).toLowerCase(), outPayload);
+    }
+    if (targetEmpName) liveTelemetryCache.set(`name_${String(targetEmpName).trim().toLowerCase()}`, outPayload);
+  } catch (_) {}
+
   try {
     const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
-    emitToAll('attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
-    emitToUser(String(employeeId), 'attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
-    if (targetEmpCode) emitToUser(String(targetEmpCode), 'attendance:force_clock_out', { employeeId, employeeCode: targetEmpCode, adminName });
+    emitToAll('attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    emitToUser(String(targetEmpId), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    if (targetEmpCode) emitToUser(String(targetEmpCode), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    emitToAll('attendance:audit:created', auditEntry);
   } catch (_) {}
 
   res.status(200).json({
@@ -868,35 +907,121 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     isOnBreak,
     breakType,
     breakStartTimestamp,
-    activeTask
+    activeTask,
+    taskOnly
   } = req.body;
 
-  const targetId = String(employeeId || req.user?.id || req.user?._id || '').trim();
-  const targetCode = String(employeeCode || req.user?.employeeCode || '').trim().toUpperCase();
+  const mongoose = require('mongoose');
+  const Employee = require('../models/Employee');
+
+  const rawId = String(employeeId || req.user?.id || req.user?._id || '').trim();
+  const rawCode = String(employeeCode || '').trim();
   const today = req.body.date || new Date().toISOString().split('T')[0];
 
-  if (!targetId && !targetCode) {
+  if (!rawId && !rawCode) {
     return res.status(400).json({ success: false, message: 'employeeId or employeeCode is required' });
+  }
+
+  // Always resolve canonical Employee document so we never write an ObjectId as employeeCode
+  // or write the actor's name onto another employee's attendance record!
+  let empDoc = null;
+  try {
+    if (rawId && mongoose.Types.ObjectId.isValid(rawId)) {
+      empDoc = await Employee.findById(rawId).select('_id employeeCode name').lean();
+    }
+    if (!empDoc && rawCode && !mongoose.Types.ObjectId.isValid(rawCode)) {
+      empDoc = await Employee.findOne({ employeeCode: rawCode.toUpperCase() }).select('_id employeeCode name').lean();
+    }
+    if (!empDoc && rawId && !mongoose.Types.ObjectId.isValid(rawId)) {
+      empDoc = await Employee.findOne({ employeeCode: rawId.toUpperCase() }).select('_id employeeCode name').lean();
+    }
+  } catch (_) {}
+
+  const targetId = empDoc ? String(empDoc._id) : rawId;
+  const targetCode = empDoc
+    ? String(empDoc.employeeCode || '').trim().toUpperCase()
+    : (rawCode && !mongoose.Types.ObjectId.isValid(rawCode) ? rawCode.toUpperCase() : String(req.user?.employeeCode || '').trim().toUpperCase());
+  const targetName = empDoc
+    ? empDoc.name
+    : (req.body.employeeName || req.user?.name || '');
+
+  // Look up existing telemetry / attendance so partial updates (like task start/pause) NEVER wipe workSeconds to 0!
+  let existing = (targetCode && liveTelemetryCache.get(targetCode)) ||
+    (targetId && liveTelemetryCache.get(targetId)) ||
+    null;
+
+  if (!existing || existing.date !== today) {
+    try {
+      const orLookup = [];
+      if (targetId && mongoose.Types.ObjectId.isValid(targetId)) orLookup.push({ employee: targetId });
+      if (targetCode) orLookup.push({ employeeCode: targetCode });
+      if (orLookup.length > 0) {
+        const dbAtt = await Attendance.findOne({ date: today, $or: orLookup }).lean();
+        if (dbAtt) {
+          existing = {
+            employeeId: targetId,
+            employeeCode: targetCode || String(dbAtt.employeeCode || '').toUpperCase(),
+            employeeName: targetName || dbAtt.employeeName || '',
+            date: today,
+            isClockedIn: Boolean(dbAtt.isClockedIn && !dbAtt.clockOutTime),
+            clockInTime: dbAtt.clockInTime || dbAtt.clockIn || null,
+            clockInTimestamp: dbAtt.clockInTimestamp ? Number(dbAtt.clockInTimestamp) : null,
+            currentSessionStartTimestamp: dbAtt.currentSessionStartTimestamp ? Number(dbAtt.currentSessionStartTimestamp) : null,
+            workSeconds: Number(dbAtt.workSeconds) || 0,
+            isOnBreak: Boolean(dbAtt.isOnBreak),
+            breakType: dbAtt.breakType || null,
+            breakStartTimestamp: dbAtt.breakStartTimestamp ? Number(dbAtt.breakStartTimestamp) : null,
+            activeTask: dbAtt.activeTask || null,
+            lastHeartbeatAt: dbAtt.lastHeartbeatAt || Date.now()
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  const hasExplicitClockIn = 'isClockedIn' in req.body && isClockedIn !== undefined && !taskOnly;
+  const hasExplicitWorkSecs = 'workSeconds' in req.body && workSeconds !== undefined && workSeconds !== null;
+  const hasExplicitBreak = 'isOnBreak' in req.body && isOnBreak !== undefined;
+  const hasExplicitActiveTask = 'activeTask' in req.body;
+
+  const resolvedClockedIn = hasExplicitClockIn
+    ? Boolean(isClockedIn)
+    : Boolean(existing?.isClockedIn);
+
+  // If taskOnly heartbeat arrives for an employee who is NOT clocked in today, NEVER ghost-clock-in!
+  const existingWorkSecs = Number(existing?.workSeconds) || 0;
+  let resolvedWorkSecs = existingWorkSecs;
+  if (hasExplicitWorkSecs) {
+    const incomingSecs = Math.max(0, Number(workSeconds) || 0);
+    // When actively clocked in, never allow a stale 0 pulse to wipe positive accumulated shift workSeconds
+    resolvedWorkSecs = (resolvedClockedIn && incomingSecs === 0 && existingWorkSecs > 0)
+      ? existingWorkSecs
+      : incomingSecs;
+  } else if (resolvedClockedIn && !existing?.isOnBreak && existing?.lastHeartbeatAt) {
+    // Advance cached workSeconds smoothly while receiving a task-only pulse so working time never drops to 00:00
+    const delta = Math.min(120, Math.max(0, Math.floor((Date.now() - Number(existing.lastHeartbeatAt)) / 1000)));
+    resolvedWorkSecs = existingWorkSecs + delta;
   }
 
   const payload = {
     employeeId: targetId,
     employeeCode: targetCode,
-    employeeName: req.body.employeeName || req.user?.name || '',
+    employeeName: targetName || existing?.employeeName || '',
     date: today,
-    isClockedIn: Boolean(isClockedIn),
-    clockInTime: clockInTime || null,
-    clockInTimestamp: clockInTimestamp ? Number(clockInTimestamp) : null,
-    currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : null,
-    workSeconds: workSeconds !== undefined ? Number(workSeconds) : 0,
-    isOnBreak: Boolean(isOnBreak),
-    breakType: breakType || null,
-    breakStartTimestamp: breakStartTimestamp ? Number(breakStartTimestamp) : null,
-    activeTask: activeTask || null,
+    isClockedIn: resolvedClockedIn,
+    clockInTime: clockInTime || existing?.clockInTime || null,
+    clockInTimestamp: clockInTimestamp ? Number(clockInTimestamp) : (existing?.clockInTimestamp || null),
+    currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : (existing?.currentSessionStartTimestamp || null),
+    workSeconds: resolvedWorkSecs,
+    isOnBreak: hasExplicitBreak ? Boolean(isOnBreak) : Boolean(existing?.isOnBreak),
+    breakType: breakType !== undefined ? (breakType || null) : (existing?.breakType || null),
+    breakStartTimestamp: breakStartTimestamp ? Number(breakStartTimestamp) : (existing?.breakStartTimestamp || null),
+    activeTask: hasExplicitActiveTask ? (activeTask || null) : (existing?.activeTask || null),
+    clockOutTime: resolvedClockedIn ? null : (req.body.clockOutTime || existing?.clockOutTime || null),
     lastHeartbeatAt: Date.now()
   };
 
-  // Update in-memory telemetry cache
+  // Update in-memory telemetry cache across canonical keys
   const cacheKey = targetCode || targetId;
   liveTelemetryCache.set(cacheKey, payload);
   if (targetId) liveTelemetryCache.set(String(targetId), payload);
@@ -908,44 +1033,53 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     liveTelemetryCache.set(`name_${String(payload.employeeName).trim().toLowerCase()}`, payload);
   }
 
-  // Background upsert in MongoDB Atlas to persist live state
+  // Background persist in MongoDB Atlas (NEVER ghost-upsert an attendance record on taskOnly pulse!)
   try {
     const updateObj = {
-      isClockedIn: payload.isClockedIn,
-      workSeconds: payload.workSeconds,
-      totalWorkingHours: +(payload.workSeconds / 3600).toFixed(2),
-      isOnBreak: payload.isOnBreak,
-      breakType: payload.breakType,
-      activeTask: payload.activeTask,
       lastHeartbeatAt: payload.lastHeartbeatAt
     };
+    if (hasExplicitClockIn) updateObj.isClockedIn = payload.isClockedIn;
+    if (hasExplicitWorkSecs || resolvedWorkSecs > 0) {
+      updateObj.workSeconds = payload.workSeconds;
+      updateObj.totalWorkingHours = +(payload.workSeconds / 3600).toFixed(2);
+    }
+    if (hasExplicitBreak) updateObj.isOnBreak = payload.isOnBreak;
+    if (breakType !== undefined) updateObj.breakType = payload.breakType;
+    if (hasExplicitActiveTask) updateObj.activeTask = payload.activeTask;
     if (payload.clockInTime) updateObj.clockInTime = payload.clockInTime;
     if (payload.clockInTimestamp) updateObj.clockInTimestamp = payload.clockInTimestamp;
     if (payload.currentSessionStartTimestamp) updateObj.currentSessionStartTimestamp = payload.currentSessionStartTimestamp;
     if (payload.breakStartTimestamp) updateObj.breakStartTimestamp = payload.breakStartTimestamp;
+    if (targetCode) updateObj.employeeCode = targetCode;
+    if (targetName) updateObj.employeeName = targetName;
 
     const orClauses = [];
     if (targetId && mongoose.Types.ObjectId.isValid(targetId)) orClauses.push({ employee: targetId });
     if (targetCode) orClauses.push({ employeeCode: targetCode });
 
     if (orClauses.length > 0) {
+      const shouldUpsert = !taskOnly && hasExplicitClockIn && payload.isClockedIn;
+      const updateOp = shouldUpsert
+        ? {
+            $set: updateObj,
+            $setOnInsert: {
+              employee: (targetId && mongoose.Types.ObjectId.isValid(targetId)) ? targetId : undefined,
+              employeeCode: targetCode,
+              employeeName: targetName || 'Employee',
+              date: today,
+              status: 'present'
+            }
+          }
+        : { $set: updateObj };
+
       Attendance.findOneAndUpdate(
         { date: today, $or: orClauses },
-        { 
-          $set: updateObj,
-          $setOnInsert: {
-            employee: (targetId && mongoose.Types.ObjectId.isValid(targetId)) ? targetId : undefined,
-            employeeCode: targetCode,
-            employeeName: payload.employeeName || 'Administrator',
-            date: today,
-            status: 'present'
-          }
-        },
-        { new: true, upsert: true }
+        updateOp,
+        { new: true, upsert: shouldUpsert }
       ).catch(e => console.warn('[heartbeat] DB update notice:', e.message));
     }
 
-    // Instant Socket.IO broadcast of telemetry to all connected Admin dashboards
+    // Instant Socket.IO broadcast of complete telemetry to all connected Live Operations dashboards
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
       emitToAll('attendance:telemetry', payload);
@@ -979,11 +1113,18 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
     const isOnBreak = Boolean(r.isOnBreak);
 
     let liveWorkSecs = Number(r.workSeconds) || 0;
-    if (isClockedIn && !isOnBreak && r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now) {
-      // Add live elapsed seconds since last heartbeat pulse (monotonic progression without doubling session duration; cap to 120s if heartbeat paused)
-      const elapsedSinceHeartbeat = Math.min(120, Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000)));
+    const effectiveStartTs = sessStart > 0 ? sessStart : inTs;
+    const breakSecs = Number(r.breakSeconds) || 0;
+    if (isClockedIn && !isOnBreak) {
       const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
-      liveWorkSecs = Math.min(liveWorkSecs + elapsedSinceHeartbeat, maxPossibleGross);
+      if (liveWorkSecs === 0 && effectiveStartTs > 0 && effectiveStartTs <= now) {
+        // Self-heal: if workSeconds was wiped to 0 while actively clocked in, compute directly from shift start minus breaks
+        liveWorkSecs = Math.min(Math.max(0, Math.floor((now - effectiveStartTs) / 1000) - breakSecs), maxPossibleGross);
+      } else if (r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now) {
+        // Add live elapsed seconds since last heartbeat pulse smoothly (no 120s freeze cutoff while shift is open)
+        const elapsedSinceHeartbeat = Math.max(0, Math.floor((now - Number(r.lastHeartbeatAt)) / 1000));
+        liveWorkSecs = Math.min(liveWorkSecs + elapsedSinceHeartbeat, maxPossibleGross);
+      }
     }
 
     let runningTask = r.activeTask || null;
@@ -1051,6 +1192,23 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         };
       }
 
+      const mergedClockInTs = Number(cVal.clockInTimestamp || existing?.clockInTimestamp || 0);
+      const mergedSessStartTs = Number(cVal.currentSessionStartTimestamp || existing?.currentSessionStartTimestamp || mergedClockInTs || 0);
+      const mergedIsClockedIn = Boolean(cVal.isClockedIn);
+      const mergedIsOnBreak = Boolean(cVal.isOnBreak);
+      const cachedWork = Number(cVal.workSeconds) || 0;
+      const dbWork = Number(existing?.workSeconds) || 0;
+      let mergedWorkSecs = mergedIsClockedIn ? Math.max(cachedWork, dbWork) : (cachedWork || dbWork);
+      if (mergedIsClockedIn && !mergedIsOnBreak) {
+        const maxPossibleGross = mergedClockInTs > 0 ? Math.max(0, Math.floor((now - mergedClockInTs) / 1000)) : 14 * 3600;
+        if (mergedWorkSecs === 0 && mergedSessStartTs > 0 && mergedSessStartTs <= now) {
+          mergedWorkSecs = Math.min(Math.max(0, Math.floor((now - mergedSessStartTs) / 1000)), maxPossibleGross);
+        } else if (cachedWork >= dbWork && cVal.lastHeartbeatAt && Number(cVal.lastHeartbeatAt) <= now) {
+          const elapsedCache = Math.max(0, Math.floor((now - Number(cVal.lastHeartbeatAt)) / 1000));
+          mergedWorkSecs = Math.min(cachedWork + elapsedCache, maxPossibleGross);
+        }
+      }
+
       const mergedState = {
         ...(existing || {}),
         employeeId: cId || existing?.employeeId,
@@ -1058,19 +1216,19 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         employeeName: cVal.employeeName || existing?.employeeName,
         date: today,
         status: existing?.status || 'present',
-        isClockedIn: Boolean(cVal.isClockedIn),
-        isClockedOut: Boolean(!cVal.isClockedIn && (cVal.clockOutTime || existing?.clockOutTime)),
-        isOnBreak: Boolean(cVal.isOnBreak),
+        isClockedIn: mergedIsClockedIn,
+        isClockedOut: Boolean(!mergedIsClockedIn && (cVal.clockOutTime || existing?.clockOutTime)),
+        isOnBreak: mergedIsOnBreak,
         breakType: cVal.breakType || existing?.breakType || null,
         clockInTime: cVal.clockInTime || existing?.clockInTime,
-        clockInTimestamp: cVal.clockInTimestamp || existing?.clockInTimestamp,
+        clockInTimestamp: mergedClockInTs || null,
         clockOutTime: cVal.clockOutTime || existing?.clockOutTime,
         clockOutTimestamp: cVal.clockOutTimestamp || existing?.clockOutTimestamp,
-        currentSessionStartTimestamp: cVal.currentSessionStartTimestamp || existing?.currentSessionStartTimestamp,
-        workSeconds: cVal.workSeconds !== undefined ? Number(cVal.workSeconds) : (existing?.workSeconds || 0),
-        totalWorkingHours: cVal.workSeconds !== undefined ? +(Number(cVal.workSeconds) / 3600).toFixed(2) : (existing?.totalWorkingHours || 0),
+        currentSessionStartTimestamp: mergedSessStartTs || null,
+        workSeconds: mergedWorkSecs,
+        totalWorkingHours: +(mergedWorkSecs / 3600).toFixed(2),
         activeTask: taskMerged,
-        lastHeartbeatAt: cVal.lastHeartbeatAt || now
+        lastHeartbeatAt: now
       };
 
       if (cKey) telemetryMap[cKey] = mergedState;

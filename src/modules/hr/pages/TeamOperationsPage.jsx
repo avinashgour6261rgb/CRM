@@ -39,20 +39,30 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { hrService } from '../services/hrService';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
-import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule } from '../../../shared/utils/permissionUtils';
+import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
 import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
   const { currentUser, isHRorAdmin } = useAuth();
-  const { employees, attendance, leaves, loadHRData, loadData } = useHR();
+  const { employees, attendance, leaves, auditLogs, loadHRData, loadData } = useHR();
   const refreshData = loadHRData || loadData || (() => {});
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
   const { startConversation } = useCRM();
   const { addToast } = useToast();
 
   const isPrivileged = isHRorAdmin || checkIsHRorAdmin(currentUser) || checkIsAdmin(currentUser) || currentUser?.isDelegatedAdmin;
+  // Strict Force Clock-Out & Shift Control permission check (view-only Live Ops users CANNOT control others!)
+  const hasShiftControlPermission = useMemo(() => canForceClockOut(currentUser), [currentUser]);
+  const isSelfEmployee = useCallback((emp) => {
+    if (!emp || !currentUser) return false;
+    return (
+      (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
+      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).toUpperCase() === String(currentUser.employeeCode).toUpperCase()) ||
+      (emp.email && currentUser.email && String(emp.email).toLowerCase() === String(currentUser.email).toLowerCase())
+    );
+  }, [currentUser]);
 
   const [syncTick, setSyncTick] = useState(0);
   const [viewMode, setViewMode] = useState(() => {
@@ -135,8 +145,12 @@ export const TeamOperationsPage = () => {
     const fetchTelemetry = async () => {
       try {
         const res = await hrService.getLiveTelemetry(todayStr);
-        if (isMounted && res && res.data) {
-          setLiveTelemetryMap(res.data);
+        // hrService.fetchWithFallback already unwraps json.data, so support both res.data and direct map!
+        const telemMap = (res && res.data && typeof res.data === 'object' && !Array.isArray(res.data))
+          ? res.data
+          : (res && typeof res === 'object' && !Array.isArray(res) ? res : null);
+        if (isMounted && telemMap) {
+          setLiveTelemetryMap(telemMap);
         }
       } catch (_) {}
     };
@@ -145,20 +159,35 @@ export const TeamOperationsPage = () => {
     const interval = setInterval(fetchTelemetry, 5000);
     const handleFocus = () => fetchTelemetry();
 
-    // Instant Socket.IO telemetry reception for 0ms cross-device updates
+    // Instant Socket.IO telemetry reception for 0ms cross-device updates (merges safely without zeroing workSeconds)
     const handleTelemUpdate = (e) => {
       if (!isMounted || !e?.detail) return;
       const t = e.detail;
       setLiveTelemetryMap(prev => {
         const next = { ...prev };
-        if (t.employeeId) next[String(t.employeeId)] = t;
+        const existing =
+          (t.employeeCode && (prev[String(t.employeeCode).toUpperCase()] || prev[String(t.employeeCode).toLowerCase()])) ||
+          (t.employeeId && prev[String(t.employeeId)]) ||
+          (t.employeeName && prev[`name_${String(t.employeeName).trim().toLowerCase()}`]) ||
+          {};
+        const incWork = Number(t.workSeconds) || 0;
+        const prevWork = Number(existing.workSeconds) || 0;
+        const safeMerged = {
+          ...existing,
+          ...t,
+          workSeconds: (t.isClockedIn && incWork === 0 && prevWork > 0) ? prevWork : (t.workSeconds !== undefined ? incWork : prevWork),
+          clockInTime: t.clockInTime || existing.clockInTime || null,
+          clockInTimestamp: t.clockInTimestamp || existing.clockInTimestamp || null,
+          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null
+        };
+        if (t.employeeId) next[String(t.employeeId)] = safeMerged;
         if (t.employeeCode) {
-          next[String(t.employeeCode)] = t;
-          next[String(t.employeeCode).toUpperCase()] = t;
-          next[String(t.employeeCode).toLowerCase()] = t;
+          next[String(t.employeeCode)] = safeMerged;
+          next[String(t.employeeCode).toUpperCase()] = safeMerged;
+          next[String(t.employeeCode).toLowerCase()] = safeMerged;
         }
         if (t.employeeName) {
-          next[`name_${String(t.employeeName).trim().toLowerCase()}`] = t;
+          next[`name_${String(t.employeeName).trim().toLowerCase()}`] = safeMerged;
         }
         return next;
       });
@@ -167,12 +196,14 @@ export const TeamOperationsPage = () => {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('ems_telemetry_update', handleTelemUpdate);
+    window.addEventListener('ems_socket_reconnected', handleFocus);
     return () => {
       isMounted = false;
       clearInterval(interval);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('ems_telemetry_update', handleTelemUpdate);
+      window.removeEventListener('ems_socket_reconnected', handleFocus);
     };
   }, [todayStr]);
 
@@ -557,8 +588,17 @@ export const TeamOperationsPage = () => {
   const handleExecuteClockIn = async () => {
     if (!clockInModalTarget) return;
     const emp = clockInModalTarget;
+    if (!hasShiftControlPermission && !isSelfEmployee(emp)) {
+      addToast('⛔ Access Denied: You do not have Force Clock-Out / Shift Control permission for other employees.', 'error');
+      setClockInModalTarget(null);
+      return;
+    }
     const empKey = emp.employeeCode || String(emp._id);
     const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const actorName = currentUser?.name || 'User';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorRole = currentUser?.role || currentUser?.systemRole || 'Staff';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
 
     try {
       localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
@@ -593,9 +633,9 @@ export const TeamOperationsPage = () => {
           date: todayStr,
           status: 'present',
           clockInTime: punchTime,
-          markedBy: currentUser?.name || 'Administrator',
+          markedBy: actorLabel,
           isAdminOverride: true,
-          auditNote: emergencyReason ? `Emergency Clock-In: ${emergencyReason}` : 'Emergency Clock-In by Admin'
+          auditNote: emergencyReason ? `Manual Clock-In by ${actorLabel}: ${emergencyReason}` : `Manual Clock-In by ${actorLabel}`
         });
       } catch (markErr) {
         console.warn('markAttendance warning during emergency clock-in:', markErr);
@@ -604,15 +644,18 @@ export const TeamOperationsPage = () => {
       try {
         await hrService.createAttendanceAuditLog({
           type: 'admin_emergency_clock_in',
-          action: 'admin_emergency_clock_in',
+          action: `Clock-In by ${actorName}`,
           date: todayStr,
-          employeeId: empKey,
+          employeeId: String(emp._id || empKey),
           employeeCode: emp.employeeCode || empKey,
           employeeName: emp.name,
-          actorId: currentUser?._id,
-          actorName: currentUser?.name || 'Admin',
-          actorRole: 'Administrator',
-          note: `Emergency Clock-In by Admin: "${emergencyReason}" (In Time: ${punchTime})`
+          actor: actorLabel,
+          actorId: String(currentUser?._id || currentUser?.id || actorCode || ''),
+          actorName,
+          actorCode,
+          actorRole,
+          details: `${actorLabel} (${actorRole}) clocked in ${emp.name} at ${punchTime}. Reason: "${emergencyReason}"`,
+          note: `Clock-In by ${actorLabel} (${actorRole}): "${emergencyReason}" (In Time: ${punchTime})`
         });
       } catch (auditErr) {
         console.warn('Audit log warning:', auditErr);
@@ -640,16 +683,25 @@ export const TeamOperationsPage = () => {
   const handleExecuteClockOut = async () => {
     if (!clockOutModalTarget) return;
     const emp = clockOutModalTarget;
+    if (!hasShiftControlPermission && !isSelfEmployee(emp)) {
+      addToast('⛔ Access Denied: You do not have Force Clock-Out permission for other employees.', 'error');
+      setClockOutModalTarget(null);
+      return;
+    }
     const empKey = emp.employeeCode || String(emp._id);
     const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const nowTs = Date.now();
+    const actorName = currentUser?.name || 'User';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorRole = currentUser?.role || currentUser?.systemRole || 'Staff';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
 
     try {
       // Execute canonical shift clock-out to preserve punch sessions and final work time
-      performShiftClockOut(emp, { reason: `Emergency Shift End: ${emergencyReason} (${punchTime})`, nowTs, nowStr: punchTime });
+      performShiftClockOut(emp, { reason: `Force Shift End by ${actorLabel}: ${emergencyReason} (${punchTime})`, nowTs, nowStr: punchTime });
 
       try {
-        await hrService.adminForceClockOut(emp._id || empKey, `Emergency Shift End: ${emergencyReason} (${punchTime})`, todayStr);
+        await hrService.adminForceClockOut(emp._id || empKey, `Force Shift End by ${actorLabel}: ${emergencyReason} (${punchTime})`, todayStr);
       } catch (backendErr) {
         console.warn('Backend adminForceClockOut warning:', backendErr);
       }
@@ -696,15 +748,18 @@ export const TeamOperationsPage = () => {
       try {
         await hrService.createAttendanceAuditLog({
           type: 'admin_emergency_clock_out',
-          action: 'admin_emergency_clock_out',
+          action: `Force Clock-Out by ${actorName}`,
           date: todayStr,
-          employeeId: empKey,
+          employeeId: String(emp._id || empKey),
           employeeCode: emp.employeeCode || empKey,
           employeeName: emp.name,
-          actorId: currentUser?._id,
-          actorName: currentUser?.name || 'Admin',
-          actorRole: 'Administrator',
-          note: `Emergency Clock-Out by Admin: "${emergencyReason}" (Out Time: ${punchTime})`
+          actor: actorLabel,
+          actorId: String(currentUser?._id || currentUser?.id || actorCode || ''),
+          actorName,
+          actorCode,
+          actorRole,
+          details: `${actorLabel} (${actorRole}) force clocked out ${emp.name} at ${punchTime}. Reason: "${emergencyReason}"`,
+          note: `Force Clock-Out by ${actorLabel} (${actorRole}): "${emergencyReason}" (Out Time: ${punchTime})`
         });
       } catch (auditErr) {
         console.warn('Audit log warning:', auditErr);
@@ -1727,13 +1782,15 @@ export const TeamOperationsPage = () => {
                             </div>
                             <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
                               <span>⏱️ <strong className="text-sky-600 dark:text-sky-400">{item.runningTask.liveDurationText}</strong></span>
-                              <button
-                                onClick={() => pauseTaskTimer(item.runningTask._id)}
-                                className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                                title="Pause task timer for employee"
-                              >
-                                Pause ⏸️
-                              </button>
+                              {(hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                <button
+                                  onClick={() => pauseTaskTimer(item.runningTask._id)}
+                                  className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                  title="Pause task timer for employee"
+                                >
+                                  Pause ⏸️
+                                </button>
+                              )}
                             </div>
                           </div>
                         ) : (() => {
@@ -1743,19 +1800,26 @@ export const TeamOperationsPage = () => {
                           );
                           if (empPendingTasks.length > 0) {
                             const firstTask = empPendingTasks[0];
+                            if (hasShiftControlPermission || isSelfEmployee(emp)) {
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => startTaskTimer(firstTask._id)}
+                                    className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
+                                    title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
+                                  >
+                                    <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
+                                  </button>
+                                  {empPendingTasks.length > 1 && (
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
+                                  )}
+                                </div>
+                              );
+                            }
                             return (
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => startTaskTimer(firstTask._id)}
-                                  className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                                  title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
-                                >
-                                  <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
-                                </button>
-                                {empPendingTasks.length > 1 && (
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
-                                )}
-                              </div>
+                              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
+                                Idle ({empPendingTasks.length} pending)
+                              </span>
                             );
                           }
                           return (
@@ -1766,11 +1830,11 @@ export const TeamOperationsPage = () => {
                         })()}
                       </td>
 
-                      {/* Admin Actions */}
+                      {/* Admin / Shift Control Actions (strictly gated by Force Clock-Out / Shift Control permission) */}
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1.5">
-                          {/* Emergency Clock-In (If not clocked in or absent) */}
-                          {!item.isClockedIn && (
+                          {/* Emergency Clock-In (Only if user has Shift Control permission or own row) */}
+                          {!item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
                             <button
                               onClick={() => {
                                 setClockInModalTarget(emp);
@@ -1785,8 +1849,8 @@ export const TeamOperationsPage = () => {
                             </button>
                           )}
 
-                          {/* Emergency Clock-Out (If currently clocked in) */}
-                          {item.isClockedIn && (
+                          {/* Emergency Clock-Out (Only if user has Force Clock-Out permission or own row) */}
+                          {item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
                             <button
                               onClick={() => {
                                 setClockOutModalTarget(emp);
@@ -1845,6 +1909,82 @@ export const TeamOperationsPage = () => {
           </table>
         </div>
       </div>
+
+      {/* 📜 Live Actor Accountability Feed: Tracks WHO clocked in/out or started/paused tasks for WHOM today */}
+      {(() => {
+        const localAudits = getCollection(KEYS.ATTENDANCE_AUDIT) || [];
+        const combinedMap = new Map();
+        [...(auditLogs || []), ...localAudits].forEach(a => {
+          if (!a) return;
+          const k = String(a._id || `${a.date}_${a.timeFormatted}_${a.employeeId}_${a.type}_${a.actor || a.actorName}`);
+          if (!combinedMap.has(k)) combinedMap.set(k, a);
+        });
+        const controlTypes = new Set([
+          'admin_emergency_clock_in',
+          'admin_emergency_clock_out',
+          'admin_force_clock_out',
+          'force_clock_out',
+          'admin_shift_adjustment',
+          'remote_task_started',
+          'remote_task_paused'
+        ]);
+        const todayControlAudits = Array.from(combinedMap.values())
+          .filter(a => a.date === todayStr && (controlTypes.has(a.type) || a.isAdminOverride || a.actorName || a.actor))
+          .filter(a => controlTypes.has(a.type) || a.isAdminOverride || String(a.action || '').toLowerCase().includes('by '))
+          .sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0))
+          .slice(0, 12);
+
+        if (todayControlAudits.length === 0) return null;
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/40">
+              <div className="flex items-center gap-2">
+                <Shield size={15} className="text-indigo-600 dark:text-indigo-400" />
+                <span className="text-[12.5px] font-extrabold text-slate-900 dark:text-slate-100">
+                  Live Control Audit Log (Who Controlled Whose Shift / Task Today)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                  {todayControlAudits.length}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Live synced across devices</span>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[240px] overflow-y-auto">
+              {todayControlAudits.map((log, i) => (
+                <div key={log._id || i} className="px-4 py-2.5 flex items-center justify-between gap-3 text-[12px] hover:bg-slate-50/80 dark:hover:bg-slate-800/30">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="px-2 py-0.5 rounded text-[10.5px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                      {log.timeFormatted || '--'}
+                    </span>
+                    <div className="min-w-0">
+                      <span className="font-bold text-indigo-700 dark:text-indigo-300">
+                        {log.actorName || log.actor || 'System'}
+                      </span>
+                      {log.actorRole && (
+                        <span className="ml-1 text-[10.5px] text-slate-400">({log.actorRole})</span>
+                      )}
+                      <span className="mx-1.5 text-slate-400">→</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {log.action || log.type}
+                      </span>
+                      {log.employeeName && (
+                        <span className="ml-1.5 text-slate-600 dark:text-slate-300">
+                          for <strong>{log.employeeName}</strong>
+                        </span>
+                      )}
+                      {(log.details || log.note) && (
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {log.details || log.note}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       </>
       ) : (
         /* ── 📜 DAILY & HISTORICAL SHIFT & ACTIVITY AUDIT HUB ── */

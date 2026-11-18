@@ -962,7 +962,7 @@ export const hrService = {
 
   async getMonthlyAttendance(month = 9, year = 2026, employeeId = 'all') {
     const authUser = getAuthUser();
-    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.allAccess;
+    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.liveOperations || authUser?.permissions?.teamoperations || authUser?.permissions?.allAccess;
     const effectiveEmpId = (!isPrivileged && authUser)
       ? (authUser._id || authUser.id || authUser.employeeCode || 'self')
       : employeeId;
@@ -1013,7 +1013,7 @@ export const hrService = {
 
   async getDailyAttendance(date = null) {
     const authUser = getAuthUser();
-    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.allAccess;
+    const isPrivileged = authUser?.isAdmin || authUser?.systemRole === 'admin' || authUser?.role === 'admin' || authUser?.role === 'hr' || authUser?.department === 'Human Resources' || authUser?.permissions?.viewAllAttendance || authUser?.permissions?.liveOperations || authUser?.permissions?.teamoperations || authUser?.permissions?.allAccess;
     const targetDate = date || new Date().toISOString().split('T')[0];
     const query = new URLSearchParams({ date: targetDate });
 
