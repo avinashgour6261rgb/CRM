@@ -300,23 +300,41 @@ const updateEmployeePermissions = asyncHandler(async (req, res) => {
     ? { _id: id }
     : { $or: [{ employeeCode: id.trim().toUpperCase() }, { email: id.trim().toLowerCase() }] };
 
+  const existingTarget = await Employee.findOne(query);
+  if (!existingTarget) {
+    return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  const isPrimaryAdminTarget =
+    existingTarget.employeeCode === 'ADM-001' ||
+    existingTarget.isSuperAdmin === true ||
+    String(existingTarget.email || '').toLowerCase() === 'admin@inforag.com';
+
+  if (isPrimaryAdminTarget) {
+    return res.status(403).json({
+      success: false,
+      message: 'Primary Administrator permissions are permanently protected and cannot be modified.'
+    });
+  }
+
   const { permissions, isDelegatedAdmin, delegationExpiresAt, systemRole } = req.body;
 
   const updateFields = {};
   if (permissions !== undefined) updateFields.permissions = permissions;
   if (isDelegatedAdmin !== undefined) updateFields.isDelegatedAdmin = Boolean(isDelegatedAdmin);
   if (delegationExpiresAt !== undefined) updateFields.delegationExpiresAt = delegationExpiresAt || null;
-  if (systemRole) updateFields.systemRole = systemRole;
+  if (systemRole) {
+    updateFields.systemRole = systemRole;
+    updateFields.isAdmin = systemRole === 'admin';
+  } else if (isDelegatedAdmin !== undefined && !isDelegatedAdmin && existingTarget.isAdmin) {
+    updateFields.isAdmin = false;
+  }
 
   const employee = await Employee.findOneAndUpdate(
-    query,
+    { _id: existingTarget._id },
     { $set: updateFields },
     { new: true, runValidators: false }
   );
-
-  if (!employee) {
-    return res.status(404).json({ success: false, message: 'Employee not found' });
-  }
 
   // 📡 Real-Time Multi-Device Socket Broadcast to immediately apply new/revoked permissions
   try {

@@ -39,8 +39,24 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser: authUser, logout = () => {} } = useAuth();
-  const { currentUser: hrUser } = useHR();
-  const currentUser = authUser || hrUser;
+  const { currentUser: hrUser, employees = [] } = useHR();
+  const baseUser = authUser || hrUser;
+  const currentUser = React.useMemo(() => {
+    if (!baseUser) return null;
+    const matched = (employees || []).find(e =>
+      (baseUser._id && String(e._id) === String(baseUser._id)) ||
+      (baseUser.employeeCode && String(e.employeeCode).toUpperCase() === String(baseUser.employeeCode).toUpperCase())
+    );
+    if (!matched) return baseUser;
+    const hasDbPerms = matched.permissions && typeof matched.permissions === 'object' && Object.keys(matched.permissions).length > 0;
+    return {
+      ...baseUser,
+      ...matched,
+      permissions: hasDbPerms ? matched.permissions : (baseUser.permissions || {}),
+      systemRole: matched.systemRole || baseUser.systemRole,
+      isDelegatedAdmin: matched.isDelegatedAdmin !== undefined ? Boolean(matched.isDelegatedAdmin) : Boolean(baseUser.isDelegatedAdmin)
+    };
+  }, [baseUser, employees]);
   const { totalUnreadMessagesCount = 0 } = useCRM();
 
   // Profile Popup State (ported from teammate repo)
@@ -125,12 +141,6 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
     if (section === 'work') setWorkExpanded(!workExpanded);
     if (section === 'finance') setFinanceExpanded(!financeExpanded);
   };
-
-  const isHRorAdmin = currentUser?.role === 'HR' ||
-    currentUser?.role === 'Super Admin' ||
-    currentUser?.isAdmin ||
-    currentUser?.systemRole === 'admin' ||
-    currentUser?.systemRole === 'hr';
 
   const isLeadsActive = ['/leads', '/lead-contact'].some(path => location.pathname.startsWith(path));
 
@@ -412,7 +422,7 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
         )}
 
         {/* HR - Dedicated Personnel & Attendance Section */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance') || canAccessModule(currentUser, 'documentation') || canAccessModule(currentUser, 'employees')) && (
+        {(canAccessModule(currentUser, 'leaves') || canAccessModule(currentUser, 'attendance') || canAccessModule(currentUser, 'documentation') || canAccessModule(currentUser, 'appreciation')) && (
           <div>
             <div
               onClick={() => toggleSection('hr')}
@@ -499,7 +509,7 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
         )}
 
         {/* Work - Core Daily Work Section */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'tasks') || canAccessModule(currentUser, 'projects')) && (
+        {(canAccessModule(currentUser, 'tasks') || canAccessModule(currentUser, 'projects')) && (
           <div>
             <div
               onClick={() => toggleSection('work')}
@@ -531,34 +541,38 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
                   </NavLink>
                 )}
 
-                <NavLink
-                  to="/tasks"
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
-                    }`
-                  }
-                >
-                  <ListTodo size={15} />
-                  {!collapsed && <span>Tasks</span>}
-                </NavLink>
+                {canAccessModule(currentUser, 'tasks') && (
+                  <>
+                    <NavLink
+                      to="/tasks"
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                        }`
+                      }
+                    >
+                      <ListTodo size={15} />
+                      {!collapsed && <span>Tasks</span>}
+                    </NavLink>
 
-                <NavLink
-                  to="/timesheet"
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
-                    }`
-                  }
-                >
-                  <Clock size={15} />
-                  {!collapsed && <span>Timesheet</span>}
-                </NavLink>
+                    <NavLink
+                      to="/timesheet"
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                        }`
+                      }
+                    >
+                      <Clock size={15} />
+                      {!collapsed && <span>Timesheet</span>}
+                    </NavLink>
+                  </>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Finance - Dedicated Financial Section (Admin / HR full access, employees only personal expenses) */}
-        {(isHRorAdmin || canAccessModule(currentUser, 'expenses') || canAccessModule(currentUser, 'finance') || canAccessModule(currentUser, 'payroll')) && (
+        {/* Finance - Dedicated Financial Section */}
+        {(canAccessModule(currentUser, 'expenses') || canAccessModule(currentUser, 'finance') || canAccessModule(currentUser, 'payroll')) && (
           <div>
             <div
               onClick={() => toggleSection('finance')}
@@ -577,16 +591,18 @@ export const Sidebar = ({ mobileMenuOpen = false, onCloseMobile = () => {} }) =>
             {/* Submenu for Finance */}
             {financeExpanded && (
               <div className={`mt-1 flex flex-col gap-0.5 ${collapsed ? 'ml-0 pl-0 border-l-0' : 'ml-4 pl-3 border-l border-white/10'}`}>
-                <NavLink
-                  to="/expenses"
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
-                    }`
-                  }
-                >
-                  <DollarSign size={15} />
-                  {!collapsed && <span>Expenses</span>}
-                </NavLink>
+                {(canAccessModule(currentUser, 'expenses') || canAccessModule(currentUser, 'finance')) && (
+                  <NavLink
+                    to="/expenses"
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2.5 py-2 rounded-md no-underline text-[13px] transition-all duration-150 ${isActive ? 'text-white bg-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 font-normal'
+                      }`
+                    }
+                  >
+                    <DollarSign size={15} />
+                    {!collapsed && <span>Expenses</span>}
+                  </NavLink>
+                )}
 
                 {canAccessModule(currentUser, 'payroll') && (
                   <NavLink

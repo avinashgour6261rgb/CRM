@@ -268,6 +268,7 @@ export const EmployeePermissionsTab = () => {
   const [permissions, setPermissions] = useState(() => {
     return getUserModulePermissions(selectedEmp);
   });
+  const [selectedSystemRole, setSelectedSystemRole] = useState(() => getUserRole(selectedEmp));
   const [isDelegatedAdmin, setIsDelegatedAdmin] = useState(false);
   const [delegationExpiresAt, setDelegationExpiresAt] = useState('');
   const [isSaved, setIsSaved] = useState(true);
@@ -288,6 +289,7 @@ export const EmployeePermissionsTab = () => {
       lastLoadedEmpIdRef.current = selectedEmpId;
       const loaded = getUserModulePermissions(selectedEmp);
       setPermissions(loaded || {});
+      setSelectedSystemRole(getUserRole(selectedEmp));
       setIsDelegatedAdmin(Boolean(selectedEmp?.isDelegatedAdmin || selectedEmp?.isAdmin || selectedEmp?.role?.toLowerCase() === 'admin'));
 
       let exp = selectedEmp?.delegationExpiresAt || '';
@@ -321,9 +323,10 @@ export const EmployeePermissionsTab = () => {
     if (!presetObj) return;
 
     setIsDelegatedAdmin(false);
+    setSelectedSystemRole(presetObj.roleKey || ROLES.TEAM_MEMBER);
     setPermissions({ ...presetObj.presets });
     setIsSaved(false);
-    addToast(`${presetObj.emoji} Applied ${presetObj.title} baseline permissions`, 'info');
+    addToast(`${presetObj.emoji} Applied ${presetObj.title} baseline role & permissions`, 'info');
   };
 
   // Toggle single permission key with Bi-Directional Dependency Cascading
@@ -582,17 +585,22 @@ export const EmployeePermissionsTab = () => {
       }
 
       // 1. Authoritative Save directly to MongoDB Atlas Cloud Database
+      const nextSystemRole = isDelegatedAdmin
+        ? ROLES.ADMIN
+        : (selectedSystemRole && selectedSystemRole !== ROLES.ADMIN ? selectedSystemRole : ROLES.TEAM_MEMBER);
+
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(selectedEmp._id, {
           permissions: safePerms,
           isDelegatedAdmin: Boolean(isDelegatedAdmin),
           delegationExpiresAt: delegationExpiresAt || null,
-          systemRole: selectedEmp.systemRole || (isDelegatedAdmin ? 'admin' : 'team_member')
+          systemRole: nextSystemRole
         });
       } else if (updateEmployee) {
         await updateEmployee(selectedEmp._id, {
           isDelegatedAdmin: Boolean(isDelegatedAdmin),
           delegationExpiresAt: delegationExpiresAt || null,
+          systemRole: nextSystemRole,
           permissions: safePerms
         });
       }
@@ -613,7 +621,9 @@ export const EmployeePermissionsTab = () => {
         employeeCode: selectedEmp.employeeCode,
         email: selectedEmp.email,
         permissions: safePerms,
-        isDelegatedAdmin: Boolean(isDelegatedAdmin)
+        isDelegatedAdmin: Boolean(isDelegatedAdmin),
+        delegationExpiresAt: delegationExpiresAt || null,
+        systemRole: nextSystemRole
       };
       window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: syncPayload }));
       broadcastSyncEvent('PERMISSIONS_UPDATED', syncPayload);

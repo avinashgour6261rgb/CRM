@@ -184,10 +184,16 @@ export const AuthProvider = ({ children }) => {
           const freshPerms = (matched._id && pMap[String(matched._id)]) ||
             (matched.employeeCode && pMap[String(matched.employeeCode)]) ||
             (matched.email && pMap[String(matched.email).toLowerCase()]);
-          const effectivePerms = freshPerms || matched.permissions || {};
+          // Authoritative MongoDB permissions ALWAYS take precedence over stale localStorage cache
+          const hasDbPerms = matched.permissions && typeof matched.permissions === 'object' && Object.keys(matched.permissions).length > 0;
+          const effectivePerms = hasDbPerms ? matched.permissions : (freshPerms || {});
 
-          const hasPermsChanged = JSON.stringify(effectivePerms) !== JSON.stringify(parsed.permissions || {}) ||
-            Boolean(matched.isDelegatedAdmin) !== Boolean(parsed.isDelegatedAdmin);
+          const hasPermsChanged =
+            JSON.stringify(effectivePerms) !== JSON.stringify(parsed.permissions || {}) ||
+            Boolean(matched.isDelegatedAdmin) !== Boolean(parsed.isDelegatedAdmin) ||
+            Boolean(matched.isAdmin) !== Boolean(parsed.isAdmin) ||
+            (matched.systemRole && matched.systemRole !== parsed.systemRole) ||
+            (matched.role && matched.role !== parsed.role);
 
           if (hasPermsChanged) {
             const updatedUser = {
@@ -195,7 +201,8 @@ export const AuthProvider = ({ children }) => {
               ...matched,
               permissions: effectivePerms,
               isDelegatedAdmin: Boolean(matched.isDelegatedAdmin),
-              delegationExpiresAt: matched.delegationExpiresAt || null
+              delegationExpiresAt: matched.delegationExpiresAt || null,
+              systemRole: matched.systemRole || parsed.systemRole
             };
             setCurrentUser(updatedUser);
             localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
@@ -234,12 +241,16 @@ export const AuthProvider = ({ children }) => {
 
         if (isTarget) {
           const newPerms = data.permissions !== undefined ? (data.permissions || {}) : (data.user?.permissions || prev.permissions || {});
+          const nextSystemRole = data.systemRole || data.user?.systemRole || prev.systemRole;
           const updatedUser = {
             ...prev,
             permissions: newPerms,
             isDelegatedAdmin: data.isDelegatedAdmin !== undefined ? Boolean(data.isDelegatedAdmin) : Boolean(prev.isDelegatedAdmin),
             delegationExpiresAt: data.delegationExpiresAt !== undefined ? data.delegationExpiresAt : prev.delegationExpiresAt,
-            systemRole: data.systemRole || prev.systemRole
+            systemRole: nextSystemRole,
+            isAdmin: prev.employeeCode === 'ADM-001' || prev.isSuperAdmin
+              ? true
+              : (nextSystemRole === 'admin' || Boolean(data.isDelegatedAdmin))
           };
           try {
             localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
@@ -311,7 +322,10 @@ export const AuthProvider = ({ children }) => {
                 (parsed.employeeCode && pMap[String(parsed.employeeCode)]) ||
                 (parsed.email && pMap[String(parsed.email).toLowerCase()]);
 
-              const updatedPermissions = freshPerms || matchedEmp?.permissions || parsed.permissions || {};
+              const hasDbPerms = matchedEmp?.permissions && typeof matchedEmp.permissions === 'object' && Object.keys(matchedEmp.permissions).length > 0;
+              const updatedPermissions = (key === 'EMS_USER_PERMISSIONS' && freshPerms)
+                ? freshPerms
+                : (hasDbPerms ? matchedEmp.permissions : (freshPerms || parsed.permissions || {}));
               const isDelegated = matchedEmp?.isDelegatedAdmin !== undefined ? Boolean(matchedEmp.isDelegatedAdmin) : (freshPerms?.isDelegatedAdmin !== undefined ? Boolean(freshPerms.isDelegatedAdmin) : Boolean(parsed.isDelegatedAdmin));
               const updatedUser = {
                 ...parsed,
@@ -319,7 +333,10 @@ export const AuthProvider = ({ children }) => {
                 permissions: updatedPermissions,
                 isDelegatedAdmin: isDelegated,
                 delegationExpiresAt: matchedEmp?.delegationExpiresAt || freshPerms?.delegationExpiresAt || parsed.delegationExpiresAt || null,
-                systemRole: matchedEmp?.systemRole || parsed.systemRole
+                systemRole: matchedEmp?.systemRole || parsed.systemRole,
+                isAdmin: parsed.employeeCode === 'ADM-001' || parsed.isSuperAdmin
+                  ? true
+                  : (matchedEmp?.isAdmin !== undefined ? Boolean(matchedEmp.isAdmin) : (matchedEmp?.systemRole === 'admin' || isDelegated))
               };
               setCurrentUser(updatedUser);
               localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));

@@ -324,14 +324,11 @@ export const HRProvider = ({ children }) => {
     try {
       const updated = await hrService.updateEmployee(employeeId, updateData);
       
-      // Instant React memory sync for current user & all employee lists
+      // Instant React memory sync ONLY if the edited employee IS the currently logged-in user
       setCurrentUser(prev => {
-        if (!prev) return updated;
-        const isMatch = prev._id === employeeId ||
-          prev.employeeCode === employeeId ||
-          (updateData.employeeCode && prev.employeeCode === updateData.employeeCode) ||
-          (updateData.email && prev.email?.toLowerCase() === updateData.email?.toLowerCase()) ||
-          prev.isCurrentUser;
+        if (!prev) return prev;
+        const isMatch = (prev._id && String(prev._id) === String(employeeId)) ||
+          (prev.employeeCode && String(prev.employeeCode).toUpperCase() === String(employeeId).toUpperCase());
         if (isMatch) {
           const merged = { ...prev, ...updated, ...updateData };
           try {
@@ -344,11 +341,8 @@ export const HRProvider = ({ children }) => {
       });
 
       setEmployees(prev => prev.map(e => {
-        const isMatch = e._id === employeeId ||
-          e.employeeCode === employeeId ||
-          (updateData.employeeCode && e.employeeCode === updateData.employeeCode) ||
-          (updateData.email && e.email?.toLowerCase() === updateData.email?.toLowerCase()) ||
-          (e.isCurrentUser && updated?.isCurrentUser);
+        const isMatch = (e._id && String(e._id) === String(employeeId)) ||
+          (e.employeeCode && String(e.employeeCode).toUpperCase() === String(employeeId).toUpperCase());
         return isMatch ? { ...e, ...updated, ...updateData } : e;
       }));
 
@@ -367,13 +361,20 @@ export const HRProvider = ({ children }) => {
     try {
       const updated = await hrService.updateEmployeePermissions(employeeId, payload);
       setCurrentUser(prev => {
-        if (!prev) return updated;
-        if (prev._id === employeeId || prev.employeeCode === employeeId || prev.isCurrentUser) {
+        if (!prev) return prev;
+        const isSelf = (prev._id && String(prev._id) === String(employeeId)) ||
+          (prev.employeeCode && String(prev.employeeCode).toUpperCase() === String(employeeId).toUpperCase());
+        if (isSelf) {
           return { ...prev, ...updated };
         }
         return prev;
       });
-      setEmployees(prev => prev.map(e => (e._id === employeeId || e.employeeCode === employeeId ? { ...e, ...updated } : e)));
+      setEmployees(prev => prev.map(e => (
+        (e._id && String(e._id) === String(employeeId)) ||
+        (e.employeeCode && String(e.employeeCode).toUpperCase() === String(employeeId).toUpperCase())
+          ? { ...e, ...updated }
+          : e
+      )));
       return updated;
     } catch (err) {
       console.error('Failed to update employee permissions:', err);
