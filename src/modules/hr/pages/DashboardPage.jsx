@@ -730,7 +730,7 @@ export const DashboardPage = () => {
 
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
-      const isTaskTimerActuallyRunning = Boolean(at.timerRunning !== false && at.startedAt);
+      const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || Date.now();
         const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
@@ -1683,16 +1683,26 @@ export const DashboardPage = () => {
   // Active Task for "Active Timer" card (strictly bound to target user's direct assigned tasks)
   const displayActiveTask = React.useMemo(() => {
     let task = null;
-    if (!isViewingOtherEmployee && activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
-      task = activeRunningTask;
+    if (!isViewingOtherEmployee) {
+      // Viewing OWN dashboard: WorkContext is the single authoritative source (NEVER let stale telemetry hardcode timerRunning: true!)
+      if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+        task = activeRunningTask;
+      } else if (activeSelectedTaskId) {
+        const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId) && !isTaskActuallyCompleted(t));
+        if (found) task = found;
+      } else {
+        const pausedTodayTask = myTasks.find(t => !isTaskActuallyCompleted(t) && !t.snoozed && (Number(t.todayWorkSeconds) > 0 || Number(t.dailySessions?.[todayStr]) > 0));
+        task = pausedTodayTask || myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
+      }
     } else if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
       const match = cleanTasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
-        const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.timerSeconds) || 0;
+        const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.todayWorkSeconds) || 0;
+        const isActuallyRunning = Boolean(activeEmpState.runningTask.timerRunning === true);
         task = {
           ...(match || {}),
           ...activeEmpState.runningTask,
-          timerRunning: true,
+          timerRunning: isActuallyRunning,
           timerSeconds: match?.timerSeconds ?? Number(activeEmpState.runningTask.accumulatedSeconds ?? liveSecs),
           todayWorkSeconds: liveSecs,
           hoursLogged: match?.hoursLogged ?? +(Number(match?.timerSeconds || liveSecs) / 3600).toFixed(2),
@@ -1700,8 +1710,6 @@ export const DashboardPage = () => {
           liveDurationText: formatSeconds(liveSecs)
         };
       }
-    } else if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
-      task = activeRunningTask;
     } else if (activeSelectedTaskId) {
       const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId) && !isTaskActuallyCompleted(t));
       if (found) task = found;
@@ -1716,7 +1724,7 @@ export const DashboardPage = () => {
       };
     }
     return task;
-  }, [isViewingOtherEmployee, activeEmpState?.runningTask, cleanTasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds, displayedIsClockedIn]);
+  }, [isViewingOtherEmployee, activeEmpState?.runningTask, cleanTasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds, displayedIsClockedIn, todayStr]);
 
   // Upcoming Next tasks in queue (strictly from user's personal pending queue)
   const upcomingQueueTasks = myPendingTasks

@@ -453,7 +453,7 @@ export const TeamOperationsPage = () => {
 
     if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = telem.activeTask;
-      const isTaskTimerActuallyRunning = Boolean(at.timerRunning !== false && at.startedAt);
+      const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || nowMs;
         const elapsed = Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
