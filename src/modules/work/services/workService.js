@@ -308,9 +308,17 @@ export const workService = {
                 const localHoursLogged = Number(local.hoursLogged) || 0;
                 const remoteHoursLogged = Number(rt.hoursLogged) || 0;
 
-                const localTodaySecs = Number(local.todayWorkSeconds) || Number(local.accumulatedTodaySeconds) || 0;
-                const remoteTodaySecs = Number(rt.todayWorkSeconds) || Number(rt.accumulatedTodaySeconds) || 0;
+                const localFrozenToday = (local.accumulatedTodaySeconds !== undefined && local.accumulatedTodaySeconds !== null)
+                  ? Number(local.accumulatedTodaySeconds)
+                  : (Number(local.todayWorkSeconds) || 0);
+                const remoteFrozenToday = (rt.accumulatedTodaySeconds !== undefined && rt.accumulatedTodaySeconds !== null)
+                  ? Number(rt.accumulatedTodaySeconds)
+                  : (Number(rt.todayWorkSeconds) || 0);
+
+                const localTodaySecs = Number(local.todayWorkSeconds) || localFrozenToday;
+                const remoteTodaySecs = Number(rt.todayWorkSeconds) || remoteFrozenToday;
                 const effectiveTodaySecs = Math.max(localTodaySecs, remoteTodaySecs);
+                const effectiveFrozenToday = Math.max(localFrozenToday, remoteFrozenToday);
 
                 const mergedSessions = {
                   ...(rt.dailySessions && typeof rt.dailySessions === 'object' ? rt.dailySessions : {}),
@@ -344,6 +352,7 @@ export const workService = {
                 }
 
                 // Invariant: Task timer seconds and accumulated seconds can never run backwards!
+                // When running, keep accumulatedTodaySeconds strictly at the frozen pre-start baseline!
                 const effectiveSecs = Math.max(localTimerSecs, remoteTimerSecs);
                 const effectiveAccum = Math.max(localAccum, remoteAccum);
                 const maxHours = Math.max(localHoursLogged, remoteHoursLogged, +(effectiveSecs / 3600).toFixed(2));
@@ -355,8 +364,8 @@ export const workService = {
                   startedAt: effectiveStartedAt,
                   timerSeconds: effectiveSecs,
                   accumulatedSeconds: effectiveAccum,
-                  todayWorkSeconds: effectiveTodaySecs,
-                  accumulatedTodaySeconds: effectiveTodaySecs,
+                  todayWorkSeconds: effectiveRunning ? effectiveTodaySecs : effectiveTodaySecs,
+                  accumulatedTodaySeconds: effectiveRunning ? effectiveFrozenToday : effectiveTodaySecs,
                   dailySessions: mergedSessions,
                   hoursLogged: maxHours,
                   hoursLoggedText: maxHours > 0 ? (local.hoursLoggedText || `${maxHours}h`) : (local.hoursLoggedText || rt.hoursLoggedText || '0s'),
@@ -407,11 +416,14 @@ export const workService = {
 
                 const maxSecs = Math.max(Number(existing.timerSeconds) || 0, Number(t.timerSeconds) || 0);
                 const maxAccum = Math.max(Number(existing.accumulatedSeconds) || 0, Number(t.accumulatedSeconds) || 0);
+                const frozenToday = Math.max(
+                  (existing.accumulatedTodaySeconds !== undefined && existing.accumulatedTodaySeconds !== null) ? Number(existing.accumulatedTodaySeconds) : 0,
+                  (t.accumulatedTodaySeconds !== undefined && t.accumulatedTodaySeconds !== null) ? Number(t.accumulatedTodaySeconds) : 0
+                );
                 const maxToday = Math.max(
                   Number(existing.todayWorkSeconds) || 0,
                   Number(t.todayWorkSeconds) || 0,
-                  Number(existing.accumulatedTodaySeconds) || 0,
-                  Number(t.accumulatedTodaySeconds) || 0
+                  frozenToday
                 );
 
                 taskDedupeMap.set(cKey, {
@@ -422,7 +434,7 @@ export const workService = {
                   timerSeconds: maxSecs,
                   accumulatedSeconds: maxAccum,
                   todayWorkSeconds: maxToday,
-                  accumulatedTodaySeconds: maxToday,
+                  accumulatedTodaySeconds: chosenRunning ? frozenToday : maxToday,
                   dailySessions: {
                     ...(other.dailySessions || {}),
                     ...(base.dailySessions || {})

@@ -482,6 +482,13 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
  */
 export const sanitizeTaskDailySessions = (task) => {
   if (!task) return task;
+  // CRITICAL: While a task timer is actively running, NEVER fold live `todayWorkSeconds`
+  // or live `timerSeconds` back into frozen baselines (`accumulatedSeconds`, `accumulatedTodaySeconds`,
+  // `dailySessions[today]`), otherwise elapsed time gets double-counted every tick (2x+ speed)!
+  if (task.timerRunning) {
+    return task;
+  }
+
   const rawSessions = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : null;
   if (!rawSessions || Object.keys(rawSessions).length === 0) {
     return task;
