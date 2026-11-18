@@ -70,6 +70,8 @@ export const TimerProvider = ({ children }) => {
   const { addToast } = useToast();
   const { currentUser: authUser } = useAuth();
   const currentUser = authUser || null;
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
 
   const getTodayStr = () => getLocalDateString();
 
@@ -608,9 +610,12 @@ export const TimerProvider = ({ children }) => {
   const [isOnLeaveToday, setIsOnLeaveToday] = useState(false);
   const [todayLeaveRecord, setTodayLeaveRecord] = useState(null);
 
-  // Reload timer state when userKey switches (Multi-User Safe & Anti-Overwrite Hydration)
+  // Reload timer state ONLY when userKey actually changes (prevents same-user object churn from resetting timers)
+  const hasHydratedInitialRef = useRef(false);
   useEffect(() => {
-    if (!userKey || !currentUser) {
+    const activeUser = currentUserRef.current;
+    if (!userKey || !activeUser) {
+      hasHydratedInitialRef.current = false;
       isHydratingRef.current = false;
       prevUserKeyRef.current = '';
       setIsClockedIn(false);
@@ -636,6 +641,11 @@ export const TimerProvider = ({ children }) => {
       setHydratedUserKey('');
       return;
     }
+
+    if (hasHydratedInitialRef.current && prevUserKeyRef.current === userKey) {
+      return; // Same user already hydrated — NEVER tear down or pause active 1-second ticker!
+    }
+    hasHydratedInitialRef.current = true;
 
     if (prevUserKeyRef.current !== userKey) {
       setIsClockedIn(false);
@@ -840,7 +850,7 @@ export const TimerProvider = ({ children }) => {
       isHydratingRef.current = false;
     }, 60);
     return () => clearTimeout(timer);
-  }, [userKey, currentUser, isRecordForUser]);
+  }, [userKey]);
 
   // Synchronize Authoritative Live Shift State from Database across all devices / laptops
   const syncLiveShiftState = useCallback(async () => {
@@ -1373,11 +1383,13 @@ export const TimerProvider = ({ children }) => {
 
   // ── True Wall-Clock Timestamp Engine (Immune to tab sleep, throttle & page reloads) ──
   useEffect(() => {
-    if (!userKey || !currentUser || hydratedUserKey !== userKey || isHydratingRef.current || prevUserKeyRef.current !== userKey) return;
+    // CRITICAL: NEVER gate setInterval registration on `isHydratingRef.current` (a ref change never triggers re-render!)
+    if (!userKey || hydratedUserKey !== userKey || prevUserKeyRef.current !== userKey) return;
     let interval = null;
 
     const tick = () => {
-      if (!userKey || prevUserKeyRef.current !== userKey || isHydratingRef.current) return;
+      const liveUser = currentUserRef.current;
+      if (!userKey || !liveUser || prevUserKeyRef.current !== userKey || isHydratingRef.current) return;
       const today = getTodayStr();
       const inVal = localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true';
       const onBreakVal = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
@@ -1729,7 +1741,7 @@ export const TimerProvider = ({ children }) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [isClockedIn, isOnBreak, breakType, breakReminderSent, reclockStatus, userKey, hydratedUserKey, currentUser, targetEmpId, targetEmpCode, addToast]);
+  }, [isClockedIn, isOnBreak, breakType, breakReminderSent, reclockStatus, userKey, hydratedUserKey, targetEmpId, targetEmpCode, addToast]);
 
 
 
@@ -2346,11 +2358,13 @@ export const TimerProvider = ({ children }) => {
 
   // ── Periodic Live Heartbeat to Backend (Every 8s while clocked in) ──
   useEffect(() => {
-    if (!isClockedIn || !userKey || !currentUser || hydratedUserKey !== userKey || isHydratingRef.current || prevUserKeyRef.current !== userKey) return;
+    // CRITICAL: NEVER gate setInterval registration on `isHydratingRef.current` (a ref change never triggers re-render!)
+    if (!isClockedIn || !userKey || hydratedUserKey !== userKey || prevUserKeyRef.current !== userKey) return;
 
     const pulseHeartbeat = () => {
       try {
-        if (!userKey || prevUserKeyRef.current !== userKey || isHydratingRef.current) return;
+        const liveUser = currentUserRef.current;
+        if (!userKey || !liveUser || prevUserKeyRef.current !== userKey || isHydratingRef.current) return;
         const today = getTodayStr();
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
@@ -2413,7 +2427,7 @@ export const TimerProvider = ({ children }) => {
     pulseHeartbeat();
     const hbInterval = setInterval(pulseHeartbeat, 8000);
     return () => clearInterval(hbInterval);
-  }, [isClockedIn, isOnBreak, userKey, hydratedUserKey, currentUser, targetEmpId, targetEmpCode, breakType]);
+  }, [isClockedIn, isOnBreak, userKey, hydratedUserKey, targetEmpId, targetEmpCode, breakType]);
 
 
 

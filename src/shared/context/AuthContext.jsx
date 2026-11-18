@@ -338,8 +338,10 @@ export const AuthProvider = ({ children }) => {
                   ? true
                   : (matchedEmp?.isAdmin !== undefined ? Boolean(matchedEmp.isAdmin) : (matchedEmp?.systemRole === 'admin' || isDelegated))
               };
-              setCurrentUser(updatedUser);
-              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+              if (JSON.stringify(updatedUser) !== JSON.stringify(parsed)) {
+                setCurrentUser(updatedUser);
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+              }
             }
           }
         } catch (_) {}
