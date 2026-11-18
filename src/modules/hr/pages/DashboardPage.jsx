@@ -11,52 +11,24 @@ import {
   Users,
   User,
   Palmtree,
-  UserCheck,
-  UserX,
-  CalendarCheck,
   Award,
-  ArrowRight,
-  TrendingUp,
   Clock,
   CheckCircle2,
   X,
-  XCircle,
-  AlertTriangle,
   AlertCircle,
-  Sparkles,
-  Calendar as CalendarIcon,
-  ChevronRight,
-  ChevronLeft,
-  ChevronDown,
   Plus,
-  ThumbsUp,
-  Trophy,
   Filter,
-  UserPlus,
   Play,
   Pause,
-  Square,
-  Coffee,
-  Utensils,
-  LogOut,
-  FolderGit2,
   ListTodo,
   LifeBuoy,
   Bell,
-  Home,
-  Cake,
   Plane,
-  Eye,
   Check,
-  Briefcase,
-  RefreshCw,
-  Shield,
   Layers,
-  Search,
   Zap,
   LayoutDashboard,
-  History,
-  Trash2
+  History
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -64,12 +36,12 @@ import { useToast } from '../../../shared/context/ToastContext';
 import { useWork } from '../../work/context/WorkContext';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useCRM } from '../../../shared/context/CRMContext';
-import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isHRorAdmin, isAdmin, isHR, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, isTaskVisibleToUser, canDeleteTask as checkCanDeleteTask, canViewAllTasks, canViewAllTickets, canPostNotices, canForceClockOut } from '../../../shared/utils/permissionUtils';
+import { ROLES, ROLE_CONFIGS, getUserRole, canAccessModule, canApproveLeaves, isAdmin, isHR, getUserModulePermissions, isLeaveApplicant, isLeaveDesignatedApprover, isProjectVisibleToUser, canDeleteTask as checkCanDeleteTask, canViewAllTasks, canViewAllTickets, canPostNotices, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { getCollection, saveCollection, KEYS } from '../../../shared/services/storageService';
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { getCanonicalTimerKey, getTimerMirrorKeys, readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, calculateUserDailyTaskSeconds } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
