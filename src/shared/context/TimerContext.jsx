@@ -1017,7 +1017,17 @@ export const TimerProvider = ({ children }) => {
         const curSessionGrossSecs = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
         const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${userKey}_session_break_baseline`)) || 0;
         const curSessionBreaks = Math.max(0, bSecs - sessionBreakBaseline);
-        const effectiveWorkSecs = Math.min(maxGrossSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
+        const computedFromSessions = pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks);
+        const remoteReportedSecs = Number(rec?.workSeconds) || 0;
+        // NEVER drop cumulative working time down to just the latest re-clock session if punchSessions hasn't arrived yet!
+        const effectiveWorkSecs = Math.min(maxGrossSecs, Math.max(computedFromSessions, remoteReportedSecs));
+        // If remote reports higher prior work than curSessionGrossSecs and punchSessions was empty, preserve the prior baseline so tick() never drops backwards!
+        if (remoteSessions.length === 0 && remoteReportedSecs > curSessionGrossSecs + 15) {
+          const inferredPrior = Math.max(0, Math.min(maxGrossSecs, remoteReportedSecs) - curSessionGrossSecs);
+          if (inferredPrior > 0) {
+            localStorage.setItem(`ems_timer_${userKey}_saved_official_seconds`, String(inferredPrior));
+          }
+        }
 
         const localIsOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
         const localBreakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
@@ -1607,7 +1617,12 @@ export const TimerProvider = ({ children }) => {
         const maxPossibleNetWorkSecs = Math.max(0, maxPossibleElapsedSinceClockIn - totalBreaks);
 
         // Total working time = completed sessions + (current active session minus active & completed breaks in this session)
-        let netWorkSecs = Math.min(maxPossibleNetWorkSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
+        // If punchSessions is empty on a secondary browser after re-clock-in, preserve saved_official_seconds prior baseline!
+        const savedPriorBaseline = storedSessions.length === 0
+          ? (Number(localStorage.getItem(`ems_timer_${userKey}_saved_official_seconds`)) || 0)
+          : 0;
+        const effectivePastSecs = Math.max(pastSessionsSecs, savedPriorBaseline);
+        let netWorkSecs = Math.min(maxPossibleNetWorkSecs, effectivePastSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
         setWorkSeconds(prev => (prev === netWorkSecs ? prev : netWorkSecs));
 
         // Automatic real-time overtime (work before 10:00 AM or after 07:00 PM; 9h window includes breaks; NO permission required)

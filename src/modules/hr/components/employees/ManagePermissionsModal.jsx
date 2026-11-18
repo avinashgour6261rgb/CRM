@@ -67,10 +67,8 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
 
         // Automatic elevation: enable corresponding parent module views
         if (key === 'manageEmployees' || key === 'deleteEmployees' || key === 'viewEmployeeDetails' || key === 'reviewResignations') updated.employees = true;
-        if (key === 'manageSalaries' || key === 'export_payroll' || key === 'accessFinance' || key === 'approveExpenses') {
-          updated.payroll = true;
-          updated.finance = true;
-        }
+        if (key === 'manageSalaries' || key === 'export_payroll') updated.payroll = true;
+        if (key === 'accessFinance' || key === 'approveExpenses') updated.finance = true;
         if (key === 'accessCRM' || key === 'createLeads' || key === 'editLeads' || key === 'viewAllLeads' || key === 'deleteLeads' || key === 'export_leads' || key === 'createChannels') {
           updated.accessCRM = true;
           updated.leads = true;
@@ -78,7 +76,10 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         if (key === 'viewAllAttendance' || key === 'editAttendance' || key === 'forceClockOut' || key === 'approveOvertime' || key === 'export_attendance') {
           updated.attendance = true;
         }
-        if (key === 'liveOperations' || key === 'forceClockOut') updated.teamoperations = true;
+        if (key === 'liveOperations' || key === 'forceClockOut') {
+          updated.liveOperations = true;
+          updated.teamoperations = true;
+        }
         if (key === 'approveLeaves' || key === 'viewAllLeaves' || key === 'cancelLeaves') updated.leaves = true;
         if (key === 'manageProjects' || key === 'createProjects' || key === 'deleteProjects' || key === 'viewAllProjects') updated.projects = true;
         if (key === 'createTasks' || key === 'viewAllTasks' || key === 'deleteTasks' || key === 'editAnyTask') updated.tasks = true;
@@ -87,6 +88,11 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
         if (key === 'giveAppreciation' || key === 'deleteAppreciations') updated.appreciation = true;
         if (key === 'documentation') updated.documents = true;
         if (key === 'reports') updated.viewReports = true;
+        if (key === 'manageSettings') updated.settings = true;
+        if (key === 'grantPermissions') {
+          updated.employees = true;
+          updated.settings = true;
+        }
       } else {
         // ── 2. REVERSE CASCADE: Automatically disable all dependent children ──
         const dependentChildren = getDependentChildPermissions(key);
@@ -115,9 +121,11 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
           updated.liveOperations = false;
           updated.teamoperations = false;
         }
-        if (key === 'manageProjects' || key === 'projects') {
-          updated.manageProjects = false;
-          updated.projects = false;
+        if (key === 'documentation') {
+          updated.documents = false;
+        }
+        if (key === 'reports') {
+          updated.viewReports = false;
         }
       }
 

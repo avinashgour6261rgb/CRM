@@ -27,13 +27,15 @@ import { ShiftSettingsTab } from '../components/ShiftSettingsTab';
 import { EmployeePermissionsTab } from '../components/EmployeePermissionsTab';
 import { useTimer } from '../../../shared/context/TimerContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isAdmin, canUserGrantPermissions } from '../../../shared/utils/permissionUtils';
+import { isAdmin, canUserGrantPermissions, getUserModulePermissions } from '../../../shared/utils/permissionUtils';
 
 export const SettingsPage = () => {
   const { timeString, isClockedIn, isOnBreak } = useTimer();
   const { currentUser } = useAuth();
   const isUserAdmin = isAdmin(currentUser);
+  const userModulePerms = getUserModulePermissions(currentUser);
   const canManagePerms = isUserAdmin || canUserGrantPermissions(currentUser);
+  const canManageCompanySettings = isUserAdmin || Boolean(currentUser?.permissions?.manageSettings) || Boolean(userModulePerms?.manageSettings);
 
   const [activeSection, setActiveSection] = useState('profile');
   const [profileSubTab, setProfileSubTab] = useState('profile');
@@ -59,7 +61,7 @@ export const SettingsPage = () => {
       );
     }
 
-    if (isUserAdmin) {
+    if (canManageCompanySettings) {
       baseItems.push(
         { id: 'company', label: 'Company Profile & Branding', icon: Building2, desc: 'Legal identity, address, tax IDs & payslips' },
         { id: 'shifts', label: 'Work Shift & Timing Policy', icon: Clock, desc: 'Office timings, grace period & breaks' }
@@ -67,17 +69,17 @@ export const SettingsPage = () => {
     }
 
     return baseItems;
-  }, [isUserAdmin, canManagePerms]);
+  }, [canManageCompanySettings, canManagePerms]);
 
   // Fallback if employee lands on restricted admin tab
   React.useEffect(() => {
     if (!canManagePerms && activeSection === 'permissions') {
       setActiveSection('profile');
     }
-    if (!isUserAdmin && (activeSection === 'company' || activeSection === 'shifts')) {
+    if (!canManageCompanySettings && (activeSection === 'company' || activeSection === 'shifts')) {
       setActiveSection('profile');
     }
-  }, [canManagePerms, isUserAdmin, activeSection]);
+  }, [canManagePerms, canManageCompanySettings, activeSection]);
 
   const filteredMenuItems = menuItems.filter(item =>
     item.label.toLowerCase().includes(searchMenu.toLowerCase())
@@ -301,15 +303,15 @@ export const SettingsPage = () => {
             </div>
           )}
 
-          {/* Section: Company & Payslip Branding (Admin Only) */}
-          {activeSection === 'company' && isUserAdmin && (
+          {/* Section: Company & Payslip Branding */}
+          {activeSection === 'company' && canManageCompanySettings && (
             <div>
               <CompanyBrandingTab onNavigateTab={setActiveSection} />
             </div>
           )}
 
-          {/* Section: Work Shift & Timing Policy (Admin Only) */}
-          {activeSection === 'shifts' && isUserAdmin && (
+          {/* Section: Work Shift & Timing Policy */}
+          {activeSection === 'shifts' && canManageCompanySettings && (
             <div>
               <ShiftSettingsTab onNavigateTab={setActiveSection} />
             </div>

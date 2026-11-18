@@ -819,10 +819,39 @@ export const CRMProvider = ({ children }) => {
       else if (key === 'all') scheduleRefresh('all', refreshAllCRM);
     };
 
+    const handleChatMessageInstant = (e) => {
+      const { conversationId, message } = e?.detail || {};
+      if (!conversationId || !message) return;
+      setConversations(prev => {
+        const list = Array.isArray(prev) ? prev : [];
+        const idx = list.findIndex(c => c.id === conversationId);
+        if (idx === -1) return list;
+        const conv = list[idx];
+        const msgs = Array.isArray(conv.messages) ? conv.messages : [];
+        if (message.id && msgs.some(m => m && m.id === message.id)) return list;
+        const updatedConv = {
+          ...conv,
+          messages: [...msgs, message],
+          lastMessage: message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment'),
+          lastMessageTime: message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          updatedAt: Date.now()
+        };
+        const copy = [...list];
+        copy[idx] = updatedConv;
+        return copy;
+      });
+    };
+
+    const handlePermissionsRefresh = () => {
+      refreshAllCRM();
+    };
+
     const interval = setInterval(syncIfVisible, 45000);
     window.addEventListener('focus', syncIfVisible);
     document.addEventListener('visibilitychange', syncIfVisible);
     window.addEventListener('ems_remote_sync', handleRemoteSync);
+    window.addEventListener('ems_chat_message_sent', handleChatMessageInstant);
+    window.addEventListener('ems_permissions_updated', handlePermissionsRefresh);
     window.addEventListener('ems_socket_reconnected', refreshAllCRM);
     return () => {
       clearInterval(interval);
@@ -830,6 +859,8 @@ export const CRMProvider = ({ children }) => {
       window.removeEventListener('focus', syncIfVisible);
       document.removeEventListener('visibilitychange', syncIfVisible);
       window.removeEventListener('ems_remote_sync', handleRemoteSync);
+      window.removeEventListener('ems_chat_message_sent', handleChatMessageInstant);
+      window.removeEventListener('ems_permissions_updated', handlePermissionsRefresh);
       window.removeEventListener('ems_socket_reconnected', refreshAllCRM);
     };
   }, [currentUser]);
