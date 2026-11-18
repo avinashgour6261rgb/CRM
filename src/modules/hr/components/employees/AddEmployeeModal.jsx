@@ -27,8 +27,10 @@ import {
   ROLES,
   GRANULAR_PERMISSIONS_LIST,
   DEFAULT_MODULE_PERMISSIONS,
-  canUserGrantPermissions
+  canUserGrantPermissions,
+  isAdmin as checkIsAdmin
 } from '../../../../shared/utils/permissionUtils';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { EmployeeCredentialsModal } from './EmployeeCredentialsModal';
 
@@ -146,7 +148,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   const [newRoleInput, setNewRoleInput] = useState('');
 
   const companySettings = getCompanySettings();
-  const companyDefaultShift = `${companySettings.shiftStartTime || '09:30 AM'} - ${companySettings.shiftEndTime || '06:30 PM'}`;
+  const companyDefaultShift = `${companySettings.shiftStartTime || '10:00 AM'} - ${companySettings.shiftEndTime || '07:00 PM'}`;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -159,7 +161,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     workMode: 'Office',
     shiftTiming: companyDefaultShift,
     status: 'active',
-    joiningDate: new Date().toISOString().split('T')[0],
+    joiningDate: getLocalDateString(),
     dob: '',
     phone: '',
     gender: 'Male',
@@ -170,8 +172,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     emergencyContactPhone: '',
     permissions: { ...(DEFAULT_MODULE_PERMISSIONS.team_member || {}) },
     leaveBalance: {
-      casual: 10,
-      sick: 8,
+      casual: 12,
+      sick: 12,
       earned: 15,
       maternity: 0
     },
@@ -338,29 +340,31 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.role) {
-      alert('Please fill in Name, Email, and Role');
+      addToast('Please fill in Name, Email, and Role.', 'error');
       return;
     }
 
     if (isCodeDuplicate) {
-      alert(`Employee ID "${formData.employeeCode}" is already taken by ${duplicateEmployee.name}. Please enter a unique ID.`);
+      addToast(`Employee ID "${formData.employeeCode}" is already taken by ${duplicateEmployee.name}. Please enter a unique ID.`, 'error');
       return;
     }
 
     if (isEmailDuplicate) {
-      alert(`Email "${formData.email}" is already registered with ${duplicateEmail.name}.`);
+      addToast(`Email "${formData.email}" is already registered with ${duplicateEmail.name}.`, 'error');
       return;
     }
 
-    // Role Security Boundary: Non-admins cannot create Admins
-    const isActorAdmin = currentUser?.isAdmin || currentUser?.systemRole === 'admin';
-    if (!isActorAdmin && (formData.systemRole === 'admin' || formData.role.toLowerCase().includes('admin'))) {
-      alert('🔒 Security Rule: Only Super Admin can register or grant Admin accounts.');
+    // Role Security Boundary: Non-admins cannot create Admins (supports Co-Admin / Full Access)
+    const isActorAdmin = checkIsAdmin(currentUser);
+    if (!isActorAdmin && (formData.systemRole === 'admin' || formData.role.toLowerCase().includes('admin') || formData.permissions?.allAccess)) {
+      addToast('🔒 Security Rule: Only Administrators can register Admin accounts or grant Full Access.', 'error');
       return;
     }
 
     try {
       setIsSubmitting(true);
+      const liveCompany = getCompanySettings();
+      const liveDefaultShift = `${liveCompany.shiftStartTime || '10:00 AM'} - ${liveCompany.shiftEndTime || '07:00 PM'}`;
       const empCode = formData.employeeCode.trim().toUpperCase();
       const currentGross = formData.salaryBasis === 'annual'
         ? (formData.annualCTC !== '' ? Math.round(Number(formData.annualCTC) / 12) : 0)
@@ -385,8 +389,8 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         phone: formData.phone || '',
         gender: formData.gender || 'Male',
         bloodGroup: formData.bloodGroup || 'O+',
-        shiftTiming: formData.shiftTiming || '10:00 AM - 07:00 PM',
-        joiningDate: formData.joiningDate || new Date().toISOString().split('T')[0],
+        shiftTiming: formData.shiftTiming || liveDefaultShift,
+        joiningDate: formData.joiningDate || getLocalDateString(),
         address: formData.address || '',
         emergencyContact: {
           name: formData.emergencyContactName || '',
@@ -413,7 +417,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         avatar: formData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(formData.name)}`
       });
 
-      // Auto-post welcome greeting to #general channel
+      // Auto-post welcome greeting to #general channel using live Company Name
       try {
         const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
         if (rawConvs) {
@@ -421,11 +425,12 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
           const genIdx = convs.findIndex(c => c.id === 'channel_general' || c.channelName === '#general');
           if (genIdx !== -1) {
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const orgShort = liveCompany.shortName || liveCompany.companyName || 'Company';
             const welcomeMsg = {
               id: `msg_welcome_${Date.now()}`,
               conversationId: convs[genIdx].id,
               senderId: 'ADM-001',
-              senderName: 'Inforag Onboarding Bot',
+              senderName: `${orgShort} Onboarding Bot`,
               senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
               senderRole: 'System Bot',
               text: `🎉 Welcome our new team member ${formData.name}! Joining as ${formData.role || 'Associate'} in ${formData.department || 'IT & Software Development'}. Say hello and welcome them to the team! 👋`,
@@ -459,6 +464,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
       });
 
       const generatedEmp = {
+        _id: created?._id,
         name: formData.name,
         employeeCode: empCode,
         email: formData.email,
@@ -466,13 +472,13 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         role: formData.role || 'Associate',
         systemRole: formData.systemRole || 'team_member',
         department: formData.department || 'General Operations',
-        shiftTiming: formData.shiftTiming || '10:00 AM - 07:00 PM',
-        avatar: formData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
+        shiftTiming: formData.shiftTiming || liveDefaultShift,
+        avatar: formData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(formData.name)}`
       };
 
       setCreatedCredentialsEmp(generatedEmp);
 
-      // Reset form
+      // Reset form cleanly with live Company Shift & local date
       setFormData({
         name: '',
         employeeCode: '',
@@ -482,10 +488,10 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         systemRole: 'team_member',
         department: 'IT & Software Development',
         workMode: 'Office',
-        shiftTiming: '10:00 AM - 07:00 PM',
+        shiftTiming: liveDefaultShift,
         status: 'active',
-        joiningDate: new Date().toISOString().split('T')[0],
-        dob: '1998-05-15',
+        joiningDate: getLocalDateString(),
+        dob: '',
         phone: '',
         gender: 'Male',
         bloodGroup: 'O+',
@@ -494,7 +500,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
         emergencyContactRelation: 'Parent',
         emergencyContactPhone: '',
         permissions: { ...(DEFAULT_MODULE_PERMISSIONS.team_member || {}) },
-        leaveBalance: { casual: 10, sick: 8, earned: 15, maternity: 0 },
+        leaveBalance: { casual: 12, sick: 12, earned: 15, maternity: 0 },
         salaryBasis: 'monthly',
         startingSalary: '',
         annualCTC: '',

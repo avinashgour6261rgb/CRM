@@ -133,9 +133,9 @@ async function fetchWithFallback(url, options, fallbackFn) {
       }
     } else {
       const errJson = isJson ? await res.json().catch(() => null) : null;
-      // For mutation requests (POST/PUT/DELETE), propagate validation/conflict errors to user
+      // For mutation requests (POST/PUT/DELETE), propagate auth/validation/conflict errors to user
       if (!isReadOp && errJson?.message) {
-        if (res.status === 409 || res.status === 400 || res.status === 422) {
+        if ([400, 401, 403, 409, 422].includes(res.status)) {
           throw new Error(errJson.message);
         }
       }
@@ -252,51 +252,48 @@ export const hrService = {
       permissions
     };
 
-    const result = await fetchWithFallback(`${API_BASE}/employees`, {
-      method: 'POST',
-      body: JSON.stringify(fullEmpData)
-    }, async () => {
-      const employees = getCollection(KEYS.EMPLOYEES);
+    // MongoDB-authoritative creation: never silently create a fake local-only employee that cannot log in on other devices
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let result = null;
+    try {
+      const res = await fetch(`${API_BASE}/employees`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(fullEmpData),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-      // Duplicate check in fallback
-      const codeToTest = empCode.trim().toLowerCase();
-      const existing = employees.find(e => (e.employeeCode || '').toLowerCase() === codeToTest || e._id === codeToTest);
-      if (existing) {
-        throw new Error(`Employee ID "${employeeData.employeeCode}" already exists for ${existing.name}`);
+      const ct = res.headers.get('content-type') || '';
+      const json = ct.includes('application/json') ? await res.json().catch(() => null) : null;
+
+      if (!res.ok) {
+        const serverMsg = json?.message || `Server returned error ${res.status} while registering employee. Please try again.`;
+        throw new Error(serverMsg);
       }
 
-      const emailToTest = (employeeData.email || '').trim().toLowerCase();
-      const existingEmail = employees.find(e => (e.email || '').toLowerCase() === emailToTest);
-      if (existingEmail) {
-        throw new Error(`Email "${employeeData.email}" is already registered with ${existingEmail.name}`);
+      hrBackendOnline = true;
+      lastHrCheckTime = Date.now();
+      result = json?.data !== undefined ? json.data : json;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err?.name === 'AbortError') {
+        throw new Error('Server is waking up or slow right now. Please wait 5 seconds and click Create Employee again.');
       }
+      throw new Error(err?.message || 'Could not reach database server to register employee. Please try again.');
+    }
 
-      const newEmployee = {
-        _id: `emp_${Date.now()}`,
-        ...fullEmpData,
-        avatar: employeeData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(employeeData.name)}`,
-        role: employeeData.role || 'Team Member',
-        department: employeeData.department || 'General',
-        status: employeeData.status || 'active',
-        joiningDate: employeeData.joiningDate || getLocalDateString(),
-        dob: employeeData.dob || '',
-        phone: employeeData.phone || '',
-        gender: employeeData.gender || 'Other',
-        isCurrentUser: false,
-        leaveBalance: employeeData.leaveBalance || { casual: 10, sick: 8, earned: 15, maternity: 0 },
-        createdAt: new Date().toISOString()
-      };
-
-      employees.push(newEmployee);
-      saveCollection(KEYS.EMPLOYEES, employees);
-      return newEmployee;
-    });
-
-    // Ensure local storage copy exists with all security and permission attributes
+    // Update local cache WITHOUT storing plaintext password in localStorage
     try {
       const localEmps = getCollection(KEYS.EMPLOYEES) || [];
       const idx = localEmps.findIndex(e => e._id === result?._id || e.employeeCode === empCode || e.email === employeeData.email);
-      const finalized = { ...fullEmpData, ...(result || {}), password, systemRole, permissions };
+      const { password: _stripPass, ...safeFullEmpData } = fullEmpData;
+      const finalized = { ...safeFullEmpData, ...(result || {}), systemRole, permissions };
+      delete finalized.password;
       if (idx >= 0) {
         localEmps[idx] = finalized;
       } else {

@@ -106,6 +106,23 @@ const createEmployee = asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to add employees.' });
   }
 
+  // Strict Privilege Escalation Guard: Only Admin / Co-Admin can create Admin accounts or grant Full Access
+  const isActorAdmin = Boolean(u.isAdmin || u.systemRole === 'admin' || u.isDelegatedAdmin || u.permissions?.allAccess);
+  const requestedAdmin = Boolean(
+    req.body?.isAdmin ||
+    req.body?.isSuperAdmin ||
+    req.body?.isDelegatedAdmin ||
+    String(req.body?.systemRole || '').toLowerCase() === 'admin' ||
+    String(req.body?.role || '').toLowerCase().includes('admin') ||
+    req.body?.permissions?.allAccess === true
+  );
+  if (!isActorAdmin && requestedAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Security Rule: Only Administrators can create Admin accounts or grant Full Access.'
+    });
+  }
+
   const { employeeCode, email } = req.body;
   const cleanCode = employeeCode ? employeeCode.trim().toUpperCase() : undefined;
   const cleanEmail = email ? email.trim().toLowerCase() : undefined;
@@ -134,6 +151,18 @@ const createEmployee = asyncHandler(async (req, res) => {
   const payload = { ...req.body };
   if (payload._id && !mongoose.Types.ObjectId.isValid(payload._id)) {
     delete payload._id;
+  }
+
+  // Non-admins without grantPermissions cannot set elevated admin/delegation flags
+  if (!isActorAdmin) {
+    payload.isAdmin = false;
+    payload.isSuperAdmin = false;
+    payload.isDelegatedAdmin = false;
+    payload.delegationExpiresAt = null;
+    if (payload.permissions && typeof payload.permissions === 'object') {
+      delete payload.permissions.allAccess;
+      delete payload.permissions.grantPermissions;
+    }
   }
 
   // Hash initial password securely using salted scrypt and store encrypted Admin Vault copy

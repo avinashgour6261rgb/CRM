@@ -161,16 +161,16 @@ const EmployeeSchema = new mongoose.Schema(
     salary: {
       type: mongoose.Schema.Types.Mixed,
       default: {
-        basic: 45000,
-        hra: 18000,
-        allowances: 12000,
+        basic: 17500,
+        hra: 7000,
+        allowances: 10500,
         bonus: 0,
-        pf: 3600,
-        pt: 200,
-        tds: 2500,
-        monthlyGross: 75000,
-        netSalary: 68700,
-        annualCTC: 900000,
+        pf: 0,
+        pt: 0,
+        tds: 0,
+        monthlyGross: 35000,
+        netSalary: 35000,
+        annualCTC: 420000,
         revisionType: 'initial'
       }
     }
