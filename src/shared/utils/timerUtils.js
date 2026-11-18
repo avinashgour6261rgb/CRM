@@ -246,9 +246,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
       if (telem.isOnBreak) {
         return Number(telem.workSeconds) || 0;
       }
-      // Between backend telemetry polls (every 3.5s), smoothly tick forward from last heartbeat timestamp
-      const heartbeatTs = Number(telem.lastHeartbeatAt) || Number(telem.timestamp) || nowMs;
-      const elapsedSinceHeartbeat = Math.max(0, Math.floor((nowMs - heartbeatTs) / 1000));
+      // Smoothly tick forward using local client receivedAt timestamp (eliminates server-vs-client clock-skew flicker!)
+      const refTs = Number(telem.receivedAt) || Number(telem.lastHeartbeatAt) || Number(telem.timestamp) || nowMs;
+      const elapsedSinceHeartbeat = Math.max(0, Math.floor((nowMs - refTs) / 1000));
       return Math.min(maxPossibleGrossToday, (Number(telem.workSeconds) || 0) + elapsedSinceHeartbeat);
     } else if (telem.clockOutTime) {
       return Number(telem.workSeconds) || 0;
@@ -410,6 +410,125 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   }
 
   return 0;
+};
+
+/**
+ * Automatic Real-Time Overtime Engine (No Permission / Request Required).
+ * Standard Shift Window: 10:00 AM - 07:00 PM (9h window including breaks).
+ * Any active working time BEFORE 10:00 AM OR AFTER 07:00 PM automatically counts as Overtime!
+ */
+export const calculateAutoOvertimeSeconds = ({
+  punchSessions = [],
+  currentSessionStartMs = 0,
+  isClockedIn = false,
+  isOnBreak = false,
+  breakHistory = [],
+  breakStartMs = 0,
+  clockInTimestamp = 0,
+  clockOutTimestamp = 0,
+  clockInTime = null,
+  clockOutTime = null,
+  nowMs = Date.now(),
+  shiftStartTime = '10:00 AM',
+  shiftEndTime = '07:00 PM'
+} = {}) => {
+  try {
+    const dayMidnight = new Date(nowMs);
+    dayMidnight.setHours(0, 0, 0, 0);
+    const dayMidnightMs = dayMidnight.getTime();
+
+    const startSecsFromMidnight = parseTimeToSeconds(shiftStartTime) || (10 * 3600);
+    const endSecsFromMidnight = parseTimeToSeconds(shiftEndTime) || (19 * 3600);
+    const shiftStartMs = dayMidnightMs + startSecsFromMidnight * 1000;
+    const shiftEndMs = dayMidnightMs + endSecsFromMidnight * 1000;
+
+    const overlapOutsideWindow = (sMs, eMs) => {
+      if (!sMs || !eMs || eMs <= sMs) return 0;
+      const clampedStart = Math.max(dayMidnightMs, sMs);
+      const clampedEnd = Math.min(nowMs, eMs);
+      if (clampedEnd <= clampedStart) return 0;
+      const beforeShift = Math.max(0, Math.min(clampedEnd, shiftStartMs) - clampedStart);
+      const afterShift = Math.max(0, clampedEnd - Math.max(clampedStart, shiftEndMs));
+      return (beforeShift + afterShift) / 1000;
+    };
+
+    const intervals = [];
+    if (Array.isArray(punchSessions) && punchSessions.length > 0) {
+      punchSessions.forEach(s => {
+        const sIn = Number(s?.inTimestamp || 0);
+        const sOut = Number(s?.outTimestamp || 0);
+        if (sIn >= dayMidnightMs && sOut > sIn) {
+          intervals.push([sIn, sOut]);
+        }
+      });
+    }
+
+    if (isClockedIn) {
+      let activeStart = Number(currentSessionStartMs || 0);
+      if (!activeStart || activeStart < dayMidnightMs) {
+        activeStart = Number(clockInTimestamp || 0);
+      }
+      if ((!activeStart || activeStart < dayMidnightMs) && clockInTime && clockInTime !== '--' && clockInTime !== 'Active') {
+        activeStart = dayMidnightMs + parseTimeToSeconds(clockInTime) * 1000;
+      }
+      const activeEnd = (isOnBreak && breakStartMs && Number(breakStartMs) >= activeStart)
+        ? Number(breakStartMs)
+        : nowMs;
+      if (activeStart >= dayMidnightMs && activeEnd > activeStart) {
+        intervals.push([activeStart, activeEnd]);
+      }
+    } else if (intervals.length === 0) {
+      let fIn = Number(clockInTimestamp || 0);
+      if ((!fIn || fIn < dayMidnightMs) && clockInTime && clockInTime !== '--' && clockInTime !== 'Active') {
+        fIn = dayMidnightMs + parseTimeToSeconds(clockInTime) * 1000;
+      }
+      let fOut = Number(clockOutTimestamp || 0);
+      if ((!fOut || fOut < dayMidnightMs) && clockOutTime && clockOutTime !== '--') {
+        fOut = dayMidnightMs + parseTimeToSeconds(clockOutTime) * 1000;
+      }
+      if (fIn >= dayMidnightMs && fOut > fIn) {
+        intervals.push([fIn, fOut]);
+      }
+    }
+
+    if (intervals.length === 0) return 0;
+
+    // Merge any overlapping work intervals so overtime is never double-counted
+    intervals.sort((a, b) => a[0] - b[0]);
+    const merged = [intervals[0]];
+    for (let i = 1; i < intervals.length; i++) {
+      const prev = merged[merged.length - 1];
+      if (intervals[i][0] <= prev[1]) {
+        prev[1] = Math.max(prev[1], intervals[i][1]);
+      } else {
+        merged.push(intervals[i]);
+      }
+    }
+
+    let grossOvertimeSecs = 0;
+    for (const [s, e] of merged) {
+      grossOvertimeSecs += overlapOutsideWindow(s, e);
+    }
+
+    // Subtract any breaks that occurred outside the 10:00 AM - 07:00 PM shift window
+    let overtimeBreakSecs = 0;
+    if (Array.isArray(breakHistory)) {
+      breakHistory.forEach(b => {
+        if (!b) return;
+        let bStart = Number(b.startTimestamp || 0);
+        let bEnd = Number(b.endTimestamp || 0);
+        if (!bStart && b.startTime) bStart = dayMidnightMs + parseTimeToSeconds(b.startTime) * 1000;
+        if (!bEnd && b.endTime) bEnd = dayMidnightMs + parseTimeToSeconds(b.endTime) * 1000;
+        if (bStart >= dayMidnightMs && bEnd > bStart) {
+          overtimeBreakSecs += overlapOutsideWindow(bStart, bEnd);
+        }
+      });
+    }
+
+    return Math.max(0, Math.floor(grossOvertimeSecs - overtimeBreakSecs));
+  } catch {
+    return 0;
+  }
 };
 
 /**

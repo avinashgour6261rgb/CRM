@@ -197,7 +197,14 @@ export const DashboardPage = () => {
           ? res.data
           : (res && typeof res === 'object' && !Array.isArray(res) ? res : null);
         if (isMounted && telemMap) {
-          setLiveTelemetryMap(telemMap);
+          const recvTs = Date.now();
+          const stamped = {};
+          Object.keys(telemMap).forEach(k => {
+            if (telemMap[k] && typeof telemMap[k] === 'object') {
+              stamped[k] = { ...telemMap[k], receivedAt: recvTs };
+            }
+          });
+          setLiveTelemetryMap(stamped);
         }
       } catch (_) {}
     };
@@ -206,10 +213,11 @@ export const DashboardPage = () => {
     const interval = setInterval(fetchTelemetry, 10000);
     const handleFocus = () => fetchTelemetry();
 
-    // Instant Socket.IO telemetry reception for 0ms cross-device updates (merges safely without zeroing workSeconds)
+    // Instant Socket.IO telemetry reception for 0ms cross-device updates (anti-flicker monotonic merge + client receivedAt)
     const handleTelemUpdate = (e) => {
       if (!isMounted || !e?.detail) return;
       const t = e.detail;
+      const recvTs = Date.now();
       setLiveTelemetryMap(prev => {
         const next = { ...prev };
         const existing =
@@ -219,13 +227,18 @@ export const DashboardPage = () => {
           {};
         const incWork = Number(t.workSeconds) || 0;
         const prevWork = Number(existing.workSeconds) || 0;
+        const safeWork = t.isClockedIn
+          ? Math.max(prevWork, incWork)
+          : (t.workSeconds !== undefined ? incWork : prevWork);
         const safeMerged = {
           ...existing,
           ...t,
-          workSeconds: (t.isClockedIn && incWork === 0 && prevWork > 0) ? prevWork : (t.workSeconds !== undefined ? incWork : prevWork),
+          workSeconds: safeWork,
+          overtimeSeconds: Math.max(Number(existing.overtimeSeconds) || 0, Number(t.overtimeSeconds) || 0),
           clockInTime: t.clockInTime || existing.clockInTime || null,
           clockInTimestamp: t.clockInTimestamp || existing.clockInTimestamp || null,
-          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null
+          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null,
+          receivedAt: recvTs
         };
         if (t.employeeId) next[String(t.employeeId)] = safeMerged;
         if (t.employeeCode) {
@@ -826,6 +839,7 @@ export const DashboardPage = () => {
       loginTime: !isOnLeave ? loginTime : null,
       clockOutTime: !isOnLeave ? clockOutTime : null,
       workSecs: !isOnLeave ? workSecs : 0,
+      overtimeSecs: !isOnLeave ? Math.max(Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0) : 0,
       breakSecs: storedBreakSecs,
       breakHistory: storedBreakHistory,
       runningTask: !isOnLeave ? runningTask : null,

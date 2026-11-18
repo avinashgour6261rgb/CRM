@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Square, Coffee, Utensils, Clock, Eye } from 'lucide-react';
-import { useAuth } from '../../../../shared/context/AuthContext';
-import { useWork } from '../../../work/context/WorkContext';
-import { useHR } from '../../context/HRContext';
-import { useToast } from '../../../../shared/context/ToastContext';
+import { useTimer } from '../../../../shared/context/TimerContext';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
-import { OvertimeRequestModal } from '../attendance/OvertimeRequestModal';
 
 export const ShiftClockCard = ({
   currentTime,
@@ -37,19 +33,15 @@ export const ShiftClockCard = ({
   startTeaBreak,
   startLunchBreak
 }) => {
-  const { currentUser } = useAuth();
-  const { tasks } = useWork();
-  const { employees } = useHR();
-  const { addToast } = useToast();
+  const { overtimeSeconds: myLiveOvertimeSeconds } = useTimer();
   const [showBreakDropdown, setShowBreakDropdown] = useState(false);
-  const [isOvertimeModalOpen, setIsOvertimeModalOpen] = useState(false);
 
   const companySettings = getCompanySettings();
-  const standardWorkHours = Number(companySettings.standardWorkHours) || 9;
+  const shiftWindowLabel = `${companySettings.shiftStartTime || '10:00 AM'} - ${companySettings.shiftEndTime || '07:00 PM'}`;
 
-  const effectiveWorkSecs = isViewingOtherEmployee
-    ? (activeEmpState?.workSecs || 0)
-    : (workSeconds || 0);
+  const effectiveOvertimeSecs = isViewingOtherEmployee
+    ? (Number(activeEmpState?.overtimeSecs) || 0)
+    : (Number(myLiveOvertimeSeconds) || 0);
 
   const effectiveIsClockedIn = isViewingOtherEmployee
     ? Boolean(activeEmpState?.isClockedIn)
@@ -73,16 +65,14 @@ export const ShiftClockCard = ({
     ? (activeEmpState?.breakType || 'Break')
     : (breakType || displayedBreakType || 'Break');
 
-  const isOvertime = effectiveWorkSecs > standardWorkHours * 3600;
-  const overtimeHrs = Math.floor((effectiveWorkSecs - standardWorkHours * 3600) / 3600);
-  const overtimeMins = Math.floor(((effectiveWorkSecs - standardWorkHours * 3600) % 3600) / 60);
+  const isOvertime = effectiveOvertimeSecs > 0;
+  const overtimeHrs = Math.floor(effectiveOvertimeSecs / 3600);
+  const overtimeMins = Math.floor((effectiveOvertimeSecs % 3600) / 60);
+  const overtimeRemSecs = effectiveOvertimeSecs % 60;
 
+  // No overtime request / permission popup needed — clock out directly & overtime auto-saves!
   const onClockOutClick = () => {
-    if (isOvertime && !isViewingOtherEmployee) {
-      setIsOvertimeModalOpen(true);
-    } else {
-      handleClockOut();
-    }
+    handleClockOut();
   };
 
   return (
@@ -127,8 +117,11 @@ export const ShiftClockCard = ({
               </span>
             )}
             {isOvertime && (
-              <span className="bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-px text-[10.5px] font-bold">
-                +{overtimeHrs}h {overtimeMins}m Overtime
+              <span
+                className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded px-1.5 py-0.5 text-[10.5px] font-bold font-mono tabular-nums"
+                title={`Auto-tracked overtime outside ${shiftWindowLabel} (no permission needed)`}
+              >
+                ⚡ OT: {overtimeHrs > 0 ? `${overtimeHrs}h ` : ''}{String(overtimeMins).padStart(2, '0')}m {String(overtimeRemSecs).padStart(2, '0')}s
               </span>
             )}
             <button
@@ -302,22 +295,6 @@ export const ShiftClockCard = ({
           </div>
         </div>
       </div>
-
-      {isOvertimeModalOpen && (
-        <OvertimeRequestModal
-          isOpen={isOvertimeModalOpen}
-          onClose={() => setIsOvertimeModalOpen(false)}
-          currentUser={currentUser || effectiveTargetUser}
-          workSeconds={effectiveWorkSecs}
-          standardWorkHours={standardWorkHours}
-          shiftStartTime={companySettings.shiftStartTime || '10:00 AM'}
-          shiftEndTime={companySettings.shiftEndTime || '07:00 PM'}
-          todayTasks={tasks || []}
-          employees={employees || []}
-          onConfirmClockOut={handleClockOut}
-          addToast={addToast}
-        />
-      )}
     </div>
   );
 };

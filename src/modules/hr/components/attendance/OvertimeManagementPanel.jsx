@@ -1,23 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, CheckCircle2, XCircle, Briefcase, User, Calendar, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Clock, Zap } from 'lucide-react';
 import { hrService } from '../../services/hrService';
-import { isHRorAdmin, canApproveOvertime } from '../../../../shared/utils/permissionUtils';
+import { isHRorAdmin, getUserModulePermissions } from '../../../../shared/utils/permissionUtils';
 
-export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
-  const [requests, setRequests] = useState([]);
+const formatOtDuration = (secs = 0, fallbackHours = 0) => {
+  const s = Math.max(0, Math.floor(Number(secs) || Math.round((Number(fallbackHours) || 0) * 3600)));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const rem = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${String(rem).padStart(2, '0')}s`;
+  return `${rem}s`;
+};
+
+export const OvertimeManagementPanel = ({ currentUser }) => {
+  const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
 
-  const canApprove = canApproveOvertime(currentUser);
+  const perms = getUserModulePermissions(currentUser);
+  const canViewAll = isHRorAdmin(currentUser) || Boolean(perms?.viewAllAttendance || perms?.liveOperations || perms?.teamoperations || perms?.allAccess);
 
   const fetchOvertimeData = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await hrService.getOvertimeRequests();
       const list = Array.isArray(data) ? data : (data?.data || []);
-      setRequests(list);
+      setRecords(list);
     } catch (e) {
-      console.error('Error fetching overtime requests:', e);
+      console.error('Error fetching overtime records:', e);
     } finally {
       setLoading(false);
     }
@@ -25,45 +34,29 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
   useEffect(() => {
     fetchOvertimeData();
-    const handleStorage = (e) => {
-      if (!e?.detail?.key || e.detail.key === 'ems_attendance_overtime' || e.detail.key === 'hrms_attendance') {
-        fetchOvertimeData();
-      }
-    };
-    window.addEventListener('hrms_storage_change', handleStorage);
-    window.addEventListener('ems_overtime_updated', fetchOvertimeData);
+    const interval = setInterval(fetchOvertimeData, 15000);
+    const handleUpdate = () => fetchOvertimeData();
+    window.addEventListener('hrms_storage_change', handleUpdate);
+    window.addEventListener('ems_overtime_updated', handleUpdate);
+    window.addEventListener('ems_telemetry_update', handleUpdate);
+    window.addEventListener('ems_socket_reconnected', handleUpdate);
     return () => {
-      window.removeEventListener('hrms_storage_change', handleStorage);
-      window.removeEventListener('ems_overtime_updated', fetchOvertimeData);
+      clearInterval(interval);
+      window.removeEventListener('hrms_storage_change', handleUpdate);
+      window.removeEventListener('ems_overtime_updated', handleUpdate);
+      window.removeEventListener('ems_telemetry_update', handleUpdate);
+      window.removeEventListener('ems_socket_reconnected', handleUpdate);
     };
   }, [fetchOvertimeData]);
 
-  const handleDecision = async (id, status) => {
-    try {
-      let reason = '';
-      if (status === 'rejected') {
-        reason = window.prompt('Please enter a reason for rejecting this overtime request (optional):') || 'Rejected by approver';
-      }
-      await hrService.updateOvertimeStatus(id, status, currentUser?.name || 'Admin', reason);
-      if (addToast) {
-        addToast(`Overtime request marked as ${status.toUpperCase()}!`, status === 'approved' ? 'success' : 'info');
-      }
-      fetchOvertimeData();
-    } catch (err) {
-      console.error('Decision error:', err);
-      if (addToast) addToast('Failed to update overtime status', 'error');
-    }
-  };
-
-  const filtered = requests.filter(r => {
-    const s = r.overtimeStatus || r.status || 'pending';
-    if (filterStatus !== 'all' && s !== filterStatus) return false;
-    // Non-approvers only see their own requests
-    if (!canApprove) {
+  const filtered = records.filter(r => {
+    const otSecs = Number(r.overtimeSeconds) || Math.round((Number(r.overtimeHours) || 0) * 3600);
+    if (otSecs <= 0) return false;
+    if (!canViewAll && currentUser) {
       const myId = String(currentUser?._id || currentUser?.id || '');
-      const myCode = String(currentUser?.employeeCode || '');
+      const myCode = String(currentUser?.employeeCode || '').toUpperCase();
       const empId = String(r.employeeId || r.employee || '');
-      const empCode = String(r.employeeCode || '');
+      const empCode = String(r.employeeCode || '').toUpperCase();
       if (myId !== empId && myCode !== empCode) return false;
     }
     return true;
@@ -71,35 +64,24 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
-      {/* Header and Filter */}
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3.5 border-b border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center">
-            <Clock size={16} />
+            <Zap size={16} />
           </div>
           <div>
             <h3 className="m-0 text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
-              Overtime Requests & Approvals
+              Automatic Overtime Tracker (Live Synced)
             </h3>
             <p className="m-0 text-[11.5px] text-slate-500 dark:text-slate-400">
-              Side-by-side shift extra hours & task duration verification
+              Standard Shift: 10:00 AM – 07:00 PM (9h incl. breaks) • Work before 10:00 AM or after 07:00 PM is auto-saved as Overtime — no request or permission needed.
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Filter:</span>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="py-1.5 px-2.5 rounded-md border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800"
-          >
-            <option value="all">All ({requests.length})</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
+        <span className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
+          {filtered.length} Recorded
+        </span>
       </div>
 
       {/* List */}
@@ -109,63 +91,50 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-10 px-5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-          <Clock size={28} className="mb-2 text-slate-400 dark:text-slate-500" />
+          <Clock size={28} className="mx-auto mb-2 text-slate-400 dark:text-slate-500" />
           <div className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
-            No Overtime Requests Found
+            No Overtime Logged Yet
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            When employees work beyond standard shift hours, their overtime claims and task work will appear here.
+            Any work done before 10:00 AM or after 07:00 PM is automatically tracked, saved, and live synced here without any request or approval.
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
           {filtered.map((item) => {
-            const status = item.overtimeStatus || item.status || 'pending';
-            const hours = item.overtimeHours || (item.overtimeSeconds ? +(item.overtimeSeconds / 3600).toFixed(2) : 0);
+            const otSecs = Number(item.overtimeSeconds) || Math.round((Number(item.overtimeHours) || 0) * 3600);
+            const isLive = Boolean(item.isClockedIn && !item.clockOutTime);
             const tasks = item.overtimeTasks || [];
-
-            const isPending = status === 'pending';
-            const isApproved = status === 'approved';
 
             return (
               <div
-                key={item._id || item.id}
-                className={`py-3.5 px-[18px] rounded-xl border flex items-center justify-between flex-wrap gap-3 ${isPending ? 'border-orange-200 dark:border-orange-800/60 bg-orange-50/50 dark:bg-orange-950/30' : (isApproved ? 'border-green-200 dark:border-green-800/60 bg-green-50/50 dark:bg-green-950/30' : 'border-red-200 dark:border-red-800/60 bg-red-50/50 dark:bg-red-950/30')}`}
+                key={item._id || item.id || `${item.employeeCode}_${item.date}`}
+                className="py-3.5 px-[18px] rounded-xl border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-950/20 flex items-center justify-between flex-wrap gap-3"
               >
                 {/* Left Info */}
                 <div className="flex items-center gap-3 min-w-[260px]">
-                  <div className="w-[38px] h-[38px] rounded-full bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-extrabold text-sm flex items-center justify-center shrink-0">
+                  <div className="w-[38px] h-[38px] rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 font-extrabold text-sm flex items-center justify-center shrink-0">
                     {(item.employeeName || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <strong className="text-[13.5px] text-slate-900 dark:text-slate-100">
                         {item.employeeName || 'Employee'}
                       </strong>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400">
                         ({item.employeeCode || 'EMP'})
                       </span>
-                      <span className={`text-[11px] font-bold py-0.5 px-2 rounded ${isPending ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300' : (isApproved ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300')}`}>
-                        {status.toUpperCase()}
+                      <span className={`text-[10.5px] font-bold py-0.5 px-2 rounded ${isLive ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'}`}>
+                        {isLive ? '🟢 LIVE AUTO-OT' : '⚡ AUTO RECORDED'}
                       </span>
                     </div>
 
-                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2.5 flex-wrap">
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
                       <span>📅 Date: <strong className="text-slate-800 dark:text-slate-200">{item.date}</strong></span>
-                      <span>⏰ Extra Time: <strong className="text-orange-600 dark:text-orange-400">+{hours}h</strong></span>
-                      {item.overtimeRequestedTo && (
-                        <span>Approver: <strong className="text-slate-800 dark:text-slate-200">{item.overtimeRequestedTo}</strong></span>
-                      )}
+                      <span>In: <strong className="text-slate-800 dark:text-slate-200">{item.clockInTime || '--'}</strong></span>
+                      <span>Out: <strong className="text-slate-800 dark:text-slate-200">{item.clockOutTime || (isLive ? 'Working' : '--')}</strong></span>
                     </div>
 
-                    {/* Reason Note */}
-                    {item.overtimeReason && (
-                      <div className="text-[11.5px] text-slate-700 dark:text-slate-300 mt-1 italic">
-                        "{item.overtimeReason}"
-                      </div>
-                    )}
-
-                    {/* Tasks Worked Pills */}
                     {tasks.length > 0 && (
                       <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                         <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400">Tasks:</span>
@@ -182,25 +151,15 @@ export const OvertimeManagementPanel = ({ currentUser, addToast }) => {
                   </div>
                 </div>
 
-                {/* Right Actions */}
-                {canApprove && isPending && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleDecision(item._id || item.id, 'approved')}
-                      className="py-1.5 px-3.5 rounded-md border-0 bg-green-600 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1 shadow-xs hover:bg-green-700"
-                    >
-                      <CheckCircle2 size={13} />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      onClick={() => handleDecision(item._id || item.id, 'rejected')}
-                      className="py-1.5 px-3 rounded-md border border-red-300 dark:border-red-800/60 bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 text-xs font-semibold cursor-pointer inline-flex items-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/40"
-                    >
-                      <XCircle size={13} />
-                      <span>Reject</span>
-                    </button>
+                {/* Right OT Duration Pill */}
+                <div className="text-right">
+                  <div className="text-[15px] font-extrabold text-amber-700 dark:text-amber-300 font-mono tabular-nums">
+                    +{formatOtDuration(otSecs, item.overtimeHours)}
                   </div>
-                )}
+                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
+                    Overtime Saved
+                  </div>
+                </div>
               </div>
             );
           })}

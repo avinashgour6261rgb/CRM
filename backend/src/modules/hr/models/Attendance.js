@@ -108,7 +108,7 @@ const AttendanceSchema = new mongoose.Schema(
     },
     overtimeStatus: {
       type: String,
-      enum: ['none', 'pending', 'approved', 'rejected'],
+      enum: ['none', 'auto_recorded', 'pending', 'approved', 'rejected'],
       default: 'none'
     },
     overtimeReason: {

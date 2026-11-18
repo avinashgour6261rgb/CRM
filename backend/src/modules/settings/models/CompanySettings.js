@@ -24,12 +24,12 @@ const CompanySettingsSchema = new mongoose.Schema({
   footerNote: { type: String, default: '* This is an electronic record and does not require a physical signature.' },
 
   // ⏱️ Dynamic Shift Timing & Work Hours Configuration
-  standardWorkHours: { type: Number, default: 9 }, // Standard work hours/day
-  shiftStartTime: { type: String, default: '09:30 AM' }, // Work shift start (e.g. 09:30 AM)
-  shiftEndTime: { type: String, default: '06:30 PM' }, // Work shift end (e.g. 06:30 PM)
+  standardWorkHours: { type: Number, default: 9 }, // Standard 9h shift window (10:00 AM - 07:00 PM including breaks)
+  shiftStartTime: { type: String, default: '10:00 AM' }, // Work shift start (work before this = automatic Overtime)
+  shiftEndTime: { type: String, default: '07:00 PM' }, // Work shift end (work after this = automatic Overtime)
   gracePeriodMinutes: { type: Number, default: 15 }, // Grace period before marked Late (e.g. 15 mins)
   halfDayThresholdHours: { type: Number, default: 4.5 }, // Hours threshold for Half Day
-  minOvertimeMinutes: { type: Number, default: 30 }, // Minutes beyond shift for Overtime eligibility
+  minOvertimeMinutes: { type: Number, default: 0 }, // Auto-track all work outside 10:00 AM - 07:00 PM
   lunchDurationMinutes: { type: Number, default: 45 },
   teaBreakMinutes: { type: Number, default: 15 },
   workDaysDescription: { type: String, default: 'Mon - Sat (Sunday Off)' }

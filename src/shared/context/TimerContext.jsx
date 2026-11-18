@@ -28,6 +28,7 @@ import {
   writeTimerStorage,
   removeTimerStorage,
   calculateShiftWorkSeconds,
+  calculateAutoOvertimeSeconds,
   getLocalDateString,
   getTaskTodaySeconds,
   syncTaskPauseState,
@@ -464,6 +465,9 @@ export const TimerProvider = ({ children }) => {
     if (saved !== null) return JSON.parse(saved);
     return false;
   });
+
+  // Automatic real-time overtime seconds (work outside 10:00 AM - 07:00 PM shift window; no request/permission required)
+  const [overtimeSeconds, setOvertimeSeconds] = useState(0);
 
   // Active productive work seconds (starts strictly from 0 on a fresh day, hydrates from Atlas across devices)
   const [workSeconds, setWorkSeconds] = useState(() => {
@@ -949,7 +953,12 @@ export const TimerProvider = ({ children }) => {
         localStorage.setItem(`ems_timer_${userKey}_punch_sessions`, JSON.stringify(remoteSessions));
 
         const pastSessionsSecs = remoteSessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
-        let sessStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`)) || inTs;
+        // ANTI-FLICKER SSOT: Prefer authoritative server session timestamp over local fallback so ALL open browsers compute identical seconds!
+        const remoteSessTs = Number(rec?.currentSessionStartTimestamp || 0);
+        const localSessTs = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`) || 0);
+        let sessStartTs = (remoteSessTs >= todayMidnight.getTime() && remoteSessTs <= Date.now())
+          ? remoteSessTs
+          : ((localSessTs >= todayMidnight.getTime() && localSessTs <= Date.now()) ? localSessTs : inTs);
         sessStartTs = Math.max(sessStartTs, todayMidnight.getTime());
         const curSessionGrossSecs = Math.max(0, Math.floor((Date.now() - sessStartTs) / 1000));
         const sessionBreakBaseline = Number(localStorage.getItem(`ems_timer_${userKey}_session_break_baseline`)) || 0;
@@ -976,15 +985,14 @@ export const TimerProvider = ({ children }) => {
           : (bSecs > 0 ? bSecs : localStoredBreakSecs);
         setBreakSeconds(prev => (effectiveOnBreak ? Math.max(prev, effectiveBreakSecs) : effectiveBreakSecs));
 
-        // 🌟 MULTI-DEVICE SSOT SYNCHRONIZATION:
-        // If local prev is within 3 seconds of authoritative effectiveWorkSecs, preserve smooth local tick.
-        // If difference exceeds 3s (e.g. cross-device sync, fresh browser tab, or wake from sleep),
-        // instantly synchronize to the true physical wall-clock value!
+        // 🌟 ANTI-FLICKER MULTI-BROWSER SYNC:
+        // Never bounce backwards on small 1-6s network/tab drift; only snap on real desync (> 6s) or cold hydration (prev === 0).
         setWorkSeconds(prev => {
-          if (Math.abs(prev - effectiveWorkSecs) > 3) {
+          if (prev === 0) return effectiveWorkSecs;
+          if (Math.abs(prev - effectiveWorkSecs) > 6) {
             return effectiveWorkSecs;
           }
-          return prev > 0 ? prev : effectiveWorkSecs;
+          return prev;
         });
 
         if (rec?.breakType) setBreakType(rec.breakType);
@@ -1069,6 +1077,23 @@ export const TimerProvider = ({ children }) => {
       if (!isForMe) return;
 
       if (data.isClockedIn) {
+        // Sync canonical shift timestamps into localStorage so ALL open browsers compute identical wall-clock seconds!
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnightMs = todayMidnight.getTime();
+        const mirrorKeys = getTimerMirrorKeys(currentUser);
+        for (const uk of mirrorKeys) {
+          if (data.clockInTimestamp && Number(data.clockInTimestamp) >= todayMidnightMs) {
+            localStorage.setItem(`ems_timer_${uk}_clock_in_timestamp`, String(data.clockInTimestamp));
+          }
+          if (data.currentSessionStartTimestamp && Number(data.currentSessionStartTimestamp) >= todayMidnightMs) {
+            localStorage.setItem(`ems_timer_${uk}_current_session_start_timestamp`, String(data.currentSessionStartTimestamp));
+          }
+          if (data.clockInTime) {
+            localStorage.setItem(`ems_timer_${uk}_login_time`, data.clockInTime);
+          }
+        }
+
         setIsClockedIn(true);
         setIsRunning(!data.isOnBreak);
         setIsOnBreak(Boolean(data.isOnBreak));
@@ -1077,12 +1102,18 @@ export const TimerProvider = ({ children }) => {
         setClockOutTime(null);
         setHadClockedOutToday(false);
 
-        const nowMs = Date.now();
-        const hbTs = Number(data.lastHeartbeatAt) || nowMs;
-        const elapsed = !data.isOnBreak ? Math.max(0, Math.floor((nowMs - hbTs) / 1000)) : 0;
-        const liveSecs = (Number(data.workSeconds) || 0) + elapsed;
-        if (liveSecs > 0) {
-          setWorkSeconds(prev => (Math.abs(prev - liveSecs) > 2 ? liveSecs : prev));
+        // ANTI-FLICKER: NEVER do (clientNow - serverHeartbeatAt) clock-skew math and NEVER pull workSeconds backwards while ticking!
+        const remoteSecs = Number(data.workSeconds) || 0;
+        if (remoteSecs > 0) {
+          setWorkSeconds(prev => {
+            if (prev === 0) return remoteSecs;
+            if (remoteSecs > prev + 10) return remoteSecs;
+            return prev;
+          });
+        }
+        if (data.overtimeSeconds !== undefined) {
+          const remoteOt = Number(data.overtimeSeconds) || 0;
+          setOvertimeSeconds(prev => Math.max(prev, remoteOt));
         }
       } else if (data.isClockedOut || data.clockOutTime) {
         setIsClockedIn(false);
@@ -1091,6 +1122,7 @@ export const TimerProvider = ({ children }) => {
         setHadClockedOutToday(true);
         if (data.clockOutTime) setClockOutTime(data.clockOutTime);
         if (data.workSeconds !== undefined) setWorkSeconds(Number(data.workSeconds));
+        if (data.overtimeSeconds !== undefined) setOvertimeSeconds(Number(data.overtimeSeconds));
       }
     };
 
@@ -1514,9 +1546,27 @@ export const TimerProvider = ({ children }) => {
 
         // Total working time = completed sessions + (current active session minus active & completed breaks in this session)
         let netWorkSecs = Math.min(maxPossibleNetWorkSecs, pastSessionsSecs + Math.max(0, curSessionGrossSecs - curSessionBreaks));
-        setWorkSeconds(netWorkSecs);
+        setWorkSeconds(prev => (prev === netWorkSecs ? prev : netWorkSecs));
+
+        // Automatic real-time overtime (work before 10:00 AM or after 07:00 PM; 9h window includes breaks; NO permission required)
+        const cfg = getCompanySettings();
+        const liveOvertimeSecs = calculateAutoOvertimeSeconds({
+          punchSessions: storedSessions,
+          currentSessionStartMs: sessStartTs,
+          isClockedIn: true,
+          isOnBreak: onBreakVal,
+          breakHistory,
+          breakStartMs: breakStartTs,
+          clockInTimestamp: firstClockInTs,
+          clockInTime: loginTime,
+          nowMs: Date.now(),
+          shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
+          shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+        });
+        setOvertimeSeconds(prev => (prev === liveOvertimeSecs ? prev : liveOvertimeSecs));
+
         try {
-          window.dispatchEvent(new CustomEvent('ems_shift_tick', { detail: { workSeconds: netWorkSecs } }));
+          window.dispatchEvent(new CustomEvent('ems_shift_tick', { detail: { workSeconds: netWorkSecs, overtimeSeconds: liveOvertimeSecs } }));
         } catch (_) {}
 
         const nowTs = Date.now();
@@ -1527,6 +1577,7 @@ export const TimerProvider = ({ children }) => {
           for (const uk of mirrorKeys) {
             localStorage.setItem(`ems_timer_${uk}_break_seconds`, totalBreaks.toString());
             localStorage.setItem(`ems_timer_${uk}_work_seconds`, netWorkSecs.toString());
+            localStorage.setItem(`ems_timer_${uk}_overtime_seconds`, liveOvertimeSecs.toString());
           }
         }
 
@@ -1563,6 +1614,7 @@ export const TimerProvider = ({ children }) => {
             clockInTimestamp: firstClockInTs,
             currentSessionStartTimestamp: sessStartTs,
             workSeconds: netWorkSecs,
+            overtimeSeconds: liveOvertimeSecs,
             isOnBreak: onBreakVal,
             breakType: breakType,
             breakStartTimestamp: onBreakVal ? breakStartTs : null,
@@ -2224,6 +2276,9 @@ export const TimerProvider = ({ children }) => {
       try {
         const sessStart = Number(localStorage.getItem(`ems_timer_${userKey}_current_session_start_timestamp`)) ||
                           Number(localStorage.getItem(`ems_timer_${userKey}_clock_in_timestamp`)) || undefined;
+        const storedWork = Number(localStorage.getItem(`ems_timer_${userKey}_work_seconds`)) || 0;
+        const storedBreak = Number(localStorage.getItem(`ems_timer_${userKey}_break_seconds`)) || 0;
+        const storedOt = Number(localStorage.getItem(`ems_timer_${userKey}_overtime_seconds`)) || 0;
         let activeTaskData = null;
         try {
           const rawTask = localStorage.getItem(`ems_active_task_timer_${userKey}`);
@@ -2236,22 +2291,24 @@ export const TimerProvider = ({ children }) => {
         hrService.sendHeartbeat({
           employeeId: targetEmpId || userKey,
           employeeCode: targetEmpCode || userKey,
+          employeeName: currentUser?.name,
           isClockedIn: true,
           clockInTime: loginTime,
           currentSessionStartTimestamp: sessStart,
           isOnBreak: Boolean(isOnBreak),
           breakType: isOnBreak ? breakType : null,
-          workSeconds,
-          breakSeconds,
+          workSeconds: storedWork,
+          breakSeconds: storedBreak,
+          overtimeSeconds: storedOt,
           activeTask: activeTaskData
         }).catch(() => {});
       } catch (_) {}
     };
 
     pulseHeartbeat();
-    const hbInterval = setInterval(pulseHeartbeat, 4000);
+    const hbInterval = setInterval(pulseHeartbeat, 8000);
     return () => clearInterval(hbInterval);
-  }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, workSeconds, breakSeconds, breakType]);
+  }, [isClockedIn, isOnBreak, userKey, targetEmpId, targetEmpCode, loginTime, breakType]);
 
 
 
@@ -2291,27 +2348,63 @@ export const TimerProvider = ({ children }) => {
       }
     } catch (_) {}
 
+    const cfg = getCompanySettings();
+    const finalOvertimeSecs = calculateAutoOvertimeSeconds({
+      punchSessions: (() => {
+        try {
+          const r = readTimerStorage(currentUser, 'punch_sessions');
+          return r ? (typeof r === 'string' ? JSON.parse(r) : r) : punchSessions;
+        } catch { return punchSessions; }
+      })(),
+      isClockedIn: false,
+      breakHistory,
+      clockInTime: loginTime,
+      clockOutTime: logoutStr,
+      clockOutTimestamp: nowTs,
+      nowMs: nowTs,
+      shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
+      shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+    });
+    setOvertimeSeconds(finalOvertimeSecs);
+    writeTimerStorage(currentUser, 'overtime_seconds', finalOvertimeSecs);
+    if (finalOvertimeSecs > 0) {
+      hrService.markAttendance({
+        employee: targetEmpId || userKey,
+        employeeId: targetEmpId || userKey,
+        employeeCode: targetEmpCode || userKey,
+        employeeName: targetEmpName,
+        date: getTodayStr(),
+        status: 'present',
+        clockInTime: loginTime,
+        clockOutTime: logoutStr,
+        workSeconds: finalSecs,
+        overtimeSeconds: finalOvertimeSecs,
+        isClockedIn: false
+      }).catch(() => {});
+    }
+
     recordAuditLog({
       type: 'clock_out',
       action: 'Shift Clock Out',
       durationSeconds: finalSecs,
       durationText: formatHoursMinutes(finalSecs),
-      details: `${targetEmpName} ended shift at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(finalSecs)}, Total Breaks: ${formatHoursMinutes(breakSeconds)}.`
+      details: `${targetEmpName} ended shift at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(finalSecs)}, Total Breaks: ${formatHoursMinutes(breakSeconds)}${finalOvertimeSecs > 0 ? `, Auto Overtime: ${formatHoursMinutes(finalOvertimeSecs)}` : ''}.`
     });
 
     window.dispatchEvent(new CustomEvent('ems_clocked_out', {
-      detail: { employeeId: targetEmpId, employeeCode: targetEmpCode, clockOutTime: logoutStr, workSeconds: finalSecs }
+      detail: { employeeId: targetEmpId, employeeCode: targetEmpCode, clockOutTime: logoutStr, workSeconds: finalSecs, overtimeSeconds: finalOvertimeSecs }
     }));
     broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, {
       employeeId: targetEmpId,
       employeeCode: targetEmpCode,
       clockOutTime: logoutStr,
-      workSeconds: finalSecs
+      workSeconds: finalSecs,
+      overtimeSeconds: finalOvertimeSecs
     });
 
     addToast({
       title: 'Shift Clocked Out 🔴',
-      message: `Shift ended at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(finalSecs)} | Breaks: ${formatHoursMinutes(breakSeconds)}.`,
+      message: `Shift ended at ${logoutStr}. Total Productive Work: ${formatHoursMinutes(finalSecs)} | Breaks: ${formatHoursMinutes(breakSeconds)}${finalOvertimeSecs > 0 ? ` | Overtime Saved: ${formatHoursMinutes(finalOvertimeSecs)}` : ''}.`,
       type: 'info'
     });
   };
@@ -2548,6 +2641,8 @@ export const TimerProvider = ({ children }) => {
       clockOutTime,
       hadClockedOutToday,
       workSeconds,
+      overtimeSeconds,
+      overtimeText: formatHoursMinutes(overtimeSeconds),
       breakSeconds,
       grossSeconds,
       currentBreakSeconds,

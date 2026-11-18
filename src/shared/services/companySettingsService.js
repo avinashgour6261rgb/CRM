@@ -26,12 +26,12 @@ export const DEFAULT_COMPANY_SETTINGS = {
   footerNote: '* This is an electronic record and does not require a physical signature.',
   
   // ⏱️ Admin Configurable Shift Timing & Working Hours (Strictly followed across company)
-  standardWorkHours: 9, // Standard daily work hours (default 9h)
-  shiftStartTime: '09:30 AM', // Shift start time (e.g. 09:30 AM)
-  shiftEndTime: '06:30 PM', // Shift end time (e.g. 06:30 PM)
+  standardWorkHours: 9, // Standard daily shift window (10:00 AM - 07:00 PM, 9h including breaks)
+  shiftStartTime: '10:00 AM', // Shift start time (work before this counts as Overtime)
+  shiftEndTime: '07:00 PM', // Shift end time (work after this counts as Overtime)
   gracePeriodMinutes: 15, // Grace period before marked Late (e.g. 15 mins)
   halfDayThresholdHours: 4.5, // Work hours below which is marked Half Day
-  minOvertimeMinutes: 30, // Minimum minutes past shift to qualify for overtime
+  minOvertimeMinutes: 0, // Every minute outside 10 AM - 7 PM counts automatically as overtime
   lunchDurationMinutes: 45,
   teaBreakMinutes: 15,
   workDaysDescription: 'Mon - Sat (Sunday Off)'

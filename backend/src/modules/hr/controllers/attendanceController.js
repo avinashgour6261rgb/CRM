@@ -326,6 +326,15 @@ const markAttendance = asyncHandler(async (req, res) => {
   if (req.body.currentSessionStartTimestamp !== undefined) updateFields.currentSessionStartTimestamp = Number(req.body.currentSessionStartTimestamp) || null;
   if (req.body.breakStartTimestamp !== undefined) updateFields.breakStartTimestamp = Number(req.body.breakStartTimestamp) || null;
   if ('activeTask' in req.body) updateFields.activeTask = req.body.activeTask;
+  if (req.body.overtimeSeconds !== undefined) {
+    const otSecs = Math.max(0, Number(req.body.overtimeSeconds) || 0);
+    updateFields.overtimeSeconds = otSecs;
+    updateFields.overtimeHours = +(otSecs / 3600).toFixed(2);
+    if (otSecs > 0) {
+      updateFields.overtimeStatus = 'auto_recorded';
+      if (!updateFields.overtimeReason) updateFields.overtimeReason = 'Auto-tracked (outside 10:00 AM - 07:00 PM shift)';
+    }
+  }
   updateFields.lastHeartbeatAt = Date.now();
 
   if (isClockedIn !== undefined) {
@@ -798,7 +807,13 @@ const forceClockOut = asyncHandler(async (req, res) => {
 
 // ─── GET /api/attendance/overtime ─────────────────────────────────────────────
 const getOvertimeRequests = asyncHandler(async (req, res) => {
-  const query = { overtimeStatus: { $in: ['pending', 'approved', 'rejected'] } };
+  const query = {
+    $or: [
+      { overtimeSeconds: { $gt: 0 } },
+      { overtimeHours: { $gt: 0 } },
+      { overtimeStatus: { $in: ['auto_recorded', 'pending', 'approved', 'rejected'] } }
+    ]
+  };
   const records = await Attendance.find(query).sort({ date: -1, updatedAt: -1 });
   res.json({ success: true, count: records.length, data: records });
 });
@@ -968,6 +983,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
             clockInTimestamp: dbAtt.clockInTimestamp ? Number(dbAtt.clockInTimestamp) : null,
             currentSessionStartTimestamp: dbAtt.currentSessionStartTimestamp ? Number(dbAtt.currentSessionStartTimestamp) : null,
             workSeconds: Number(dbAtt.workSeconds) || 0,
+            overtimeSeconds: Number(dbAtt.overtimeSeconds) || 0,
             isOnBreak: Boolean(dbAtt.isOnBreak),
             breakType: dbAtt.breakType || null,
             breakStartTimestamp: dbAtt.breakStartTimestamp ? Number(dbAtt.breakStartTimestamp) : null,
@@ -993,15 +1009,21 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
   let resolvedWorkSecs = existingWorkSecs;
   if (hasExplicitWorkSecs) {
     const incomingSecs = Math.max(0, Number(workSeconds) || 0);
-    // When actively clocked in, never allow a stale 0 pulse to wipe positive accumulated shift workSeconds
-    resolvedWorkSecs = (resolvedClockedIn && incomingSecs === 0 && existingWorkSecs > 0)
-      ? existingWorkSecs
+    // When actively clocked in across multiple browsers, NEVER let a lagging tab pull workSeconds backwards!
+    resolvedWorkSecs = resolvedClockedIn
+      ? Math.max(existingWorkSecs, incomingSecs)
       : incomingSecs;
   } else if (resolvedClockedIn && !existing?.isOnBreak && existing?.lastHeartbeatAt) {
     // Advance cached workSeconds smoothly while receiving a task-only pulse so working time never drops to 00:00
     const delta = Math.min(120, Math.max(0, Math.floor((Date.now() - Number(existing.lastHeartbeatAt)) / 1000)));
     resolvedWorkSecs = existingWorkSecs + delta;
   }
+
+  const hasExplicitOvertime = 'overtimeSeconds' in req.body && req.body.overtimeSeconds !== undefined && req.body.overtimeSeconds !== null;
+  const existingOvertimeSecs = Number(existing?.overtimeSeconds) || 0;
+  const resolvedOvertimeSecs = hasExplicitOvertime
+    ? Math.max(existingOvertimeSecs, Math.max(0, Number(req.body.overtimeSeconds) || 0))
+    : existingOvertimeSecs;
 
   const payload = {
     employeeId: targetId,
@@ -1013,6 +1035,9 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     clockInTimestamp: clockInTimestamp ? Number(clockInTimestamp) : (existing?.clockInTimestamp || null),
     currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : (existing?.currentSessionStartTimestamp || null),
     workSeconds: resolvedWorkSecs,
+    overtimeSeconds: resolvedOvertimeSecs,
+    overtimeHours: +(resolvedOvertimeSecs / 3600).toFixed(2),
+    overtimeStatus: resolvedOvertimeSecs > 0 ? 'auto_recorded' : (existing?.overtimeStatus || 'none'),
     isOnBreak: hasExplicitBreak ? Boolean(isOnBreak) : Boolean(existing?.isOnBreak),
     breakType: breakType !== undefined ? (breakType || null) : (existing?.breakType || null),
     breakStartTimestamp: breakStartTimestamp ? Number(breakStartTimestamp) : (existing?.breakStartTimestamp || null),
@@ -1042,6 +1067,12 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     if (hasExplicitWorkSecs || resolvedWorkSecs > 0) {
       updateObj.workSeconds = payload.workSeconds;
       updateObj.totalWorkingHours = +(payload.workSeconds / 3600).toFixed(2);
+    }
+    if (resolvedOvertimeSecs > 0) {
+      updateObj.overtimeSeconds = resolvedOvertimeSecs;
+      updateObj.overtimeHours = +(resolvedOvertimeSecs / 3600).toFixed(2);
+      updateObj.overtimeStatus = 'auto_recorded';
+      updateObj.overtimeReason = 'Auto-tracked (outside 10:00 AM - 07:00 PM shift)';
     }
     if (hasExplicitBreak) updateObj.isOnBreak = payload.isOnBreak;
     if (breakType !== undefined) updateObj.breakType = payload.breakType;
@@ -1157,6 +1188,9 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       currentSessionStartTimestamp: sessStart,
       workSeconds: liveWorkSecs,
       totalWorkingHours: +(liveWorkSecs / 3600).toFixed(2),
+      overtimeSeconds: Number(r.overtimeSeconds) || 0,
+      overtimeHours: Number(r.overtimeHours) || +((Number(r.overtimeSeconds) || 0) / 3600).toFixed(2),
+      overtimeStatus: r.overtimeStatus || 'none',
       activeTask: runningTask,
       lastHeartbeatAt: r.lastHeartbeatAt || now
     };
@@ -1227,6 +1261,9 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         currentSessionStartTimestamp: mergedSessStartTs || null,
         workSeconds: mergedWorkSecs,
         totalWorkingHours: +(mergedWorkSecs / 3600).toFixed(2),
+        overtimeSeconds: Math.max(Number(cVal.overtimeSeconds) || 0, Number(existing?.overtimeSeconds) || 0),
+        overtimeHours: +(Math.max(Number(cVal.overtimeSeconds) || 0, Number(existing?.overtimeSeconds) || 0) / 3600).toFixed(2),
+        overtimeStatus: Math.max(Number(cVal.overtimeSeconds) || 0, Number(existing?.overtimeSeconds) || 0) > 0 ? 'auto_recorded' : (existing?.overtimeStatus || 'none'),
         activeTask: taskMerged,
         lastHeartbeatAt: now
       };

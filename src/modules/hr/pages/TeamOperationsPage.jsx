@@ -41,7 +41,8 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const TeamOperationsPage = () => {
   const navigate = useNavigate();
@@ -150,7 +151,14 @@ export const TeamOperationsPage = () => {
           ? res.data
           : (res && typeof res === 'object' && !Array.isArray(res) ? res : null);
         if (isMounted && telemMap) {
-          setLiveTelemetryMap(telemMap);
+          const recvTs = Date.now();
+          const stamped = {};
+          Object.keys(telemMap).forEach(k => {
+            if (telemMap[k] && typeof telemMap[k] === 'object') {
+              stamped[k] = { ...telemMap[k], receivedAt: recvTs };
+            }
+          });
+          setLiveTelemetryMap(stamped);
         }
       } catch (_) {}
     };
@@ -159,10 +167,11 @@ export const TeamOperationsPage = () => {
     const interval = setInterval(fetchTelemetry, 5000);
     const handleFocus = () => fetchTelemetry();
 
-    // Instant Socket.IO telemetry reception for 0ms cross-device updates (merges safely without zeroing workSeconds)
+    // Instant Socket.IO telemetry reception for 0ms cross-device updates (anti-flicker monotonic merge + client receivedAt)
     const handleTelemUpdate = (e) => {
       if (!isMounted || !e?.detail) return;
       const t = e.detail;
+      const recvTs = Date.now();
       setLiveTelemetryMap(prev => {
         const next = { ...prev };
         const existing =
@@ -172,13 +181,18 @@ export const TeamOperationsPage = () => {
           {};
         const incWork = Number(t.workSeconds) || 0;
         const prevWork = Number(existing.workSeconds) || 0;
+        const safeWork = t.isClockedIn
+          ? Math.max(prevWork, incWork)
+          : (t.workSeconds !== undefined ? incWork : prevWork);
         const safeMerged = {
           ...existing,
           ...t,
-          workSeconds: (t.isClockedIn && incWork === 0 && prevWork > 0) ? prevWork : (t.workSeconds !== undefined ? incWork : prevWork),
+          workSeconds: safeWork,
+          overtimeSeconds: Math.max(Number(existing.overtimeSeconds) || 0, Number(t.overtimeSeconds) || 0),
           clockInTime: t.clockInTime || existing.clockInTime || null,
           clockInTimestamp: t.clockInTimestamp || existing.clockInTimestamp || null,
-          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null
+          currentSessionStartTimestamp: t.currentSessionStartTimestamp || existing.currentSessionStartTimestamp || null,
+          receivedAt: recvTs
         };
         if (t.employeeId) next[String(t.employeeId)] = safeMerged;
         if (t.employeeCode) {
@@ -510,6 +524,24 @@ export const TeamOperationsPage = () => {
       }
     }
 
+    const cfg = getCompanySettings();
+    const computedOtSecs = calculateAutoOvertimeSeconds({
+      punchSessions: attRec?.punchSessions || [],
+      currentSessionStartMs: Number(telem?.currentSessionStartTimestamp || attRec?.currentSessionStartTimestamp || 0),
+      isClockedIn,
+      isOnBreak: effectiveOnBreak,
+      breakHistory: attRec?.breakHistory || [],
+      breakStartMs: Number(telem?.breakStartTimestamp || attRec?.breakStartTimestamp || 0),
+      clockInTimestamp: Number(telem?.clockInTimestamp || attRec?.clockInTimestamp || 0),
+      clockOutTimestamp: Number(telem?.clockOutTimestamp || attRec?.clockOutTimestamp || 0),
+      clockInTime: loginTime,
+      clockOutTime,
+      nowMs,
+      shiftStartTime: cfg?.shiftStartTime || '10:00 AM',
+      shiftEndTime: cfg?.shiftEndTime || '07:00 PM'
+    });
+    const overtimeSecs = Math.max(computedOtSecs, Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0);
+
     return {
       emp,
       empKey,
@@ -524,6 +556,7 @@ export const TeamOperationsPage = () => {
       loginTime,
       clockOutTime,
       workSecs,
+      overtimeSecs,
       breakSecs: storedBreakSecs,
       runningTask,
       empTasks
@@ -1760,9 +1793,14 @@ export const TeamOperationsPage = () => {
 
                       {/* Net Work Time */}
                       <td className="px-4 py-3">
-                        <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px]">
+                        <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px] font-mono tabular-nums">
                           {formatTimeDurationSafe(item.workSecs)}
                         </div>
+                        {item.overtimeSecs > 0 && (
+                          <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-bold font-mono tabular-nums">
+                            ⚡ OT +{formatTimeDurationSafe(item.overtimeSecs)}
+                          </div>
+                        )}
                         {item.breakSecs > 0 && (
                           <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
                             Breaks: {Math.round(item.breakSecs / 60)}m
