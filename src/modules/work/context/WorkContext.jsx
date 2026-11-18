@@ -1209,9 +1209,19 @@ export const WorkProvider = ({ children }) => {
       }
     };
 
-    const handleFocus = () => scheduleDebouncedLoad(true);
+    let lastFocusLoadTs = 0;
+    const handleFocus = () => {
+      const now = Date.now();
+      if (now - lastFocusLoadTs < 15000) return;
+      lastFocusLoadTs = now;
+      scheduleDebouncedLoad(true);
+    };
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') scheduleDebouncedLoad(true);
+      if (document.visibilityState === 'visible') handleFocus();
+    };
+    const handleReconnect = () => {
+      lastFocusLoadTs = Date.now();
+      scheduleDebouncedLoad(true);
     };
     const handleRemoteSync = (e) => {
       const k = e?.detail?.key;
@@ -1226,7 +1236,7 @@ export const WorkProvider = ({ children }) => {
     window.addEventListener('ems_task_timer_started', handleRemoteTaskTimerEvent);
     window.addEventListener('ems_task_timer_paused', handleRemoteTaskTimerEvent);
     window.addEventListener('ems_remote_sync', handleRemoteSync);
-    window.addEventListener('ems_socket_reconnected', handleFocus);
+    window.addEventListener('ems_socket_reconnected', handleReconnect);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -1237,7 +1247,7 @@ export const WorkProvider = ({ children }) => {
       window.removeEventListener('ems_task_timer_started', handleRemoteTaskTimerEvent);
       window.removeEventListener('ems_task_timer_paused', handleRemoteTaskTimerEvent);
       window.removeEventListener('ems_remote_sync', handleRemoteSync);
-      window.removeEventListener('ems_socket_reconnected', handleFocus);
+      window.removeEventListener('ems_socket_reconnected', handleReconnect);
       window.removeEventListener('hrms_storage_change', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
       unsubscribeSync();

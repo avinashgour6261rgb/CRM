@@ -37,7 +37,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (
@@ -54,10 +54,12 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-email', 'x-user-code', 'x-user-role', 'x-user-permissions', 'x-seed-secret', 'Accept']
-}));
-app.options('*', cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

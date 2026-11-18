@@ -31,6 +31,7 @@ import { ResignationsListPanel } from '../components/resignations/ResignationsLi
 import { canApproveLeaves, canViewAllLeaves, isHRorAdmin, isAdmin, getUserModulePermissions, canCancelLeave, canReviewLeave, isLeaveApplicant, isLeaveDesignatedApprover, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -67,8 +68,8 @@ export const LeavesPage = () => {
     setCurrentPage(1);
   }, [searchQuery, filterEmployee, filterType, filterStatus, pageTab]);
 
-  // Dynamic Today reference for active leaves
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Dynamic Today reference for active leaves (local IST calendar date)
+  const todayStr = getLocalDateString();
 
   // Dynamic calculation for Current Month Leaves Calendar
   const currentMonthCalendar = useMemo(() => {

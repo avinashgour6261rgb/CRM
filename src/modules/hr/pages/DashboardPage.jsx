@@ -41,7 +41,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -154,7 +154,7 @@ export const DashboardPage = () => {
     return String(effectiveTargetUser?._id || effectiveTargetUser?.employeeCode || currentUser?._id || currentUser?.employeeCode || 'global');
   }, [effectiveTargetUser?._id, effectiveTargetUser?.employeeCode, currentUser?._id, currentUser?.employeeCode]);
 
-  const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [currentDateStr, setCurrentDateStr] = useState(() => getLocalDateString());
   const todayStr = currentDateStr;
   const [liveTelemetryMap, setLiveTelemetryMap] = useState({});
 
@@ -418,7 +418,7 @@ export const DashboardPage = () => {
       setCurrentDateFormatted(prev => (prev !== newDateFormatted ? newDateFormatted : prev));
 
       // Midnight Rollover Detection (12:00 AM auto-shift reset)
-      const newDateIso = now.toISOString().split('T')[0];
+      const newDateIso = getLocalDateString(now);
       setCurrentDateStr(prevIso => {
         if (prevIso !== newDateIso) {
           window.dispatchEvent(new CustomEvent('ems_day_rollover', { detail: { newDate: newDateIso, previousDate: prevIso } }));

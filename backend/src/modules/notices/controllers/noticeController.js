@@ -55,18 +55,28 @@ exports.updateNotice = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
   if (updateData._id) delete updateData._id;
 
-  let notice = null;
-  if (mongoose.Types.ObjectId.isValid(id)) {
-    notice = await Notice.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });
-  } else {
-    notice = await Notice.findOneAndUpdate({ noticeCode: id }, updateData, { new: true, runValidators: false });
-  }
+  const existing = mongoose.Types.ObjectId.isValid(id)
+    ? await Notice.findById(id)
+    : await Notice.findOne({ noticeCode: id });
 
-  if (!notice) {
+  if (!existing) {
     return res.status(404).json({ success: false, message: 'Notice not found' });
   }
-  emitToAll('notice:updated', { action: 'update', item: notice });
-  res.json({ success: true, data: notice });
+
+  const u = req.user;
+  if (u) {
+    const isLeader = (u.role || '').toLowerCase().includes('lead') || (u.role || '').toLowerCase().includes('manager');
+    const isPrivileged = Boolean(u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || isLeader || u.permissions?.postNotices || u.permissions?.allAccess);
+    const isCreator = Boolean(u.name && (existing.createdBy === u.name || existing.postedBy === u.name));
+    if (!isPrivileged && !isCreator) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to edit this notice.' });
+    }
+  }
+
+  Object.assign(existing, updateData);
+  await existing.save();
+  emitToAll('notice:updated', { action: 'update', item: existing });
+  res.json({ success: true, data: existing });
 });
 
 // @desc    Delete a notice

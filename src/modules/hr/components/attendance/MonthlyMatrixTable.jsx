@@ -3,6 +3,7 @@ import { useHR } from '../../context/HRContext';
 import { MarkAttendanceModal } from './MarkAttendanceModal';
 import { matchesFilter } from '../../../../shared/utils/filterUtils';
 import { getCompanySettings, getWeeklyOffDays } from '../../../../shared/services/companySettingsService';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const MonthlyMatrixTable = ({
   month = 9,
@@ -66,7 +67,7 @@ export const MonthlyMatrixTable = ({
   }
 
   // Get status icon & styling for a specific cell
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   const getStatusDisplay = (record, isWeekend, isFuture = false) => {
     if (isFuture) {

@@ -3,7 +3,7 @@ const Expense = require('../models/Expense');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 const { emitToAll } = require('../../../shared/socket/socketManager');
 
-// @desc    Get all expenses
+// @desc    Get all expenses (strictly scoped for non-finance users)
 // @route   GET /api/expenses
 exports.getExpenses = asyncHandler(async (req, res) => {
   const { status, category, employeeId } = req.query;
@@ -12,7 +12,34 @@ exports.getExpenses = asyncHandler(async (req, res) => {
   if (category && category !== 'all') filter.category = category;
   if (employeeId && employeeId !== 'all') filter.employeeId = employeeId;
 
-  const expenses = await Expense.find(filter).sort({ createdAt: -1 });
+  const u = req.user;
+  const isFinancePrivileged = Boolean(
+    u && (
+      u.isAdmin ||
+      u.isDelegatedAdmin ||
+      u.systemRole === 'admin' ||
+      u.systemRole === 'hr' ||
+      u.role === 'admin' ||
+      u.role === 'hr' ||
+      u.permissions?.allAccess ||
+      u.permissions?.accessFinance ||
+      u.permissions?.approveExpenses ||
+      u.permissions?.finance
+    )
+  );
+
+  if (!isFinancePrivileged && u) {
+    const myId = String(u._id || u.id || '');
+    const myCode = String(u.employeeCode || '');
+    const myName = String(u.name || '').trim();
+    const selfOr = [];
+    if (myId) selfOr.push({ employeeId: myId }, { submittedById: myId });
+    if (myCode) selfOr.push({ employeeCode: myCode }, { employeeId: myCode });
+    if (myName) selfOr.push({ employeeName: new RegExp(`^${myName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }, { submittedBy: new RegExp(`^${myName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+    if (selfOr.length > 0) filter.$or = selfOr;
+  }
+
+  const expenses = await Expense.find(filter).sort({ createdAt: -1 }).lean();
   res.json({ success: true, count: expenses.length, data: expenses });
 });
 
@@ -37,32 +64,55 @@ exports.updateExpense = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
   if (updateData._id) delete updateData._id;
 
-  let expense = null;
-  if (mongoose.Types.ObjectId.isValid(id)) {
-    expense = await Expense.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });
-  } else {
-    expense = await Expense.findOneAndUpdate({ expenseCode: id }, updateData, { new: true, runValidators: false });
-  }
-  if (!expense) {
+  const existing = mongoose.Types.ObjectId.isValid(id)
+    ? await Expense.findById(id)
+    : await Expense.findOne({ expenseCode: id });
+  if (!existing) {
     return res.status(404).json({ success: false, message: 'Expense not found' });
   }
-  emitToAll('expense:updated', { action: 'update', item: expense });
-  res.json({ success: true, data: expense });
+
+  const u = req.user;
+  const canApprove = Boolean(u && (u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.allAccess || u.permissions?.approveExpenses));
+  const isOwner = Boolean(u && (
+    (existing.employeeId && (String(existing.employeeId) === String(u._id || u.id) || String(existing.employeeId) === String(u.employeeCode))) ||
+    (existing.employeeCode && u.employeeCode && String(existing.employeeCode).toUpperCase() === String(u.employeeCode).toUpperCase())
+  ));
+
+  if (!canApprove && !isOwner) {
+    return res.status(403).json({ success: false, message: 'Access denied: You can only edit your own expense claims.' });
+  }
+  if (!canApprove && updateData.status && ['approved', 'rejected', 'reimbursed'].includes(String(updateData.status).toLowerCase())) {
+    return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to approve or reject expenses.' });
+  }
+
+  Object.assign(existing, updateData);
+  await existing.save();
+  emitToAll('expense:updated', { action: 'update', item: existing });
+  res.json({ success: true, data: existing });
 });
 
 // @desc    Delete an expense
 // @route   DELETE /api/expenses/:id
 exports.deleteExpense = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  let expense = null;
-  if (mongoose.Types.ObjectId.isValid(id)) {
-    expense = await Expense.findByIdAndDelete(id);
-  } else {
-    expense = await Expense.findOneAndDelete({ expenseCode: id });
-  }
-  if (!expense) {
+  const existing = mongoose.Types.ObjectId.isValid(id)
+    ? await Expense.findById(id)
+    : await Expense.findOne({ expenseCode: id });
+  if (!existing) {
     return res.status(404).json({ success: false, message: 'Expense not found' });
   }
-  emitToAll('expense:updated', { action: 'delete', id: String(expense._id), expenseCode: expense.expenseCode });
+
+  const u = req.user;
+  const canManage = Boolean(u && (u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.allAccess || u.permissions?.approveExpenses));
+  const isOwner = Boolean(u && (
+    (existing.employeeId && (String(existing.employeeId) === String(u._id || u.id) || String(existing.employeeId) === String(u.employeeCode))) ||
+    (existing.employeeCode && u.employeeCode && String(existing.employeeCode).toUpperCase() === String(u.employeeCode).toUpperCase())
+  ));
+  if (!canManage && !isOwner) {
+    return res.status(403).json({ success: false, message: 'Access denied: You cannot delete another employee\'s expense.' });
+  }
+
+  await existing.deleteOne();
+  emitToAll('expense:updated', { action: 'delete', id: String(existing._id), expenseCode: existing.expenseCode });
   res.json({ success: true, message: 'Expense removed', data: {} });
 });

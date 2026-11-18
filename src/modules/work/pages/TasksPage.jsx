@@ -30,6 +30,7 @@ import { TasksKanban } from '../components/tasks/TasksKanban';
 import { AddTaskModal } from '../components/tasks/AddTaskModal';
 import { TaskDetailModal } from '../components/tasks/TaskDetailModal';
 import { ProjectTaskHistoryModal } from '../components/tasks/ProjectTaskHistoryModal';
+import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const TasksPage = () => {
   const {
@@ -176,7 +177,7 @@ export const TasksPage = () => {
       list = list.filter(t => matchesFilter(t.priority, taskFilter.priority));
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     // 3. Status tab / filter
     if (statusMode === 'active') {
@@ -210,7 +211,7 @@ export const TasksPage = () => {
   }, [tasks, canViewAllTasks, currentUser, scopeMode, taskFilter, statusMode, employees, isTaskAssignedToUser]);
 
   // Compute leftover & future counts
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const leftoverCount = React.useMemo(() => {
     return (tasks || []).filter(t => {
       if (t.status === 'completed' || t.isUntimed || t.hasNoDueDate || !t.dueDate || t.dueDate >= todayStr) return false;

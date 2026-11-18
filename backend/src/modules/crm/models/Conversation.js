@@ -12,6 +12,7 @@ const AttachmentSchema = new mongoose.Schema({
   mimeType: { type: String },
   sizeFormatted: { type: String },
   sizeBytes: { type: Number },
+  thumbDataUrl: { type: String },
   dataUrl: { type: String }
 }, { _id: false });
 

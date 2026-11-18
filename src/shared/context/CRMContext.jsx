@@ -538,14 +538,36 @@ export const CRMProvider = ({ children }) => {
     setTickets(getCollection(KEYS.TICKETS) || []);
   };
 
-  // Synchronize conversations with MongoDB backend database
+const stripHeavyMediaForStorage = (convs = []) => {
+  if (!Array.isArray(convs)) return [];
+  return convs.map(c => {
+    if (!c || !Array.isArray(c.messages)) return c;
+    return {
+      ...c,
+      messages: c.messages.map(m => {
+        if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) return m;
+        return {
+          ...m,
+          attachments: m.attachments.map(att => {
+            if (att && typeof att.dataUrl === 'string' && att.dataUrl.length > 15000) {
+              return { ...att, dataUrl: '', hasFullMedia: true, conversationId: c.id };
+            }
+            return att;
+          })
+        };
+      })
+    };
+  });
+};
+
+  // Synchronize conversations with MongoDB backend database (lite mode strips heavy base64 images for 20x faster load)
   const loadConversations = async () => {
     try {
       if (!(await isCrmBackendAvailable())) {
         setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
         return;
       }
-      const res = await fetch(`${API_BASE}/conversations`, {
+      const res = await fetch(`${API_BASE}/conversations?lite=1`, {
         headers: getAuthHeaders()
       });
       if (res.ok) {
@@ -578,7 +600,7 @@ export const CRMProvider = ({ children }) => {
                   } else {
                     const ex = msgMap.get(m.id);
                     const combinedReadBy = Array.from(new Set([...(ex.readBy || []), ...(m.readBy || [])]));
-                    msgMap.set(m.id, { ...ex, ...m, readBy: combinedReadBy });
+                    msgMap.set(m.id, { ...m, ...ex, readBy: combinedReadBy });
                   }
                 }
               });
@@ -594,14 +616,14 @@ export const CRMProvider = ({ children }) => {
           });
 
           const merged = Array.from(map.values());
-          saveCollection(KEYS.CONVERSATIONS, merged, { broadcast: false });
+          saveCollection(KEYS.CONVERSATIONS, stripHeavyMediaForStorage(merged), { broadcast: false });
           setConversations(merged);
 
           if (hasUnsynced) {
             fetch(`${API_BASE}/conversations/sync-batch`, {
               method: 'POST',
               headers: getAuthHeaders(),
-              body: JSON.stringify({ conversations: merged })
+              body: JSON.stringify({ conversations: stripHeavyMediaForStorage(merged) })
             }).catch(() => {});
           }
           return;
@@ -759,19 +781,23 @@ export const CRMProvider = ({ children }) => {
     }
   };
 
+  // Stable user identity string so employee list refreshes NEVER re-trigger all 6 CRM fetches
+  const currentUserIdentity = String(currentUser?._id || currentUser?.employeeCode || currentUser?.email || '');
+  const lastFocusSyncRef = React.useRef(0);
+
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUserIdentity) return;
     loadTickets();
     loadConversations();
     loadEvents();
     loadExpenses();
     loadLeads();
     loadNotices();
-  }, [currentUser]);
+  }, [currentUserIdentity]);
 
-  // ── Multi-User Real-time CRM & Chat Sync: Socket-driven + focus/visibility/reconnect sync ──
+  // ── Multi-User Real-time CRM & Chat Sync: Socket-driven + throttled focus/reconnect sync ──
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUserIdentity) return;
     const timers = {};
     const scheduleRefresh = (key, fn, delay = 350) => {
       if (timers[key]) clearTimeout(timers[key]);
@@ -791,6 +817,10 @@ export const CRMProvider = ({ children }) => {
 
     const syncIfVisible = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        const now = Date.now();
+        // 20s cooldown prevents firing 12 duplicate HTTP requests when clicking between tabs
+        if (now - lastFocusSyncRef.current < 20000) return;
+        lastFocusSyncRef.current = now;
         refreshAllCRM();
       }
     };
@@ -827,20 +857,29 @@ export const CRMProvider = ({ children }) => {
       window.removeEventListener('ems_remote_sync', handleRemoteSync);
       window.removeEventListener('ems_socket_reconnected', refreshAllCRM);
     };
-  }, [currentUser]);
+  }, [currentUserIdentity]);
 
   useEffect(() => {
-    const crmWatchKeys = ['all', 'ems_expenses', 'ems_tickets', 'ems_notices', 'ems_events', 'ems_conversations', 'ems_wfh', 'ems_leads', 'ems_emergency_contacts', 'ems_timesheets', 'ems_tasks', 'hrms_attendance'];
-    const handleStorageUpdate = (e) => {
-      if (!e.detail?.key || crmWatchKeys.includes(e.detail?.key)) {
+    const syncKey = (key) => {
+      if (!key || key === 'all') {
         syncWithStorage();
+        return;
+      }
+      if (key === KEYS.EXPENSES) setExpenses(getCollection(KEYS.EXPENSES));
+      else if (key === KEYS.TICKETS) setTickets(getCollection(KEYS.TICKETS));
+      else if (key === KEYS.NOTICES) setNotices(getCollection(KEYS.NOTICES));
+      else if (key === KEYS.EVENTS) setEvents((getCollection(KEYS.EVENTS) || []).map(normalizeEvent));
+      else if (key === KEYS.CONVERSATIONS) setConversations(ensureDefaultChannels(getCollection(KEYS.CONVERSATIONS)));
+      else if (key === KEYS.WFH) setWfhEmployees(getCollection(KEYS.WFH));
+      else if (key === KEYS.WEEKLY_TIMELOGS) setStoredWeeklyTimeLogs(getCollection(KEYS.WEEKLY_TIMELOGS));
+      else if (key === KEYS.LEADS) setLeads(getCollection(KEYS.LEADS));
+      else if (key === KEYS.EMERGENCY_CONTACTS) setEmergencyContacts(getCollection(KEYS.EMERGENCY_CONTACTS));
+      else if (key === 'ems_timesheets' || key === 'ems_tasks' || key === 'hrms_attendance') {
+        setStorageTick(prev => prev + 1);
       }
     };
-    const handleNativeStorage = (e) => {
-      if (!e.key || crmWatchKeys.includes(e.key)) {
-        syncWithStorage();
-      }
-    };
+    const handleStorageUpdate = (e) => syncKey(e?.detail?.key);
+    const handleNativeStorage = (e) => syncKey(e?.key);
     const handleSettingsUpdate = () => {
       setCompanySettings(getCompanySettings());
       setStorageTick(prev => prev + 1);
@@ -1979,9 +2018,8 @@ export const CRMProvider = ({ children }) => {
     currentConvs[idx].lastMessageTime = timeStr;
     currentConvs[idx].updatedAt = Date.now();
 
-    saveCollection(KEYS.CONVERSATIONS, currentConvs);
+    saveCollection(KEYS.CONVERSATIONS, stripHeavyMediaForStorage(currentConvs), { broadcast: false });
     setConversations([...currentConvs]);
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS } }));
     window.dispatchEvent(new CustomEvent('ems_chat_message_sent', { detail: { message: newMsg, conversationId } }));
 
     // Persist message to MongoDB Atlas database

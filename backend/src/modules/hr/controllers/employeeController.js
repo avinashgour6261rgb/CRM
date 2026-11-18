@@ -221,9 +221,18 @@ const updateEmployee = asyncHandler(async (req, res) => {
     (actor.employeeCode && existingEmployee.employeeCode && String(actor.employeeCode).toUpperCase() === String(existingEmployee.employeeCode).toUpperCase());
   const canManageEmps = Boolean(actor.isAdmin || actor.systemRole === 'admin' || actor.systemRole === 'hr' || actor.isDelegatedAdmin || actor.permissions?.manageEmployees || actor.permissions?.allAccess);
   const canGrantPerms = Boolean(actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.grantPermissions || actor.permissions?.allAccess);
+  const canManageCreds = Boolean(actor.isAdmin || actor.systemRole === 'admin' || actor.isDelegatedAdmin || actor.permissions?.manageCredentials || actor.permissions?.allAccess);
 
-  if (!isSelfUpdate && !canManageEmps && !canGrantPerms) {
+  if (!isSelfUpdate && !canManageEmps && !canGrantPerms && !canManageCreds) {
     return res.status(403).json({ success: false, message: 'Access denied: You can only update your own profile.' });
+  }
+
+  // If actor ONLY has manageCredentials (not self/manageEmployees/grantPermissions), restrict update to password fields only
+  if (!isSelfUpdate && !canManageEmps && !canGrantPerms && canManageCreds) {
+    const allowedCredKeys = new Set(['password', 'passwordHistory', 'passwordUpdatedAt']);
+    Object.keys(payload).forEach(k => {
+      if (!allowedCredKeys.has(k)) delete payload[k];
+    });
   }
 
   // Prevent privilege escalation by non-admin users (even on their own profile!)

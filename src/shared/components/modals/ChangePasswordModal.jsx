@@ -66,7 +66,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
     addToast('Password copied to clipboard!', 'success');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -96,87 +96,69 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
         (e.email && String(e.email).toLowerCase().trim() === uEmail)
       );
 
-      // If self-service, verify current password
+      // If self-service, verify current password directly against backend auth
       if (isSelf) {
         if (!currentPassword) {
           setErrorMsg('Please enter your current password.');
           setIsSubmitting(false);
           return;
         }
-
-        let existingPass = 'admin123';
-        if (empIndex >= 0 && employees[empIndex].password) {
-          existingPass = employees[empIndex].password;
-        } else if (currentUser?.password) {
-          existingPass = currentUser.password;
-        } else if (effectiveUser?.isAdmin || effectiveUser?.role?.toLowerCase().includes('admin')) {
-          existingPass = 'admin123';
-        } else {
-          existingPass = 'emp12345';
+        const verifyIdentifier = effectiveUser?.email || effectiveUser?.employeeCode;
+        if (verifyIdentifier) {
+          const verifyRes = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: verifyIdentifier, password: currentPassword })
+          });
+          if (!verifyRes.ok) {
+            setErrorMsg('Incorrect current password. Please enter your valid existing password.');
+            setIsSubmitting(false);
+            return;
+          }
         }
+      }
 
-        const isCurrentMatch = currentPassword === existingPass || (existingPass === 'emp12345' && currentPassword === 'emp123');
-        if (!isCurrentMatch) {
-          setErrorMsg('Incorrect current password. Please enter your valid existing password.');
+      // Persist to MongoDB backend first (server hashes password & encrypts Admin Vault copy)
+      const targetId = effectiveUser?._id || employees[empIndex]?._id || effectiveUser?.employeeCode;
+      const nowIso = new Date().toISOString();
+      if (targetId) {
+        const res = await fetch(`${API_BASE}/employees/${targetId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            password: newPassword,
+            passwordUpdatedAt: nowIso
+          })
+        });
+        if (!res.ok) {
+          let errText = `Failed to update password (${res.status})`;
+          try {
+            const errJson = await res.json();
+            if (errJson?.message) errText = errJson.message;
+          } catch (_) {}
+          setErrorMsg(errText);
           setIsSubmitting(false);
           return;
         }
       }
 
-      // Old password archive for Super Admin history
-      const oldPass = empIndex >= 0 ? employees[empIndex].password : (effectiveUser?.password || currentPassword || 'emp12345');
-      const historyEntry = {
-        password: oldPass,
-        changedAt: new Date().toISOString(),
-        changedBy: isSelf ? 'User (Self-Service)' : `Super Admin (${currentUser?.name || 'Administrator'})`
-      };
-
-      let finalHistory = [];
-      // Update employee record
+      // Update local cache metadata ONLY (never store plaintext password in localStorage!)
       if (empIndex >= 0) {
-        const prevHist = Array.isArray(employees[empIndex].passwordHistory) ? employees[empIndex].passwordHistory : [];
-        finalHistory = [historyEntry, ...prevHist];
         employees[empIndex] = {
           ...employees[empIndex],
-          password: newPassword,
-          passwordHistory: finalHistory,
-          passwordUpdatedAt: new Date().toISOString()
+          passwordUpdatedAt: nowIso
         };
-      } else {
-        // Fallback create / push record
-        finalHistory = [historyEntry];
-        employees.push({
-          ...effectiveUser,
-          password: newPassword,
-          passwordHistory: finalHistory,
-          passwordUpdatedAt: new Date().toISOString()
-        });
+        delete employees[empIndex].password;
+        saveCollection(KEYS.EMPLOYEES, employees);
       }
 
-      saveCollection(KEYS.EMPLOYEES, employees);
-
-      // Persist to MongoDB backend so Super Admin gets updated immediately
-      const targetId = effectiveUser?._id || employees[empIndex]?._id || effectiveUser?.employeeCode;
-      if (targetId) {
-        fetch(`${API_BASE}/employees/${targetId}`, {
-          method: 'PUT',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            password: newPassword,
-            passwordHistory: finalHistory,
-            passwordUpdatedAt: new Date().toISOString()
-          })
-        }).catch(err => console.warn('Backend password sync notice:', err));
-      }
-
-      // If updating self, update active session
+      // If updating self, update session metadata without plaintext password
       if (isSelf) {
         const updatedUser = {
           ...(currentUser || {}),
-          password: newPassword,
-          passwordHistory: finalHistory,
-          passwordUpdatedAt: new Date().toISOString()
+          passwordUpdatedAt: nowIso
         };
+        delete updatedUser.password;
         setCurrentUser?.(updatedUser);
         localStorage.setItem('ems_auth_session', JSON.stringify(updatedUser));
       }

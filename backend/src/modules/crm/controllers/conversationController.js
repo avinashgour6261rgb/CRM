@@ -120,13 +120,38 @@ const SEED_CHANNELS = [
   }
 ];
 
+const stripHeavyAttachmentData = (convObj, isLite) => {
+  if (!isLite || !Array.isArray(convObj.messages)) return convObj;
+  convObj.messages = convObj.messages.map(m => {
+    if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) return m;
+    return {
+      ...m,
+      attachments: m.attachments.map(att => {
+        if (!att) return att;
+        const rawLen = typeof att.dataUrl === 'string' ? att.dataUrl.length : 0;
+        if (rawLen > 12000) {
+          return {
+            ...att,
+            dataUrl: '',
+            hasFullMedia: true,
+            conversationId: convObj.id
+          };
+        }
+        return att;
+      })
+    };
+  });
+  return convObj;
+};
+
 exports.getConversations = async (req, res) => {
   try {
-    let convs = await Conversation.find().sort({ updatedAt: -1 });
+    const isLite = req.query.lite === '1' || req.query.lite === 'true';
+    let convs = await Conversation.find().sort({ updatedAt: -1 }).lean();
 
     if (!convs || convs.length === 0) {
       await Conversation.insertMany(SEED_CHANNELS);
-      convs = await Conversation.find().sort({ updatedAt: -1 });
+      convs = await Conversation.find().sort({ updatedAt: -1 }).lean();
     }
 
     const userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
@@ -176,12 +201,50 @@ exports.getConversations = async (req, res) => {
           Conversation.updateOne({ id: convObj.id }, { $set: { messages: dedupedMsgs } }).catch(() => {});
         }
       }
-      return convObj;
+      return stripHeavyAttachmentData(convObj, isLite);
     });
 
     res.json({
       success: true,
       data: convs
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getAttachmentMedia = async (req, res) => {
+  try {
+    const { id, attId } = req.params;
+    const conv = await Conversation.findOne({ id }).lean();
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+    let foundAtt = null;
+    for (const msg of (conv.messages || [])) {
+      if (!Array.isArray(msg?.attachments)) continue;
+      const match = msg.attachments.find(a => String(a?.id || '') === String(attId));
+      if (match) {
+        foundAtt = match;
+        break;
+      }
+    }
+    if (!foundAtt) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.json({
+      success: true,
+      data: {
+        id: foundAtt.id,
+        name: foundAtt.name,
+        category: foundAtt.category,
+        mimeType: foundAtt.mimeType,
+        sizeFormatted: foundAtt.sizeFormatted,
+        sizeBytes: foundAtt.sizeBytes,
+        thumbDataUrl: foundAtt.thumbDataUrl || '',
+        dataUrl: foundAtt.dataUrl || ''
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -270,7 +333,18 @@ exports.sendMessage = async (req, res) => {
     await conv.save();
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
-      emitToAll('chat:message', { conversationId: id, message });
+      const socketMessage = Array.isArray(message?.attachments) && message.attachments.length > 0
+        ? {
+            ...message,
+            attachments: message.attachments.map(att => {
+              if (att && typeof att.dataUrl === 'string' && att.dataUrl.length > 40000) {
+                return { ...att, dataUrl: '', hasFullMedia: true, conversationId: id };
+              }
+              return att;
+            })
+          }
+        : message;
+      emitToAll('chat:message', { conversationId: id, message: socketMessage });
     } catch (_) {}
     res.json({ success: true, data: conv });
   } catch (err) {

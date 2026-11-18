@@ -49,9 +49,57 @@ import { ChatVoiceRecorder } from '../components/messages/ChatVoiceRecorder';
 import { VoiceMemoPlayer } from '../components/messages/VoiceMemoPlayer';
 import { LiveVoiceHuddleBar } from '../components/messages/LiveVoiceHuddleBar';
 import { ScreenShareModal } from '../components/messages/ScreenShareModal';
-import { processFileForChat, downloadChatAttachment } from '../utils/chatMediaUtils';
+import { processFileForChat, downloadChatAttachment, fetchChatAttachmentMedia } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
+
+const LazyChatImage = ({ att, conversationId, onOpen }) => {
+  const [src, setSrc] = useState(() => att?.dataUrl || att?.thumbDataUrl || '');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const immediate = att?.dataUrl || att?.thumbDataUrl || '';
+    setSrc(immediate);
+    // Legacy images stored before thumbnails existed: fetch lazily ONLY while this chat is open
+    if (!immediate && att?.hasFullMedia && att?.id) {
+      let alive = true;
+      setLoading(true);
+      fetchChatAttachmentMedia(conversationId || att.conversationId, att.id)
+        .then(url => {
+          if (alive && url) setSrc(url);
+        })
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
+      return () => { alive = false; };
+    }
+  }, [att?.id, att?.dataUrl, att?.thumbDataUrl, att?.hasFullMedia, att?.conversationId, conversationId]);
+
+  return (
+    <div
+      onClick={() => onOpen(att)}
+      className="relative group cursor-pointer overflow-hidden rounded-lg bg-black/10 max-w-sm min-w-[140px] min-h-[90px] flex items-center justify-center"
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={att.name}
+          loading="lazy"
+          decoding="async"
+          className="max-h-60 w-auto object-cover rounded-lg transition-transform duration-200 group-hover:scale-102"
+        />
+      ) : (
+        <div className="px-4 py-6 text-[11px] font-semibold text-slate-300">
+          {loading ? 'Loading photo...' : 'Click to view photo'}
+        </div>
+      )}
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-bold">
+        <Maximize2 size={16} />
+        <span>Click to view HD</span>
+      </div>
+    </div>
+  );
+};
 
 export const MessagesPage = () => {
   const {
@@ -826,20 +874,11 @@ export const MessagesPage = () => {
                                  <div key={att.id ? `${att.id}_${aIdx}` : `att_${aIdx}`} className="overflow-hidden">
                                     {/* Photo Attachment */}
                                     {att.category === 'image' && (
-                                      <div
-                                        onClick={() => setViewerAttachment(att)}
-                                        className="relative group cursor-pointer overflow-hidden rounded-lg bg-black/10 max-w-sm"
-                                      >
-                                        <img
-                                          src={att.dataUrl}
-                                          alt={att.name}
-                                          className="max-h-60 w-auto object-cover rounded-lg transition-transform duration-200 group-hover:scale-102"
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-bold">
-                                          <Maximize2 size={16} />
-                                          <span>Click to view</span>
-                                        </div>
-                                      </div>
+                                      <LazyChatImage
+                                        att={att}
+                                        conversationId={activeConv?.id}
+                                        onOpen={(a) => setViewerAttachment({ ...a, conversationId: activeConv?.id })}
+                                      />
                                     )}
 
                                     {/* Video Attachment */}
@@ -877,7 +916,7 @@ export const MessagesPage = () => {
                                         <div className="flex items-center gap-1.5 shrink-0">
                                           <button
                                             type="button"
-                                            onClick={() => downloadChatAttachment(att)}
+                                            onClick={() => downloadChatAttachment(att, activeConv?.id)}
                                             className="w-7 h-7 rounded-md bg-white/20 hover:bg-white/30 flex items-center justify-center cursor-pointer border-0 text-current"
                                             title="Download file"
                                           >
@@ -1072,6 +1111,7 @@ export const MessagesPage = () => {
       <ChatMediaViewerModal
         isOpen={!!viewerAttachment}
         attachment={viewerAttachment}
+        conversationId={activeConv?.id}
         onClose={() => setViewerAttachment(null)}
       />
 

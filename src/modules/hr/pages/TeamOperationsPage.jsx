@@ -90,7 +90,7 @@ export const TeamOperationsPage = () => {
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
   // 📜 Historical Audit Hub States
-  const [selectedAuditDate, setSelectedAuditDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedAuditDate, setSelectedAuditDate] = useState(() => getLocalDateString());
   const [selectedAuditEmpId, setSelectedAuditEmpId] = useState('all');
   const [auditSearchQuery, setAuditSearchQuery] = useState('');
 

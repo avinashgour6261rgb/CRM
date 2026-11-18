@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getConversations,
+  getAttachmentMedia,
   createConversation,
   sendMessage,
   markAsRead,
@@ -14,6 +15,7 @@ const {
 } = require('../controllers/conversationController');
 
 router.get('/', getConversations);
+router.get('/:id/attachments/:attId', getAttachmentMedia);
 router.post('/', createConversation);
 router.post('/sync-batch', syncBatch);
 router.post('/:id/messages', sendMessage);

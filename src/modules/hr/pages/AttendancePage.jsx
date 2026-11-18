@@ -45,7 +45,7 @@ import { AdminForceClockOutModal } from '../components/attendance/AdminForceCloc
 import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
-import { readTimerStorage, parseTimeToSeconds } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, parseTimeToSeconds, getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const AttendancePage = () => {
   const navigate = useNavigate();
@@ -201,7 +201,7 @@ export const AttendancePage = () => {
     }
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Scoped employees for calculations (admin looking at 'all' vs single employee)
   const targetEmployees = React.useMemo(() => {

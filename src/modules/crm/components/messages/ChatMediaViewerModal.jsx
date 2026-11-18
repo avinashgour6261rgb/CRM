@@ -18,16 +18,37 @@ import {
   FileCode,
   Archive
 } from 'lucide-react';
-import { downloadChatAttachment } from '../../utils/chatMediaUtils';
+import { downloadChatAttachment, fetchChatAttachmentMedia } from '../../utils/chatMediaUtils';
 
-export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
+export const ChatMediaViewerModal = ({ isOpen, attachment, conversationId, onClose }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [resolvedUrl, setResolvedUrl] = useState('');
+  const [loadingFull, setLoadingFull] = useState(false);
 
   useEffect(() => {
     setZoom(1);
     setRotation(0);
-  }, [attachment, isOpen]);
+    if (!isOpen || !attachment) {
+      setResolvedUrl('');
+      setLoadingFull(false);
+      return;
+    }
+    const immediate = attachment.dataUrl || attachment.thumbDataUrl || '';
+    setResolvedUrl(immediate);
+    if (!attachment.dataUrl && attachment.hasFullMedia && attachment.id) {
+      let active = true;
+      setLoadingFull(true);
+      fetchChatAttachmentMedia(conversationId || attachment.conversationId, attachment.id)
+        .then(full => {
+          if (active && full) setResolvedUrl(full);
+        })
+        .finally(() => {
+          if (active) setLoadingFull(false);
+        });
+      return () => { active = false; };
+    }
+  }, [attachment, conversationId, isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -41,7 +62,8 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
 
   if (!isOpen || !attachment) return null;
 
-  const { name, category, dataUrl, sizeFormatted, mimeType } = attachment;
+  const { name, category, sizeFormatted, mimeType } = attachment;
+  const activeMediaUrl = resolvedUrl || attachment.dataUrl || attachment.thumbDataUrl || '';
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
@@ -106,7 +128,7 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
 
           <button
             type="button"
-            onClick={() => downloadChatAttachment(attachment)}
+            onClick={() => downloadChatAttachment({ ...attachment, dataUrl: activeMediaUrl || attachment.dataUrl }, conversationId)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer transition-colors border-0 shadow-sm"
           >
             <Download size={14} />
@@ -125,11 +147,16 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
       </div>
 
       {/* Main Preview Area */}
-      <div className="flex-1 flex items-center justify-center overflow-hidden my-3">
+      <div className="flex-1 flex items-center justify-center overflow-hidden my-3 relative">
+        {loadingFull && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700 text-sky-300 text-[11px] font-bold">
+            Loading HD media...
+          </div>
+        )}
         {category === 'image' && (
           <div className="max-w-full max-h-full flex items-center justify-center overflow-auto p-4">
             <img
-              src={dataUrl}
+              src={activeMediaUrl}
               alt={name}
               style={{
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
@@ -146,7 +173,7 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
               controls
               autoPlay
               playsInline
-              src={dataUrl}
+              src={activeMediaUrl}
               className="max-h-[75vh] max-w-full rounded-xl shadow-2xl bg-black border border-slate-800"
             >
               Your browser does not support the video tag.
@@ -164,7 +191,7 @@ export const ChatMediaViewerModal = ({ isOpen, attachment, onClose }) => {
 
             <button
               type="button"
-              onClick={() => downloadChatAttachment(attachment)}
+              onClick={() => downloadChatAttachment({ ...attachment, dataUrl: activeMediaUrl || attachment.dataUrl }, conversationId)}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm cursor-pointer shadow-lg shadow-blue-600/30 transition-all border-0"
             >
               <Download size={16} />

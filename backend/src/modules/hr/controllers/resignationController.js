@@ -10,7 +10,16 @@ const { getIstDateString } = require('../../../shared/utils/dateUtils');
 
 exports.getResignations = async (req, res) => {
   try {
-    const list = await Resignation.find().sort({ createdAt: -1 });
+    const u = req.user;
+    const isPrivileged = Boolean(u && (u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.manageEmployees || u.permissions?.allAccess));
+    let filter = {};
+    if (!isPrivileged && u) {
+      const selfOr = [];
+      if (u._id || u.id) selfOr.push({ employeeId: String(u._id || u.id) });
+      if (u.employeeCode) selfOr.push({ employeeCode: String(u.employeeCode).toUpperCase() });
+      if (selfOr.length > 0) filter = { $or: selfOr };
+    }
+    const list = await Resignation.find(filter).sort({ createdAt: -1 }).lean();
     res.json({
       success: true,
       data: list
