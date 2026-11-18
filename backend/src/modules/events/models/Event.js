@@ -49,4 +49,7 @@ const EventSchema = new mongoose.Schema(
   }
 );
 
+EventSchema.index({ date: 1, startTime: 1 });
+EventSchema.index({ createdBy: 1 });
+
 module.exports = mongoose.model('Event', EventSchema);

@@ -17,8 +17,9 @@ function buildUserJoinPayload(user) {
   const userId = user._id || user.id || null;
   const employeeCode = user.employeeCode || null;
   const email = user.email ? String(user.email).toLowerCase().trim() : null;
-  if (!userId && !employeeCode && !email) return null;
-  return { userId, employeeCode, email };
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('ems_auth_token') || null) : null;
+  if (!userId && !employeeCode && !email && !token) return null;
+  return { userId, employeeCode, email, token };
 }
 
 function getStoredUserJoinPayload() {

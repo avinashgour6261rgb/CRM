@@ -55,4 +55,8 @@ const ExpenseSchema = new mongoose.Schema(
   }
 );
 
+ExpenseSchema.index({ employeeId: 1, purchaseDate: -1 });
+ExpenseSchema.index({ status: 1, createdAt: -1 });
+ExpenseSchema.index({ category: 1 });
+
 module.exports = mongoose.model('Expense', ExpenseSchema);

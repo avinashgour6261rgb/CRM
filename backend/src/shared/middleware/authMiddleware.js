@@ -19,7 +19,7 @@ const { verifyJwt } = require('../utils/authCrypto');
 exports.authenticateUser = async (req, res, next) => {
   try {
     const authHeader = (req.headers.authorization || '').trim();
-    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (authHeader || '');
     const jwtPayload = bearerToken ? verifyJwt(bearerToken) : null;
 
     const userIdHeader = (req.headers['x-user-id'] || '').trim();
@@ -39,25 +39,23 @@ exports.authenticateUser = async (req, res, next) => {
         }
       }
 
-      // 2. Graceful fallback lookup by real DB employee identifier (still strictly uses DB role & DB permissions ONLY!)
-      if (!user && userIdHeader) {
-        if (mongoose.Types.ObjectId.isValid(userIdHeader)) {
+      // 2. Fallback lookup by real DB employee identifier (only when Bearer token is missing, e.g. transitional sessions)
+      if (!user && (userIdHeader || userEmailHeader || userCodeHeader)) {
+        if (userIdHeader && mongoose.Types.ObjectId.isValid(userIdHeader)) {
           user = await Employee.findById(userIdHeader);
         }
-        if (!user) {
+        if (!user && userIdHeader) {
           user = await Employee.findOne({ employeeCode: userIdHeader.toUpperCase() });
         }
-        if (!user) {
+        if (!user && userIdHeader) {
           user = await Employee.findOne({ email: new RegExp(`^${userIdHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
         }
-      }
-
-      if (!user && userEmailHeader) {
-        user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
-      }
-
-      if (!user && userCodeHeader) {
-        user = await Employee.findOne({ employeeCode: userCodeHeader.toUpperCase() });
+        if (!user && userEmailHeader) {
+          user = await Employee.findOne({ email: new RegExp(`^${userEmailHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+        }
+        if (!user && userCodeHeader) {
+          user = await Employee.findOne({ employeeCode: userCodeHeader.toUpperCase() });
+        }
       }
     }
 

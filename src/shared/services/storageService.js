@@ -373,17 +373,72 @@ export const getCollection = (key) => {
   }
 };
 
-// Generic write with instant cross-tab & cross-device broadcast
-export const saveCollection = (key, data, options = {}) => {
+const pruneExcessStorage = () => {
+  if (typeof localStorage === 'undefined') return;
   try {
-    const { broadcast = true } = options;
-    localStorage.setItem(key, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key } }));
-    if (broadcast) {
-      broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, { key });
+    // 1. Prune oversized chat media if present locally
+    const convsRaw = localStorage.getItem(KEYS.CONVERSATIONS);
+    if (convsRaw && convsRaw.length > 800000) {
+      try {
+        const convs = JSON.parse(convsRaw);
+        if (Array.isArray(convs)) {
+          const trimmed = convs.map(c => ({
+            ...c,
+            messages: Array.isArray(c.messages) ? c.messages.slice(-50) : []
+          }));
+          localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(trimmed));
+          return;
+        }
+      } catch (_) {}
     }
+
+    // 2. Prune old audit logs beyond latest 200
+    const auditRaw = localStorage.getItem(KEYS.ATTENDANCE_AUDIT);
+    if (auditRaw && auditRaw.length > 500000) {
+      try {
+        const logs = JSON.parse(auditRaw);
+        if (Array.isArray(logs) && logs.length > 200) {
+          localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify(logs.slice(0, 200)));
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Prune historical timesheets beyond latest 300
+    const tsRaw = localStorage.getItem(KEYS.TIMESHEETS);
+    if (tsRaw && tsRaw.length > 500000) {
+      try {
+        const timesheets = JSON.parse(tsRaw);
+        if (Array.isArray(timesheets) && timesheets.length > 300) {
+          localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(timesheets.slice(0, 300)));
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+};
+
+// Generic write with instant cross-tab & cross-device broadcast and quota protection
+export const saveCollection = (key, data, options = {}) => {
+  const { broadcast = true } = options;
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
   } catch (error) {
-    console.error(`Error saving ${key} to storage:`, error);
+    if (error && (error.name === 'QuotaExceededError' || error.code === 22 || error.code === 1014)) {
+      console.warn(`[storageService] Quota exceeded writing ${key}. Auto-pruning old mirrors...`);
+      pruneExcessStorage();
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (retryErr) {
+        console.error(`[storageService] Failed to write ${key} after prune:`, retryErr);
+      }
+    } else {
+      console.error(`Error saving ${key} to storage:`, error);
+    }
+  }
+
+  window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key } }));
+  if (broadcast) {
+    broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, { key });
   }
 };
 

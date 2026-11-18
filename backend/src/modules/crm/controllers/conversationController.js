@@ -327,6 +327,11 @@ exports.sendMessage = async (req, res) => {
       conv.messages.push(message);
     }
 
+    // Cap message history to latest 300 messages per conversation to preserve MongoDB 16MB document boundary
+    if (conv.messages.length > 300) {
+      conv.messages = conv.messages.slice(-300);
+    }
+
     conv.lastMessage = message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment');
     conv.lastMessageTime = message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 

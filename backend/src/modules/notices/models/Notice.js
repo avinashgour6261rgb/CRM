@@ -108,5 +108,9 @@ const NoticeSchema = new mongoose.Schema(
   }
 );
 
+NoticeSchema.index({ pinned: -1, createdAt: -1 });
+NoticeSchema.index({ targetAudience: 1 });
+NoticeSchema.index({ date: -1 });
+
 module.exports = mongoose.model('Notice', NoticeSchema);
 

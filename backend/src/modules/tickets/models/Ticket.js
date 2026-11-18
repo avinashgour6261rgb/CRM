@@ -126,4 +126,8 @@ const TicketSchema = new mongoose.Schema(
   }
 );
 
+TicketSchema.index({ requestedById: 1, status: 1, createdAt: -1 });
+TicketSchema.index({ assignedToId: 1, status: 1 });
+TicketSchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Ticket', TicketSchema);

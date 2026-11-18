@@ -30,9 +30,22 @@ function initSocket(server) {
     // Automatically join the company-wide broadcast room
     socket.join('company');
 
-    // Register user-specific room (supports userId, employeeCode, and email for multi-device same-ID sync)
+    // Register user-specific room (verifies token authenticity if token provided, otherwise falls back gracefully)
     socket.on('join:user', (data) => {
       try {
+        const { verifyJwt } = require('../utils/authCrypto');
+        const token = (data?.token || '').trim();
+        const verified = token ? verifyJwt(token) : null;
+
+        if (verified) {
+          // Strictly bind to the authenticated token payload
+          if (verified.sub) socket.join(`user:${String(verified.sub)}`);
+          if (verified.employeeCode) socket.join(`user:${String(verified.employeeCode).toUpperCase()}`);
+          if (verified.email) socket.join(`user:${String(verified.email).toLowerCase().trim()}`);
+          return;
+        }
+
+        // Backward-compatible fallback for un-tokened clients (scoped to provided ID)
         const uid = data?.userId ? String(data.userId) : null;
         const code = data?.employeeCode ? String(data.employeeCode).toUpperCase() : null;
         const email = data?.email ? String(data.email).toLowerCase().trim() : null;
