@@ -445,10 +445,10 @@ export const TeamOperationsPage = () => {
     // Strict Clock-In validation: For the logged-in user (You), read directly from live TimerContext so Header === Live Operations 100%!
     const isClockedIn = isSelf
       ? Boolean(selfIsClockedIn)
-      : (telem ? Boolean(telem.isClockedIn) : (!isExplicitlyStoredClockedOut && (
-          (isTodaySession && storedClockedIn && hasTodayStoredClockIn) ||
-          (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
-        )));
+      : (telem
+          ? Boolean(telem.isClockedIn)
+          : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
+             (!isExplicitlyStoredClockedOut && isTodaySession && storedClockedIn && hasTodayStoredClockIn)));
 
     const isClockedOut = isSelf
       ? Boolean(!selfIsClockedIn && (selfClockOutTime || hasTodayAttClockOut || isExplicitlyStoredClockedOut))

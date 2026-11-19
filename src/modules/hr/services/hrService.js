@@ -1030,7 +1030,36 @@ export const hrService = {
     });
   },
 
+  async syncPendingAttendance() {
+    try {
+      const raw = localStorage.getItem('ems_pending_attendance_sync');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      const today = getLocalDateString();
+      if (data.date !== today) {
+        localStorage.removeItem('ems_pending_attendance_sync');
+        return;
+      }
+      const res = await fetch(`${API_BASE}/attendance/mark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        localStorage.removeItem('ems_pending_attendance_sync');
+        hrBackendOnline = true;
+      }
+    } catch (_) {}
+  },
+
   async markAttendance(attendanceData) {
+    try {
+      localStorage.setItem('ems_pending_attendance_sync', JSON.stringify(attendanceData));
+    } catch (_) {}
+
     const result = await fetchWithFallback(`${API_BASE}/attendance/mark`, {
       method: 'POST',
       body: JSON.stringify(attendanceData)
@@ -1139,6 +1168,9 @@ export const hrService = {
 
     if (result && typeof result === 'object') {
       try {
+        localStorage.removeItem('ems_pending_attendance_sync');
+      } catch (_) {}
+      try {
         let attendance = getCollection(KEYS.ATTENDANCE) || [];
         const savedEmpId = String(result.employee?._id || result.employeeId || result.employee || attendanceData.employeeId || attendanceData.employee || '');
         const savedEmpCode = String(result.employeeCode || attendanceData.employeeCode || '');
@@ -1168,6 +1200,7 @@ export const hrService = {
   // ─── Real-Time Live Telemetry & Heartbeat Engine ───────────────────────────
   async sendHeartbeat(telemetryData) {
     if (!telemetryData) return;
+    this.syncPendingAttendance().catch(() => {});
     const authUser = getAuthUser();
     const today = telemetryData.date || getLocalDateString();
 

@@ -411,8 +411,8 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
-  // 📡 Real-time cross-device sync event relay from Socket.IO (0ms cross-browser synchronization)
-  subscribeSocketEvent('sync:event', (message) => {
+  // 📡 Centralized sync message processor (Handles BroadcastChannel + Socket.IO identically)
+  const handleIncomingSyncMessage = (message) => {
     try {
       if (!message || message.sourceTabId === window.__ems_tab_id) return;
       window.dispatchEvent(new CustomEvent('ems_realtime_sync', { detail: message }));
@@ -453,6 +453,50 @@ if (typeof window !== 'undefined') {
 
         window.dispatchEvent(new CustomEvent('ems_permissions_updated', { detail: payload }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'EMS_USER_PERMISSIONS' } }));
+      }
+    } catch (_) {}
+  };
+
+  // 1. Cross-Device Socket.IO Relay
+  subscribeSocketEvent('sync:event', handleIncomingSyncMessage);
+
+  // 2. Cross-Tab BroadcastChannel Relay (0ms same-browser sync)
+  if (syncChannel) {
+    syncChannel.onmessage = (event) => {
+      handleIncomingSyncMessage(event.data);
+    };
+  }
+
+  // 3. Native Cross-Tab Storage Event (survives any channel disconnects in same browser)
+  window.addEventListener('storage', (event) => {
+    if (!event.key) return;
+    try {
+      if (event.key === KEYS.ATTENDANCE || event.key === 'hrms_attendance') {
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
+        const raw = event.newValue;
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const today = getLocalDateStr();
+            const todayRec = list.find(a => a.date === today);
+            if (todayRec) {
+              if (todayRec.isClockedIn) {
+                window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: todayRec }));
+              } else if (todayRec.clockOutTime || todayRec.isClockedOut) {
+                window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: todayRec }));
+              }
+            }
+          }
+        }
+      } else if (event.key === KEYS.TASKS || event.key === 'ems_tasks') {
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS, remote: true } }));
+      } else if (event.key.startsWith('ems_timer_')) {
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: event.key, remote: true } }));
+        if (event.key.endsWith('_is_clocked_in') && event.newValue === 'true') {
+          window.dispatchEvent(new CustomEvent('ems_clocked_in', { detail: { userKey: event.key } }));
+        } else if (event.key.endsWith('_is_clocked_in') && event.newValue === 'false') {
+          window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { userKey: event.key } }));
+        }
       }
     } catch (_) {}
   });

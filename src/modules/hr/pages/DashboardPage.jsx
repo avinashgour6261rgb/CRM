@@ -656,10 +656,10 @@ export const DashboardPage = () => {
     }
 
     // Strict Clock-In validation: An employee is ONLY clocked in if they actively punched today AND haven't clocked out!
-    const isClockedIn = telem ? Boolean(telem.isClockedIn) : (!isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && (
-      (hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn) ||
-      (hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent')
-    ));
+    const isClockedIn = telem
+      ? Boolean(telem.isClockedIn)
+      : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
+         (!isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn));
 
     const isClockedOut = telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && !isStaleFromPreviousDay && (
       isExplicitlyStoredClockedOut ||

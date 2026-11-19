@@ -23,6 +23,10 @@ export function initKeepAlive() {
         cache: 'no-store',
         keepalive: true
       });
+      try {
+        const { hrService } = await import('../../modules/hr/services/hrService');
+        hrService.syncPendingAttendance().catch(() => {});
+      } catch (_) {}
     } catch (_) {
       // Silently ignore ping failures — backend will wake up automatically
     }

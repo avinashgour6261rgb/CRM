@@ -1101,11 +1101,79 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     } catch (_) {}
   }
 
-  // STRICT GUARD: A heartbeat pulse MUST NEVER fabricate or resurrect a clock-in for an employee
-  // who has NOT explicitly clocked in today via POST /api/attendance/mark!
+  // STRICT GUARD: If no today record exists in cache or DB, but the client explicitly sends
+  // an active clock-in with valid timestamp/time, auto-heal and persist to MongoDB Atlas!
   const hasExistingTodayRecord = Boolean(existing && existing.date === today && (existing.clockInTime || existing.clockInTimestamp));
   if (!hasExistingTodayRecord) {
-    return res.json({ success: true, ignored: true, reason: 'No active clock-in record for today', timestamp: Date.now() });
+    const isExplicitlyWorking = req.body.isClockedIn && (req.body.clockInTime || req.body.clockInTimestamp);
+    if (isExplicitlyWorking) {
+      const inStr = req.body.clockInTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inTs = req.body.clockInTimestamp ? Number(req.body.clockInTimestamp) : Date.now();
+      const sessStart = req.body.currentSessionStartTimestamp ? Number(req.body.currentSessionStartTimestamp) : inTs;
+      const initialWork = Number(req.body.workSeconds) || 0;
+
+      try {
+        const orUpsert = [];
+        if (targetId && mongoose.Types.ObjectId.isValid(targetId)) orUpsert.push({ employee: targetId });
+        if (targetCode) orUpsert.push({ employeeCode: targetCode });
+
+        if (orUpsert.length > 0) {
+          const autoHealed = await Attendance.findOneAndUpdate(
+            { date: today, $or: orUpsert },
+            {
+              $setOnInsert: {
+                employee: targetId,
+                employeeName: targetName,
+                employeeCode: targetCode,
+                date: today,
+                status: 'present',
+                clockInTime: inStr,
+                clockInTimestamp: inTs,
+                currentSessionStartTimestamp: sessStart,
+                totalWorkingHours: +(initialWork / 3600).toFixed(2),
+                isLate: false,
+                lateByMinutes: 0
+              },
+              $set: {
+                isClockedIn: true,
+                clockOutTime: null,
+                clockOutTimestamp: null,
+                workSeconds: initialWork,
+                isOnBreak: Boolean(req.body.isOnBreak),
+                breakType: req.body.breakType || null,
+                lastHeartbeatAt: Date.now()
+              }
+            },
+            { new: true, upsert: true, runValidators: true }
+          );
+
+          existing = {
+            employeeId: targetId,
+            employeeCode: targetCode,
+            employeeName: targetName,
+            date: today,
+            status: 'present',
+            isClockedIn: true,
+            clockInTime: inStr,
+            clockInTimestamp: inTs,
+            currentSessionStartTimestamp: sessStart,
+            workSeconds: initialWork,
+            isOnBreak: Boolean(req.body.isOnBreak),
+            breakType: req.body.breakType || null,
+            lastHeartbeatAt: Date.now()
+          };
+
+          try {
+            const { emitToAll } = require('../../../shared/socket/socketManager');
+            emitToAll('attendance:update', autoHealed);
+          } catch (_) {}
+        }
+      } catch (autoErr) {
+        console.warn('Auto-healing clock-in in heartbeat error:', autoErr.message);
+      }
+    } else {
+      return res.json({ success: true, ignored: true, reason: 'No active clock-in record for today', timestamp: Date.now() });
+    }
   }
 
   // If cached/DB record shows employee already clocked out, verify DB before accepting any stale isClockedIn: true pulse
