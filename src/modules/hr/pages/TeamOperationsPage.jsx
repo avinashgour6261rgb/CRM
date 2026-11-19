@@ -59,7 +59,7 @@ export const TeamOperationsPage = () => {
     clockOutTime: selfClockOutTime
   } = useTimer();
   const { employees, attendance, leaves, auditLogs, loadHRData, loadData } = useHR();
-  const refreshData = loadHRData || loadData || (() => {});
+  const refreshData = loadHRData || loadData || (() => { });
   const { tasks, completeTask, formatSeconds, startTaskTimer, pauseTaskTimer } = useWork();
   const { startConversation } = useCRM();
   const { addToast } = useToast();
@@ -182,7 +182,7 @@ export const TeamOperationsPage = () => {
             return stamped;
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     };
 
     fetchTelemetry();
@@ -351,7 +351,7 @@ export const TeamOperationsPage = () => {
 
     // Strict validation: check whether localStorage session belongs to TODAY
     const storedSessionDate = localStorage.getItem(`ems_timer_${empKey}_work_session_date`) ||
-                              (empId ? localStorage.getItem(`ems_timer_${empId}_work_session_date`) : null);
+      (empId ? localStorage.getItem(`ems_timer_${empId}_work_session_date`) : null);
     const isTodaySession = storedSessionDate === todayStr;
 
     // Proactively clean stale localStorage from yesterday/prior dates across both empKey & empId
@@ -378,7 +378,7 @@ export const TeamOperationsPage = () => {
           localStorage.removeItem(`ems_timer_${k}_punch_sessions`);
           localStorage.setItem(`ems_timer_${k}_work_session_date`, todayStr);
         });
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const storedClockedIn = isTodaySession && (
@@ -397,7 +397,7 @@ export const TeamOperationsPage = () => {
       : null;
     const storedClockOut = isTodaySession
       ? (localStorage.getItem(`ems_timer_${empKey}_clock_out`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clock_out`) : null) ||
-         localStorage.getItem(`ems_timer_${empKey}_clockout_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clockout_time`) : null))
+        localStorage.getItem(`ems_timer_${empKey}_clockout_time`) || (empId ? localStorage.getItem(`ems_timer_${empId}_clockout_time`) : null))
       : null;
     const storedWorkSecs = isTodaySession
       ? (Number(localStorage.getItem(`ems_timer_${empKey}_work_seconds`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_work_seconds`)) : 0) || 0)
@@ -446,17 +446,17 @@ export const TeamOperationsPage = () => {
     const isClockedIn = isSelf
       ? Boolean(selfIsClockedIn)
       : (telem
-          ? Boolean(telem.isClockedIn)
-          : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
-             (!isExplicitlyStoredClockedOut && isTodaySession && storedClockedIn && hasTodayStoredClockIn)));
+        ? Boolean(telem.isClockedIn)
+        : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
+          (!isExplicitlyStoredClockedOut && isTodaySession && storedClockedIn && hasTodayStoredClockIn)));
 
     const isClockedOut = isSelf
       ? Boolean(!selfIsClockedIn && (selfClockOutTime || hasTodayAttClockOut || isExplicitlyStoredClockedOut))
       : (telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && (
-          isExplicitlyStoredClockedOut ||
-          (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
-          (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
-        )));
+        isExplicitlyStoredClockedOut ||
+        (hasTodayAttClockIn && (hasTodayAttClockOut || attRec?.isClockedIn === false)) ||
+        (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
+      )));
 
     const effectiveOnBreak = isSelf ? Boolean(selfIsOnBreak) : (telem ? Boolean(telem.isOnBreak) : storedOnBreak);
     const effectiveBreakType = isSelf ? (selfBreakType || 'Break') : (telem ? (telem.breakType || 'Break') : storedBreakType);
@@ -487,7 +487,9 @@ export const TeamOperationsPage = () => {
     if (isClockedIn && !isClockedOut && !isOnLeave) {
       // 1. Check live WorkContext tasks first (0ms Socket.IO task:updated truth!)
       const liveRunningFromWork = empTasks.find(t => t.timerRunning === true && t.status !== 'completed' && !t.completedAt);
-      const telemAt = telem?.activeTask?.taskId ? telem.activeTask : null;
+      const telemAt = telem?.activeTask?.taskId
+        ? telem.activeTask
+        : (attRec?.activeTask?.taskId ? attRec.activeTask : null);
       const matchedWorkTaskForTelem = telemAt
         ? empTasks.find(t => String(t._id || t.id) === String(telemAt.taskId) || (telemAt.taskCode && t.taskCode === telemAt.taskCode))
         : null;
@@ -500,7 +502,8 @@ export const TeamOperationsPage = () => {
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
-      } else if (telemAt && telemAt.timerRunning === true && telemAt.startedAt && (!matchedWorkTaskForTelem || matchedWorkTaskForTelem.timerRunning !== false)) {
+      } else if (telemAt && telemAt.timerRunning === true && telemAt.startedAt) {
+        // Authoritative live running task from employee's telemetry/heartbeat
         const startedAtMs = Number(telemAt.startedAt) || nowMs;
         const elapsed = effectiveOnBreak ? 0 : Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
         const taskBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
@@ -508,28 +511,32 @@ export const TeamOperationsPage = () => {
           : ((telemAt.todayWorkSeconds !== undefined && telemAt.todayWorkSeconds !== null) ? Number(telemAt.todayWorkSeconds) : 0);
         const liveTaskSecs = Math.min(taskBase + elapsed, 14 * 3600);
         runningTask = {
-          _id: telemAt.taskId,
-          id: telemAt.taskId,
+          ...(matchedWorkTaskForTelem || {}),
+          _id: telemAt.taskId || matchedWorkTaskForTelem?._id,
+          id: telemAt.taskId || matchedWorkTaskForTelem?.id,
           taskId: telemAt.taskId,
-          taskCode: telemAt.taskCode || 'TSK',
-          title: telemAt.title || 'Live Task',
-          projectName: telemAt.projectName || 'General Work',
+          taskCode: telemAt.taskCode || matchedWorkTaskForTelem?.taskCode || 'TSK',
+          title: telemAt.title || matchedWorkTaskForTelem?.title || 'Live Task',
+          projectName: telemAt.projectName || matchedWorkTaskForTelem?.projectName || 'General Work',
           timerRunning: true,
           startedAt: startedAtMs,
-          accumulatedSeconds: Number(telemAt.accumulatedSeconds) || 0,
+          accumulatedSeconds: Number(telemAt.accumulatedSeconds) || Number(matchedWorkTaskForTelem?.accumulatedSeconds) || 0,
           accumulatedTodaySeconds: taskBase,
           todayWorkSeconds: liveTaskSecs,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };
-      } else if (telemAt) {
-        // Explicitly paused task: surface as pausedTask (amber badge + Resume button) instead of fake runningTask!
-        const liveTaskSecs = matchedWorkTaskForTelem
-          ? getTaskTodaySeconds(matchedWorkTaskForTelem, todayStr, nowMs, false, true)
-          : Number(telemAt.accumulatedTodaySeconds ?? telemAt.todayWorkSeconds ?? 0);
+      } else if (telemAt && (telemAt.timerRunning === false || !telemAt.startedAt)) {
+        // Explicitly paused task: surface as pausedTask (amber badge + Resume button)
+        const liveTaskSecs = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
+          ? Number(telemAt.accumulatedTodaySeconds)
+          : ((telemAt.todayWorkSeconds !== undefined && telemAt.todayWorkSeconds !== null)
+            ? Number(telemAt.todayWorkSeconds)
+            : (matchedWorkTaskForTelem ? getTaskTodaySeconds(matchedWorkTaskForTelem, todayStr, nowMs, false, true) : 0));
         pausedTask = {
-          _id: telemAt.taskId,
-          id: telemAt.taskId,
+          ...(matchedWorkTaskForTelem || {}),
+          _id: telemAt.taskId || matchedWorkTaskForTelem?._id,
+          id: telemAt.taskId || matchedWorkTaskForTelem?.id,
           taskId: telemAt.taskId,
           taskCode: telemAt.taskCode || matchedWorkTaskForTelem?.taskCode || 'TSK',
           title: telemAt.title || matchedWorkTaskForTelem?.title || 'Task',
@@ -543,9 +550,9 @@ export const TeamOperationsPage = () => {
         let activeTimer = null;
         try {
           const rawTimer = localStorage.getItem(`ems_active_task_timer_${empKey}`) ||
-                           localStorage.getItem(`ems_active_task_timer_${empId}`);
+            localStorage.getItem(`ems_active_task_timer_${empId}`);
           if (rawTimer) activeTimer = JSON.parse(rawTimer);
-        } catch {}
+        } catch { }
 
         if (activeTimer?.timerRunning && (!activeTimer.date || activeTimer.date === todayStr)) {
           const liveTaskSecs = getTaskTodaySeconds(activeTimer, todayStr, nowMs, isClockedIn, effectiveOnBreak);
@@ -818,7 +825,7 @@ export const TeamOperationsPage = () => {
           parsed.timerRunning = false;
           parsed.startedAt = null;
           localStorage.setItem(`ems_active_task_timer_${empKey}`, JSON.stringify(parsed));
-        } catch {}
+        } catch { }
       }
 
       try {
@@ -880,7 +887,7 @@ export const TeamOperationsPage = () => {
           parsed.timerRunning = false;
           parsed.startedAt = null;
           localStorage.setItem(timerKey, JSON.stringify(parsed));
-        } catch {}
+        } catch { }
       }
 
       await hrService.createAttendanceAuditLog({
@@ -955,7 +962,7 @@ export const TeamOperationsPage = () => {
       try {
         const raw = readTimerStorage(emp, 'punch_sessions');
         if (raw) rawPunchSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch (_) {}
+      } catch (_) { }
       if ((!rawPunchSessions || rawPunchSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
         rawPunchSessions = attRec.punchSessions;
       }
@@ -1026,7 +1033,7 @@ export const TeamOperationsPage = () => {
       try {
         const rawB = readTimerStorage(emp, 'break_history');
         if (rawB) storedBreaks = typeof rawB === 'string' ? JSON.parse(rawB) : rawB;
-      } catch (_) {}
+      } catch (_) { }
       if ((!storedBreaks || storedBreaks.length === 0) && Array.isArray(attRec?.breakHistory)) {
         storedBreaks = attRec.breakHistory;
       }
@@ -1285,7 +1292,7 @@ export const TeamOperationsPage = () => {
         try {
           const rawSess = readTimerStorage(emp, 'punch_sessions');
           if (rawSess) punchSessions = typeof rawSess === 'string' ? JSON.parse(rawSess) : rawSess;
-        } catch (_) {}
+        } catch (_) { }
       } else {
         loginTime = attRec?.clockInTime || attRec?.clockIn || '--';
         logoutTime = attRec?.clockOutTime || attRec?.clockOut || '--';
@@ -1510,11 +1517,10 @@ export const TeamOperationsPage = () => {
       <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl w-fit shrink-0">
         <button
           onClick={() => setViewMode('live')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border-0 ${
-            viewMode === 'live'
-              ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-transparent'
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border-0 ${viewMode === 'live'
+            ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-transparent'
+            }`}
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Live Operations (Today)</span>
@@ -1522,11 +1528,10 @@ export const TeamOperationsPage = () => {
 
         <button
           onClick={() => setViewMode('audit')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border-0 ${
-            viewMode === 'audit'
-              ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-transparent'
-          }`}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer border-0 ${viewMode === 'audit'
+            ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-transparent'
+            }`}
         >
           <History size={14} className="text-sky-600 dark:text-sky-400" />
           <span>Shift & Activity Audit Hub (Historical Explorer)</span>
@@ -1536,485 +1541,480 @@ export const TeamOperationsPage = () => {
       {viewMode === 'live' ? (
         <>
           {/* ── PENDING CREDENTIAL CHANGE REQUESTS (ADMIN REVIEW) ── */}
-      {isHRorAdmin && pendingProfileRequests.length > 0 && (
-        <div className="bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border-[1.5px] border-blue-200 dark:border-blue-900/50 px-5 py-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield size={18} className="text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-extrabold text-blue-800 dark:text-blue-200">
-                Pending Employee Credential Change Requests ({pendingProfileRequests.length})
-              </span>
-            </div>
-            <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
-              Requires Super Admin Approval to update official database records
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {pendingProfileRequests.map(req => (
-              <div
-                key={req.id}
-                className="flex items-center justify-between bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-blue-100 dark:border-blue-900/40 gap-3 flex-wrap"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">
-                      {req.employeeName}
-                    </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">({req.employeeCode})</span>
-                    <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${req.field === 'email' ? 'bg-pink-50 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'}`}>
-                      Requested {req.field === 'email' ? 'Email' : 'Name'} Change
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-1">
-                    <span className="line-through text-slate-400 dark:text-slate-500">{req.currentValue}</span>
-                    <span className="mx-1.5">➔</span>
-                    <strong className="text-blue-600">{req.requestedValue}</strong>
-                    <span className="text-slate-500 dark:text-slate-400 ml-2.5 italic">Reason: &quot;{req.reason}&quot;</span>
-                  </div>
-                </div>
-
+          {isHRorAdmin && pendingProfileRequests.length > 0 && (
+            <div className="bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border-[1.5px] border-blue-200 dark:border-blue-900/50 px-5 py-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleRejectProfileRequest(req)}
-                    className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
-                  >
-                    Decline
-                  </button>
-                  <button
-                    onClick={() => handleApproveProfileRequest(req)}
-                    className="px-3.5 py-1.5 rounded-md border-0 bg-emerald-600 text-white text-[11.5px] font-bold cursor-pointer hover:bg-emerald-700 shadow-sm"
-                  >
-                    ✓ Approve Change
-                  </button>
+                  <Shield size={18} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-extrabold text-blue-800 dark:text-blue-200">
+                    Pending Employee Credential Change Requests ({pendingProfileRequests.length})
+                  </span>
                 </div>
+                <span className="text-[11px] text-blue-500 dark:text-blue-400 font-semibold">
+                  Requires Super Admin Approval to update official database records
+                </span>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* ── KPI STATS CARDS ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
-            <span>Total Team</span>
-            <Users size={16} className="text-sky-600" />
-          </div>
-          <div className="text-[22px] font-extrabold text-slate-900 dark:text-slate-100 mt-1.5">
-            {kpiStats.total}
-          </div>
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-            Registered employees
-          </div>
-        </div>
-
-        <div className="rounded-[10px] border border-green-200 dark:border-green-900/50 bg-green-50/70 dark:bg-green-950/30 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-green-800 dark:text-green-300 text-xs font-bold">
-            <span>Working Now</span>
-            <Clock size={16} className="text-green-700 dark:text-green-400" />
-          </div>
-          <div className="text-[22px] font-extrabold text-green-700 dark:text-green-400 mt-1.5">
-            {kpiStats.working}
-          </div>
-          <div className="text-[11px] text-green-800 dark:text-green-400 mt-0.5">
-            Actively on shift
-          </div>
-        </div>
-
-        <div className="rounded-[10px] border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 text-xs font-bold">
-            <span>On Break</span>
-            <Coffee size={16} className="text-amber-700 dark:text-amber-400" />
-          </div>
-          <div className="text-[22px] font-extrabold text-amber-700 dark:text-amber-400 mt-1.5">
-            {kpiStats.onBreak}
-          </div>
-          <div className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
-            Tea / Lunch breaks
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
-            <span>Shift Ended</span>
-            <LogOut size={16} className="text-slate-500 dark:text-slate-400" />
-          </div>
-          <div className="text-[22px] font-extrabold text-slate-600 dark:text-slate-300 mt-1.5">
-            {kpiStats.clockedOut}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">
-            Clocked out today
-          </div>
-        </div>
-
-        <div className="rounded-[10px] border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-4 py-3.5 shadow-sm">
-          <div className="flex items-center justify-between text-blue-800 dark:text-blue-300 text-xs font-bold">
-            <span>Running Tasks</span>
-            <Play size={16} className="text-blue-600 dark:text-blue-400 fill-blue-600 dark:fill-blue-400" />
-          </div>
-          <div className="text-[22px] font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">
-            {kpiStats.runningTasksCount}
-          </div>
-          <div className="text-[11px] text-blue-800 dark:text-blue-400 mt-0.5">
-            Active timers live
-          </div>
-        </div>
-      </div>
-
-      {/* ── FILTER & SEARCH STRIP ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm">
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 flex-wrap w-full lg:w-auto">
-          {[
-            { id: 'all', label: `All (${kpiStats.total})` },
-            { id: 'working', label: `Working (${kpiStats.working})` },
-            { id: 'break', label: `Break (${kpiStats.onBreak})` },
-            { id: 'clocked_out', label: `Clocked Out (${kpiStats.clockedOut})` },
-            { id: 'offline', label: `Offline (${kpiStats.offline})` }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`border-0 px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-all flex-1 sm:flex-initial text-center ${
-                statusFilter === tab.id
-                  ? 'font-bold bg-sky-600 text-white shadow-xs'
-                  : 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search & Department Filters */}
-        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto flex-1 justify-end">
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] w-full sm:max-w-[240px] flex-1">
-            <Search size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search employee..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="border-0 bg-transparent outline-none text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full"
-            />
-            {searchQuery && (
-              <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 shrink-0" onClick={() => setSearchQuery('')} />
-            )}
-          </div>
-
-          <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer w-full sm:w-auto"
-          >
-            {departments.map(dept => (
-              <option key={dept} value={dept}>
-                {dept === 'all' ? 'All Departments' : dept}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* ── LIVE OPERATIONS TABLE ── */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                <th className="px-4 py-3 font-bold">Employee</th>
-                <th className="px-4 py-3 font-bold">Work Mode</th>
-                <th className="px-4 py-3 font-bold">Department</th>
-                <th className="px-4 py-3 font-bold">Shift Status</th>
-                <th className="px-4 py-3 font-bold">Punch Times</th>
-                <th className="px-4 py-3 font-bold">Net Work Time</th>
-                <th className="px-4 py-3 font-bold">Active Running Task</th>
-                <th className="px-4 py-3 font-bold text-right">Admin Overrides</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTeam.length > 0 ? (
-                filteredTeam.map((item) => {
-                  const emp = item.emp;
-                  const isCur = Boolean(
-                    currentUser && (
-                      (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
-                      (emp._id && currentUser.id && String(emp._id) === String(currentUser.id)) ||
-                      (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).trim().toLowerCase() === String(currentUser.employeeCode).trim().toLowerCase()) ||
-                      (emp.email && currentUser.email && String(emp.email).trim().toLowerCase() === String(currentUser.email).trim().toLowerCase()) ||
-                      (emp.name && currentUser.name && String(emp.name).trim().toLowerCase() === String(currentUser.name).trim().toLowerCase())
-                    )
-                  );
-
-                  return (
-                    <tr
-                      key={emp._id}
-                      className={`border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/50 ${
-                        item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20 dark:bg-amber-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20') : 'bg-white dark:bg-slate-900'
-                      }`}
-                    >
-                      {/* Employee Info */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                            alt={emp.name}
-                            className="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
-                          />
-                          <div>
-                            <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                              <span>{emp.name}</span>
-                              {isCur && (
-                                <span className="text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full leading-tight">
-                                  You
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              {emp.role || 'Member'} • <span className="text-slate-400 dark:text-slate-500">#{emp.employeeCode || emp._id}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Working Mode Badge */}
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[11px] font-bold border ${
-                          emp.workingMode === 'Remote'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                            : emp.workingMode === 'Hybrid'
-                            ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                            : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
-                        }`}>
-                          <span>{emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
+              <div className="flex flex-col gap-2">
+                {pendingProfileRequests.map(req => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between bg-white dark:bg-slate-900 px-4 py-3 rounded-lg border border-blue-100 dark:border-blue-900/40 gap-3 flex-wrap"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-[13px] text-slate-900 dark:text-slate-100">
+                          {req.employeeName}
                         </span>
-                      </td>
-
-                      {/* Department */}
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">
-                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-[3px] rounded text-[11px]">
-                          {item.department}
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">({req.employeeCode})</span>
+                        <span className={`text-[10.5px] font-bold px-[7px] py-0.5 rounded ${req.field === 'email' ? 'bg-pink-50 dark:bg-pink-950/50 text-pink-700 dark:text-pink-300' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'}`}>
+                          Requested {req.field === 'email' ? 'Email' : 'Name'} Change
                         </span>
-                      </td>
+                      </div>
+                      <div className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                        <span className="line-through text-slate-400 dark:text-slate-500">{req.currentValue}</span>
+                        <span className="mx-1.5">➔</span>
+                        <strong className="text-blue-600">{req.requestedValue}</strong>
+                        <span className="text-slate-500 dark:text-slate-400 ml-2.5 italic">Reason: &quot;{req.reason}&quot;</span>
+                      </div>
+                    </div>
 
-                      {/* Shift Status */}
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
-                          item.isClockedIn && item.isOnLeave
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                            : item.isOnLeave
-                            ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
-                            : item.isClockedIn
-                            ? (item.isOnBreak ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800')
-                            : (item.isClockedOut ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700')
-                        }`}>
-                          <span className={`w-[7px] h-[7px] rounded-full ${
-                            item.isClockedIn
-                              ? 'bg-green-500'
-                              : item.isOnLeave
-                              ? 'bg-teal-500'
-                              : item.isClockedOut
-                              ? 'bg-slate-400'
-                              : 'bg-slate-300'
-                          }`} />
-                          {item.isClockedIn && item.isOnLeave
-                            ? 'Working (On Leave) 🟢🌴'
-                            : item.isOnLeave
-                            ? 'On Leave 🌴'
-                            : item.isClockedIn
-                            ? (item.isOnBreak ? `☕ On ${item.breakType} (${formatTimeDurationSafe(item.breakSecs)})` : 'Shift Active 🟢')
-                            : (item.isClockedOut ? 'Clocked Out 🔴' : 'Not Clocked In ⚪')}
-                        </span>
-                      </td>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRejectProfileRequest(req)}
+                        className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11.5px] font-semibold cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/60"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => handleApproveProfileRequest(req)}
+                        className="px-3.5 py-1.5 rounded-md border-0 bg-emerald-600 text-white text-[11.5px] font-bold cursor-pointer hover:bg-emerald-700 shadow-sm"
+                      >
+                        ✓ Approve Change
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                      {/* Punch Times */}
-                      <td className="px-4 py-3 text-[11.5px] text-slate-600 dark:text-slate-400">
-                        <div>In: <strong className={item.loginTime ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>{item.loginTime || '--'}</strong></div>
-                        <div>Out: <strong className={item.clockOutTime ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}>{item.clockOutTime || '--'}</strong></div>
-                      </td>
+          {/* ── KPI STATS CARDS ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+            <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
+                <span>Total Team</span>
+                <Users size={16} className="text-sky-600" />
+              </div>
+              <div className="text-[22px] font-extrabold text-slate-900 dark:text-slate-100 mt-1.5">
+                {kpiStats.total}
+              </div>
+              <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                Registered employees
+              </div>
+            </div>
 
-                      {/* Net Work Time */}
-                      <td className="px-4 py-3">
-                        <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px] font-mono tabular-nums">
-                          {formatTimeDurationSafe(item.workSecs)}
-                        </div>
-                        {item.overtimeSecs > 0 && (
-                          <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-bold font-mono tabular-nums">
-                            ⚡ OT +{formatTimeDurationSafe(item.overtimeSecs)}
-                          </div>
-                        )}
-                        {item.breakSecs > 0 && (
-                          <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
-                            Breaks: {Math.round(item.breakSecs / 60)}m
-                          </div>
-                        )}
-                      </td>
+            <div className="rounded-[10px] border border-green-200 dark:border-green-900/50 bg-green-50/70 dark:bg-green-950/30 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between text-green-800 dark:text-green-300 text-xs font-bold">
+                <span>Working Now</span>
+                <Clock size={16} className="text-green-700 dark:text-green-400" />
+              </div>
+              <div className="text-[22px] font-extrabold text-green-700 dark:text-green-400 mt-1.5">
+                {kpiStats.working}
+              </div>
+              <div className="text-[11px] text-green-800 dark:text-green-400 mt-0.5">
+                Actively on shift
+              </div>
+            </div>
 
-                      {/* Currently Running Task */}
-                      <td className="px-4 py-3">
-                        {item.runningTask && item.runningTask.timerRunning ? (
-                          <div className="max-w-[240px]">
-                            <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-                              <strong className="text-[11.5px] text-slate-900 dark:text-slate-100 truncate">
-                                #{item.runningTask.taskCode || 'TSK'}: {item.runningTask.title}
-                              </strong>
-                            </div>
-                            <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
-                              <span>⏱️ <strong className="text-sky-600 dark:text-sky-400 font-mono tabular-nums">{item.runningTask.liveDurationText}</strong></span>
-                              {(hasShiftControlPermission || isSelfEmployee(emp)) && (
-                                <button
-                                  onClick={() => pauseTaskTimer(item.runningTask._id)}
-                                  className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                                  title="Pause task timer for employee"
-                                >
-                                  Pause ⏸️
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ) : item.pausedTask ? (
-                          <div className="max-w-[240px]">
-                            <div className="flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                              <strong className="text-[11.5px] text-slate-700 dark:text-slate-300 truncate">
-                                #{item.pausedTask.taskCode || 'TSK'}: {item.pausedTask.title}
-                              </strong>
-                              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0">
-                                Paused
-                              </span>
-                            </div>
-                            <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
-                              <span>⏱️ <strong className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">{item.pausedTask.liveDurationText}</strong></span>
-                              {(hasShiftControlPermission || isSelfEmployee(emp)) && (
-                                <button
-                                  onClick={() => startTaskTimer(item.pausedTask._id)}
-                                  className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                                  title="Resume paused task timer"
-                                >
-                                  <Play size={9} className="fill-green-600" /> Resume
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ) : (() => {
-                          const empPendingTasks = (tasks || []).filter(t => 
-                            (t.assignedToId === emp._id || t.assignedTo === emp.employeeCode || t.assignedToName?.toLowerCase() === emp.name?.toLowerCase()) && 
-                            t.status !== 'completed'
-                          );
-                          if (empPendingTasks.length > 0) {
-                            const firstTask = empPendingTasks[0];
-                            if (hasShiftControlPermission || isSelfEmployee(emp)) {
-                              return (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => startTaskTimer(firstTask._id)}
-                                    className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                                    title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
-                                  >
-                                    <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
-                                  </button>
-                                  {empPendingTasks.length > 1 && (
-                                    <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
+            <div className="rounded-[10px] border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between text-amber-800 dark:text-amber-300 text-xs font-bold">
+                <span>On Break</span>
+                <Coffee size={16} className="text-amber-700 dark:text-amber-400" />
+              </div>
+              <div className="text-[22px] font-extrabold text-amber-700 dark:text-amber-400 mt-1.5">
+                {kpiStats.onBreak}
+              </div>
+              <div className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">
+                Tea / Lunch breaks
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold">
+                <span>Shift Ended</span>
+                <LogOut size={16} className="text-slate-500 dark:text-slate-400" />
+              </div>
+              <div className="text-[22px] font-extrabold text-slate-600 dark:text-slate-300 mt-1.5">
+                {kpiStats.clockedOut}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                Clocked out today
+              </div>
+            </div>
+
+            <div className="rounded-[10px] border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between text-blue-800 dark:text-blue-300 text-xs font-bold">
+                <span>Running Tasks</span>
+                <Play size={16} className="text-blue-600 dark:text-blue-400 fill-blue-600 dark:fill-blue-400" />
+              </div>
+              <div className="text-[22px] font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">
+                {kpiStats.runningTasksCount}
+              </div>
+              <div className="text-[11px] text-blue-800 dark:text-blue-400 mt-0.5">
+                Active timers live
+              </div>
+            </div>
+          </div>
+
+          {/* ── FILTER & SEARCH STRIP ── */}
+          <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-3 flex items-center justify-between flex-wrap gap-2.5 shadow-sm">
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap w-full lg:w-auto">
+              {[
+                { id: 'all', label: `All (${kpiStats.total})` },
+                { id: 'working', label: `Working (${kpiStats.working})` },
+                { id: 'break', label: `Break (${kpiStats.onBreak})` },
+                { id: 'clocked_out', label: `Clocked Out (${kpiStats.clockedOut})` },
+                { id: 'offline', label: `Offline (${kpiStats.offline})` }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`border-0 px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-all flex-1 sm:flex-initial text-center ${statusFilter === tab.id
+                    ? 'font-bold bg-sky-600 text-white shadow-xs'
+                    : 'font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search & Department Filters */}
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto flex-1 justify-end">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-2.5 py-[5px] w-full sm:max-w-[240px] flex-1">
+                <Search size={14} className="text-slate-500 dark:text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-0 bg-transparent outline-none text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 w-full"
+                />
+                {searchQuery && (
+                  <X size={12} className="text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 shrink-0" onClick={() => setSearchQuery('')} />
+                )}
+              </div>
+
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="px-2.5 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-semibold outline-none cursor-pointer w-full sm:w-auto"
+              >
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>
+                    {dept === 'all' ? 'All Departments' : dept}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* ── LIVE OPERATIONS TABLE ── */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                    <th className="px-4 py-3 font-bold">Employee</th>
+                    <th className="px-4 py-3 font-bold">Work Mode</th>
+                    <th className="px-4 py-3 font-bold">Department</th>
+                    <th className="px-4 py-3 font-bold">Shift Status</th>
+                    <th className="px-4 py-3 font-bold">Punch Times</th>
+                    <th className="px-4 py-3 font-bold">Net Work Time</th>
+                    <th className="px-4 py-3 font-bold">Active Running Task</th>
+                    <th className="px-4 py-3 font-bold text-right">Admin Overrides</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTeam.length > 0 ? (
+                    filteredTeam.map((item) => {
+                      const emp = item.emp;
+                      const isCur = Boolean(
+                        currentUser && (
+                          (emp._id && currentUser._id && String(emp._id) === String(currentUser._id)) ||
+                          (emp._id && currentUser.id && String(emp._id) === String(currentUser.id)) ||
+                          (emp.employeeCode && currentUser.employeeCode && String(emp.employeeCode).trim().toLowerCase() === String(currentUser.employeeCode).trim().toLowerCase()) ||
+                          (emp.email && currentUser.email && String(emp.email).trim().toLowerCase() === String(currentUser.email).trim().toLowerCase()) ||
+                          (emp.name && currentUser.name && String(emp.name).trim().toLowerCase() === String(currentUser.name).trim().toLowerCase())
+                        )
+                      );
+
+                      return (
+                        <tr
+                          key={emp._id}
+                          className={`border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/50 ${item.isClockedIn ? (item.isOnBreak ? 'bg-amber-50/20 dark:bg-amber-950/20' : 'bg-emerald-50/20 dark:bg-emerald-950/20') : 'bg-white dark:bg-slate-900'
+                            }`}
+                        >
+                          {/* Employee Info */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <img
+                                src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                                alt={emp.name}
+                                className="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                              />
+                              <div>
+                                <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                  <span>{emp.name}</span>
+                                  {isCur && (
+                                    <span className="text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full leading-tight">
+                                      You
+                                    </span>
                                   )}
                                 </div>
-                              );
-                            }
-                            return (
-                              <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                                Idle ({empPendingTasks.length} pending)
-                              </span>
-                            );
-                          }
-                          return (
-                            <span className="text-slate-400 dark:text-slate-500 text-[11.5px] italic">
-                              No active tasks
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  {emp.role || 'Member'} • <span className="text-slate-400 dark:text-slate-500">#{emp.employeeCode || emp._id}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Working Mode Badge */}
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[11px] font-bold border ${emp.workingMode === 'Remote'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                              : emp.workingMode === 'Hybrid'
+                                ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                              }`}>
+                              <span>{emp.workingMode === 'Remote' ? '🏡 Remote' : emp.workingMode === 'Hybrid' ? '🔄 Hybrid' : '🏢 Office'}</span>
                             </span>
-                          );
-                        })()}
-                      </td>
+                          </td>
 
-                      {/* Admin / Shift Control Actions (strictly gated by Force Clock-Out / Shift Control permission) */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
-                          {/* Emergency Clock-In (Only if user has Shift Control permission or own row) */}
-                          {!item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
-                            <button
-                              onClick={() => {
-                                setClockInModalTarget(emp);
-                                setEmergencyReason('Power cut / offline assist');
-                                setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                              title="Clock in employee manually (e.g. power outage or offline)"
-                            >
-                              <LogIn size={11} />
-                              <span>Clock In</span>
-                            </button>
-                          )}
+                          {/* Department */}
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">
+                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-[3px] rounded text-[11px]">
+                              {item.department}
+                            </span>
+                          </td>
 
-                          {/* Emergency Clock-Out (Only if user has Force Clock-Out permission or own row) */}
-                          {item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
-                            <button
-                              onClick={() => {
-                                setClockOutModalTarget(emp);
-                                setEmergencyReason('Power cut / left office');
-                                setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
-                              title="End employee shift manually (e.g. left without punch)"
-                            >
-                              <LogOut size={11} />
-                              <span>Clock Out</span>
-                            </button>
-                          )}
+                          {/* Shift Status */}
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${item.isClockedIn && item.isOnLeave
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                              : item.isOnLeave
+                                ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+                                : item.isClockedIn
+                                  ? (item.isOnBreak ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800')
+                                  : (item.isClockedOut ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700')
+                              }`}>
+                              <span className={`w-[7px] h-[7px] rounded-full ${item.isClockedIn
+                                ? 'bg-green-500'
+                                : item.isOnLeave
+                                  ? 'bg-teal-500'
+                                  : item.isClockedOut
+                                    ? 'bg-slate-400'
+                                    : 'bg-slate-300'
+                                }`} />
+                              {item.isClockedIn && item.isOnLeave
+                                ? 'Working (On Leave) 🟢🌴'
+                                : item.isOnLeave
+                                  ? 'On Leave 🌴'
+                                  : item.isClockedIn
+                                    ? (item.isOnBreak ? `☕ On ${item.breakType} (${formatTimeDurationSafe(item.breakSecs)})` : 'Shift Active 🟢')
+                                    : (item.isClockedOut ? 'Clocked Out 🔴' : 'Not Clocked In ⚪')}
+                            </span>
+                          </td>
 
-                          {/* Day Log View */}
-                          <button
-                            onClick={() => handleOpenDayLog(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/50 text-sky-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                            title={`Inspect ${emp.name}'s complete day audit log`}
-                          >
-                            <Eye size={12} className="text-sky-600" />
-                            <span>Day Log</span>
-                          </button>
+                          {/* Punch Times */}
+                          <td className="px-4 py-3 text-[11.5px] text-slate-600 dark:text-slate-400">
+                            <div>In: <strong className={item.loginTime ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}>{item.loginTime || '--'}</strong></div>
+                            <div>Out: <strong className={item.clockOutTime ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}>{item.clockOutTime || '--'}</strong></div>
+                          </td>
 
-                          {/* Direct Message Chat */}
-                          <button
-                            onClick={() => {
-                              startConversation(emp._id || emp.id || emp.employeeCode);
-                              navigate('/messages');
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11.5px] font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                            title={`Open direct private message with ${emp.name}`}
-                          >
-                            <MessageSquare size={12} className="text-purple-600 dark:text-purple-400" />
-                            <span>Chat</span>
-                          </button>
+                          {/* Net Work Time */}
+                          <td className="px-4 py-3">
+                            <div className="font-extrabold text-sky-600 dark:text-sky-400 text-[13px] font-mono tabular-nums">
+                              {formatTimeDurationSafe(item.workSecs)}
+                            </div>
+                            {item.overtimeSecs > 0 && (
+                              <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-bold font-mono tabular-nums">
+                                ⚡ OT +{formatTimeDurationSafe(item.overtimeSecs)}
+                              </div>
+                            )}
+                            {item.breakSecs > 0 && (
+                              <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
+                                Breaks: {Math.round(item.breakSecs / 60)}m
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Currently Running Task */}
+                          <td className="px-4 py-3">
+                            {item.runningTask && item.runningTask.timerRunning ? (
+                              <div className="max-w-[240px]">
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
+                                  <strong className="text-[11.5px] text-slate-900 dark:text-slate-100 truncate">
+                                    #{item.runningTask.taskCode || 'TSK'}: {item.runningTask.title}
+                                  </strong>
+                                </div>
+                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                  <span>⏱️ <strong className="text-sky-600 dark:text-sky-400 font-mono tabular-nums">{item.runningTask.liveDurationText}</strong></span>
+                                  {(hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                    <button
+                                      onClick={() => pauseTaskTimer(item.runningTask._id)}
+                                      className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                      title="Pause task timer for employee"
+                                    >
+                                      Pause ⏸️
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : item.pausedTask ? (
+                              <div className="max-w-[240px]">
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                  <strong className="text-[11.5px] text-slate-700 dark:text-slate-300 truncate">
+                                    #{item.pausedTask.taskCode || 'TSK'}: {item.pausedTask.title}
+                                  </strong>
+                                  <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shrink-0">
+                                    Paused
+                                  </span>
+                                </div>
+                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                  <span>⏱️ <strong className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">{item.pausedTask.liveDurationText}</strong></span>
+                                  {(hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                    <button
+                                      onClick={() => startTaskTimer(item.pausedTask._id)}
+                                      className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
+                                      title="Resume paused task timer"
+                                    >
+                                      <Play size={9} className="fill-green-600" /> Resume
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (() => {
+                              const empPendingTasks = (tasks || []).filter(t =>
+                                (t.assignedToId === emp._id || t.assignedTo === emp.employeeCode || t.assignedToName?.toLowerCase() === emp.name?.toLowerCase()) &&
+                                t.status !== 'completed'
+                              );
+                              if (empPendingTasks.length > 0) {
+                                const firstTask = empPendingTasks[0];
+                                if (hasShiftControlPermission || isSelfEmployee(emp)) {
+                                  return (
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => startTaskTimer(firstTask._id)}
+                                        className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
+                                        title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
+                                      >
+                                        <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
+                                      </button>
+                                      {empPendingTasks.length > 1 && (
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
+                                    Idle ({empPendingTasks.length} pending)
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="text-slate-400 dark:text-slate-500 text-[11.5px] italic">
+                                  No active tasks
+                                </span>
+                              );
+                            })()}
+                          </td>
+
+                          {/* Admin / Shift Control Actions (strictly gated by Force Clock-Out / Shift Control permission) */}
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5">
+                              {/* Emergency Clock-In (Only if user has Shift Control permission or own row) */}
+                              {!item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                <button
+                                  onClick={() => {
+                                    setClockInModalTarget(emp);
+                                    setEmergencyReason('Power cut / offline assist');
+                                    setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
+                                  title="Clock in employee manually (e.g. power outage or offline)"
+                                >
+                                  <LogIn size={11} />
+                                  <span>Clock In</span>
+                                </button>
+                              )}
+
+                              {/* Emergency Clock-Out (Only if user has Force Clock-Out permission or own row) */}
+                              {item.isClockedIn && (hasShiftControlPermission || isSelfEmployee(emp)) && (
+                                <button
+                                  onClick={() => {
+                                    setClockOutModalTarget(emp);
+                                    setEmergencyReason('Power cut / left office');
+                                    setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
+                                  title="End employee shift manually (e.g. left without punch)"
+                                >
+                                  <LogOut size={11} />
+                                  <span>Clock Out</span>
+                                </button>
+                              )}
+
+                              {/* Day Log View */}
+                              <button
+                                onClick={() => handleOpenDayLog(item)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/50 text-sky-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                title={`Inspect ${emp.name}'s complete day audit log`}
+                              >
+                                <Eye size={12} className="text-sky-600" />
+                                <span>Day Log</span>
+                              </button>
+
+                              {/* Direct Message Chat */}
+                              <button
+                                onClick={() => {
+                                  startConversation(emp._id || emp.id || emp.employeeCode);
+                                  navigate('/messages');
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[11.5px] font-bold cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                                title={`Open direct private message with ${emp.name}`}
+                              >
+                                <MessageSquare size={12} className="text-purple-600 dark:text-purple-400" />
+                                <span>Chat</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="8" className="text-center py-9 text-slate-400 dark:text-slate-500">
+                        <Users size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                        <div className="text-[13px] font-bold text-slate-600 dark:text-slate-300">
+                          No employees match filter
+                        </div>
+                        <div className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          Try selecting another status tab or clear search query.
                         </div>
                       </td>
                     </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="8" className="text-center py-9 text-slate-400 dark:text-slate-500">
-                    <Users size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-                    <div className="text-[13px] font-bold text-slate-600 dark:text-slate-300">
-                      No employees match filter
-                    </div>
-                    <div className="text-[11.5px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      Try selecting another status tab or clear search query.
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       ) : (
         /* ── 📜 DAILY & HISTORICAL SHIFT & ACTIVITY AUDIT HUB ── */
         <div className="flex flex-col gap-4">
@@ -2059,11 +2059,10 @@ export const TeamOperationsPage = () => {
                     <button
                       key={pill.label}
                       onClick={() => setSelectedAuditDate(pill.date)}
-                      className={`px-2.5 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all border ${
-                        selectedAuditDate === pill.date
-                          ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-500 text-sky-700 dark:text-sky-300 font-bold'
-                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
-                      }`}
+                      className={`px-2.5 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all border ${selectedAuditDate === pill.date
+                        ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-500 text-sky-700 dark:text-sky-300 font-bold'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                        }`}
                     >
                       {pill.label}
                     </button>
@@ -2205,31 +2204,29 @@ export const TeamOperationsPage = () => {
 
                         {/* Status Badge */}
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${
-                            record.status === 'present' || record.status === 'working'
-                              ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
-                              : record.status === 'on_leave'
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border ${record.status === 'present' || record.status === 'working'
+                            ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
+                            : record.status === 'on_leave'
                               ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                               : record.status === 'clocked_out'
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                              : record.status === 'break'
-                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                              : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              ['present', 'working'].includes(record.status)
-                                ? 'bg-green-500'
-                                : record.status === 'on_leave'
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                : record.status === 'break'
+                                  ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                  : 'bg-slate-50 dark:bg-slate-800/60 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${['present', 'working'].includes(record.status)
+                              ? 'bg-green-500'
+                              : record.status === 'on_leave'
                                 ? 'bg-amber-500'
                                 : 'bg-slate-400'
-                            }`} />
+                              }`} />
                             {record.status === 'working' ? 'Shift Active 🟢' :
-                             record.status === 'break' ? 'On Break ☕' :
-                             record.status === 'clocked_out' ? 'Clocked Out 🔴' :
-                             record.status === 'on_leave' ? 'On Leave 🌴' :
-                             record.status === 'present' ? 'Present ✅' :
-                             record.status === 'not_clocked_in' ? 'Not Clocked In ⚪' :
-                             record.status.toUpperCase()}
+                              record.status === 'break' ? 'On Break ☕' :
+                                record.status === 'clocked_out' ? 'Clocked Out 🔴' :
+                                  record.status === 'on_leave' ? 'On Leave 🌴' :
+                                    record.status === 'present' ? 'Present ✅' :
+                                      record.status === 'not_clocked_in' ? 'Not Clocked In ⚪' :
+                                        record.status.toUpperCase()}
                           </span>
                         </td>
 

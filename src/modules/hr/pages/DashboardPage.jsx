@@ -178,7 +178,7 @@ export const DashboardPage = () => {
           });
           setLiveTelemetryMap(stamped);
         }
-      } catch (_) {}
+      } catch (_) { }
     };
 
     fetchTelemetry();
@@ -273,7 +273,7 @@ export const DashboardPage = () => {
       const next = [...new Set([...prev, strId])];
       try {
         localStorage.setItem(userAlertKey, JSON.stringify(next));
-      } catch (_) {}
+      } catch (_) { }
       return next;
     });
 
@@ -319,7 +319,7 @@ export const DashboardPage = () => {
     setIsLeftoverDismissed(true);
     try {
       localStorage.setItem(leftoverDismissKey, 'true');
-    } catch (_) {}
+    } catch (_) { }
   };
   const {
     loginTime,
@@ -618,7 +618,7 @@ export const DashboardPage = () => {
             window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // Strict today-only attendance validation: employee is ONLY clocked in/out if they actively punched today!
@@ -659,7 +659,7 @@ export const DashboardPage = () => {
     const isClockedIn = telem
       ? Boolean(telem.isClockedIn)
       : (Boolean(hasTodayAttClockIn && !hasTodayAttClockOut && attRec?.isClockedIn === true && attRec?.status !== 'absent') ||
-         (!isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn));
+        (!isStaleFromPreviousDay && !isExplicitlyStoredClockedOut && hasTodayStoredSession && storedClockedIn && hasTodayStoredClockIn));
 
     const isClockedOut = telem ? Boolean(!telem.isClockedIn && telem.clockOutTime) : (!isClockedIn && !isStaleFromPreviousDay && (
       isExplicitlyStoredClockedOut ||
@@ -702,8 +702,10 @@ export const DashboardPage = () => {
     });
     const empTasks = Array.from(empTaskMap.values());
 
-    if (telem?.activeTask?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
-      const at = telem.activeTask;
+    const activeTaskData = (telem?.activeTask?.taskId ? telem.activeTask : null) ||
+                           (attRec?.activeTask?.taskId ? attRec.activeTask : null);
+    if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
+      const at = activeTaskData;
       const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
       if (isTaskTimerActuallyRunning) {
         const startedAtMs = Number(at.startedAt) || Date.now();
@@ -769,7 +771,7 @@ export const DashboardPage = () => {
 
       const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
         ? (empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
-           (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null))
+          (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null))
         : null;
 
       if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave && !isTaskActuallyCompleted(baseRunningTask)) {
@@ -1086,7 +1088,7 @@ export const DashboardPage = () => {
       try {
         const raw = readTimerStorage(emp, 'punch_sessions');
         if (raw) rawStoredSessions = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch (_) {}
+      } catch (_) { }
       if ((!rawStoredSessions || rawStoredSessions.length === 0) && Array.isArray(attRec?.punchSessions)) {
         rawStoredSessions = attRec.punchSessions;
       }
@@ -1163,7 +1165,7 @@ export const DashboardPage = () => {
       try {
         const rawB = readTimerStorage(emp, 'break_history');
         if (rawB) storedBreaks = typeof rawB === 'string' ? JSON.parse(rawB) : rawB;
-      } catch (_) {}
+      } catch (_) { }
       if ((!storedBreaks || storedBreaks.length === 0) && Array.isArray(attRec?.breakHistory)) {
         storedBreaks = attRec.breakHistory;
       }
@@ -2792,7 +2794,7 @@ export const DashboardPage = () => {
         currentUser={currentUser}
       />
 
-            {/* ─────────────────────────────────────────────────────────────────────────
+      {/* ─────────────────────────────────────────────────────────────────────────
           TOP SECTION: Welcome Profile Card & Attendance Shift Clock (Compact & Sleek)
       ───────────────────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-stretch">
@@ -2976,7 +2978,7 @@ export const DashboardPage = () => {
       {/* ─────────────────────────────────────────────────────────────────────────
           MY TASKS SECTION (Direct list of tasks with filters & instant timer controls)
       ───────────────────────────────────────────────────────────────────────── */}
-<DashboardTasksSection
+      <DashboardTasksSection
         dashboardTaskScope={dashboardTaskScope}
         setDashboardTaskScope={setDashboardTaskScope}
         dashboardTaskTab={dashboardTaskTab}
