@@ -70,11 +70,9 @@ const ExpensesPage       = lazyWithRetry(() => import('./modules/finance/pages/E
 const PayrollPage        = lazyWithRetry(() => import('./modules/finance/pages/PayrollPage'), 'PayrollPage');
 const SettingsPage       = lazyWithRetry(() => import('./modules/settings/pages/SettingsPage'), 'SettingsPage');
 
-const RouteFallback = () => (
-  <div className="flex items-center justify-center min-h-[260px] text-xs font-semibold text-slate-500 dark:text-slate-400">
-    Loading workspace...
-  </div>
-);
+import { WorkspaceLoader } from './shared/components/common/WorkspaceLoader';
+
+const RouteFallback = () => <WorkspaceLoader />;
 
 
 export function App() {
