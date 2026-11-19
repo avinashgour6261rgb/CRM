@@ -367,6 +367,7 @@ export const DashboardPage = () => {
     isOnBreak,
     breakType,
     customBreakLimitMinutes,
+    currentBreakSeconds,
     currentBreakTimeString,
     breakRemainingTimeString,
     isBreakOverdue,
@@ -744,6 +745,10 @@ export const DashboardPage = () => {
         : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
     }
 
+    const currentBreakSecs = effectiveOnBreak
+      ? (isSelf && Number(currentBreakSeconds) > 0 ? Math.max(Number(currentBreakSeconds), liveCurrentBreak) : liveCurrentBreak)
+      : 0;
+
     const loginTime = isClockedIn
       ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
       : (isClockedOut ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || null) : null);
@@ -888,12 +893,13 @@ export const DashboardPage = () => {
       workSecs: !isOnLeave ? workSecs : 0,
       overtimeSecs: !isOnLeave ? Math.max(Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0) : 0,
       breakSecs: computedBreakSecs,
+      currentBreakSecs,
       breakHistory: storedBreakHistory,
       runningTask: !isOnLeave ? runningTask : null,
       empTasks,
       completedTasksToday
     };
-  }, [attendance, leaves, tasks, todayStr, currentUser?._id, currentUser?.employeeCode, formatSeconds, liveTelemetryMap, breakSeconds]);
+  }, [attendance, leaves, tasks, todayStr, currentUser?._id, currentUser?.employeeCode, formatSeconds, liveTelemetryMap, breakSeconds, currentBreakSeconds]);
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
@@ -1256,7 +1262,7 @@ export const DashboardPage = () => {
       }));
 
       if (isOnBreak) {
-        const curBreakSecs = Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
+        const curBreakSecs = Number(empState?.currentBreakSecs) || Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
         const breakStart = readTimerStorage(emp, 'break_start_time') || '--';
         breakHistory.push({
           id: 'brk_live_ongoing',
@@ -2913,7 +2919,7 @@ export const DashboardPage = () => {
           isOnBreak={isOnBreak}
           isBreakOverdue={isBreakOverdue}
           breakType={breakType}
-          currentBreakTimeString={currentBreakTimeString}
+          currentBreakTimeString={isViewingOtherEmployee ? formatTimeDurationSafe(activeEmpState?.currentBreakSecs || 0) : currentBreakTimeString}
           extendBreak={extendBreak}
           setIsBreakModalOpen={setIsBreakModalOpen}
           resumeFromBreak={resumeFromBreak}

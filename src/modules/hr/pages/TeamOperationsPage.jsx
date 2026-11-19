@@ -52,6 +52,7 @@ export const TeamOperationsPage = () => {
     workSeconds: selfWorkSeconds,
     overtimeSeconds: selfOvertimeSeconds,
     breakSeconds: selfBreakSeconds,
+    currentBreakSeconds: selfCurrentBreakSeconds,
     isClockedIn: selfIsClockedIn,
     isOnBreak: selfIsOnBreak,
     breakType: selfBreakType,
@@ -641,6 +642,10 @@ export const TeamOperationsPage = () => {
       ? Math.max(0, Math.floor((nowMs - breakStartTimestamp) / 1000))
       : 0;
 
+    const currentBreakSecs = effectiveOnBreak
+      ? (isSelf && Number(selfCurrentBreakSeconds) > 0 ? Math.max(Number(selfCurrentBreakSeconds), liveCurrentBreak) : liveCurrentBreak)
+      : 0;
+
     let computedBreakSecs = 0;
     if (effectiveOnBreak) {
       computedBreakSecs = pastBreaksFromHistory + liveCurrentBreak;
@@ -669,11 +674,12 @@ export const TeamOperationsPage = () => {
       workSecs,
       overtimeSecs,
       breakSecs: computedBreakSecs,
+      currentBreakSecs,
       runningTask,
       pausedTask,
       empTasks
     };
-  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap, isSelfEmployee, selfWorkSeconds, selfOvertimeSeconds, selfBreakSeconds, selfIsClockedIn, selfIsOnBreak, selfBreakType, selfLoginTime, selfClockOutTime]);
+  }, [attendance, tasks, todayStr, isTaskAssignedToUser, formatSeconds, liveTelemetryMap, isSelfEmployee, selfWorkSeconds, selfOvertimeSeconds, selfBreakSeconds, selfCurrentBreakSeconds, selfIsClockedIn, selfIsOnBreak, selfBreakType, selfLoginTime, selfClockOutTime]);
 
   // Compute live states for active employees only (exclude relieved/archived ex-employees from live operations)
   const teamTodayStates = useMemo(() => {
@@ -1115,7 +1121,7 @@ export const TeamOperationsPage = () => {
       }));
 
       if (empState.isOnBreak) {
-        const curBreakSecs = Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
+        const curBreakSecs = Number(empState.currentBreakSecs) || Number(readTimerStorage(emp, 'current_break_seconds')) || 0;
         const breakStart = readTimerStorage(emp, 'break_start_time') || '--';
         breakHistory.push({
           id: 'brk_live_ongoing',
@@ -1889,7 +1895,7 @@ export const TeamOperationsPage = () => {
                                 : item.isOnLeave
                                   ? 'On Leave 🌴'
                                   : item.isClockedIn
-                                    ? (item.isOnBreak ? `☕ On ${item.breakType} (${formatTimeDurationSafe(item.breakSecs)})` : 'Shift Active 🟢')
+                                    ? (item.isOnBreak ? `☕ On ${item.breakType} (${formatTimeDurationSafe(item.currentBreakSecs)})` : 'Shift Active 🟢')
                                     : (item.isClockedOut ? 'Clocked Out 🔴' : 'Not Clocked In ⚪')}
                             </span>
                           </td>
@@ -1911,8 +1917,8 @@ export const TeamOperationsPage = () => {
                               </div>
                             )}
                             {item.breakSecs > 0 && (
-                              <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5 font-mono tabular-nums">
-                                Breaks: {formatTimeDurationSafe(item.breakSecs)}
+                              <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5 font-mono tabular-nums" title={`Total break time today across all breaks: ${formatTimeDurationSafe(item.breakSecs)}`}>
+                                Total Breaks: {formatTimeDurationSafe(item.breakSecs)}
                               </div>
                             )}
                           </td>

@@ -1396,6 +1396,9 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       isOnBreak,
       breakType: r.breakType || null,
       breakStartTimestamp: r.breakStartTimestamp ? Number(r.breakStartTimestamp) : null,
+      currentBreakSeconds: (isOnBreak && r.breakStartTimestamp && Number(r.breakStartTimestamp) <= now)
+        ? Math.max(0, Math.floor((now - Number(r.breakStartTimestamp)) / 1000))
+        : 0,
       clockInTime: r.clockInTime || r.clockIn || null,
       clockInTimestamp: inTs,
       clockOutTime: r.clockOutTime || r.clockOut || null,
@@ -1490,6 +1493,9 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         breakStartTimestamp: mergedIsOnBreak
           ? (cVal.breakStartTimestamp ? Number(cVal.breakStartTimestamp) : (existing?.breakStartTimestamp ? Number(existing.breakStartTimestamp) : null))
           : null,
+        currentBreakSeconds: mergedIsOnBreak
+          ? Math.max(0, Math.floor((now - Number(cVal.breakStartTimestamp || existing?.breakStartTimestamp || now)) / 1000))
+          : 0,
         breakSeconds: mergedBreakSecs,
         clockInTime: cVal.clockInTime || existing?.clockInTime,
         clockInTimestamp: mergedClockInTs || null,

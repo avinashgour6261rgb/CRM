@@ -112,7 +112,7 @@ export const ShiftClockCard = ({
                   effectiveIsClockedIn ? 'bg-green-500' : displayedIsOnLeave ? 'bg-teal-500' : effectiveIsOnBreak ? 'bg-amber-500' : effectiveHadClockedOut ? 'bg-slate-400' : 'bg-slate-300'
                 }`}
               />
-              {effectiveIsClockedIn && displayedIsOnLeave ? 'Working (On Leave) 🟢🌴' : displayedIsOnLeave ? 'On Approved Leave 🌴' : effectiveIsOnBreak ? `On ${effectiveBreakType}` : effectiveIsClockedIn ? 'Shift Active 🟢' : effectiveHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
+              {effectiveIsClockedIn && displayedIsOnLeave ? 'Working (On Leave) 🟢🌴' : displayedIsOnLeave ? 'On Approved Leave 🌴' : effectiveIsOnBreak ? (currentBreakTimeString ? `On ${effectiveBreakType} (${currentBreakTimeString})` : `On ${effectiveBreakType}`) : effectiveIsClockedIn ? 'Shift Active 🟢' : effectiveHadClockedOut ? 'Shift Ended' : 'Not Clocked In'}
             </span>
           </div>
 

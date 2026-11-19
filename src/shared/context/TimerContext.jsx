@@ -1906,6 +1906,7 @@ export const TimerProvider = ({ children }) => {
         employeeCode: targetEmpCode,
         breakType: type,
         targetMinutes: minutesChosen,
+        breakStartTimestamp: nowMs,
         notes
       }
     }));
@@ -1931,6 +1932,7 @@ export const TimerProvider = ({ children }) => {
         status: 'present',
         isOnBreak: true,
         breakType: type,
+        breakStartTimestamp: nowMs,
         workSeconds,
         breakSeconds
       }).catch(() => {});
