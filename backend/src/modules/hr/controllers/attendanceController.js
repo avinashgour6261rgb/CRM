@@ -1025,6 +1025,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     clockInTimestamp,
     currentSessionStartTimestamp,
     workSeconds,
+    breakSeconds,
     isOnBreak,
     breakType,
     breakStartTimestamp,
@@ -1223,6 +1224,11 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     ? Math.max(existingOvertimeSecs, Math.max(0, Number(req.body.overtimeSeconds) || 0))
     : existingOvertimeSecs;
 
+  const hasExplicitBreakSecs = 'breakSeconds' in req.body && breakSeconds !== undefined && breakSeconds !== null;
+  const resolvedBreakSecs = hasExplicitBreakSecs
+    ? Number(breakSeconds) || 0
+    : (existing?.breakSeconds ? Number(existing.breakSeconds) : 0);
+
   const payload = {
     employeeId: targetId,
     employeeCode: targetCode,
@@ -1234,12 +1240,15 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     clockInTimestamp: existing?.clockInTimestamp || (clockInTimestamp ? Number(clockInTimestamp) : null),
     currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : (existing?.currentSessionStartTimestamp || null),
     workSeconds: resolvedWorkSecs,
+    breakSeconds: resolvedBreakSecs,
     overtimeSeconds: resolvedOvertimeSecs,
     overtimeHours: +(resolvedOvertimeSecs / 3600).toFixed(2),
     overtimeStatus: resolvedOvertimeSecs > 0 ? 'auto_recorded' : (existing?.overtimeStatus || 'none'),
     isOnBreak: hasExplicitBreak ? Boolean(isOnBreak) : Boolean(existing?.isOnBreak),
     breakType: breakType !== undefined ? (breakType || null) : (existing?.breakType || null),
-    breakStartTimestamp: breakStartTimestamp ? Number(breakStartTimestamp) : (existing?.breakStartTimestamp || null),
+    breakStartTimestamp: hasExplicitBreak && !isOnBreak
+      ? null
+      : (breakStartTimestamp ? Number(breakStartTimestamp) : (existing?.breakStartTimestamp || null)),
     activeTask: hasExplicitActiveTask ? (activeTask || null) : (existing?.activeTask || null),
     clockOutTime: resolvedClockedIn ? null : (req.body.clockOutTime || existing?.clockOutTime || null),
     lastHeartbeatAt: Date.now()
@@ -1273,8 +1282,14 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
       updateObj.overtimeStatus = 'auto_recorded';
       updateObj.overtimeReason = 'Auto-tracked (outside company shift hours)';
     }
-    if (hasExplicitBreak) updateObj.isOnBreak = payload.isOnBreak;
+    if (hasExplicitBreak) {
+      updateObj.isOnBreak = payload.isOnBreak;
+      if (!payload.isOnBreak) {
+        updateObj.breakStartTimestamp = null;
+      }
+    }
     if (breakType !== undefined) updateObj.breakType = payload.breakType;
+    if (hasExplicitBreakSecs || resolvedBreakSecs > 0) updateObj.breakSeconds = resolvedBreakSecs;
     if (hasExplicitActiveTask) updateObj.activeTask = payload.activeTask;
     if (payload.currentSessionStartTimestamp) updateObj.currentSessionStartTimestamp = payload.currentSessionStartTimestamp;
     if (payload.breakStartTimestamp) updateObj.breakStartTimestamp = payload.breakStartTimestamp;
@@ -1380,6 +1395,7 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       isClockedOut,
       isOnBreak,
       breakType: r.breakType || null,
+      breakStartTimestamp: r.breakStartTimestamp ? Number(r.breakStartTimestamp) : null,
       clockInTime: r.clockInTime || r.clockIn || null,
       clockInTimestamp: inTs,
       clockOutTime: r.clockOutTime || r.clockOut || null,
@@ -1471,6 +1487,10 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         isClockedOut: Boolean(!mergedIsClockedIn && (cVal.clockOutTime || existing?.clockOutTime)),
         isOnBreak: mergedIsOnBreak,
         breakType: cVal.breakType || existing?.breakType || null,
+        breakStartTimestamp: mergedIsOnBreak
+          ? (cVal.breakStartTimestamp ? Number(cVal.breakStartTimestamp) : (existing?.breakStartTimestamp ? Number(existing.breakStartTimestamp) : null))
+          : null,
+        breakSeconds: mergedBreakSecs,
         clockInTime: cVal.clockInTime || existing?.clockInTime,
         clockInTimestamp: mergedClockInTs || null,
         clockOutTime: cVal.clockOutTime || existing?.clockOutTime,

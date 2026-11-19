@@ -90,6 +90,7 @@ export const WorkProvider = ({ children }) => {
   const shiftWorkSecondsRef = useRef(0);
   // Anti-resurrection lock: prevents in-flight heartbeats / lagging GET /api/tasks polls from un-pausing a just-paused task
   const lastTaskActionRef = useRef({ taskId: '', action: '', at: 0 });
+  const startTaskTimerRef = useRef(null);
 
   useEffect(() => {
     const handleShiftTick = (e) => {
@@ -1564,6 +1565,11 @@ export const WorkProvider = ({ children }) => {
       if (!isEventForMe(e)) return; // Ignore break ends for other employees!
       const activeTimer = getActiveTimerSnapshot();
       if (activeTimer) {
+        if ((activeTimer.wasPausedForBreak || activeTimer.pausedForBreak) && typeof startTaskTimerRef.current === 'function') {
+          // If task was running and was paused specifically for break, resume it seamlessly!
+          startTaskTimerRef.current(activeTimer.taskId);
+          return;
+        }
         // Keep task timer paused so user can explicitly click Resume on the task
         const currentSecs = Number(activeTimer.accumulatedSeconds) || 0;
         const pausedState = {
@@ -2530,6 +2536,7 @@ export const WorkProvider = ({ children }) => {
       addToast(`⏱️ Started tracking work on "${targetTask.title}"!`, 'info');
     }
   };
+  startTaskTimerRef.current = startTaskTimer;
 
   // ── Pause Task Timer (Wall-Clock Precision & Real-Time Sync) ──
   const pauseTaskTimer = (taskId) => {

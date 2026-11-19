@@ -93,9 +93,17 @@ const syncIncomingAttendanceToStorage = (data) => {
         const prevAtt = attList[idx];
         const incomingWork = Number(data.workSeconds) || 0;
         const prevWork = Number(prevAtt.workSeconds) || 0;
+        let safeIsOnBreak = prevAtt.isOnBreak;
+        if (data.isOnBreak !== undefined) {
+          const breakEndedAt = Number(localStorage.getItem(`ems_timer_${empId || empCode}_break_ended_at`)) || 0;
+          const dataBreakStart = Number(data.breakStartTimestamp) || 0;
+          const isBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= dataBreakStart);
+          safeIsOnBreak = isBreakStale ? false : Boolean(data.isOnBreak);
+        }
         attList[idx] = {
           ...prevAtt,
           ...data,
+          isOnBreak: safeIsOnBreak,
           // Never let a partial telemetry packet overwrite positive workSeconds with 0 while clocked in
           workSeconds: (data.isClockedIn && incomingWork === 0 && prevWork > 0) ? prevWork : (data.workSeconds !== undefined ? incomingWork : prevWork)
         };
@@ -112,20 +120,23 @@ const syncIncomingAttendanceToStorage = (data) => {
           localStorage.setItem(`ems_timer_${k}_work_session_date`, today);
           if (data.isClockedIn) {
             localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'true');
-            const breakEndedAt = Number(localStorage.getItem(`ems_timer_${k}_break_ended_at`)) || 0;
-            const dataBreakStart = Number(data.breakStartTimestamp) || 0;
-            const isBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= dataBreakStart);
-            const effectiveOnBreak = isBreakStale ? false : Boolean(data.isOnBreak);
+            if (data.isOnBreak !== undefined) {
+              const breakEndedAt = Number(localStorage.getItem(`ems_timer_${k}_break_ended_at`)) || 0;
+              const dataBreakStart = Number(data.breakStartTimestamp) || 0;
+              const isBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= dataBreakStart);
+              const effectiveOnBreak = isBreakStale ? false : Boolean(data.isOnBreak);
 
-            localStorage.setItem(`ems_timer_${k}_is_running`, effectiveOnBreak ? 'false' : 'true');
-            localStorage.setItem(`ems_timer_${k}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
-            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'false');
-            if (effectiveOnBreak) {
-              if (data.breakType) localStorage.setItem(`ems_timer_${k}_break_type`, data.breakType);
-            } else {
-              localStorage.removeItem(`ems_timer_${k}_break_start_time`);
-              localStorage.removeItem(`ems_timer_${k}_break_start_timestamp`);
+              localStorage.setItem(`ems_timer_${k}_is_running`, effectiveOnBreak ? 'false' : 'true');
+              localStorage.setItem(`ems_timer_${k}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
+              if (effectiveOnBreak) {
+                if (data.breakType) localStorage.setItem(`ems_timer_${k}_break_type`, data.breakType);
+                if (data.breakStartTimestamp) localStorage.setItem(`ems_timer_${k}_break_start_timestamp`, String(data.breakStartTimestamp));
+              } else {
+                localStorage.removeItem(`ems_timer_${k}_break_start_time`);
+                localStorage.removeItem(`ems_timer_${k}_break_start_timestamp`);
+              }
             }
+            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'false');
             if (data.clockInTime) localStorage.setItem(`ems_timer_${k}_login_time`, data.clockInTime);
             if (data.clockInTimestamp) localStorage.setItem(`ems_timer_${k}_clock_in_timestamp`, String(data.clockInTimestamp));
             if (data.currentSessionStartTimestamp) localStorage.setItem(`ems_timer_${k}_current_session_start_timestamp`, String(data.currentSessionStartTimestamp));

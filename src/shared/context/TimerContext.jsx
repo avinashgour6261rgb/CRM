@@ -909,7 +909,21 @@ export const TimerProvider = ({ children }) => {
               if (!Array.isArray(attList)) attList = [];
               const idx = attList.findIndex(a => isRecordForUser(a, today));
               if (idx !== -1) {
-                attList[idx] = { ...attList[idx], ...rec };
+                // FLICKER PREVENTION: Protect active local break or recent resume from stale remote records
+                const localIsOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
+                const breakEndedAt = Number(localStorage.getItem(`ems_timer_${userKey}_break_ended_at`)) || 0;
+                const remoteBreakStart = Number(rec?.breakStartTimestamp) || 0;
+                let safeIsOnBreak = rec?.isOnBreak;
+                if (localIsOnBreak) {
+                  safeIsOnBreak = true;
+                } else if (breakEndedAt > 0 && breakEndedAt >= remoteBreakStart) {
+                  safeIsOnBreak = false;
+                }
+                attList[idx] = {
+                  ...attList[idx],
+                  ...rec,
+                  isOnBreak: safeIsOnBreak !== undefined ? safeIsOnBreak : attList[idx].isOnBreak
+                };
               } else {
                 attList.unshift(rec);
               }
@@ -1183,18 +1197,20 @@ export const TimerProvider = ({ children }) => {
           }
         }
 
-        const breakEndedAt = Number(localStorage.getItem(`ems_timer_${userKey}_break_ended_at`)) || 0;
-        const telemBreakStart = Number(data.breakStartTimestamp) || 0;
-        const isTelemBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= telemBreakStart);
-        const effectiveOnBreak = isTelemBreakStale ? false : Boolean(data.isOnBreak);
-
         setIsClockedIn(true);
-        setIsRunning(!effectiveOnBreak);
-        setIsOnBreak(effectiveOnBreak);
-        if (effectiveOnBreak && data.breakType) {
-          setBreakType(data.breakType);
-        } else if (!effectiveOnBreak) {
-          setBreakType(null);
+        if (data.isOnBreak !== undefined) {
+          const breakEndedAt = Number(localStorage.getItem(`ems_timer_${userKey}_break_ended_at`)) || 0;
+          const telemBreakStart = Number(data.breakStartTimestamp) || 0;
+          const isTelemBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= telemBreakStart);
+          const effectiveOnBreak = isTelemBreakStale ? false : Boolean(data.isOnBreak);
+
+          setIsRunning(!effectiveOnBreak);
+          setIsOnBreak(effectiveOnBreak);
+          if (effectiveOnBreak && data.breakType) {
+            setBreakType(data.breakType);
+          } else if (!effectiveOnBreak) {
+            setBreakType(null);
+          }
         }
         if (data.clockInTime) setLoginTime(data.clockInTime);
         setClockOutTime(null);
@@ -1256,12 +1272,19 @@ export const TimerProvider = ({ children }) => {
       }
     };
 
+    const handleStorageChange = (e) => {
+      // Only resync if change came from remote/other tabs/devices to avoid clobbering fresh local break/resume actions
+      if (e?.detail?.remote) {
+        handleSync();
+      }
+    };
+
     window.addEventListener('focus', handleSync);
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('ems_clocked_in', handleSync);
     window.addEventListener('ems_clocked_out', handleClockedOut);
     window.addEventListener('ems_telemetry_update', handleTelemetryUpdate);
-    window.addEventListener('hrms_storage_change', handleSync);
+    window.addEventListener('hrms_storage_change', handleStorageChange);
     window.addEventListener('ems_socket_reconnected', handleSync);
     return () => {
       clearInterval(interval);
@@ -1270,7 +1293,7 @@ export const TimerProvider = ({ children }) => {
       window.removeEventListener('ems_clocked_in', handleSync);
       window.removeEventListener('ems_clocked_out', handleClockedOut);
       window.removeEventListener('ems_telemetry_update', handleTelemetryUpdate);
-      window.removeEventListener('hrms_storage_change', handleSync);
+      window.removeEventListener('hrms_storage_change', handleStorageChange);
       window.removeEventListener('ems_socket_reconnected', handleSync);
     };
   }, [syncLiveShiftState, isEventForMe, currentUser, userKey, hydratedUserKey, targetEmpId, targetEmpCode]);
@@ -1724,6 +1747,7 @@ export const TimerProvider = ({ children }) => {
             clockInTimestamp: firstClockInTs,
             currentSessionStartTimestamp: sessStartTs,
             workSeconds: netWorkSecs,
+            breakSeconds: totalBreaks,
             overtimeSeconds: liveOvertimeSecs,
             isOnBreak: onBreakVal,
             breakType: breakType,

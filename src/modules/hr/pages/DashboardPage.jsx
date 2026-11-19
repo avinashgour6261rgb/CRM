@@ -359,6 +359,7 @@ export const DashboardPage = () => {
     hadClockedOutToday,
     workSeconds,
     workDurationText,
+    breakSeconds,
     breakDurationText,
     grossDurationText,
     timeString,
@@ -716,6 +717,33 @@ export const DashboardPage = () => {
       ? (isSelf ? (storedBreakType || 'Break') : (telem?.breakType || storedBreakType || 'Break'))
       : null;
 
+    const nowMs = Date.now();
+    const breakStartTimestamp = isSelf
+      ? (Number(readTimerKey('break_start_timestamp')) || Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || 0)
+      : (Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || Number(readTimerKey('break_start_timestamp')) || 0);
+
+    const pastBreaksFromHistory = (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0)
+      ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
+      : (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0
+        ? telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
+        : (isSelf ? (Number(breakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs)));
+
+    const liveCurrentBreak = (breakStartTimestamp > 0 && breakStartTimestamp <= nowMs)
+      ? Math.max(0, Math.floor((nowMs - breakStartTimestamp) / 1000))
+      : 0;
+
+    let computedBreakSecs = 0;
+    if (effectiveOnBreak) {
+      computedBreakSecs = pastBreaksFromHistory + liveCurrentBreak;
+      if (isSelf && Number(breakSeconds) > 0) {
+        computedBreakSecs = Math.max(Number(breakSeconds), computedBreakSecs);
+      }
+    } else {
+      computedBreakSecs = isSelf
+        ? (Number(breakSeconds) || storedBreakSecs)
+        : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
+    }
+
     const loginTime = isClockedIn
       ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
       : (isClockedOut ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || null) : null);
@@ -749,7 +777,7 @@ export const DashboardPage = () => {
     const empTasks = Array.from(empTaskMap.values());
 
     const activeTaskData = (telem?.activeTask?.taskId ? telem.activeTask : null) ||
-                           (attRec?.activeTask?.taskId ? attRec.activeTask : null);
+      (attRec?.activeTask?.taskId ? attRec.activeTask : null);
     if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
       const at = activeTaskData;
       const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
@@ -859,13 +887,13 @@ export const DashboardPage = () => {
       clockOutTime: !isOnLeave ? clockOutTime : null,
       workSecs: !isOnLeave ? workSecs : 0,
       overtimeSecs: !isOnLeave ? Math.max(Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0) : 0,
-      breakSecs: storedBreakSecs,
+      breakSecs: computedBreakSecs,
       breakHistory: storedBreakHistory,
       runningTask: !isOnLeave ? runningTask : null,
       empTasks,
       completedTasksToday
     };
-  }, [attendance, leaves, tasks, todayStr, currentUser?._id, formatSeconds, liveTelemetryMap]);
+  }, [attendance, leaves, tasks, todayStr, currentUser?._id, currentUser?.employeeCode, formatSeconds, liveTelemetryMap, breakSeconds]);
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {

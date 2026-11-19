@@ -627,6 +627,32 @@ export const TeamOperationsPage = () => {
       ? Math.max(Number(selfOvertimeSeconds) || 0, computedOtSecs)
       : Math.max(computedOtSecs, Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0);
 
+    const breakStartTimestamp = isSelf
+      ? (Number(localStorage.getItem(`ems_timer_${empKey}_break_start_timestamp`)) || Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || 0)
+      : (Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || Number(localStorage.getItem(`ems_timer_${empKey}_break_start_timestamp`)) || 0);
+
+    const pastBreaksFromHistory = (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0)
+      ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
+      : (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0
+        ? telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
+        : (isSelf ? (Number(selfBreakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs)));
+
+    const liveCurrentBreak = (breakStartTimestamp > 0 && breakStartTimestamp <= nowMs)
+      ? Math.max(0, Math.floor((nowMs - breakStartTimestamp) / 1000))
+      : 0;
+
+    let computedBreakSecs = 0;
+    if (effectiveOnBreak) {
+      computedBreakSecs = pastBreaksFromHistory + liveCurrentBreak;
+      if (isSelf && Number(selfBreakSeconds) > 0) {
+        computedBreakSecs = Math.max(Number(selfBreakSeconds), computedBreakSecs);
+      }
+    } else {
+      computedBreakSecs = isSelf
+        ? (Number(selfBreakSeconds) || storedBreakSecs)
+        : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
+    }
+
     return {
       emp,
       empKey,
@@ -642,7 +668,7 @@ export const TeamOperationsPage = () => {
       clockOutTime,
       workSecs,
       overtimeSecs,
-      breakSecs: isSelf ? (Number(selfBreakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || storedBreakSecs),
+      breakSecs: computedBreakSecs,
       runningTask,
       pausedTask,
       empTasks
@@ -1885,8 +1911,8 @@ export const TeamOperationsPage = () => {
                               </div>
                             )}
                             {item.breakSecs > 0 && (
-                              <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5">
-                                Breaks: {Math.round(item.breakSecs / 60)}m
+                              <div className="text-[10.5px] text-amber-800 dark:text-amber-300 mt-0.5 font-mono tabular-nums">
+                                Breaks: {formatTimeDurationSafe(item.breakSecs)}
                               </div>
                             )}
                           </td>
