@@ -10,6 +10,7 @@ const {
   getAttachmentMedia,
   createConversation,
   sendMessage,
+  deleteMessage,
   markAsRead,
   syncBatch
 } = require('../controllers/conversationController');
@@ -19,6 +20,7 @@ router.get('/:id/attachments/:attId', getAttachmentMedia);
 router.post('/', createConversation);
 router.post('/sync-batch', syncBatch);
 router.post('/:id/messages', sendMessage);
+router.delete('/:id/messages/:messageId', deleteMessage);
 router.put('/:id/read', markAsRead);
 
 module.exports = router;

@@ -71,6 +71,70 @@ function initSocket(server) {
       }
     });
 
+    // 🎙️ WebRTC Real-Time Voice Signaling Relay (Person-to-Person & Group Huddle)
+    socket.on('voice:join', (data) => {
+      try {
+        const { conversationId, user } = data || {};
+        if (!conversationId) return;
+        const roomName = `voice:${conversationId}`;
+        socket.join(roomName);
+
+        // Tell existing participants in this room that a new peer joined
+        socket.to(roomName).emit('voice:peer_joined', {
+          socketId: socket.id,
+          user,
+          conversationId
+        });
+      } catch (err) {
+        console.warn('[SocketManager] voice:join error:', err.message);
+      }
+    });
+
+    socket.on('voice:signal', (data) => {
+      try {
+        const { targetSocketId, signal, user, conversationId } = data || {};
+        if (targetSocketId && io) {
+          io.to(targetSocketId).emit('voice:signal', {
+            senderSocketId: socket.id,
+            signal,
+            user,
+            conversationId
+          });
+        }
+      } catch (err) {
+        console.warn('[SocketManager] voice:signal error:', err.message);
+      }
+    });
+
+    socket.on('voice:leave', (data) => {
+      try {
+        const { conversationId, user } = data || {};
+        if (!conversationId) return;
+        const roomName = `voice:${conversationId}`;
+        socket.leave(roomName);
+        socket.to(roomName).emit('voice:peer_left', {
+          socketId: socket.id,
+          user,
+          conversationId
+        });
+      } catch (err) {
+        console.warn('[SocketManager] voice:leave error:', err.message);
+      }
+    });
+
+    socket.on('disconnecting', () => {
+      try {
+        for (const room of socket.rooms) {
+          if (typeof room === 'string' && room.startsWith('voice:')) {
+            socket.to(room).emit('voice:peer_left', {
+              socketId: socket.id,
+              conversationId: room.replace('voice:', '')
+            });
+          }
+        }
+      } catch (_) {}
+    });
+
     socket.on('disconnect', () => {
       // Clean disconnect
     });

@@ -440,3 +440,37 @@ exports.syncBatch = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const conv = await Conversation.findOne({ id });
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    if (Array.isArray(conv.messages)) {
+      conv.messages = conv.messages.filter(m => m && String(m.id) !== String(messageId));
+
+      if (conv.messages.length > 0) {
+        const lastMsg = conv.messages[conv.messages.length - 1];
+        conv.lastMessage = lastMsg.text || (lastMsg.attachments?.length ? `📎 Shared ${lastMsg.attachments.length} file(s)` : 'Attachment');
+        conv.lastMessageTime = lastMsg.timestamp || '';
+      } else {
+        conv.lastMessage = '';
+        conv.lastMessageTime = '';
+      }
+
+      await conv.save();
+
+      try {
+        const { emitToAll } = require('../../../shared/socket/socketManager');
+        emitToAll('chat:message:deleted', { conversationId: id, messageId });
+      } catch (_) {}
+    }
+
+    res.json({ success: true, messageId, conversationId: id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

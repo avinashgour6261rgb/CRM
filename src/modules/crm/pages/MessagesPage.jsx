@@ -36,8 +36,10 @@ import {
   Monitor,
   Radio,
   Mic,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
+import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
 import { useCRM } from '../../../shared/context/CRMContext';
@@ -109,8 +111,10 @@ export const MessagesPage = () => {
     activeConversationId,
     setActiveConversationId,
     sendMessage,
+    deleteMessage,
     markConversationAsRead
   } = useCRM();
+  const { confirm } = useConfirm();
   const { currentUser: authUser } = useAuth();
   const { currentUser: hrUser, employees, attendance } = useHR();
   const { isClockedIn, isOnBreak } = useTimer();
@@ -535,6 +539,24 @@ export const MessagesPage = () => {
     addToast('🎙️ Voice memo sent!', 'success');
   };
 
+  const handleDeleteMessage = async (messageId) => {
+    if (!activeConv?.id || !messageId) return;
+    const ok = await confirm({
+      title: 'Delete Message',
+      message: 'Are you sure you want to delete this message? It will be removed for everyone in this conversation.',
+      confirmText: 'Delete for Everyone',
+      type: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+      await deleteMessage(activeConv.id, messageId);
+      addToast('Message deleted', 'info');
+    } catch {
+      addToast('Failed to delete message', 'error');
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2.5 h-[calc(100vh-105px)] max-h-[calc(100vh-105px)] select-none overflow-hidden">
 
@@ -839,7 +861,7 @@ export const MessagesPage = () => {
                       return (
                         <div
                           key={itemKey}
-                          className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${outgoing ? 'self-end' : 'self-start'}`}
+                          className={`group flex flex-col max-w-[78%] sm:max-w-[68%] ${outgoing ? 'self-end' : 'self-start'}`}
                         >
                           {/* Sender Label for Incoming or Channel Messages */}
                           {!outgoing && (
@@ -932,7 +954,7 @@ export const MessagesPage = () => {
                             )}
                           </div>
 
-                          {/* Timestamp & Read Receipt Status */}
+                          {/* Timestamp & Read Receipt Status & Delete Action */}
                           <div className={`text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1.5 ${outgoing ? 'self-end' : 'self-start'}`}>
                             <span>{msg.timestamp || 'Just now'}</span>
                             {outgoing && (
@@ -945,6 +967,16 @@ export const MessagesPage = () => {
                                   <Check size={13.5} strokeWidth={2.2} />
                                 </span>
                               )
+                            )}
+                            {(outgoing || currentUser?.role === 'admin' || currentUser?.isAdmin) && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className="opacity-75 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-0.5 rounded text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 border-0 cursor-pointer ml-1"
+                                title="Delete message for everyone"
+                              >
+                                <Trash2 size={11.5} />
+                              </button>
                             )}
                           </div>
                         </div>

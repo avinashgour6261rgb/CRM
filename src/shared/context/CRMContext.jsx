@@ -70,6 +70,7 @@ const defaultCRMContext = {
   activeConversationId: null,
   setActiveConversationId: () => {},
   sendMessage: async () => {},
+  deleteMessage: async () => {},
   startConversation: async () => {},
   createChannel: async () => {},
   updateChannelMembers: () => {},
@@ -2034,6 +2035,40 @@ const stripHeavyMediaForStorage = (convs = []) => {
     }
   };
 
+  const deleteMessage = async (conversationId, messageId) => {
+    if (!conversationId || !messageId) return;
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
+    if (Array.isArray(currentConvs[idx].messages)) {
+      currentConvs[idx].messages = currentConvs[idx].messages.filter(m => m && String(m.id) !== String(messageId));
+      if (currentConvs[idx].messages.length > 0) {
+        const lastMsg = currentConvs[idx].messages[currentConvs[idx].messages.length - 1];
+        currentConvs[idx].lastMessage = lastMsg.text || (lastMsg.attachments?.length ? `📎 Shared ${lastMsg.attachments.length} file(s)` : 'Attachment');
+        currentConvs[idx].lastMessageTime = lastMsg.timestamp || '';
+      } else {
+        currentConvs[idx].lastMessage = '';
+        currentConvs[idx].lastMessageTime = '';
+      }
+      currentConvs[idx].updatedAt = Date.now();
+    }
+
+    saveCollection(KEYS.CONVERSATIONS, stripHeavyMediaForStorage(currentConvs), { broadcast: false });
+    setConversations([...currentConvs]);
+    window.dispatchEvent(new CustomEvent('ems_chat_message_deleted', { detail: { messageId, conversationId } }));
+
+    // Persist message deletion to MongoDB Atlas database
+    try {
+      fetch(`${API_BASE}/conversations/${conversationId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      }).catch(err => console.warn('[CRMContext] Offline delete sync queued:', err));
+    } catch (err) {
+      console.warn('[CRMContext] Delete message failed:', err);
+    }
+  };
+
   const startConversation = (employeeId) => {
     const emp = (employees || []).find(e =>
       String(e._id) === String(employeeId) ||
@@ -2700,6 +2735,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     activeConversationId,
     setActiveConversationId,
     sendMessage,
+    deleteMessage,
     startConversation,
     createChannel,
     updateChannelMembers,

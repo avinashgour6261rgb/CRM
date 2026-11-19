@@ -299,6 +299,36 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
+  subscribeSocketEvent('chat:message:deleted', (data) => {
+    try {
+      const { conversationId, messageId } = data || {};
+      if (conversationId && messageId) {
+        try {
+          const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
+          let convList = rawConvs ? JSON.parse(rawConvs) : [];
+          if (Array.isArray(convList)) {
+            const idx = convList.findIndex(c => c.id === conversationId);
+            if (idx !== -1 && Array.isArray(convList[idx].messages)) {
+              convList[idx].messages = convList[idx].messages.filter(m => m && String(m.id) !== String(messageId));
+              if (convList[idx].messages.length > 0) {
+                const lastMsg = convList[idx].messages[convList[idx].messages.length - 1];
+                convList[idx].lastMessage = lastMsg.text || (lastMsg.attachments?.length ? `📎 Shared ${lastMsg.attachments.length} file(s)` : 'Attachment');
+                convList[idx].lastMessageTime = lastMsg.timestamp || '';
+              } else {
+                convList[idx].lastMessage = '';
+                convList[idx].lastMessageTime = '';
+              }
+              convList[idx].updatedAt = Date.now();
+              localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convList));
+            }
+          }
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ems_chat_message_deleted', { detail: { messageId, conversationId } }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS, remote: true } }));
+      }
+    } catch (_) {}
+  });
+
   subscribeSocketEvent('chat:conversation:updated', (data) => {
     try {
       const conv = data?.conversation || data;
