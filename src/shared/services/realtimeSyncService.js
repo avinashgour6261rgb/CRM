@@ -358,6 +358,37 @@ if (typeof window !== 'undefined') {
   subscribeSocketEvent('event:updated', (data) => applySingleItemMutation(KEYS.EVENTS, data));
   subscribeSocketEvent('expense:updated', (data) => applySingleItemMutation(KEYS.EXPENSES, data, 'expenseCode'));
   subscribeSocketEvent('project:updated', (data) => applySingleItemMutation(KEYS.PROJECTS, data, 'projectCode'));
+
+  // 📞 WhatsApp-Style Live Voice Calling Signaling Events
+  subscribeSocketEvent('call:incoming', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_incoming', { detail: data }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('call:cancelled', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_cancelled', { detail: data }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('call:accepted', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_accepted', { detail: data }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('call:declined', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_declined', { detail: data }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('call:ended', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_ended', { detail: data }));
+    } catch (_) {}
+  });
   subscribeSocketEvent('timesheet:updated', (data) => applySingleItemMutation(KEYS.TIMESHEETS, data));
   subscribeSocketEvent('leave:updated', (data) => {
     applySingleItemMutation(KEYS.LEAVES, data);

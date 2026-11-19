@@ -5,6 +5,11 @@ import { Sidebar } from './Sidebar';
 import { TopNavbar } from './TopNavbar';
 import { useAuth } from '../../context/AuthContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
+import { useCRM } from '../../context/CRMContext';
+import { useUserShiftStatus } from '../../../modules/crm/utils/useUserShiftStatus';
+import { IncomingCallModal } from '../../../modules/crm/components/messages/IncomingCallModal';
+import { ringtoneService } from '../../../modules/crm/utils/ringtoneService';
+import { emitSocketEvent } from '../../services/socketService';
 import { canAccessModule } from '../../utils/permissionUtils';
 import { playTimerChime } from '../../utils/soundUtils';
 
@@ -30,10 +35,12 @@ const getRequiredModuleForPath = (pathname) => {
 export const Layout = () => {
   const { currentUser: authUser, isAuthenticated } = useAuth();
   const { employees = [] } = useHR() || {};
+  const { setActiveConversationId, sendMessage } = useCRM() || {};
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [permTick, setPermTick] = useState(0);
+  const [incomingCall, setIncomingCall] = useState(null);
 
   // Auto-close mobile drawer when location / route changes
   useEffect(() => {
@@ -87,6 +94,112 @@ export const Layout = () => {
       isDelegatedAdmin: matched.isDelegatedAdmin !== undefined ? Boolean(matched.isDelegatedAdmin) : Boolean(authUser.isDelegatedAdmin)
     };
   }, [authUser, employees, permTick]);
+
+  const shiftStatus = useUserShiftStatus(effectiveUser);
+
+  // 📞 WhatsApp-Style Incoming Voice Call Listener (App-Wide Ringing & Chime)
+  useEffect(() => {
+    const handleIncoming = (e) => {
+      const callData = e.detail;
+      if (!callData) return;
+      const myId = String(effectiveUser?._id || effectiveUser?.id || effectiveUser?.employeeCode || '');
+      const callerId = String(callData.caller?.id || '');
+
+      // Never ring oneself
+      if (callerId && callerId === myId) return;
+
+      // Shift gate check: must be clocked in and not on break
+      if (!shiftStatus.isClockedIn || shiftStatus.isOnBreak) {
+        emitSocketEvent('call:decline', {
+          callId: callData.callId,
+          conversationId: callData.conversationId,
+          callerSocketId: callData.callerSocketId,
+          callerId: callData.caller?.id,
+          decliner: { id: myId, name: effectiveUser?.name || 'Teammate' },
+          reason: shiftStatus.isOnBreak ? 'Recipient is on Break' : 'Recipient is Clocked Out'
+        });
+        return;
+      }
+
+      setIncomingCall(callData);
+      ringtoneService.startIncomingRingtone();
+    };
+
+    const handleCancelledOrEnded = (e) => {
+      const callData = e.detail;
+      if (!incomingCall || !callData?.callId || callData.callId === incomingCall.callId) {
+        ringtoneService.stop();
+        setIncomingCall(null);
+      }
+    };
+
+    window.addEventListener('ems_call_incoming', handleIncoming);
+    window.addEventListener('ems_call_cancelled', handleCancelledOrEnded);
+    window.addEventListener('ems_call_ended', handleCancelledOrEnded);
+
+    return () => {
+      window.removeEventListener('ems_call_incoming', handleIncoming);
+      window.removeEventListener('ems_call_cancelled', handleCancelledOrEnded);
+      window.removeEventListener('ems_call_ended', handleCancelledOrEnded);
+    };
+  }, [effectiveUser, shiftStatus, incomingCall]);
+
+  const handleAcceptIncomingCall = () => {
+    if (!incomingCall) return;
+    ringtoneService.stop();
+    ringtoneService.unlock();
+
+    const myId = String(effectiveUser?._id || effectiveUser?.id || effectiveUser?.employeeCode || '');
+    emitSocketEvent('call:accept', {
+      callId: incomingCall.callId,
+      conversationId: incomingCall.conversationId,
+      callerSocketId: incomingCall.callerSocketId,
+      callerId: incomingCall.caller?.id,
+      acceptor: {
+        id: myId,
+        name: effectiveUser?.name || 'Teammate',
+        avatar: effectiveUser?.avatar || '',
+        role: effectiveUser?.role || 'Team Member'
+      }
+    });
+
+    const targetConvId = incomingCall.conversationId;
+    window.dispatchEvent(new CustomEvent('ems_call_user_accepted', {
+      detail: { ...incomingCall, acceptedAt: Date.now() }
+    }));
+
+    setIncomingCall(null);
+    if (targetConvId && setActiveConversationId) {
+      setActiveConversationId(targetConvId);
+    }
+    if (!location.pathname.startsWith('/messages')) {
+      navigate('/messages');
+    }
+  };
+
+  const handleDeclineIncomingCall = () => {
+    if (!incomingCall) return;
+    ringtoneService.stop();
+    ringtoneService.playCallEndTone();
+
+    const myId = String(effectiveUser?._id || effectiveUser?.id || effectiveUser?.employeeCode || '');
+    emitSocketEvent('call:decline', {
+      callId: incomingCall.callId,
+      conversationId: incomingCall.conversationId,
+      callerSocketId: incomingCall.callerSocketId,
+      callerId: incomingCall.caller?.id,
+      decliner: {
+        id: myId,
+        name: effectiveUser?.name || 'Teammate'
+      },
+      reason: 'User declined'
+    });
+
+    if (incomingCall.conversationId && sendMessage) {
+      sendMessage(incomingCall.conversationId, '📞 Call Declined');
+    }
+    setIncomingCall(null);
+  };
 
   if (!authUser || !isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -142,6 +255,13 @@ export const Layout = () => {
           )}
         </main>
       </div>
+
+      {/* 📞 WhatsApp-Style Global Incoming Live Voice Call Modal */}
+      <IncomingCallModal
+        incomingCall={incomingCall}
+        onAccept={handleAcceptIncomingCall}
+        onDecline={handleDeclineIncomingCall}
+      />
     </div>
   );
 };

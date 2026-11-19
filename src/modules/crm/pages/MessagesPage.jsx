@@ -44,11 +44,10 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
-import { useTimer } from '../../../shared/context/TimerContext';
+import { useUserShiftStatus } from '../utils/useUserShiftStatus';
 import { canScreenShare } from '../../../shared/utils/permissionUtils';
 import { NewConversationModal } from '../components/messages/NewConversationModal';
 import { ChatMediaViewerModal } from '../components/messages/ChatMediaViewerModal';
-import { ChatVoiceRecorder } from '../components/messages/ChatVoiceRecorder';
 import { VoiceMemoPlayer } from '../components/messages/VoiceMemoPlayer';
 import { LiveVoiceHuddleBar } from '../components/messages/LiveVoiceHuddleBar';
 import { ScreenShareModal } from '../components/messages/ScreenShareModal';
@@ -117,7 +116,6 @@ export const MessagesPage = () => {
   const { confirm } = useConfirm();
   const { currentUser: authUser } = useAuth();
   const { currentUser: hrUser, employees, attendance } = useHR();
-  const { isClockedIn, isOnBreak } = useTimer();
 
   const currentUser = useMemo(() => {
     const base = authUser || hrUser;
@@ -131,6 +129,9 @@ export const MessagesPage = () => {
     );
     return matched ? { ...base, ...matched } : base;
   }, [authUser, hrUser, employees]);
+
+  // High-performance decoupled shift state: 0 re-renders per second
+  const { isClockedIn, isOnBreak } = useUserShiftStatus(currentUser);
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'channels' | 'dms'
@@ -533,12 +534,6 @@ export const MessagesPage = () => {
     addToast('Screen share stopped', 'info');
   };
 
-  const handleSendVoiceMemo = (audioAttachment) => {
-    if (!activeConv) return;
-    sendMessage(activeConv.id, '', [audioAttachment]);
-    addToast('🎙️ Voice memo sent!', 'success');
-  };
-
   const handleDeleteMessage = async (messageId) => {
     if (!activeConv?.id || !messageId) return;
     const ok = await confirm({
@@ -816,6 +811,7 @@ export const MessagesPage = () => {
                   partnerShiftState={partnerShiftState}
                   isChannel={activeIsChannel}
                   employees={employees}
+                  sendMessage={sendMessage}
                 />
 
                 {/* Incoming Screen Share Alert Banner for Viewers */}
@@ -1095,12 +1091,6 @@ export const MessagesPage = () => {
                   >
                     <Smile size={18} />
                   </button>
-
-                  {/* Walkie-Talkie & Voice Memo Recorder */}
-                  <ChatVoiceRecorder
-                    onSendAudio={handleSendVoiceMemo}
-                    disabled={isSending}
-                  />
 
                   <input
                     ref={inputRef}

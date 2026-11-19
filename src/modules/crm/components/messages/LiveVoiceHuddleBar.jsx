@@ -4,16 +4,20 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Phone,
   PhoneOff,
   Users,
   Radio,
   Lock,
   Coffee,
-  Sparkles
+  Sparkles,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
-import { useTimer } from '../../../../shared/context/TimerContext';
+import { useUserShiftStatus } from '../../utils/useUserShiftStatus';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { emitSocketEvent, subscribeSocketEvent } from '../../../../shared/services/socketService';
+import { ringtoneService } from '../../utils/ringtoneService';
 
 const RTC_CONFIG = {
   iceServers: [
@@ -23,10 +27,31 @@ const RTC_CONFIG = {
   ]
 };
 
+const formatCallDuration = (seconds) => {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+};
+
+const formatDigitalTimer = (seconds) => {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
+
 /**
  * @file LiveVoiceHuddleBar.jsx
- * @description Enterprise WebRTC Real-Time Voice Talk & Huddle Bar for Person-to-Person & Group Channels.
- * Provides actual live microphone audio exchange, mobile-ready playback, mute controls, and visual presence.
+ * @description WhatsApp-Style Real-Time Voice Calling & Channel Huddle Bar.
+ * Features:
+ * 1. Targeted 1-on-1 Voice Calling with Outgoing Ringback & Recipient Ringing Chime.
+ * 2. Shift-Gated: Both caller & recipient must be Clocked In (not on break).
+ * 3. Mobile-Optimized WebRTC Audio (iOS Safari & Android Chrome compatibility).
+ * 4. Lightweight Call History Logging in chat ("📞 Voice Call • 4m 12s", "📞 Missed Voice Call").
+ * 5. Strict Zero Audio File Storage (zero memory bloat, zero quota overhead).
+ * 6. High-Performance Decoupled Shift State (eliminates 60 re-renders/minute).
  */
 export const LiveVoiceHuddleBar = ({
   activeConv,
@@ -34,18 +59,26 @@ export const LiveVoiceHuddleBar = ({
   activePartner,
   partnerShiftState,
   isChannel,
-  employees
+  employees,
+  sendMessage
 }) => {
-  const { isClockedIn, isOnBreak, breakType } = useTimer();
+  // Use decoupled shift status to prevent 60 full-component re-renders per minute
+  const { isClockedIn, isOnBreak, breakType } = useUserShiftStatus(currentUser);
   const { addToast } = useToast();
 
-  const [isInHuddle, setIsInHuddle] = useState(false);
-  const isInHuddleRef = useRef(false);
+  // Call States: 'idle' | 'outgoing_ringing' | 'connected'
+  const [callState, setCallState] = useState('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
   const isDeafenedRef = useRef(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  const activeCallIdRef = useRef(null);
+  const callStartEpochRef = useRef(null);
+  const durationIntervalRef = useRef(null);
+  const ringingTimeoutRef = useRef(null);
 
   const huddleKey = activeConv?.id ? `ems_huddle_${activeConv.id}` : null;
   const [huddleMembers, setHuddleMembers] = useState([]);
@@ -63,10 +96,6 @@ export const LiveVoiceHuddleBar = ({
   const peerUsersRef = useRef(new Map());
 
   const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
-
-  useEffect(() => {
-    isInHuddleRef.current = isInHuddle;
-  }, [isInHuddle]);
 
   useEffect(() => {
     isDeafenedRef.current = isDeafened;
@@ -89,11 +118,10 @@ export const LiveVoiceHuddleBar = ({
       audioElementsRef.current.delete(socketId);
     }
     peerUsersRef.current.delete(socketId);
-
     setHuddleMembers(prev => prev.filter(m => m.socketId !== socketId));
   }, []);
 
-  // WebRTC Peer Connection Factory
+  // WebRTC Peer Connection Factory (Mobile-Optimized)
   const createPeerConnection = useCallback((targetSocketId, isInitiator, peerUser) => {
     if (peersRef.current.has(targetSocketId)) {
       return peersRef.current.get(targetSocketId);
@@ -116,14 +144,14 @@ export const LiveVoiceHuddleBar = ({
       });
     }
 
-    // Remote audio track arrives
+    // Remote audio track arrives: Create iOS & Android compatible audio player
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0];
       let audioEl = audioElementsRef.current.get(targetSocketId);
       if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.autoplay = true;
-        audioEl.playsInline = true;
+        audioEl.playsInline = true; // Essential for iOS Safari
         audioEl.style.display = 'none';
         document.body.appendChild(audioEl);
         audioElementsRef.current.set(targetSocketId, audioEl);
@@ -185,12 +213,399 @@ export const LiveVoiceHuddleBar = ({
     return pc;
   }, [activeConv?.id, myId, currentUser, cleanupPeer]);
 
-  // Socket.IO WebRTC Signaling Event Subscriptions
+  // Setup local microphone stream
+  const setupLocalMic = async () => {
+    if (audioStreamRef.current) return audioStreamRef.current;
+
+    ringtoneService.unlock();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    });
+    audioStreamRef.current = stream;
+
+    // Web Audio API for visual speaking pulse detection
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      const audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      audioContextRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkAudio = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        setAudioLevel(avg);
+        setIsSpeaking(avg > 15 && !isMuted);
+
+        animFrameRef.current = requestAnimationFrame(checkAudio);
+      };
+      checkAudio();
+    }
+
+    return stream;
+  };
+
+  // Stop all audio, peer connections, and timers
+  const stopAllVoice = useCallback(() => {
+    ringtoneService.stop();
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
+    peersRef.current.forEach(pc => {
+      try { pc.close(); } catch (_) {}
+    });
+    peersRef.current.clear();
+
+    audioElementsRef.current.forEach(el => {
+      try {
+        el.pause();
+        el.srcObject = null;
+        if (el.parentNode) el.parentNode.removeChild(el);
+      } catch (_) {}
+    });
+    audioElementsRef.current.clear();
+    peerUsersRef.current.clear();
+
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(t => t.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+
+    emitSocketEvent('voice:leave', {
+      conversationId: activeConv?.id,
+      user: { id: myId }
+    });
+
+    setCallState('idle');
+    setAudioLevel(0);
+    setIsSpeaking(false);
+    setCallDuration(0);
+    activeCallIdRef.current = null;
+    callStartEpochRef.current = null;
+
+    if (huddleKey && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(huddleKey);
+        if (raw) {
+          const currentList = JSON.parse(raw);
+          const remaining = currentList.filter(m => String(m.id) !== myId);
+          if (remaining.length > 0) {
+            localStorage.setItem(huddleKey, JSON.stringify(remaining));
+          } else {
+            localStorage.removeItem(huddleKey);
+          }
+          setHuddleMembers(remaining);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+        }
+      } catch (_) {}
+    }
+  }, [activeConv?.id, huddleKey, myId]);
+
+  // Start Live Duration Ticker on connected call
+  const startDurationTimer = () => {
+    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+    callStartEpochRef.current = Date.now();
+    setCallDuration(0);
+    durationIntervalRef.current = setInterval(() => {
+      if (callStartEpochRef.current) {
+        setCallDuration(Math.floor((Date.now() - callStartEpochRef.current) / 1000));
+      }
+    }, 1000);
+  };
+
+  // ── Call Initiation (WhatsApp-Style Outgoing Call) ──
+  const startCall = async () => {
+    if (!isClockedIn) {
+      addToast('🔒 Shift Clock-In Required: You must clock into your shift to start a voice call.', 'warning');
+      return;
+    }
+    if (isOnBreak) {
+      addToast('☕ You are on break. Voice calls are unavailable during break.', 'warning');
+      return;
+    }
+
+    if (!isChannel) {
+      if (!partnerShiftState?.isClockedIn) {
+        addToast(`🔴 ${activePartner?.name || 'Partner'} is Clocked Out. Both team members must be clocked in.`, 'warning');
+        return;
+      }
+      if (partnerShiftState?.isOnBreak) {
+        addToast(`☕ ${activePartner?.name || 'Partner'} is currently on ${partnerShiftState?.breakType || 'Break'}. Call unavailable.`, 'warning');
+        return;
+      }
+    }
+
+    try {
+      await setupLocalMic();
+
+      const newCallId = `call_${Date.now()}_${myId}`;
+      activeCallIdRef.current = newCallId;
+
+      if (!isChannel) {
+        // 1-on-1: Outgoing Ringback Tone & Targeted Ringing
+        setCallState('outgoing_ringing');
+        ringtoneService.startOutgoingRingback();
+
+        emitSocketEvent('call:initiate', {
+          callId: newCallId,
+          caller: {
+            id: myId,
+            name: currentUser?.name || 'Teammate',
+            avatar: currentUser?.avatar || '',
+            role: currentUser?.role || 'Team Member'
+          },
+          targetUserId: activePartner?._id || activePartner?.id,
+          targetEmployeeCode: activePartner?.employeeCode,
+          targetEmail: activePartner?.email,
+          conversationId: activeConv?.id,
+          isChannel: false,
+          channelName: ''
+        });
+
+        // 45s Ringing Timeout if recipient doesn't answer
+        if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
+        ringingTimeoutRef.current = setTimeout(() => {
+          if (callState === 'outgoing_ringing' || activeCallIdRef.current === newCallId) {
+            cancelCall(true);
+          }
+        }, 45000);
+
+        addToast(`Calling ${activePartner?.name || 'Partner'}... 📞`, 'info');
+      } else {
+        // Group Channel: Immediate Huddle Connection
+        connectHuddleRoom();
+        emitSocketEvent('call:initiate', {
+          callId: newCallId,
+          caller: {
+            id: myId,
+            name: currentUser?.name || 'Teammate',
+            avatar: currentUser?.avatar || '',
+            role: currentUser?.role || 'Team Member'
+          },
+          conversationId: activeConv?.id,
+          isChannel: true,
+          channelName: activeConv?.channelName || activeConv?.name || 'Channel'
+        });
+        addToast('🎙️ Voice Huddle started in channel', 'success');
+      }
+    } catch (err) {
+      console.error('Call initiation error:', err);
+      addToast('Could not access microphone. Please grant mic permissions.', 'error');
+      stopAllVoice();
+    }
+  };
+
+  // Cancel outgoing ringing call before recipient answers
+  const cancelCall = (wasTimeout = false) => {
+    ringtoneService.stop();
+    if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
+
+    emitSocketEvent('call:cancel', {
+      callId: activeCallIdRef.current,
+      conversationId: activeConv?.id,
+      targetUserId: activePartner?._id || activePartner?.id,
+      targetEmployeeCode: activePartner?.employeeCode,
+      isChannel
+    });
+
+    if (sendMessage && activeConv?.id) {
+      sendMessage(activeConv.id, wasTimeout ? '📞 Missed Voice Call (No Answer)' : '📞 Missed Voice Call');
+    }
+
+    stopAllVoice();
+    addToast(wasTimeout ? 'No answer' : 'Call cancelled', 'info');
+  };
+
+  // Connect to live WebRTC audio room once call is accepted
+  const connectHuddleRoom = () => {
+    ringtoneService.stop();
+    setCallState('connected');
+    startDurationTimer();
+
+    emitSocketEvent('voice:join', {
+      conversationId: activeConv?.id,
+      user: {
+        id: myId,
+        name: currentUser?.name || 'Teammate',
+        avatar: currentUser?.avatar || '',
+        role: currentUser?.role || 'Team Member'
+      }
+    });
+
+    const selfMember = {
+      id: myId,
+      name: currentUser?.name || 'Teammate',
+      avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+      role: currentUser?.role || 'Team Member',
+      isMuted: false,
+      joinedAt: Date.now()
+    };
+
+    setHuddleMembers(prev => {
+      const filtered = prev.filter(m => String(m.id) !== myId);
+      return [...filtered, selfMember];
+    });
+
+    if (huddleKey && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(huddleKey);
+        const currentList = raw ? JSON.parse(raw) : [];
+        const filtered = currentList.filter(m => String(m.id) !== myId);
+        filtered.push(selfMember);
+        localStorage.setItem(huddleKey, JSON.stringify(filtered));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+      } catch (_) {}
+    }
+  };
+
+  // End active call (WhatsApp-style: posts duration text log, zero audio stored)
+  const endCall = () => {
+    ringtoneService.playCallEndTone();
+
+    const elapsedSeconds = callStartEpochRef.current
+      ? Math.max(1, Math.floor((Date.now() - callStartEpochRef.current) / 1000))
+      : callDuration;
+    const durationText = formatCallDuration(elapsedSeconds);
+
+    emitSocketEvent('call:end', {
+      callId: activeCallIdRef.current,
+      conversationId: activeConv?.id,
+      durationSeconds: elapsedSeconds,
+      durationText,
+      endedBy: { id: myId, name: currentUser?.name || 'Teammate' },
+      targetUserId: activePartner?._id || activePartner?.id,
+      targetEmployeeCode: activePartner?.employeeCode
+    });
+
+    // Auto-record lightweight text duration to chat (Zero audio storage!)
+    if (sendMessage && activeConv?.id && elapsedSeconds > 0) {
+      sendMessage(activeConv.id, `📞 Voice Call • ${durationText}`);
+    }
+
+    stopAllVoice();
+    addToast(`Call ended (${durationText})`, 'info');
+  };
+
+  // ── Socket.IO & Custom Window Events Subscriptions ──
+  useEffect(() => {
+    // 1. Recipient Accepted Call
+    const handleAccepted = (data) => {
+      const callData = data?.detail || data;
+      if (!callData) return;
+      if (activeConv?.id && callData.conversationId === activeConv.id) {
+        ringtoneService.stop();
+        if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
+        connectHuddleRoom();
+        addToast('📞 Call connected', 'success');
+      }
+    };
+
+    // 2. Recipient Declined Call
+    const handleDeclined = (data) => {
+      const callData = data?.detail || data;
+      if (!callData) return;
+      if (activeConv?.id && callData.conversationId === activeConv.id) {
+        ringtoneService.playCallEndTone();
+        if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
+        stopAllVoice();
+        if (sendMessage && activeConv?.id) {
+          sendMessage(activeConv.id, '📞 Call Declined');
+        }
+        addToast(`${activePartner?.name || 'Partner'} declined the call.`, 'warning');
+      }
+    };
+
+    // 3. Remote Ended Call
+    const handleRemoteEnded = (data) => {
+      const callData = data?.detail || data;
+      if (!callData) return;
+      if (activeConv?.id && callData.conversationId === activeConv.id) {
+        ringtoneService.playCallEndTone();
+        stopAllVoice();
+        addToast(`Call ended (${callData.durationText || ''})`, 'info');
+      }
+    };
+
+    // 4. Remote Cancelled Call
+    const handleCancelled = (data) => {
+      const callData = data?.detail || data;
+      if (!callData) return;
+      if (activeConv?.id && callData.conversationId === activeConv.id) {
+        ringtoneService.stop();
+        stopAllVoice();
+      }
+    };
+
+    // 5. User accepted call from global IncomingCallModal
+    const handleGlobalUserAccepted = async (e) => {
+      const callData = e.detail;
+      if (!callData || callData.conversationId !== activeConv?.id) return;
+      try {
+        await setupLocalMic();
+        connectHuddleRoom();
+      } catch (err) {
+        console.error('[LiveVoice] Error joining on accepted call:', err);
+      }
+    };
+
+    const unsubAccepted = subscribeSocketEvent('call:accepted', handleAccepted);
+    const unsubDeclined = subscribeSocketEvent('call:declined', handleDeclined);
+    const unsubEnded = subscribeSocketEvent('call:ended', handleRemoteEnded);
+    const unsubCancelled = subscribeSocketEvent('call:cancelled', handleCancelled);
+
+    window.addEventListener('ems_call_accepted', handleAccepted);
+    window.addEventListener('ems_call_declined', handleDeclined);
+    window.addEventListener('ems_call_ended', handleRemoteEnded);
+    window.addEventListener('ems_call_cancelled', handleCancelled);
+    window.addEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
+
+    return () => {
+      unsubAccepted();
+      unsubDeclined();
+      unsubEnded();
+      unsubCancelled();
+      window.removeEventListener('ems_call_accepted', handleAccepted);
+      window.removeEventListener('ems_call_declined', handleDeclined);
+      window.removeEventListener('ems_call_ended', handleRemoteEnded);
+      window.removeEventListener('ems_call_cancelled', handleCancelled);
+      window.removeEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
+    };
+  }, [activeConv?.id, activePartner?.name, sendMessage, stopAllVoice]);
+
+  // WebRTC Signaling Listeners
   useEffect(() => {
     const unsubJoined = subscribeSocketEvent('voice:peer_joined', (data) => {
       if (!data || data.conversationId !== activeConv?.id) return;
-      if (data.socketId && isInHuddleRef.current) {
-        // We are already in room, initiate offer to newly joined peer
+      if (data.socketId && callState === 'connected') {
         createPeerConnection(data.socketId, true, data.user);
       }
     });
@@ -202,7 +617,6 @@ export const LiveVoiceHuddleBar = ({
 
       let pc = peersRef.current.get(senderSocketId);
       if (!pc && signal?.sdp?.type === 'offer') {
-        // Receiver creates connection on incoming offer
         pc = createPeerConnection(senderSocketId, false, user);
       }
       if (!pc) return;
@@ -249,280 +663,31 @@ export const LiveVoiceHuddleBar = ({
       unsubSignal();
       unsubLeft();
     };
-  }, [activeConv?.id, createPeerConnection, cleanupPeer, myId, currentUser]);
+  }, [activeConv?.id, callState, createPeerConnection, cleanupPeer, myId, currentUser]);
 
-  // Sync huddle members from storage for local multi-tab sync
-  const syncHuddleMembers = useCallback(() => {
-    if (!huddleKey || typeof localStorage === 'undefined') {
-      return;
+  // Auto-hangup if current user clocks out or starts a break
+  useEffect(() => {
+    if ((callState === 'connected' || callState === 'outgoing_ringing') && (!isClockedIn || isOnBreak)) {
+      stopAllVoice();
+      addToast('Call ended: You clocked out or went on break.', 'info');
     }
-    try {
-      const raw = localStorage.getItem(huddleKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const now = Date.now();
-          const valid = parsed.filter(m => (now - (m.joinedAt || 0)) < 12 * 3600 * 1000);
-          setHuddleMembers(prev => {
-            const map = new Map();
-            prev.forEach(p => map.set(String(p.id), p));
-            valid.forEach(v => map.set(String(v.id), { ...(map.get(String(v.id)) || {}), ...v }));
-            return Array.from(map.values());
-          });
-          return;
-        }
-      }
-    } catch {}
-  }, [huddleKey]);
+  }, [isClockedIn, isOnBreak, callState, stopAllVoice]);
 
-  useEffect(() => {
-    syncHuddleMembers();
-    const handleSync = (e) => {
-      if (!e.detail || e.detail.key === huddleKey) syncHuddleMembers();
-    };
-    const handleNative = (e) => {
-      if (!e.key || e.key === huddleKey) syncHuddleMembers();
-    };
-    window.addEventListener('hrms_storage_change', handleSync);
-    window.addEventListener('storage', handleNative);
-    return () => {
-      window.removeEventListener('hrms_storage_change', handleSync);
-      window.removeEventListener('storage', handleNative);
-    };
-  }, [huddleKey, syncHuddleMembers]);
-
-  // Clean up on unmount or beforeunload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (isInHuddleRef.current) {
-        leaveHuddle();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-  // Check partner's shift state in 1-on-1
-  const partnerIsClockedIn = Boolean(partnerShiftState?.isClockedIn);
-  const partnerIsOnBreak = Boolean(partnerShiftState?.isOnBreak);
-  const canIJoin = isClockedIn && !isOnBreak;
-
-  // Disconnect if user clocks out or goes on break
-  useEffect(() => {
-    if (isInHuddle && (!isClockedIn || isOnBreak)) {
-      leaveHuddle();
-      addToast('Left Live Voice Talk: You clocked out or went on break.', 'info');
-    }
-  }, [isClockedIn, isOnBreak]);
-
-  // Clean up when active conversation changes
+  // Clean up on unmount or navigation
   useEffect(() => {
     return () => {
-      if (isInHuddleRef.current) {
-        stopAllVoice();
-      }
+      stopAllVoice();
     };
-  }, [activeConv?.id]);
-
-  const startAudioMonitoring = async () => {
-    try {
-      // Mobile-optimized audio constraints for crystal clear voice & zero echo feedback
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
-      audioStreamRef.current = stream;
-
-      // Web Audio API for visual speaking pulse detection
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {
-        const audioCtx = new AudioContextClass();
-        if (audioCtx.state === 'suspended') {
-          await audioCtx.resume();
-        }
-        audioContextRef.current = audioCtx;
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
-
-        const source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        const checkAudio = () => {
-          if (!analyserRef.current) return;
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
-          }
-          const avg = sum / dataArray.length;
-          setAudioLevel(avg);
-          setIsSpeaking(avg > 15 && !isMuted);
-
-          animFrameRef.current = requestAnimationFrame(checkAudio);
-        };
-        checkAudio();
-      }
-
-      setIsInHuddle(true);
-      isInHuddleRef.current = true;
-
-      // Register with backend Socket.IO voice room
-      emitSocketEvent('voice:join', {
-        conversationId: activeConv?.id,
-        user: {
-          id: myId,
-          name: currentUser?.name || 'Teammate',
-          avatar: currentUser?.avatar || '',
-          role: currentUser?.role || 'Team Member'
-        }
-      });
-
-      // Register self in huddle members list
-      const selfMember = {
-        id: myId,
-        name: currentUser?.name || 'Teammate',
-        avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-        role: currentUser?.role || 'Team Member',
-        isMuted: false,
-        joinedAt: Date.now()
-      };
-
-      setHuddleMembers(prev => {
-        const filtered = prev.filter(m => String(m.id) !== myId);
-        return [...filtered, selfMember];
-      });
-
-      // Register in localStorage for tab sync
-      if (huddleKey && typeof localStorage !== 'undefined') {
-        try {
-          const raw = localStorage.getItem(huddleKey);
-          const currentList = raw ? JSON.parse(raw) : [];
-          const filtered = currentList.filter(m => String(m.id) !== myId);
-          filtered.push(selfMember);
-          localStorage.setItem(huddleKey, JSON.stringify(filtered));
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
-        } catch {}
-      }
-
-      addToast('🎙️ Connected to Live Voice Talk (Microphone & Speakers Active)', 'success');
-    } catch (err) {
-      console.error('Microphone error in Live Voice:', err);
-      addToast('Could not access microphone. Please grant mic permissions.', 'error');
-      setIsInHuddle(false);
-      isInHuddleRef.current = false;
-    }
-  };
-
-  const stopAllVoice = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-
-    // Close all WebRTC peer connections
-    peersRef.current.forEach(pc => {
-      try { pc.close(); } catch (_) {}
-    });
-    peersRef.current.clear();
-
-    // Pause and remove all remote audio elements
-    audioElementsRef.current.forEach(el => {
-      try {
-        el.pause();
-        el.srcObject = null;
-        if (el.parentNode) el.parentNode.removeChild(el);
-      } catch (_) {}
-    });
-    audioElementsRef.current.clear();
-    peerUsersRef.current.clear();
-
-    // Stop local microphone tracks
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(t => t.stop());
-      audioStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-
-    // Notify backend voice room
-    emitSocketEvent('voice:leave', {
-      conversationId: activeConv?.id,
-      user: { id: myId }
-    });
-
-    setIsInHuddle(false);
-    isInHuddleRef.current = false;
-    setAudioLevel(0);
-    setIsSpeaking(false);
-
-    // Remove from local storage
-    if (huddleKey && typeof localStorage !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(huddleKey);
-        if (raw) {
-          const currentList = JSON.parse(raw);
-          const remaining = currentList.filter(m => String(m.id) !== myId);
-          if (remaining.length > 0) {
-            localStorage.setItem(huddleKey, JSON.stringify(remaining));
-          } else {
-            localStorage.removeItem(huddleKey);
-          }
-          setHuddleMembers(remaining);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
-        }
-      } catch {}
-    }
-  };
-
-  const joinHuddle = () => {
-    if (!canIJoin) {
-      addToast('🔒 Shift Clock-In Required: You must clock into your shift to join live voice talk.', 'warning');
-      return;
-    }
-    if (!isChannel && !partnerIsClockedIn) {
-      addToast(`🔴 ${activePartner?.name || 'Partner'} is Clocked Out. Both team members must be clocked in.`, 'warning');
-      return;
-    }
-    if (!isChannel && partnerIsOnBreak) {
-      addToast(`☕ ${activePartner?.name || 'Partner'} is currently on ${partnerShiftState?.breakType || 'Break'}.`, 'warning');
-      return;
-    }
-    startAudioMonitoring();
-  };
-
-  const leaveHuddle = () => {
-    stopAllVoice();
-    addToast('Left live voice talk', 'info');
-  };
+  }, [activeConv?.id, stopAllVoice]);
 
   const toggleMute = () => {
     if (!audioStreamRef.current) return;
-    const audioTrack = audioStreamRef.current.getAudioTracks()[0];
-    if (audioTrack) {
-      const nextMute = !isMuted;
-      audioTrack.enabled = !nextMute;
-      setIsMuted(nextMute);
-      if (nextMute) setIsSpeaking(false);
-
-      if (huddleKey && typeof localStorage !== 'undefined') {
-        try {
-          const raw = localStorage.getItem(huddleKey);
-          if (raw) {
-            const list = JSON.parse(raw);
-            const item = list.find(m => String(m.id) === myId);
-            if (item) item.isMuted = nextMute;
-            localStorage.setItem(huddleKey, JSON.stringify(list));
-            setHuddleMembers(list);
-            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
-          }
-        } catch {}
-      }
+    const track = audioStreamRef.current.getAudioTracks()[0];
+    if (track) {
+      const next = !isMuted;
+      track.enabled = !next;
+      setIsMuted(next);
+      if (next) setIsSpeaking(false);
     }
   };
 
@@ -534,65 +699,92 @@ export const LiveVoiceHuddleBar = ({
     });
   };
 
-  // ── Render Huddle Bar ──
+  // Partner availability indicators
+  const partnerIsClockedIn = Boolean(partnerShiftState?.isClockedIn);
+  const partnerIsOnBreak = Boolean(partnerShiftState?.isOnBreak);
+  const canICall = isClockedIn && !isOnBreak;
+
   return (
     <div className="shrink-0 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-[#0c1427]/90 text-xs transition-all">
-      {/* If Currently In Huddle */}
-      {isInHuddle ? (
-        <div className="p-2 sm:p-2.5 px-3 sm:px-5 flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-l-4 border-l-emerald-500">
+      {/* ── 1. Outgoing Ringing State (Calling Partner) ── */}
+      {callState === 'outgoing_ringing' ? (
+        <div className="p-2 sm:p-2.5 px-3 sm:px-5 flex items-center justify-between gap-3 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border-l-4 border-l-blue-500 animate-fadeIn">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative shrink-0">
+              <span className="absolute -inset-1 rounded-full bg-blue-500/30 animate-ping" />
+              <img
+                src={activePartner?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                alt={activePartner?.name}
+                className="w-8 h-8 rounded-full object-cover border-2 border-blue-500 shadow-sm relative z-10"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-[12.5px] text-slate-900 dark:text-slate-100 truncate">
+                  Calling {activePartner?.name || 'Colleague'}...
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-sky-300 animate-pulse">
+                  Ringing 📞
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                Waiting for answer • Melodic ringtone active on recipient device
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => cancelCall(false)}
+            className="p-1.5 px-3 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-bold flex items-center gap-1.5 cursor-pointer border-0 shadow-sm transition-transform active:scale-95 shrink-0"
+            title="Cancel Call"
+          >
+            <PhoneOff size={13} />
+            <span className="text-[11px]">Cancel</span>
+          </button>
+        </div>
+      ) : callState === 'connected' ? (
+        /* ── 2. Call Connected & Live WebRTC Stream Active ── */
+        <div className="p-2 sm:p-2.5 px-3 sm:px-5 flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border-l-4 border-l-emerald-500 animate-fadeIn">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            {/* Participants Avatars List */}
+            {/* Avatars */}
             <div className="flex items-center -space-x-2 shrink-0">
-              {huddleMembers.map(m => {
-                const isMe = String(m.id) === myId;
-                const memberSpeaking = isMe ? isSpeaking : false;
-                return (
-                  <div key={m.id || m.socketId} className="relative group" title={`${m.name} (${m.role || 'Member'})`}>
-                    <img
-                      src={m.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                      alt={m.name}
-                      className={`w-8 h-8 rounded-full object-cover transition-all ${
-                        memberSpeaking ? 'ring-3 ring-emerald-500 scale-105' : 'ring-1 ring-slate-300 dark:ring-slate-700'
-                      }`}
-                    />
-                    {memberSpeaking && (
-                      <span className="absolute -inset-1 rounded-full bg-emerald-500/30 animate-ping -z-10" />
-                    )}
-                    {m.isMuted && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-rose-600 text-white flex items-center justify-center text-[8px] font-bold">
-                        ✕
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              <img
+                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                alt={currentUser?.name}
+                className={`w-8 h-8 rounded-full object-cover ring-2 ${
+                  isSpeaking ? 'ring-emerald-500 scale-105' : 'ring-slate-300 dark:ring-slate-700'
+                }`}
+              />
+              {!isChannel && activePartner && (
+                <img
+                  src={activePartner?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                  alt={activePartner?.name}
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-emerald-500"
+                />
+              )}
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-[12.5px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <Radio size={14} className="text-emerald-500 animate-pulse shrink-0" />
-                  <span>{isChannel ? `Group Voice Huddle (${huddleMembers.length})` : '1-on-1 Live Voice Call'}</span>
+                  <span>{isChannel ? `Group Voice Huddle (${huddleMembers.length})` : 'Live Voice Call'}</span>
                 </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                  isSpeaking
-                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-mono'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                }`}>
-                  {isMuted ? 'Muted' : isSpeaking ? 'Speaking...' : 'Listening (Live WebRTC)'}
+                {/* Live Digital Timer */}
+                <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded-md bg-emerald-500 text-white shadow-xs">
+                  {formatDigitalTimer(callDuration)}
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {isChannel
-                  ? `${huddleMembers.length} member(s) connected • Real-time live audio active`
-                  : `Live voice talking with ${activePartner?.name || 'Partner'}`}
+                {isMuted ? 'Microphone Muted' : isSpeaking ? 'You are speaking...' : 'Live 2-Way Audio Stream Active'}
               </div>
             </div>
           </div>
 
-          {/* Controls */}
+          {/* Call Controls */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Mute Toggle */}
+            {/* Mute Mic */}
             <button
               type="button"
               onClick={toggleMute}
@@ -607,7 +799,7 @@ export const LiveVoiceHuddleBar = ({
               <span className="hidden sm:inline text-[11px]">{isMuted ? 'Unmute' : 'Mute'}</span>
             </button>
 
-            {/* Deafen Toggle */}
+            {/* Deafen Audio */}
             <button
               type="button"
               onClick={toggleDeafen}
@@ -616,84 +808,73 @@ export const LiveVoiceHuddleBar = ({
                   ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
               }`}
-              title={isDeafened ? 'Undeafen audio' : 'Deafen (mute incoming audio)'}
+              title={isDeafened ? 'Undeafen speakers' : 'Deafen (mute incoming audio)'}
             >
               {isDeafened ? <VolumeX size={14} /> : <Volume2 size={14} />}
             </button>
 
-            {/* Leave Button */}
+            {/* End Call Button */}
             <button
               type="button"
-              onClick={leaveHuddle}
-              className="p-1.5 px-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1 cursor-pointer border-0 shadow-xs transition-colors"
-              title="Leave Live Voice"
+              onClick={endCall}
+              className="p-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 cursor-pointer border-0 shadow-md shadow-rose-600/30 transition-transform active:scale-95"
+              title="End Voice Call"
             >
               <PhoneOff size={13} />
-              <span className="text-[11px]">Leave</span>
+              <span className="text-[11px]">End Call</span>
             </button>
           </div>
         </div>
       ) : (
-        /* Not In Huddle - Prompt / Status Banner */
+        /* ── 3. Idle State (Ready to Call / Shift Gate Status) ── */
         <div className="p-2 px-3 sm:px-5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            {huddleMembers.length > 0 ? (
-              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                <span className="truncate">
-                  Live Voice active ({huddleMembers.length} member{huddleMembers.length > 1 ? 's' : ''}: {huddleMembers.map(m => m.name).join(', ')})
-                </span>
-              </span>
-            ) : canIJoin ? (
+            {canICall ? (
               !isChannel ? (
-                // 1-on-1 check
                 partnerIsClockedIn && !partnerIsOnBreak ? (
-                  <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                     <span>{activePartner?.name || 'Partner'} is Clocked In • Ready for Live Voice Call</span>
                   </span>
                 ) : partnerIsOnBreak ? (
-                  <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-amber-600 dark:text-amber-400">
-                    <Coffee size={13} />
-                    <span>{activePartner?.name || 'Partner'} is on {partnerShiftState?.breakType || 'Break'} (Voice Intercom Paused)</span>
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-amber-600 dark:text-amber-400">
+                    <Coffee size={13} className="shrink-0" />
+                    <span>{activePartner?.name || 'Partner'} is on {partnerShiftState?.breakType || 'Break'} (Voice Call Paused)</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-slate-500 dark:text-slate-400">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    <span>{activePartner?.name || 'Partner'} is Clocked Out (Both users must be clocked in)</span>
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-slate-500 dark:text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                    <span>{activePartner?.name || 'Partner'} is Clocked Out (Both team members must be clocked in)</span>
                   </span>
                 )
               ) : (
-                // Channel Info
-                <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-slate-700 dark:text-slate-300">
-                  <Users size={13} className="text-blue-600 dark:text-sky-400" />
-                  <span>Team Voice Huddle: Instant live audio room for clocked-in channel members</span>
+                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-slate-700 dark:text-slate-300">
+                  <Users size={13} className="text-blue-600 dark:text-sky-400 shrink-0" />
+                  <span>Channel Voice Huddle: Instant live audio talk for clocked-in channel members</span>
                 </span>
               )
             ) : (
-              <span className="inline-flex items-center gap-1 text-[11.5px] font-bold text-amber-600 dark:text-amber-400">
-                <Lock size={13} />
-                <span>Clock into your shift to enable Live Voice Talk & Walkie-Talkie</span>
+              <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-amber-600 dark:text-amber-400">
+                <Lock size={13} className="shrink-0" />
+                <span>Clock into your shift to enable Live Voice Calling</span>
               </span>
             )}
           </div>
 
-          {/* Join / Start Button */}
+          {/* Start Call / Huddle Button */}
           <div>
             <button
               type="button"
-              onClick={joinHuddle}
-              disabled={!canIJoin || (!isChannel && (!partnerIsClockedIn || partnerIsOnBreak))}
+              onClick={startCall}
+              disabled={!canICall || (!isChannel && (!partnerIsClockedIn || partnerIsOnBreak))}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-[11.5px] transition-all border ${
-                huddleMembers.length > 0
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-md shadow-emerald-500/20 border-transparent animate-pulse'
-                  : canIJoin && (isChannel || (partnerIsClockedIn && !partnerIsOnBreak))
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-xs border-transparent'
+                canICall && (isChannel || (partnerIsClockedIn && !partnerIsOnBreak))
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-xs border-transparent hover:scale-102'
                   : 'bg-slate-200/70 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-75'
               }`}
             >
-              <Mic size={13} />
-              <span>{huddleMembers.length > 0 ? '🎙️ Join Live Voice' : isChannel ? '🎙️ Start Voice Huddle' : '🎙️ Start Live Voice Call'}</span>
+              <Phone size={13} />
+              <span>{isChannel ? 'Start Voice Huddle' : 'Start Voice Call'}</span>
             </button>
           </div>
         </div>

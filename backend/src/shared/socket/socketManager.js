@@ -40,9 +40,9 @@ function initSocket(server) {
         if (verified) {
           // Strictly bind to the authenticated token payload
           if (verified.sub) socket.join(`user:${String(verified.sub)}`);
+          if (verified.id) socket.join(`user:${String(verified.id)}`);
           if (verified.employeeCode) socket.join(`user:${String(verified.employeeCode).toUpperCase()}`);
           if (verified.email) socket.join(`user:${String(verified.email).toLowerCase().trim()}`);
-          return;
         }
 
         // Backward-compatible fallback for un-tokened clients (scoped to provided ID)
@@ -119,6 +119,143 @@ function initSocket(server) {
         });
       } catch (err) {
         console.warn('[SocketManager] voice:leave error:', err.message);
+      }
+    });
+
+    // 📞 WhatsApp-Style Live Voice Calling Engine (Targeted Ringing & Cross-Device Ringtone)
+    socket.on('call:initiate', (data) => {
+      try {
+        const {
+          callId,
+          caller,
+          targetUserId,
+          targetEmployeeCode,
+          targetEmail,
+          conversationId,
+          isChannel,
+          channelName
+        } = data || {};
+
+        const callPayload = {
+          callId: callId || `call_${Date.now()}_${caller?.id || 'anon'}`,
+          caller,
+          conversationId,
+          isChannel: Boolean(isChannel),
+          channelName: channelName || '',
+          callerSocketId: socket.id,
+          startedAt: Date.now()
+        };
+
+        if (isChannel) {
+          // Channel Broadcast: Ring clocked-in members of this channel
+          socket.to(`voice:${conversationId}`).emit('call:incoming', callPayload);
+          socket.to(`chat:${conversationId}`).emit('call:incoming', callPayload);
+        } else {
+          // 1-on-1 Direct Call: Strictly TARGETED delivery to recipient only
+          let targeted = false;
+          if (targetUserId) {
+            io.to(`user:${String(targetUserId)}`).emit('call:incoming', callPayload);
+            targeted = true;
+          }
+          if (targetEmployeeCode) {
+            io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:incoming', callPayload);
+            targeted = true;
+          }
+          if (targetEmail) {
+            io.to(`user:${String(targetEmail).toLowerCase().trim()}`).emit('call:incoming', callPayload);
+            targeted = true;
+          }
+          if (!targeted && conversationId) {
+            socket.to(`voice:${conversationId}`).emit('call:incoming', callPayload);
+          }
+        }
+      } catch (err) {
+        console.warn('[SocketManager] call:initiate error:', err.message);
+      }
+    });
+
+    socket.on('call:accept', (data) => {
+      try {
+        const { callId, conversationId, callerSocketId, callerId, acceptor } = data || {};
+        const acceptedPayload = {
+          callId,
+          conversationId,
+          acceptor,
+          acceptorSocketId: socket.id,
+          acceptedAt: Date.now()
+        };
+
+        if (callerSocketId) {
+          io.to(callerSocketId).emit('call:accepted', acceptedPayload);
+        }
+        if (callerId) {
+          io.to(`user:${String(callerId)}`).emit('call:accepted', acceptedPayload);
+        }
+      } catch (err) {
+        console.warn('[SocketManager] call:accept error:', err.message);
+      }
+    });
+
+    socket.on('call:decline', (data) => {
+      try {
+        const { callId, conversationId, callerSocketId, callerId, decliner, reason } = data || {};
+        const declinedPayload = {
+          callId,
+          conversationId,
+          decliner,
+          reason: reason || 'declined'
+        };
+
+        if (callerSocketId) {
+          io.to(callerSocketId).emit('call:declined', declinedPayload);
+        }
+        if (callerId) {
+          io.to(`user:${String(callerId)}`).emit('call:declined', declinedPayload);
+        }
+      } catch (err) {
+        console.warn('[SocketManager] call:decline error:', err.message);
+      }
+    });
+
+    socket.on('call:cancel', (data) => {
+      try {
+        const { callId, conversationId, targetUserId, targetEmployeeCode, isChannel } = data || {};
+        const cancelPayload = { callId, conversationId };
+
+        if (isChannel) {
+          socket.to(`voice:${conversationId}`).emit('call:cancelled', cancelPayload);
+          socket.to(`chat:${conversationId}`).emit('call:cancelled', cancelPayload);
+        } else {
+          if (targetUserId) io.to(`user:${String(targetUserId)}`).emit('call:cancelled', cancelPayload);
+          if (targetEmployeeCode) io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:cancelled', cancelPayload);
+        }
+      } catch (err) {
+        console.warn('[SocketManager] call:cancel error:', err.message);
+      }
+    });
+
+    socket.on('call:end', (data) => {
+      try {
+        const { callId, conversationId, durationSeconds, durationText, endedBy, targetUserId, targetEmployeeCode } = data || {};
+        const endPayload = {
+          callId,
+          conversationId,
+          durationSeconds: durationSeconds || 0,
+          durationText: durationText || '0s',
+          endedBy
+        };
+
+        if (conversationId) {
+          socket.to(`voice:${conversationId}`).emit('call:ended', endPayload);
+        }
+        if (targetUserId) {
+          io.to(`user:${String(targetUserId)}`).emit('call:ended', endPayload);
+        }
+        if (targetEmployeeCode) {
+          io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:ended', endPayload);
+        }
+      } catch (err) {
+        console.warn('[SocketManager] call:end error:', err.message);
       }
     });
 
