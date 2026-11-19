@@ -112,9 +112,20 @@ const syncIncomingAttendanceToStorage = (data) => {
           localStorage.setItem(`ems_timer_${k}_work_session_date`, today);
           if (data.isClockedIn) {
             localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'true');
-            localStorage.setItem(`ems_timer_${k}_is_running`, data.isOnBreak ? 'false' : 'true');
-            localStorage.setItem(`ems_timer_${k}_is_on_break`, data.isOnBreak ? 'true' : 'false');
+            const breakEndedAt = Number(localStorage.getItem(`ems_timer_${k}_break_ended_at`)) || 0;
+            const dataBreakStart = Number(data.breakStartTimestamp) || 0;
+            const isBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= dataBreakStart);
+            const effectiveOnBreak = isBreakStale ? false : Boolean(data.isOnBreak);
+
+            localStorage.setItem(`ems_timer_${k}_is_running`, effectiveOnBreak ? 'false' : 'true');
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, effectiveOnBreak ? 'true' : 'false');
             localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'false');
+            if (effectiveOnBreak) {
+              if (data.breakType) localStorage.setItem(`ems_timer_${k}_break_type`, data.breakType);
+            } else {
+              localStorage.removeItem(`ems_timer_${k}_break_start_time`);
+              localStorage.removeItem(`ems_timer_${k}_break_start_timestamp`);
+            }
             if (data.clockInTime) localStorage.setItem(`ems_timer_${k}_login_time`, data.clockInTime);
             if (data.clockInTimestamp) localStorage.setItem(`ems_timer_${k}_clock_in_timestamp`, String(data.clockInTimestamp));
             if (data.currentSessionStartTimestamp) localStorage.setItem(`ems_timer_${k}_current_session_start_timestamp`, String(data.currentSessionStartTimestamp));
@@ -528,6 +539,16 @@ if (typeof window !== 'undefined') {
         syncIncomingAttendanceToStorage({ ...payload, isClockedIn: false, isClockedOut: true });
         window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: payload }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
+      } else if (type === SYNC_EVENTS.BREAK_STARTED || type === 'BREAK_STARTED') {
+        syncIncomingAttendanceToStorage({ ...payload, isOnBreak: true });
+        window.dispatchEvent(new CustomEvent('ems_break_started', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
+      } else if (type === SYNC_EVENTS.BREAK_ENDED || type === 'BREAK_ENDED') {
+        syncIncomingAttendanceToStorage({ ...payload, isOnBreak: false, breakType: null });
+        window.dispatchEvent(new CustomEvent('ems_break_ended', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.STORAGE_MUTATION) {
         if (payload?.key) {
           // Trigger remote MongoDB refresh on other devices (role-scoped, safe from overwrites)
@@ -694,5 +715,7 @@ export const SYNC_EVENTS = {
   TASK_COMPLETED: 'TASK_COMPLETED',
   SHIFT_CLOCKED_IN: 'SHIFT_CLOCKED_IN',
   SHIFT_CLOCKED_OUT: 'SHIFT_CLOCKED_OUT',
+  BREAK_STARTED: 'BREAK_STARTED',
+  BREAK_ENDED: 'BREAK_ENDED',
   STORAGE_MUTATION: 'STORAGE_MUTATION'
 };

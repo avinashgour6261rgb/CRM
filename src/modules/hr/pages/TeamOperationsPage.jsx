@@ -231,9 +231,39 @@ export const TeamOperationsPage = () => {
       });
     };
 
+    const handleBreakEvent = (e) => {
+      if (!isMounted || !e?.detail) return;
+      const d = e.detail;
+      const isEnded = e.type === 'ems_break_ended';
+      const recvTs = Date.now();
+      setLiveTelemetryMap(prev => {
+        const next = { ...prev };
+        const codes = [d.employeeId, d.employeeCode, d.userKey].filter(Boolean).map(String);
+        codes.forEach(c => {
+          const prevEntry = next[c] || next[c.toUpperCase()] || next[c.toLowerCase()] || {};
+          const updated = {
+            ...prevEntry,
+            employeeId: d.employeeId || prevEntry.employeeId,
+            employeeCode: d.employeeCode || prevEntry.employeeCode,
+            isOnBreak: !isEnded,
+            breakType: isEnded ? null : (d.breakType || prevEntry.breakType || 'Break'),
+            breakStartTimestamp: isEnded ? null : (d.breakStartTimestamp || Date.now()),
+            receivedAt: recvTs
+          };
+          next[c] = updated;
+          next[c.toUpperCase()] = updated;
+          next[c.toLowerCase()] = updated;
+        });
+        return next;
+      });
+      setSyncTick(t => t + 1);
+    };
+
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('ems_telemetry_update', handleTelemUpdate);
+    window.addEventListener('ems_break_started', handleBreakEvent);
+    window.addEventListener('ems_break_ended', handleBreakEvent);
     window.addEventListener('ems_socket_reconnected', handleFocus);
     return () => {
       isMounted = false;
@@ -241,6 +271,8 @@ export const TeamOperationsPage = () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('ems_telemetry_update', handleTelemUpdate);
+      window.removeEventListener('ems_break_started', handleBreakEvent);
+      window.removeEventListener('ems_break_ended', handleBreakEvent);
       window.removeEventListener('ems_socket_reconnected', handleFocus);
     };
   }, [todayStr]);
@@ -458,8 +490,16 @@ export const TeamOperationsPage = () => {
         (hasTodayStoredClockIn && hasTodayStoredClockOut && !storedClockedIn)
       )));
 
-    const effectiveOnBreak = isSelf ? Boolean(selfIsOnBreak) : (telem ? Boolean(telem.isOnBreak) : storedOnBreak);
-    const effectiveBreakType = isSelf ? (selfBreakType || 'Break') : (telem ? (telem.breakType || 'Break') : storedBreakType);
+    const breakEndedAt = Number(localStorage.getItem(`ems_timer_${empKey}_break_ended_at`)) || (empId ? Number(localStorage.getItem(`ems_timer_${empId}_break_ended_at`)) : 0) || 0;
+    const telemBreakStart = Number(telem?.breakStartTimestamp) || 0;
+    const isTelemBreakStale = telem && telem.isOnBreak && breakEndedAt > 0 && breakEndedAt >= telemBreakStart;
+
+    const effectiveOnBreak = isSelf
+      ? Boolean(selfIsOnBreak)
+      : (isTelemBreakStale ? false : (telem && telem.isOnBreak !== undefined ? Boolean(telem.isOnBreak) : storedOnBreak));
+    const effectiveBreakType = effectiveOnBreak
+      ? (isSelf ? (selfBreakType || 'Break') : (telem?.breakType || storedBreakType || 'Break'))
+      : null;
 
     const loginTime = isClockedIn
       ? ((isSelf && selfLoginTime) || telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')

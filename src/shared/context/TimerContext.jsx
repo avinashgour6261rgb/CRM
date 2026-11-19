@@ -1039,9 +1039,16 @@ export const TimerProvider = ({ children }) => {
 
         const localIsOnBreak = localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true';
         const localBreakStartTs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
-        const hasRecentLocalBreak = localIsOnBreak && localBreakStartTs && (Date.now() - localBreakStartTs < 2 * 3600 * 1000);
+        const breakEndedAt = Number(localStorage.getItem(`ems_timer_${userKey}_break_ended_at`)) || 0;
+        const remoteBreakStart = Number(rec?.breakStartTimestamp) || 0;
+        const isRemoteBreakStale = Boolean(rec?.isOnBreak && breakEndedAt > 0 && breakEndedAt >= remoteBreakStart);
 
-        const effectiveOnBreak = hasRecentLocalBreak ? true : Boolean(rec?.isOnBreak);
+        let effectiveOnBreak = false;
+        if (localIsOnBreak && localBreakStartTs && (Date.now() - localBreakStartTs < 2 * 3600 * 1000)) {
+          effectiveOnBreak = true;
+        } else if (!isRemoteBreakStale && rec?.isOnBreak) {
+          effectiveOnBreak = remoteBreakStart > breakEndedAt;
+        }
 
         setIsClockedIn(true);
         setIsRunning(!effectiveOnBreak);
@@ -1176,10 +1183,19 @@ export const TimerProvider = ({ children }) => {
           }
         }
 
+        const breakEndedAt = Number(localStorage.getItem(`ems_timer_${userKey}_break_ended_at`)) || 0;
+        const telemBreakStart = Number(data.breakStartTimestamp) || 0;
+        const isTelemBreakStale = Boolean(data.isOnBreak && breakEndedAt > 0 && breakEndedAt >= telemBreakStart);
+        const effectiveOnBreak = isTelemBreakStale ? false : Boolean(data.isOnBreak);
+
         setIsClockedIn(true);
-        setIsRunning(!data.isOnBreak);
-        setIsOnBreak(Boolean(data.isOnBreak));
-        if (data.breakType) setBreakType(data.breakType);
+        setIsRunning(!effectiveOnBreak);
+        setIsOnBreak(effectiveOnBreak);
+        if (effectiveOnBreak && data.breakType) {
+          setBreakType(data.breakType);
+        } else if (!effectiveOnBreak) {
+          setBreakType(null);
+        }
         if (data.clockInTime) setLoginTime(data.clockInTime);
         setClockOutTime(null);
         setHadClockedOutToday(false);
@@ -1809,16 +1825,18 @@ export const TimerProvider = ({ children }) => {
     setBreakReminderSent(false);
 
     const mirrorKeys = getTimerMirrorKeys(currentUser);
+    const nowMs = Date.now();
     for (const uk of mirrorKeys) {
       localStorage.setItem(`ems_timer_${uk}_break_type`, type);
       localStorage.setItem(`ems_timer_${uk}_custom_break_limit`, minutesChosen.toString());
       localStorage.setItem(`ems_timer_${uk}_break_start_time`, startTimeStr);
-      localStorage.setItem(`ems_timer_${uk}_break_start_timestamp`, Date.now().toString());
+      localStorage.setItem(`ems_timer_${uk}_break_start_timestamp`, nowMs.toString());
       localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
       localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'true');
       localStorage.setItem(`ems_timer_${uk}_is_running`, 'false');
       localStorage.setItem(`ems_timer_${uk}_is_clocked_in`, 'true');
       localStorage.setItem(`ems_timer_${uk}_work_seconds`, (workSeconds || 0).toString());
+      localStorage.removeItem(`ems_timer_${uk}_break_ended_at`);
     }
 
     // Immediately update local hrms_attendance mirror so all UI components see isOnBreak: true synchronously
@@ -1835,9 +1853,26 @@ export const TimerProvider = ({ children }) => {
             return a;
           });
           localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
         }
       }
     } catch {}
+
+    const telemPayload = {
+      employeeId: targetEmpId || userKey,
+      employeeCode: targetEmpCode || userKey,
+      employeeName: currentUser?.name,
+      date: getTodayStr(),
+      isClockedIn: true,
+      isOnBreak: true,
+      breakType: type,
+      breakStartTimestamp: nowMs,
+      workSeconds: workSeconds || 0,
+      breakSeconds: breakSeconds || 0,
+      timestamp: nowMs
+    };
+    window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: telemPayload }));
+    broadcastSyncEvent(SYNC_EVENTS.BREAK_STARTED, telemPayload);
 
     // Notify other components (WorkContext task timers pause) with user identity
     window.dispatchEvent(new CustomEvent('ems_break_started', {
@@ -1927,6 +1962,7 @@ export const TimerProvider = ({ children }) => {
     setBreakReminderSent(false);
 
     const mirrorKeys = getTimerMirrorKeys(currentUser);
+    const nowMs = Date.now();
     // Mathematically exact sum of all completed breaks strictly for today (prevents double-counting duration)
     const totalBreaksAfterResume = updatedHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
 
@@ -1934,6 +1970,7 @@ export const TimerProvider = ({ children }) => {
       localStorage.setItem(`ems_timer_${uk}_is_on_break`, 'false');
       localStorage.setItem(`ems_timer_${uk}_is_running`, 'true');
       localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
+      localStorage.setItem(`ems_timer_${uk}_break_ended_at`, String(nowMs));
       localStorage.removeItem(`ems_timer_${uk}_break_start_time`);
       localStorage.removeItem(`ems_timer_${uk}_break_start_timestamp`);
       localStorage.setItem(`ems_timer_${uk}_break_seconds`, totalBreaksAfterResume.toString());
@@ -1955,9 +1992,26 @@ export const TimerProvider = ({ children }) => {
             return a;
           });
           localStorage.setItem('hrms_attendance', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
         }
       }
     } catch {}
+
+    const telemPayload = {
+      employeeId: targetEmpId || userKey,
+      employeeCode: targetEmpCode || userKey,
+      employeeName: currentUser?.name,
+      date: today,
+      isClockedIn: true,
+      isOnBreak: false,
+      breakType: null,
+      breakStartTimestamp: null,
+      workSeconds: workSeconds || 0,
+      breakSeconds: totalBreaksAfterResume,
+      timestamp: nowMs
+    };
+    window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: telemPayload }));
+    broadcastSyncEvent(SYNC_EVENTS.BREAK_ENDED, telemPayload);
 
     // Notify other components (WorkContext task timers can resume) with user identity
     window.dispatchEvent(new CustomEvent('ems_break_ended', {
@@ -1996,6 +2050,21 @@ export const TimerProvider = ({ children }) => {
         breakHistory: [newRecord, ...breakHistory]
       }).catch(() => {});
     } catch {}
+
+    try {
+      hrService.sendHeartbeat({
+        employeeId: targetEmpId || userKey,
+        employeeCode: targetEmpCode || userKey,
+        employeeName: currentUser?.name,
+        date: getTodayStr(),
+        isClockedIn: true,
+        isOnBreak: false,
+        breakType: null,
+        breakStartTimestamp: null,
+        workSeconds: workSeconds || 0,
+        breakSeconds: totalBreaksAfterResume
+      }).catch(() => {});
+    } catch (_) {}
 
     addToast({
       title: 'Welcome Back! 🚀',
@@ -2827,6 +2896,7 @@ export const TimerProvider = ({ children }) => {
       startTeaBreak,
       startLunchBreak,
       resumeFromBreak,
+      endBreak: resumeFromBreak,
       extendBreak,
       handleClockIn,
       handleClockOut,
