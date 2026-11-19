@@ -43,6 +43,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
     priority: 'medium',
     leadSource: 'Website Inquiry',
     dealValue: '',
+    nextFollowUpDate: '',
     notes: ''
   });
 
@@ -65,6 +66,7 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
         priority: lead.priority || 'medium',
         leadSource: lead.leadSource || 'Website Inquiry',
         dealValue: lead.dealValue || '',
+        nextFollowUpDate: lead.nextFollowUpDate || '',
         notes: lead.notes || ''
       });
     }
@@ -309,8 +311,8 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Row 5: Start Date, Target End Date & Lead Source */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Row 5: Start Date, Target End Date, Follow-up & Lead Source */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start / Inquiry Date
@@ -325,12 +327,25 @@ export const EditLeadModal = ({ lead, isOpen, onClose }) => {
 
             <div>
               <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Target Close / Deadline
+                Target Close Date
               </label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={e => handleChange('endDate', e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>Next Follow-Up</span>
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Reminder</span>
+              </label>
+              <input
+                type="date"
+                value={formData.nextFollowUpDate}
+                onChange={e => handleChange('nextFollowUpDate', e.target.value)}
                 className={inputClass}
               />
             </div>

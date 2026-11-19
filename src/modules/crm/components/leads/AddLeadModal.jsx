@@ -55,6 +55,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
     assignedToId: currentUser?._id || employees[0]?._id || '',
     startDate: getLocalDateString(),
     endDate: getLocalDateString(new Date(Date.now() + 30 * 86400000)),
+    nextFollowUpDate: '',
     notes: ''
   });
 
@@ -90,6 +91,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
         leadSource: formData.leadSource,
         startDate: formData.startDate,
         endDate: formData.endDate,
+        nextFollowUpDate: formData.nextFollowUpDate || null,
         createdBy: currentUser?.name || 'Employee',
         notes: formData.notes.trim(),
         leadOwnerId: selectedAssignee?._id || 'emp_admin',
@@ -267,7 +269,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Start Date & End Date */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Start Date
@@ -282,12 +284,25 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
 
             <div>
               <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                End Date / Target Close
+                Target Close Date
               </label>
               <input
                 type="date"
                 value={formData.endDate}
                 onChange={(e) => handleChange('endDate', e.target.value)}
+                className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <span>Next Follow-Up</span>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Reminder</span>
+              </label>
+              <input
+                type="date"
+                value={formData.nextFollowUpDate}
+                onChange={(e) => handleChange('nextFollowUpDate', e.target.value)}
                 className="w-full py-2.5 px-3 rounded-[10px] border border-slate-300 dark:border-slate-600 text-[13.5px] text-slate-900 dark:text-slate-100 outline-none bg-white dark:bg-slate-800 focus:border-blue-600"
               />
             </div>

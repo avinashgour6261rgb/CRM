@@ -30,7 +30,7 @@ import { ResponsiveDurationFilter } from '../../../shared/components/common/Resp
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const NoticeBoardPage = () => {
-  const { notices, deleteNotice } = useCRM();
+  const { notices, deleteNotice, acknowledgeNotice } = useCRM();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
   const { currentUser } = useAuth();
@@ -84,6 +84,16 @@ export const NoticeBoardPage = () => {
       return matchSearch && matchDate;
     });
   }, [notices, search, startDateFilter, endDateFilter, isPrivileged, userDept, userRole, userName, userId]);
+
+  // Sort pinned/urgent notices to the top, then by date descending
+  const sortedNotices = useMemo(() => {
+    return [...filteredNotices].sort((a, b) => {
+      const aUrgent = a.isImportant || a.priority === 'urgent' || a.pinned ? 1 : 0;
+      const bUrgent = b.isImportant || b.priority === 'urgent' || b.pinned ? 1 : 0;
+      if (aUrgent !== bUrgent) return bUrgent - aUrgent;
+      return new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0);
+    });
+  }, [filteredNotices]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -225,14 +235,14 @@ export const NoticeBoardPage = () => {
             </thead>
 
             <tbody>
-              {filteredNotices.length === 0 ? (
+              {sortedNotices.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-9 text-center text-slate-500 dark:text-slate-400">
                     <div className="text-[13px] font-medium">No notices found</div>
                   </td>
                 </tr>
               ) : (
-                filteredNotices.map((notice, nIdx) => (
+                sortedNotices.map((notice, nIdx) => (
                   <tr
                     key={notice._id ? `${notice._id}_${nIdx}` : (notice.id ? `${notice.id}_${nIdx}` : `notice_${nIdx}`)}
                     className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
@@ -255,7 +265,7 @@ export const NoticeBoardPage = () => {
                     <td className="px-3 py-[7px]">
                       <div
                         onClick={() => setSelectedNotice(notice)}
-                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer flex items-center gap-1.5"
+                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer flex items-center gap-1.5 hover:underline"
                       >
                         {notice.title}
                         {notice.isImportant && (
@@ -281,14 +291,52 @@ export const NoticeBoardPage = () => {
                       </span>
                     </td>
 
-                    {/* Action */}
+                    {/* Action & Acknowledgment */}
                     <td className="px-3 py-[7px] text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedNotice(notice)}
-                        className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-400 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
-                      >
-                        View Notice
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => setSelectedNotice(notice)}
+                          className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-400 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+                        >
+                          View Notice
+                        </button>
+
+                        {/* Acknowledge Button / Badge */}
+                        {(() => {
+                          const hasAck = Array.isArray(notice.acknowledgedBy) && notice.acknowledgedBy.includes(userId);
+                          if (hasAck) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-[2px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-bold border border-emerald-200 dark:border-emerald-800" title="You acknowledged this notice">
+                                <CheckCircle2 size={11} />
+                                <span>Read</span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (typeof acknowledgeNotice === 'function') {
+                                  acknowledgeNotice(notice._id || notice.id);
+                                  addToast('Notice marked as acknowledged!', 'success');
+                                }
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2 py-[2.5px] cursor-pointer text-[10.5px] font-bold border-0 shadow-xs transition-colors flex items-center gap-1"
+                              title="Mark as Acknowledged / Read"
+                            >
+                              <CheckCircle2 size={11} />
+                              <span>Acknowledge</span>
+                            </button>
+                          );
+                        })()}
+
+                        {/* Read Count for HR / Admin */}
+                        {isPrivileged && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold" title="Total employees who acknowledged">
+                            ({notice.acknowledgedBy?.length || 0} read)
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

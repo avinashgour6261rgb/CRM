@@ -259,6 +259,32 @@ function initSocket(server) {
       }
     });
 
+    // ✏️ Live In-Chat Typing Indicator Relay
+    socket.on('chat:typing', (data) => {
+      try {
+        const { conversationId, user, isTyping } = data || {};
+        if (!conversationId) return;
+        const payload = { conversationId, user, isTyping: Boolean(isTyping) };
+        socket.to(`chat:${conversationId}`).emit('chat:typing', payload);
+        socket.to('company').emit('chat:typing', payload);
+      } catch (err) {
+        console.warn('[SocketManager] chat:typing error:', err.message);
+      }
+    });
+
+    // ❤️ Live In-Chat Emoji Reaction Relay
+    socket.on('chat:reaction', (data) => {
+      try {
+        const { conversationId, messageId, reactions, user } = data || {};
+        if (!conversationId || !messageId) return;
+        const payload = { conversationId, messageId, reactions, user };
+        socket.to(`chat:${conversationId}`).emit('chat:message:reacted', payload);
+        socket.to('company').emit('chat:message:reacted', payload);
+      } catch (err) {
+        console.warn('[SocketManager] chat:reaction error:', err.message);
+      }
+    });
+
     socket.on('disconnecting', () => {
       try {
         for (const room of socket.rooms) {

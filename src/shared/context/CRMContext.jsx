@@ -2077,6 +2077,63 @@ const stripHeavyMediaForStorage = (convs = []) => {
     }
   };
 
+  const reactToChatMessage = async (conversationId, messageId, emoji) => {
+    if (!conversationId || !messageId || !emoji || !currentUser) return;
+    const userId = String(currentUser._id || currentUser.id || currentUser.employeeCode || 'anon');
+    const userName = currentUser.name || 'Teammate';
+
+    const currentConvs = getCollection(KEYS.CONVERSATIONS);
+    const idx = currentConvs.findIndex(c => c.id === conversationId);
+    if (idx === -1) return;
+
+    let updatedReactions = [];
+    if (Array.isArray(currentConvs[idx].messages)) {
+      const msg = currentConvs[idx].messages.find(m => String(m.id) === String(messageId));
+      if (msg) {
+        if (!Array.isArray(msg.reactions)) msg.reactions = [];
+        const existingIdx = msg.reactions.findIndex(r => r.emoji === emoji);
+        if (existingIdx !== -1) {
+          const r = msg.reactions[existingIdx];
+          const userIdx = (r.users || []).findIndex(u => String(u?.id || u) === userId);
+          if (userIdx !== -1) {
+            r.users.splice(userIdx, 1);
+            if (r.users.length === 0) msg.reactions.splice(existingIdx, 1);
+          } else {
+            r.users.push({ id: userId, name: userName });
+          }
+        } else {
+          msg.reactions.push({ emoji, users: [{ id: userId, name: userName }] });
+        }
+        updatedReactions = msg.reactions;
+      }
+    }
+
+    saveCollection(KEYS.CONVERSATIONS, stripHeavyMediaForStorage(currentConvs), { broadcast: false });
+    setConversations([...currentConvs]);
+    window.dispatchEvent(new CustomEvent('ems_chat_reaction', { detail: { conversationId, messageId, reactions: updatedReactions } }));
+
+    try {
+      fetch(`${API_BASE}/conversations/${conversationId}/messages/${messageId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ emoji, user: { id: userId, name: userName } })
+      }).catch(() => {});
+    } catch (_) {}
+  };
+
+  const acknowledgeNotice = async (noticeId) => {
+    if (!noticeId || !currentUser) return;
+    const userId = String(currentUser._id || currentUser.id || currentUser.employeeCode || 'anon');
+    const currentNotices = getCollection(KEYS.NOTICES);
+    const target = currentNotices.find(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
+    if (!target) return;
+    const ackList = Array.isArray(target.acknowledgedBy) ? target.acknowledgedBy : [];
+    if (!ackList.includes(userId)) {
+      const updatedList = [...ackList, userId];
+      await updateNotice(target._id || target.id, { acknowledgedBy: updatedList });
+    }
+  };
+
   const startConversation = (employeeId) => {
     const emp = (employees || []).find(e =>
       String(e._id) === String(employeeId) ||
@@ -2781,6 +2838,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     setActiveConversationId,
     sendMessage,
     deleteMessage,
+    reactToChatMessage,
     startConversation,
     createChannel,
     updateChannelMembers,
@@ -2791,6 +2849,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     createNotice,
     updateNotice,
     deleteNotice,
+    acknowledgeNotice,
     dismissNoticeForUser,
 
     leads,

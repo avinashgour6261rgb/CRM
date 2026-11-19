@@ -3,7 +3,7 @@
  * @description Comprehensive lead detail drawer/modal with contact information, stage changer, and owner assignment.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   User,
@@ -24,15 +24,84 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Rocket,
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
+import { useAuth } from '../../../../shared/context/AuthContext';
+import { useWork } from '../../../work/context/WorkContext';
+import { useToast } from '../../../../shared/context/ToastContext';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 
 export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
-  const { updateLeadStatus, deleteLead } = useCRM();
+  const { updateLeadStatus, updateLead, deleteLead } = useCRM();
+  const { currentUser } = useAuth();
+  const { createProject } = useWork() || {};
+  const { addToast } = useToast();
+
+  const [newActivityText, setNewActivityText] = useState('');
+  const [newActivityType, setNewActivityType] = useState('call'); // 'call' | 'meeting' | 'email' | 'note'
+  const [isConverting, setIsConverting] = useState(false);
 
   if (!isOpen || !lead) return null;
+
+  const handleAddActivity = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newActivityText.trim()) return;
+    try {
+      const newAct = {
+        id: `act_${Date.now()}`,
+        type: newActivityType,
+        text: newActivityText.trim(),
+        author: currentUser?.name || 'Team Member',
+        authorAvatar: currentUser?.avatar || '',
+        date: new Date().toISOString()
+      };
+      const currentActs = Array.isArray(lead.activities) ? lead.activities : [];
+      await updateLead(lead._id, { activities: [newAct, ...currentActs] });
+      setNewActivityText('');
+      addToast('Activity logged successfully!', 'success');
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to log activity', 'error');
+    }
+  };
+
+  const handleConvertToProject = async () => {
+    if (isConverting) return;
+    setIsConverting(true);
+    try {
+      const projectName = lead.companyName || lead.client || lead.name || 'New Client Project';
+      if (typeof createProject === 'function') {
+        await createProject({
+          name: projectName,
+          client: lead.companyName || lead.client || lead.name,
+          clientEmail: lead.email || '',
+          clientPhone: lead.phone || '',
+          budget: lead.dealValue || 0,
+          currency: lead.currency || 'INR',
+          status: 'in_progress',
+          startDate: getLocalDateString(),
+          deadline: lead.endDate || getLocalDateString(new Date(Date.now() + 30 * 86400000)),
+          progress: 0,
+          assignedToIds: [lead.leadOwnerId || currentUser?._id || 'emp_001'],
+          description: `Project converted from CRM Lead ${lead.leadCode || lead.name}.\n\nLead Notes: ${lead.notes || 'None'}`
+        });
+      }
+
+      await updateLeadStatus(lead._id, 'converted');
+      addToast(`🎉 Lead converted to active project "${projectName}"!`, 'success');
+      onClose();
+    } catch (err) {
+      console.error(err);
+      addToast('Could not convert lead to project', 'error');
+    } finally {
+      setIsConverting(false);
+    }
+  };
 
   const normalizeLeadStatus = (status) => {
     if (!status) return 'new';
@@ -156,13 +225,37 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             </div>
 
             <div className="bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 px-3.5 flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Phone Number</span>
-              <div className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100">
-                {lead.phone ? (
-                  <a href={`tel:${lead.phone}`} className="text-slate-900 dark:text-slate-100 hover:underline">
-                    {lead.phone}
-                  </a>
-                ) : '—'}
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Phone & WhatsApp Outreach</span>
+              <div className="flex items-center justify-between gap-2 mt-0.5">
+                <div className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {lead.phone ? (
+                    <a href={`tel:${lead.phone}`} className="text-slate-900 dark:text-slate-100 hover:underline">
+                      {lead.phone}
+                    </a>
+                  ) : '—'}
+                </div>
+                {lead.phone && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-blue-800 text-xs font-bold no-underline hover:scale-105 transition-transform flex items-center gap-1"
+                      title="Direct Phone Call"
+                    >
+                      <Phone size={11} />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-bold no-underline hover:scale-105 transition-transform flex items-center gap-1"
+                      title="Chat on WhatsApp"
+                    >
+                      <MessageCircle size={11} />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -191,6 +284,32 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             <div className="bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 px-3.5 flex flex-col gap-0.5">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Target Close Date</span>
               <div className="text-[13.5px] font-semibold text-slate-900 dark:text-slate-100">{lead.endDate || '—'}</div>
+            </div>
+
+            {/* Next Follow-Up Reminder Card */}
+            <div className="bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 px-3.5 flex flex-col gap-0.5 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Next Follow-Up Reminder</span>
+                {lead.nextFollowUpDate && (() => {
+                  const todayStr = getLocalDateString();
+                  const isOverdue = lead.nextFollowUpDate < todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                  const isDueToday = lead.nextFollowUpDate === todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                  return (
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                      isOverdue
+                        ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                        : isDueToday
+                        ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 animate-pulse'
+                        : 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                    }`}>
+                      {isOverdue ? '⚠️ Overdue' : isDueToday ? '🔔 Due Today' : '📅 Scheduled'}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="text-[13.5px] font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                {lead.nextFollowUpDate || 'No follow-up reminder set yet (Edit lead to schedule).'}
+              </div>
             </div>
           </div>
 
@@ -239,8 +358,79 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             </p>
           </div>
 
+          {/* Activity Notes & Follow-Up Log */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col gap-3">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
+              <Clock size={13.5} className="text-blue-500" />
+              <span>Activity & Outreach Timeline ({Array.isArray(lead.activities) ? lead.activities.length : 0})</span>
+            </span>
+
+            {/* Add Activity Form */}
+            <form onSubmit={handleAddActivity} className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={newActivityType}
+                onChange={e => setNewActivityType(e.target.value)}
+                className="py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 outline-none shrink-0"
+              >
+                <option value="call">📞 Phone Call</option>
+                <option value="meeting">🤝 Client Meeting</option>
+                <option value="email">✉️ Email Outreach</option>
+                <option value="note">📝 Discussion Note</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Log discussion notes, next actions, or call summary..."
+                value={newActivityText}
+                onChange={e => setNewActivityText(e.target.value)}
+                className="flex-1 py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
+              />
+              <button
+                type="submit"
+                disabled={!newActivityText.trim()}
+                className={`py-2 px-3.5 rounded-lg border-0 text-xs font-bold transition-all shrink-0 flex items-center justify-center gap-1.5 ${
+                  newActivityText.trim()
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm'
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <Send size={12} />
+                <span>Log</span>
+              </button>
+            </form>
+
+            {/* Activity History List */}
+            <div className="max-h-48 overflow-y-auto flex flex-col gap-2 mt-1">
+              {!Array.isArray(lead.activities) || lead.activities.length === 0 ? (
+                <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                  No outreach activities logged yet. Record calls, meetings, or notes above.
+                </div>
+              ) : (
+                lead.activities.map((act, actIdx) => (
+                  <div
+                    key={act.id || actIdx}
+                    className="p-2.5 px-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80 dark:border-slate-700 flex items-start justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="text-sm mt-0.5 shrink-0">
+                        {act.type === 'call' ? '📞' : act.type === 'meeting' ? '🤝' : act.type === 'email' ? '✉️' : '📝'}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-xs text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap break-words">
+                          {act.text}
+                        </div>
+                        <div className="text-[10.5px] text-slate-400 dark:text-slate-500 mt-1">
+                          By <strong className="text-slate-600 dark:text-slate-300">{act.author}</strong> • {new Date(act.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Action Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 flex-wrap gap-2.5">
             <button
               onClick={async () => {
                 const ok = await confirmDialog({
@@ -260,7 +450,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
               Delete Lead
             </button>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => {
                   onClose();
@@ -270,6 +460,18 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
               >
                 <Edit2 size={14} />
                 Edit Lead
+              </button>
+
+              {/* 🚀 1-Click Convert Lead to Project */}
+              <button
+                type="button"
+                onClick={handleConvertToProject}
+                disabled={isConverting}
+                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[13px] font-bold cursor-pointer transition-all shadow-xs"
+                title="Convert this lead into a client project in Work Projects"
+              >
+                <Rocket size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <span>{isConverting ? 'Converting...' : 'Convert to Project'}</span>
               </button>
 
               {lead.status !== 'converted' && (

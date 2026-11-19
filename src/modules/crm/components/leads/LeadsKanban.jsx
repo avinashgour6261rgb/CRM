@@ -144,12 +144,57 @@ export const LeadsKanban = ({
                       </div>
                     </div>
 
-                    {/* Deal Value */}
-                    {lead.dealValue > 0 && (
-                      <div className="text-[12.5px] font-extrabold text-green-600 dark:text-green-400">
-                        {formatCurrency(lead.dealValue, lead.currency)}
-                      </div>
-                    )}
+                    {/* Deal Value & Quick Outreach */}
+                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                      {lead.dealValue > 0 ? (
+                        <div className="text-[12.5px] font-extrabold text-green-600 dark:text-green-400">
+                          {formatCurrency(lead.dealValue, lead.currency)}
+                        </div>
+                      ) : <span />}
+
+                      {lead.phone && (
+                        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                          <a
+                            href={`tel:${lead.phone}`}
+                            className="p-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-sky-300 text-[10px]"
+                            title={`Call ${lead.phone}`}
+                          >
+                            📞
+                          </a>
+                          <a
+                            href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px]"
+                            title="Chat on WhatsApp"
+                          >
+                            💬
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Follow-up Date Alert Badge */}
+                    {lead.nextFollowUpDate && (() => {
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const isOverdue = lead.nextFollowUpDate < todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                      const isDueToday = lead.nextFollowUpDate === todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                      return (
+                        <div className="pt-0.5">
+                          <span
+                            className={`text-[9.5px] py-0.5 px-2 rounded-full font-bold border inline-flex items-center gap-1 ${
+                              isOverdue
+                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                : isDueToday
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
+                                : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                            }`}
+                          >
+                            {isOverdue ? `⚠️ Overdue (${lead.nextFollowUpDate})` : isDueToday ? '🔔 Due Today' : `📅 ${lead.nextFollowUpDate}`}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* Footer: Owner Avatar & Quick Move Dropdown */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700 mt-1">

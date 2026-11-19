@@ -351,6 +351,38 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
+  // ✏️ Live In-Chat Typing Indicator Relay
+  subscribeSocketEvent('chat:typing', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_chat_typing', { detail: data }));
+    } catch (_) {}
+  });
+
+  // ❤️ Live In-Chat Message Emoji Reaction Sync
+  subscribeSocketEvent('chat:message:reacted', (data) => {
+    try {
+      const { conversationId, messageId, reactions } = data || {};
+      if (conversationId && messageId) {
+        try {
+          const rawConvs = localStorage.getItem(KEYS.CONVERSATIONS);
+          let convList = rawConvs ? JSON.parse(rawConvs) : [];
+          if (Array.isArray(convList)) {
+            const idx = convList.findIndex(c => c.id === conversationId);
+            if (idx !== -1 && Array.isArray(convList[idx].messages)) {
+              const mIdx = convList[idx].messages.findIndex(m => String(m.id) === String(messageId));
+              if (mIdx !== -1) {
+                convList[idx].messages[mIdx].reactions = reactions || [];
+                localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(convList));
+              }
+            }
+          }
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ems_chat_reaction', { detail: data }));
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.CONVERSATIONS, remote: true } }));
+      }
+    } catch (_) {}
+  });
+
   // 📡 Real-time CRM, Work & HR Entity Synchronization across ALL devices (0ms latency)
   subscribeSocketEvent('lead:updated', (data) => applySingleItemMutation(KEYS.LEADS, data, 'leadCode'));
   subscribeSocketEvent('ticket:updated', (data) => applySingleItemMutation(KEYS.TICKETS, data, 'ticketCode'));

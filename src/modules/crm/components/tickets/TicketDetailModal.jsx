@@ -38,6 +38,38 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
 
   if (!isOpen || !ticket) return null;
 
+  const getTicketSla = () => {
+    const p = String(ticket.priority || 'medium').toLowerCase();
+    const slaHours = p === 'urgent' ? 12 : p === 'high' ? 24 : p === 'medium' ? 48 : 72;
+    const createdAtMs = ticket.createdAt ? new Date(ticket.createdAt).getTime() : ticket.requestedOn ? new Date(ticket.requestedOn).getTime() : Date.now() - 3600000;
+    const deadlineMs = createdAtMs + slaHours * 3600000;
+    const nowMs = Date.now();
+    const isClosed = ticket.status === 'resolved' || ticket.status === 'closed';
+
+    if (isClosed) {
+      return {
+        label: `✅ Resolved (SLA: ${slaHours}h)`,
+        className: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+      };
+    }
+
+    if (nowMs > deadlineMs) {
+      const breachedHours = Math.round((nowMs - deadlineMs) / 3600000);
+      return {
+        label: `⚠️ SLA Overdue (+${breachedHours || 1}h)`,
+        className: 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 animate-pulse'
+      };
+    }
+
+    const remainingHours = Math.round((deadlineMs - nowMs) / 3600000);
+    return {
+      label: `⏱️ SLA: ${remainingHours || 1}h left`,
+      className: 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+    };
+  };
+
+  const slaInfo = getTicketSla();
+
   const handleSendReply = (e) => {
     e.preventDefault();
     if (!replyText.trim()) return;
@@ -86,7 +118,7 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
         {/* Header */}
         <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-bold py-[3px] px-2 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">
                 {ticket.ticketCode}
               </span>
@@ -98,6 +130,9 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
               }`}>
                 {ticket.priority}
+              </span>
+              <span className={`text-[11px] font-bold py-[3px] px-2 rounded-md border ${slaInfo.className}`}>
+                {slaInfo.label}
               </span>
             </div>
             <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-50 m-0 mt-1.5">
@@ -305,6 +340,26 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
                       </div>
                     ))
                   )}
+                </div>
+
+                {/* Canned Quick Replies */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1">
+                  <span className="text-[11px] font-bold text-slate-400 shrink-0">Quick Reply:</span>
+                  {[
+                    '⚡ Looking into this right away.',
+                    '🔍 Please share error screenshot or details.',
+                    '🔄 Fix has been deployed, please verify.',
+                    '✅ Resolved. Closing ticket now. Thank you!'
+                  ].map((canned, cIdx) => (
+                    <button
+                      key={cIdx}
+                      type="button"
+                      onClick={() => setReplyText(canned)}
+                      className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-sky-300 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300 cursor-pointer whitespace-nowrap transition-colors shrink-0"
+                    >
+                      {canned}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Reply Input Bar */}

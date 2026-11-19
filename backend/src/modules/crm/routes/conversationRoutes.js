@@ -11,6 +11,7 @@ const {
   createConversation,
   sendMessage,
   deleteMessage,
+  reactToMessage,
   markAsRead,
   syncBatch
 } = require('../controllers/conversationController');
@@ -21,6 +22,7 @@ router.post('/', createConversation);
 router.post('/sync-batch', syncBatch);
 router.post('/:id/messages', sendMessage);
 router.delete('/:id/messages/:messageId', deleteMessage);
+router.post('/:id/messages/:messageId/react', reactToMessage);
 router.put('/:id/read', markAsRead);
 
 module.exports = router;

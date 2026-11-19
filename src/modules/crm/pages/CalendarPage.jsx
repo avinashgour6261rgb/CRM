@@ -55,6 +55,7 @@ export const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date()); // Dynamic live current date
   const [currentView, setCurrentView] = useState('month'); // 'month' | 'week' | 'day' | 'list'
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [selectedEventDate, setSelectedEventDate] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Private Date Memory Modal State
@@ -1012,10 +1013,26 @@ export const CalendarPage = () => {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {/* Hover Quick Add Indicator */}
-                      <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-slate-800 px-1 rounded transition-opacity">
-                        +Note
-                      </span>
+                      {/* Hover Quick Add Indicators */}
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                        {canAddPublicEvent && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEventDate(day.dateStr);
+                              setIsAddEventOpen(true);
+                            }}
+                            className="text-[9.5px] font-bold text-blue-600 dark:text-sky-300 bg-blue-50 dark:bg-blue-950/80 hover:bg-blue-100 px-1 py-0.5 rounded border border-blue-200 dark:border-blue-900 cursor-pointer"
+                            title={`Schedule public event for ${day.dateStr}`}
+                          >
+                            +Event
+                          </button>
+                        )}
+                        <span className="text-[9.5px] font-bold text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/80 px-1 py-0.5 rounded border border-purple-200 dark:border-purple-900">
+                          +Note
+                        </span>
+                      </div>
                       <span className={`text-[12.5px] font-bold flex items-center justify-center rounded-full ${
                         isToday
                           ? 'w-[22px] h-[22px] text-blue-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-500'
@@ -1263,7 +1280,11 @@ export const CalendarPage = () => {
       {/* Add Public Event Modal */}
       <AddEventModal
         isOpen={isAddEventOpen}
-        onClose={() => setIsAddEventOpen(false)}
+        initialDate={selectedEventDate}
+        onClose={() => {
+          setIsAddEventOpen(false);
+          setSelectedEventDate('');
+        }}
       />
 
       {/* Private Date Memory Modal (User Isolated) */}

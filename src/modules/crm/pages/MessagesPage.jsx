@@ -54,6 +54,7 @@ import { ScreenShareModal } from '../components/messages/ScreenShareModal';
 import { processFileForChat, downloadChatAttachment, fetchChatAttachmentMedia } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
+import { emitSocketEvent } from '../../../shared/services/socketService';
 
 const LazyChatImage = ({ att, conversationId, onOpen }) => {
   const [src, setSrc] = useState(() => att?.dataUrl || att?.thumbDataUrl || '');
@@ -111,6 +112,7 @@ export const MessagesPage = () => {
     setActiveConversationId,
     sendMessage,
     deleteMessage,
+    reactToChatMessage,
     markConversationAsRead
   } = useCRM();
   const { confirm } = useConfirm();
@@ -143,6 +145,13 @@ export const MessagesPage = () => {
   const [viewerAttachment, setViewerAttachment] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  // In-Chat Search, Typing Indicator & Emoji Reaction States
+  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [remoteTypingUsers, setRemoteTypingUsers] = useState([]);
+  const [activeReactionPickerMsgId, setActiveReactionPickerMsgId] = useState(null);
+  const typingTimeoutRef = useRef(null);
 
   // Screen Share & Live Huddle State
   const [screenStream, setScreenStream] = useState(null);
@@ -255,8 +264,80 @@ export const MessagesPage = () => {
         deduped.push(msg);
       }
     }
+    if (chatSearchQuery.trim()) {
+      const q = chatSearchQuery.toLowerCase().trim();
+      return deduped.filter(msg => {
+        const textMatch = msg.text && msg.text.toLowerCase().includes(q);
+        const attMatch = Array.isArray(msg.attachments) && msg.attachments.some(a => a.name && a.name.toLowerCase().includes(q));
+        const senderMatch = msg.senderName && msg.senderName.toLowerCase().includes(q);
+        return textMatch || attMatch || senderMatch;
+      });
+    }
     return deduped;
-  }, [activeConv?.messages]);
+  }, [activeConv?.messages, chatSearchQuery]);
+
+  // Typing event listener & auto-reset on conversation change
+  useEffect(() => {
+    const handleTypingEvent = (e) => {
+      const { conversationId, user, isTyping } = e.detail || {};
+      if (!conversationId || conversationId !== activeConv?.id) return;
+      const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '');
+      if (String(user?.id) === myId) return;
+
+      setRemoteTypingUsers(prev => {
+        const filtered = prev.filter(u => String(u.id) !== String(user?.id));
+        if (isTyping) {
+          return [...filtered, user];
+        }
+        return filtered;
+      });
+    };
+
+    window.addEventListener('ems_chat_typing', handleTypingEvent);
+    return () => window.removeEventListener('ems_chat_typing', handleTypingEvent);
+  }, [activeConv?.id, currentUser]);
+
+  useEffect(() => {
+    setRemoteTypingUsers([]);
+    setChatSearchQuery('');
+    setIsChatSearchOpen(false);
+    setActiveReactionPickerMsgId(null);
+  }, [activeConv?.id]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputText(val);
+
+    if (activeConv?.id) {
+      emitSocketEvent('chat:typing', {
+        conversationId: activeConv.id,
+        user: {
+          id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+          name: currentUser?.name || 'Teammate'
+        },
+        isTyping: true
+      });
+
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        emitSocketEvent('chat:typing', {
+          conversationId: activeConv.id,
+          user: {
+            id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+            name: currentUser?.name || 'Teammate'
+          },
+          isTyping: false
+        });
+      }, 2000);
+    }
+  };
+
+  const handleReactToMessage = (messageId, emoji) => {
+    setActiveReactionPickerMsgId(null);
+    if (typeof reactToChatMessage === 'function' && activeConv?.id) {
+      reactToChatMessage(activeConv.id, messageId, emoji);
+    }
+  };
 
   // Smooth scroll strictly within the message stream container without jumping outer page
   useEffect(() => {
@@ -309,6 +390,18 @@ export const MessagesPage = () => {
     setInputText('');
     setPendingAttachments([]);
     setShowEmojiPicker(false);
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (activeConv?.id) {
+      emitSocketEvent('chat:typing', {
+        conversationId: activeConv.id,
+        user: {
+          id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+          name: currentUser?.name || 'Teammate'
+        },
+        isTyping: false
+      });
+    }
 
     try {
       sendMessage(activeConv.id, textToSend, attachmentsToSend);
@@ -778,6 +871,54 @@ export const MessagesPage = () => {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* 1-Click WhatsApp-Style Call / Huddle Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('ems_trigger_voice_call', {
+                          detail: { conversationId: activeConv?.id }
+                        }));
+                      }}
+                      disabled={!isClockedIn || isOnBreak || (!activeIsChannel && (!partnerShiftState?.isClockedIn || partnerShiftState?.isOnBreak))}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                        !isClockedIn || isOnBreak || (!activeIsChannel && (!partnerShiftState?.isClockedIn || partnerShiftState?.isOnBreak))
+                          ? 'bg-slate-100 dark:bg-[#192644] opacity-50 cursor-not-allowed text-slate-400 border-slate-200 dark:border-slate-800'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                      }`}
+                      title={
+                        !isClockedIn
+                          ? 'Clock into shift to call'
+                          : isOnBreak
+                          ? 'Cannot call while on break'
+                          : !activeIsChannel && !partnerShiftState?.isClockedIn
+                          ? `${activePartner?.name || 'Partner'} is clocked out`
+                          : activeIsChannel
+                          ? 'Start Channel Voice Huddle'
+                          : `Voice call ${activePartner?.name || 'Partner'}`
+                      }
+                    >
+                      <Phone size={13.5} />
+                      <span className="hidden sm:inline">{activeIsChannel ? 'Huddle' : 'Call'}</span>
+                    </button>
+
+                    {/* In-Chat Message Search Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChatSearchOpen(prev => !prev);
+                        if (isChatSearchOpen) setChatSearchQuery('');
+                      }}
+                      className={`p-1.5 px-2.5 rounded-lg border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                        isChatSearchOpen
+                          ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border-blue-300 dark:border-blue-800'
+                          : 'bg-slate-100 dark:bg-[#192644] hover:bg-slate-200 dark:hover:bg-[#203157] text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
+                      }`}
+                      title="Search in this chat"
+                    >
+                      <Search size={13.5} />
+                      <span className="hidden lg:inline">Find</span>
+                    </button>
+
                     {/* Screen Share Button */}
                     <button
                       type="button"
@@ -802,6 +943,38 @@ export const MessagesPage = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* In-Chat Search Bar */}
+                {isChatSearchOpen && (
+                  <div className="p-2.5 px-4 bg-blue-50/80 dark:bg-[#131e38] border-b border-blue-200/60 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Search size={14} className="text-blue-500 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search messages, links, files in this conversation..."
+                        value={chatSearchQuery}
+                        onChange={e => setChatSearchQuery(e.target.value)}
+                        autoFocus
+                        className="flex-1 bg-transparent border-0 outline-none text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 font-medium"
+                      />
+                    </div>
+                    {chatSearchQuery && (
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-sky-400 shrink-0">
+                        {displayMessages.length} match{displayMessages.length === 1 ? '' : 'es'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChatSearchQuery('');
+                        setIsChatSearchOpen(false);
+                      }}
+                      className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 cursor-pointer border-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
 
                 {/* Live Voice Huddle & Walkie-Talkie Intercom Bar */}
                 <LiveVoiceHuddleBar
@@ -950,7 +1123,33 @@ export const MessagesPage = () => {
                             )}
                           </div>
 
-                          {/* Timestamp & Read Receipt Status & Delete Action */}
+                          {/* Message Reactions Pills */}
+                          {Array.isArray(msg.reactions) && msg.reactions.length > 0 && (
+                            <div className={`flex flex-wrap gap-1 mt-1 ${outgoing ? 'self-end' : 'self-start'}`}>
+                              {msg.reactions.map((r, rIdx) => {
+                                const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '');
+                                const hasReacted = (r.users || []).some(u => String(u?.id || u) === myId);
+                                return (
+                                  <button
+                                    key={rIdx}
+                                    type="button"
+                                    onClick={() => handleReactToMessage(msg.id, r.emoji)}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold border cursor-pointer transition-transform hover:scale-105 shadow-2xs ${
+                                      hasReacted
+                                        ? 'bg-blue-100 dark:bg-blue-950/80 border-blue-400 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                                    }`}
+                                    title={(r.users || []).map(u => u.name || 'Teammate').join(', ')}
+                                  >
+                                    <span>{r.emoji}</span>
+                                    <span className="text-[10px] font-extrabold">{r.users?.length || 1}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Timestamp & Read Receipt Status & Reaction & Delete Action */}
                           <div className={`text-[10px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1.5 ${outgoing ? 'self-end' : 'self-start'}`}>
                             <span>{msg.timestamp || 'Just now'}</span>
                             {outgoing && (
@@ -964,6 +1163,39 @@ export const MessagesPage = () => {
                                 </span>
                               )
                             )}
+
+                            {/* Emoji Reaction Trigger */}
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={() => setActiveReactionPickerMsgId(prev => prev === msg.id ? null : msg.id)}
+                                className="opacity-75 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-0.5 rounded text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 border-0 cursor-pointer"
+                                title="Add reaction"
+                              >
+                                <Smile size={11.5} />
+                              </button>
+
+                              {/* Emoji Reaction Popover */}
+                              {activeReactionPickerMsgId === msg.id && (
+                                <div
+                                  className={`absolute z-30 bottom-full mb-1 flex items-center gap-1 p-1 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-lg animate-fadeIn ${
+                                    outgoing ? 'right-0' : 'left-0'
+                                  }`}
+                                >
+                                  {['👍', '❤️', '😂', '🎉', '🔥'].map(emoji => (
+                                    <button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={() => handleReactToMessage(msg.id, emoji)}
+                                      className="text-sm p-1 hover:scale-130 transition-transform bg-transparent border-0 cursor-pointer"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
                             {(outgoing || currentUser?.role === 'admin' || currentUser?.isAdmin) && (
                               <button
                                 type="button"
@@ -1026,6 +1258,20 @@ export const MessagesPage = () => {
                         {emoji}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Live Remote Typing Indicator Banner */}
+                {remoteTypingUsers.length > 0 && (
+                  <div className="px-4 py-1.5 bg-slate-50 dark:bg-[#0d1527] border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 shrink-0 animate-fadeIn">
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {remoteTypingUsers.map(u => u.name || 'Teammate').join(', ')} {remoteTypingUsers.length === 1 ? 'is' : 'are'} typing...
+                    </span>
                   </div>
                 )}
 
@@ -1103,7 +1349,7 @@ export const MessagesPage = () => {
                         : `Message ${headerTitle}...`
                     }
                     value={inputText}
-                    onChange={e => setInputText(e.target.value)}
+                    onChange={handleInputChange}
                     className="flex-1 py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-[12.5px] sm:text-[13px] outline-none bg-slate-50 dark:bg-[#0c1427] text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 focus:border-blue-600 dark:focus:border-sky-400 focus:ring-1 focus:ring-blue-500/20 transition-all font-medium min-w-0"
                   />
 

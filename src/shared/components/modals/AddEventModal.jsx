@@ -3,7 +3,7 @@
  * @description Modal for adding company events, meetings, festivals, holidays, and work anniversaries with recurring support.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Calendar,
@@ -32,12 +32,12 @@ const EVENT_TYPES = [
   { value: 'Other Important Event', label: '📌 Other Important Event', color: '#475569', bg: '#f1f5f9' }
 ];
 
-export const AddEventModal = ({ isOpen, onClose }) => {
+export const AddEventModal = ({ isOpen, onClose, initialDate = '' }) => {
   const { createEvent } = useCRM();
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
-  const now = getLocalDateString();
+  const now = initialDate || getLocalDateString();
 
   const [formData, setFormData] = useState({
     eventName: '',
@@ -50,6 +50,16 @@ export const AddEventModal = ({ isOpen, onClose }) => {
     notification: true,
     isRecurring: false
   });
+
+  useEffect(() => {
+    if (initialDate && isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        startDate: initialDate,
+        endDate: initialDate
+      }));
+    }
+  }, [initialDate, isOpen]);
 
   const [submitting, setSubmitting] = useState(false);
 

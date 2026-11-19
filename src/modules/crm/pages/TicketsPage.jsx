@@ -425,12 +425,32 @@ export const TicketsPage = () => {
                     <td className="px-2.5 py-[7px] whitespace-nowrap">
                       <div
                         onClick={() => setSelectedTicket(ticket)}
-                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer text-xs leading-tight"
+                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer text-xs leading-tight hover:underline"
                       >
                         {ticket.subject}
                       </div>
-                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-[1px]">
-                        {ticket.category || 'General'} • {ticket.replies?.length || 0} messages
+                      <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-[2px] flex items-center gap-1.5 flex-wrap">
+                        <span>{ticket.category || 'General'}</span>
+                        <span>•</span>
+                        <span>{ticket.replies?.length || 0} msgs</span>
+                        {(() => {
+                          const p = String(ticket.priority || 'medium').toLowerCase();
+                          const slaHours = p === 'urgent' ? 12 : p === 'high' ? 24 : p === 'medium' ? 48 : 72;
+                          const createdAtMs = ticket.createdAt ? new Date(ticket.createdAt).getTime() : ticket.requestedOn ? new Date(ticket.requestedOn).getTime() : Date.now() - 3600000;
+                          const deadlineMs = createdAtMs + slaHours * 3600000;
+                          const nowMs = Date.now();
+                          const isClosed = ticket.status === 'resolved' || ticket.status === 'closed';
+
+                          if (isClosed) {
+                            return <span className="text-[9px] px-1 py-px rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">✅ SLA Met</span>;
+                          }
+                          if (nowMs > deadlineMs) {
+                            const breached = Math.round((nowMs - deadlineMs) / 3600000) || 1;
+                            return <span className="text-[9px] px-1 py-px rounded bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-800 animate-pulse">⚠️ SLA Overdue (+{breached}h)</span>;
+                          }
+                          const left = Math.round((deadlineMs - nowMs) / 3600000) || 1;
+                          return <span className="text-[9px] px-1 py-px rounded bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">⏱️ SLA: {left}h left</span>;
+                        })()}
                       </div>
                     </td>
 

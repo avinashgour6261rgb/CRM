@@ -28,6 +28,7 @@ import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { canDeleteLead, canEditLeads } from '../../../../shared/utils/permissionUtils';
 import { Pagination } from '../../../../shared/components/common/Pagination';
+import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 export const LeadsTable = ({
   leads = [],
@@ -215,6 +216,25 @@ export const LeadsTable = ({
                               {lead.leadType}
                             </span>
                           )}
+                          {lead.nextFollowUpDate && (() => {
+                            const todayStr = getLocalDateString();
+                            const isOverdue = lead.nextFollowUpDate < todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                            const isDueToday = lead.nextFollowUpDate === todayStr && lead.status !== 'converted' && lead.status !== 'lost';
+                            return (
+                              <span
+                                className={`text-[9px] py-px px-1.5 rounded-full font-bold border inline-flex items-center gap-0.5 ${
+                                  isOverdue
+                                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                    : isDueToday
+                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800 animate-pulse'
+                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                }`}
+                                title={`Follow-Up Date: ${lead.nextFollowUpDate}`}
+                              >
+                                {isOverdue ? `⚠️ Overdue (${lead.nextFollowUpDate})` : isDueToday ? '🔔 Due Today' : `📅 ${lead.nextFollowUpDate}`}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                     </td>
@@ -243,15 +263,26 @@ export const LeadsTable = ({
                       )}
                     </td>
 
-                    {/* Phone Number */}
+                    {/* Phone Number & 1-Click WhatsApp */}
                     <td className="py-[7px] px-2.5 whitespace-nowrap">
                       {lead.phone ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <a
                             href={`tel:${lead.phone}`}
-                            className="text-slate-700 dark:text-slate-300 no-underline text-[11.5px] font-medium hover:underline"
+                            className="text-slate-700 dark:text-slate-300 no-underline text-[11.5px] font-medium hover:underline inline-flex items-center gap-1"
+                            title="Direct phone call"
                           >
-                            {lead.phone}
+                            <Phone size={10.5} className="text-slate-400" />
+                            <span>{lead.phone}</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-5 h-5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-[10px] font-bold no-underline hover:scale-110 transition-transform"
+                            title="Chat on WhatsApp"
+                          >
+                            💬
                           </a>
                           <button
                             onClick={() => handleCopy(lead.phone, `phone_${lead._id}`)}

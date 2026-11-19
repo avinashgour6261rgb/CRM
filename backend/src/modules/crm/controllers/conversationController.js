@@ -474,3 +474,64 @@ exports.deleteMessage = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.reactToMessage = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const { emoji, user } = req.body || {};
+    if (!emoji || !user) {
+      return res.status(400).json({ success: false, message: 'Emoji and user details are required' });
+    }
+
+    const conv = await Conversation.findOne({ id });
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    const userId = String(user.id || user._id || user.employeeCode || 'anon');
+    const userName = user.name || 'Teammate';
+
+    let updatedReactions = [];
+    if (Array.isArray(conv.messages)) {
+      const msg = conv.messages.find(m => m && String(m.id) === String(messageId));
+      if (msg) {
+        if (!Array.isArray(msg.reactions)) msg.reactions = [];
+
+        const existingReactionIndex = msg.reactions.findIndex(r => r.emoji === emoji);
+        if (existingReactionIndex !== -1) {
+          const r = msg.reactions[existingReactionIndex];
+          const userIdx = (r.users || []).findIndex(u => String(u?.id || u) === userId);
+          if (userIdx !== -1) {
+            r.users.splice(userIdx, 1);
+            if (r.users.length === 0) {
+              msg.reactions.splice(existingReactionIndex, 1);
+            }
+          } else {
+            r.users.push({ id: userId, name: userName });
+          }
+        } else {
+          msg.reactions.push({
+            emoji,
+            users: [{ id: userId, name: userName }]
+          });
+        }
+        updatedReactions = msg.reactions;
+        await conv.save();
+
+        try {
+          const { emitToAll } = require('../../../shared/socket/socketManager');
+          emitToAll('chat:message:reacted', {
+            conversationId: id,
+            messageId,
+            reactions: updatedReactions,
+            user
+          });
+        } catch (_) {}
+      }
+    }
+
+    res.json({ success: true, conversationId: id, messageId, reactions: updatedReactions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

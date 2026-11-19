@@ -577,6 +577,14 @@ export const LiveVoiceHuddleBar = ({
       }
     };
 
+    // 6. External Call Trigger (from Chat Header button)
+    const handleTriggerCall = (e) => {
+      if (e.detail?.conversationId && e.detail.conversationId !== activeConv?.id) return;
+      if (callState === 'idle') {
+        startCall();
+      }
+    };
+
     const unsubAccepted = subscribeSocketEvent('call:accepted', handleAccepted);
     const unsubDeclined = subscribeSocketEvent('call:declined', handleDeclined);
     const unsubEnded = subscribeSocketEvent('call:ended', handleRemoteEnded);
@@ -587,6 +595,7 @@ export const LiveVoiceHuddleBar = ({
     window.addEventListener('ems_call_ended', handleRemoteEnded);
     window.addEventListener('ems_call_cancelled', handleCancelled);
     window.addEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
+    window.addEventListener('ems_trigger_voice_call', handleTriggerCall);
 
     return () => {
       unsubAccepted();
@@ -598,8 +607,9 @@ export const LiveVoiceHuddleBar = ({
       window.removeEventListener('ems_call_ended', handleRemoteEnded);
       window.removeEventListener('ems_call_cancelled', handleCancelled);
       window.removeEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
+      window.removeEventListener('ems_trigger_voice_call', handleTriggerCall);
     };
-  }, [activeConv?.id, activePartner?.name, sendMessage, stopAllVoice]);
+  }, [activeConv?.id, activePartner?.name, sendMessage, stopAllVoice, callState, startCall]);
 
   // WebRTC Signaling Listeners
   useEffect(() => {

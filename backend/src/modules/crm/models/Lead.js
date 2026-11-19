@@ -110,6 +110,18 @@ const LeadSchema = new mongoose.Schema(
     notes: {
       type: String,
       default: ''
+    },
+    nextFollowUpDate: {
+      type: String,
+      default: null
+    },
+    activities: {
+      type: Array,
+      default: []
+    },
+    convertedToProjectId: {
+      type: String,
+      default: null
     }
   },
   {

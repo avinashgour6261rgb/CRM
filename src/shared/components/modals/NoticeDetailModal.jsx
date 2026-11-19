@@ -10,11 +10,22 @@ import {
   Calendar,
   User,
   Tag,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
+import { useCRM } from '../../context/CRMContext';
 
 export const NoticeDetailModal = ({ notice, onClose }) => {
+  const { acknowledgeNotice } = useCRM() || {};
+
   if (!notice) return null;
+
+  const handleAcknowledgeAndClose = () => {
+    if (typeof acknowledgeNotice === 'function') {
+      acknowledgeNotice(notice._id || notice.id);
+    }
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
@@ -67,10 +78,11 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           <button
-            onClick={onClose}
-            className="bg-sky-600 hover:bg-sky-700 text-white border-none px-5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors shadow-sm"
+            onClick={handleAcknowledgeAndClose}
+            className="bg-sky-600 hover:bg-sky-700 text-white border-none px-5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-colors shadow-sm flex items-center gap-1.5"
           >
-            Acknowledge & Close
+            <CheckCircle2 size={15} />
+            <span>Acknowledge & Close</span>
           </button>
         </div>
       </div>
