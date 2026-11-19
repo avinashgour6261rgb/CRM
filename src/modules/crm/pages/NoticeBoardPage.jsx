@@ -47,17 +47,43 @@ export const NoticeBoardPage = () => {
   // Selection
   const [selectedIds, setSelectedIds] = useState([]);
 
+  const isPrivileged = isHRorAdmin(currentUser);
+  const userDept = (currentUser?.department || '').toLowerCase().trim();
+  const userRole = (currentUser?.role || '').toLowerCase().trim();
+  const userName = (currentUser?.name || '').toLowerCase().trim();
+  const userId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '');
+
   const filteredNotices = useMemo(() => {
     return notices.filter(n => {
+      // 1. Audience & Privacy scoping for non-admin team members
+      if (!isPrivileged) {
+        const target = (n.to || n.targetAudience || 'all').toLowerCase().trim();
+        const isAuthor =
+          (n.postedById && String(n.postedById) === userId) ||
+          (n.createdBy && String(n.createdBy) === userId) ||
+          (n.postedBy && n.postedBy.toLowerCase().trim() === userName);
+
+        const isTargetedToMe =
+          target === 'all' ||
+          target === 'all employees' ||
+          target === '' ||
+          (userDept && target.includes(userDept)) ||
+          (userRole && target.includes(userRole));
+
+        if (!isAuthor && !isTargetedToMe) return false;
+      }
+
+      // 2. Search filter
       const matchSearch = matchesSearch(n, search, [
         'title', 'description', 'shortDescription', 'to', 'targetAudience', 'priority', 'postedBy', 'createdBy'
       ]);
 
+      // 3. Date range filter
       const matchDate = matchesDateRange(n.date || n.createdAt, startDateFilter, endDateFilter);
 
       return matchSearch && matchDate;
     });
-  }, [notices, search, startDateFilter, endDateFilter]);
+  }, [notices, search, startDateFilter, endDateFilter, isPrivileged, userDept, userRole, userName, userId]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {

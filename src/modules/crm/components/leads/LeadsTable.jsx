@@ -98,6 +98,8 @@ export const LeadsTable = ({
   const paginatedLeads = sortedLeads.slice(startIndex, startIndex + pageSize);
 
   const getStatusBadge = (status) => {
+    const s = String(status || '').toLowerCase().trim();
+    const normalized = s === 'contacted' ? 'active' : s === 'qualified' ? 'in_progress' : s === 'proposal' ? 'negotiation' : s === 'won' ? 'converted' : s;
     const map = {
       new: { label: 'New Inquiry', className: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800' },
       active: { label: 'Active', className: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800' },
@@ -106,7 +108,7 @@ export const LeadsTable = ({
       converted: { label: 'Converted (Won)', className: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' },
       lost: { label: 'Lost', className: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' }
     };
-    return map[status] || { label: status, className: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' };
+    return map[normalized] || { label: status, className: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' };
   };
 
   const getPriorityBadge = (priority) => {

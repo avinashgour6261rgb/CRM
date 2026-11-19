@@ -104,22 +104,22 @@ exports.addComment = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
 
-  // If payload matches reply structure or comment
-  if (req.body.text) {
-    ticket.comments = ticket.comments || [];
-    ticket.comments.push(req.body);
-  }
-  if (req.body.message || req.body.reply) {
+  // Add to replies if it represents a conversation message/reply, otherwise store as comment
+  const replyContent = req.body.message || req.body.reply;
+  if (replyContent || req.body.isAdminReply !== undefined) {
     ticket.replies = ticket.replies || [];
     ticket.replies.push({
       id: req.body.id || `rep_${Date.now()}`,
       senderId: req.body.senderId || req.user?._id || '',
-      senderName: req.body.senderName || req.user?.name || 'Employee',
-      senderAvatar: req.body.senderAvatar || req.user?.avatar || '',
-      message: req.body.message || req.body.reply || '',
+      senderName: req.body.senderName || req.body.authorName || req.user?.name || 'Employee',
+      senderAvatar: req.body.senderAvatar || req.body.authorAvatar || req.user?.avatar || '',
+      message: replyContent || req.body.text || '',
       timestamp: req.body.timestamp || new Date().toISOString(),
       isAdminReply: !!req.body.isAdminReply
     });
+  } else if (req.body.text) {
+    ticket.comments = ticket.comments || [];
+    ticket.comments.push(req.body);
   }
 
   await ticket.save();

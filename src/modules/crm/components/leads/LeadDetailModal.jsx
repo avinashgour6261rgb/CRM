@@ -34,11 +34,23 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
 
   if (!isOpen || !lead) return null;
 
-  const formatCurrency = (amount) => {
-    return `₹${(Number(amount) || 0).toLocaleString('en-IN')}`;
+  const normalizeLeadStatus = (status) => {
+    if (!status) return 'new';
+    const s = String(status).toLowerCase().trim();
+    if (s === 'contacted') return 'active';
+    if (s === 'qualified') return 'in_progress';
+    if (s === 'proposal') return 'negotiation';
+    if (s === 'won') return 'converted';
+    return s;
+  };
+
+  const formatCurrency = (amount, currency = 'INR') => {
+    const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'AED' ? 'AED ' : '₹';
+    return `${sym}${(Number(amount) || 0).toLocaleString(currency === 'USD' ? 'en-US' : 'en-IN')}`;
   };
 
   const getStatusInfo = (status) => {
+    const s = normalizeLeadStatus(status);
     const map = {
       new: { label: 'New Inquiry', color: '#0284c7', bg: '#e0f2fe' },
       active: { label: 'Active Contact', color: '#d97706', bg: '#fef3c7' },
@@ -47,7 +59,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
       converted: { label: 'Converted (Won)', color: '#16a34a', bg: '#dcfce7' },
       lost: { label: 'Lost / Dropped', color: '#64748b', bg: '#f1f5f9' }
     };
-    return map[status] || { label: status, color: '#64748b', bg: '#f8fafc' };
+    return map[s] || { label: status, color: '#64748b', bg: '#f8fafc' };
   };
 
   const statusInfo = getStatusInfo(lead.status);
@@ -162,7 +174,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             <div className="bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 rounded-lg p-2.5 px-3.5 flex flex-col gap-0.5">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Estimated Deal Value</span>
               <div className="text-[15px] font-extrabold text-green-600 dark:text-green-400">
-                {formatCurrency(lead.dealValue)}
+                {formatCurrency(lead.dealValue, lead.currency)}
               </div>
             </div>
 

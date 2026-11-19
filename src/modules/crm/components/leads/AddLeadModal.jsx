@@ -21,11 +21,12 @@ import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 
 const LEAD_STAGES = [
-  { id: 'new', label: 'New Lead' },
-  { id: 'contacted', label: 'Contacted' },
-  { id: 'qualified', label: 'Qualified' },
-  { id: 'proposal', label: 'Proposal Sent' },
-  { id: 'won', label: 'Won / Closed' }
+  { id: 'new', label: 'New Inquiry' },
+  { id: 'active', label: 'Active Contact' },
+  { id: 'in_progress', label: 'In Progress / Demo' },
+  { id: 'negotiation', label: 'In Negotiation' },
+  { id: 'converted', label: 'Won Deals (Converted)' },
+  { id: 'lost', label: 'Lost / Dropped' }
 ];
 
 const LEAD_SOURCES = [

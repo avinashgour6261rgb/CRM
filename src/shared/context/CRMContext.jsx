@@ -1748,7 +1748,16 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const currentList = getCollection(KEYS.TICKETS) || [];
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
-      const isUserAdmin = currentUser?.role?.toLowerCase().includes('lead') || currentUser?.role?.toLowerCase().includes('director') || currentUser?.role?.toLowerCase().includes('manager') || currentUser?.role?.toLowerCase().includes('admin');
+      const isUserAdmin = Boolean(
+        currentUser?.isAdmin ||
+        currentUser?.systemRole === 'admin' ||
+        currentUser?.systemRole === 'hr' ||
+        currentUser?.role?.toLowerCase().includes('lead') ||
+        currentUser?.role?.toLowerCase().includes('director') ||
+        currentUser?.role?.toLowerCase().includes('manager') ||
+        currentUser?.role?.toLowerCase().includes('admin') ||
+        currentUser?.role?.toLowerCase().includes('hr')
+      );
       const newReply = {
         id: `rep_${Date.now()}`,
         senderId: currentUser?._id || 'emp_001',
@@ -1767,7 +1776,6 @@ const stripHeavyMediaForStorage = (convs = []) => {
             authorName: newReply.senderName,
             authorAvatar: newReply.senderAvatar,
             authorRole: isUserAdmin ? 'Administrator' : 'Team Member',
-            text: messageText,
             message: messageText,
             isAdminReply: isUserAdmin
           })
@@ -2640,6 +2648,43 @@ const stripHeavyMediaForStorage = (convs = []) => {
     saveCollection(KEYS.LEADS, updated);
     setLeads(updated);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
+
+    // Persist batch to backend MongoDB Atlas if online
+    try {
+      const payloadLeads = formattedList.map(item => {
+        const copy = { ...item };
+        delete copy._id;
+        return copy;
+      });
+
+      const res = await fetch(`${API_BASE}/leads/import`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ leads: payloadLeads })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data) && json.data.length > 0) {
+          const idMap = new Map();
+          json.data.forEach(savedItem => {
+            if (savedItem.leadCode) idMap.set(savedItem.leadCode, savedItem);
+          });
+          formattedList.forEach((item, i) => {
+            const saved = idMap.get(item.leadCode);
+            if (saved && saved._id) {
+              formattedList[i]._id = String(saved._id);
+            }
+          });
+          const reSynced = [...formattedList, ...currentList];
+          saveCollection(KEYS.LEADS, reSynced);
+          setLeads(reSynced);
+        }
+      }
+    } catch (err) {
+      console.warn('[CRMContext] Offline fallback for leads batch import:', err);
+    }
+
     addToast(`Successfully imported ${formattedList.length} leads!`, 'success');
     return formattedList;
   };

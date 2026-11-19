@@ -18,7 +18,9 @@ import {
   FileText,
   UserCheck,
   ChevronDown,
-  Trash2
+  Trash2,
+  Paperclip,
+  Download
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
@@ -201,6 +203,39 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
               {ticket.description || 'No detailed description provided.'}
             </div>
           </div>
+
+          {/* Optional Attachment Card */}
+          {(ticket.attachment || ticket.fileName) && (
+            <div>
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Attached File / Evidence</span>
+              <div className="mt-1.5 p-3 px-3.5 rounded-[10px] bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
+                    <Paperclip size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                      {ticket.fileName || (typeof ticket.attachment === 'string' ? ticket.attachment.split('/').pop() : 'Attachment File')}
+                    </div>
+                    <span className="text-[10.5px] text-slate-500 dark:text-slate-400">Attached with support ticket</span>
+                  </div>
+                </div>
+
+                {ticket.attachment && (
+                  <a
+                    href={ticket.attachment}
+                    download={ticket.fileName || 'ticket_attachment'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 no-underline shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <Download size={13} />
+                    <span>Download</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Discussion Tabs (Discussion Thread vs Admin Internal Notes) */}
           <div>

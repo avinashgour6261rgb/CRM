@@ -30,6 +30,25 @@ const STAGES = [
   { id: 'lost', title: 'Lost / Dropped', color: '#64748b', bg: '#f1f5f9', border: '#e2e8f0' }
 ];
 
+export const normalizeLeadStatus = (status) => {
+  if (!status) return 'new';
+  const s = String(status).toLowerCase().trim();
+  if (s === 'contacted') return 'active';
+  if (s === 'qualified') return 'in_progress';
+  if (s === 'proposal') return 'negotiation';
+  if (s === 'won') return 'converted';
+  return s;
+};
+
+const getCurrencySymbol = (currency = 'INR') => {
+  const c = String(currency || '').toUpperCase();
+  if (c === 'USD') return '$';
+  if (c === 'EUR') return '€';
+  if (c === 'GBP') return '£';
+  if (c === 'AED') return 'AED ';
+  return '₹';
+};
+
 export const LeadsKanban = ({
   leads = [],
   onViewLead,
@@ -39,17 +58,24 @@ export const LeadsKanban = ({
   const { updateLeadStatus } = useCRM();
   const { currentUser } = useAuth();
 
-  const formatCurrency = (amount) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(0)} K`;
-    return `₹${(amount || 0).toLocaleString('en-IN')}`;
+  const formatCurrency = (amount, currency = 'INR') => {
+    const sym = getCurrencySymbol(currency);
+    const num = Number(amount) || 0;
+    if (!currency || currency === 'INR') {
+      if (num >= 10000000) return `${sym}${(num / 10000000).toFixed(2)} Cr`;
+      if (num >= 100000) return `${sym}${(num / 100000).toFixed(1)} L`;
+      if (num >= 1000) return `${sym}${(num / 1000).toFixed(0)} K`;
+      return `${sym}${num.toLocaleString('en-IN')}`;
+    }
+    if (num >= 1000000) return `${sym}${(num / 1000000).toFixed(2)}M`;
+    if (num >= 1000) return `${sym}${(num / 1000).toFixed(1)}K`;
+    return `${sym}${num.toLocaleString('en-US')}`;
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start">
       {STAGES.map((stage) => {
-        const stageLeads = leads.filter(l => l.status === stage.id);
+        const stageLeads = leads.filter(l => normalizeLeadStatus(l.status) === stage.id);
         const stageValue = stageLeads.reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0);
 
         return (
@@ -121,7 +147,7 @@ export const LeadsKanban = ({
                     {/* Deal Value */}
                     {lead.dealValue > 0 && (
                       <div className="text-[12.5px] font-extrabold text-green-600 dark:text-green-400">
-                        {formatCurrency(lead.dealValue)}
+                        {formatCurrency(lead.dealValue, lead.currency)}
                       </div>
                     )}
 
