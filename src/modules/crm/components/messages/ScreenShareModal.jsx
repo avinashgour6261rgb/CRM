@@ -9,15 +9,27 @@ import {
   Users,
   Eye,
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { useTimer } from '../../../../shared/context/TimerContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { emitSocketEvent, subscribeSocketEvent } from '../../../../shared/services/socketService';
+
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' }
+  ]
+};
 
 /**
  * @file ScreenShareModal.jsx
  * @description Enterprise Live Screen Sharing Modal & Floating Viewer for Groups and 1-on-1 chats.
- * Shift-clock-in gated with fullscreen, duration tracking, and stop sharing controls.
+ * Supports full WebRTC video streaming from Presenter to all Viewers with zero lag,
+ * PiP floating window, fullscreen toggling, and live session duration tracking.
  */
 export const ScreenShareModal = ({
   isOpen,
@@ -35,17 +47,262 @@ export const ScreenShareModal = ({
   const [isMinimized, setIsMinimized] = useState(false);
   const [shareDuration, setShareDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewerStream, setViewerStream] = useState(null);
+  const [viewerStatus, setViewerStatus] = useState('connecting');
 
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const timerRef = useRef(null);
 
+  // Host-side WebRTC connections: viewerSocketId -> RTCPeerConnection
+  const viewersMapRef = useRef(new Map());
+  const hostCandidatesQueue = useRef(new Map());
+
+  // Viewer-side WebRTC connection
+  const viewerPcRef = useRef(null);
+  const viewerCandidatesQueue = useRef([]);
+
+  const activeStream = isHost ? stream : viewerStream;
+
+  // ── Host-side WebRTC Broadcasting ──
+  useEffect(() => {
+    if (!isOpen || !isHost || !stream || !activeConv?.id) return;
+
+    // 1. Announce screen share session over socket
+    emitSocketEvent('screen:start', {
+      conversationId: activeConv.id,
+      host: {
+        id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+        name: currentUser?.name || 'Teammate',
+        avatar: currentUser?.avatar || '',
+        role: currentUser?.role || 'Team Member'
+      },
+      startedAt: hostInfo?.startedAt || Date.now()
+    });
+
+    // 2. When a viewer joins the room, host creates RTCPeerConnection and sends SDP offer
+    const unsubViewerJoined = subscribeSocketEvent('screen:viewer_joined', async (data) => {
+      if (!data || data.conversationId !== activeConv.id || !data.viewerSocketId) return;
+      const viewerSocketId = data.viewerSocketId;
+
+      let pc = viewersMapRef.current.get(viewerSocketId);
+      if (pc) {
+        try { pc.close(); } catch (_) {}
+        viewersMapRef.current.delete(viewerSocketId);
+      }
+
+      try {
+        pc = new RTCPeerConnection(RTC_CONFIG);
+        viewersMapRef.current.set(viewerSocketId, pc);
+
+        // Attach screen stream tracks
+        stream.getTracks().forEach(track => {
+          try {
+            pc.addTrack(track, stream);
+          } catch (err) {
+            console.warn('[ScreenShare] Error adding track:', err);
+          }
+        });
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            emitSocketEvent('screen:signal', {
+              targetSocketId: viewerSocketId,
+              signal: { candidate: event.candidate },
+              conversationId: activeConv.id
+            });
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            try { pc.close(); } catch (_) {}
+            viewersMapRef.current.delete(viewerSocketId);
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        emitSocketEvent('screen:signal', {
+          targetSocketId: viewerSocketId,
+          signal: { sdp: pc.localDescription },
+          conversationId: activeConv.id
+        });
+      } catch (err) {
+        console.error('[ScreenShare] Error creating host offer:', err);
+      }
+    });
+
+    // 3. Handle incoming SDP answer and ICE candidates from viewers
+    const unsubHostSignal = subscribeSocketEvent('screen:signal', async (data) => {
+      if (!data || data.conversationId !== activeConv.id) return;
+      const { senderSocketId, signal } = data;
+      if (!senderSocketId || !signal) return;
+
+      const pc = viewersMapRef.current.get(senderSocketId);
+      if (!pc) return;
+
+      if (signal.sdp && signal.sdp.type === 'answer') {
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          const queued = hostCandidatesQueue.current.get(senderSocketId) || [];
+          for (const cand of queued) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (_) {}
+          }
+          hostCandidatesQueue.current.delete(senderSocketId);
+        } catch (err) {
+          console.warn('[ScreenShare] Host setRemoteDescription error:', err);
+        }
+      } else if (signal.candidate) {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)); } catch (_) {}
+        } else {
+          const queued = hostCandidatesQueue.current.get(senderSocketId) || [];
+          queued.push(signal.candidate);
+          hostCandidatesQueue.current.set(senderSocketId, queued);
+        }
+      }
+    });
+
+    // 4. Viewer left
+    const unsubViewerLeft = subscribeSocketEvent('screen:viewer_left', (data) => {
+      if (!data || data.conversationId !== activeConv.id || !data.viewerSocketId) return;
+      const pc = viewersMapRef.current.get(data.viewerSocketId);
+      if (pc) {
+        try { pc.close(); } catch (_) {}
+        viewersMapRef.current.delete(data.viewerSocketId);
+      }
+    });
+
+    return () => {
+      unsubViewerJoined();
+      unsubHostSignal();
+      unsubViewerLeft();
+      viewersMapRef.current.forEach(p => {
+        try { p.close(); } catch (_) {}
+      });
+      viewersMapRef.current.clear();
+      hostCandidatesQueue.current.clear();
+    };
+  }, [isOpen, isHost, stream, activeConv?.id, currentUser, hostInfo?.startedAt]);
+
+  // ── Viewer-side WebRTC Receiving ──
+  useEffect(() => {
+    if (!isOpen || isHost || !activeConv?.id) return;
+
+    setViewerStatus('connecting');
+
+    // 1. Announce viewer joined to the host
+    emitSocketEvent('screen:join', {
+      conversationId: activeConv.id,
+      viewer: {
+        id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+        name: currentUser?.name || 'Teammate',
+        avatar: currentUser?.avatar || '',
+        role: currentUser?.role || 'Team Member'
+      }
+    });
+
+    // 2. Handle host's SDP offer & ICE candidates
+    const unsubViewerSignal = subscribeSocketEvent('screen:signal', async (data) => {
+      if (!data || data.conversationId !== activeConv.id) return;
+      const { senderSocketId, signal } = data;
+      if (!senderSocketId || !signal) return;
+
+      if (signal.sdp && signal.sdp.type === 'offer') {
+        try {
+          if (viewerPcRef.current) {
+            try { viewerPcRef.current.close(); } catch (_) {}
+          }
+
+          const pc = new RTCPeerConnection(RTC_CONFIG);
+          viewerPcRef.current = pc;
+
+          pc.ontrack = (event) => {
+            const remoteStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+            setViewerStream(remoteStream);
+            setViewerStatus('connected');
+            if (videoRef.current) {
+              videoRef.current.srcObject = remoteStream;
+              videoRef.current.play().catch(e => {
+                console.warn('[ScreenShare] Autoplay pending interaction:', e);
+              });
+            }
+          };
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate) {
+              emitSocketEvent('screen:signal', {
+                targetSocketId: senderSocketId,
+                signal: { candidate: event.candidate },
+                conversationId: activeConv.id
+              });
+            }
+          };
+
+          pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+              setViewerStatus('ended');
+            }
+          };
+
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+          // Flush queued candidates
+          for (const cand of viewerCandidatesQueue.current) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (_) {}
+          }
+          viewerCandidatesQueue.current = [];
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          emitSocketEvent('screen:signal', {
+            targetSocketId: senderSocketId,
+            signal: { sdp: pc.localDescription },
+            conversationId: activeConv.id
+          });
+        } catch (err) {
+          console.error('[ScreenShare] Error answering host screen offer:', err);
+        }
+      } else if (signal.candidate) {
+        const pc = viewerPcRef.current;
+        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)); } catch (_) {}
+        } else {
+          viewerCandidatesQueue.current.push(signal.candidate);
+        }
+      }
+    });
+
+    // 3. Presenter stopped sharing screen
+    const unsubStopped = subscribeSocketEvent('screen:stopped', (data) => {
+      if (!data || data.conversationId !== activeConv.id) return;
+      addToast('Screen share session ended by presenter', 'info');
+      onClose();
+    });
+
+    return () => {
+      emitSocketEvent('screen:leave', { conversationId: activeConv.id });
+      unsubViewerSignal();
+      unsubStopped();
+      if (viewerPcRef.current) {
+        try { viewerPcRef.current.close(); } catch (_) {}
+        viewerPcRef.current = null;
+      }
+      setViewerStream(null);
+      viewerCandidatesQueue.current = [];
+    };
+  }, [isOpen, isHost, activeConv?.id, currentUser, onClose, addToast]);
+
   // Set stream to video element
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+    if (videoRef.current && activeStream) {
+      videoRef.current.srcObject = activeStream;
+      videoRef.current.play().catch(() => {});
     }
-  }, [stream, isMinimized]);
+  }, [activeStream, isMinimized]);
 
   // Duration timer
   useEffect(() => {
@@ -63,7 +320,7 @@ export const ScreenShareModal = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isOpen, !!stream, hostInfo?.startedAt]);
+  }, [isOpen, !!activeStream, hostInfo?.startedAt]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -90,6 +347,7 @@ export const ScreenShareModal = ({
   };
 
   const handleStop = () => {
+    emitSocketEvent('screen:stop', { conversationId: activeConv?.id });
     if (onStopSharing) {
       onStopSharing();
     }
@@ -167,7 +425,7 @@ export const ScreenShareModal = ({
                 </span>
               </div>
               <div className="text-xs text-slate-400 truncate">
-                {isHost ? 'You are sharing your screen with team members' : `Viewing live screen stream`}
+                {isHost ? 'You are sharing your screen with team members' : `Viewing live screen stream from ${hostInfo?.hostName || 'Presenter'}`}
               </div>
             </div>
           </div>
@@ -222,7 +480,7 @@ export const ScreenShareModal = ({
 
         {/* Video Canvas Area */}
         <div className="flex-1 min-h-[350px] bg-black relative flex items-center justify-center overflow-hidden">
-          {stream ? (
+          {activeStream ? (
             <video
               ref={videoRef}
               autoPlay
@@ -237,15 +495,17 @@ export const ScreenShareModal = ({
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-white m-0">
-                  {hostInfo?.hostName || 'Teammate'}'s Live Screen Stream
+                  {isHost ? 'Preparing screen broadcast...' : `${hostInfo?.hostName || 'Presenter'}'s Live Screen Stream`}
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-md">
-                  Connected to real-time presentation stream. Broadcasting live to <strong>{convTitle}</strong>.
+                  {isHost
+                    ? `Broadcasting live to ${convTitle}. Teammates can watch your presentation in real-time.`
+                    : `Establishing zero-latency peer-to-peer WebRTC video stream with ${hostInfo?.hostName || 'Presenter'}...`}
                 </p>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 text-xs font-bold font-mono">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>RECEIVING BROADCAST • {formatTimer(shareDuration)}</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-950/80 border border-blue-500/50 text-blue-400 text-xs font-bold font-mono">
+                <Loader2 size={13} className="animate-spin text-blue-400" />
+                <span>{isHost ? 'BROADCASTING LIVE' : 'CONNECTING TO STREAM...'}</span>
               </div>
             </div>
           )}
@@ -261,10 +521,14 @@ export const ScreenShareModal = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="font-mono text-[11px] text-slate-400">1080p • 30fps</span>
-            {isHost && (
+            <span className="font-mono text-[11px] text-slate-400">1080p • WebRTC P2P</span>
+            {isHost ? (
               <span className="text-amber-400 font-bold text-[11px]">
-                Teammates can view this stream in real-time
+                Teammates are viewing this stream in real-time
+              </span>
+            ) : (
+              <span className="text-emerald-400 font-bold text-[11px]">
+                Connected to presenter
               </span>
             )}
           </div>
@@ -273,4 +537,3 @@ export const ScreenShareModal = ({
     </div>
   );
 };
-

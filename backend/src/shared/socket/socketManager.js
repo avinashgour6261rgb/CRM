@@ -285,6 +285,92 @@ function initSocket(server) {
       }
     });
 
+    // 🖥️ WebRTC Live Screen Sharing Relay
+    socket.on('screen:start', (data) => {
+      try {
+        const { conversationId, host, startedAt } = data || {};
+        if (!conversationId) return;
+        const roomName = `screen:${conversationId}`;
+        socket.join(roomName);
+
+        const payload = {
+          conversationId,
+          host: host || {},
+          hostSocketId: socket.id,
+          startedAt: startedAt || Date.now()
+        };
+
+        // Notify chat channel, voice room & company room so remote users see the "Watch Stream" banner
+        socket.to(`chat:${conversationId}`).emit('screen:started', payload);
+        socket.to(`voice:${conversationId}`).emit('screen:started', payload);
+        socket.to('company').emit('screen:started', payload);
+      } catch (err) {
+        console.warn('[SocketManager] screen:start error:', err.message);
+      }
+    });
+
+    socket.on('screen:join', (data) => {
+      try {
+        const { conversationId, viewer } = data || {};
+        if (!conversationId) return;
+        const roomName = `screen:${conversationId}`;
+        socket.join(roomName);
+
+        // Tell presenter/host in the screen room that a viewer joined and is waiting for stream
+        socket.to(roomName).emit('screen:viewer_joined', {
+          viewerSocketId: socket.id,
+          viewer,
+          conversationId
+        });
+      } catch (err) {
+        console.warn('[SocketManager] screen:join error:', err.message);
+      }
+    });
+
+    socket.on('screen:signal', (data) => {
+      try {
+        const { targetSocketId, signal, conversationId } = data || {};
+        if (targetSocketId && io) {
+          io.to(targetSocketId).emit('screen:signal', {
+            senderSocketId: socket.id,
+            signal,
+            conversationId
+          });
+        }
+      } catch (err) {
+        console.warn('[SocketManager] screen:signal error:', err.message);
+      }
+    });
+
+    socket.on('screen:leave', (data) => {
+      try {
+        const { conversationId } = data || {};
+        if (!conversationId) return;
+        const roomName = `screen:${conversationId}`;
+        socket.leave(roomName);
+        socket.to(roomName).emit('screen:viewer_left', {
+          viewerSocketId: socket.id,
+          conversationId
+        });
+      } catch (err) {
+        console.warn('[SocketManager] screen:leave error:', err.message);
+      }
+    });
+
+    socket.on('screen:stop', (data) => {
+      try {
+        const { conversationId } = data || {};
+        if (!conversationId) return;
+        const roomName = `screen:${conversationId}`;
+        socket.to(roomName).emit('screen:stopped', { conversationId });
+        socket.to(`chat:${conversationId}`).emit('screen:stopped', { conversationId });
+        socket.to('company').emit('screen:stopped', { conversationId });
+        socket.leave(roomName);
+      } catch (err) {
+        console.warn('[SocketManager] screen:stop error:', err.message);
+      }
+    });
+
     socket.on('disconnecting', () => {
       try {
         for (const room of socket.rooms) {
@@ -293,6 +379,15 @@ function initSocket(server) {
               socketId: socket.id,
               conversationId: room.replace('voice:', '')
             });
+          }
+          if (typeof room === 'string' && room.startsWith('screen:')) {
+            const convId = room.replace('screen:', '');
+            socket.to(room).emit('screen:viewer_left', {
+              viewerSocketId: socket.id,
+              conversationId: convId
+            });
+            // If the host disconnected, broadcast stopped so viewers modal closes
+            socket.to(room).emit('screen:stopped', { conversationId: convId });
           }
         }
       } catch (_) {}

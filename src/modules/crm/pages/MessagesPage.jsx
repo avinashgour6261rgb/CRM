@@ -542,11 +542,35 @@ export const MessagesPage = () => {
     };
     window.addEventListener('hrms_storage_change', handleSync);
     window.addEventListener('storage', handleNative);
+
+    // Cross-device / multi-browser live socket sync for screen sharing
+    const unsubScreenStarted = subscribeSocketEvent('screen:started', (data) => {
+      if (!data || data.conversationId !== activeConv?.id) return;
+      setActiveScreenShare({
+        hostId: data.host?.id,
+        hostName: data.host?.name || 'Teammate',
+        hostAvatar: data.host?.avatar || '',
+        hostRole: data.host?.role || 'Team Member',
+        convId: data.conversationId,
+        startedAt: data.startedAt || Date.now()
+      });
+    });
+
+    const unsubScreenStopped = subscribeSocketEvent('screen:stopped', (data) => {
+      if (!data || data.conversationId !== activeConv?.id) return;
+      setActiveScreenShare(null);
+      if (!isScreenShareHost) {
+        setIsScreenShareOpen(false);
+      }
+    });
+
     return () => {
       window.removeEventListener('hrms_storage_change', handleSync);
       window.removeEventListener('storage', handleNative);
+      unsubScreenStarted();
+      unsubScreenStopped();
     };
-  }, [screenShareKey, syncScreenShare]);
+  }, [screenShareKey, syncScreenShare, activeConv?.id, isScreenShareHost]);
 
   // Screen share controls
   const startScreenShare = async () => {
@@ -591,6 +615,17 @@ export const MessagesPage = () => {
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: screenShareKey } }));
       }
 
+      emitSocketEvent('screen:start', {
+        conversationId: activeConv.id,
+        host: {
+          id: sessionData.hostId,
+          name: sessionData.hostName,
+          avatar: sessionData.hostAvatar,
+          role: sessionData.hostRole
+        },
+        startedAt: sessionData.startedAt
+      });
+
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
       };
@@ -608,6 +643,8 @@ export const MessagesPage = () => {
   };
 
   const stopScreenShare = () => {
+    emitSocketEvent('screen:stop', { conversationId: activeConv?.id });
+
     if (screenStream) {
       screenStream.getTracks().forEach(track => track.stop());
       setScreenStream(null);

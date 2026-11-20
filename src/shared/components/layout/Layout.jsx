@@ -164,6 +164,13 @@ export const Layout = () => {
     });
 
     const targetConvId = incomingCall.conversationId;
+    try {
+      sessionStorage.setItem('ems_pending_accepted_call', JSON.stringify({
+        ...incomingCall,
+        acceptedAt: Date.now()
+      }));
+    } catch (_) {}
+
     window.dispatchEvent(new CustomEvent('ems_call_user_accepted', {
       detail: { ...incomingCall, acceptedAt: Date.now() }
     }));

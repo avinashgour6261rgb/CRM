@@ -23,7 +23,8 @@ const RTC_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' }
   ]
 };
 
@@ -68,6 +69,7 @@ export const LiveVoiceHuddleBar = ({
 
   // Call States: 'idle' | 'outgoing_ringing' | 'connected'
   const [callState, setCallState] = useState('idle');
+  const callStateRef = useRef('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
   const isDeafenedRef = useRef(false);
@@ -94,8 +96,14 @@ export const LiveVoiceHuddleBar = ({
   const audioElementsRef = useRef(new Map());
   // Remote Peer metadata: targetSocketId -> user info
   const peerUsersRef = useRef(new Map());
+  // ICE candidate queue before remote description is ready
+  const iceCandidatesQueueRef = useRef(new Map());
 
   const myId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'me');
+
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
 
   useEffect(() => {
     isDeafenedRef.current = isDeafened;
@@ -118,6 +126,7 @@ export const LiveVoiceHuddleBar = ({
       audioElementsRef.current.delete(socketId);
     }
     peerUsersRef.current.delete(socketId);
+    iceCandidatesQueueRef.current.delete(socketId);
     setHuddleMembers(prev => prev.filter(m => m.socketId !== socketId));
   }, []);
 
@@ -137,30 +146,47 @@ export const LiveVoiceHuddleBar = ({
 
     // Attach local microphone tracks
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => {
-        try {
-          pc.addTrack(track, audioStreamRef.current);
-        } catch (_) {}
+      const existingTrackIds = new Set(pc.getSenders().map(s => s.track?.id).filter(Boolean));
+      audioStreamRef.current.getAudioTracks().forEach(track => {
+        if (!existingTrackIds.has(track.id)) {
+          try {
+            pc.addTrack(track, audioStreamRef.current);
+          } catch (_) {}
+        }
       });
     }
 
     // Remote audio track arrives: Create iOS & Android compatible audio player
     pc.ontrack = (event) => {
-      const remoteStream = event.streams[0];
+      const remoteStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
       let audioEl = audioElementsRef.current.get(targetSocketId);
       if (!audioEl) {
         audioEl = document.createElement('audio');
         audioEl.autoplay = true;
         audioEl.playsInline = true; // Essential for iOS Safari
+        audioEl.volume = 1.0;
+        audioEl.muted = isDeafenedRef.current;
         audioEl.style.display = 'none';
         document.body.appendChild(audioEl);
         audioElementsRef.current.set(targetSocketId, audioEl);
       }
       audioEl.srcObject = remoteStream;
       audioEl.muted = isDeafenedRef.current;
-      audioEl.play().catch(e => {
-        console.warn('[LiveVoice] Remote audio playback requires user interaction:', e);
-      });
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          console.warn('[LiveVoice] Remote audio playback requires user interaction:', e);
+          const unlock = () => {
+            audioEl.play().catch(() => {});
+            window.removeEventListener('click', unlock);
+            window.removeEventListener('keydown', unlock);
+            window.removeEventListener('touchstart', unlock);
+          };
+          window.addEventListener('click', unlock, { once: true });
+          window.addEventListener('keydown', unlock, { once: true });
+          window.addEventListener('touchstart', unlock, { once: true });
+        });
+      }
     };
 
     // ICE Candidate Exchange
@@ -611,11 +637,30 @@ export const LiveVoiceHuddleBar = ({
     };
   }, [activeConv?.id, activePartner?.name, sendMessage, stopAllVoice, callState, startCall]);
 
+  // Auto-connect if user accepted call from global IncomingCallModal
+  useEffect(() => {
+    if (!activeConv?.id) return;
+    try {
+      const pendingRaw = sessionStorage.getItem('ems_pending_accepted_call');
+      if (pendingRaw) {
+        const pendingCall = JSON.parse(pendingRaw);
+        if (pendingCall && String(pendingCall.conversationId) === String(activeConv.id)) {
+          sessionStorage.removeItem('ems_pending_accepted_call');
+          setupLocalMic().then(() => {
+            connectHuddleRoom();
+          }).catch(err => {
+            console.error('[LiveVoice] Error connecting to pending accepted call:', err);
+          });
+        }
+      }
+    } catch (_) {}
+  }, [activeConv?.id]);
+
   // WebRTC Signaling Listeners
   useEffect(() => {
     const unsubJoined = subscribeSocketEvent('voice:peer_joined', (data) => {
       if (!data || data.conversationId !== activeConv?.id) return;
-      if (data.socketId && callState === 'connected') {
+      if (data.socketId && (callStateRef.current === 'connected' || callStateRef.current === 'outgoing_ringing')) {
         createPeerConnection(data.socketId, true, data.user);
       }
     });
@@ -624,6 +669,17 @@ export const LiveVoiceHuddleBar = ({
       if (!data || data.conversationId !== activeConv?.id) return;
       const { senderSocketId, signal, user } = data;
       if (!senderSocketId || !signal) return;
+
+      // If an incoming offer arrives, ensure local microphone is ready before creating peer connection
+      if (signal?.sdp?.type === 'offer') {
+        if (!audioStreamRef.current) {
+          try {
+            await setupLocalMic();
+          } catch (micErr) {
+            console.warn('[LiveVoice] Could not acquire mic for incoming call:', micErr);
+          }
+        }
+      }
 
       let pc = peersRef.current.get(senderSocketId);
       if (!pc && signal?.sdp?.type === 'offer') {
@@ -634,7 +690,27 @@ export const LiveVoiceHuddleBar = ({
       if (signal.sdp) {
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+          // Flush queued ICE candidates that arrived before remote description
+          const queued = iceCandidatesQueueRef.current.get(senderSocketId) || [];
+          for (const cand of queued) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (_) {}
+          }
+          iceCandidatesQueueRef.current.delete(senderSocketId);
+
           if (signal.sdp.type === 'offer') {
+            // Guarantee local mic tracks are attached before generating the answer
+            if (audioStreamRef.current) {
+              const existingTrackIds = new Set(pc.getSenders().map(s => s.track?.id).filter(Boolean));
+              audioStreamRef.current.getAudioTracks().forEach(track => {
+                if (!existingTrackIds.has(track.id)) {
+                  try { pc.addTrack(track, audioStreamRef.current); } catch (_) {}
+                }
+              });
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             emitSocketEvent('voice:signal', {
@@ -653,10 +729,17 @@ export const LiveVoiceHuddleBar = ({
           console.warn('[LiveVoice] Error handling SDP signal:', err);
         }
       } else if (signal.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-        } catch (err) {
-          console.warn('[LiveVoice] Error adding ICE candidate:', err);
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } catch (err) {
+            console.warn('[LiveVoice] Error adding ICE candidate:', err);
+          }
+        } else {
+          // Remote description not yet set, queue candidate
+          const queue = iceCandidatesQueueRef.current.get(senderSocketId) || [];
+          queue.push(signal.candidate);
+          iceCandidatesQueueRef.current.set(senderSocketId, queue);
         }
       }
     });
@@ -673,7 +756,7 @@ export const LiveVoiceHuddleBar = ({
       unsubSignal();
       unsubLeft();
     };
-  }, [activeConv?.id, callState, createPeerConnection, cleanupPeer, myId, currentUser]);
+  }, [activeConv?.id, createPeerConnection, cleanupPeer, myId, currentUser]);
 
   // Auto-hangup if current user clocks out or starts a break
   useEffect(() => {
