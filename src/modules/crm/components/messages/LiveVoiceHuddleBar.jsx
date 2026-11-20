@@ -291,24 +291,6 @@ export const LiveVoiceHuddleBar = ({
     // Remote audio track arrives: Create iOS & Android compatible audio player + Web Audio destination
     pc.ontrack = (event) => {
       const remoteStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
-      
-      // Dual-path unblockable audio: Route remote stream into Web Audio API destination
-      try {
-        const audioCtx = ringtoneService.getAudioContext();
-        if (audioCtx) {
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-          }
-          const source = audioCtx.createMediaStreamSource(remoteStream);
-          const gainNode = audioCtx.createGain();
-          gainNode.gain.value = isDeafenedRef.current ? 0 : 1.0;
-          source.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-          remoteAudioNodesRef.current.set(targetSocketId, { source, gainNode });
-        }
-      } catch (ctxErr) {
-        console.warn('[LiveVoice] WebAudio routing fallback to HTMLAudio:', ctxErr);
-      }
 
       let audioEl = audioElementsRef.current.get(targetSocketId);
       if (!audioEl) {
@@ -323,33 +305,51 @@ export const LiveVoiceHuddleBar = ({
       }
       audioEl.srcObject = remoteStream;
       audioEl.muted = isDeafenedRef.current;
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(e => {
-          console.warn('[LiveVoice] Remote audio playback requires user interaction:', e);
-          const unlock = () => {
-            audioEl.play().catch(() => {});
-            const ctx = ringtoneService.getAudioContext();
-            if (ctx && ctx.state === 'suspended') {
-              ctx.resume().catch(() => {});
-            }
-            window.removeEventListener('click', unlock);
-            window.removeEventListener('keydown', unlock);
-            window.removeEventListener('touchstart', unlock);
-          };
-          window.addEventListener('click', unlock, { once: true });
-          window.addEventListener('keydown', unlock, { once: true });
-          window.addEventListener('touchstart', unlock, { once: true });
-        });
-      }
+
+      const playAudio = () => {
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            console.warn('[LiveVoice] HTML5 Audio autoplay restricted. Activating WebAudio fallback:', e);
+
+            // Connect Web Audio API graph as unblockable fallback
+            try {
+              const audioCtx = ringtoneService.getAudioContext();
+              if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                  audioCtx.resume().catch(() => {});
+                }
+                const source = audioCtx.createMediaStreamSource(remoteStream);
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = isDeafenedRef.current ? 0 : 1.0;
+                source.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                remoteAudioNodesRef.current.set(targetSocketId, { source, gainNode });
+              }
+            } catch (_) {}
+
+            const unlock = () => {
+              audioEl.play().catch(() => {});
+              const ctx = ringtoneService.getAudioContext();
+              if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+              }
+              window.removeEventListener('click', unlock);
+              window.removeEventListener('keydown', unlock);
+              window.removeEventListener('touchstart', unlock);
+            };
+            window.addEventListener('click', unlock, { once: true });
+            window.addEventListener('keydown', unlock, { once: true });
+            window.addEventListener('touchstart', unlock, { once: true });
+          });
+        }
+      };
+
+      playAudio();
 
       if (event.track) {
         event.track.onunmute = () => {
-          if (audioEl) audioEl.play().catch(() => {});
-          const ctx = ringtoneService.getAudioContext();
-          if (ctx && ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
-          }
+          playAudio();
         };
       }
     };
@@ -827,7 +827,8 @@ export const LiveVoiceHuddleBar = ({
       if (data.socketId && (callStateRef.current === 'connected' || callStateRef.current === 'outgoing_ringing')) {
         // In 1-on-1 calls: ONLY the caller initiates the WebRTC offer!
         // Callee waits for the caller's offer to avoid glare/duplicate connections!
-        const shouldInitiate = isChannel ? true : (callRoleRef.current === 'caller');
+        const isGroupHuddle = Boolean(isChannel && !activePartner && callRoleRef.current !== 'callee');
+        const shouldInitiate = isGroupHuddle ? true : (callRoleRef.current === 'caller');
         createPeerConnection(data.socketId, shouldInitiate, data.user);
       }
     });
@@ -875,10 +876,16 @@ export const LiveVoiceHuddleBar = ({
             }
           }
 
-          // State Guard 2: Glare avoidance if an offer arrives while in 'have-local-offer'
+          // State Guard 2: Glare avoidance if an offer arrives
           if (signal.sdp.type === 'offer') {
             if (pc.signalingState !== 'stable') {
-              console.warn(`[LiveVoice] Peer state was '${pc.signalingState}' when offer arrived. Rolling back...`);
+              const isPolite = callRoleRef.current === 'callee';
+              if (!isPolite) {
+                // Impolite caller: Ignore competing offer because our offer is already sent!
+                console.warn(`[LiveVoice] Caller ignoring competing incoming offer in state '${pc.signalingState}'`);
+                return;
+              }
+              // Polite callee: Roll back to accept caller's offer
               if (pc.signalingState === 'have-local-offer') {
                 try {
                   await pc.setLocalDescription({ type: 'rollback' });
