@@ -1251,6 +1251,10 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     ? Number(breakSeconds) || 0
     : (existing?.breakSeconds ? Number(existing.breakSeconds) : 0);
 
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const todayMidnightMs = todayMidnight.getTime();
+
   // Immutable Earliest First Clock-In: ALWAYS preserve the earliest valid clockInTimestamp and clockInTime!
   const candInTs = [
     existing?.clockInTimestamp ? Number(existing.clockInTimestamp) : 0,
