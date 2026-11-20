@@ -54,7 +54,7 @@ import { ScreenShareModal } from '../components/messages/ScreenShareModal';
 import { processFileForChat, downloadChatAttachment, fetchChatAttachmentMedia } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
-import { emitSocketEvent } from '../../../shared/services/socketService';
+import { emitSocketEvent, subscribeSocketEvent } from '../../../shared/services/socketService';
 
 const LazyChatImage = ({ att, conversationId, onOpen }) => {
   const [src, setSrc] = useState(() => att?.dataUrl || att?.thumbDataUrl || '');
