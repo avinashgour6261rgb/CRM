@@ -1229,15 +1229,30 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
     ? Number(breakSeconds) || 0
     : (existing?.breakSeconds ? Number(existing.breakSeconds) : 0);
 
+  // Immutable Earliest First Clock-In: ALWAYS preserve the earliest valid clockInTimestamp and clockInTime!
+  const candInTs = [
+    existing?.clockInTimestamp ? Number(existing.clockInTimestamp) : 0,
+    clockInTimestamp ? Number(clockInTimestamp) : 0
+  ].filter(ts => ts >= todayMidnightMs);
+  const resolvedClockInTs = candInTs.length > 0 ? Math.min(...candInTs) : (existing?.clockInTimestamp || (clockInTimestamp ? Number(clockInTimestamp) : null));
+
+  let resolvedClockInTime = existing?.clockInTime || clockInTime || null;
+  if (existing?.clockInTime && clockInTime && existing.clockInTime !== clockInTime) {
+    const exSec = parseTimeStringToSeconds(existing.clockInTime);
+    const reqSec = parseTimeStringToSeconds(clockInTime);
+    if (reqSec > 0 && (exSec === 0 || reqSec < exSec)) {
+      resolvedClockInTime = clockInTime;
+    }
+  }
+
   const payload = {
     employeeId: targetId,
     employeeCode: targetCode,
     employeeName: targetName || existing?.employeeName || '',
     date: today,
     isClockedIn: resolvedClockedIn,
-    // Immutable First Clock-In: NEVER allow a heartbeat to overwrite an existing clockInTime / clockInTimestamp!
-    clockInTime: existing?.clockInTime || clockInTime || null,
-    clockInTimestamp: existing?.clockInTimestamp || (clockInTimestamp ? Number(clockInTimestamp) : null),
+    clockInTime: resolvedClockInTime,
+    clockInTimestamp: resolvedClockInTs,
     currentSessionStartTimestamp: currentSessionStartTimestamp ? Number(currentSessionStartTimestamp) : (existing?.currentSessionStartTimestamp || null),
     workSeconds: resolvedWorkSecs,
     breakSeconds: resolvedBreakSecs,
@@ -1351,7 +1366,9 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
       const maxPossibleGross = inTs > 0 ? Math.max(0, Math.floor((now - inTs) / 1000)) : 14 * 3600;
       // Wall-clock SSOT: compute exact elapsed time since shift/session start minus breaks so stale/throttled heartbeats NEVER fall behind Header!
       let wallClockSecs = 0;
-      if (effectiveStartTs > 0 && effectiveStartTs <= now) {
+      if (inTs > 0 && inTs <= now) {
+        wallClockSecs = Math.max(0, Math.floor((now - inTs) / 1000) - breakSecs);
+      } else if (effectiveStartTs > 0 && effectiveStartTs <= now) {
         wallClockSecs = pastSessionsSecs + Math.max(0, Math.floor((now - effectiveStartTs) / 1000) - breakSecs);
       }
       if (r.lastHeartbeatAt && Number(r.lastHeartbeatAt) <= now && liveWorkSecs > 0) {
@@ -1383,6 +1400,12 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         liveTaskSecs: frozenToday,
         timerRunning: false
       };
+    }
+
+    // Shift working time can NEVER be lower than actual task work performed today!
+    const taskFloorSecs = Number(runningTask?.liveTaskSecs || runningTask?.accumulatedTodaySeconds || 0);
+    if (taskFloorSecs > 0 && isClockedIn && !isOnBreak) {
+      liveWorkSecs = Math.max(liveWorkSecs, taskFloorSecs);
     }
 
     const state = {

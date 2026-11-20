@@ -749,9 +749,24 @@ export const DashboardPage = () => {
       ? (isSelf && Number(currentBreakSeconds) > 0 ? Math.max(Number(currentBreakSeconds), liveCurrentBreak) : liveCurrentBreak)
       : 0;
 
+    const candidateLogins = [
+      telem?.clockInTime,
+      attRec?.clockInTime,
+      storedLogin
+    ].filter(s => s && s !== '--' && s !== '—' && s !== 'Active');
+    let bestLogin = null;
+    if (candidateLogins.length > 0) {
+      bestLogin = candidateLogins.reduce((earliest, cur) => {
+        if (!earliest) return cur;
+        const eSec = parseTimeToSeconds(earliest);
+        const cSec = parseTimeToSeconds(cur);
+        return (cSec > 0 && cSec < eSec) ? cur : earliest;
+      }, candidateLogins[0]);
+    }
+
     const loginTime = isClockedIn
-      ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
-      : (isClockedOut ? (telem?.clockInTime || attRec?.clockInTime || storedLogin || null) : null);
+      ? (bestLogin || 'Active')
+      : (isClockedOut ? (bestLogin || null) : null);
 
     const clockOutTime = isClockedOut
       ? (telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || null)
@@ -890,7 +905,7 @@ export const DashboardPage = () => {
       isClockedOut: !isOnLeave && isClockedOut,
       loginTime: !isOnLeave ? loginTime : null,
       clockOutTime: !isOnLeave ? clockOutTime : null,
-      workSecs: !isOnLeave ? workSecs : 0,
+      workSecs: !isOnLeave ? Math.max(workSecs, runningTask?.liveTaskSecs || 0) : 0,
       overtimeSecs: !isOnLeave ? Math.max(Number(telem?.overtimeSeconds) || 0, Number(attRec?.overtimeSeconds) || 0) : 0,
       breakSecs: computedBreakSecs,
       currentBreakSecs,

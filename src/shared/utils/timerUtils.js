@@ -264,12 +264,31 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
       if (sessStart >= todayMidnightMs && sessStart <= nowMs) {
         wallClockSecs = pastSessionsSecs + Math.max(0, Math.floor((nowMs - sessStart) / 1000) - breakSecs);
       }
-      const inTs = Number(telem.clockInTimestamp || options.attRec?.clockInTimestamp || 0);
+
+      // Derive earliest clock-in timestamp today so upper bound never clamps below initial clock-in
+      const candidateTelemIn = [];
+      if (punchSessions.length > 0 && Number(punchSessions[0]?.inTimestamp) >= todayMidnightMs) {
+        candidateTelemIn.push(Number(punchSessions[0].inTimestamp));
+      }
+      const telemInStr = telem.clockInTime || options.attRec?.clockInTime || options.attRec?.clockIn;
+      if (telemInStr && telemInStr !== '--' && telemInStr !== '—' && telemInStr !== 'Active') {
+        const s = parseTimeToSeconds(telemInStr);
+        if (s > 0) candidateTelemIn.push(todayMidnightMs + s * 1000);
+      }
+      const tClockInTs = Number(telem.clockInTimestamp || options.attRec?.clockInTimestamp || 0);
+      if (tClockInTs >= todayMidnightMs && tClockInTs <= nowMs) {
+        candidateTelemIn.push(tClockInTs);
+      }
+      const inTs = candidateTelemIn.length > 0 ? Math.min(...candidateTelemIn) : 0;
       const upperBound = (inTs >= todayMidnightMs && inTs <= nowMs)
         ? Math.max(0, Math.floor((nowMs - inTs) / 1000))
         : maxPossibleGrossToday;
 
-      return Math.min(upperBound, Math.max(heartbeatSecs, wallClockSecs));
+      // Active task worked today is an absolute floor: Shift work can NEVER be less than actual task work performed today!
+      const activeTaskSecs = Number(telem.activeTask?.accumulatedTodaySeconds ?? telem.activeTask?.todayWorkSeconds ?? telem.activeTask?.liveTaskSecs ?? 0);
+      const baseLive = Math.max(heartbeatSecs, wallClockSecs, activeTaskSecs);
+      const safeUpperBound = Math.max(upperBound, activeTaskSecs);
+      return Math.min(safeUpperBound, baseLive);
     } else if (telem.clockOutTime) {
       return Number(telem.workSeconds) || 0;
     } else {
@@ -316,20 +335,6 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
   const hasAttClockOut = Boolean(attRec && attRec.date === today && (attRec.clockOutTime || attRec.clockOut));
   const hasAnyClockInToday = hasAttClockIn || (isTodaySession && Boolean(readTimerStorage(userOrEmp, 'login_time') || Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) > 0));
 
-  // Derive first clock in timestamp of today to strictly bound physical elapsed work time
-  let firstClockInTs = Number(readTimerStorage(userOrEmp, 'clock_in_timestamp')) || Number(attRec?.clockInTimestamp);
-  if (!firstClockInTs || firstClockInTs < todayMidnightMs) {
-    const loginStr = readTimerStorage(userOrEmp, 'login_time') || attRec?.clockInTime || attRec?.clockIn;
-    if (loginStr && loginStr !== '--' && loginStr !== 'Active') {
-      firstClockInTs = todayMidnightMs + parseTimeToSeconds(loginStr) * 1000;
-    }
-  }
-
-  // The true physical upper bound is time elapsed since FIRST clock in today (e.g. 1h 50m since 10:04 AM)
-  const maxPhysicalElapsedToday = (firstClockInTs && firstClockInTs >= todayMidnightMs)
-    ? Math.max(0, Math.floor((nowMs - firstClockInTs) / 1000))
-    : maxPossibleGrossToday;
-
   // Punch sessions strictly for TODAY (filter out any dirty sessions from prior dates)
   let rawSessions = [];
   try {
@@ -345,6 +350,75 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     return false;
   }));
   const pastSessionsSecs = validTodaySessions.reduce((acc, s) => acc + (Number(s.durationSeconds) || 0), 0);
+
+  // Derive TRUE earliest clock in timestamp of today across all canonical sources
+  const candidateInTs = [];
+  if (validTodaySessions.length > 0 && Number(validTodaySessions[0]?.inTimestamp) >= todayMidnightMs) {
+    candidateInTs.push(Number(validTodaySessions[0].inTimestamp));
+  }
+  const firstInStr = readTimerStorage(userOrEmp, 'first_clock_in_of_day');
+  if (firstInStr && firstInStr !== '--' && firstInStr !== '—' && firstInStr !== 'Active') {
+    const s = parseTimeToSeconds(firstInStr);
+    if (s > 0) candidateInTs.push(todayMidnightMs + s * 1000);
+  }
+  const loginStr = readTimerStorage(userOrEmp, 'login_time') || attRec?.clockInTime || attRec?.clockIn;
+  if (loginStr && loginStr !== '--' && loginStr !== '—' && loginStr !== 'Active') {
+    const s = parseTimeToSeconds(loginStr);
+    if (s > 0) candidateInTs.push(todayMidnightMs + s * 1000);
+  }
+  const attInTs = Number(attRec?.clockInTimestamp);
+  if (attInTs >= todayMidnightMs && attInTs <= nowMs) {
+    candidateInTs.push(attInTs);
+  }
+  const storedClockInTs = Number(readTimerStorage(userOrEmp, 'clock_in_timestamp'));
+  if (storedClockInTs >= todayMidnightMs && storedClockInTs <= nowMs) {
+    candidateInTs.push(storedClockInTs);
+  }
+  const firstClockInTs = candidateInTs.length > 0 ? Math.min(...candidateInTs) : 0;
+
+  // The true physical upper bound is time elapsed since FIRST clock in today (e.g. 1h 50m since 10:04 AM)
+  const maxPhysicalElapsedToday = (firstClockInTs && firstClockInTs >= todayMidnightMs)
+    ? Math.max(0, Math.floor((nowMs - firstClockInTs) / 1000))
+    : maxPossibleGrossToday;
+
+  // Read actual tasks worked today for this employee so Shift Time is strictly >= Task Time
+  let todayTaskSecs = 0;
+  try {
+    const rawTimesheets = localStorage.getItem('ems_timesheets');
+    if (rawTimesheets) {
+      const tsList = JSON.parse(rawTimesheets) || [];
+      const keys = getTimerMirrorKeys(userOrEmp).map(k => String(k).toLowerCase());
+      const uName = (userOrEmp.name || userOrEmp.employeeName || '').toLowerCase().trim();
+      const userTodayTs = tsList.filter(t => t.date === today && (
+        keys.includes(String(t.employeeId || '').toLowerCase()) ||
+        keys.includes(String(t.employeeCode || '').toLowerCase()) ||
+        (uName && t.employeeName && t.employeeName.toLowerCase().trim() === uName)
+      ));
+      const taskMap = new Map();
+      userTodayTs.forEach(t => {
+        const k = String(t.taskId || t.taskCode || t._id);
+        const sec = Number(t.durationSeconds || (Number(t.hours || 0) * 3600)) || 0;
+        if (!taskMap.has(k) || sec > taskMap.get(k)) taskMap.set(k, sec);
+      });
+      todayTaskSecs = Array.from(taskMap.values()).reduce((sum, s) => sum + s, 0);
+    }
+  } catch (_) {}
+
+  try {
+    const cKey = getCanonicalTimerKey(userOrEmp);
+    const rawTimer = readTimerStorage(userOrEmp, 'active_task_timer') || (cKey ? localStorage.getItem(`ems_active_task_timer_${cKey}`) : null);
+    if (rawTimer) {
+      const p = typeof rawTimer === 'string' ? JSON.parse(rawTimer) : rawTimer;
+      if (p && p.timerRunning && p.startedAt && Number(p.startedAt) >= todayMidnightMs) {
+        const taskElapsed = Math.max(0, Math.floor((nowMs - Number(p.startedAt)) / 1000));
+        const taskBase = Number(p.accumulatedTodaySeconds ?? p.todayWorkSeconds ?? 0);
+        todayTaskSecs = Math.max(todayTaskSecs, taskBase + taskElapsed);
+      } else if (p && !p.timerRunning) {
+        const taskBase = Number(p.accumulatedTodaySeconds ?? p.todayWorkSeconds ?? 0);
+        todayTaskSecs = Math.max(todayTaskSecs, taskBase);
+      }
+    }
+  } catch (_) {}
 
   // If user NEVER clocked in today, their work time is STRICTLY 0!
   if (!hasAnyClockInToday && !storedClockedIn && pastSessionsSecs === 0) {
@@ -414,10 +488,13 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     const curSessionGross = Math.min(maxPhysicalElapsedToday, rawSessionGross);
     const sessionBreakBaseline = Number(readTimerStorage(userOrEmp, 'session_break_baseline')) || 0;
     const curSessionBreaks = Math.max(0, storedBreakSecs - sessionBreakBaseline);
-    const liveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
+    const baseLiveSecs = pastSessionsSecs + Math.max(0, curSessionGross - curSessionBreaks);
+    // Absolute floor: shift work seconds can NEVER be less than actual task work performed today!
+    const liveSecs = Math.max(baseLiveSecs, todayTaskSecs);
+    const effectiveMaxPhysical = Math.max(maxPhysicalElapsedToday, todayTaskSecs);
 
     // FLICKER FIX: Never bounce with stale storedWorkSecs. Use monotonic physical liveSecs.
-    return Math.min(liveSecs, maxPhysicalElapsedToday);
+    return Math.min(liveSecs, effectiveMaxPhysical);
   } else if (isEffectivelyClockedOut) {
     // CLOCKED OUT: Strictly return verified frozen seconds. NEVER calculate live elapsed time!
     let finalSecs = (storedWorkSecs > 0)
@@ -426,7 +503,9 @@ export const calculateShiftWorkSeconds = (userOrEmp, dateStr, nowMs = Date.now()
     if (!finalSecs && attRec?.totalWorkingHours) {
       finalSecs = Math.round(Number(attRec.totalWorkingHours) * 3600);
     }
-    return Math.min(finalSecs, maxPhysicalElapsedToday);
+    finalSecs = Math.max(finalSecs, todayTaskSecs);
+    const effectiveMaxPhysical = Math.max(maxPhysicalElapsedToday, todayTaskSecs);
+    return Math.min(finalSecs, effectiveMaxPhysical);
   }
 
   return 0;

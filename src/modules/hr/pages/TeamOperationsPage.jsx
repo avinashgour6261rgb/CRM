@@ -502,9 +502,25 @@ export const TeamOperationsPage = () => {
       ? (isSelf ? (selfBreakType || 'Break') : (telem?.breakType || storedBreakType || 'Break'))
       : null;
 
+    const candidateLogins = [
+      (isSelf && selfLoginTime),
+      telem?.clockInTime,
+      attRec?.clockInTime,
+      storedLogin
+    ].filter(s => s && s !== '--' && s !== '—' && s !== 'Active');
+    let bestLogin = null;
+    if (candidateLogins.length > 0) {
+      bestLogin = candidateLogins.reduce((earliest, cur) => {
+        if (!earliest) return cur;
+        const eSec = parseTimeToSeconds(earliest);
+        const cSec = parseTimeToSeconds(cur);
+        return (cSec > 0 && cSec < eSec) ? cur : earliest;
+      }, candidateLogins[0]);
+    }
+
     const loginTime = isClockedIn
-      ? ((isSelf && selfLoginTime) || telem?.clockInTime || attRec?.clockInTime || storedLogin || 'Active')
-      : (isClockedOut ? ((isSelf && selfLoginTime) || telem?.clockInTime || attRec?.clockInTime || storedLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
+      ? (bestLogin || 'Active')
+      : (isClockedOut ? (bestLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
 
     const clockOutTime = isClockedOut
       ? ((isSelf && selfClockOutTime) || telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || '--')
@@ -518,7 +534,7 @@ export const TeamOperationsPage = () => {
       attRec,
       telemetry: telem
     });
-    const workSecs = isSelf ? Math.max(Number(selfWorkSeconds) || 0, isClockedIn ? 0 : computedWorkSecs) : computedWorkSecs;
+    let workSecs = isSelf ? Math.max(Number(selfWorkSeconds) || 0, isClockedIn ? 0 : computedWorkSecs) : computedWorkSecs;
 
     // Active Running Task vs Paused Task (strictly separated so paused tasks show Amber Paused + Resume, NEVER green dot + Pause!)
     let runningTask = null;
@@ -671,7 +687,7 @@ export const TeamOperationsPage = () => {
       isClockedOut,
       loginTime,
       clockOutTime,
-      workSecs,
+      workSecs: Math.max(workSecs, runningTask?.liveTaskSecs || pausedTask?.liveTaskSecs || 0),
       overtimeSecs,
       breakSecs: computedBreakSecs,
       currentBreakSecs,
@@ -756,13 +772,20 @@ export const TeamOperationsPage = () => {
     const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
 
     try {
+      const punchSecs = parseTimeToSeconds(punchTime);
+      const todayMid = new Date();
+      todayMid.setHours(0, 0, 0, 0);
+      const punchTs = (punchSecs > 0) ? (todayMid.getTime() + punchSecs * 1000) : Date.now();
+
       localStorage.setItem(`ems_timer_${empKey}_work_session_date`, todayStr);
       localStorage.setItem(`ems_timer_${empKey}_is_clocked_in`, 'true');
       localStorage.setItem(`ems_timer_${empKey}_is_running`, 'true');
       localStorage.setItem(`ems_timer_${empKey}_is_on_break`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_had_clocked_out`, 'false');
       localStorage.setItem(`ems_timer_${empKey}_login_time`, punchTime);
-      localStorage.setItem(`ems_timer_${empKey}_clock_in_timestamp`, Date.now().toString());
+      localStorage.setItem(`ems_timer_${empKey}_first_clock_in_of_day`, punchTime);
+      localStorage.setItem(`ems_timer_${empKey}_clock_in_timestamp`, punchTs.toString());
+      localStorage.setItem(`ems_timer_${empKey}_current_session_start_timestamp`, punchTs.toString());
       localStorage.removeItem(`ems_timer_${empKey}_clock_out`);
       localStorage.removeItem(`ems_timer_${empKey}_clockout_time`);
       localStorage.removeItem(`ems_timer_${empKey}_clock_out_timestamp`);
@@ -774,6 +797,9 @@ export const TeamOperationsPage = () => {
         localStorage.setItem(`ems_timer_${emp._id}_is_on_break`, 'false');
         localStorage.setItem(`ems_timer_${emp._id}_had_clocked_out`, 'false');
         localStorage.setItem(`ems_timer_${emp._id}_login_time`, punchTime);
+        localStorage.setItem(`ems_timer_${emp._id}_first_clock_in_of_day`, punchTime);
+        localStorage.setItem(`ems_timer_${emp._id}_clock_in_timestamp`, punchTs.toString());
+        localStorage.setItem(`ems_timer_${emp._id}_current_session_start_timestamp`, punchTs.toString());
         localStorage.removeItem(`ems_timer_${emp._id}_clock_out`);
         localStorage.removeItem(`ems_timer_${emp._id}_clockout_time`);
       }
@@ -788,6 +814,8 @@ export const TeamOperationsPage = () => {
           date: todayStr,
           status: 'present',
           clockInTime: punchTime,
+          clockInTimestamp: punchTs,
+          currentSessionStartTimestamp: punchTs,
           markedBy: actorLabel,
           isAdminOverride: true,
           auditNote: emergencyReason ? `Manual Clock-In by ${actorLabel}: ${emergencyReason}` : `Manual Clock-In by ${actorLabel}`
@@ -1438,7 +1466,7 @@ export const TeamOperationsPage = () => {
         status,
         loginTime,
         logoutTime,
-        workSecs,
+        workSecs: Math.max(workSecs, runningTask?.liveTaskSecs || pausedTask?.liveTaskSecs || 0),
         workDurationText: formatTimeDurationSafe(workSecs),
         breakSecs,
         breakDurationText: formatTimeDurationSafe(breakSecs),
