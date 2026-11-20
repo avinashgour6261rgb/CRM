@@ -126,6 +126,8 @@ export const LiveVoiceHuddleBar = ({
   const peersRef = useRef(new Map());
   // HTML5 Audio Elements for remote peers: targetSocketId -> HTMLAudioElement
   const audioElementsRef = useRef(new Map());
+  // Web Audio remote gain/source nodes: targetSocketId -> { source, gainNode }
+  const remoteAudioNodesRef = useRef(new Map());
   // Remote Peer metadata: targetSocketId -> user info
   const peerUsersRef = useRef(new Map());
   // ICE candidate queue before remote description is ready
@@ -140,6 +142,89 @@ export const LiveVoiceHuddleBar = ({
   useEffect(() => {
     isDeafenedRef.current = isDeafened;
   }, [isDeafened]);
+
+  // Stop all audio, peer connections, and timers
+  const stopAllVoice = useCallback(() => {
+    ringtoneService.stop();
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+
+    peersRef.current.forEach(pc => {
+      try { pc.close(); } catch (_) {}
+    });
+    peersRef.current.clear();
+
+    audioElementsRef.current.forEach(el => {
+      try {
+        el.pause();
+        el.srcObject = null;
+        if (el.parentNode) el.parentNode.removeChild(el);
+      } catch (_) {}
+    });
+    audioElementsRef.current.clear();
+
+    remoteAudioNodesRef.current.forEach(({ source, gainNode }) => {
+      try {
+        if (source) source.disconnect();
+        if (gainNode) gainNode.disconnect();
+      } catch (_) {}
+    });
+    remoteAudioNodesRef.current.clear();
+    peerUsersRef.current.clear();
+
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(t => t.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+
+    emitSocketEvent('voice:leave', {
+      conversationId: activeConv?.id,
+      callId: activeCallIdRef.current,
+      user: { id: myId }
+    });
+
+    setCallState('idle');
+    callStateRef.current = 'idle';
+    setAudioLevel(0);
+    setIsSpeaking(false);
+    setCallDuration(0);
+    activeCallIdRef.current = null;
+    callStartEpochRef.current = null;
+
+    if (huddleKey && typeof localStorage !== 'undefined') {
+      try {
+        if (!isChannel) {
+          localStorage.removeItem(huddleKey);
+          setHuddleMembers([]);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+        } else {
+          const raw = localStorage.getItem(huddleKey);
+          if (raw) {
+            const currentList = JSON.parse(raw);
+            const remaining = currentList.filter(m => String(m.id) !== myId);
+            if (remaining.length > 0) {
+              localStorage.setItem(huddleKey, JSON.stringify(remaining));
+            } else {
+              localStorage.removeItem(huddleKey);
+            }
+            setHuddleMembers(remaining);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
+          }
+        }
+      } catch (_) {}
+    }
+  }, [activeConv?.id, huddleKey, myId, isChannel]);
 
   // Clean up peer connections and audio elements for a specific socket
   const cleanupPeer = useCallback((socketId) => {
@@ -157,10 +242,23 @@ export const LiveVoiceHuddleBar = ({
       } catch (_) {}
       audioElementsRef.current.delete(socketId);
     }
+    const audioNodes = remoteAudioNodesRef.current.get(socketId);
+    if (audioNodes) {
+      try {
+        if (audioNodes.source) audioNodes.source.disconnect();
+        if (audioNodes.gainNode) audioNodes.gainNode.disconnect();
+      } catch (_) {}
+      remoteAudioNodesRef.current.delete(socketId);
+    }
     peerUsersRef.current.delete(socketId);
     iceCandidatesQueueRef.current.delete(socketId);
     setHuddleMembers(prev => prev.filter(m => m.socketId !== socketId));
-  }, []);
+
+    if (!isChannel) {
+      // In 1-on-1 calls, when the remote partner hangs up or disconnects, end the call immediately on this side
+      stopAllVoice();
+    }
+  }, [isChannel, stopAllVoice]);
 
   // WebRTC Peer Connection Factory (Mobile-Optimized)
   const createPeerConnection = useCallback((targetSocketId, isInitiator, peerUser) => {
@@ -188,9 +286,28 @@ export const LiveVoiceHuddleBar = ({
       });
     }
 
-    // Remote audio track arrives: Create iOS & Android compatible audio player
+    // Remote audio track arrives: Create iOS & Android compatible audio player + Web Audio destination
     pc.ontrack = (event) => {
       const remoteStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+      
+      // Dual-path unblockable audio: Route remote stream into Web Audio API destination
+      try {
+        const audioCtx = ringtoneService.getAudioContext();
+        if (audioCtx) {
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          const source = audioCtx.createMediaStreamSource(remoteStream);
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.value = isDeafenedRef.current ? 0 : 1.0;
+          source.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          remoteAudioNodesRef.current.set(targetSocketId, { source, gainNode });
+        }
+      } catch (ctxErr) {
+        console.warn('[LiveVoice] WebAudio routing fallback to HTMLAudio:', ctxErr);
+      }
+
       let audioEl = audioElementsRef.current.get(targetSocketId);
       if (!audioEl) {
         audioEl = document.createElement('audio');
@@ -210,6 +327,10 @@ export const LiveVoiceHuddleBar = ({
           console.warn('[LiveVoice] Remote audio playback requires user interaction:', e);
           const unlock = () => {
             audioEl.play().catch(() => {});
+            const ctx = ringtoneService.getAudioContext();
+            if (ctx && ctx.state === 'suspended') {
+              ctx.resume().catch(() => {});
+            }
             window.removeEventListener('click', unlock);
             window.removeEventListener('keydown', unlock);
             window.removeEventListener('touchstart', unlock);
@@ -218,6 +339,16 @@ export const LiveVoiceHuddleBar = ({
           window.addEventListener('keydown', unlock, { once: true });
           window.addEventListener('touchstart', unlock, { once: true });
         });
+      }
+
+      if (event.track) {
+        event.track.onunmute = () => {
+          if (audioEl) audioEl.play().catch(() => {});
+          const ctx = ringtoneService.getAudioContext();
+          if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+        };
       }
     };
 
@@ -323,74 +454,6 @@ export const LiveVoiceHuddleBar = ({
     return stream;
   };
 
-  // Stop all audio, peer connections, and timers
-  const stopAllVoice = useCallback(() => {
-    ringtoneService.stop();
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (durationIntervalRef.current) {
-      clearInterval(durationIntervalRef.current);
-      durationIntervalRef.current = null;
-    }
-    if (ringingTimeoutRef.current) {
-      clearTimeout(ringingTimeoutRef.current);
-      ringingTimeoutRef.current = null;
-    }
-
-    peersRef.current.forEach(pc => {
-      try { pc.close(); } catch (_) {}
-    });
-    peersRef.current.clear();
-
-    audioElementsRef.current.forEach(el => {
-      try {
-        el.pause();
-        el.srcObject = null;
-        if (el.parentNode) el.parentNode.removeChild(el);
-      } catch (_) {}
-    });
-    audioElementsRef.current.clear();
-    peerUsersRef.current.clear();
-
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(t => t.stop());
-      audioStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-
-    emitSocketEvent('voice:leave', {
-      conversationId: activeConv?.id,
-      callId: activeCallIdRef.current,
-      user: { id: myId }
-    });
-
-    setCallState('idle');
-    setAudioLevel(0);
-    setIsSpeaking(false);
-    setCallDuration(0);
-    activeCallIdRef.current = null;
-    callStartEpochRef.current = null;
-
-    if (huddleKey && typeof localStorage !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(huddleKey);
-        if (raw) {
-          const currentList = JSON.parse(raw);
-          const remaining = currentList.filter(m => String(m.id) !== myId);
-          if (remaining.length > 0) {
-            localStorage.setItem(huddleKey, JSON.stringify(remaining));
-          } else {
-            localStorage.removeItem(huddleKey);
-          }
-          setHuddleMembers(remaining);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: huddleKey } }));
-        }
-      } catch (_) {}
-    }
-  }, [activeConv?.id, huddleKey, myId]);
-
   // Start Live Duration Ticker on connected call
   const startDurationTimer = () => {
     if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
@@ -426,6 +489,12 @@ export const LiveVoiceHuddleBar = ({
     }
 
     try {
+      ringtoneService.unlock();
+      try {
+        const dummy = new Audio();
+        dummy.play().catch(() => {});
+      } catch (_) {}
+
       await setupLocalMic();
 
       const newCallId = `call_${Date.now()}_${myId}`;
@@ -434,6 +503,7 @@ export const LiveVoiceHuddleBar = ({
       if (!isChannel) {
         // 1-on-1: Outgoing Ringback Tone & Targeted Ringing
         setCallState('outgoing_ringing');
+        callStateRef.current = 'outgoing_ringing';
         ringtoneService.startOutgoingRingback();
 
         emitSocketEvent('call:initiate', {
@@ -455,7 +525,7 @@ export const LiveVoiceHuddleBar = ({
         // 45s Ringing Timeout if recipient doesn't answer
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         ringingTimeoutRef.current = setTimeout(() => {
-          if (callState === 'outgoing_ringing' || activeCallIdRef.current === newCallId) {
+          if (callStateRef.current === 'outgoing_ringing' || activeCallIdRef.current === newCallId) {
             cancelCall(true);
           }
         }, 45000);
@@ -510,6 +580,7 @@ export const LiveVoiceHuddleBar = ({
   const connectHuddleRoom = () => {
     ringtoneService.stop();
     setCallState('connected');
+    callStateRef.current = 'connected';
     startDurationTimer();
 
     emitSocketEvent('voice:join', {
@@ -537,7 +608,7 @@ export const LiveVoiceHuddleBar = ({
       return [...filtered, selfMember];
     });
 
-    if (huddleKey && typeof localStorage !== 'undefined') {
+    if (isChannel && huddleKey && typeof localStorage !== 'undefined') {
       try {
         const raw = localStorage.getItem(huddleKey);
         const currentList = raw ? JSON.parse(raw) : [];
@@ -583,7 +654,12 @@ export const LiveVoiceHuddleBar = ({
     const handleAccepted = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
+      const matchesCall =
+        (callData.callId && activeCallIdRef.current && String(callData.callId) === String(activeCallIdRef.current)) ||
+        (activeConv?.id && callData.conversationId && String(callData.conversationId) === String(activeConv.id)) ||
+        (callStateRef.current === 'outgoing_ringing');
+
+      if (matchesCall) {
         if (callData.callId) activeCallIdRef.current = callData.callId;
         ringtoneService.stop();
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
@@ -596,7 +672,12 @@ export const LiveVoiceHuddleBar = ({
     const handleDeclined = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
+      const matchesCall =
+        (callData.callId && activeCallIdRef.current && String(callData.callId) === String(activeCallIdRef.current)) ||
+        (activeConv?.id && callData.conversationId && String(callData.conversationId) === String(activeConv.id)) ||
+        (callStateRef.current === 'outgoing_ringing');
+
+      if (matchesCall) {
         ringtoneService.playCallEndTone();
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         stopAllVoice();
@@ -611,10 +692,19 @@ export const LiveVoiceHuddleBar = ({
     const handleRemoteEnded = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
+      const matchesCall =
+        (callData.callId && activeCallIdRef.current && String(callData.callId) === String(activeCallIdRef.current)) ||
+        (activeConv?.id && callData.conversationId && String(callData.conversationId) === String(activeConv.id)) ||
+        (callStateRef.current !== 'idle');
+
+      if (matchesCall) {
         ringtoneService.playCallEndTone();
         stopAllVoice();
-        addToast(`Call ended (${callData.durationText || ''})`, 'info');
+        if (callData.durationText) {
+          addToast(`Call ended (${callData.durationText})`, 'info');
+        } else {
+          addToast('Call ended', 'info');
+        }
       }
     };
 
@@ -622,9 +712,15 @@ export const LiveVoiceHuddleBar = ({
     const handleCancelled = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
+      const matchesCall =
+        (callData.callId && activeCallIdRef.current && String(callData.callId) === String(activeCallIdRef.current)) ||
+        (activeConv?.id && callData.conversationId && String(callData.conversationId) === String(activeConv.id)) ||
+        (callStateRef.current === 'outgoing_ringing');
+
+      if (matchesCall) {
         ringtoneService.stop();
         stopAllVoice();
+        addToast('Call cancelled by caller', 'info');
       }
     };
 
@@ -803,8 +899,13 @@ export const LiveVoiceHuddleBar = ({
     });
 
     const unsubLeft = subscribeSocketEvent('voice:peer_left', (data) => {
-      if (!data || data.conversationId !== activeConv?.id) return;
-      if (data.socketId) {
+      if (!data) return;
+      const matches =
+        (data.callId && activeCallIdRef.current && String(data.callId) === String(activeCallIdRef.current)) ||
+        (data.conversationId && activeConv?.id && String(data.conversationId) === String(activeConv.id)) ||
+        (callStateRef.current !== 'idle');
+
+      if (matches && data.socketId) {
         cleanupPeer(data.socketId);
       }
     });

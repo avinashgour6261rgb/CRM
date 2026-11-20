@@ -129,7 +129,13 @@ export const Layout = () => {
 
     const handleCancelledOrEnded = (e) => {
       const callData = e.detail;
-      if (!incomingCall || !callData?.callId || callData.callId === incomingCall.callId) {
+      const matches =
+        !incomingCall ||
+        !callData?.callId ||
+        callData.callId === incomingCall.callId ||
+        (callData.conversationId && incomingCall.conversationId && String(callData.conversationId) === String(incomingCall.conversationId));
+
+      if (matches) {
         ringtoneService.stop();
         setIncomingCall(null);
       }
@@ -199,6 +205,10 @@ export const Layout = () => {
     if (!incomingCall) return;
     ringtoneService.stop();
     ringtoneService.unlock();
+    try {
+      const dummy = new Audio();
+      dummy.play().catch(() => {});
+    } catch (_) {}
 
     const myId = String(effectiveUser?._id || effectiveUser?.id || effectiveUser?.employeeCode || '');
     emitSocketEvent('call:accept', {

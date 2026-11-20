@@ -15,6 +15,7 @@ try {
 }
 
 let io = null;
+const activeCallsMap = new Map();
 
 function initSocket(server) {
   if (io) return io;
@@ -162,6 +163,15 @@ function initSocket(server) {
         // Caller joins their own isolated session room
         socket.join(`call:${callPayload.callId}`);
 
+        activeCallsMap.set(callPayload.callId, {
+          callId: callPayload.callId,
+          conversationId,
+          caller,
+          targetUserId,
+          targetEmployeeCode,
+          isChannel: Boolean(isChannel)
+        });
+
         // Persist call start to MongoDB
         if (dbHelpers?.saveCallStart) {
           dbHelpers.saveCallStart({
@@ -234,6 +244,13 @@ function initSocket(server) {
         if (callerId) {
           io.to(`user:${String(callerId)}`).emit('call:accepted', acceptedPayload);
         }
+        if (callId) {
+          socket.to(`call:${callId}`).emit('call:accepted', acceptedPayload);
+        }
+        if (conversationId) {
+          socket.to(`voice:${conversationId}`).emit('call:accepted', acceptedPayload);
+          socket.to(`chat:${conversationId}`).emit('call:accepted', acceptedPayload);
+        }
       } catch (err) {
         console.warn('[SocketManager] call:accept error:', err.message);
       }
@@ -242,6 +259,7 @@ function initSocket(server) {
     socket.on('call:decline', (data) => {
       try {
         const { callId, conversationId, callerSocketId, callerId, decliner, reason } = data || {};
+        if (callId) activeCallsMap.delete(callId);
         const declinedPayload = {
           callId,
           conversationId,
@@ -265,6 +283,13 @@ function initSocket(server) {
         if (callerId) {
           io.to(`user:${String(callerId)}`).emit('call:declined', declinedPayload);
         }
+        if (callId) {
+          socket.to(`call:${callId}`).emit('call:declined', declinedPayload);
+        }
+        if (conversationId) {
+          socket.to(`voice:${conversationId}`).emit('call:declined', declinedPayload);
+          socket.to(`chat:${conversationId}`).emit('call:declined', declinedPayload);
+        }
       } catch (err) {
         console.warn('[SocketManager] call:decline error:', err.message);
       }
@@ -273,9 +298,11 @@ function initSocket(server) {
     socket.on('call:cancel', (data) => {
       try {
         const { callId, conversationId, targetUserId, targetEmployeeCode, isChannel } = data || {};
+        if (callId) activeCallsMap.delete(callId);
         const cancelPayload = { callId, conversationId };
 
         if (callId) {
+          socket.to(`call:${callId}`).emit('call:cancelled', cancelPayload);
           socket.leave(`call:${callId}`);
         }
 
@@ -288,13 +315,13 @@ function initSocket(server) {
           });
         }
 
-        if (isChannel) {
+        if (conversationId) {
           socket.to(`voice:${conversationId}`).emit('call:cancelled', cancelPayload);
           socket.to(`chat:${conversationId}`).emit('call:cancelled', cancelPayload);
-        } else {
-          if (targetUserId) io.to(`user:${String(targetUserId)}`).emit('call:cancelled', cancelPayload);
-          if (targetEmployeeCode) io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:cancelled', cancelPayload);
         }
+        if (targetUserId) io.to(`user:${String(targetUserId)}`).emit('call:cancelled', cancelPayload);
+        if (targetEmployeeCode) io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:cancelled', cancelPayload);
+        socket.to('company').emit('call:cancelled', cancelPayload);
       } catch (err) {
         console.warn('[SocketManager] call:cancel error:', err.message);
       }
@@ -303,6 +330,7 @@ function initSocket(server) {
     socket.on('call:end', (data) => {
       try {
         const { callId, conversationId, durationSeconds, durationText, endedBy, targetUserId, targetEmployeeCode } = data || {};
+        if (callId) activeCallsMap.delete(callId);
         const endPayload = {
           callId,
           conversationId,
@@ -317,6 +345,7 @@ function initSocket(server) {
         }
         if (conversationId) {
           socket.to(`voice:${conversationId}`).emit('call:ended', endPayload);
+          socket.to(`chat:${conversationId}`).emit('call:ended', endPayload);
         }
         if (targetUserId) {
           io.to(`user:${String(targetUserId)}`).emit('call:ended', endPayload);
@@ -324,6 +353,7 @@ function initSocket(server) {
         if (targetEmployeeCode) {
           io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:ended', endPayload);
         }
+        socket.to('company').emit('call:ended', endPayload);
 
         // Persist call end & duration to MongoDB
         if (dbHelpers?.saveCallEnd) {
@@ -511,13 +541,27 @@ function initSocket(server) {
         for (const room of socket.rooms) {
           if (typeof room === 'string' && room.startsWith('call:')) {
             const callId = room.replace('call:', '');
-            socket.to(room).emit('call:ended', { callId, reason: 'peer_disconnected' });
-            socket.to(room).emit('voice:peer_left', { socketId: socket.id, callId });
+            const callMeta = activeCallsMap.get(callId);
+            const convId = callMeta?.conversationId;
+            const endPayload = { callId, conversationId: convId, reason: 'peer_disconnected' };
+
+            socket.to(room).emit('call:ended', endPayload);
+            socket.to(room).emit('voice:peer_left', { socketId: socket.id, callId, conversationId: convId });
+            if (convId) {
+              socket.to(`voice:${convId}`).emit('call:ended', endPayload);
+              socket.to(`chat:${convId}`).emit('call:ended', endPayload);
+            }
+            activeCallsMap.delete(callId);
           }
           if (typeof room === 'string' && room.startsWith('voice:')) {
+            const convId = room.replace('voice:', '');
             socket.to(room).emit('voice:peer_left', {
               socketId: socket.id,
-              conversationId: room.replace('voice:', '')
+              conversationId: convId
+            });
+            socket.to(room).emit('call:ended', {
+              conversationId: convId,
+              reason: 'peer_disconnected'
             });
           }
           if (typeof room === 'string' && room.startsWith('screen:')) {
