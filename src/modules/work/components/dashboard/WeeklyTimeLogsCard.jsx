@@ -259,9 +259,7 @@ export const WeeklyTimeLogsCard = ({
                     const isSelected = dayLog.shortDay === activeWeekDayShort;
                     const isCurrent = dayLog.isCurrentDay;
                     const isHoliday = Boolean(dayLog.date) &&
-                        dayLog.shortDay !== 'Mo' &&
-                        dayLog.date !== '2026-10-19' &&
-                        (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && h.date !== '2026-10-19');
+                        (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && (h.isConfirmed !== false && h.isGazetted !== false));
 
                     const dayHrs = isHoliday
                         ? '🏖️ Off'

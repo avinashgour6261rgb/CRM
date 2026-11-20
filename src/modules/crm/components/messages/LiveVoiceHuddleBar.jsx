@@ -85,6 +85,38 @@ export const LiveVoiceHuddleBar = ({
   const huddleKey = activeConv?.id ? `ems_huddle_${activeConv.id}` : null;
   const [huddleMembers, setHuddleMembers] = useState([]);
 
+  // Live synchronization of active channel huddle participants across tabs & members
+  useEffect(() => {
+    if (!huddleKey || typeof localStorage === 'undefined') return;
+    const syncHuddle = () => {
+      try {
+        const raw = localStorage.getItem(huddleKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          setHuddleMembers(Array.isArray(list) ? list : []);
+        } else {
+          setHuddleMembers([]);
+        }
+      } catch (_) {
+        setHuddleMembers([]);
+      }
+    };
+
+    syncHuddle();
+    const handleStorageChange = (e) => {
+      if (!e.detail || e.detail.key === huddleKey) syncHuddle();
+    };
+    const handleNativeStorage = (e) => {
+      if (!e.key || e.key === huddleKey) syncHuddle();
+    };
+    window.addEventListener('hrms_storage_change', handleStorageChange);
+    window.addEventListener('storage', handleNativeStorage);
+    return () => {
+      window.removeEventListener('hrms_storage_change', handleStorageChange);
+      window.removeEventListener('storage', handleNativeStorage);
+    };
+  }, [huddleKey]);
+
   const audioStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
@@ -941,10 +973,17 @@ export const LiveVoiceHuddleBar = ({
                   </span>
                 )
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-slate-700 dark:text-slate-300">
-                  <Users size={13} className="text-blue-600 dark:text-sky-400 shrink-0" />
-                  <span>Channel Voice Huddle: Instant live audio talk for clocked-in channel members</span>
-                </span>
+                huddleMembers.length > 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span>Channel Huddle Active ({huddleMembers.length} member{huddleMembers.length > 1 ? 's' : ''} in call) • {huddleMembers.map(m => m.name || 'Member').join(', ')}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-slate-700 dark:text-slate-300">
+                    <Users size={13} className="text-blue-600 dark:text-sky-400 shrink-0" />
+                    <span>Channel Voice Huddle: Instant live audio talk for clocked-in channel members</span>
+                  </span>
+                )
               )
             ) : (
               <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-amber-600 dark:text-amber-400">
@@ -962,12 +1001,14 @@ export const LiveVoiceHuddleBar = ({
               disabled={!canICall || (!isChannel && (!partnerIsClockedIn || partnerIsOnBreak))}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-[11.5px] transition-all border ${
                 canICall && (isChannel || (partnerIsClockedIn && !partnerIsOnBreak))
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-xs border-transparent hover:scale-102'
+                  ? isChannel && huddleMembers.length > 0
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-md shadow-emerald-600/30 border-transparent animate-pulse hover:scale-102'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white cursor-pointer shadow-xs border-transparent hover:scale-102'
                   : 'bg-slate-200/70 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-75'
               }`}
             >
               <Phone size={13} />
-              <span>{isChannel ? 'Start Voice Huddle' : 'Start Voice Call'}</span>
+              <span>{isChannel ? (huddleMembers.length > 0 ? 'Join Voice Huddle' : 'Start Voice Huddle') : 'Start Voice Call'}</span>
             </button>
           </div>
         </div>

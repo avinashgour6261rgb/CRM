@@ -592,10 +592,19 @@ export const MessagesPage = () => {
         addToast('Screen sharing is not supported by your browser.', 'error');
         return;
       }
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always' },
-        audio: false
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: true
+        });
+      } catch (displayErr) {
+        if (displayErr.name === 'NotAllowedError') throw displayErr;
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false
+        });
+      }
 
       setScreenStream(stream);
       setIsScreenShareHost(true);

@@ -10,7 +10,9 @@ import {
   Eye,
   Sparkles,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { useTimer } from '../../../../shared/context/TimerContext';
 import { useToast } from '../../../../shared/context/ToastContext';
@@ -49,6 +51,15 @@ export const ScreenShareModal = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewerStream, setViewerStream] = useState(null);
   const [viewerStatus, setViewerStatus] = useState('connecting');
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  const toggleAudio = () => {
+    const next = !isAudioMuted;
+    setIsAudioMuted(next);
+    if (videoRef.current) {
+      videoRef.current.muted = isHost || next;
+    }
+  };
 
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -466,12 +477,29 @@ export const ScreenShareModal = ({
               </button>
             )}
 
-            {/* Close Modal (if viewer or minimized) */}
+            {/* Viewer Mute Audio Toggle */}
+            {!isHost && activeStream && (
+              <button
+                type="button"
+                onClick={toggleAudio}
+                className={`p-1.5 px-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors border cursor-pointer ${
+                  isAudioMuted
+                    ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-slate-700'
+                }`}
+                title={isAudioMuted ? 'Unmute stream audio' : 'Mute stream audio'}
+              >
+                {isAudioMuted ? <VolumeX size={14} className="text-rose-400" /> : <Volume2 size={14} className="text-emerald-400" />}
+                <span className="hidden sm:inline">{isAudioMuted ? 'Muted' : 'Audio'}</span>
+              </button>
+            )}
+
+            {/* Close Modal (if viewer or minimized; if host, stops sharing cleanly) */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={isHost ? handleStop : onClose}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer border border-slate-700 ml-1 transition-colors"
-              title="Close window"
+              title={isHost ? "Stop sharing and close" : "Close window"}
             >
               <X size={16} />
             </button>
@@ -485,7 +513,7 @@ export const ScreenShareModal = ({
               ref={videoRef}
               autoPlay
               playsInline
-              muted={isHost}
+              muted={isHost ? true : isAudioMuted}
               className="w-full h-full max-h-[75vh] object-contain"
             />
           ) : (

@@ -143,9 +143,12 @@ export const TaskDetailModal = ({ task, onClose }) => {
         sessionDate: todayStr
       });
 
-      // Synchronize into Timesheet collection
+      // Synchronize into Timesheet collection (prioritize today's session to avoid overwriting historical days)
       const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
       const tsEntry = allTimesheets.find(ts =>
+        (String(ts.taskId) === String(task._id) || (task.taskCode && ts.taskCode === task.taskCode)) &&
+        (!ts.date || ts.date === todayStr)
+      ) || allTimesheets.find(ts =>
         String(ts.taskId) === String(task._id) ||
         (task.taskCode && ts.taskCode === task.taskCode)
       );
