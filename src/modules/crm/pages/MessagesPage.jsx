@@ -159,6 +159,8 @@ export const MessagesPage = () => {
   const [screenStream, setScreenStream] = useState(null);
   const [isScreenShareOpen, setIsScreenShareOpen] = useState(false);
   const [isScreenShareHost, setIsScreenShareHost] = useState(false);
+  const [screenShareSessionConv, setScreenShareSessionConv] = useState(null);
+  const [screenShareSessionData, setScreenShareSessionData] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
@@ -551,22 +553,30 @@ export const MessagesPage = () => {
 
     // Cross-device / multi-browser live socket sync for screen sharing
     const unsubScreenStarted = subscribeSocketEvent('screen:started', (data) => {
-      if (!data || data.conversationId !== activeConv?.id) return;
-      setActiveScreenShare({
-        hostId: data.host?.id,
-        hostName: data.host?.name || 'Teammate',
-        hostAvatar: data.host?.avatar || '',
-        hostRole: data.host?.role || 'Team Member',
-        convId: data.conversationId,
-        startedAt: data.startedAt || Date.now()
-      });
+      if (!data) return;
+      if (String(data.conversationId) === String(activeConv?.id)) {
+        setActiveScreenShare({
+          hostId: data.host?.id,
+          hostName: data.host?.name || 'Teammate',
+          hostAvatar: data.host?.avatar || '',
+          hostRole: data.host?.role || 'Team Member',
+          convId: data.conversationId,
+          startedAt: data.startedAt || Date.now()
+        });
+      }
     });
 
     const unsubScreenStopped = subscribeSocketEvent('screen:stopped', (data) => {
-      if (!data || data.conversationId !== activeConv?.id) return;
-      setActiveScreenShare(null);
-      if (!isScreenShareHost) {
+      if (!data) return;
+      const stoppedConvId = String(data.conversationId);
+      if (stoppedConvId === String(activeConv?.id)) {
+        setActiveScreenShare(null);
+      }
+      const activeSessionId = String(screenShareSessionConv?.id || screenShareSessionData?.convId || '');
+      if (!isScreenShareHost && activeSessionId && activeSessionId === stoppedConvId) {
         setIsScreenShareOpen(false);
+        setScreenShareSessionConv(null);
+        setScreenShareSessionData(null);
       }
     });
 
@@ -576,7 +586,7 @@ export const MessagesPage = () => {
       unsubScreenStarted();
       unsubScreenStopped();
     };
-  }, [screenShareKey, syncScreenShare, activeConv?.id, isScreenShareHost]);
+  }, [screenShareKey, syncScreenShare, activeConv?.id, isScreenShareHost, screenShareSessionConv?.id, screenShareSessionData?.convId]);
 
   // Auto-connect viewer stream if navigated from global IncomingScreenShareModal
   useEffect(() => {
@@ -590,14 +600,17 @@ export const MessagesPage = () => {
           }
           if (!activeConv || String(pending.conversationId) === String(activeConv.id)) {
             sessionStorage.removeItem('ems_pending_watch_screen');
-            setActiveScreenShare({
+            const sessionData = {
               hostId: pending.host?.id,
               hostName: pending.host?.name || 'Teammate',
               hostAvatar: pending.host?.avatar || '',
               hostRole: pending.host?.role || 'Team Member',
               convId: pending.conversationId,
               startedAt: pending.startedAt || Date.now()
-            });
+            };
+            setActiveScreenShare(sessionData);
+            setScreenShareSessionData(sessionData);
+            setScreenShareSessionConv(activeConv);
             setIsScreenShareHost(false);
             setIsScreenShareOpen(true);
           }
@@ -643,6 +656,7 @@ export const MessagesPage = () => {
       setScreenStream(stream);
       setIsScreenShareHost(true);
       setIsScreenShareOpen(true);
+      setScreenShareSessionConv(activeConv);
 
       const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
       const targetUserId = targetPartner?._id || targetPartner?.id;
@@ -657,6 +671,7 @@ export const MessagesPage = () => {
         convId: activeConv.id,
         startedAt: Date.now()
       };
+      setScreenShareSessionData(sessionData);
       if (screenShareKey && typeof localStorage !== 'undefined') {
         localStorage.setItem(screenShareKey, JSON.stringify(sessionData));
         setActiveScreenShare(sessionData);
@@ -696,18 +711,20 @@ export const MessagesPage = () => {
   };
 
   const stopScreenShare = () => {
-    const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
+    const sessionConv = screenShareSessionConv || activeConv;
+    const sessionData = screenShareSessionData || activeScreenShare;
+    const targetPartner = !activeIsChannel ? getDmPartner(sessionConv, currentUser, employees) : null;
     const targetUserId = targetPartner?._id || targetPartner?.id;
     const targetEmployeeCode = targetPartner?.employeeCode;
 
-    const startedAt = activeScreenShare?.startedAt || Date.now();
+    const startedAt = sessionData?.startedAt || Date.now();
     const durationSeconds = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
     const mins = Math.floor(durationSeconds / 60);
     const secs = durationSeconds % 60;
     const durationText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
     emitSocketEvent('screen:stop', {
-      conversationId: activeConv?.id,
+      conversationId: sessionConv?.id,
       targetUserId,
       targetEmployeeCode,
       durationSeconds,
@@ -720,11 +737,14 @@ export const MessagesPage = () => {
     }
     setIsScreenShareHost(false);
     setIsScreenShareOpen(false);
+    setScreenShareSessionConv(null);
+    setScreenShareSessionData(null);
 
-    if (screenShareKey && typeof localStorage !== 'undefined') {
-      localStorage.removeItem(screenShareKey);
+    const sKey = sessionConv?.id ? `ems_screenshare_${sessionConv.id}` : screenShareKey;
+    if (sKey && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(sKey);
       setActiveScreenShare(null);
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: screenShareKey } }));
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: sKey } }));
     }
 
     if (activeConv) {
@@ -1119,6 +1139,8 @@ export const MessagesPage = () => {
                       type="button"
                       onClick={() => {
                         setIsScreenShareHost(false);
+                        setScreenShareSessionConv(activeConv);
+                        setScreenShareSessionData(activeScreenShare);
                         setIsScreenShareOpen(true);
                       }}
                       className="px-3 py-1 rounded-lg bg-white text-indigo-700 hover:bg-slate-100 font-extrabold text-xs cursor-pointer border-0 shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105 shrink-0"
@@ -1503,13 +1525,17 @@ export const MessagesPage = () => {
 
       <ScreenShareModal
         isOpen={isScreenShareOpen}
-        onClose={() => setIsScreenShareOpen(false)}
-        activeConv={activeConv}
+        onClose={() => {
+          setIsScreenShareOpen(false);
+          setScreenShareSessionConv(null);
+          setScreenShareSessionData(null);
+        }}
+        activeConv={screenShareSessionConv || activeConv}
         currentUser={currentUser}
         stream={screenStream}
         isHost={isScreenShareHost}
-        hostInfo={activeScreenShare}
-        targetUserId={!activeIsChannel ? getDmPartner(activeConv, currentUser, employees)?._id : null}
+        hostInfo={screenShareSessionData || activeScreenShare}
+        targetUserId={!activeIsChannel ? getDmPartner(screenShareSessionConv || activeConv, currentUser, employees)?._id : null}
         onStopSharing={stopScreenShare}
       />
 

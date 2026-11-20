@@ -74,15 +74,16 @@ export const ScreenShareModal = ({
   const viewerPcRef = useRef(null);
   const viewerCandidatesQueue = useRef([]);
 
+  const effectiveConvId = hostInfo?.convId || hostInfo?.conversationId || activeConv?.id;
   const activeStream = isHost ? stream : viewerStream;
 
   // ── Host-side WebRTC Broadcasting ──
   useEffect(() => {
-    if (!isOpen || !isHost || !stream || !activeConv?.id) return;
+    if (!isOpen || !isHost || !stream || !effectiveConvId) return;
 
     // 1. Announce screen share session over socket
     emitSocketEvent('screen:start', {
-      conversationId: activeConv.id,
+      conversationId: effectiveConvId,
       host: {
         id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
         name: currentUser?.name || 'Teammate',
@@ -97,7 +98,7 @@ export const ScreenShareModal = ({
 
     // 2. When a viewer joins the room, host creates RTCPeerConnection and sends SDP offer
     const unsubViewerJoined = subscribeSocketEvent('screen:viewer_joined', async (data) => {
-      if (!data || String(data.conversationId) !== String(activeConv.id) || !data.viewerSocketId) return;
+      if (!data || String(data.conversationId) !== String(effectiveConvId) || !data.viewerSocketId) return;
       const viewerSocketId = data.viewerSocketId;
 
       let pc = viewersMapRef.current.get(viewerSocketId);
@@ -124,13 +125,14 @@ export const ScreenShareModal = ({
             emitSocketEvent('screen:signal', {
               targetSocketId: viewerSocketId,
               signal: { candidate: event.candidate },
-              conversationId: activeConv.id
+              conversationId: effectiveConvId
             });
           }
         };
 
         pc.onconnectionstatechange = () => {
-          if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          // Do not drop connection on transient 'disconnected' (e.g. background tab)
+          if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
             try { pc.close(); } catch (_) {}
             viewersMapRef.current.delete(viewerSocketId);
           }
@@ -142,7 +144,7 @@ export const ScreenShareModal = ({
         emitSocketEvent('screen:signal', {
           targetSocketId: viewerSocketId,
           signal: { sdp: pc.localDescription },
-          conversationId: activeConv.id
+          conversationId: effectiveConvId
         });
       } catch (err) {
         console.error('[ScreenShare] Error creating host offer:', err);
@@ -151,7 +153,7 @@ export const ScreenShareModal = ({
 
     // 3. Handle incoming SDP answer and ICE candidates from viewers
     const unsubHostSignal = subscribeSocketEvent('screen:signal', async (data) => {
-      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
+      if (!data || String(data.conversationId) !== String(effectiveConvId)) return;
       const { senderSocketId, signal } = data;
       if (!senderSocketId || !signal) return;
 
@@ -182,7 +184,7 @@ export const ScreenShareModal = ({
 
     // 4. Viewer left
     const unsubViewerLeft = subscribeSocketEvent('screen:viewer_left', (data) => {
-      if (!data || String(data.conversationId) !== String(activeConv.id) || !data.viewerSocketId) return;
+      if (!data || String(data.conversationId) !== String(effectiveConvId) || !data.viewerSocketId) return;
       const pc = viewersMapRef.current.get(data.viewerSocketId);
       if (pc) {
         try { pc.close(); } catch (_) {}
@@ -200,18 +202,18 @@ export const ScreenShareModal = ({
       viewersMapRef.current.clear();
       hostCandidatesQueue.current.clear();
     };
-  }, [isOpen, isHost, stream, activeConv?.id, currentUser, hostInfo?.startedAt]);
+  }, [isOpen, isHost, stream, effectiveConvId, currentUser, hostInfo?.startedAt]);
 
   // ── Viewer-side WebRTC Receiving ──
   useEffect(() => {
-    if (!isOpen || isHost || !activeConv?.id) return;
+    if (!isOpen || isHost || !effectiveConvId) return;
 
     setViewerStatus('connecting');
 
     // 1. Announce viewer joined to the host with auto-retry if stream hasn't connected
     const sendViewerJoin = () => {
       emitSocketEvent('screen:join', {
-        conversationId: activeConv.id,
+        conversationId: effectiveConvId,
         hostId: hostInfo?.hostId || hostInfo?.id,
         viewer: {
           id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
@@ -225,14 +227,25 @@ export const ScreenShareModal = ({
 
     // Auto-retry join in case host socket reconnected or was still initializing
     const retryTimer = setInterval(() => {
-      if (!viewerStream) {
+      if (!viewerStream || viewerPcRef.current?.connectionState === 'failed' || viewerPcRef.current?.connectionState === 'disconnected') {
         sendViewerJoin();
       }
     }, 2500);
 
+    // Instant re-check when returning to this browser tab
+    const handleTabResume = () => {
+      if (!document.hidden) {
+        if (!viewerStream || !viewerPcRef.current || viewerPcRef.current.connectionState === 'failed' || viewerPcRef.current.connectionState === 'disconnected') {
+          sendViewerJoin();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleTabResume);
+    window.addEventListener('focus', handleTabResume);
+
     // 2. Handle host's SDP offer & ICE candidates
     const unsubViewerSignal = subscribeSocketEvent('screen:signal', async (data) => {
-      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
+      if (!data || String(data.conversationId) !== String(effectiveConvId)) return;
       const { senderSocketId, signal } = data;
       if (!senderSocketId || !signal) return;
 
@@ -246,11 +259,17 @@ export const ScreenShareModal = ({
           viewerPcRef.current = pc;
 
           pc.ontrack = (event) => {
-            const remoteStream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
+            let remoteStream = event.streams && event.streams[0];
+            if (!remoteStream) {
+              remoteStream = new MediaStream();
+              remoteStream.addTrack(event.track);
+            }
             setViewerStream(remoteStream);
             setViewerStatus('connected');
             if (videoRef.current) {
-              videoRef.current.srcObject = remoteStream;
+              if (videoRef.current.srcObject !== remoteStream) {
+                videoRef.current.srcObject = remoteStream;
+              }
               videoRef.current.play().catch(() => {
                 // Guaranteed autoplay fallback for modern browser policies
                 if (videoRef.current) {
@@ -266,13 +285,21 @@ export const ScreenShareModal = ({
               emitSocketEvent('screen:signal', {
                 targetSocketId: senderSocketId,
                 signal: { candidate: event.candidate },
-                conversationId: activeConv.id
+                conversationId: effectiveConvId
               });
             }
           };
 
           pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+            if (pc.connectionState === 'connected') {
+              setViewerStatus('connected');
+            } else if (pc.connectionState === 'disconnected') {
+              // Transient disconnect during tab switch / background throttling: do not close, let WebRTC self-heal
+              console.log('[ScreenShare] Peer connection temporarily disconnected, waiting for ICE self-heal...');
+            } else if (pc.connectionState === 'failed') {
+              console.warn('[ScreenShare] Peer connection failed, attempting auto-reconnect...');
+              sendViewerJoin();
+            } else if (pc.connectionState === 'closed') {
               setViewerStatus('ended');
             }
           };
@@ -291,7 +318,7 @@ export const ScreenShareModal = ({
           emitSocketEvent('screen:signal', {
             targetSocketId: senderSocketId,
             signal: { sdp: pc.localDescription },
-            conversationId: activeConv.id
+            conversationId: effectiveConvId
           });
         } catch (err) {
           console.error('[ScreenShare] Error answering host screen offer:', err);
@@ -308,14 +335,16 @@ export const ScreenShareModal = ({
 
     // 3. Presenter stopped sharing screen
     const unsubStopped = subscribeSocketEvent('screen:stopped', (data) => {
-      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
+      if (!data || String(data.conversationId) !== String(effectiveConvId)) return;
       addToast('Screen share session ended by presenter', 'info');
       onClose();
     });
 
     return () => {
       clearInterval(retryTimer);
-      emitSocketEvent('screen:leave', { conversationId: activeConv.id });
+      document.removeEventListener('visibilitychange', handleTabResume);
+      window.removeEventListener('focus', handleTabResume);
+      emitSocketEvent('screen:leave', { conversationId: effectiveConvId });
       unsubViewerSignal();
       unsubStopped();
       if (viewerPcRef.current) {
@@ -325,12 +354,14 @@ export const ScreenShareModal = ({
       setViewerStream(null);
       viewerCandidatesQueue.current = [];
     };
-  }, [isOpen, isHost, activeConv?.id, currentUser, onClose, addToast]);
+  }, [isOpen, isHost, effectiveConvId, currentUser, onClose, addToast]);
 
   // Set stream to video element
   useEffect(() => {
     if (videoRef.current && activeStream) {
-      videoRef.current.srcObject = activeStream;
+      if (videoRef.current.srcObject !== activeStream) {
+        videoRef.current.srcObject = activeStream;
+      }
       videoRef.current.play().catch(() => {
         if (videoRef.current) {
           videoRef.current.muted = true;
@@ -339,6 +370,31 @@ export const ScreenShareModal = ({
       });
     }
   }, [activeStream, isMinimized, isAudioMuted]);
+
+  // Tab visibility change & focus resume to unpause video automatically
+  useEffect(() => {
+    const handleResumeVideo = () => {
+      if (!document.hidden && videoRef.current && activeStream) {
+        if (videoRef.current.srcObject !== activeStream) {
+          videoRef.current.srcObject = activeStream;
+        }
+        if (videoRef.current.paused) {
+          videoRef.current.play().catch(() => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.play().catch(() => {});
+            }
+          });
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleResumeVideo);
+    window.addEventListener('focus', handleResumeVideo);
+    return () => {
+      document.removeEventListener('visibilitychange', handleResumeVideo);
+      window.removeEventListener('focus', handleResumeVideo);
+    };
+  }, [activeStream]);
 
   // Duration timer
   useEffect(() => {
@@ -384,7 +440,7 @@ export const ScreenShareModal = ({
 
   const handleStop = () => {
     emitSocketEvent('screen:stop', {
-      conversationId: activeConv?.id,
+      conversationId: effectiveConvId,
       targetUserId
     });
     if (onStopSharing) {
@@ -395,9 +451,9 @@ export const ScreenShareModal = ({
 
   if (!isOpen) return null;
 
-  const convTitle = activeConv?.type === 'channel'
+  const convTitle = hostInfo?.channelName || (activeConv?.type === 'channel'
     ? (activeConv.channelName || activeConv.name)
-    : (activeConv?.participantName || '1-on-1 Chat');
+    : (activeConv?.participantName || '1-on-1 Chat'));
 
   // Minimized Floating PiP Widget
   if (isMinimized) {
@@ -432,7 +488,10 @@ export const ScreenShareModal = ({
             ref={videoRef}
             autoPlay
             playsInline
-            muted={isHost}
+            muted={isHost ? true : isAudioMuted}
+            onLoadedMetadata={() => {
+              if (videoRef.current) videoRef.current.play().catch(() => {});
+            }}
             className="w-full h-full object-contain"
           />
         </div>
@@ -542,6 +601,9 @@ export const ScreenShareModal = ({
             autoPlay
             playsInline
             muted={isHost ? true : isAudioMuted}
+            onLoadedMetadata={() => {
+              if (videoRef.current) videoRef.current.play().catch(() => {});
+            }}
             className={`w-full h-full max-h-[75vh] object-contain ${activeStream ? 'block' : 'hidden'}`}
           />
 

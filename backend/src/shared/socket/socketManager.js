@@ -16,6 +16,7 @@ try {
 
 let io = null;
 const activeCallsMap = new Map();
+const activeScreenHostsMap = new Map(); // convId -> { hostSocketId, hostId, startedAt }
 
 function initSocket(server) {
   if (io) return io;
@@ -453,6 +454,12 @@ function initSocket(server) {
           startedAt: startedAt || Date.now()
         };
 
+        activeScreenHostsMap.set(String(conversationId), {
+          hostSocketId: socket.id,
+          hostId: host?.id,
+          startedAt: payload.startedAt
+        });
+
         // Persist screen share session start to MongoDB Atlas
         if (dbHelpers?.saveScreenStart) {
           dbHelpers.saveScreenStart({
@@ -542,6 +549,7 @@ function initSocket(server) {
       try {
         const { conversationId, durationSeconds, durationText, targetUserId, targetEmployeeCode } = data || {};
         if (!conversationId) return;
+        activeScreenHostsMap.delete(String(conversationId));
         const roomName = `screen:${conversationId}`;
         const stopPayload = { conversationId, durationSeconds, durationText };
 
@@ -596,12 +604,24 @@ function initSocket(server) {
           }
           if (typeof room === 'string' && room.startsWith('screen:')) {
             const convId = room.replace('screen:', '');
-            socket.to(room).emit('screen:viewer_left', {
-              viewerSocketId: socket.id,
-              conversationId: convId
-            });
-            // If the host disconnected, broadcast stopped so viewers modal closes
-            socket.to(room).emit('screen:stopped', { conversationId: convId });
+            const activeHost = activeScreenHostsMap.get(String(convId));
+            const isHost = activeHost && activeHost.hostSocketId === socket.id;
+
+            if (isHost) {
+              // Only if HOST disconnected!
+              activeScreenHostsMap.delete(String(convId));
+              const stopPayload = { conversationId: convId, reason: 'host_disconnected' };
+              socket.to(room).emit('screen:stopped', stopPayload);
+              socket.to(`chat:${convId}`).emit('screen:stopped', stopPayload);
+              socket.to(`voice:${convId}`).emit('screen:stopped', stopPayload);
+              socket.to('company').emit('screen:stopped', stopPayload);
+            } else {
+              // A viewer left / disconnected, inform presenter
+              socket.to(room).emit('screen:viewer_left', {
+                viewerSocketId: socket.id,
+                conversationId: convId
+              });
+            }
           }
         }
       } catch (_) {}
