@@ -363,11 +363,19 @@ export const EmployeesPage = () => {
                                                         <div className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5 leading-tight">
                                                           <span>{emp.name}</span>
                                                           {isEmployeeSelf(emp) && (
-                                <span className="text-[9px] py-px px-1 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold">
-                                  You
-                                </span>
-                              )}
-                            </div>
+                                                            <span className="text-[9px] py-px px-1 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold">
+                                                              You
+                                                            </span>
+                                                          )}
+                                                          {activeTab === 'active' && (!emp.bankAccount && !emp.bankDetails?.accountNumber || !emp.pan && !emp.bankDetails?.pan) && (
+                                                            <span
+                                                              className="text-[9px] py-px px-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 font-bold border border-amber-300 dark:border-amber-800"
+                                                              title="Incomplete Profile: Missing Bank Account or PAN for Payroll"
+                                                            >
+                                                              ⚠️ Incomplete Profile
+                                                            </span>
+                                                          )}
+                                                        </div>
                             <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
                               {emp.email}
                             </div>

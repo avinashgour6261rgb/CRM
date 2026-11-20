@@ -3483,6 +3483,35 @@ export const WorkProvider = ({ children }) => {
     }
   };
 
+  const updateTimesheet = async (id, entryData) => {
+    try {
+      const updated = await workService.updateTimesheet(id, entryData);
+      const targetTaskId = updated?.taskId || entryData?.taskId;
+      if (targetTaskId && entryData?.totalDurationSeconds !== undefined) {
+        const totalSecs = Number(entryData.totalDurationSeconds);
+        const hrsLoggedNum = +(totalSecs / 3600).toFixed(2);
+        const hrs = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const hrsLoggedStr = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+        try {
+          await workService.updateTask(targetTaskId, {
+            hoursLogged: hrsLoggedNum,
+            hoursLoggedText: hrsLoggedStr,
+            accumulatedSeconds: totalSecs,
+            timerSeconds: totalSecs,
+            durationSeconds: totalSecs
+          });
+        } catch (_) {}
+      }
+      addToast('Timesheet entry updated successfully!', 'success');
+      await loadWorkData();
+      return updated;
+    } catch (err) {
+      addToast('Failed to update timesheet entry', 'error');
+      throw err;
+    }
+  };
+
   const deleteTimesheet = async (id) => {
     try {
       await workService.deleteTimesheet(id);
@@ -3547,6 +3576,7 @@ export const WorkProvider = ({ children }) => {
     dismissTaskReminder,
     // Timesheet Methods
     logTimesheet,
+    updateTimesheet,
     deleteTimesheet,
     // HR cross connection
     employees,
@@ -3566,7 +3596,7 @@ export const WorkProvider = ({ children }) => {
     createTask, updateTask, changeTaskStatus, completeTask,
     completeAndNextTask, deleteTask, startTaskTimer, pauseTaskTimer,
     stopTaskTimer, snoozeTask, resumeSnoozedTask, dismissTaskReminder,
-    logTimesheet, deleteTimesheet, employees, currentUser,
+    logTimesheet, updateTimesheet, deleteTimesheet, employees, currentUser,
     isEmployeeOnLeave, isTaskOverdue, overdueTaskPrompt, extendTaskDeadline, rescheduleTaskForFuture
   ]);
 

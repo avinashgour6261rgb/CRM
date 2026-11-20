@@ -414,6 +414,76 @@ exports.stopTimer = async (req, res, next) => {
   }
 };
 
+// @desc    Update timesheet entry
+// @route   PUT /api/timesheet/:id
+exports.updateTimesheet = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
+    }
+    const existing = await Timesheet.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
+    }
+    const u = req.user;
+    const isPriv = Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.permissions?.editAnyTask || u.permissions?.allAccess));
+    const isOwner = Boolean(u && (
+      String(existing.employeeId) === String(u._id) ||
+      String(existing.employee) === String(u._id) ||
+      (u.employeeCode && (String(existing.employeeCode).toUpperCase() === String(u.employeeCode).toUpperCase() || String(existing.employeeId).toUpperCase() === String(u.employeeCode).toUpperCase()))
+    ));
+    if (!isPriv && !isOwner) {
+      return res.status(403).json({ success: false, message: 'Access denied: You can only edit your own timesheet entries or must be Admin/HR.' });
+    }
+
+    const { totalDurationSeconds, totalDurationText, startTime, endTime, memo, isBillable, status, date } = req.body;
+    if (totalDurationSeconds !== undefined) existing.totalDurationSeconds = Number(totalDurationSeconds);
+    if (totalDurationText !== undefined) existing.totalDurationText = totalDurationText;
+    if (startTime !== undefined) existing.startTime = startTime;
+    if (endTime !== undefined) existing.endTime = endTime;
+    if (memo !== undefined) existing.memo = memo;
+    if (isBillable !== undefined) existing.isBillable = Boolean(isBillable);
+    if (status !== undefined) existing.status = status;
+    if (date !== undefined) existing.date = date;
+
+    const saved = await existing.save();
+
+    // Recalculate associated task hours if linked to task
+    if (saved.task || saved.taskId) {
+      const taskId = saved.task || saved.taskId;
+      const task = await Task.findById(taskId);
+      if (task) {
+        const allTaskTimesheets = await Timesheet.find({
+          $or: [{ task: task._id }, { taskId: task._id.toString() }, ...(task.taskCode ? [{ taskCode: task.taskCode }] : [])]
+        });
+        const dateTaskMap = new Map();
+        allTaskTimesheets.forEach(ts => {
+          const dKey = `${ts.date || ''}_${ts.employeeId || ts.employeeCode || ts.employee || ''}`;
+          const dSecs = Number(ts.totalDurationSeconds) || 0;
+          if (!dateTaskMap.has(dKey) || dSecs > dateTaskMap.get(dKey)) {
+            dateTaskMap.set(dKey, dSecs);
+          }
+        });
+        const totalTaskSecs = Array.from(dateTaskMap.values()).reduce((sum, s) => sum + s, 0);
+        task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
+        const totalHrs = Math.floor(totalTaskSecs / 3600);
+        const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
+        task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+        await task.save();
+      }
+    }
+
+    try {
+      const { emitToAll } = require('../../../shared/socket/socketManager');
+      emitToAll('timesheet:updated', { action: 'update', item: saved });
+    } catch (_) {}
+
+    res.status(200).json({ success: true, data: saved });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Delete timesheet entry
 // @route   DELETE /api/timesheet/:id
 exports.deleteTimesheet = async (req, res, next) => {

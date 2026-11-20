@@ -76,6 +76,7 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
     await markAttendanceRecord({
       ...formData,
       isAdminOverride: isPrivileged,
+      waiveLatePenalty: isPrivileged && formData.status === 'present',
       adminId: adminIdentifier,
       adminName: currentUser?.name || 'Administrator',
       auditNote: formData.auditNote.trim() || formData.notes || 'Attendance record updated'
@@ -156,6 +157,30 @@ export const MarkAttendanceModal = ({ isOpen, onClose, initialData = null }) => 
             </select>
           </div>
         </div>
+
+        {/* Regularize / Waive Late Penalty Action for Admin */}
+        {isPrivileged && (formData.status === 'half_day' || formData.status === 'late' || initialData?.isLate) && (
+          <div className="flex items-center justify-between p-2.5 px-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>Late check-in / Half-day detected on this record.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  status: 'present',
+                  auditNote: prev.auditNote || 'Late arrival regularized & penalty waived by Administrator (Authorized exemption)'
+                }));
+                addToast('✨ Late penalty waived! Status set to Present.', 'success');
+              }}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded text-[11px] cursor-pointer border-none shadow-xs transition-colors shrink-0"
+            >
+              ✨ Waive Penalty & Mark Present
+            </button>
+          </div>
+        )}
 
         {['present', 'late', 'half_day'].includes(formData.status) && (
           <div className="grid grid-cols-2 gap-3">

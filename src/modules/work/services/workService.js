@@ -1172,6 +1172,41 @@ export const workService = {
     return finalLog;
   },
 
+  async updateTimesheet(id, updateData) {
+    if (await isBackendAvailable()) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, {
+          method: 'PUT',
+          headers: buildJwtAuthHeaders(),
+          body: JSON.stringify(updateData)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+          const idx = timesheets.findIndex(t => String(t._id || t.id) === String(id));
+          if (idx >= 0) {
+            timesheets[idx] = { ...timesheets[idx], ...(json.data || updateData) };
+            saveCollection(KEYS.TIMESHEETS, timesheets);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+          }
+          return json.data || updateData;
+        }
+      } catch (err) {
+        console.warn('Backend timesheet update failed, using local storage:', err);
+      }
+    }
+
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const idx = timesheets.findIndex(t => String(t._id || t.id) === String(id));
+    if (idx >= 0) {
+      timesheets[idx] = { ...timesheets[idx], ...updateData };
+      saveCollection(KEYS.TIMESHEETS, timesheets);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+      return timesheets[idx];
+    }
+    return updateData;
+  },
+
   async deleteTimesheet(id) {
     if (await isBackendAvailable()) {
       try {

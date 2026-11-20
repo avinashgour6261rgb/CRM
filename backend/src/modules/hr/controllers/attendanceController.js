@@ -262,7 +262,7 @@ const markAttendance = asyncHandler(async (req, res) => {
   let lateByMinutes = 0;
   let calculatedStatus = status;
 
-  if (clockInTime) {
+  if (!isAdminOverride && clockInTime) {
     const inSecs = parseTimeStringToSeconds(clockInTime);
     if (inSecs > graceLimitSecs) {
       isLate = true;
@@ -272,6 +272,10 @@ const markAttendance = asyncHandler(async (req, res) => {
         calculatedStatus = 'half_day';
       }
     }
+  } else if (isAdminOverride && calculatedStatus === 'present') {
+    // Admin explicitly regularizing or marking Present (Waiving late penalty)
+    isLate = false;
+    lateByMinutes = 0;
   }
 
   if (clockInTime && clockOutTime) {
@@ -286,7 +290,7 @@ const markAttendance = asyncHandler(async (req, res) => {
     : totalWorkingHours;
 
   // Evaluate half-day if employee worked fewer hours than company half-day threshold
-  if (clockOutTime && effectiveWorkHours > 0 && effectiveWorkHours < halfDayThresholdHours && !['on_leave', 'holiday', 'day_off'].includes(calculatedStatus)) {
+  if (!isAdminOverride && clockOutTime && effectiveWorkHours > 0 && effectiveWorkHours < halfDayThresholdHours && !['on_leave', 'holiday', 'day_off'].includes(calculatedStatus)) {
     calculatedStatus = 'half_day';
   }
 
@@ -383,6 +387,68 @@ const markAttendance = asyncHandler(async (req, res) => {
     updateFields,
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
+
+  // ⏱️ Auto-sync edited attendance working time to Timesheets collection!
+  try {
+    const Timesheet = require('../../work/models/Timesheet');
+    const finalSecs = (workSeconds !== undefined && Number(workSeconds) > 0)
+      ? Number(workSeconds)
+      : Math.round(Number(record.totalWorkingHours || 0) * 3600);
+
+    if (finalSecs > 0) {
+      const totalHrs = Math.floor(finalSecs / 3600);
+      const totalMins = Math.floor((finalSecs % 3600) / 60);
+      const durText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+
+      const orEmpMatch = [];
+      if (targetEmpId && mongoose.Types.ObjectId.isValid(targetEmpId)) orEmpMatch.push({ employee: targetEmpId });
+      if (targetEmpCode) orEmpMatch.push({ employeeCode: targetEmpCode });
+
+      if (orEmpMatch.length > 0) {
+        let existingShiftTs = await Timesheet.findOne({
+          date,
+          $or: orEmpMatch,
+          $and: [{
+            $or: [
+              { isShiftSync: true },
+              { taskTitle: 'Daily Shift / Office Work' },
+              { projectName: 'General Work' }
+            ]
+          }]
+        });
+
+        if (existingShiftTs) {
+          existingShiftTs.totalDurationSeconds = finalSecs;
+          existingShiftTs.totalDurationText = durText;
+          if (clockInTime) existingShiftTs.startTime = clockInTime;
+          if (clockOutTime) existingShiftTs.endTime = clockOutTime;
+          existingShiftTs.status = clockOutTime ? 'stopped' : 'active';
+          existingShiftTs.memo = notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : 'Shift working time synced from attendance');
+          await existingShiftTs.save();
+        } else {
+          await Timesheet.create({
+            employee: targetEmpId,
+            employeeCode: targetEmpCode,
+            employeeName: record.employeeName,
+            employeeRole: record.employeeRole,
+            date,
+            taskTitle: 'Daily Shift / Office Work',
+            projectName: 'General Work',
+            startTime: clockInTime || '10:00:00',
+            endTime: clockOutTime || null,
+            totalDurationSeconds: finalSecs,
+            totalDurationText: durText,
+            isBillable: true,
+            status: clockOutTime ? 'stopped' : 'active',
+            isShiftSync: true,
+            memo: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : 'Shift working time synced from attendance')
+          });
+        }
+      }
+    }
+  } catch (tsErr) {
+    console.warn('[attendanceController] Auto-sync to timesheet failed:', tsErr.message);
+  }
 
   // Mandatory Audit Trail for Admin manual modifications
   if (auditNote || isAdminOverride || isPrivileged) {

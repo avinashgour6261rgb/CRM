@@ -10,12 +10,14 @@ import {
   MoreVertical,
   Calendar,
   CheckCircle2,
-  FileText
+  FileText,
+  Pencil
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { isHRorAdmin, canDeleteTask } from '../../../../shared/utils/permissionUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
+import { EditTimesheetModal } from './EditTimesheetModal';
 
 const STATUS_CONFIG = {
   active: { label: 'Active (Running)', className: 'text-sky-600 bg-sky-50 dark:bg-sky-950/60 dark:text-sky-400', dot: 'bg-sky-500' },
@@ -45,6 +47,7 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
   }, [rawTimesheets, isPrivileged, currentUser]);
 
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [editingTimesheet, setEditingTimesheet] = useState(null);
 
   const canDeleteEntry = (entry) => {
     if (!currentUser || !entry) return false;
@@ -224,13 +227,23 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                         {isMenuOpen && (
                           <div
                             onClick={e => e.stopPropagation()}
-                            className="absolute right-[18px] top-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[140px] text-left"
+                            className="absolute right-[18px] top-10 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1.5 z-50 min-w-[155px] text-left"
                           >
                             <div
-                              onClick={(e) => handleDelete(entry, e)}
-                              className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                                setEditingTimesheet(entry);
+                              }}
+                              className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-blue-600 dark:text-blue-400 cursor-pointer rounded hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
                             >
-                              <Trash2 size={14} /> Delete Entry
+                              <Pencil size={13} /> Edit Logged Hours
+                            </div>
+                            <div
+                              onClick={(e) => handleDelete(entry, e)}
+                              className="flex items-center gap-2 px-3 py-2 text-[12.5px] text-red-600 dark:text-red-400 cursor-pointer rounded hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors border-t border-slate-100 dark:border-slate-700/50 mt-1 pt-1.5"
+                            >
+                              <Trash2 size={13} /> Delete Entry
                             </div>
                           </div>
                         )}
@@ -245,6 +258,13 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Timesheet Modal */}
+      <EditTimesheetModal
+        isOpen={!!editingTimesheet}
+        onClose={() => setEditingTimesheet(null)}
+        timesheet={editingTimesheet}
+      />
     </div>
   );
 };

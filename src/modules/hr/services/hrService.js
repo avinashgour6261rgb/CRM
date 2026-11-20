@@ -1115,11 +1115,22 @@ export const hrService = {
           const graceLimitSecs = shiftStartSecs + (graceMins * 60);
 
           if (inSecs > graceLimitSecs) {
-            isLateCalc = true;
-            lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
-            // Corporate Policy: Late check-in past grace period is directly marked half_day
-            if (effectiveStatus === 'present' || effectiveStatus === 'late') {
-              effectiveStatus = 'half_day';
+            if (attendanceData.isAdminOverride || attendanceData.waiveLatePenalty) {
+              if (attendanceData.status === 'present') {
+                isLateCalc = false;
+                lateByMinutes = 0;
+                effectiveStatus = 'present';
+              } else {
+                isLateCalc = true;
+                lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
+              }
+            } else {
+              isLateCalc = true;
+              lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
+              // Corporate Policy: Late check-in past grace period is directly marked half_day
+              if (effectiveStatus === 'present' || effectiveStatus === 'late') {
+                effectiveStatus = 'half_day';
+              }
             }
           }
 
@@ -1128,7 +1139,7 @@ export const hrService = {
             const diffSecs = Math.max(0, outSecs - inSecs);
             computedHours = +(diffSecs / 3600).toFixed(2);
             const halfDayThreshold = companySettings.halfDayThresholdHours !== undefined ? Number(companySettings.halfDayThresholdHours) : 4.5;
-            if (computedHours > 0 && computedHours < halfDayThreshold && effectiveStatus === 'present') {
+            if (!attendanceData.isAdminOverride && !attendanceData.waiveLatePenalty && computedHours > 0 && computedHours < halfDayThreshold && effectiveStatus === 'present') {
               effectiveStatus = 'half_day';
             }
           }
@@ -1174,6 +1185,59 @@ export const hrService = {
 
       saveCollection(KEYS.ATTENDANCE, attendance);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+
+      // ⏱️ Auto-sync edited attendance working time to Timesheets collection!
+      try {
+        const finalSecs = (attendanceData.workSeconds && Number(attendanceData.workSeconds) > 0)
+          ? Number(attendanceData.workSeconds)
+          : Math.round(Number(record.totalWorkingHours || 0) * 3600);
+
+        if (finalSecs > 0) {
+          const totalHrs = Math.floor(finalSecs / 3600);
+          const totalMins = Math.floor((finalSecs % 3600) / 60);
+          const durText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+          const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+          const existingTsIdx = allTimesheets.findIndex(ts =>
+            ts.date === date && (
+              ts.employeeId === (targetEmp?._id || employeeId) ||
+              ts.employeeCode === (targetEmp?.employeeCode || attendanceData.employeeCode)
+            ) && (ts.isShiftSync || ts.taskTitle === 'Daily Shift / Office Work' || ts.projectName === 'General Work')
+          );
+
+          if (existingTsIdx >= 0) {
+            allTimesheets[existingTsIdx] = {
+              ...allTimesheets[existingTsIdx],
+              totalDurationSeconds: finalSecs,
+              totalDurationText: durText,
+              startTime: finalClockIn || allTimesheets[existingTsIdx].startTime,
+              endTime: finalClockOut || allTimesheets[existingTsIdx].endTime,
+              status: finalClockOut ? 'stopped' : 'active',
+              memo: notes || allTimesheets[existingTsIdx].memo || 'Working time synced from attendance edit'
+            };
+          } else {
+            allTimesheets.unshift({
+              _id: `ts_sync_${targetEmp?._id || employeeId}_${Date.now()}`,
+              employeeId: targetEmp?._id || employeeId,
+              employeeCode: targetEmp?.employeeCode || attendanceData.employeeCode || '',
+              employeeName: targetEmp?.name || attendanceData.employeeName || 'Employee',
+              date,
+              taskTitle: 'Daily Shift / Office Work',
+              projectName: 'General Work',
+              startTime: finalClockIn || '10:00:00',
+              endTime: finalClockOut || null,
+              totalDurationSeconds: finalSecs,
+              totalDurationText: durText,
+              isBillable: true,
+              isShiftSync: true,
+              status: finalClockOut ? 'stopped' : 'active',
+              memo: notes || 'Working time synced from attendance edit'
+            });
+          }
+          saveCollection(KEYS.TIMESHEETS, allTimesheets);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+        }
+      } catch (_) {}
+
       return record;
     });
 
@@ -1202,6 +1266,59 @@ export const hrService = {
         }
         saveCollection(KEYS.ATTENDANCE, attendance);
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+
+        // ⏱️ Auto-sync backend attendance result to Timesheets collection!
+        try {
+          const finalSecs = (attendanceData.workSeconds && Number(attendanceData.workSeconds) > 0)
+            ? Number(attendanceData.workSeconds)
+            : Math.round(Number(result.totalWorkingHours || attendanceData.totalWorkingHours || 0) * 3600);
+
+          if (finalSecs > 0) {
+            const totalHrs = Math.floor(finalSecs / 3600);
+            const totalMins = Math.floor((finalSecs % 3600) / 60);
+            const durText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+            const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
+
+            const existingTsIdx = allTimesheets.findIndex(ts =>
+              ts.date === savedDate && (
+                (savedEmpId && (ts.employeeId === savedEmpId || ts.employee === savedEmpId)) ||
+                (savedEmpCode && (ts.employeeCode === savedEmpCode || ts.employeeId === savedEmpCode))
+              ) && (ts.isShiftSync || ts.taskTitle === 'Daily Shift / Office Work' || ts.projectName === 'General Work')
+            );
+
+            if (existingTsIdx >= 0) {
+              allTimesheets[existingTsIdx] = {
+                ...allTimesheets[existingTsIdx],
+                totalDurationSeconds: finalSecs,
+                totalDurationText: durText,
+                startTime: result.clockInTime || result.clockIn || attendanceData.clockInTime || allTimesheets[existingTsIdx].startTime,
+                endTime: result.clockOutTime || attendanceData.clockOutTime || allTimesheets[existingTsIdx].endTime,
+                status: (result.clockOutTime || attendanceData.clockOutTime) ? 'stopped' : 'active',
+                memo: attendanceData.notes || attendanceData.auditNote || allTimesheets[existingTsIdx].memo || 'Working time synced from attendance'
+              };
+            } else {
+              allTimesheets.unshift({
+                _id: `ts_sync_${savedEmpId || Date.now()}_${Date.now()}`,
+                employeeId: savedEmpId,
+                employeeCode: savedEmpCode,
+                employeeName: result.employeeName || attendanceData.employeeName || 'Employee',
+                date: savedDate,
+                taskTitle: 'Daily Shift / Office Work',
+                projectName: 'General Work',
+                startTime: result.clockInTime || result.clockIn || attendanceData.clockInTime || '10:00:00',
+                endTime: result.clockOutTime || attendanceData.clockOutTime || null,
+                totalDurationSeconds: finalSecs,
+                totalDurationText: durText,
+                isBillable: true,
+                isShiftSync: true,
+                status: (result.clockOutTime || attendanceData.clockOutTime) ? 'stopped' : 'active',
+                memo: attendanceData.notes || attendanceData.auditNote || 'Working time synced from attendance'
+              });
+            }
+            saveCollection(KEYS.TIMESHEETS, allTimesheets);
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
+          }
+        } catch (_) {}
       } catch (_) {}
     }
 
