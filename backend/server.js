@@ -135,9 +135,10 @@ app.use('/api/timer',        require('./src/modules/work/routes/timesheetRoutes'
 app.use('/api/timelogs',     require('./src/modules/work/routes/timesheetRoutes'));
 app.use('/api/timelog',      require('./src/modules/work/routes/timesheetRoutes'));
 
-// CRM Module (Leads, Notices, Tickets, Events, Conversations)
+// CRM Module (Leads, Notices, Tickets, Events, Conversations, Calls)
 app.use('/api/leads',         require('./src/modules/crm/routes/leadRoutes'));
 app.use('/api/conversations', require('./src/modules/crm/routes/conversationRoutes'));
+app.use('/api/calls',         require('./src/modules/crm/routes/callHistoryRoutes'));
 app.use('/api/notices',       require('./src/modules/notices/routes/noticeRoutes'));
 app.use('/api/tickets',       require('./src/modules/tickets/routes/ticketRoutes'));
 app.use('/api/events',        require('./src/modules/events/routes/eventRoutes'));

@@ -41,6 +41,7 @@ export const ScreenShareModal = ({
   stream,
   isHost,
   hostInfo,
+  targetUserId,
   onStopSharing
 }) => {
   const { isClockedIn } = useTimer();
@@ -51,7 +52,7 @@ export const ScreenShareModal = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewerStream, setViewerStream] = useState(null);
   const [viewerStatus, setViewerStatus] = useState('connecting');
-  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
 
   const toggleAudio = () => {
     const next = !isAudioMuted;
@@ -88,6 +89,9 @@ export const ScreenShareModal = ({
         avatar: currentUser?.avatar || '',
         role: currentUser?.role || 'Team Member'
       },
+      targetUserId,
+      isChannel: activeConv?.type === 'channel',
+      channelName: activeConv?.channelName || activeConv?.name || '',
       startedAt: hostInfo?.startedAt || Date.now()
     });
 
@@ -204,16 +208,26 @@ export const ScreenShareModal = ({
 
     setViewerStatus('connecting');
 
-    // 1. Announce viewer joined to the host
-    emitSocketEvent('screen:join', {
-      conversationId: activeConv.id,
-      viewer: {
-        id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
-        name: currentUser?.name || 'Teammate',
-        avatar: currentUser?.avatar || '',
-        role: currentUser?.role || 'Team Member'
+    // 1. Announce viewer joined to the host with auto-retry if stream hasn't connected
+    const sendViewerJoin = () => {
+      emitSocketEvent('screen:join', {
+        conversationId: activeConv.id,
+        viewer: {
+          id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
+          name: currentUser?.name || 'Teammate',
+          avatar: currentUser?.avatar || '',
+          role: currentUser?.role || 'Team Member'
+        }
+      });
+    };
+    sendViewerJoin();
+
+    // Auto-retry join in case host socket reconnected or was still initializing
+    const retryTimer = setInterval(() => {
+      if (!viewerStream) {
+        sendViewerJoin();
       }
-    });
+    }, 2500);
 
     // 2. Handle host's SDP offer & ICE candidates
     const unsubViewerSignal = subscribeSocketEvent('screen:signal', async (data) => {
@@ -236,8 +250,12 @@ export const ScreenShareModal = ({
             setViewerStatus('connected');
             if (videoRef.current) {
               videoRef.current.srcObject = remoteStream;
-              videoRef.current.play().catch(e => {
-                console.warn('[ScreenShare] Autoplay pending interaction:', e);
+              videoRef.current.play().catch(() => {
+                // Guaranteed autoplay fallback for modern browser policies
+                if (videoRef.current) {
+                  videoRef.current.muted = true;
+                  videoRef.current.play().catch(() => {});
+                }
               });
             }
           };
@@ -295,6 +313,7 @@ export const ScreenShareModal = ({
     });
 
     return () => {
+      clearInterval(retryTimer);
       emitSocketEvent('screen:leave', { conversationId: activeConv.id });
       unsubViewerSignal();
       unsubStopped();
@@ -311,9 +330,14 @@ export const ScreenShareModal = ({
   useEffect(() => {
     if (videoRef.current && activeStream) {
       videoRef.current.srcObject = activeStream;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => {
+        if (videoRef.current) {
+          videoRef.current.muted = true;
+          videoRef.current.play().catch(() => {});
+        }
+      });
     }
-  }, [activeStream, isMinimized]);
+  }, [activeStream, isMinimized, isAudioMuted]);
 
   // Duration timer
   useEffect(() => {
@@ -358,7 +382,10 @@ export const ScreenShareModal = ({
   };
 
   const handleStop = () => {
-    emitSocketEvent('screen:stop', { conversationId: activeConv?.id });
+    emitSocketEvent('screen:stop', {
+      conversationId: activeConv?.id,
+      targetUserId
+    });
     if (onStopSharing) {
       onStopSharing();
     }
@@ -508,15 +535,16 @@ export const ScreenShareModal = ({
 
         {/* Video Canvas Area */}
         <div className="flex-1 min-h-[350px] bg-black relative flex items-center justify-center overflow-hidden">
-          {activeStream ? (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted={isHost ? true : isAudioMuted}
-              className="w-full h-full max-h-[75vh] object-contain"
-            />
-          ) : (
+          {/* Always keep video element mounted so videoRef is never null */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={isHost ? true : isAudioMuted}
+            className={`w-full h-full max-h-[75vh] object-contain ${activeStream ? 'block' : 'hidden'}`}
+          />
+
+          {!activeStream && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center bg-slate-950">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg animate-pulse">
                 <Monitor size={32} />

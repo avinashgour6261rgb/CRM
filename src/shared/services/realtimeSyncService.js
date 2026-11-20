@@ -443,6 +443,19 @@ if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ems_call_ended', { detail: data }));
     } catch (_) {}
   });
+
+  // 🖥️ Live WebRTC Screen Sharing Events
+  subscribeSocketEvent('screen:started', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_screen_started', { detail: data }));
+    } catch (_) {}
+  });
+
+  subscribeSocketEvent('screen:stopped', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_screen_stopped', { detail: data }));
+    } catch (_) {}
+  });
   subscribeSocketEvent('timesheet:updated', (data) => applySingleItemMutation(KEYS.TIMESHEETS, data));
   subscribeSocketEvent('leave:updated', (data) => {
     applySingleItemMutation(KEYS.LEAVES, data);

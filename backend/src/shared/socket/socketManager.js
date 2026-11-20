@@ -6,6 +6,14 @@
 
 const { Server } = require('socket.io');
 
+let dbHelpers = null;
+try {
+  const callCtrl = require('../../modules/crm/controllers/callHistoryController');
+  dbHelpers = callCtrl.dbHelpers;
+} catch (e) {
+  console.warn('[SocketManager] callHistoryController dbHelpers init:', e.message);
+}
+
 let io = null;
 
 function initSocket(server) {
@@ -74,16 +82,18 @@ function initSocket(server) {
     // 🎙️ WebRTC Real-Time Voice Signaling Relay (Person-to-Person & Group Huddle)
     socket.on('voice:join', (data) => {
       try {
-        const { conversationId, user } = data || {};
-        if (!conversationId) return;
-        const roomName = `voice:${conversationId}`;
+        const { conversationId, user, callId } = data || {};
+        if (!conversationId && !callId) return;
+        // Strict Privacy Isolation: 1-on-1 calls lock strictly to call:${callId}
+        const roomName = callId ? `call:${callId}` : `voice:${conversationId}`;
         socket.join(roomName);
 
         // Tell existing participants in this room that a new peer joined
         socket.to(roomName).emit('voice:peer_joined', {
           socketId: socket.id,
           user,
-          conversationId
+          conversationId,
+          callId
         });
       } catch (err) {
         console.warn('[SocketManager] voice:join error:', err.message);
@@ -92,13 +102,14 @@ function initSocket(server) {
 
     socket.on('voice:signal', (data) => {
       try {
-        const { targetSocketId, signal, user, conversationId } = data || {};
+        const { targetSocketId, signal, user, conversationId, callId } = data || {};
         if (targetSocketId && io) {
           io.to(targetSocketId).emit('voice:signal', {
             senderSocketId: socket.id,
             signal,
             user,
-            conversationId
+            conversationId,
+            callId
           });
         }
       } catch (err) {
@@ -108,15 +119,17 @@ function initSocket(server) {
 
     socket.on('voice:leave', (data) => {
       try {
-        const { conversationId, user } = data || {};
-        if (!conversationId) return;
-        const roomName = `voice:${conversationId}`;
-        socket.leave(roomName);
-        socket.to(roomName).emit('voice:peer_left', {
-          socketId: socket.id,
-          user,
-          conversationId
-        });
+        const { conversationId, user, callId } = data || {};
+        const roomName = callId ? `call:${callId}` : (conversationId ? `voice:${conversationId}` : null);
+        if (roomName) {
+          socket.leave(roomName);
+          socket.to(roomName).emit('voice:peer_left', {
+            socketId: socket.id,
+            user,
+            conversationId,
+            callId
+          });
+        }
       } catch (err) {
         console.warn('[SocketManager] voice:leave error:', err.message);
       }
@@ -145,6 +158,22 @@ function initSocket(server) {
           callerSocketId: socket.id,
           startedAt: Date.now()
         };
+
+        // Caller joins their own isolated session room
+        socket.join(`call:${callPayload.callId}`);
+
+        // Persist call start to MongoDB
+        if (dbHelpers?.saveCallStart) {
+          dbHelpers.saveCallStart({
+            callId: callPayload.callId,
+            conversationId,
+            caller,
+            targetUser: { id: targetUserId, employeeCode: targetEmployeeCode },
+            isChannel,
+            channelName,
+            startedAt: callPayload.startedAt
+          });
+        }
 
         if (isChannel) {
           // Channel Broadcast: Ring clocked-in members of this channel
@@ -185,6 +214,20 @@ function initSocket(server) {
           acceptedAt: Date.now()
         };
 
+        // Acceptor joins the isolated call session room
+        if (callId) {
+          socket.join(`call:${callId}`);
+        }
+
+        // Persist call acceptance to MongoDB
+        if (dbHelpers?.saveCallAccept) {
+          dbHelpers.saveCallAccept({
+            callId,
+            acceptor,
+            acceptedAt: acceptedPayload.acceptedAt
+          });
+        }
+
         if (callerSocketId) {
           io.to(callerSocketId).emit('call:accepted', acceptedPayload);
         }
@@ -206,6 +249,16 @@ function initSocket(server) {
           reason: reason || 'declined'
         };
 
+        // Persist declined call to MongoDB
+        if (dbHelpers?.saveCallEnd) {
+          dbHelpers.saveCallEnd({
+            callId,
+            conversationId,
+            status: 'declined',
+            endedBy: decliner
+          });
+        }
+
         if (callerSocketId) {
           io.to(callerSocketId).emit('call:declined', declinedPayload);
         }
@@ -221,6 +274,19 @@ function initSocket(server) {
       try {
         const { callId, conversationId, targetUserId, targetEmployeeCode, isChannel } = data || {};
         const cancelPayload = { callId, conversationId };
+
+        if (callId) {
+          socket.leave(`call:${callId}`);
+        }
+
+        // Persist cancelled call to MongoDB
+        if (dbHelpers?.saveCallEnd) {
+          dbHelpers.saveCallEnd({
+            callId,
+            conversationId,
+            status: 'cancelled'
+          });
+        }
 
         if (isChannel) {
           socket.to(`voice:${conversationId}`).emit('call:cancelled', cancelPayload);
@@ -240,11 +306,15 @@ function initSocket(server) {
         const endPayload = {
           callId,
           conversationId,
-          durationSeconds: durationSeconds || 0,
+          durationSeconds: Number(durationSeconds) || 0,
           durationText: durationText || '0s',
           endedBy
         };
 
+        if (callId) {
+          socket.to(`call:${callId}`).emit('call:ended', endPayload);
+          socket.leave(`call:${callId}`);
+        }
         if (conversationId) {
           socket.to(`voice:${conversationId}`).emit('call:ended', endPayload);
         }
@@ -253,6 +323,18 @@ function initSocket(server) {
         }
         if (targetEmployeeCode) {
           io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('call:ended', endPayload);
+        }
+
+        // Persist call end & duration to MongoDB
+        if (dbHelpers?.saveCallEnd) {
+          dbHelpers.saveCallEnd({
+            callId,
+            conversationId,
+            durationSeconds: endPayload.durationSeconds,
+            durationText: endPayload.durationText,
+            status: (endPayload.durationSeconds > 0 ? 'completed' : 'missed'),
+            endedBy
+          });
         }
       } catch (err) {
         console.warn('[SocketManager] call:end error:', err.message);
@@ -288,7 +370,7 @@ function initSocket(server) {
     // 🖥️ WebRTC Live Screen Sharing Relay
     socket.on('screen:start', (data) => {
       try {
-        const { conversationId, host, startedAt } = data || {};
+        const { conversationId, host, startedAt, targetUserId, isChannel, channelName } = data || {};
         if (!conversationId) return;
         const roomName = `screen:${conversationId}`;
         socket.join(roomName);
@@ -297,13 +379,34 @@ function initSocket(server) {
           conversationId,
           host: host || {},
           hostSocketId: socket.id,
+          isChannel: Boolean(isChannel),
+          channelName: channelName || '',
           startedAt: startedAt || Date.now()
         };
 
-        // Notify chat channel, voice room & company room so remote users see the "Watch Stream" banner
-        socket.to(`chat:${conversationId}`).emit('screen:started', payload);
-        socket.to(`voice:${conversationId}`).emit('screen:started', payload);
-        socket.to('company').emit('screen:started', payload);
+        // Persist screen share session start to MongoDB Atlas
+        if (dbHelpers?.saveScreenStart) {
+          dbHelpers.saveScreenStart({
+            sessionId: `screen_${payload.startedAt}_${host?.id || 'host'}`,
+            conversationId,
+            host,
+            isChannel,
+            channelName,
+            startedAt: payload.startedAt
+          });
+        }
+
+        // Targeted emission: In 1-on-1 DM, emit strictly to target user & chat room (no company broadcast leak)
+        if (targetUserId) {
+          io.to(`user:${String(targetUserId)}`).emit('screen:started', payload);
+          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
+        } else if (isChannel) {
+          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
+          socket.to(`voice:${conversationId}`).emit('screen:started', payload);
+        } else {
+          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
+          socket.to(`voice:${conversationId}`).emit('screen:started', payload);
+        }
       } catch (err) {
         console.warn('[SocketManager] screen:start error:', err.message);
       }
@@ -359,13 +462,22 @@ function initSocket(server) {
 
     socket.on('screen:stop', (data) => {
       try {
-        const { conversationId } = data || {};
+        const { conversationId, durationSeconds, durationText, targetUserId } = data || {};
         if (!conversationId) return;
         const roomName = `screen:${conversationId}`;
-        socket.to(roomName).emit('screen:stopped', { conversationId });
-        socket.to(`chat:${conversationId}`).emit('screen:stopped', { conversationId });
-        socket.to('company').emit('screen:stopped', { conversationId });
+        const stopPayload = { conversationId, durationSeconds, durationText };
+
+        socket.to(roomName).emit('screen:stopped', stopPayload);
+        socket.to(`chat:${conversationId}`).emit('screen:stopped', stopPayload);
+        if (targetUserId) {
+          io.to(`user:${String(targetUserId)}`).emit('screen:stopped', stopPayload);
+        }
         socket.leave(roomName);
+
+        // Persist session end to DB
+        if (dbHelpers?.saveScreenStop) {
+          dbHelpers.saveScreenStop({ conversationId, durationSeconds, durationText });
+        }
       } catch (err) {
         console.warn('[SocketManager] screen:stop error:', err.message);
       }
@@ -374,6 +486,11 @@ function initSocket(server) {
     socket.on('disconnecting', () => {
       try {
         for (const room of socket.rooms) {
+          if (typeof room === 'string' && room.startsWith('call:')) {
+            const callId = room.replace('call:', '');
+            socket.to(room).emit('call:ended', { callId, reason: 'peer_disconnected' });
+            socket.to(room).emit('voice:peer_left', { socketId: socket.id, callId });
+          }
           if (typeof room === 'string' && room.startsWith('voice:')) {
             socket.to(room).emit('voice:peer_left', {
               socketId: socket.id,

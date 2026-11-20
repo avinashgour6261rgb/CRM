@@ -8,6 +8,7 @@ import { useHR } from '../../../modules/hr/context/HRContext';
 import { useCRM } from '../../context/CRMContext';
 import { useUserShiftStatus } from '../../../modules/crm/utils/useUserShiftStatus';
 import { IncomingCallModal } from '../../../modules/crm/components/messages/IncomingCallModal';
+import { IncomingScreenShareModal } from '../../../modules/crm/components/messages/IncomingScreenShareModal';
 import { ringtoneService } from '../../../modules/crm/utils/ringtoneService';
 import { emitSocketEvent } from '../../services/socketService';
 import { canAccessModule } from '../../utils/permissionUtils';
@@ -41,6 +42,7 @@ export const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [permTick, setPermTick] = useState(0);
   const [incomingCall, setIncomingCall] = useState(null);
+  const [incomingScreenShare, setIncomingScreenShare] = useState(null);
 
   // Auto-close mobile drawer when location / route changes
   useEffect(() => {
@@ -143,6 +145,55 @@ export const Layout = () => {
       window.removeEventListener('ems_call_ended', handleCancelledOrEnded);
     };
   }, [effectiveUser, shiftStatus, incomingCall]);
+
+  // 🖥️ Live Incoming Screen Share Alert Listener
+  useEffect(() => {
+    const handleScreenStarted = (e) => {
+      const screenData = e.detail;
+      if (!screenData) return;
+      const myId = String(effectiveUser?._id || effectiveUser?.id || effectiveUser?.employeeCode || '');
+      const hostId = String(screenData.host?.id || '');
+
+      // Don't alert the host
+      if (hostId && hostId === myId) return;
+
+      // Must be clocked in
+      if (!shiftStatus.isClockedIn) return;
+
+      setIncomingScreenShare(screenData);
+    };
+
+    const handleScreenStopped = (e) => {
+      const screenData = e.detail;
+      if (!incomingScreenShare || !screenData?.conversationId || screenData.conversationId === incomingScreenShare.conversationId) {
+        setIncomingScreenShare(null);
+      }
+    };
+
+    window.addEventListener('ems_screen_started', handleScreenStarted);
+    window.addEventListener('ems_screen_stopped', handleScreenStopped);
+
+    return () => {
+      window.removeEventListener('ems_screen_started', handleScreenStarted);
+      window.removeEventListener('ems_screen_stopped', handleScreenStopped);
+    };
+  }, [effectiveUser, shiftStatus, incomingScreenShare]);
+
+  const handleWatchIncomingScreen = () => {
+    if (!incomingScreenShare) return;
+    const targetConvId = incomingScreenShare.conversationId;
+    try {
+      sessionStorage.setItem('ems_pending_watch_screen', JSON.stringify(incomingScreenShare));
+    } catch (_) {}
+
+    if (targetConvId && setActiveConversationId) {
+      setActiveConversationId(targetConvId);
+    }
+    setIncomingScreenShare(null);
+    if (!location.pathname.startsWith('/messages')) {
+      navigate('/messages');
+    }
+  };
 
   const handleAcceptIncomingCall = () => {
     if (!incomingCall) return;
@@ -268,6 +319,13 @@ export const Layout = () => {
         incomingCall={incomingCall}
         onAccept={handleAcceptIncomingCall}
         onDecline={handleDeclineIncomingCall}
+      />
+
+      {/* 🖥️ Global Incoming Live Screen Share Alert Modal */}
+      <IncomingScreenShareModal
+        incomingSession={incomingScreenShare}
+        onWatch={handleWatchIncomingScreen}
+        onDismiss={() => setIncomingScreenShare(null)}
       />
     </div>
   );

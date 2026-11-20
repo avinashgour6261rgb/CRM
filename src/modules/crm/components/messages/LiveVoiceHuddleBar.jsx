@@ -227,7 +227,8 @@ export const LiveVoiceHuddleBar = ({
         emitSocketEvent('voice:signal', {
           targetSocketId,
           signal: { candidate: event.candidate },
-          conversationId: activeConv?.id
+          conversationId: activeConv?.id,
+          callId: activeCallIdRef.current
         });
       }
     };
@@ -261,7 +262,8 @@ export const LiveVoiceHuddleBar = ({
               avatar: currentUser?.avatar || '',
               role: currentUser?.role || 'Team Member'
             },
-            conversationId: activeConv?.id
+            conversationId: activeConv?.id,
+            callId: activeCallIdRef.current
           });
         })
         .catch(err => console.error('[LiveVoice] Error creating offer:', err));
@@ -360,6 +362,7 @@ export const LiveVoiceHuddleBar = ({
 
     emitSocketEvent('voice:leave', {
       conversationId: activeConv?.id,
+      callId: activeCallIdRef.current,
       user: { id: myId }
     });
 
@@ -511,6 +514,7 @@ export const LiveVoiceHuddleBar = ({
 
     emitSocketEvent('voice:join', {
       conversationId: activeConv?.id,
+      callId: isChannel ? null : activeCallIdRef.current,
       user: {
         id: myId,
         name: currentUser?.name || 'Teammate',
@@ -580,6 +584,7 @@ export const LiveVoiceHuddleBar = ({
       const callData = data?.detail || data;
       if (!callData) return;
       if (activeConv?.id && callData.conversationId === activeConv.id) {
+        if (callData.callId) activeCallIdRef.current = callData.callId;
         ringtoneService.stop();
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         connectHuddleRoom();
@@ -627,6 +632,7 @@ export const LiveVoiceHuddleBar = ({
     const handleGlobalUserAccepted = async (e) => {
       const callData = e.detail;
       if (!callData || callData.conversationId !== activeConv?.id) return;
+      if (callData.callId) activeCallIdRef.current = callData.callId;
       try {
         await setupLocalMic();
         connectHuddleRoom();
@@ -677,6 +683,7 @@ export const LiveVoiceHuddleBar = ({
       if (pendingRaw) {
         const pendingCall = JSON.parse(pendingRaw);
         if (pendingCall && String(pendingCall.conversationId) === String(activeConv.id)) {
+          if (pendingCall.callId) activeCallIdRef.current = pendingCall.callId;
           sessionStorage.removeItem('ems_pending_accepted_call');
           setupLocalMic().then(() => {
             connectHuddleRoom();
@@ -691,14 +698,20 @@ export const LiveVoiceHuddleBar = ({
   // WebRTC Signaling Listeners
   useEffect(() => {
     const unsubJoined = subscribeSocketEvent('voice:peer_joined', (data) => {
-      if (!data || data.conversationId !== activeConv?.id) return;
+      if (!data) return;
+      // Strict Session Verification: In 1-on-1 calls, ignore packets from foreign calls
+      if (!isChannel && activeCallIdRef.current && data.callId && data.callId !== activeCallIdRef.current) return;
+      if (data.conversationId !== activeConv?.id && (!data.callId || data.callId !== activeCallIdRef.current)) return;
       if (data.socketId && (callStateRef.current === 'connected' || callStateRef.current === 'outgoing_ringing')) {
         createPeerConnection(data.socketId, true, data.user);
       }
     });
 
     const unsubSignal = subscribeSocketEvent('voice:signal', async (data) => {
-      if (!data || data.conversationId !== activeConv?.id) return;
+      if (!data) return;
+      // Strict Session Verification: In 1-on-1 calls, ignore foreign signals
+      if (!isChannel && activeCallIdRef.current && data.callId && data.callId !== activeCallIdRef.current) return;
+      if (data.conversationId !== activeConv?.id && (!data.callId || data.callId !== activeCallIdRef.current)) return;
       const { senderSocketId, signal, user } = data;
       if (!senderSocketId || !signal) return;
 
@@ -754,7 +767,8 @@ export const LiveVoiceHuddleBar = ({
                 avatar: currentUser?.avatar || '',
                 role: currentUser?.role || 'Team Member'
               },
-              conversationId: activeConv?.id
+              conversationId: activeConv?.id,
+              callId: activeCallIdRef.current
             });
           }
         } catch (err) {

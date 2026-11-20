@@ -37,7 +37,8 @@ import {
   Radio,
   Mic,
   Eye,
-  Trash2
+  Trash2,
+  History
 } from 'lucide-react';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -51,6 +52,7 @@ import { ChatMediaViewerModal } from '../components/messages/ChatMediaViewerModa
 import { VoiceMemoPlayer } from '../components/messages/VoiceMemoPlayer';
 import { LiveVoiceHuddleBar } from '../components/messages/LiveVoiceHuddleBar';
 import { ScreenShareModal } from '../components/messages/ScreenShareModal';
+import { CallAndScreenHistoryModal } from '../components/messages/CallAndScreenHistoryModal';
 import { processFileForChat, downloadChatAttachment, fetchChatAttachmentMedia } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -157,6 +159,7 @@ export const MessagesPage = () => {
   const [screenStream, setScreenStream] = useState(null);
   const [isScreenShareOpen, setIsScreenShareOpen] = useState(false);
   const [isScreenShareHost, setIsScreenShareHost] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
@@ -572,6 +575,29 @@ export const MessagesPage = () => {
     };
   }, [screenShareKey, syncScreenShare, activeConv?.id, isScreenShareHost]);
 
+  // Auto-connect viewer stream if navigated from global IncomingScreenShareModal
+  useEffect(() => {
+    try {
+      const pendingRaw = sessionStorage.getItem('ems_pending_watch_screen');
+      if (pendingRaw) {
+        const pending = JSON.parse(pendingRaw);
+        if (pending && (!activeConv || String(pending.conversationId) === String(activeConv.id))) {
+          sessionStorage.removeItem('ems_pending_watch_screen');
+          setActiveScreenShare({
+            hostId: pending.host?.id,
+            hostName: pending.host?.name || 'Teammate',
+            hostAvatar: pending.host?.avatar || '',
+            hostRole: pending.host?.role || 'Team Member',
+            convId: pending.conversationId,
+            startedAt: pending.startedAt || Date.now()
+          });
+          setIsScreenShareHost(false);
+          setIsScreenShareOpen(true);
+        }
+      }
+    } catch (_) {}
+  }, [activeConv?.id]);
+
   // Screen share controls
   const startScreenShare = async () => {
     if (!isClockedIn) {
@@ -610,6 +636,9 @@ export const MessagesPage = () => {
       setIsScreenShareHost(true);
       setIsScreenShareOpen(true);
 
+      const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
+      const targetUserId = targetPartner?._id || targetPartner?.id;
+
       const sessionData = {
         hostId: String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'host'),
         hostName: currentUser?.name || 'Teammate',
@@ -632,6 +661,9 @@ export const MessagesPage = () => {
           avatar: sessionData.hostAvatar,
           role: sessionData.hostRole
         },
+        targetUserId,
+        isChannel: activeIsChannel,
+        channelName: activeConv?.channelName || activeConv?.name || '',
         startedAt: sessionData.startedAt
       });
 
@@ -652,7 +684,13 @@ export const MessagesPage = () => {
   };
 
   const stopScreenShare = () => {
-    emitSocketEvent('screen:stop', { conversationId: activeConv?.id });
+    const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
+    const targetUserId = targetPartner?._id || targetPartner?.id;
+
+    emitSocketEvent('screen:stop', {
+      conversationId: activeConv?.id,
+      targetUserId
+    });
 
     if (screenStream) {
       screenStream.getTracks().forEach(track => track.stop());
@@ -715,13 +753,26 @@ export const MessagesPage = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsNewConvOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 h-[32px] rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-all"
-        >
-          <Plus size={15} />
-          <span>New Chat / Channel</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsHistoryOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 h-[32px] rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300/80 dark:border-slate-700 text-xs font-bold cursor-pointer shadow-xs transition-all"
+            title="View Calls & Screen Sharing History (MongoDB Atlas)"
+          >
+            <History size={14} />
+            <span>Call & Screen History</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNewConvOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 h-[32px] rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white border-0 text-xs font-bold cursor-pointer shadow-sm transition-all"
+          >
+            <Plus size={15} />
+            <span>New Chat / Channel</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Chat Layout Container */}
@@ -1438,7 +1489,15 @@ export const MessagesPage = () => {
         stream={screenStream}
         isHost={isScreenShareHost}
         hostInfo={activeScreenShare}
+        targetUserId={!activeIsChannel ? getDmPartner(activeConv, currentUser, employees)?._id : null}
         onStopSharing={stopScreenShare}
+      />
+
+      <CallAndScreenHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        currentUser={currentUser}
+        activeConv={activeConv}
       />
     </div>
   );
