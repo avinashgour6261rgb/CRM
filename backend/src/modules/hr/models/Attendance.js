@@ -27,7 +27,7 @@ const AttendanceSchema = new mongoose.Schema(
       default: null
     },
     clockOutTime: {
-      type: String,     // "18:30:00"
+      type: String,     // "19:00:00"
       default: null
     },
     totalWorkingHours: {
@@ -168,12 +168,19 @@ AttendanceSchema.pre('save', function (next) {
     }
   }
 
-  if (this.clockInTime) {
+  if (this.clockInTime && this.isLate === undefined) {
+    // Dynamic policy check against CompanySettings (Default: 10:00 AM + 15m grace = 10:15 AM)
     const inTotal = parseAttendanceTime(this.clockInTime);
-    const graceLimit = 9 * 3600 + 30 * 60;
-    if (inTotal > graceLimit) {
+    const defaultGraceLimit = 10 * 3600 + 15 * 60; // 10:15:00 AM
+    if (inTotal > defaultGraceLimit) {
       this.isLate = true;
-      this.lateByMinutes = Math.floor((inTotal - graceLimit) / 60);
+      this.lateByMinutes = Math.floor((inTotal - (10 * 3600)) / 60);
+      if (this.status === 'present') {
+        this.status = 'half_day';
+      }
+    } else {
+      this.isLate = false;
+      this.lateByMinutes = 0;
     }
   }
   next();

@@ -248,7 +248,7 @@ export const CRMProvider = ({ children }) => {
       members: ['all_marketing'],
       isOnline: true,
       lastMessage: 'Weekly campaign creatives and review assets.',
-      lastMessageTime: '09:30 AM',
+      lastMessageTime: '10:30 AM',
       unreadCount: 0,
       messages: [
         {
@@ -260,7 +260,7 @@ export const CRMProvider = ({ children }) => {
           senderRole: 'Administrator',
           text: '🚀 Digital Marketing hub is ready! Share campaign creatives, Google & Meta Ads performance reports, SEO audit sheets, and copy decks.',
           attachments: [],
-          timestamp: '09:30 AM',
+          timestamp: '10:30 AM',
           createdAt: 1730000200000,
           readBy: ['ADM-001']
         }

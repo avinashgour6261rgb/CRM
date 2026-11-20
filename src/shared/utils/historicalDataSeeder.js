@@ -191,7 +191,7 @@ export const ensureHistoricalData = () => {
 
         // Regular Working Day: Present or Late
         const isLate = ((dayIdx + empIdx) % 9 === 0);
-        const inHour = isLate ? '10:15 AM' : ((dayIdx % 2 === 0) ? '09:30 AM' : '09:45 AM');
+        const inHour = isLate ? '10:30 AM' : ((dayIdx % 2 === 0) ? '09:55 AM' : '10:00 AM');
         const hasOt = ((dayIdx + empIdx) % 5 === 0);
         const outHour = hasOt ? '07:30 PM' : ((dayIdx % 3 === 0) ? '06:45 PM' : '07:00 PM');
 

@@ -109,7 +109,7 @@ export const AdminForceClockOutModal = ({ isOpen, onClose, targetEmployee = null
           <textarea
             value={auditNote}
             onChange={(e) => setAuditNote(e.target.value)}
-            placeholder="e.g. Employee left premises at 06:30 PM without clocking out; verified via security logs / client off-site transition."
+            placeholder="e.g. Employee left premises at 07:00 PM without clocking out; verified via security logs / client off-site transition."
             className="w-full min-h-[75px] p-2.5 px-3 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12.5px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none font-sans focus:border-red-500 transition-colors"
             required
           />

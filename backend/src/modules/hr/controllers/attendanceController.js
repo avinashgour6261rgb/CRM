@@ -267,8 +267,9 @@ const markAttendance = asyncHandler(async (req, res) => {
     if (inSecs > graceLimitSecs) {
       isLate = true;
       lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
-      if (calculatedStatus === 'present') {
-        calculatedStatus = 'late';
+      // Corporate Policy: Check-in past grace period (e.g. > 10:15 AM) is directly marked Half Day
+      if (calculatedStatus === 'present' || calculatedStatus === 'late') {
+        calculatedStatus = 'half_day';
       }
     }
   }
@@ -756,7 +757,10 @@ const forceClockOut = asyncHandler(async (req, res) => {
     if (finalWorkHours > 0 && finalWorkHours < halfDayThreshold && !['on_leave', 'holiday', 'day_off'].includes(attRecord.status)) {
       attRecord.status = 'half_day';
     } else if (finalWorkHours >= halfDayThreshold && attRecord.status === 'half_day') {
-      attRecord.status = attRecord.isLate ? 'late' : 'present';
+      // If employee arrived late after grace period, half_day status is preserved
+      if (!attRecord.isLate) {
+        attRecord.status = 'present';
+      }
     }
     const rawOtMins = Math.max(0, Math.round((finalWorkHours - standardWorkHours) * 60));
     if (rawOtMins > 0 && rawOtMins >= minOtMins) {
@@ -1119,6 +1123,24 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
         if (targetCode) orUpsert.push({ employeeCode: targetCode });
 
         if (orUpsert.length > 0) {
+          let initialStatus = 'present';
+          let initialIsLate = false;
+          let initialLateMins = 0;
+          try {
+            const CompanySettings = require('../../settings/models/CompanySettings');
+            const cCfg = await CompanySettings.findOne().lean();
+            const sStart = cCfg?.shiftStartTime || '10:00 AM';
+            const gMins = cCfg?.gracePeriodMinutes !== undefined ? Number(cCfg.gracePeriodMinutes) : 15;
+            const startSecs = parseTimeStringToSeconds(sStart);
+            const graceSecs = startSecs + (gMins * 60);
+            const inSecs = parseTimeStringToSeconds(inStr);
+            if (inSecs > graceSecs) {
+              initialIsLate = true;
+              initialLateMins = Math.floor((inSecs - startSecs) / 60);
+              initialStatus = 'half_day';
+            }
+          } catch (_) {}
+
           const autoHealed = await Attendance.findOneAndUpdate(
             { date: today, $or: orUpsert },
             {
@@ -1127,13 +1149,13 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
                 employeeName: targetName,
                 employeeCode: targetCode,
                 date: today,
-                status: 'present',
+                status: initialStatus,
                 clockInTime: inStr,
                 clockInTimestamp: inTs,
                 currentSessionStartTimestamp: sessStart,
                 totalWorkingHours: +(initialWork / 3600).toFixed(2),
-                isLate: false,
-                lateByMinutes: 0
+                isLate: initialIsLate,
+                lateByMinutes: initialLateMins
               },
               $set: {
                 isClockedIn: true,

@@ -163,7 +163,7 @@ exports.applyShiftPolicyToOrg = async (req, res) => {
           if (inSecs > graceLimitSecs) {
             isLate = true;
             lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
-            nextStatus = 'late';
+            nextStatus = 'half_day';
           } else {
             nextStatus = 'present';
           }

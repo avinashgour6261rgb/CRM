@@ -44,7 +44,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   const isEditingOther = employee && employee._id !== currentUser?._id;
 
   const companySettings = getCompanySettings();
-  const companyDefaultShift = `${companySettings.shiftStartTime || '09:30 AM'} - ${companySettings.shiftEndTime || '06:30 PM'}`;
+  const companyDefaultShift = `${companySettings.shiftStartTime || '10:00 AM'} - ${companySettings.shiftEndTime || '07:00 PM'}`;
 
   const [availableRoles, setAvailableRoles] = useState(getRoles());
   const [formData, setFormData] = useState({
@@ -137,7 +137,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   useEffect(() => {
     if (targetEmp) {
       const settings = getCompanySettings();
-      const defaultShift = `${settings.shiftStartTime || '09:30 AM'} - ${settings.shiftEndTime || '06:30 PM'}`;
+      const defaultShift = `${settings.shiftStartTime || '10:00 AM'} - ${settings.shiftEndTime || '07:00 PM'}`;
       setFormData({
         name: targetEmp.name || 'Employee',
         role: targetEmp.role || 'Senior Specialist',
@@ -617,7 +617,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   ⭐ {companyDefaultShift} (Company Primary Shift - Admin Decided)
                 </option>
                 <option value="10:00 AM - 07:00 PM">Day Shift (10:00 AM - 07:00 PM)</option>
-                <option value="09:30 AM - 06:30 PM">Morning Shift (09:30 AM - 06:30 PM)</option>
+                <option value="09:00 AM - 06:00 PM">Early Shift (09:00 AM - 06:00 PM)</option>
                 <option value="02:00 PM - 11:00 PM">Evening Shift (02:00 PM - 11:00 PM)</option>
                 <option value="08:00 PM - 05:00 AM">Night Shift (08:00 PM - 05:00 AM)</option>
                 <option value="Flexible Shift">Flexible Hours</option>

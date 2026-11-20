@@ -2483,7 +2483,7 @@ export const TeamOperationsPage = () => {
                   type="text"
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
-                  placeholder="e.g. 09:30 AM"
+                  placeholder="e.g. 10:00 AM"
                   className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -2555,7 +2555,7 @@ export const TeamOperationsPage = () => {
                   type="text"
                   value={customPunchTime}
                   onChange={(e) => setCustomPunchTime(e.target.value)}
-                  placeholder="e.g. 06:30 PM"
+                  placeholder="e.g. 07:00 PM"
                   className="w-full px-2.5 py-2 rounded-md border border-slate-300 dark:border-slate-700 text-[12.5px] text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 outline-none focus:border-blue-500 transition-colors"
                 />
               </div>

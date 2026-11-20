@@ -258,10 +258,10 @@ export const AttendancePage = () => {
         onLeave++;
       } else if (isPresent) {
         present++;
-        if (att?.status === 'late' || (att?.clockInTime && parseTimeToSeconds(att.clockInTime) > shiftLateThresholdSecs)) {
-          late++;
-        } else if (att?.status === 'half_day') {
+        if (att?.status === 'half_day' || (att?.clockInTime && parseTimeToSeconds(att.clockInTime) > shiftLateThresholdSecs)) {
           halfDay++;
+        } else if (att?.status === 'late') {
+          late++;
         } else {
           onTime++;
         }
@@ -954,7 +954,7 @@ export const AttendancePage = () => {
             <div className="text-[28px] font-extrabold text-amber-600 dark:text-amber-400 mt-2.5">
               {lateCount}
             </div>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Check-ins past {companySettings.shiftStartTime || '09:30 AM'}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Check-ins past {companySettings.shiftStartTime || '10:00 AM'}</span>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">

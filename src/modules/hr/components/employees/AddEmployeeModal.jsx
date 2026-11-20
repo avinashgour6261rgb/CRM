@@ -238,7 +238,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       const code = getNextAvailableCode();
       const currentSettings = getCompanySettings();
-      const currentDefaultShift = `${currentSettings.shiftStartTime || '09:30 AM'} - ${currentSettings.shiftEndTime || '06:30 PM'}`;
+      const currentDefaultShift = `${currentSettings.shiftStartTime || '10:00 AM'} - ${currentSettings.shiftEndTime || '07:00 PM'}`;
       setFormData(prev => ({
         ...prev,
         employeeCode: prev.employeeCode || code,
@@ -925,7 +925,7 @@ export const AddEmployeeModal = ({ isOpen, onClose }) => {
                 ⭐ {companyDefaultShift} (Company Primary Shift - Admin Decided)
               </option>
               <option value="10:00 AM - 07:00 PM">Day Shift (10:00 AM - 07:00 PM)</option>
-              <option value="09:30 AM - 06:30 PM">Morning Shift (09:30 AM - 06:30 PM)</option>
+              <option value="09:00 AM - 06:00 PM">Early Shift (09:00 AM - 06:00 PM)</option>
               <option value="02:00 PM - 11:00 PM">Evening Shift (02:00 PM - 11:00 PM)</option>
               <option value="08:00 PM - 05:00 AM">Night Shift (08:00 PM - 05:00 AM)</option>
               <option value="Flexible Shift">Flexible Hours</option>

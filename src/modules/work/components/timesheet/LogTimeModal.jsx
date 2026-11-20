@@ -23,6 +23,7 @@ import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { isHRorAdmin, isProjectVisibleToUser, isTaskVisibleToUser } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { getCompanySettings } from '../../../../shared/services/companySettingsService';
 
 export const LogTimeModal = ({ isOpen, onClose }) => {
   const {
@@ -48,6 +49,22 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
 
   const [mode, setMode] = useState(scopedProjects.length > 0 && scopedTasks.length > 0 ? 'existing' : 'custom');
 
+  const companySettings = getCompanySettings();
+  const defaultStartTime = companySettings?.shiftStartTime
+    ? (() => {
+        const m = companySettings.shiftStartTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        if (m) {
+          let h = parseInt(m[1], 10);
+          const min = m[2];
+          const ampm = (m[3] || '').toUpperCase();
+          if (ampm === 'PM' && h < 12) h += 12;
+          if (ampm === 'AM' && h === 12) h = 0;
+          return `${String(h).padStart(2, '0')}:${min}:00`;
+        }
+        return '10:00:00';
+      })()
+    : '10:00:00';
+
   const [formData, setFormData] = useState({
     projectId: scopedProjects[0]?._id || '',
     taskId: scopedTasks[0]?._id || '',
@@ -55,8 +72,8 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
     customProjectName: 'General Work',
     employeeId: currentUser?._id || employees[0]?._id || '',
     date: getLocalDateString(),
-    startTime: '09:30:00',
-    endTime: '17:30:00',
+    startTime: defaultStartTime,
+    endTime: '18:00:00',
     memo: '',
     isBillable: true
   });

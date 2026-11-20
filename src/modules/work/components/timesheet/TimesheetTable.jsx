@@ -175,7 +175,7 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
 
                   {/* Start Time */}
                   <td className="px-2.5 py-[7px] text-[11.5px] text-slate-700 dark:text-slate-300 font-mono whitespace-nowrap">
-                    {entry.startTime || '09:30:00'}
+                    {entry.startTime || '10:00:00'}
                   </td>
 
                   {/* End Time */}

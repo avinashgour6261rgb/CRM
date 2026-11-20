@@ -197,9 +197,9 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
         </span>
         {[
           {
-            name: 'Standard Day (09:30 AM - 06:30 PM)',
-            shiftStartTime: '09:30 AM',
-            shiftEndTime: '06:30 PM',
+            name: 'Standard Day (10:00 AM - 07:00 PM)',
+            shiftStartTime: '10:00 AM',
+            shiftEndTime: '07:00 PM',
             standardWorkHours: 9,
             gracePeriodMinutes: 15,
             halfDayThresholdHours: 4.5,
@@ -527,7 +527,7 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
             <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Start Shift</span>
               <span className="text-xs sm:text-[13px] font-extrabold text-emerald-400 mt-0.5">
-                {formData.shiftStartTime || '09:30 AM'}
+                {formData.shiftStartTime || '10:00 AM'}
               </span>
               <span className="text-[10px] text-slate-400 mt-1">Clock-in opens</span>
             </div>
@@ -537,7 +537,7 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
               <span className="text-xs sm:text-[13px] font-extrabold text-amber-400 mt-0.5">
                 +{gracePeriod} mins
               </span>
-              <span className="text-[10px] text-slate-400 mt-1">Past is marked Late</span>
+              <span className="text-[10px] text-slate-400 mt-1">Past is marked Half Day</span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col">
@@ -559,7 +559,7 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
             <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 flex flex-col col-span-2 sm:col-span-1">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Shift End</span>
               <span className="text-xs sm:text-[13px] font-extrabold text-blue-400 mt-0.5">
-                {formData.shiftEndTime || '06:30 PM'}
+                {formData.shiftEndTime || '07:00 PM'}
               </span>
               <span className="text-[10px] text-slate-400 mt-1">Total {workHours}h work</span>
             </div>

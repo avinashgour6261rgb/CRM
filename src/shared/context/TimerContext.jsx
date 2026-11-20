@@ -2414,8 +2414,10 @@ export const TimerProvider = ({ children }) => {
       const isLateCheckIn = clockInSecs > graceLimitSecs;
       const lateMins = isLateCheckIn ? Math.floor((clockInSecs - shiftStartSecs) / 60) : 0;
 
+      // ⚠️ Corporate Grace Period & Half-Day Policy:
+      // If employee clocks in after grace period (e.g. > 10:15 AM), directly mark status as 'half_day'
       const computedStatus = isLateCheckIn
-        ? 'late'
+        ? 'half_day'
         : (existingRec?.status === 'absent' ? 'present' : (existingRec?.status || 'present'));
 
       const record = {
@@ -2442,7 +2444,7 @@ export const TimerProvider = ({ children }) => {
         isLate: isLateCheckIn,
         lateByMinutes: lateMins,
         notes: isLateCheckIn
-          ? (existingRec?.notes || `Late check-in by ${lateMins} mins (Shift Start: ${shiftStartTime})`)
+          ? (existingRec?.notes || `Late check-in by ${lateMins} mins (Shift Start: ${shiftStartTime}, Grace: ${graceMins}m) - Marked Half Day as per Company Policy`)
           : (existingRec?.notes || ''),
         updatedAt: new Date().toISOString()
       };
@@ -2648,7 +2650,12 @@ export const TimerProvider = ({ children }) => {
     writeTimerStorage(currentUser, 'overtime_seconds', finalOvertimeSecs);
     const halfDayHrs = cfg?.halfDayThresholdHours !== undefined ? Number(cfg.halfDayThresholdHours) : 4.5;
     const finalWorkHrs = +(finalSecs / 3600).toFixed(2);
-    const clockOutStatus = (finalWorkHrs > 0 && finalWorkHrs < halfDayHrs) ? 'half_day' : 'present';
+    const shiftStartSecs = parseTimeToSeconds(cfg?.shiftStartTime || '10:00 AM');
+    const graceMins = cfg?.gracePeriodMinutes !== undefined ? Number(cfg.gracePeriodMinutes) : 15;
+    const graceLimitSecs = shiftStartSecs + (graceMins * 60);
+    const clockInSecs = parseTimeToSeconds(loginTime);
+    const isLateCheckIn = clockInSecs > graceLimitSecs;
+    const clockOutStatus = (isLateCheckIn || (finalWorkHrs > 0 && finalWorkHrs < halfDayHrs)) ? 'half_day' : 'present';
     hrService.markAttendance({
       employee: targetEmpId || userKey,
       employeeId: targetEmpId || userKey,

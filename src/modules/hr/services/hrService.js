@@ -1087,11 +1087,12 @@ export const hrService = {
       let computedHours = 0;
       let isLateCalc = status === 'late';
       let lateByMinutes = 0;
+      let effectiveStatus = status || 'present';
 
       const effectiveClockIn = clockInTime || attendanceData.clockIn;
       const effectiveClockOut = clockOutTime || attendanceData.clockOut;
 
-      if (['present', 'late', 'half_day'].includes(status) && effectiveClockIn && effectiveClockOut) {
+      if (['present', 'late', 'half_day'].includes(effectiveStatus) && effectiveClockIn) {
         try {
           const parseToSecs = (str) => {
             if (!str) return 0;
@@ -1107,10 +1108,6 @@ export const hrService = {
           };
 
           const inSecs = parseToSecs(effectiveClockIn);
-          const outSecs = parseToSecs(effectiveClockOut);
-          const diffSecs = Math.max(0, outSecs - inSecs);
-          computedHours = +(diffSecs / 3600).toFixed(2);
-
           const companySettings = getCompanySettings();
           const shiftStartTime = companySettings.shiftStartTime || '10:00 AM';
           const graceMins = companySettings.gracePeriodMinutes !== undefined ? Number(companySettings.gracePeriodMinutes) : 15;
@@ -1120,9 +1117,23 @@ export const hrService = {
           if (inSecs > graceLimitSecs) {
             isLateCalc = true;
             lateByMinutes = Math.floor((inSecs - shiftStartSecs) / 60);
+            // Corporate Policy: Late check-in past grace period is directly marked half_day
+            if (effectiveStatus === 'present' || effectiveStatus === 'late') {
+              effectiveStatus = 'half_day';
+            }
+          }
+
+          if (effectiveClockOut) {
+            const outSecs = parseToSecs(effectiveClockOut);
+            const diffSecs = Math.max(0, outSecs - inSecs);
+            computedHours = +(diffSecs / 3600).toFixed(2);
+            const halfDayThreshold = companySettings.halfDayThresholdHours !== undefined ? Number(companySettings.halfDayThresholdHours) : 4.5;
+            if (computedHours > 0 && computedHours < halfDayThreshold && effectiveStatus === 'present') {
+              effectiveStatus = 'half_day';
+            }
           }
         } catch {}
-      } else if (status === 'half_day') {
+      } else if (effectiveStatus === 'half_day') {
         computedHours = 4.0;
       }
 
@@ -1135,7 +1146,7 @@ export const hrService = {
         employeeCode: targetEmp?.employeeCode || attendanceData.employeeCode || '',
         employeeName: targetEmp?.name || attendanceData.employeeName || 'Employee',
         date,
-        status: status || 'present',
+        status: effectiveStatus,
         clockInTime: finalClockIn,
         clockIn: finalClockIn,
         clockOutTime: finalClockOut,
