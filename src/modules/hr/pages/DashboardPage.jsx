@@ -41,7 +41,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';

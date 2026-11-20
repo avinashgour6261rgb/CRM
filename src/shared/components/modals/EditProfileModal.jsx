@@ -34,11 +34,11 @@ const PRESET_AVATARS = [
 ];
 
 export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
-  const { currentUser: authUser = null, setCurrentUser: setAuthCurrentUser = () => {} } = useAuth() || {};
-  const { currentUser: hrUser = null, updateEmployee = () => {}, employees = [] } = useHR() || {};
+  const { currentUser: authUser = null, setCurrentUser: setAuthCurrentUser = () => { } } = useAuth() || {};
+  const { currentUser: hrUser = null, updateEmployee = () => { }, employees = [] } = useHR() || {};
   const currentUser = authUser || hrUser;
-  const { updateUserProfile = async () => {} } = useCRM() || {};
-  const { addToast = () => {} } = useToast() || {};
+  const { updateUserProfile = async () => { } } = useCRM() || {};
+  const { addToast = () => { } } = useToast() || {};
 
   const targetEmp = employee || currentUser;
   const isEditingOther = employee && employee._id !== currentUser?._id;
@@ -325,7 +325,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
             <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200 mb-2.5">
               📸 Profile Picture & Avatar
             </label>
-            
+
             <div className="flex items-center gap-4 flex-wrap">
               <div className="relative">
                 <img
@@ -389,11 +389,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                         src={av}
                         alt={`Avatar ${idx}`}
                         onClick={() => handleChange('avatar', av)}
-                        className={`w-[30px] h-[30px] rounded-lg object-cover cursor-pointer transition-all ${
-                          formData.avatar === av
+                        className={`w-[30px] h-[30px] rounded-lg object-cover cursor-pointer transition-all ${formData.avatar === av
                             ? 'border-2 border-blue-600 opacity-100 scale-110'
                             : 'border border-transparent opacity-65 scale-100 hover:opacity-100'
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>
@@ -434,11 +433,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 disabled={!isActorAdmin}
                 value={formData.name}
                 onChange={e => handleChange('name', e.target.value)}
-                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
-                  isActorAdmin
+                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${isActorAdmin
                     ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                }`}
+                  }`}
               />
             </div>
 
@@ -448,11 +446,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   Designation / Role *
                 </label>
                 {canEditRole ? (
-                  <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded ${
-                    isActorAdmin
+                  <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded ${isActorAdmin
                       ? 'text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/60'
                       : 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60'
-                  }`}>
+                    }`}>
                     {isActorAdmin ? '👑 Admin (Full Access)' : '💼 HR Access'}
                   </span>
                 ) : (
@@ -544,11 +541,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 disabled={!isActorAdmin}
                 value={formData.email}
                 onChange={e => handleChange('email', e.target.value)}
-                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
-                  isActorAdmin
+                className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${isActorAdmin
                     ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                }`}
+                  }`}
               />
             </div>
           </div>
@@ -799,11 +795,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
               disabled={!canEditRole}
               value={formData.joiningDate || ''}
               onChange={e => handleChange('joiningDate', e.target.value)}
-              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
-                canEditRole
+              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${canEditRole
                   ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-purple-600'
                   : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-              }`}
+                }`}
             />
           </div>
 
@@ -825,11 +820,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
               value={formData.employeeCode}
               onChange={e => handleChange('employeeCode', e.target.value)}
               placeholder="EMP-001"
-              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${
-                isActorAdmin
+              className={`w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-[13.5px] outline-none font-semibold ${isActorAdmin
                   ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:border-blue-600'
                   : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-              }`}
+                }`}
             />
           </div>
 
@@ -861,11 +855,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                 <button
                   type="button"
                   onClick={() => setShowAddField(!showAddField)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${
-                    showAddField
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-bold cursor-pointer transition-colors ${showAddField
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 border border-slate-300 dark:border-slate-700'
                       : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                  }`}
+                    }`}
                 >
                   <Plus size={13} />
                   <span>{showAddField ? 'Cancel' : 'Add Field'}</span>
@@ -1031,22 +1024,20 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
                   <button
                     type="button"
                     onClick={() => setRequestField('name')}
-                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${
-                      requestField === 'name'
+                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${requestField === 'name'
                         ? 'border-2 border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
                         : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     Full Name
                   </button>
                   <button
                     type="button"
                     onClick={() => setRequestField('email')}
-                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${
-                      requestField === 'email'
+                    className={`flex-1 p-2 rounded-md font-bold text-xs cursor-pointer border transition-all ${requestField === 'email'
                         ? 'border-2 border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
                         : 'border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     Work Email
                   </button>

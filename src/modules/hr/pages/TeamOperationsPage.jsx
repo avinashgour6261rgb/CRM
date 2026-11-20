@@ -1454,6 +1454,7 @@ export const TeamOperationsPage = () => {
 
       const totalTaskSeconds = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
       const isTaskExceedingShift = workSecs > 0 && totalTaskSeconds > (workSecs + 300);
+      const effectiveShiftWorkSecs = Math.max(workSecs, totalTaskSeconds);
 
       return {
         emp,
@@ -1466,8 +1467,8 @@ export const TeamOperationsPage = () => {
         status,
         loginTime,
         logoutTime,
-        workSecs: Math.max(workSecs, runningTask?.liveTaskSecs || pausedTask?.liveTaskSecs || 0),
-        workDurationText: formatTimeDurationSafe(workSecs),
+        workSecs: effectiveShiftWorkSecs,
+        workDurationText: formatTimeDurationSafe(effectiveShiftWorkSecs),
         breakSecs,
         breakDurationText: formatTimeDurationSafe(breakSecs),
         totalBreaksCount: breakHistory.length,
