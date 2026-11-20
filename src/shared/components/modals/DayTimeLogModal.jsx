@@ -32,7 +32,26 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
 
   const [activeTab, setActiveTab] = useState('audit'); // 'audit' | 'tasks'
 
-  const tasksWorked = dayLog.tasksWorked || [];
+  // Strictly filter out synthetic shift syncs so only actual tasks worked are displayed
+  const tasksWorked = useMemo(() => {
+    return (dayLog.tasksWorked || []).filter(t =>
+      !t.isShiftSync &&
+      t.taskTitle !== 'Daily Shift / Office Work' &&
+      !String(t.memo || '').includes('synced from attendance')
+    );
+  }, [dayLog.tasksWorked]);
+
+  // Compute exact total task work duration strictly from filtered tasks
+  const effectiveTaskDurationText = useMemo(() => {
+    const totalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
+    if (totalSecs === 0) return '0m';
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }, [tasksWorked]);
 
   // Load formal audit trail logs scoped to this specific date and employee
   const dayAudits = useMemo(() => {
@@ -312,7 +331,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                 {dayLog.shiftDurationText || dayLog.durationText || '0h 0m'}
               </div>
               <div className="flex items-center gap-2 mt-1 text-[11px] text-sky-100 font-medium">
-                <span>Tasks: <strong className="text-white font-bold">{dayLog.totalTaskDurationText || dayLog.taskDurationText || '0m'}</strong></span>
+                <span>Tasks: <strong className="text-white font-bold">{effectiveTaskDurationText}</strong></span>
                 <span>•</span>
                 <span>Breaks: <strong className="text-white font-bold">{dayLog.breakDuration || '0m'}</strong></span>
               </div>
@@ -496,7 +515,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                     Total Task Work Logged Today:
                   </span>
                   <span className="font-extrabold text-sky-700 dark:text-sky-300">
-                    ⏱️ {dayLog.totalTaskDurationText || dayLog.taskDurationText || '0m'} ({tasksWorked.length} {tasksWorked.length === 1 ? 'task' : 'tasks'})
+                    ⏱️ {effectiveTaskDurationText} ({tasksWorked.length} {tasksWorked.length === 1 ? 'task' : 'tasks'})
                   </span>
                 </div>
               )}

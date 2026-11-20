@@ -819,7 +819,8 @@ export const WorkProvider = ({ children }) => {
       localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
       (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
     if (!isShiftClockedIn) return null;
-    return tasks.find(t =>
+
+    const matched = tasks.find(t =>
       t.timerRunning &&
       t.status !== 'completed' &&
       !t.completedAt &&
@@ -827,8 +828,25 @@ export const WorkProvider = ({ children }) => {
        String(t.activeUserId || '').toLowerCase() === String(currentUser?._id || '').toLowerCase() ||
        String(t.activeUserId || '').toUpperCase() === String(currentUser?.employeeCode || '').toUpperCase() ||
        (!t.activeUserId && isTaskAssignedToMe(t)))
-    ) || null;
-  }, [tasks, currentUser, isTaskAssignedToMe, userKey]);
+    );
+    if (matched) return matched;
+
+    // Direct active timer snapshot fallback
+    const activeTimer = getActiveTimerSnapshot();
+    if (activeTimer && activeTimer.timerRunning && activeTimer.status !== 'completed' && !activeTimer.completedAt) {
+      const matchInTasks = tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId || activeTimer._id));
+      if (matchInTasks) {
+        return {
+          ...matchInTasks,
+          timerRunning: true,
+          startedAt: activeTimer.startedAt
+        };
+      }
+      return activeTimer;
+    }
+
+    return null;
+  }, [tasks, currentUser, isTaskAssignedToMe, userKey, getActiveTimerSnapshot]);
 
   useEffect(() => {
     loadWorkData(false);

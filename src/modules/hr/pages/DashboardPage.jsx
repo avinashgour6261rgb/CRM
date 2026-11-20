@@ -925,8 +925,9 @@ export const DashboardPage = () => {
 
   // Team live statistics for Admin
   const teamTodayStates = React.useMemo(() => {
+    if (!isUserAdminOrHR) return [];
     return (employees || []).map(e => getEmployeeTodayState(e)).filter(Boolean);
-  }, [employees, getEmployeeTodayState, syncTick]);
+  }, [employees, getEmployeeTodayState, syncTick, isUserAdminOrHR]);
 
   const teamStats = React.useMemo(() => {
     const total = teamTodayStates.length;
@@ -1945,7 +1946,7 @@ export const DashboardPage = () => {
         tasksWorked: tasksWorked || []
       };
     });
-  }, [effectiveWeekUser, timesheets, tasks, attendance, totalTaskTodaySecs, formatSeconds, isTaskAssignedToUser, syncTick]);
+  }, [effectiveWeekUser, timesheets, tasks, attendance, totalTaskTodaySecs, formatSeconds, isTaskAssignedToUser]);
 
   const todayWeekLog = displayWeeklyTimeLogs.find(l => l.isCurrentDay);
   const otherDaysTaskSecs = React.useMemo(() => {

@@ -83,25 +83,50 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   const theme = darkMode ? 'dark' : 'light';
   const { tasks, projects, activeRunningTask, formatSeconds } = useWork();
 
+  // Resolves effective running task with immediate snapshot fallback so header never stays blank
+  const effectiveRunningTask = useMemo(() => {
+    if (activeRunningTask && activeRunningTask.timerRunning) return activeRunningTask;
+    if (!currentUser || !isClockedIn || isOnBreak) return null;
+    const userKey = currentUser.employeeCode || currentUser._id || currentUser.id;
+    try {
+      const raw = localStorage.getItem(`ems_active_task_timer_${userKey}`) ||
+        (currentUser.employeeCode ? localStorage.getItem(`ems_active_task_timer_${currentUser.employeeCode}`) : null) ||
+        (currentUser._id ? localStorage.getItem(`ems_active_task_timer_${currentUser._id}`) : null);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.timerRunning && parsed.status !== 'completed' && !parsed.completedAt) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }, [activeRunningTask, currentUser, isClockedIn, isOnBreak]);
+
   // Active Task Live Ticker strictly scoped to running task
   const [taskTick, setTaskTick] = useState(0);
   useEffect(() => {
-    if (!activeRunningTask?.timerRunning) return;
+    if (!effectiveRunningTask?.timerRunning || !isClockedIn || isOnBreak) return;
     const interval = setInterval(() => setTaskTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [activeRunningTask?.timerRunning, activeRunningTask?._id]);
+  }, [effectiveRunningTask?.timerRunning, effectiveRunningTask?._id, isClockedIn, isOnBreak]);
 
   const { liveTaskSecs, lifetimeTaskSecs } = useMemo(() => {
-    if (!activeRunningTask) return { liveTaskSecs: 0, lifetimeTaskSecs: 0 };
-    // Synchronize directly with task todayWorkSeconds (ticking live in WorkContext)
-    const todaySecs = Number(activeRunningTask.todayWorkSeconds ?? activeRunningTask.liveTodaySeconds ?? activeRunningTask.accumulatedTodaySeconds ?? 0);
-    const lifetimeSecs = Number(activeRunningTask.timerSeconds ?? activeRunningTask.accumulatedSeconds ?? todaySecs);
+    if (!effectiveRunningTask) return { liveTaskSecs: 0, lifetimeTaskSecs: 0 };
+    const startedAt = Number(effectiveRunningTask.startedAt);
+    const isLive = Boolean(effectiveRunningTask.timerRunning && isClockedIn && !isOnBreak && startedAt > 0);
+    const elapsed = isLive ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
+
+    const baseToday = Number(effectiveRunningTask.accumulatedTodaySeconds ?? effectiveRunningTask.todayWorkSeconds ?? 0);
+    const todaySecs = baseToday + elapsed;
+
+    const baseLifetime = Number(effectiveRunningTask.accumulatedSeconds ?? effectiveRunningTask.timerSeconds ?? todaySecs);
+    const lifetimeSecs = baseLifetime + elapsed;
 
     return {
       liveTaskSecs: todaySecs,
       lifetimeTaskSecs: Math.max(lifetimeSecs, todaySecs)
     };
-  }, [activeRunningTask, taskTick]);
+  }, [effectiveRunningTask, isClockedIn, isOnBreak, taskTick]);
 
   // Dropdown States
   const [showNotifications, setShowNotifications] = useState(false);
@@ -257,16 +282,16 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
       {/* ── RIGHT: Authentic Novainfinity Header Controls ── */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
 
-        {/* ── Active Task Timer Pill (Visible on xl+ screens when task is running) ── */}
-        {activeRunningTask && (
+        {/* ── Active Task Timer Pill (Visible on sm+ screens when task is running) ── */}
+        {effectiveRunningTask && (
           <div
             onClick={() => navigate('/tasks')}
-            className="hidden xl:flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
-            title={`Active Task: ${activeRunningTask.title || activeRunningTask.taskCode} (Today: ${formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}${lifetimeTaskSecs > liveTaskSecs ? ` | Lifetime: ${formatSeconds ? formatSeconds(lifetimeTaskSecs) : '00:00:00'}` : ''} - Click to open Tasks)`}
+            className="hidden sm:flex items-center gap-1.5 sm:gap-2 bg-blue-50/90 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-all select-none"
+            title={`Active Task: ${effectiveRunningTask.title || effectiveRunningTask.taskCode} (Today: ${formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}${lifetimeTaskSecs > liveTaskSecs ? ` | Lifetime: ${formatSeconds ? formatSeconds(lifetimeTaskSecs) : '00:00:00'}` : ''} - Click to open Tasks)`}
           >
             <ListTodo size={14} className="text-blue-600 dark:text-blue-400 animate-pulse" />
             <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
-              Task: {activeRunningTask.taskCode || 'Active'}
+              Task: {effectiveRunningTask.taskCode || 'Active'}
             </span>
             <span className="font-mono text-[12.5px] font-extrabold text-blue-950 dark:text-blue-100 tracking-wide">
               {formatSeconds ? formatSeconds(liveTaskSecs) : '00:00:00'}
@@ -275,8 +300,8 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
           </div>
         )}
 
-        {/* ── Working Shift Timer Widget (Visible on xl+ screens) ── */}
-        <div className="hidden xl:flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
+        {/* ── Working Shift Timer Widget (Visible on md+ screens) ── */}
+        <div className="hidden md:flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 sm:px-2.5 h-[34px] transition-colors duration-200">
           <Clock size={13} className="text-slate-400 dark:text-slate-500" />
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             {isOnBreak ? 'Break:' : 'Shift:'}

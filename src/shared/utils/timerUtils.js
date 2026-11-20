@@ -1335,6 +1335,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
   // 1. Gather all timesheets for targetDate that strictly belong to targetUser
   const rawDayTimesheets = allTimesheets.filter(ts => {
     if (!ts) return false;
+    // 🛡️ CRITICAL: Exclude synthetic shift attendance syncs! Shift duration is NOT a task!
+    if (ts.isShiftSync || ts.taskTitle === 'Daily Shift / Office Work' || (ts.memo && String(ts.memo).toLowerCase().includes('synced from attendance'))) {
+      return false;
+    }
     const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');
     if (tsDate !== effectiveDate) return false;
 
@@ -1390,8 +1394,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     }
   });
 
-  // Construct tasksWorked entries from deduped timesheets
-  let tasksWorked = Array.from(dayTsMap.values()).map(ts => ({
+  // Construct tasksWorked entries from deduped timesheets (strictly actual tasks only)
+  let tasksWorked = Array.from(dayTsMap.values())
+    .filter(ts => !ts.isShiftSync && ts.taskTitle !== 'Daily Shift / Office Work')
+    .map(ts => ({
     taskId: ts.taskId || ts._id,
     taskCode: ts.taskCode || 'TSK',
     taskTitle: ts.taskTitle || 'Assigned Work',
