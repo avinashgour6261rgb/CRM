@@ -39,6 +39,9 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
       });
 
       if (isRelievedAction) {
+        window.dispatchEvent(new CustomEvent('ems_force_logout', {
+          detail: { employeeId: resignation.employeeId, employeeCode: resignation.employeeCode }
+        }));
         addToast(`Employee ${resignation.employeeName} has been officially relieved. Archived safely in database as Ex-Employee.`, 'success');
       } else {
         addToast(`Resignation ${statusValue} successfully for ${resignation.employeeName}.`, 'success');

@@ -101,6 +101,13 @@ export const AuthProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+          const isParsedInactive = String(parsed.employeeCode || '').toUpperCase() !== 'ADM-001' &&
+            ['resigned', 'inactive', 'terminated', 'suspended', 'archived', 'relieved'].includes(String(parsed.status || 'active').toLowerCase());
+          if (isParsedInactive) {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            localStorage.removeItem('ems_auth_token');
+            return null;
+          }
           try {
             const rawMap = localStorage.getItem('EMS_USER_PERMISSIONS');
             const pMap = rawMap ? JSON.parse(rawMap) : {};
@@ -194,6 +201,13 @@ export const AuthProvider = ({ children }) => {
             (parsed.employeeCode && e.employeeCode?.toUpperCase().trim() === parsed.employeeCode.toUpperCase().trim()) ||
             (parsed._id && (String(e._id) === String(parsed._id) || String(e.id) === String(parsed._id)))
           );
+          if (matched && String(matched.employeeCode || '').toUpperCase() !== 'ADM-001' && ['resigned', 'inactive', 'terminated', 'suspended', 'archived', 'relieved'].includes(String(matched.status || 'active').toLowerCase())) {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            localStorage.removeItem('ems_auth_token');
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            return;
+          }
         }
 
         if (matched && isMounted) {
@@ -607,6 +621,12 @@ export const AuthProvider = ({ children }) => {
 
     if (!matchedUser) {
       throw new Error(`User with Email / ID "${inputId}" was not found. Please contact Admin.`);
+    }
+
+    const isUserInactive = String(matchedUser.employeeCode || '').toUpperCase() !== 'ADM-001' &&
+      ['resigned', 'inactive', 'terminated', 'suspended', 'archived', 'relieved'].includes(String(matchedUser.status || 'active').toLowerCase());
+    if (isUserInactive) {
+      throw new Error('Your account has been deactivated or relieved. Please contact HR or Administrator.');
     }
 
     // Verify Password (strictly against user's custom password if set, else emp12345)
