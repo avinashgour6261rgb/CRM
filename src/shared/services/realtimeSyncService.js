@@ -561,16 +561,45 @@ if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.SHIFT_CLOCKED_OUT) {
         syncIncomingAttendanceToStorage({ ...payload, isClockedIn: false, isClockedOut: true });
-        window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: payload }));
+        try {
+          const empKeys = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean);
+          const logoutStr = payload.clockOutTime || payload.logoutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          empKeys.forEach(k => {
+            localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+            localStorage.setItem(`ems_timer_${k}_clockout_time`, logoutStr);
+            localStorage.setItem(`ems_timer_${k}_clock_out`, logoutStr);
+            localStorage.setItem(`ems_timer_${k}_had_clocked_out`, 'true');
+          });
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ems_clocked_out', { detail: { ...payload, isRemoteSync: true } }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.BREAK_STARTED || type === 'BREAK_STARTED') {
         syncIncomingAttendanceToStorage({ ...payload, isOnBreak: true });
-        window.dispatchEvent(new CustomEvent('ems_break_started', { detail: payload }));
+        try {
+          const empKeys = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean);
+          const breakType = payload.breakType || 'Break';
+          empKeys.forEach(k => {
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, 'true');
+            localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
+            localStorage.setItem(`ems_timer_${k}_break_type`, breakType);
+          });
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ems_break_started', { detail: { ...payload, isRemoteSync: true } }));
         window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: payload }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.BREAK_ENDED || type === 'BREAK_ENDED') {
         syncIncomingAttendanceToStorage({ ...payload, isOnBreak: false, breakType: null });
-        window.dispatchEvent(new CustomEvent('ems_break_ended', { detail: payload }));
+        try {
+          const empKeys = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean);
+          empKeys.forEach(k => {
+            localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
+            localStorage.setItem(`ems_timer_${k}_is_running`, 'true');
+            localStorage.removeItem(`ems_timer_${k}_break_type`);
+          });
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ems_break_ended', { detail: { ...payload, isRemoteSync: true } }));
         window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: payload }));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
       } else if (type === SYNC_EVENTS.STORAGE_MUTATION) {

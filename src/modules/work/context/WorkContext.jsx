@@ -187,9 +187,9 @@ export const WorkProvider = ({ children }) => {
     if (!e || !e.detail) return true;
     const { userKey: evKey, employeeId: evId, employeeCode: evCode } = e.detail;
     if (!evKey && !evId && !evCode) return true;
-    return evKey === userKey ||
-      (currentUser?._id && evId && String(evId) === String(currentUser._id)) ||
-      (currentUser?.employeeCode && (evKey === currentUser.employeeCode || evCode === currentUser.employeeCode));
+    const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    const evIds = [evKey, evId, evCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+    return myIds.some(id => evIds.includes(id));
   }, [userKey, currentUser]);
 
   // Read active timer snapshot from storage strictly scoped to current user
@@ -903,9 +903,9 @@ export const WorkProvider = ({ children }) => {
       } else if (ev.type === SYNC_EVENTS.TASK_TIMER_PAUSED && ev.payload) {
         const { taskId: syncTaskId, empKey: syncEmpKey, accumulatedSeconds: syncAccum, todayWorkSeconds: syncToday, accumulatedTodaySeconds: syncAccumToday, dailySessions: syncSessions } = ev.payload;
         const targetId = String(syncTaskId || '');
-        const isMyEmp = String(syncEmpKey || '') === String(userKey) ||
-          (currentUser?.employeeCode && String(syncEmpKey || '') === String(currentUser.employeeCode)) ||
-          (currentUser?._id && String(syncEmpKey || '') === String(currentUser._id));
+        const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const syncIds = [syncEmpKey, ev.payload.employeeId, ev.payload.employeeCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const isMyEmp = myIds.some(id => syncIds.includes(id));
 
         const accum = Number(syncAccum) || 0;
         const todaySecs = Number(syncToday ?? syncAccumToday ?? 0);
@@ -954,9 +954,9 @@ export const WorkProvider = ({ children }) => {
       } else if ((ev.type === SYNC_EVENTS.TASK_TIMER_STOPPED || ev.type === SYNC_EVENTS.TASK_COMPLETED) && ev.payload) {
         const { taskId: syncTaskId, empKey: syncEmpKey } = ev.payload;
         const targetId = String(syncTaskId || '');
-        const isMyEmp = String(syncEmpKey || '') === String(userKey) ||
-          (currentUser?.employeeCode && String(syncEmpKey || '') === String(currentUser.employeeCode)) ||
-          (currentUser?._id && String(syncEmpKey || '') === String(currentUser._id));
+        const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const syncIds = [syncEmpKey, ev.payload.employeeId, ev.payload.employeeCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const isMyEmp = myIds.some(id => syncIds.includes(id));
 
         if (isMyEmp) {
           saveActiveTimerSnapshot(null);
@@ -974,6 +974,52 @@ export const WorkProvider = ({ children }) => {
           }
           return t;
         }));
+      } else if (ev.type === SYNC_EVENTS.SHIFT_CLOCKED_OUT || ev.type === 'SHIFT_CLOCKED_OUT' || ev.type === 'SHIFT_FORCE_CLOCKED_OUT') {
+        const payload = ev.payload || {};
+        const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const syncIds = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const isMyEmp = myIds.some(id => syncIds.includes(id));
+
+        if (isMyEmp) {
+          const active = getActiveTimerSnapshot();
+          if (active && active.timerRunning) {
+            saveActiveTimerSnapshot({
+              ...active,
+              timerRunning: false,
+              startedAt: null,
+              wasPausedForClockOut: true
+            });
+          }
+          setTasks(prev => prev.map(t => {
+            if (t.timerRunning && (isTaskAssignedToMe(t) || (active && String(t._id || t.id) === String(active.taskId)))) {
+              return { ...t, timerRunning: false, startedAt: null, wasPausedForClockOut: true };
+            }
+            return t;
+          }));
+        }
+      } else if (ev.type === SYNC_EVENTS.BREAK_STARTED || ev.type === 'BREAK_STARTED') {
+        const payload = ev.payload || {};
+        const myIds = [userKey, currentUser?._id, currentUser?.employeeCode, currentUser?.email].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const syncIds = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        const isMyEmp = myIds.some(id => syncIds.includes(id));
+
+        if (isMyEmp) {
+          const active = getActiveTimerSnapshot();
+          if (active && active.timerRunning) {
+            saveActiveTimerSnapshot({
+              ...active,
+              timerRunning: false,
+              startedAt: null,
+              wasPausedForBreak: true
+            });
+          }
+          setTasks(prev => prev.map(t => {
+            if (t.timerRunning && (isTaskAssignedToMe(t) || (active && String(t._id || t.id) === String(active.taskId)))) {
+              return { ...t, timerRunning: false, startedAt: null, wasPausedForBreak: true };
+            }
+            return t;
+          }));
+        }
       }
 
       if ([
@@ -981,6 +1027,8 @@ export const WorkProvider = ({ children }) => {
         SYNC_EVENTS.TASK_TIMER_PAUSED,
         SYNC_EVENTS.TASK_TIMER_STOPPED,
         SYNC_EVENTS.TASK_COMPLETED,
+        SYNC_EVENTS.SHIFT_CLOCKED_OUT,
+        SYNC_EVENTS.BREAK_STARTED,
         SYNC_EVENTS.STORAGE_MUTATION
       ].includes(ev.type)) {
         scheduleDebouncedLoad(true);
@@ -1682,7 +1730,7 @@ export const WorkProvider = ({ children }) => {
       }));
 
       // Automatically log today's task session duration to timesheets (strictly TODAY'S work portion)
-      if (activeTimer && todaySecs > 0) {
+      if (activeTimer && todaySecs > 0 && !e?.detail?.isRemoteSync) {
         const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
         const isTaskForMe = matchedTask ? isTaskAssignedToMe(matchedTask) : true;
         if (isTaskForMe) {

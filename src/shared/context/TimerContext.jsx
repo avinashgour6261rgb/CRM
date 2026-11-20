@@ -1942,6 +1942,29 @@ export const TimerProvider = ({ children }) => {
     window.dispatchEvent(new CustomEvent('ems_telemetry_update', { detail: telemPayload }));
     broadcastSyncEvent(SYNC_EVENTS.BREAK_STARTED, telemPayload);
 
+    // Also notify remote tabs/devices to pause running task timer for this employee
+    try {
+      const activeSnapshotRaw = localStorage.getItem(`ems_active_task_timer_${userKey}`);
+      if (activeSnapshotRaw) {
+        const activeSnap = JSON.parse(activeSnapshotRaw);
+        if (activeSnap && activeSnap.timerRunning) {
+          broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, {
+            taskId: activeSnap.taskId || activeSnap._id,
+            taskCode: activeSnap.taskCode || '',
+            taskTitle: activeSnap.title || '',
+            empKey: userKey,
+            employeeId: targetEmpId,
+            employeeCode: targetEmpCode,
+            accumulatedSeconds: Number(activeSnap.accumulatedSeconds || activeSnap.timerSeconds || 0),
+            todayWorkSeconds: Number(activeSnap.todayWorkSeconds || activeSnap.accumulatedTodaySeconds || 0),
+            accumulatedTodaySeconds: Number(activeSnap.accumulatedTodaySeconds || activeSnap.todayWorkSeconds || 0),
+            dailySessions: activeSnap.dailySessions || {},
+            reason: `${type} Started`
+          });
+        }
+      }
+    } catch (_) {}
+
     // Notify other components (WorkContext task timers pause) with user identity
     window.dispatchEvent(new CustomEvent('ems_break_started', {
       detail: {

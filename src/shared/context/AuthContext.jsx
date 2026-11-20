@@ -367,6 +367,11 @@ export const AuthProvider = ({ children }) => {
       if (key === AUTH_STORAGE_KEY || key === 'ems_auth_session' || key === KEYS.EMPLOYEES || key === 'EMS_USER_PERMISSIONS') {
         try {
           const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+          if (!raw && (key === AUTH_STORAGE_KEY || key === 'ems_auth_session')) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            return;
+          }
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed && (parsed.email || parsed._id || parsed.employeeCode)) {
@@ -409,13 +414,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const handleNativeStorage = (e) => {
-      if (e.key === AUTH_STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          if (parsed && (parsed.email || parsed._id)) {
-            setCurrentUser(parsed);
-          }
-        } catch (_) {}
+      if (e.key === AUTH_STORAGE_KEY) {
+        if (e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (parsed && (parsed.email || parsed._id)) {
+              setCurrentUser(parsed);
+              setIsAuthenticated(true);
+            }
+          } catch (_) {}
+        } else {
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+        }
       }
     };
 

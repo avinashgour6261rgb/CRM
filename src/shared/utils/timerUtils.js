@@ -1094,6 +1094,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   try {
     const activeTimerKeys = mirrorKeys.map(k => `ems_active_task_timer_${k}`);
     let pausedActiveTimer = null;
+    let pausedTaskRecord = null;
 
     for (const tk of activeTimerKeys) {
       const raw = localStorage.getItem(tk);
@@ -1127,7 +1128,10 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
         if (isAssigned && t.timerRunning) {
           taskChanged = true;
           const pausedT = syncTaskPauseState(t, { nowMs: nowTs, todayStr: today, wasPausedForClockOut: true });
-          tasksToUpdateBackend.push(pausedT);
+          if (pausedT) {
+            pausedTaskRecord = pausedT;
+            tasksToUpdateBackend.push(pausedT);
+          }
           return pausedT;
         }
         return t;
@@ -1191,6 +1195,22 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
   try {
     broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, clockOutPayload);
+    const taskToBroadcast = pausedActiveTimer || pausedTaskRecord;
+    if (taskToBroadcast) {
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, {
+        taskId: taskToBroadcast.taskId || taskToBroadcast._id || taskToBroadcast.id,
+        taskCode: taskToBroadcast.taskCode || '',
+        taskTitle: taskToBroadcast.title || '',
+        empKey: mirrorKeys[0],
+        employeeId: user._id,
+        employeeCode: user.employeeCode,
+        accumulatedSeconds: Number(taskToBroadcast.accumulatedSeconds || taskToBroadcast.timerSeconds || 0),
+        todayWorkSeconds: Number(taskToBroadcast.todayWorkSeconds || taskToBroadcast.accumulatedTodaySeconds || 0),
+        accumulatedTodaySeconds: Number(taskToBroadcast.accumulatedTodaySeconds || taskToBroadcast.todayWorkSeconds || 0),
+        dailySessions: taskToBroadcast.dailySessions || {},
+        reason: 'Shift Clock Out'
+      });
+    }
   } catch (_) { }
 };
 
