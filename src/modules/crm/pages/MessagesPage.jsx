@@ -581,22 +581,27 @@ export const MessagesPage = () => {
       const pendingRaw = sessionStorage.getItem('ems_pending_watch_screen');
       if (pendingRaw) {
         const pending = JSON.parse(pendingRaw);
-        if (pending && (!activeConv || String(pending.conversationId) === String(activeConv.id))) {
-          sessionStorage.removeItem('ems_pending_watch_screen');
-          setActiveScreenShare({
-            hostId: pending.host?.id,
-            hostName: pending.host?.name || 'Teammate',
-            hostAvatar: pending.host?.avatar || '',
-            hostRole: pending.host?.role || 'Team Member',
-            convId: pending.conversationId,
-            startedAt: pending.startedAt || Date.now()
-          });
-          setIsScreenShareHost(false);
-          setIsScreenShareOpen(true);
+        if (pending && pending.conversationId) {
+          if (String(activeConversationId) !== String(pending.conversationId)) {
+            setActiveConversationId(pending.conversationId);
+          }
+          if (!activeConv || String(pending.conversationId) === String(activeConv.id)) {
+            sessionStorage.removeItem('ems_pending_watch_screen');
+            setActiveScreenShare({
+              hostId: pending.host?.id,
+              hostName: pending.host?.name || 'Teammate',
+              hostAvatar: pending.host?.avatar || '',
+              hostRole: pending.host?.role || 'Team Member',
+              convId: pending.conversationId,
+              startedAt: pending.startedAt || Date.now()
+            });
+            setIsScreenShareHost(false);
+            setIsScreenShareOpen(true);
+          }
         }
       }
     } catch (_) {}
-  }, [activeConv?.id]);
+  }, [activeConv?.id, activeConversationId]);
 
   // Screen share controls
   const startScreenShare = async () => {
@@ -638,6 +643,8 @@ export const MessagesPage = () => {
 
       const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
       const targetUserId = targetPartner?._id || targetPartner?.id;
+      const targetEmployeeCode = targetPartner?.employeeCode;
+      const targetEmail = targetPartner?.email;
 
       const sessionData = {
         hostId: String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'host'),
@@ -662,6 +669,8 @@ export const MessagesPage = () => {
           role: sessionData.hostRole
         },
         targetUserId,
+        targetEmployeeCode,
+        targetEmail,
         isChannel: activeIsChannel,
         channelName: activeConv?.channelName || activeConv?.name || '',
         startedAt: sessionData.startedAt
@@ -686,10 +695,20 @@ export const MessagesPage = () => {
   const stopScreenShare = () => {
     const targetPartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
     const targetUserId = targetPartner?._id || targetPartner?.id;
+    const targetEmployeeCode = targetPartner?.employeeCode;
+
+    const startedAt = activeScreenShare?.startedAt || Date.now();
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
+    const mins = Math.floor(durationSeconds / 60);
+    const secs = durationSeconds % 60;
+    const durationText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
     emitSocketEvent('screen:stop', {
       conversationId: activeConv?.id,
-      targetUserId
+      targetUserId,
+      targetEmployeeCode,
+      durationSeconds,
+      durationText
     });
 
     if (screenStream) {

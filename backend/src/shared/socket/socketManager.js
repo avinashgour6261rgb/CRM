@@ -370,7 +370,16 @@ function initSocket(server) {
     // 🖥️ WebRTC Live Screen Sharing Relay
     socket.on('screen:start', (data) => {
       try {
-        const { conversationId, host, startedAt, targetUserId, isChannel, channelName } = data || {};
+        const {
+          conversationId,
+          host,
+          startedAt,
+          targetUserId,
+          targetEmployeeCode,
+          targetEmail,
+          isChannel,
+          channelName
+        } = data || {};
         if (!conversationId) return;
         const roomName = `screen:${conversationId}`;
         socket.join(roomName);
@@ -396,17 +405,21 @@ function initSocket(server) {
           });
         }
 
-        // Targeted emission: In 1-on-1 DM, emit strictly to target user & chat room (no company broadcast leak)
+        // Targeted delivery to all recipient rooms
         if (targetUserId) {
           io.to(`user:${String(targetUserId)}`).emit('screen:started', payload);
-          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
-        } else if (isChannel) {
-          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
-          socket.to(`voice:${conversationId}`).emit('screen:started', payload);
-        } else {
-          socket.to(`chat:${conversationId}`).emit('screen:started', payload);
-          socket.to(`voice:${conversationId}`).emit('screen:started', payload);
         }
+        if (targetEmployeeCode) {
+          io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('screen:started', payload);
+        }
+        if (targetEmail) {
+          io.to(`user:${String(targetEmail).toLowerCase().trim()}`).emit('screen:started', payload);
+        }
+
+        socket.to(`chat:${conversationId}`).emit('screen:started', payload);
+        socket.to(`voice:${conversationId}`).emit('screen:started', payload);
+        socket.to(roomName).emit('screen:started', payload);
+        socket.to('company').emit('screen:started', payload);
       } catch (err) {
         console.warn('[SocketManager] screen:start error:', err.message);
       }
@@ -414,17 +427,22 @@ function initSocket(server) {
 
     socket.on('screen:join', (data) => {
       try {
-        const { conversationId, viewer } = data || {};
+        const { conversationId, viewer, hostId } = data || {};
         if (!conversationId) return;
         const roomName = `screen:${conversationId}`;
         socket.join(roomName);
 
-        // Tell presenter/host in the screen room that a viewer joined and is waiting for stream
-        socket.to(roomName).emit('screen:viewer_joined', {
+        const joinPayload = {
           viewerSocketId: socket.id,
           viewer,
           conversationId
-        });
+        };
+
+        // Tell presenter/host in the screen room that a viewer joined and is waiting for stream
+        socket.to(roomName).emit('screen:viewer_joined', joinPayload);
+        if (hostId) {
+          io.to(`user:${String(hostId)}`).emit('screen:viewer_joined', joinPayload);
+        }
       } catch (err) {
         console.warn('[SocketManager] screen:join error:', err.message);
       }
@@ -462,15 +480,20 @@ function initSocket(server) {
 
     socket.on('screen:stop', (data) => {
       try {
-        const { conversationId, durationSeconds, durationText, targetUserId } = data || {};
+        const { conversationId, durationSeconds, durationText, targetUserId, targetEmployeeCode } = data || {};
         if (!conversationId) return;
         const roomName = `screen:${conversationId}`;
         const stopPayload = { conversationId, durationSeconds, durationText };
 
         socket.to(roomName).emit('screen:stopped', stopPayload);
         socket.to(`chat:${conversationId}`).emit('screen:stopped', stopPayload);
+        socket.to(`voice:${conversationId}`).emit('screen:stopped', stopPayload);
+        socket.to('company').emit('screen:stopped', stopPayload);
         if (targetUserId) {
           io.to(`user:${String(targetUserId)}`).emit('screen:stopped', stopPayload);
+        }
+        if (targetEmployeeCode) {
+          io.to(`user:${String(targetEmployeeCode).toUpperCase()}`).emit('screen:stopped', stopPayload);
         }
         socket.leave(roomName);
 

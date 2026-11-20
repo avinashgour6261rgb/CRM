@@ -97,7 +97,7 @@ export const ScreenShareModal = ({
 
     // 2. When a viewer joins the room, host creates RTCPeerConnection and sends SDP offer
     const unsubViewerJoined = subscribeSocketEvent('screen:viewer_joined', async (data) => {
-      if (!data || data.conversationId !== activeConv.id || !data.viewerSocketId) return;
+      if (!data || String(data.conversationId) !== String(activeConv.id) || !data.viewerSocketId) return;
       const viewerSocketId = data.viewerSocketId;
 
       let pc = viewersMapRef.current.get(viewerSocketId);
@@ -151,7 +151,7 @@ export const ScreenShareModal = ({
 
     // 3. Handle incoming SDP answer and ICE candidates from viewers
     const unsubHostSignal = subscribeSocketEvent('screen:signal', async (data) => {
-      if (!data || data.conversationId !== activeConv.id) return;
+      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
       const { senderSocketId, signal } = data;
       if (!senderSocketId || !signal) return;
 
@@ -182,7 +182,7 @@ export const ScreenShareModal = ({
 
     // 4. Viewer left
     const unsubViewerLeft = subscribeSocketEvent('screen:viewer_left', (data) => {
-      if (!data || data.conversationId !== activeConv.id || !data.viewerSocketId) return;
+      if (!data || String(data.conversationId) !== String(activeConv.id) || !data.viewerSocketId) return;
       const pc = viewersMapRef.current.get(data.viewerSocketId);
       if (pc) {
         try { pc.close(); } catch (_) {}
@@ -212,6 +212,7 @@ export const ScreenShareModal = ({
     const sendViewerJoin = () => {
       emitSocketEvent('screen:join', {
         conversationId: activeConv.id,
+        hostId: hostInfo?.hostId || hostInfo?.id,
         viewer: {
           id: currentUser?._id || currentUser?.id || currentUser?.employeeCode,
           name: currentUser?.name || 'Teammate',
@@ -231,7 +232,7 @@ export const ScreenShareModal = ({
 
     // 2. Handle host's SDP offer & ICE candidates
     const unsubViewerSignal = subscribeSocketEvent('screen:signal', async (data) => {
-      if (!data || data.conversationId !== activeConv.id) return;
+      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
       const { senderSocketId, signal } = data;
       if (!senderSocketId || !signal) return;
 
@@ -307,7 +308,7 @@ export const ScreenShareModal = ({
 
     // 3. Presenter stopped sharing screen
     const unsubStopped = subscribeSocketEvent('screen:stopped', (data) => {
-      if (!data || data.conversationId !== activeConv.id) return;
+      if (!data || String(data.conversationId) !== String(activeConv.id)) return;
       addToast('Screen share session ended by presenter', 'info');
       onClose();
     });

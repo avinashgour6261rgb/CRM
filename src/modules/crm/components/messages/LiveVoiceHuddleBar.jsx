@@ -583,7 +583,7 @@ export const LiveVoiceHuddleBar = ({
     const handleAccepted = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && callData.conversationId === activeConv.id) {
+      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
         if (callData.callId) activeCallIdRef.current = callData.callId;
         ringtoneService.stop();
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
@@ -596,7 +596,7 @@ export const LiveVoiceHuddleBar = ({
     const handleDeclined = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && callData.conversationId === activeConv.id) {
+      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
         ringtoneService.playCallEndTone();
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         stopAllVoice();
@@ -611,7 +611,7 @@ export const LiveVoiceHuddleBar = ({
     const handleRemoteEnded = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && callData.conversationId === activeConv.id) {
+      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
         ringtoneService.playCallEndTone();
         stopAllVoice();
         addToast(`Call ended (${callData.durationText || ''})`, 'info');
@@ -622,7 +622,7 @@ export const LiveVoiceHuddleBar = ({
     const handleCancelled = (data) => {
       const callData = data?.detail || data;
       if (!callData) return;
-      if (activeConv?.id && callData.conversationId === activeConv.id) {
+      if (activeConv?.id && String(callData.conversationId) === String(activeConv.id)) {
         ringtoneService.stop();
         stopAllVoice();
       }
@@ -631,7 +631,7 @@ export const LiveVoiceHuddleBar = ({
     // 5. User accepted call from global IncomingCallModal
     const handleGlobalUserAccepted = async (e) => {
       const callData = e.detail;
-      if (!callData || callData.conversationId !== activeConv?.id) return;
+      if (!callData) return;
       if (callData.callId) activeCallIdRef.current = callData.callId;
       try {
         await setupLocalMic();
@@ -699,9 +699,13 @@ export const LiveVoiceHuddleBar = ({
   useEffect(() => {
     const unsubJoined = subscribeSocketEvent('voice:peer_joined', (data) => {
       if (!data) return;
-      // Strict Session Verification: In 1-on-1 calls, ignore packets from foreign calls
-      if (!isChannel && activeCallIdRef.current && data.callId && data.callId !== activeCallIdRef.current) return;
-      if (data.conversationId !== activeConv?.id && (!data.callId || data.callId !== activeCallIdRef.current)) return;
+      // STRICT PRIVACY PROTECTION: Drop all incoming peer joined events if user is idle
+      if (callStateRef.current === 'idle') return;
+      if (!isChannel) {
+        if (!activeCallIdRef.current || !data.callId || String(data.callId) !== String(activeCallIdRef.current)) return;
+      } else {
+        if (String(data.conversationId) !== String(activeConv?.id)) return;
+      }
       if (data.socketId && (callStateRef.current === 'connected' || callStateRef.current === 'outgoing_ringing')) {
         createPeerConnection(data.socketId, true, data.user);
       }
@@ -709,11 +713,19 @@ export const LiveVoiceHuddleBar = ({
 
     const unsubSignal = subscribeSocketEvent('voice:signal', async (data) => {
       if (!data) return;
-      // Strict Session Verification: In 1-on-1 calls, ignore foreign signals
-      if (!isChannel && activeCallIdRef.current && data.callId && data.callId !== activeCallIdRef.current) return;
-      if (data.conversationId !== activeConv?.id && (!data.callId || data.callId !== activeCallIdRef.current)) return;
+      // STRICT PRIVACY PROTECTION: Drop all incoming signals if user is idle (never leak audio to non-participants)
+      if (callStateRef.current === 'idle') return;
+      if (!isChannel) {
+        if (!activeCallIdRef.current || !data.callId || String(data.callId) !== String(activeCallIdRef.current)) return;
+      } else {
+        if (String(data.conversationId) !== String(activeConv?.id)) return;
+      }
+
       const { senderSocketId, signal, user } = data;
       if (!senderSocketId || !signal) return;
+
+      // Only allow peer connections if actively connected or in outgoing ringing state
+      if (callStateRef.current !== 'connected' && callStateRef.current !== 'outgoing_ringing') return;
 
       // If an incoming offer arrives, ensure local microphone is ready before creating peer connection
       if (signal?.sdp?.type === 'offer') {
