@@ -8,7 +8,7 @@ import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { UserCheck, ShieldAlert, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 export const NewLeaveModal = ({ isOpen, onClose }) => {
-  const { employees = [], currentUser: hrUser = null, applyLeave = () => {} } = useHR() || {};
+  const { employees = [], leaves = [], currentUser: hrUser = null, applyLeave = () => {} } = useHR() || {};
   const { currentUser: authUser = null } = useAuth() || {};
   const { addToast = () => {} } = useToast() || {};
 
@@ -161,6 +161,31 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     // Quota / Balance verification
     if (isBalanceExceeded && formData.isPaid && formData.leaveType !== 'Unpaid Leave') {
       addToast(`Cannot apply: Requested ${calculatedDays} day(s) exceeds your available ${formData.leaveType} balance (${availableBalance} days). Please select Unpaid Leave or adjust dates.`, 'error');
+      return;
+    }
+
+    // Overlap verification: ensure employee doesn't already have an active leave (pending or approved) during this period
+    const finalStartDate = formData.startDate;
+    const finalEndDate = formData.durationType !== 'full' ? formData.startDate : formData.endDate;
+
+    const myExistingLeaves = (leaves || []).filter(l => {
+      if (l.status !== 'pending' && l.status !== 'approved') return false;
+      return (
+        String(l.employeeId || l.employee?._id || l.employee || '') === String(selectedEmp._id) ||
+        (selectedEmp.employeeCode && String(l.employeeCode || '').toUpperCase() === String(selectedEmp.employeeCode).toUpperCase()) ||
+        (selectedEmp.email && String(l.employeeEmail || '').toLowerCase() === String(selectedEmp.email).toLowerCase())
+      );
+    });
+
+    const overlappingLeave = myExistingLeaves.find(l => {
+      const exStart = l.startDate;
+      const exEnd = l.endDate || l.startDate;
+      if (!exStart || !exEnd) return false;
+      return finalStartDate <= exEnd && finalEndDate >= exStart;
+    });
+
+    if (overlappingLeave) {
+      addToast(`Cannot apply: An active leave request (${overlappingLeave.status.toUpperCase()}) already exists from ${overlappingLeave.startDate} to ${overlappingLeave.endDate || overlappingLeave.startDate} that overlaps with these dates.`, 'error');
       return;
     }
 

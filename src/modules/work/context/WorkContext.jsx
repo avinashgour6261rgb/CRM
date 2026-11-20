@@ -3554,18 +3554,51 @@ export const WorkProvider = ({ children }) => {
       const updated = await workService.updateTimesheet(id, entryData);
       const targetTaskId = updated?.taskId || entryData?.taskId;
       if (targetTaskId && entryData?.totalDurationSeconds !== undefined) {
-        const totalSecs = Number(entryData.totalDurationSeconds);
-        const hrsLoggedNum = +(totalSecs / 3600).toFixed(2);
-        const hrs = Math.floor(totalSecs / 3600);
-        const mins = Math.floor((totalSecs % 3600) / 60);
+        // Calculate the TRUE cumulative total across all timesheets for this task (preserves multi-day history)
+        const allTs = getCollection(KEYS.TIMESHEETS) || [];
+        const taskTimesheets = allTs.filter(ts => String(ts.taskId) === String(targetTaskId) || (ts.taskCode && ts.taskCode === updated?.taskCode));
+        
+        let totalTaskSecs = 0;
+        let todaySecs = 0;
+        const todayStr = getTodayStr();
+        const dateSessions = {};
+
+        taskTimesheets.forEach(ts => {
+          const isThisEntry = String(ts._id) === String(id);
+          const dur = isThisEntry ? Number(entryData.totalDurationSeconds) : Number(ts.totalDurationSeconds || 0);
+          const entryDate = isThisEntry ? (entryData.date || ts.date) : ts.date;
+          totalTaskSecs += dur;
+          if (entryDate) {
+            dateSessions[entryDate] = (dateSessions[entryDate] || 0) + dur;
+          }
+          if (entryDate === todayStr) {
+            todaySecs += dur;
+          }
+        });
+
+        // If target entry was newly modified and wasn't in local timesheets list yet:
+        if (!taskTimesheets.some(ts => String(ts._id) === String(id))) {
+          const dur = Number(entryData.totalDurationSeconds);
+          totalTaskSecs += dur;
+          const entryDate = entryData.date || todayStr;
+          dateSessions[entryDate] = (dateSessions[entryDate] || 0) + dur;
+          if (entryDate === todayStr) todaySecs += dur;
+        }
+
+        const hrsLoggedNum = +(totalTaskSecs / 3600).toFixed(2);
+        const hrs = Math.floor(totalTaskSecs / 3600);
+        const mins = Math.floor((totalTaskSecs % 3600) / 60);
         const hrsLoggedStr = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+
         try {
           await workService.updateTask(targetTaskId, {
             hoursLogged: hrsLoggedNum,
             hoursLoggedText: hrsLoggedStr,
-            accumulatedSeconds: totalSecs,
-            timerSeconds: totalSecs,
-            durationSeconds: totalSecs
+            accumulatedSeconds: totalTaskSecs,
+            timerSeconds: totalTaskSecs,
+            durationSeconds: totalTaskSecs,
+            ...(entryData.date === todayStr ? { todayWorkSeconds: todaySecs, liveTodaySeconds: todaySecs } : {}),
+            dailySessions: dateSessions
           });
         } catch (_) {}
       }
@@ -3580,7 +3613,33 @@ export const WorkProvider = ({ children }) => {
 
   const deleteTimesheet = async (id) => {
     try {
+      const allTs = getCollection(KEYS.TIMESHEETS) || [];
+      const entryToDelete = allTs.find(ts => String(ts._id) === String(id));
       await workService.deleteTimesheet(id);
+
+      if (entryToDelete && (entryToDelete.taskId || entryToDelete.taskCode)) {
+        const remainingTs = allTs.filter(ts => String(ts._id) !== String(id) && (String(ts.taskId) === String(entryToDelete.taskId) || (ts.taskCode && ts.taskCode === entryToDelete.taskCode)));
+        const totalTaskSecs = remainingTs.reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+        const todayStr = getTodayStr();
+        const todaySecs = remainingTs.filter(ts => ts.date === todayStr).reduce((sum, ts) => sum + (Number(ts.totalDurationSeconds) || 0), 0);
+        const hrsLoggedNum = +(totalTaskSecs / 3600).toFixed(2);
+        const hrs = Math.floor(totalTaskSecs / 3600);
+        const mins = Math.floor((totalTaskSecs % 3600) / 60);
+        const hrsLoggedStr = `${String(hrs).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+
+        try {
+          await workService.updateTask(entryToDelete.taskId, {
+            hoursLogged: hrsLoggedNum,
+            hoursLoggedText: hrsLoggedStr,
+            accumulatedSeconds: totalTaskSecs,
+            timerSeconds: totalTaskSecs,
+            durationSeconds: totalTaskSecs,
+            todayWorkSeconds: todaySecs,
+            liveTodaySeconds: todaySecs
+          });
+        } catch (_) {}
+      }
+
       addToast('Timesheet entry removed', 'info');
       await loadWorkData();
     } catch (err) {

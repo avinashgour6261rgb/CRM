@@ -509,6 +509,35 @@ exports.deleteTimesheet = async (req, res, next) => {
     if (!timesheet) {
       return res.status(404).json({ success: false, message: 'Timesheet entry not found' });
     }
+
+    // Recalculate associated task hours after deletion
+    if (timesheet.task || timesheet.taskId) {
+      const taskId = timesheet.task || timesheet.taskId;
+      const task = await Task.findById(taskId);
+      if (task) {
+        const remainingTimesheets = await Timesheet.find({
+          _id: { $ne: timesheet._id },
+          $or: [{ task: task._id }, { taskId: task._id.toString() }, ...(task.taskCode ? [{ taskCode: task.taskCode }] : [])]
+        });
+        const dateTaskMap = new Map();
+        remainingTimesheets.forEach(ts => {
+          const dKey = `${ts.date || ''}_${ts.employeeId || ts.employeeCode || ts.employee || ''}`;
+          const dSecs = Number(ts.totalDurationSeconds) || 0;
+          if (!dateTaskMap.has(dKey) || dSecs > dateTaskMap.get(dKey)) {
+            dateTaskMap.set(dKey, dSecs);
+          }
+        });
+        const totalTaskSecs = Array.from(dateTaskMap.values()).reduce((sum, s) => sum + s, 0);
+        task.hoursLogged = Number((totalTaskSecs / 3600).toFixed(2));
+        const totalHrs = Math.floor(totalTaskSecs / 3600);
+        const totalMins = Math.floor((totalTaskSecs % 3600) / 60);
+        task.hoursLoggedText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
+        task.accumulatedSeconds = totalTaskSecs;
+        task.timerSeconds = totalTaskSecs;
+        await task.save();
+      }
+    }
+
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
       emitToAll('timesheet:updated', { action: 'delete', id: String(timesheet._id) });

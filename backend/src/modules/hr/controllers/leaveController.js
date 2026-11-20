@@ -200,6 +200,42 @@ const createLeave = asyncHandler(async (req, res) => {
     leaveData.durationText = `${dDays} Day${dDays > 1 ? 's' : ''}`;
   }
 
+  // Validate overlapping leaves for this employee (status 'pending' or 'approved')
+  const empIdVal = employee ? employee._id : leaveData.employee;
+  const empCodeVal = employee ? employee.employeeCode : leaveData.employeeCode;
+  
+  if (leaveData.startDate && leaveData.endDate) {
+    const overlapConditions = [
+      {
+        status: { $in: ['pending', 'approved'] }
+      },
+      {
+        startDate: { $lte: leaveData.endDate },
+        endDate: { $gte: leaveData.startDate }
+      }
+    ];
+
+    const empMatches = [];
+    if (empIdVal) {
+      empMatches.push({ employee: empIdVal });
+      empMatches.push({ employeeId: String(empIdVal) });
+    }
+    if (empCodeVal) {
+      empMatches.push({ employeeCode: empCodeVal });
+    }
+    if (empMatches.length > 0) {
+      overlapConditions.push({ $or: empMatches });
+    }
+
+    const existingOverlap = await Leave.findOne({ $and: overlapConditions });
+    if (existingOverlap) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot apply: An active leave application (${existingOverlap.status.toUpperCase()}) already exists from ${existingOverlap.startDate} to ${existingOverlap.endDate} for this employee.`
+      });
+    }
+  }
+
   // Deduct employee leave balance upon leave application (reservation/deduction)
   if (employee && leaveData.isPaid !== false && leaveData.leaveType !== 'Unpaid Leave') {
     const balance = {

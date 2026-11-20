@@ -590,7 +590,26 @@ export const hrService = {
       method: 'POST',
       body: JSON.stringify(enriched)
     }, async () => {
-      const leaves = getCollection(KEYS.LEAVES);
+      const leaves = getCollection(KEYS.LEAVES) || [];
+      const empKey = enriched.employeeId || enriched.employee || enriched.employeeCode;
+      const finalStart = enriched.startDate;
+      const finalEnd = enriched.endDate || enriched.startDate;
+
+      const overlap = leaves.find(l => {
+        if (l.status !== 'pending' && l.status !== 'approved') return false;
+        const matchesEmp = String(l.employeeId || l.employee?._id || l.employee) === String(empKey) ||
+          (enriched.employeeCode && String(l.employeeCode || '').toUpperCase() === String(enriched.employeeCode).toUpperCase());
+        if (!matchesEmp) return false;
+        const exStart = l.startDate;
+        const exEnd = l.endDate || l.startDate;
+        if (!exStart || !exEnd) return false;
+        return finalStart <= exEnd && finalEnd >= exStart;
+      });
+
+      if (overlap) {
+        throw new Error(`Cannot apply: An active leave application (${overlap.status.toUpperCase()}) already exists from ${overlap.startDate} to ${overlap.endDate || overlap.startDate}.`);
+      }
+
       const newLeave = {
         _id: `leave_${Date.now()}`,
         ...enriched,
