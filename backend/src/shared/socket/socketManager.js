@@ -251,6 +251,20 @@ function initSocket(server) {
           socket.to(`voice:${conversationId}`).emit('call:accepted', acceptedPayload);
           socket.to(`chat:${conversationId}`).emit('call:accepted', acceptedPayload);
         }
+
+        // Notify other devices/tabs of the acceptor that call was answered elsewhere
+        const answeredPayload = {
+          callId,
+          conversationId,
+          answeredBySocketId: socket.id,
+          acceptor
+        };
+        if (acceptor?.id) {
+          socket.to(`user:${String(acceptor.id)}`).emit('call:answered_elsewhere', answeredPayload);
+        }
+        if (acceptor?.employeeCode) {
+          socket.to(`user:${String(acceptor.employeeCode).toUpperCase()}`).emit('call:answered_elsewhere', answeredPayload);
+        }
       } catch (err) {
         console.warn('[SocketManager] call:accept error:', err.message);
       }
@@ -289,6 +303,22 @@ function initSocket(server) {
         if (conversationId) {
           socket.to(`voice:${conversationId}`).emit('call:declined', declinedPayload);
           socket.to(`chat:${conversationId}`).emit('call:declined', declinedPayload);
+        }
+
+        // Notify other devices of the decliner so ringing stops everywhere
+        if (decliner?.id) {
+          socket.to(`user:${String(decliner.id)}`).emit('call:cancelled', {
+            callId,
+            conversationId,
+            reason: 'declined_on_other_device'
+          });
+        }
+        if (decliner?.employeeCode) {
+          socket.to(`user:${String(decliner.employeeCode).toUpperCase()}`).emit('call:cancelled', {
+            callId,
+            conversationId,
+            reason: 'declined_on_other_device'
+          });
         }
       } catch (err) {
         console.warn('[SocketManager] call:decline error:', err.message);

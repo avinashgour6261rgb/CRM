@@ -78,6 +78,7 @@ export const LiveVoiceHuddleBar = ({
   const [callDuration, setCallDuration] = useState(0);
 
   const activeCallIdRef = useRef(null);
+  const callRoleRef = useRef(null); // 'caller' | 'callee'
   const callStartEpochRef = useRef(null);
   const durationIntervalRef = useRef(null);
   const ringingTimeoutRef = useRef(null);
@@ -200,6 +201,7 @@ export const LiveVoiceHuddleBar = ({
     setIsSpeaking(false);
     setCallDuration(0);
     activeCallIdRef.current = null;
+    callRoleRef.current = null;
     callStartEpochRef.current = null;
 
     if (huddleKey && typeof localStorage !== 'undefined') {
@@ -499,6 +501,7 @@ export const LiveVoiceHuddleBar = ({
 
       const newCallId = `call_${Date.now()}_${myId}`;
       activeCallIdRef.current = newCallId;
+      callRoleRef.current = 'caller';
 
       if (!isChannel) {
         // 1-on-1: Outgoing Ringback Tone & Targeted Ringing
@@ -665,6 +668,10 @@ export const LiveVoiceHuddleBar = ({
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         connectHuddleRoom();
         addToast('📞 Call connected', 'success');
+
+        if (!isChannel && callData.acceptorSocketId) {
+          createPeerConnection(callData.acceptorSocketId, true, callData.acceptor);
+        }
       }
     };
 
@@ -729,6 +736,7 @@ export const LiveVoiceHuddleBar = ({
       const callData = e.detail;
       if (!callData) return;
       if (callData.callId) activeCallIdRef.current = callData.callId;
+      callRoleRef.current = 'callee';
       try {
         await setupLocalMic();
         connectHuddleRoom();
@@ -737,7 +745,16 @@ export const LiveVoiceHuddleBar = ({
       }
     };
 
-    // 6. External Call Trigger (from Chat Header button)
+    // 6. Call answered on another device
+    const handleAnsweredElsewhere = (data) => {
+      const callData = data?.detail || data;
+      if (!callData) return;
+      if (callStateRef.current !== 'idle' || (activeCallIdRef.current && String(callData.callId) === String(activeCallIdRef.current))) {
+        stopAllVoice();
+      }
+    };
+
+    // 7. External Call Trigger (from Chat Header button)
     const handleTriggerCall = (e) => {
       if (e.detail?.conversationId && e.detail.conversationId !== activeConv?.id) return;
       if (callState === 'idle') {
@@ -749,11 +766,13 @@ export const LiveVoiceHuddleBar = ({
     const unsubDeclined = subscribeSocketEvent('call:declined', handleDeclined);
     const unsubEnded = subscribeSocketEvent('call:ended', handleRemoteEnded);
     const unsubCancelled = subscribeSocketEvent('call:cancelled', handleCancelled);
+    const unsubAnsweredElsewhere = subscribeSocketEvent('call:answered_elsewhere', handleAnsweredElsewhere);
 
     window.addEventListener('ems_call_accepted', handleAccepted);
     window.addEventListener('ems_call_declined', handleDeclined);
     window.addEventListener('ems_call_ended', handleRemoteEnded);
     window.addEventListener('ems_call_cancelled', handleCancelled);
+    window.addEventListener('ems_call_answered_elsewhere', handleAnsweredElsewhere);
     window.addEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
     window.addEventListener('ems_trigger_voice_call', handleTriggerCall);
 
@@ -762,10 +781,12 @@ export const LiveVoiceHuddleBar = ({
       unsubDeclined();
       unsubEnded();
       unsubCancelled();
+      unsubAnsweredElsewhere();
       window.removeEventListener('ems_call_accepted', handleAccepted);
       window.removeEventListener('ems_call_declined', handleDeclined);
       window.removeEventListener('ems_call_ended', handleRemoteEnded);
       window.removeEventListener('ems_call_cancelled', handleCancelled);
+      window.removeEventListener('ems_call_answered_elsewhere', handleAnsweredElsewhere);
       window.removeEventListener('ems_call_user_accepted', handleGlobalUserAccepted);
       window.removeEventListener('ems_trigger_voice_call', handleTriggerCall);
     };
@@ -780,6 +801,7 @@ export const LiveVoiceHuddleBar = ({
         const pendingCall = JSON.parse(pendingRaw);
         if (pendingCall && String(pendingCall.conversationId) === String(activeConv.id)) {
           if (pendingCall.callId) activeCallIdRef.current = pendingCall.callId;
+          callRoleRef.current = 'callee';
           sessionStorage.removeItem('ems_pending_accepted_call');
           setupLocalMic().then(() => {
             connectHuddleRoom();
@@ -803,7 +825,10 @@ export const LiveVoiceHuddleBar = ({
         if (String(data.conversationId) !== String(activeConv?.id)) return;
       }
       if (data.socketId && (callStateRef.current === 'connected' || callStateRef.current === 'outgoing_ringing')) {
-        createPeerConnection(data.socketId, true, data.user);
+        // In 1-on-1 calls: ONLY the caller initiates the WebRTC offer!
+        // Callee waits for the caller's offer to avoid glare/duplicate connections!
+        const shouldInitiate = isChannel ? true : (callRoleRef.current === 'caller');
+        createPeerConnection(data.socketId, shouldInitiate, data.user);
       }
     });
 
@@ -842,6 +867,26 @@ export const LiveVoiceHuddleBar = ({
 
       if (signal.sdp) {
         try {
+          // State Guard 1: Answer can ONLY be set when in 'have-local-offer'
+          if (signal.sdp.type === 'answer') {
+            if (pc.signalingState !== 'have-local-offer') {
+              console.warn(`[LiveVoice] Ignored duplicate or out-of-order answer SDP in state '${pc.signalingState}'`);
+              return;
+            }
+          }
+
+          // State Guard 2: Glare avoidance if an offer arrives while in 'have-local-offer'
+          if (signal.sdp.type === 'offer') {
+            if (pc.signalingState !== 'stable') {
+              console.warn(`[LiveVoice] Peer state was '${pc.signalingState}' when offer arrived. Rolling back...`);
+              if (pc.signalingState === 'have-local-offer') {
+                try {
+                  await pc.setLocalDescription({ type: 'rollback' });
+                } catch (_) {}
+              }
+            }
+          }
+
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
 
           // Flush queued ICE candidates that arrived before remote description

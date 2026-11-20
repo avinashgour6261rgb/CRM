@@ -141,14 +141,31 @@ export const Layout = () => {
       }
     };
 
+    const handleAnsweredElsewhere = (e) => {
+      const callData = e.detail;
+      const matches =
+        !incomingCall ||
+        !callData?.callId ||
+        callData.callId === incomingCall.callId ||
+        (callData.conversationId && incomingCall.conversationId && String(callData.conversationId) === String(incomingCall.conversationId));
+
+      if (matches) {
+        ringtoneService.stop();
+        setIncomingCall(null);
+        addToast('📞 Call answered on another device', 'info');
+      }
+    };
+
     window.addEventListener('ems_call_incoming', handleIncoming);
     window.addEventListener('ems_call_cancelled', handleCancelledOrEnded);
     window.addEventListener('ems_call_ended', handleCancelledOrEnded);
+    window.addEventListener('ems_call_answered_elsewhere', handleAnsweredElsewhere);
 
     return () => {
       window.removeEventListener('ems_call_incoming', handleIncoming);
       window.removeEventListener('ems_call_cancelled', handleCancelledOrEnded);
       window.removeEventListener('ems_call_ended', handleCancelledOrEnded);
+      window.removeEventListener('ems_call_answered_elsewhere', handleAnsweredElsewhere);
     };
   }, [effectiveUser, shiftStatus, incomingCall]);
 

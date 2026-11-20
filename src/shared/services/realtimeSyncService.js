@@ -432,6 +432,12 @@ if (typeof window !== 'undefined') {
     } catch (_) {}
   });
 
+  subscribeSocketEvent('call:answered_elsewhere', (data) => {
+    try {
+      window.dispatchEvent(new CustomEvent('ems_call_answered_elsewhere', { detail: data }));
+    } catch (_) {}
+  });
+
   subscribeSocketEvent('call:declined', (data) => {
     try {
       window.dispatchEvent(new CustomEvent('ems_call_declined', { detail: data }));
