@@ -168,6 +168,8 @@ export function subscribeSocketEvent(eventName, callback) {
   };
 }
 
+export const subscribeToSocketEvent = subscribeSocketEvent;
+
 export function isSocketConnected() {
   return Boolean(socket && socket.connected);
 }

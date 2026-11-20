@@ -317,6 +317,10 @@ const updateEmployee = asyncHandler(async (req, res) => {
     delete payload.passwordHistory;
   }
 
+  if (payload.status && ['relieved', 'resigned', 'inactive', 'terminated', 'suspended', 'archived'].includes(String(payload.status).toLowerCase())) {
+    payload.tokenVersion = (existingEmployee.tokenVersion || 1) + 1;
+  }
+
   const employee = await Employee.findByIdAndUpdate(
     existingEmployee._id,
     { $set: payload },
@@ -324,6 +328,24 @@ const updateEmployee = asyncHandler(async (req, res) => {
   );
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  // 🔒 Force Logout on all devices if account was relieved, resigned, or deactivated
+  if (payload.status && ['relieved', 'resigned', 'inactive', 'terminated', 'suspended', 'archived'].includes(String(payload.status).toLowerCase())) {
+    try {
+      const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+      const empIdStr = employee._id.toString();
+      const forceLogoutPayload = {
+        employeeId: empIdStr,
+        employeeCode: employee.employeeCode,
+        status: payload.status,
+        reason: 'Account relieved or deactivated by HR/Administrator'
+      };
+      emitToAll('user:force_logout', forceLogoutPayload);
+      emitToUser(empIdStr, 'user:force_logout', forceLogoutPayload);
+      if (employee.employeeCode) emitToUser(employee.employeeCode, 'user:force_logout', forceLogoutPayload);
+      if (employee.email) emitToUser(employee.email.toLowerCase(), 'user:force_logout', forceLogoutPayload);
+    } catch (_) {}
   }
 
   // 📡 Real-Time Socket Broadcast on permission or role changes
@@ -478,8 +500,17 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
   await Employee.deleteOne({ _id: employee._id });
   try {
-    const { emitToAll } = require('../../../shared/socket/socketManager');
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
     emitToAll('employee:updated', { action: 'delete', id: String(employee._id), employeeCode: employee.employeeCode });
+    const forceLogoutPayload = {
+      employeeId: String(employee._id),
+      employeeCode: employee.employeeCode,
+      status: 'deleted',
+      reason: 'Employee account removed'
+    };
+    emitToAll('user:force_logout', forceLogoutPayload);
+    emitToUser(String(employee._id), 'user:force_logout', forceLogoutPayload);
+    if (employee.employeeCode) emitToUser(employee.employeeCode, 'user:force_logout', forceLogoutPayload);
   } catch (_) {}
   res.json({ success: true, message: 'Employee removed', data: {} });
 });

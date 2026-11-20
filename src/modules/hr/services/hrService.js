@@ -163,6 +163,10 @@ export const hrService = {
   isBackendOnline() {
     return hrBackendOnline === true;
   },
+  markBackendOnline(status = true) {
+    hrBackendOnline = Boolean(status);
+    lastHrCheckTime = Date.now();
+  },
   // =========================================================================
   // 👥 EMPLOYEES & WORKFORCE MANAGEMENT
   // =========================================================================

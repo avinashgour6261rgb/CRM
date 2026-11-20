@@ -65,8 +65,8 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Health check route (With graceful 2s connection buffer to avoid 503 on cold start)
-app.get('/api/health', async (req, res) => {
+// Health check routes (With graceful 2s connection buffer to avoid 503 on cold start)
+const handleHealthCheck = async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
     const start = Date.now();
     while (mongoose.connection.readyState !== 1 && Date.now() - start < 2000) {
@@ -81,7 +81,12 @@ app.get('/api/health', async (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString()
   });
-});
+};
+
+app.get('/api/health', handleHealthCheck);
+app.get('/health', handleHealthCheck);
+app.get('/api/ping', (req, res) => res.status(200).send('pong'));
+app.get('/ping', (req, res) => res.status(200).send('pong'));
 
 // Database Seed / Reset Endpoint (STRICTLY LOCKED in production to protect live MongoDB data)
 app.post('/api/seed', async (req, res) => {

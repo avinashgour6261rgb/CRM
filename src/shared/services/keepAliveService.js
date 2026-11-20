@@ -9,6 +9,7 @@ import { API_BASE } from '../config/apiConfig';
 let keepAliveInterval = null;
 let lastPingTime = 0;
 let isInitialized = false;
+let retryTimeout = null;
 
 export function initKeepAlive() {
   if (typeof window === 'undefined' || isInitialized) return;
@@ -18,18 +19,37 @@ export function initKeepAlive() {
     try {
       const now = Date.now();
       lastPingTime = now;
-      await fetch(`${API_BASE}/health`, {
+      const res = await fetch(`${API_BASE}/health`, {
         method: 'GET',
         cache: 'no-store',
         keepalive: true
       });
-      try {
-        const { hrService } = await import('../../modules/hr/services/hrService');
-        hrService.syncPendingAttendance().catch(() => {});
-      } catch (_) {}
+      if (res.ok) {
+        if (retryTimeout) {
+          clearTimeout(retryTimeout);
+          retryTimeout = null;
+        }
+        try {
+          const { hrService } = await import('../../modules/hr/services/hrService');
+          hrService.markBackendOnline(true);
+          hrService.syncPendingAttendance().catch(() => {});
+        } catch (_) {}
+      } else {
+        // Cold start in progress, retry sooner
+        scheduleRetry();
+      }
     } catch (_) {
-      // Silently ignore ping failures — backend will wake up automatically
+      // Backend is cold-starting, schedule an early retry to detect wakeup
+      scheduleRetry();
     }
+  };
+
+  const scheduleRetry = () => {
+    if (retryTimeout) return;
+    retryTimeout = setTimeout(() => {
+      retryTimeout = null;
+      pingBackend();
+    }, 5000);
   };
 
   // Ping immediately on start
@@ -40,11 +60,11 @@ export function initKeepAlive() {
     keepAliveInterval = setInterval(pingBackend, 8 * 60 * 1000);
   }
 
-  // When user returns to tab after a while, ping if more than 3 minutes have passed
+  // When user returns to tab after a while, ping if more than 2 minutes have passed
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       const now = Date.now();
-      if (now - lastPingTime > 3 * 60 * 1000) {
+      if (now - lastPingTime > 2 * 60 * 1000) {
         pingBackend();
       }
     }
@@ -53,7 +73,7 @@ export function initKeepAlive() {
   // Also ping on window focus
   window.addEventListener('focus', () => {
     const now = Date.now();
-    if (now - lastPingTime > 3 * 60 * 1000) {
+    if (now - lastPingTime > 2 * 60 * 1000) {
       pingBackend();
     }
   });

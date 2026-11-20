@@ -347,6 +347,7 @@ export const syncDatabaseToStorage = async () => {
 export const initStorage = () => {
   purgeStaleMockData();
   sanitizeRunawayTimers();
+  pruneExcessStorage();
 
   // Initialize any unset keys as empty arrays
   Object.values(KEYS).forEach(k => {
@@ -373,44 +374,64 @@ export const getCollection = (key) => {
   }
 };
 
-const pruneExcessStorage = () => {
+export const pruneExcessStorage = () => {
   if (typeof localStorage === 'undefined') return;
   try {
-    // 1. Prune oversized chat media if present locally
+    // 1. Prune oversized chat media / messages if present locally
     const convsRaw = localStorage.getItem(KEYS.CONVERSATIONS);
-    if (convsRaw && convsRaw.length > 800000) {
+    if (convsRaw && convsRaw.length > 400000) {
       try {
         const convs = JSON.parse(convsRaw);
         if (Array.isArray(convs)) {
           const trimmed = convs.map(c => ({
             ...c,
-            messages: Array.isArray(c.messages) ? c.messages.slice(-50) : []
+            messages: Array.isArray(c.messages) ? c.messages.slice(-30) : []
           }));
           localStorage.setItem(KEYS.CONVERSATIONS, JSON.stringify(trimmed));
-          return;
         }
       } catch (_) {}
     }
 
-    // 2. Prune old audit logs beyond latest 200
+    // 2. Prune old audit logs beyond latest 150
     const auditRaw = localStorage.getItem(KEYS.ATTENDANCE_AUDIT);
-    if (auditRaw && auditRaw.length > 500000) {
+    if (auditRaw && auditRaw.length > 300000) {
       try {
         const logs = JSON.parse(auditRaw);
-        if (Array.isArray(logs) && logs.length > 200) {
-          localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify(logs.slice(0, 200)));
-          return;
+        if (Array.isArray(logs) && logs.length > 150) {
+          localStorage.setItem(KEYS.ATTENDANCE_AUDIT, JSON.stringify(logs.slice(0, 150)));
         }
       } catch (_) {}
     }
 
-    // 3. Prune historical timesheets beyond latest 300
+    // 3. Prune historical timesheets beyond latest 200
     const tsRaw = localStorage.getItem(KEYS.TIMESHEETS);
-    if (tsRaw && tsRaw.length > 500000) {
+    if (tsRaw && tsRaw.length > 400000) {
       try {
         const timesheets = JSON.parse(tsRaw);
-        if (Array.isArray(timesheets) && timesheets.length > 300) {
-          localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(timesheets.slice(0, 300)));
+        if (Array.isArray(timesheets) && timesheets.length > 200) {
+          localStorage.setItem(KEYS.TIMESHEETS, JSON.stringify(timesheets.slice(0, 200)));
+        }
+      } catch (_) {}
+    }
+
+    // 4. Prune historical attendance records beyond latest 200 (all records preserved in MongoDB)
+    const attRaw = localStorage.getItem(KEYS.ATTENDANCE);
+    if (attRaw && attRaw.length > 400000) {
+      try {
+        const attendance = JSON.parse(attRaw);
+        if (Array.isArray(attendance) && attendance.length > 200) {
+          localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(attendance.slice(0, 200)));
+        }
+      } catch (_) {}
+    }
+
+    // 5. Prune weekly timelogs beyond latest 100
+    const wtRaw = localStorage.getItem(KEYS.WEEKLY_TIMELOGS);
+    if (wtRaw && wtRaw.length > 300000) {
+      try {
+        const timelogs = JSON.parse(wtRaw);
+        if (Array.isArray(timelogs) && timelogs.length > 100) {
+          localStorage.setItem(KEYS.WEEKLY_TIMELOGS, JSON.stringify(timelogs.slice(0, 100)));
         }
       } catch (_) {}
     }
@@ -427,7 +448,11 @@ export const saveCollection = (key, data, options = {}) => {
       console.warn(`[storageService] Quota exceeded writing ${key}. Auto-pruning old mirrors...`);
       pruneExcessStorage();
       try {
-        localStorage.setItem(key, JSON.stringify(data));
+        let payloadToSave = data;
+        if (Array.isArray(data) && data.length > 150 && [KEYS.ATTENDANCE, KEYS.TIMESHEETS, KEYS.ATTENDANCE_AUDIT, KEYS.WEEKLY_TIMELOGS].includes(key)) {
+          payloadToSave = data.slice(0, 150);
+        }
+        localStorage.setItem(key, JSON.stringify(payloadToSave));
       } catch (retryErr) {
         console.error(`[storageService] Failed to write ${key} after prune:`, retryErr);
       }

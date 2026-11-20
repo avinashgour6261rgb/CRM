@@ -684,7 +684,15 @@ export const WorkProvider = ({ children }) => {
         localStorage.setItem(KEYS.TASKS, JSON.stringify(cleanMergedTasks));
 
         // Synchronize running task timer across devices / laptops
-        const remoteRunningTask = cleanMergedTasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t));
+        const remoteRunningTask = cleanMergedTasks.find(t =>
+          t.timerRunning &&
+          t.status !== 'completed' &&
+          !t.completedAt &&
+          (String(t.activeUserId || '').toLowerCase() === String(userKey).toLowerCase() ||
+           String(t.activeUserId || '').toLowerCase() === String(currentUser?._id || '').toLowerCase() ||
+           String(t.activeUserId || '').toUpperCase() === String(currentUser?.employeeCode || '').toUpperCase() ||
+           (!t.activeUserId && isTaskAssignedToMe(t)))
+        );
         const curSnapshot = getActiveTimerSnapshot();
 
         if (remoteRunningTask) {
@@ -811,7 +819,15 @@ export const WorkProvider = ({ children }) => {
       localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
       (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
     if (!isShiftClockedIn) return null;
-    return tasks.find(t => t.timerRunning && t.status !== 'completed' && !t.completedAt && isTaskAssignedToMe(t)) || null;
+    return tasks.find(t =>
+      t.timerRunning &&
+      t.status !== 'completed' &&
+      !t.completedAt &&
+      (String(t.activeUserId || '').toLowerCase() === String(userKey).toLowerCase() ||
+       String(t.activeUserId || '').toLowerCase() === String(currentUser?._id || '').toLowerCase() ||
+       String(t.activeUserId || '').toUpperCase() === String(currentUser?.employeeCode || '').toUpperCase() ||
+       (!t.activeUserId && isTaskAssignedToMe(t)))
+    ) || null;
   }, [tasks, currentUser, isTaskAssignedToMe, userKey]);
 
   useEffect(() => {
@@ -2377,7 +2393,9 @@ export const WorkProvider = ({ children }) => {
         const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
         return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
-      if (t.timerRunning && ((!isForOtherEmployee && isTaskAssignedToMe(t)) || String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
+      const isMyRunningTask = String(t.activeUserId || '').toLowerCase() === String(targetUserKey || '').toLowerCase() ||
+        (activeTimer && String(activeTimer.taskId) === tId && !isForOtherEmployee);
+      if (t.timerRunning && isMyRunningTask) {
         const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
         return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }

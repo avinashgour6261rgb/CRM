@@ -3,7 +3,7 @@ import { getCollection, saveCollection, KEYS, syncDatabaseToStorage } from '../s
 import { ROLES, ROLE_CONFIGS, getUserRole, isAdmin, isHR, isTeamMember, isHRorAdmin, isLeaderOrAbove, getRoleConfig } from '../utils/permissionUtils';
 import { API_BASE, getAuthHeaders } from '../config/apiConfig';
 import { subscribeToSyncEvents } from '../services/realtimeSyncService';
-import { registerSocketUser } from '../services/socketService';
+import { registerSocketUser, subscribeToSocketEvent } from '../services/socketService';
 import { performShiftClockOut } from '../utils/timerUtils';
 
 const AuthContext = createContext();
@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }) => {
               (parsed._id && String(e._id) === String(parsed._id))
             );
             // If employee was relieved/deactivated in DB, immediately log them out
-            if (matched && String(matched.employeeCode || '').toUpperCase() !== 'ADM-001' && ['resigned', 'inactive', 'terminated', 'suspended', 'archived'].includes(String(matched.status || 'active').toLowerCase())) {
+            if (matched && String(matched.employeeCode || '').toUpperCase() !== 'ADM-001' && ['resigned', 'relieved', 'inactive', 'terminated', 'suspended', 'archived'].includes(String(matched.status || 'active').toLowerCase())) {
               localStorage.removeItem(AUTH_STORAGE_KEY);
               localStorage.removeItem('ems_auth_token');
               setCurrentUser(null);
@@ -323,6 +323,24 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
+    // 🔒 Instant Force Logout on all devices when an employee account is relieved / deactivated
+    const unsubscribeForceLogout = subscribeToSocketEvent('user:force_logout', (payload) => {
+      if (!payload) return;
+      try {
+        const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!saved) return;
+        const user = JSON.parse(saved);
+        const uId = String(user?._id || user?.id || '');
+        const uCode = String(user?.employeeCode || '').toUpperCase();
+        const pId = String(payload.employeeId || '');
+        const pCode = String(payload.employeeCode || '').toUpperCase();
+
+        if ((pId && uId && pId === uId) || (pCode && uCode && pCode === uCode)) {
+          handleForceLogout();
+        }
+      } catch (_) {}
+    });
+
     return () => {
       isMounted = false;
       window.removeEventListener('focus', onWindowFocus);
@@ -330,6 +348,7 @@ export const AuthProvider = ({ children }) => {
       window.removeEventListener('ems_force_logout', handleForceLogout);
       clearInterval(intervalId);
       unsubscribeSync();
+      if (typeof unsubscribeForceLogout === 'function') unsubscribeForceLogout();
     };
   }, []);
 

@@ -59,7 +59,7 @@ exports.authenticateUser = async (req, res, next) => {
       }
     }
 
-const INACTIVE_ACCOUNT_STATUSES = new Set(['resigned', 'inactive', 'terminated', 'suspended', 'archived']);
+const INACTIVE_ACCOUNT_STATUSES = new Set(['resigned', 'relieved', 'inactive', 'terminated', 'suspended', 'archived']);
 
     if (user) {
       // Block relieved / inactive / terminated ex-employees on all protected API routes (never block ADM-001)

@@ -864,8 +864,15 @@ export const DashboardPage = () => {
       }
 
       const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
-        ? (empTasks.find(t => t.timerRunning && !isTaskActuallyCompleted(t)) ||
-          (activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null))
+        ? ((activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null) ||
+          empTasks.find(t =>
+            t.timerRunning &&
+            !isTaskActuallyCompleted(t) &&
+            (String(t.activeUserId || '').toLowerCase() === String(empKey || '').toLowerCase() ||
+             String(t.activeUserId || '').toLowerCase() === String(emp?._id || '').toLowerCase() ||
+             String(t.activeUserId || '').toUpperCase() === String(emp?.employeeCode || '').toUpperCase() ||
+             (!t.activeUserId && (!Array.isArray(t.assignedToIds) || t.assignedToIds.length <= 1)))
+          ))
         : null;
 
       if (baseRunningTask && isClockedIn && !isClockedOut && !isOnLeave && !isTaskActuallyCompleted(baseRunningTask)) {
