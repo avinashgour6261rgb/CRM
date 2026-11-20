@@ -189,6 +189,9 @@ export const MessagesPage = () => {
     return (visibleConversations || [])[0] || null;
   }, [visibleConversations, activeConversationId, activeTab]);
 
+  const activeIsChannel = Boolean(activeConv?.type === 'channel');
+  const activePartner = useMemo(() => (!activeIsChannel && activeConv ? getDmPartner(activeConv, currentUser, employees) : null), [activeIsChannel, activeConv, currentUser, employees]);
+
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
     if (newTab === 'dms') {
@@ -932,8 +935,6 @@ export const MessagesPage = () => {
               <div className="text-sm font-semibold">Select a conversation or channel to chat</div>
             </div>
           ) : (() => {
-            const activeIsChannel = activeConv.type === 'channel';
-            const activePartner = !activeIsChannel ? getDmPartner(activeConv, currentUser, employees) : null;
             const headerTitle = activeIsChannel ? (activeConv.channelName || activeConv.name) : (activePartner?.name || activeConv.participantName);
             const headerAvatar = activePartner?.avatar || activeConv.participantAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
             const headerSubtitle = activeIsChannel
