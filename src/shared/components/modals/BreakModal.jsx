@@ -75,7 +75,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
   }, []);
   const PRESET_BREAKS = buildPresetBreaks(companySettings);
 
-  const [activeTab, setActiveTab] = useState(isOnBreak ? 'active' : 'choose');
+  const [activeTab, setActiveTab] = useState('choose');
   const [selectedType, setSelectedType] = useState('Tea / Coffee Break');
   const [customMinutes, setCustomMinutes] = useState(() => Number(getCompanySettings()?.teaBreakMinutes) || 15);
   const [breakNotes, setBreakNotes] = useState('');
@@ -84,11 +84,14 @@ export const BreakModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(isOnBreak ? 'active' : 'choose');
+      setActiveTab('choose');
     }
-  }, [isOpen, isOnBreak]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const isChooseTab = activeTab === 'choose' || activeTab === 'active';
+  const safeBreakHistory = Array.isArray(breakHistory) ? breakHistory : [];
 
   const handleStartBreak = () => {
     const finalType = isCustomMode ? (customBreakTitle.trim() || 'Custom Break') : selectedType;
@@ -134,7 +137,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
             type="button"
             onClick={() => setActiveTab('choose')}
             className={`flex-1 py-2 px-3 rounded-lg border-none text-xs sm:text-[13px] font-bold cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'choose'
+              isChooseTab
                 ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700'
             }`}
@@ -153,7 +156,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
             }`}
           >
             <History size={15} />
-            <span>Break History & Logs ({breakHistory.length})</span>
+            <span>Break History & Logs ({safeBreakHistory.length})</span>
           </button>
         </div>
 
@@ -161,7 +164,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
         <div className="p-5 sm:px-6 overflow-y-auto flex flex-col gap-4">
           
           {/* TAB 1: Take Break / Monitor Active Break */}
-          {activeTab === 'choose' && (
+          {isChooseTab && (
             isOnBreak ? (
               /* Active Break Live Status */
               <div className="flex flex-col gap-4 text-center">
@@ -424,7 +427,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block">Total Breaks:</span>
                   <span className="font-extrabold text-slate-900 dark:text-white text-sm">
-                    {breakHistory.length} Sessions
+                    {safeBreakHistory.length} Sessions
                   </span>
                 </div>
                 <div>
@@ -443,13 +446,13 @@ export const BreakModal = ({ isOpen, onClose }) => {
 
               {/* History Timeline */}
               <div className="flex flex-col gap-2 max-h-[320px] overflow-y-auto">
-                {breakHistory.length === 0 ? (
+                {safeBreakHistory.length === 0 ? (
                   <div className="text-center py-7 px-5 text-slate-400 text-sm">
                     <History size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                     No breaks recorded yet today. Take a break when you need to recharge!
                   </div>
                 ) : (
-                  breakHistory.map((item, idx) => {
+                  safeBreakHistory.map((item, idx) => {
                     const Icon = getBreakIcon(item.type);
                     return (
                       <div
@@ -490,7 +493,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
                 )}
               </div>
 
-              {breakHistory.length > 0 && (
+              {safeBreakHistory.length > 0 && (
                 <div className="text-right border-t border-slate-100 dark:border-slate-800 pt-2.5">
                   <button
                     type="button"
