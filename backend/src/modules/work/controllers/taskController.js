@@ -283,6 +283,13 @@ exports.updateTaskStatus = async (req, res, next) => {
     if (status === 'completed') {
       update.completedOn = getIstDateString();
       update.timerRunning = false;
+      update.startedAt = null;
+      update.activeWorkerId = null;
+      update.activeWorkerName = null;
+      update.activeWorkerAvatar = null;
+      update.activeWorkerRole = null;
+      update.activeUserId = null;
+      update.activeUserName = null;
       if (req.body.timerSeconds !== undefined) update.timerSeconds = req.body.timerSeconds;
       if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;
       if (req.body.hoursLogged !== undefined) update.hoursLogged = req.body.hoursLogged;

@@ -76,8 +76,17 @@ export const ActiveTimerCard = ({ onSelectTask }) => {
             {activeRunningTask.title}
           </h3>
 
-          <div className="flex items-center gap-2 text-[11px] text-sky-200 mt-0.5">
+          <div className="flex items-center gap-2 text-[11px] text-sky-200 mt-0.5 flex-wrap">
             <span>👤 {activeRunningTask.assignedToName}</span>
+            {activeRunningTask.activeWorkerName && (
+              <>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-white font-bold bg-white/20 px-1.5 py-0.5 rounded text-[10px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Working: {activeRunningTask.activeWorkerName}</span>
+                </span>
+              </>
+            )}
             <span>•</span>
             <span>Started: Today</span>
           </div>

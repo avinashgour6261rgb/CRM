@@ -89,7 +89,17 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
 
             {/* Task Cards */}
             <div className="flex flex-col gap-2.5">
-              {colTasks.map((task) => (
+              {colTasks.map((task) => {
+                const myId = String(currentUser?._id || '');
+                const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
+                const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
+                const isMyRunning = Boolean(
+                  (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
+                  (!task.activeWorkerId && !task.activeUserId)
+                );
+                const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
+
+                return (
                 <div
                   key={task._id}
                   onClick={() => onSelectTask && onSelectTask(task)}
@@ -140,6 +150,21 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                     </div>
                   </div>
 
+                  {/* Live Worker Presence Pill */}
+                  {task.timerRunning && (
+                    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border shadow-xs ${
+                      isMyRunning
+                        ? 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    }`}>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span>{isMyRunning ? '🟢 You are working now' : `🟢 ${activeWorkerName} is working now`}</span>
+                    </div>
+                  )}
+
                   {/* Title */}
                   <div className="text-[13.5px] font-semibold text-slate-900 dark:text-white leading-snug">
                     {task.title}
@@ -148,14 +173,21 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                   {/* Action Bar (Timer Controls + Complete Button) */}
                   <div className="flex items-center justify-between gap-1.5">
                     {(task.timerRunning && task.status !== 'completed' && !task.completedAt) ? (
-                      <div className="flex items-center gap-1 bg-sky-600 text-white px-2 py-1 rounded-md text-[11px] font-bold">
+                      <div className={`flex items-center gap-1.5 text-white px-2 py-1 rounded-md text-[11px] font-bold shadow-xs ${
+                        isMyRunning ? 'bg-sky-600' : 'bg-emerald-600'
+                      }`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse inline-block" />
                         <span>⏱️ {task.liveDurationText || task.hoursLoggedText}</span>
+                        {!isMyRunning && (
+                          <span className="text-[10px] opacity-90 font-medium">({activeWorkerName.split(' ')[0]})</span>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             pauseTaskTimer(task._id);
                           }}
                           className="bg-white/25 hover:bg-white/35 border-none text-white px-1.5 py-0.5 rounded text-[10px] cursor-pointer transition-colors"
+                          title={isMyRunning ? "Pause Timer" : `Pause ${activeWorkerName}'s session`}
                         >
                           Pause
                         </button>
@@ -245,7 +277,8 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
               {colTasks.length === 0 && (
                 <div className="py-8 px-2.5 text-center text-[12.5px] text-slate-400 italic">

@@ -188,6 +188,15 @@ export const DashboardTasksSection = ({
                   const isDueToday = !isDone && !task.isUntimed && !task.hasNoDueDate && task.dueDate === todayStr;
                   const isRunningTask = task.timerRunning;
 
+                  const myId = String(currentUser?._id || '');
+                  const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
+                  const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
+                  const isMyRunning = Boolean(
+                    (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
+                    (!task.activeWorkerId && !task.activeUserId)
+                  );
+                  const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
+
                   return (
                     <tr
                       key={task._id || task.id}
@@ -208,6 +217,16 @@ export const DashboardTasksSection = ({
                           {task.isUntimed && (
                             <span className="text-[9px] font-bold py-px px-1.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                               ⚡ Normal Task
+                            </span>
+                          )}
+                          {isRunningTask && (
+                            <span className={`text-[9px] font-extrabold py-px px-1.5 rounded-full border inline-flex items-center gap-1 shadow-xs ${
+                              isMyRunning
+                                ? 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            }`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {isMyRunning ? 'You working' : `${activeWorkerName.split(' ')[0]} working`}
                             </span>
                           )}
                         </div>
@@ -265,18 +284,20 @@ export const DashboardTasksSection = ({
                       </td>
                       <td className="py-2 px-1.5 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 py-px px-1.5 rounded-lg text-[10.5px] font-semibold border ${
+                          className={`inline-flex items-center gap-1.5 py-px px-2 rounded-lg text-[10.5px] font-semibold border ${
                             isDone
                               ? 'bg-green-50 dark:bg-green-950/60 text-green-600 dark:text-green-300 border-green-200 dark:border-green-800'
                               : isRunningTask
-                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                              ? isMyRunning
+                                ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800 font-bold'
+                                : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-bold'
                               : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                           }`}
                         >
                           <span
-                            className={`w-1 h-1 rounded-full ${isDone ? 'bg-green-600' : (isRunningTask ? 'bg-blue-600' : 'bg-slate-400')}`}
+                            className={`w-1.5 h-1.5 rounded-full ${isDone ? 'bg-green-600' : (isRunningTask ? (isMyRunning ? 'bg-sky-500 animate-pulse' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400')}`}
                           />
-                          {isDone ? 'Completed' : (isRunningTask ? 'In Progress ⏱️' : (task.status ? task.status.replace('_', ' ') : 'Pending'))}
+                          {isDone ? 'Completed' : (isRunningTask ? (isMyRunning ? 'You working ⏱️' : `${activeWorkerName.split(' ')[0]} working ⏱️`) : (task.status ? task.status.replace('_', ' ') : 'Pending'))}
                         </span>
                       </td>
                       <td className="py-2 px-1.5 text-right whitespace-nowrap">
@@ -285,10 +306,14 @@ export const DashboardTasksSection = ({
                             isRunningTask ? (
                               <button
                                 onClick={() => pauseTaskTimer(task._id)}
-                                className="flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 py-[3px] px-[7px] rounded-[5px] text-[10.5px] font-bold cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
-                                title="Pause timer"
+                                className={`flex items-center gap-1 py-[3px] px-[7px] rounded-[5px] text-[10.5px] font-bold cursor-pointer transition-colors border ${
+                                  isMyRunning
+                                    ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/60'
+                                    : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                                }`}
+                                title={isMyRunning ? "Pause timer" : `Pause ${activeWorkerName}'s session`}
                               >
-                                <Pause size={10} /> Pause
+                                <Pause size={10} /> {isMyRunning ? 'Pause' : `Pause (${activeWorkerName.split(' ')[0]})`}
                               </button>
                             ) : (
                               <button

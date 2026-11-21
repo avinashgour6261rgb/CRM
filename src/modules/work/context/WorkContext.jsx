@@ -910,11 +910,27 @@ export const WorkProvider = ({ children }) => {
               timerRunning: true,
               startedAt: Number(syncStartedAt) || Date.now(),
               accumulatedSeconds: Number(syncAccum) || t.accumulatedSeconds || 0,
+              activeWorkerId: ev.payload.activeWorkerId || ev.payload.empKey,
+              activeWorkerName: ev.payload.activeWorkerName || ev.payload.empName || ev.payload.startedBy,
+              activeWorkerAvatar: ev.payload.activeWorkerAvatar || '',
+              activeWorkerRole: ev.payload.activeWorkerRole || '',
+              activeUserId: ev.payload.activeUserId || ev.payload.activeWorkerId || ev.payload.empKey,
+              activeUserName: ev.payload.activeUserName || ev.payload.activeWorkerName || ev.payload.empName || ev.payload.startedBy,
               status: t.status === 'incomplete' ? 'in_progress' : t.status
             };
           }
           if (isMyEmp && isTaskAssignedToMe(t) && t.timerRunning) {
-            return { ...t, timerRunning: false, startedAt: null };
+            return {
+              ...t,
+              timerRunning: false,
+              startedAt: null,
+              activeWorkerId: null,
+              activeWorkerName: null,
+              activeWorkerAvatar: null,
+              activeWorkerRole: null,
+              activeUserId: null,
+              activeUserName: null
+            };
           }
           return t;
         }));
@@ -956,6 +972,12 @@ export const WorkProvider = ({ children }) => {
               ...t,
               timerRunning: false,
               startedAt: null,
+              activeWorkerId: null,
+              activeWorkerName: null,
+              activeWorkerAvatar: null,
+              activeWorkerRole: null,
+              activeUserId: null,
+              activeUserName: null,
               accumulatedSeconds: finalAccum,
               timerSeconds: finalAccum,
               accumulatedTodaySeconds: finalToday,
@@ -2244,6 +2266,11 @@ export const WorkProvider = ({ children }) => {
 
     // Target user who owns this task
     const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
+    const targetEmpObj = (employees || []).find(e => String(e._id) === String(targetUserKey) || String(e.employeeCode) === String(targetUserKey));
+    const currentWorkerId = isForOtherEmployee ? String(assignedEmpId) : String(currentUser?._id || userKey);
+    const currentWorkerName = isForOtherEmployee ? (targetEmpObj?.name || assignedEmpName) : (currentUser?.name || assignedEmpName || 'Team Member');
+    const currentWorkerAvatar = isForOtherEmployee ? (targetEmpObj?.avatar || '') : (currentUser?.avatar || '');
+    const currentWorkerRole = isForOtherEmployee ? (targetEmpObj?.role || '') : (currentUser?.role || currentUser?.systemRole || 'Staff');
 
     // 0. Shift Clock-In Guard: Auto clock-in employee for shift when task timer starts
     let isClockedIn = readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
@@ -2422,7 +2449,6 @@ export const WorkProvider = ({ children }) => {
     // Save timer snapshot for target employee
     const timerPayload = JSON.stringify(newTimerState);
     localStorage.setItem(`ems_active_task_timer_${targetUserKey}`, timerPayload);
-    const targetEmpObj = (employees || []).find(e => String(e._id) === String(targetUserKey) || String(e.employeeCode) === String(targetUserKey));
     if (targetEmpObj) {
       if (targetEmpObj.employeeCode) localStorage.setItem(`ems_active_task_timer_${targetEmpObj.employeeCode}`, timerPayload);
       if (targetEmpObj._id) localStorage.setItem(`ems_active_task_timer_${targetEmpObj._id}`, timerPayload);
@@ -2447,8 +2473,12 @@ export const WorkProvider = ({ children }) => {
           todayWorkSeconds: existingTodaySecs,
           liveTodaySeconds: existingTodaySecs,
           dailySessions: updatedDailySessions,
-          activeUserId: targetUserKey,
-          activeUserName: assignedEmpName,
+          activeWorkerId: currentWorkerId,
+          activeWorkerName: currentWorkerName,
+          activeWorkerAvatar: currentWorkerAvatar,
+          activeWorkerRole: currentWorkerRole,
+          activeUserId: currentWorkerId,
+          activeUserName: currentWorkerName,
           startedBy: currentUser?.name || 'User',
           sessionDate: today,
           liveDurationText: formatSeconds(existingTodaySecs),
@@ -2481,8 +2511,12 @@ export const WorkProvider = ({ children }) => {
         dailySessions: updatedDailySessions,
         status: targetTask.status === 'incomplete' ? 'in_progress' : targetTask.status,
         sessionDate: today,
-        activeUserId: targetUserKey,
-        activeUserName: assignedEmpName
+        activeWorkerId: currentWorkerId,
+        activeWorkerName: currentWorkerName,
+        activeWorkerAvatar: currentWorkerAvatar,
+        activeWorkerRole: currentWorkerRole,
+        activeUserId: currentWorkerId,
+        activeUserName: currentWorkerName
       }).catch(err => console.warn('Sync task timer start to backend notice:', err));
 
       if (previousTaskId) {
@@ -2553,7 +2587,13 @@ export const WorkProvider = ({ children }) => {
       accumulatedTodaySeconds: existingTodaySecs,
       todayWorkSeconds: existingTodaySecs,
       startedBy: currentUser?.name || 'User',
-      empName: assignedEmpName
+      empName: assignedEmpName,
+      activeWorkerId: currentWorkerId,
+      activeWorkerName: currentWorkerName,
+      activeWorkerAvatar: currentWorkerAvatar,
+      activeWorkerRole: currentWorkerRole,
+      activeUserId: currentWorkerId,
+      activeUserName: currentWorkerName
     });
     window.dispatchEvent(new CustomEvent('ems_task_timer_started', {
       detail: { taskId, userKey: targetUserKey, empKey: targetUserKey, startedAt: now }
@@ -2577,8 +2617,12 @@ export const WorkProvider = ({ children }) => {
           todayWorkSeconds: existingTodaySecs,
           liveTodaySeconds: existingTodaySecs,
           dailySessions: updatedDailySessions,
-          activeUserId: targetUserKey,
-          activeUserName: assignedEmpName,
+          activeWorkerId: currentWorkerId,
+          activeWorkerName: currentWorkerName,
+          activeWorkerAvatar: currentWorkerAvatar,
+          activeWorkerRole: currentWorkerRole,
+          activeUserId: currentWorkerId,
+          activeUserName: currentWorkerName,
           startedBy: currentUser?.name || 'User',
           sessionDate: today,
           liveDurationText: formatSeconds(existingTodaySecs),
@@ -2771,7 +2815,13 @@ export const WorkProvider = ({ children }) => {
       todayWorkSeconds: updatedTodaySecs,
       dailySessions: dailySessionsMap,
       pausedBy: currentUser?.name || 'User',
-      taskTitle: targetTask.title
+      taskTitle: targetTask.title,
+      activeWorkerId: null,
+      activeWorkerName: null,
+      activeWorkerAvatar: null,
+      activeWorkerRole: null,
+      activeUserId: null,
+      activeUserName: null
     });
     window.dispatchEvent(new CustomEvent('ems_task_timer_paused', {
       detail: { taskId, userKey: targetUserKey, empKey: targetUserKey }
@@ -2794,6 +2844,12 @@ export const WorkProvider = ({ children }) => {
       workService.updateTask(taskId, {
         timerRunning: false,
         startedAt: null,
+        activeWorkerId: null,
+        activeWorkerName: null,
+        activeWorkerAvatar: null,
+        activeWorkerRole: null,
+        activeUserId: null,
+        activeUserName: null,
         accumulatedSeconds: currentSecs,
         timerSeconds: currentSecs,
         todayWorkSeconds: updatedTodaySecs,
@@ -2924,6 +2980,12 @@ export const WorkProvider = ({ children }) => {
             ...t,
             timerRunning: false,
             startedAt: null,
+            activeWorkerId: null,
+            activeWorkerName: null,
+            activeWorkerAvatar: null,
+            activeWorkerRole: null,
+            activeUserId: null,
+            activeUserName: null,
             accumulatedSeconds: totalSecs,
             timerSeconds: totalSecs,
             durationSeconds: totalSecs,
@@ -2945,6 +3007,12 @@ export const WorkProvider = ({ children }) => {
             ...t,
             timerRunning: false,
             startedAt: null,
+            activeWorkerId: null,
+            activeWorkerName: null,
+            activeWorkerAvatar: null,
+            activeWorkerRole: null,
+            activeUserId: null,
+            activeUserName: null,
             accumulatedSeconds: totalSecs,
             timerSeconds: totalSecs,
             durationSeconds: totalSecs,
@@ -3209,6 +3277,13 @@ export const WorkProvider = ({ children }) => {
             status: 'completed',
             progress: 100,
             timerRunning: false,
+            startedAt: null,
+            activeWorkerId: null,
+            activeWorkerName: null,
+            activeWorkerAvatar: null,
+            activeWorkerRole: null,
+            activeUserId: null,
+            activeUserName: null,
             timerSeconds: finalTaskDuration,
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
@@ -3234,6 +3309,13 @@ export const WorkProvider = ({ children }) => {
           status: 'completed',
           progress: 100,
           timerRunning: false,
+          startedAt: null,
+          activeWorkerId: null,
+          activeWorkerName: null,
+          activeWorkerAvatar: null,
+          activeWorkerRole: null,
+          activeUserId: null,
+          activeUserName: null,
           timerSeconds: finalTaskDuration,
           durationSeconds: finalTaskDuration,
           accumulatedSeconds: finalTaskDuration,
@@ -3256,6 +3338,13 @@ export const WorkProvider = ({ children }) => {
             status: 'completed',
             progress: 100,
             timerRunning: false,
+            startedAt: null,
+            activeWorkerId: null,
+            activeWorkerName: null,
+            activeWorkerAvatar: null,
+            activeWorkerRole: null,
+            activeUserId: null,
+            activeUserName: null,
             timerSeconds: finalTaskDuration,
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,

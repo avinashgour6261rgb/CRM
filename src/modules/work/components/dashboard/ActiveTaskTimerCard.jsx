@@ -102,6 +102,12 @@ export const ActiveTaskTimerCard = ({
             <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
               <span>Start: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{displayActiveTask?.timerStartTime || (displayActiveTask?.timerRunning ? 'Running ⏱️' : (isOnBreak ? 'On Break ☕' : (displayActiveTask?.timerSeconds > 0 ? 'Paused ⏸️' : 'Not Started')))}</strong></span>
               <span>Assignee: <strong className="text-slate-900 dark:text-white font-semibold">{displayActiveTask?.assignedToName || 'Me'}</strong></span>
+              {displayActiveTask?.timerRunning && (displayActiveTask.activeWorkerName || displayActiveTask.activeUserName) && (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Working: <strong>{displayActiveTask.activeWorkerName || displayActiveTask.activeUserName}</strong></span>
+                </span>
+              )}
               <span>By: <strong className="text-slate-500 dark:text-slate-400">{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
             </div>
 

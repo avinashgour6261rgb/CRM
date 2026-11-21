@@ -238,6 +238,22 @@ const TaskSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    activeWorkerId: {
+      type: String,
+      default: null
+    },
+    activeWorkerName: {
+      type: String,
+      default: null
+    },
+    activeWorkerAvatar: {
+      type: String,
+      default: null
+    },
+    activeWorkerRole: {
+      type: String,
+      default: null
+    },
     snoozed: {
       type: Boolean,
       default: false

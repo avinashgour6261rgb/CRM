@@ -168,6 +168,14 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
               const isMenuOpen = activeMenuId === task._id;
               const isSelected = selectedTaskIds.includes(task._id);
               const isOnLeave = isEmployeeOnLeave(task.assignedToId || task.assignedTo);
+              const myId = String(currentUser?._id || '');
+              const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
+              const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
+              const isMyRunning = Boolean(
+                (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
+                (!task.activeWorkerId && !task.activeUserId)
+              );
+              const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
 
               return (
                 <tr
@@ -199,10 +207,12 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                         <span>Done ({task.hoursLoggedText || formatSeconds(task.timerSeconds || 0)})</span>
                       </span>
                     ) : task.timerRunning ? (
-                      <div className="inline-flex items-center gap-1 bg-sky-600 text-white py-0.5 px-2 rounded-full text-[11px] font-bold shadow-[0_2px_4px_rgba(2,132,199,0.3)]">
+                      <div className={`inline-flex items-center gap-1.5 text-white py-0.5 px-2 rounded-full text-[11px] font-bold shadow-xs ${
+                        isMyRunning ? 'bg-sky-600 shadow-[0_2px_5px_rgba(2,132,199,0.35)]' : 'bg-emerald-600 shadow-[0_2px_5px_rgba(5,150,105,0.35)]'
+                      }`}>
                         {/* Pause button */}
                         <button
-                          title="Pause Timer"
+                          title={isMyRunning ? "Pause Timer" : `Pause ${activeWorkerName}'s session`}
                           onClick={(e) => {
                             e.stopPropagation();
                             pauseTaskTimer(task._id);
@@ -224,9 +234,20 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                           <Square size={7} fill="#ffffff" />
                         </button>
 
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                        </span>
+
                         <span className="font-mono tracking-wide text-[11px]">
                           ⏱️ {task.liveDurationText || formatSeconds(task.todayWorkSeconds || 0)}
                         </span>
+
+                        {!isMyRunning && (
+                          <span className="text-[10px] font-semibold bg-black/20 px-1 py-px rounded max-w-[85px] overflow-hidden text-ellipsis whitespace-nowrap" title={`${activeWorkerName} is working`}>
+                            {activeWorkerName.split(' ')[0]}
+                          </span>
+                        )}
                       </div>
                     ) : task.snoozed ? (
                       <div className="inline-flex items-center gap-1">
@@ -278,6 +299,16 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
                       <span className="text-[12.5px] font-semibold text-slate-900 leading-snug">
                         {task.title}
                       </span>
+                      {task.timerRunning && (
+                        <span className={`text-[9.5px] font-extrabold py-px px-1.5 rounded-full border inline-flex items-center gap-1 shadow-xs ${
+                          isMyRunning
+                            ? 'bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        }`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {isMyRunning ? '🟢 You working now' : `🟢 ${activeWorkerName.split(' ')[0]} working now`}
+                        </span>
+                      )}
                       {task.isPersonal && (
                         <span className="text-[9.5px] font-bold py-px px-1.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
                           🔒 Personal
