@@ -570,6 +570,174 @@ const getEmployeeCredentials = asyncHandler(async (req, res) => {
   });
 });
 
+// ─── POST /api/employees/handover ─────────────────────────────────────────────
+const handoverEmployeeWork = asyncHandler(async (req, res) => {
+  const {
+    sourceEmployeeId,
+    sourceEmployeeCode,
+    targetEmployeeId,
+    selections = { tasks: true, leads: true, projects: true, tickets: true },
+    handoverNotes
+  } = req.body;
+
+  if (!sourceEmployeeId || !targetEmployeeId) {
+    return res.status(400).json({ success: false, message: 'Source and target employee IDs are required' });
+  }
+
+  const targetEmp = await Employee.findById(targetEmployeeId);
+  if (!targetEmp) {
+    return res.status(404).json({ success: false, message: 'Target successor employee not found' });
+  }
+
+  const { emitToAll } = require('../../../shared/socket/socketManager');
+  const results = { tasks: 0, leads: 0, projects: 0, tickets: 0 };
+
+  // 1. Reassign Tasks
+  if (selections.tasks) {
+    try {
+      const Task = require('../../work/models/Task');
+      const taskFilter = {
+        status: { $ne: 'completed' },
+        $or: [
+          { assignedToId: String(sourceEmployeeId) },
+          { assignedToIds: String(sourceEmployeeId) }
+        ]
+      };
+      if (sourceEmployeeCode) {
+        taskFilter.$or.push({ assignedToCode: String(sourceEmployeeCode).toUpperCase() });
+      }
+
+      const tasksToUpdate = await Task.find(taskFilter);
+      for (const t of tasksToUpdate) {
+        let newIds = (t.assignedToIds || []).filter(id => String(id) !== String(sourceEmployeeId));
+        if (!newIds.includes(String(targetEmp._id))) newIds.push(String(targetEmp._id));
+
+        let newAssignees = (t.assignees || []).filter(a => String(a._id || a.id) !== String(sourceEmployeeId));
+        newAssignees.push({
+          _id: String(targetEmp._id),
+          id: String(targetEmp._id),
+          name: targetEmp.name,
+          role: targetEmp.role,
+          avatar: targetEmp.avatar,
+          email: targetEmp.email,
+          employeeCode: targetEmp.employeeCode
+        });
+
+        t.assignedToId = String(targetEmp._id);
+        t.assignedToName = targetEmp.name;
+        t.assignedToRole = targetEmp.role;
+        t.assignedToAvatar = targetEmp.avatar;
+        t.assignedToEmail = targetEmp.email;
+        t.assignedToIds = newIds;
+        t.assignees = newAssignees;
+        await t.save();
+        results.tasks++;
+        try { emitToAll('task:updated', { action: 'update', item: t.toObject() }); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('Backend task handover warning:', e);
+    }
+  }
+
+  // 2. Reassign Leads
+  if (selections.leads) {
+    try {
+      const Lead = require('../../crm/models/Lead');
+      const leadFilter = {
+        status: { $nin: ['converted', 'lost'] },
+        $or: [
+          { leadOwnerId: String(sourceEmployeeId) },
+          { assignedToId: String(sourceEmployeeId) }
+        ]
+      };
+      const leadsToUpdate = await Lead.find(leadFilter);
+      for (const l of leadsToUpdate) {
+        l.leadOwnerId = String(targetEmp._id);
+        l.leadOwnerName = targetEmp.name;
+        l.leadOwnerRole = targetEmp.role;
+        l.leadOwnerAvatar = targetEmp.avatar;
+        l.leadOwnerEmail = targetEmp.email;
+        l.assignedToId = String(targetEmp._id);
+        l.assignedToName = targetEmp.name;
+        await l.save();
+        results.leads++;
+        try { emitToAll('lead:updated', { action: 'update', item: l.toObject() }); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('Backend lead handover warning:', e);
+    }
+  }
+
+  // 3. Reassign Projects
+  if (selections.projects) {
+    try {
+      const Project = require('../../work/models/Project');
+      const projFilter = {
+        status: { $ne: 'completed' },
+        $or: [
+          { projectManagerId: String(sourceEmployeeId) },
+          { 'teamMembers.employeeId': String(sourceEmployeeId) },
+          { teamMemberIds: String(sourceEmployeeId) }
+        ]
+      };
+      const projectsToUpdate = await Project.find(projFilter);
+      for (const p of projectsToUpdate) {
+        if (String(p.projectManagerId) === String(sourceEmployeeId)) {
+          p.projectManagerId = String(targetEmp._id);
+          p.projectManager = targetEmp.name;
+          p.projectManagerName = targetEmp.name;
+          p.projectManagerAvatar = targetEmp.avatar;
+        }
+        let members = (p.teamMembers || []).filter(m => String(m.employeeId || m._id) !== String(sourceEmployeeId));
+        if (!members.some(m => String(m.employeeId || m._id) === String(targetEmp._id))) {
+          members.push({
+            employeeId: String(targetEmp._id),
+            _id: String(targetEmp._id),
+            name: targetEmp.name,
+            role: targetEmp.role,
+            avatar: targetEmp.avatar
+          });
+        }
+        p.teamMembers = members;
+        await p.save();
+        results.projects++;
+        try { emitToAll('project:updated', { action: 'update', item: p.toObject() }); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('Backend project handover warning:', e);
+    }
+  }
+
+  // 4. Reassign Tickets
+  if (selections.tickets) {
+    try {
+      const Ticket = require('../../tickets/models/Ticket');
+      const ticketFilter = {
+        status: { $nin: ['closed', 'resolved'] },
+        assignedToId: String(sourceEmployeeId)
+      };
+      const ticketsToUpdate = await Ticket.find(ticketFilter);
+      for (const t of ticketsToUpdate) {
+        t.assignedToId = String(targetEmp._id);
+        t.assignedToName = targetEmp.name;
+        t.assignedToRole = targetEmp.role;
+        t.assignedToAvatar = targetEmp.avatar;
+        await t.save();
+        results.tickets++;
+        try { emitToAll('ticket:updated', { action: 'update', item: t.toObject() }); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('Backend ticket handover warning:', e);
+    }
+  }
+
+  res.json({
+    success: true,
+    data: results,
+    message: `Handover complete: ${results.tasks} tasks, ${results.leads} leads, ${results.projects} projects, ${results.tickets} tickets reassigned to ${targetEmp.name}`
+  });
+});
+
 module.exports = {
   getEmployees,
   getCurrentUser,
@@ -579,6 +747,7 @@ module.exports = {
   createEmployee,
   updateEmployee,
   updateEmployeePermissions,
-  deleteEmployee
+  deleteEmployee,
+  handoverEmployeeWork
 };
 

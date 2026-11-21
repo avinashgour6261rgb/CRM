@@ -11,13 +11,15 @@ import {
   Plus,
   ShieldCheck,
   Send,
-  Calendar
+  Calendar,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { isHRorAdmin, isAdmin } from '../../../../shared/utils/permissionUtils';
 import { ReviewResignationModal } from './ReviewResignationModal';
 import { SubmitResignationModal } from './SubmitResignationModal';
+import { EmployeeHandoverModal } from './EmployeeHandoverModal';
 
 export const ResignationsListPanel = () => {
   const { resignations, employees } = useHR();
@@ -30,6 +32,7 @@ export const ResignationsListPanel = () => {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'pending', 'approved', 'rejected', 'relieved'
   const [selectedResignationForReview, setSelectedResignationForReview] = useState(null);
+  const [handoverResignation, setHandoverResignation] = useState(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
   // Scoped Resignations:
@@ -262,13 +265,23 @@ export const ResignationsListPanel = () => {
                       </td>
                       {isActorPrivileged && (
                         <td className="p-3 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => setSelectedResignationForReview(res)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
-                          >
-                            <ShieldCheck size={12} />
-                            <span>{res.isRelieved ? 'View Decision' : 'Review / Take Action'}</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            <button
+                              onClick={() => setHandoverResignation(res)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11.5px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                              title="Handover & Reassign Work"
+                            >
+                              <ArrowRightLeft size={12} />
+                              <span>Handover</span>
+                            </button>
+                            <button
+                              onClick={() => setSelectedResignationForReview(res)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                            >
+                              <ShieldCheck size={12} />
+                              <span>{res.isRelieved ? 'View Decision' : 'Review / Take Action'}</span>
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -294,6 +307,15 @@ export const ResignationsListPanel = () => {
         isOpen={isSubmitModalOpen}
         onClose={() => setIsSubmitModalOpen(false)}
       />
+
+      {/* Smart Handover Wizard Modal */}
+      {handoverResignation && (
+        <EmployeeHandoverModal
+          isOpen={!!handoverResignation}
+          onClose={() => setHandoverResignation(null)}
+          sourceEmployee={handoverResignation}
+        />
+      )}
     </div>
   );
 };

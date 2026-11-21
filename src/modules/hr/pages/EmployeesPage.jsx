@@ -19,7 +19,8 @@ import {
   TrendingDown,
   ArrowUpDown,
   Filter,
-  Key
+  Key,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -31,6 +32,7 @@ import { EditProfileModal } from '../../../shared/components/modals/EditProfileM
 import { SalaryIncrementModal } from '../../finance/components/SalaryIncrementModal';
 import { ManagePermissionsModal } from '../components/employees/ManagePermissionsModal';
 import { EmployeeCredentialsModal } from '../components/employees/EmployeeCredentialsModal';
+import { EmployeeHandoverModal } from '../components/resignations/EmployeeHandoverModal';
 import { getRoles } from '../../../shared/services/roleManagementService';
 import {
   isAdmin,
@@ -64,6 +66,7 @@ export const EmployeesPage = () => {
   const [selectedSalaryEmp, setSelectedSalaryEmp] = useState(null);
   const [selectedPermsEmp, setSelectedPermsEmp] = useState(null);
   const [selectedCredentialsEmp, setSelectedCredentialsEmp] = useState(null);
+  const [selectedHandoverEmp, setSelectedHandoverEmp] = useState(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -469,6 +472,18 @@ export const EmployeesPage = () => {
                                                                 </button>
                                                               )}
 
+                                                              {/* Button 3.2: Handover & Asset Reassignment */}
+                                                              {canManage && (
+                                                                <button
+                                                                  onClick={() => setSelectedHandoverEmp(emp)}
+                                                                  className="inline-flex items-center gap-1 py-1 px-2 rounded-[5px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-bold cursor-pointer h-6 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                                                  title="Handover & Transfer Work (Tasks, Leads, Projects) to Colleague"
+                                                                >
+                                                                  <ArrowRightLeft size={11} color="#059669" />
+                                                                  <span>Handover</span>
+                                                                </button>
+                                                              )}
+
                                                               {/* Button 3.5: View Login Credentials & Access Pass (Admin & Manage Credentials) */}
                                                               {canManageCredentials(currentUser) && (
                                                                 <button
@@ -578,6 +593,15 @@ export const EmployeesPage = () => {
                                                   onClose={() => setSelectedCredentialsEmp(null)}
                                                   employee={selectedCredentialsEmp}
                                                 />
+
+                                                {/* Smart Handover Wizard Modal */}
+                                                {selectedHandoverEmp && (
+                                                  <EmployeeHandoverModal
+                                                    isOpen={!!selectedHandoverEmp}
+                                                    onClose={() => setSelectedHandoverEmp(null)}
+                                                    sourceEmployee={selectedHandoverEmp}
+                                                  />
+                                                )}
 
                                               </div>
                                             );

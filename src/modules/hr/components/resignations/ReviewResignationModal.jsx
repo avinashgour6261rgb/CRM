@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { X, CheckCircle2, XCircle, UserCheck, ShieldAlert, Calendar, FileText, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle2, XCircle, UserCheck, ShieldAlert, Calendar, FileText, AlertCircle, ArrowRightLeft } from 'lucide-react';
 import { useHR } from '../../context/HRContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { EmployeeHandoverModal } from './EmployeeHandoverModal';
+import { getEmployeePendingAssets } from '../../services/handoverService';
 
 export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) => {
   const { currentUser: hrUser, reviewResignation } = useHR();
@@ -17,6 +19,14 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
   const [approvedLastDay, setApprovedLastDay] = useState(resignation?.proposedLastWorkingDay || today);
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isHandoverOpen, setIsHandoverOpen] = useState(false);
+  const [pendingAssets, setPendingAssets] = useState({ tasks: [], leads: [], projects: [], tickets: [], totalCount: 0 });
+
+  useEffect(() => {
+    if (resignation) {
+      setPendingAssets(getEmployeePendingAssets(resignation));
+    }
+  }, [resignation, isHandoverOpen]);
 
   if (!isOpen || !resignation) return null;
 
@@ -107,6 +117,38 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
               {resignation.isRelieved ? 'Relieved (Archived)' : resignation.status}
             </span>
           </div>
+
+          {/* Active Workload & Handover Banner */}
+          {pendingAssets.totalCount > 0 ? (
+            <div className="p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <ArrowRightLeft size={16} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Active Workload Detected ({pendingAssets.totalCount} items)
+                  </div>
+                  <div className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {pendingAssets.tasks.length} tasks, {pendingAssets.leads.length} leads, {pendingAssets.projects.length} projects, {pendingAssets.tickets.length} tickets
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHandoverOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer border-none shadow-xs"
+              >
+                <ArrowRightLeft size={13} />
+                <span>Handover Work ➔</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+              <span><strong>Clean Separation:</strong> No active tasks, leads, or projects pending for this employee.</span>
+            </div>
+          )}
 
           {/* Reason & Proposal details */}
           <div className="p-3 bg-slate-50/80 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50 text-xs">
@@ -229,6 +271,18 @@ export const ReviewResignationModal = ({ isOpen, onClose, resignation = null }) 
           </div>
         </form>
       </div>
+
+      {/* Smart Handover Wizard Modal */}
+      {isHandoverOpen && (
+        <EmployeeHandoverModal
+          isOpen={isHandoverOpen}
+          onClose={() => setIsHandoverOpen(false)}
+          sourceEmployee={resignation}
+          onHandoverComplete={() => {
+            setPendingAssets(getEmployeePendingAssets(resignation));
+          }}
+        />
+      )}
     </div>
   );
 };

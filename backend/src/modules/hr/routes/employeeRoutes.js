@@ -9,7 +9,8 @@ const {
   createEmployee,
   updateEmployee,
   updateEmployeePermissions,
-  deleteEmployee
+  deleteEmployee,
+  handoverEmployeeWork
 } = require('../controllers/employeeController');
 const { authenticateUser } = require('../../../shared/middleware/authMiddleware');
 
@@ -17,6 +18,7 @@ router.get('/current', getCurrentUser);
 router.post('/switch/:id', switchCurrentUser);
 router.get('/:id/credentials', authenticateUser, getEmployeeCredentials);
 router.put('/:id/permissions', authenticateUser, updateEmployeePermissions);
+router.post('/handover', authenticateUser, handoverEmployeeWork);
 router.route('/')
   .get(getEmployees)
   .post(authenticateUser, createEmployee);
