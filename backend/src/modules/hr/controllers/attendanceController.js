@@ -388,66 +388,28 @@ const markAttendance = asyncHandler(async (req, res) => {
     { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
   );
 
-  // ⏱️ Auto-sync edited attendance working time to Timesheets collection!
+  // ⏱️ Auto-cleanup: Ensure Timesheets collection never stores synthetic shift syncs so shift duration is never counted as a task
   try {
     const Timesheet = require('../../work/models/Timesheet');
-    const finalSecs = (workSeconds !== undefined && Number(workSeconds) > 0)
-      ? Number(workSeconds)
-      : Math.round(Number(record.totalWorkingHours || 0) * 3600);
+    const orEmpMatch = [];
+    if (targetEmpId && mongoose.Types.ObjectId.isValid(targetEmpId)) orEmpMatch.push({ employee: targetEmpId });
+    if (targetEmpCode) orEmpMatch.push({ employeeCode: targetEmpCode });
 
-    if (finalSecs > 0) {
-      const totalHrs = Math.floor(finalSecs / 3600);
-      const totalMins = Math.floor((finalSecs % 3600) / 60);
-      const durText = `${String(totalHrs).padStart(2, '0')}h ${String(totalMins).padStart(2, '0')}m`;
-
-      const orEmpMatch = [];
-      if (targetEmpId && mongoose.Types.ObjectId.isValid(targetEmpId)) orEmpMatch.push({ employee: targetEmpId });
-      if (targetEmpCode) orEmpMatch.push({ employeeCode: targetEmpCode });
-
-      if (orEmpMatch.length > 0) {
-        let existingShiftTs = await Timesheet.findOne({
-          date,
-          $or: orEmpMatch,
-          $and: [{
-            $or: [
-              { isShiftSync: true },
-              { taskTitle: 'Daily Shift / Office Work' },
-              { projectName: 'General Work' }
-            ]
-          }]
-        });
-
-        if (existingShiftTs) {
-          existingShiftTs.totalDurationSeconds = finalSecs;
-          existingShiftTs.totalDurationText = durText;
-          if (clockInTime) existingShiftTs.startTime = clockInTime;
-          if (clockOutTime) existingShiftTs.endTime = clockOutTime;
-          existingShiftTs.status = clockOutTime ? 'stopped' : 'active';
-          existingShiftTs.memo = notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : 'Shift working time synced from attendance');
-          await existingShiftTs.save();
-        } else {
-          await Timesheet.create({
-            employee: targetEmpId,
-            employeeCode: targetEmpCode,
-            employeeName: record.employeeName,
-            employeeRole: record.employeeRole,
-            date,
-            taskTitle: 'Daily Shift / Office Work',
-            projectName: 'General Work',
-            startTime: clockInTime || '10:00:00',
-            endTime: clockOutTime || null,
-            totalDurationSeconds: finalSecs,
-            totalDurationText: durText,
-            isBillable: true,
-            status: clockOutTime ? 'stopped' : 'active',
-            isShiftSync: true,
-            memo: notes || (auditNote ? `Adjusted by ${adminActorName}: ${auditNote}` : 'Shift working time synced from attendance')
-          });
-        }
-      }
+    if (orEmpMatch.length > 0) {
+      await Timesheet.deleteMany({
+        date,
+        $or: orEmpMatch,
+        $and: [{
+          $or: [
+            { isShiftSync: true },
+            { taskTitle: 'Daily Shift / Office Work' },
+            { memo: /synced from attendance/i }
+          ]
+        }]
+      });
     }
   } catch (tsErr) {
-    console.warn('[attendanceController] Auto-sync to timesheet failed:', tsErr.message);
+    console.warn('[attendanceController] Auto-cleanup of timesheet shift sync failed:', tsErr.message);
   }
 
   // Mandatory Audit Trail for Admin manual modifications

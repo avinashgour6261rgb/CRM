@@ -34,11 +34,18 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
 
   // Strictly filter out synthetic shift syncs so only actual tasks worked are displayed
   const tasksWorked = useMemo(() => {
-    return (dayLog.tasksWorked || []).filter(t =>
-      !t.isShiftSync &&
-      t.taskTitle !== 'Daily Shift / Office Work' &&
-      !String(t.memo || '').includes('synced from attendance')
-    );
+    return (dayLog.tasksWorked || []).filter(t => {
+      const isShift = Boolean(
+        t.isShiftSync ||
+        t.taskTitle === 'Daily Shift / Office Work' ||
+        t.title === 'Daily Shift / Office Work' ||
+        (t.taskTitle && String(t.taskTitle).toLowerCase().includes('daily shift')) ||
+        (t.title && String(t.title).toLowerCase().includes('daily shift')) ||
+        String(t.memo || '').toLowerCase().includes('synced from attendance') ||
+        String(t.notes || '').toLowerCase().includes('synced from attendance')
+      );
+      return !isShift;
+    });
   }, [dayLog.tasksWorked]);
 
   // Compute exact total task work duration strictly from filtered tasks

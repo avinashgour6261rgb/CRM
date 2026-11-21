@@ -648,11 +648,27 @@ export const TeamOperationsPage = () => {
       ? (Number(localStorage.getItem(`ems_timer_${empKey}_break_start_timestamp`)) || Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || 0)
       : (Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || Number(localStorage.getItem(`ems_timer_${empKey}_break_start_timestamp`)) || 0);
 
-    const pastBreaksFromHistory = (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0)
-      ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
-      : (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0
-        ? telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
-        : (isSelf ? (Number(selfBreakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs)));
+    // 1. Calculate past completed breaks strictly from break history (avoid double-counting active break)
+    let completedPastBreakSecs = 0;
+    let hasCompletedHistory = false;
+    if (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0) {
+      completedPastBreakSecs = attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+      hasCompletedHistory = true;
+    } else if (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0) {
+      completedPastBreakSecs = telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+      hasCompletedHistory = true;
+    } else {
+      try {
+        const rawBh = localStorage.getItem(`ems_timer_${empKey}_break_history`);
+        if (rawBh) {
+          const parsedBh = JSON.parse(rawBh);
+          if (Array.isArray(parsedBh) && parsedBh.length > 0) {
+            completedPastBreakSecs = parsedBh.filter(b => b.date === todayStr).reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+            hasCompletedHistory = true;
+          }
+        }
+      } catch (_) {}
+    }
 
     const liveCurrentBreak = (breakStartTimestamp > 0 && breakStartTimestamp <= nowMs)
       ? Math.max(0, Math.floor((nowMs - breakStartTimestamp) / 1000))
@@ -664,9 +680,15 @@ export const TeamOperationsPage = () => {
 
     let computedBreakSecs = 0;
     if (effectiveOnBreak) {
-      computedBreakSecs = pastBreaksFromHistory + liveCurrentBreak;
-      if (isSelf && Number(selfBreakSeconds) > 0) {
-        computedBreakSecs = Math.max(Number(selfBreakSeconds), computedBreakSecs);
+      if (hasCompletedHistory) {
+        // True single-rate: completed breaks + current ticking break
+        computedBreakSecs = completedPastBreakSecs + currentBreakSecs;
+      } else {
+        // Fallback: selfBreakSeconds or telem.breakSeconds ALREADY contains active break seconds; never add liveCurrentBreak again!
+        const baseTotalBreaks = isSelf
+          ? (Number(selfBreakSeconds) || storedBreakSecs)
+          : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
+        computedBreakSecs = Math.max(baseTotalBreaks, currentBreakSecs);
       }
     } else {
       computedBreakSecs = isSelf

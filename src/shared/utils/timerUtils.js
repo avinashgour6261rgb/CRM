@@ -1342,7 +1342,16 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
   const rawDayTimesheets = allTimesheets.filter(ts => {
     if (!ts) return false;
     // 🛡️ CRITICAL: Exclude synthetic shift attendance syncs! Shift duration is NOT a task!
-    if (ts.isShiftSync || ts.taskTitle === 'Daily Shift / Office Work' || (ts.memo && String(ts.memo).toLowerCase().includes('synced from attendance'))) {
+    const isSyntheticShift = Boolean(
+      ts.isShiftSync ||
+      ts.taskTitle === 'Daily Shift / Office Work' ||
+      ts.title === 'Daily Shift / Office Work' ||
+      (ts.taskTitle && String(ts.taskTitle).toLowerCase().includes('daily shift')) ||
+      (ts.title && String(ts.title).toLowerCase().includes('daily shift')) ||
+      (ts.memo && String(ts.memo).toLowerCase().includes('synced from attendance')) ||
+      (ts.notes && String(ts.notes).toLowerCase().includes('synced from attendance'))
+    );
+    if (isSyntheticShift) {
       return false;
     }
     const tsDate = ts.date || (ts.createdAt ? ts.createdAt.split('T')[0] : '');

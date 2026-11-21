@@ -415,7 +415,13 @@ export const DashboardPage = () => {
   const [syncTick, setSyncTick] = useState(0);
 
   useEffect(() => {
-    const handleSync = () => setSyncTick(t => t + 1);
+    let syncTimer = null;
+    const handleSync = () => {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        setSyncTick(t => t + 1);
+      }, 40);
+    };
     window.addEventListener('storage', handleSync);
     window.addEventListener('hrms_storage_change', handleSync);
     window.addEventListener('ems_clocked_in', handleSync);
@@ -428,6 +434,7 @@ export const DashboardPage = () => {
     window.addEventListener('ems_break_started', handleSync);
     window.addEventListener('ems_break_ended', handleSync);
     return () => {
+      if (syncTimer) clearTimeout(syncTimer);
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('hrms_storage_change', handleSync);
       window.removeEventListener('ems_clocked_in', handleSync);
@@ -724,31 +731,53 @@ export const DashboardPage = () => {
       ? (Number(readTimerKey('break_start_timestamp')) || Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || 0)
       : (Number(telem?.breakStartTimestamp) || Number(attRec?.breakStartTimestamp) || Number(readTimerKey('break_start_timestamp')) || 0);
 
-    const pastBreaksFromHistory = (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0)
-      ? attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
-      : (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0
-        ? telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0)
-        : (isSelf ? (Number(breakSeconds) || storedBreakSecs) : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs)));
+    // 1. Calculate past completed breaks strictly from break history (avoid double-counting active break)
+    let completedPastBreakSecs = 0;
+    let hasCompletedHistory = false;
+    if (Array.isArray(attRec?.breakHistory) && attRec.breakHistory.length > 0) {
+      completedPastBreakSecs = attRec.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+      hasCompletedHistory = true;
+    } else if (Array.isArray(telem?.breakHistory) && telem.breakHistory.length > 0) {
+      completedPastBreakSecs = telem.breakHistory.reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+      hasCompletedHistory = true;
+    } else {
+      try {
+        const rawBh = localStorage.getItem(`ems_timer_${empKey}_break_history`);
+        if (rawBh) {
+          const parsedBh = JSON.parse(rawBh);
+          if (Array.isArray(parsedBh) && parsedBh.length > 0) {
+            completedPastBreakSecs = parsedBh.filter(b => b.date === todayStr).reduce((acc, b) => acc + (Number(b.durationSeconds) || 0), 0);
+            hasCompletedHistory = true;
+          }
+        }
+      } catch (_) {}
+    }
 
     const liveCurrentBreak = (breakStartTimestamp > 0 && breakStartTimestamp <= nowMs)
       ? Math.max(0, Math.floor((nowMs - breakStartTimestamp) / 1000))
       : 0;
 
+    const currentBreakSecs = effectiveOnBreak
+      ? (isSelf && Number(currentBreakSeconds) > 0 ? Math.max(Number(currentBreakSeconds), liveCurrentBreak) : liveCurrentBreak)
+      : 0;
+
     let computedBreakSecs = 0;
     if (effectiveOnBreak) {
-      computedBreakSecs = pastBreaksFromHistory + liveCurrentBreak;
-      if (isSelf && Number(breakSeconds) > 0) {
-        computedBreakSecs = Math.max(Number(breakSeconds), computedBreakSecs);
+      if (hasCompletedHistory) {
+        // True single-rate: completed breaks + current ticking break
+        computedBreakSecs = completedPastBreakSecs + currentBreakSecs;
+      } else {
+        // Fallback: breakSeconds or telem.breakSeconds ALREADY contains active break seconds; never add liveCurrentBreak again!
+        const baseTotalBreaks = isSelf
+          ? (Number(breakSeconds) || storedBreakSecs)
+          : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
+        computedBreakSecs = Math.max(baseTotalBreaks, currentBreakSecs);
       }
     } else {
       computedBreakSecs = isSelf
         ? (Number(breakSeconds) || storedBreakSecs)
         : (Number(telem?.breakSeconds) || Number(attRec?.breakSeconds) || storedBreakSecs);
     }
-
-    const currentBreakSecs = effectiveOnBreak
-      ? (isSelf && Number(currentBreakSeconds) > 0 ? Math.max(Number(currentBreakSeconds), liveCurrentBreak) : liveCurrentBreak)
-      : 0;
 
     const candidateLogins = [
       telem?.clockInTime,
@@ -1730,8 +1759,8 @@ export const DashboardPage = () => {
   // Resolved live shift state for currently displayed user perspective
   const displayedIsOnLeave = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnLeave) : Boolean(isOnLeaveToday || activeEmpState?.isOnLeave);
   const displayedHadClockedOut = isViewingOtherEmployee ? activeEmpState?.isClockedOut : hadClockedOutToday;
-  const displayedIsClockedIn = !displayedHadClockedOut && (isViewingOtherEmployee ? activeEmpState?.isClockedIn : isClockedIn);
-  const displayedIsOnBreak = isViewingOtherEmployee ? activeEmpState?.isOnBreak : isOnBreak;
+  const displayedIsClockedIn = !displayedHadClockedOut && (isViewingOtherEmployee ? Boolean(activeEmpState?.isClockedIn) : Boolean(isClockedIn));
+  const displayedIsOnBreak = isViewingOtherEmployee ? Boolean(activeEmpState?.isOnBreak) : Boolean(isOnBreak);
   const displayedBreakType = isViewingOtherEmployee ? (activeEmpState?.breakType || 'Break') : breakType;
   const displayedLoginTime = isViewingOtherEmployee ? activeEmpState?.loginTime : loginTime;
   const displayedClockOutTime = isViewingOtherEmployee ? activeEmpState?.clockOutTime : clockOutTime;

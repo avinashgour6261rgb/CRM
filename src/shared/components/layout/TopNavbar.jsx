@@ -85,22 +85,39 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
   // Resolves effective running task with immediate snapshot fallback so header never stays blank
   const effectiveRunningTask = useMemo(() => {
-    if (activeRunningTask && activeRunningTask.timerRunning) return activeRunningTask;
+    if (activeRunningTask && activeRunningTask.timerRunning && activeRunningTask.status !== 'completed' && !activeRunningTask.completedAt) {
+      return activeRunningTask;
+    }
     if (!currentUser || !isClockedIn || isOnBreak) return null;
-    const userKey = currentUser.employeeCode || currentUser._id || currentUser.id;
+    const userKeys = [currentUser.employeeCode, currentUser._id, currentUser.id].filter(Boolean);
     try {
-      const raw = localStorage.getItem(`ems_active_task_timer_${userKey}`) ||
-        (currentUser.employeeCode ? localStorage.getItem(`ems_active_task_timer_${currentUser.employeeCode}`) : null) ||
-        (currentUser._id ? localStorage.getItem(`ems_active_task_timer_${currentUser._id}`) : null);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.timerRunning && parsed.status !== 'completed' && !parsed.completedAt) {
-          return parsed;
+      for (const uk of userKeys) {
+        const raw = localStorage.getItem(`ems_active_task_timer_${uk}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.timerRunning && parsed.status !== 'completed' && !parsed.completedAt) {
+            return parsed;
+          }
         }
       }
     } catch (_) {}
+
+    // Fallback 2: Check tasks list from useWork to guarantee header and table never desync
+    if (Array.isArray(tasks) && tasks.length > 0) {
+      const uId = String(currentUser._id || currentUser.id || '').toLowerCase();
+      const uCode = String(currentUser.employeeCode || '').toLowerCase();
+      const runningFromList = tasks.find(t => {
+        if (!t.timerRunning || t.status === 'completed' || t.completedAt) return false;
+        const aId = String(t.assignedToId || (typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo) || '').toLowerCase();
+        const aCode = String(t.assignedToCode || '').toLowerCase();
+        const aIds = Array.isArray(t.assignedToIds) ? t.assignedToIds.map(x => String(x).toLowerCase()) : [];
+        return (uId && (aId === uId || aIds.includes(uId))) || (uCode && (aCode === uCode || aIds.includes(uCode)));
+      });
+      if (runningFromList) return runningFromList;
+    }
+
     return null;
-  }, [activeRunningTask, currentUser, isClockedIn, isOnBreak]);
+  }, [activeRunningTask, tasks, currentUser, isClockedIn, isOnBreak]);
 
   // Active Task Live Ticker strictly scoped to running task
   const [taskTick, setTaskTick] = useState(0);
@@ -321,12 +338,19 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
           {/* Pause / Resume Shift Button */}
           <button
-            onClick={togglePauseResume}
+            onClick={() => {
+              if (!isClockedIn || hadClockedOutToday) return;
+              if (isOnBreak) {
+                resumeFromBreak();
+              } else {
+                setIsBreakModalOpen(true);
+              }
+            }}
             disabled={!isClockedIn || hadClockedOutToday}
-            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : (isRunning ? 'cursor-pointer bg-blue-500 hover:bg-blue-600' : 'cursor-pointer bg-emerald-500 hover:bg-emerald-600')}`}
-            title={(!isClockedIn || hadClockedOutToday) ? 'Clock in first to run shift timer' : (isRunning ? 'Take Shift Break' : 'Resume Shift')}
+            className={`w-[18px] h-[18px] rounded-full border-none text-white flex items-center justify-center p-0 transition-opacity ${(!isClockedIn || hadClockedOutToday) ? 'opacity-30 cursor-not-allowed bg-slate-400' : (isOnBreak ? 'cursor-pointer bg-emerald-500 hover:bg-emerald-600' : 'cursor-pointer bg-amber-500 hover:bg-amber-600')}`}
+            title={(!isClockedIn || hadClockedOutToday) ? 'Clock in first to run shift timer' : (isOnBreak ? 'Resume Shift (End Break)' : 'Take Shift Break (Tea / Lunch)')}
           >
-            {isRunning ? <Pause size={9} fill="#fff" /> : <Play size={9} fill="#fff" />}
+            {isOnBreak ? <Play size={9} fill="#fff" /> : <Pause size={9} fill="#fff" />}
           </button>
 
           {/* Stop / Clock-out Button */}

@@ -1562,7 +1562,38 @@ export const TimerProvider = ({ children }) => {
           localStorage.setItem(`ems_timer_${uk}_break_seconds`, '0');
           localStorage.setItem(`ems_timer_${uk}_current_break_seconds`, '0');
           localStorage.setItem(`ems_timer_${uk}_work_session_date`, today);
+
+          // 🛡️ Freeze runaway task timer from yesterday so it cannot run runaway hours overnight
+          try {
+            const rawActiveTask = localStorage.getItem(`ems_active_task_timer_${uk}`);
+            if (rawActiveTask) {
+              const parsedTask = JSON.parse(rawActiveTask);
+              if (parsedTask && parsedTask.timerRunning) {
+                localStorage.setItem(`ems_active_task_timer_${uk}`, JSON.stringify({
+                  ...parsedTask,
+                  timerRunning: false,
+                  startedAt: null
+                }));
+              }
+            }
+          } catch (_) {}
         }
+
+        // Freeze any runaway tasks in KEYS.TASKS with startedAt from a past day
+        try {
+          const allTasks = getCollection(KEYS.TASKS) || [];
+          let tasksChanged = false;
+          const sanitizedTasks = allTasks.map(t => {
+            if (t.timerRunning && t.startedAt && Number(t.startedAt) < todayMidnightMs) {
+              tasksChanged = true;
+              return { ...t, timerRunning: false, startedAt: null };
+            }
+            return t;
+          });
+          if (tasksChanged) {
+            saveCollection(KEYS.TASKS, sanitizedTasks);
+          }
+        } catch (_) {}
         setIsClockedIn(false);
         setIsRunning(false);
         setIsOnBreak(false);
@@ -1868,11 +1899,8 @@ export const TimerProvider = ({ children }) => {
       resumeFromBreak();
       return;
     }
-    setIsRunning(prev => {
-      const next = !prev;
-      addToast(next ? 'Work timer resumed ⏱️' : 'Work timer paused ⏸️', 'info');
-      return next;
-    });
+    // Taking a break is the official shift work pause mechanism
+    startTeaBreak();
   };
 
   /**
