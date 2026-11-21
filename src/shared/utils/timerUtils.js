@@ -721,24 +721,15 @@ export const sanitizeTaskDailySessions = (task) => {
   const totalAccum = Math.max(Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0), sumSessions);
   const cleanSessions = { ...rawSessions };
 
-  const isStartedOnPastDay = task.startDate && task.startDate < today;
   let todaySessionSecs = 0;
   if (rawSessions[today] !== undefined && rawSessions[today] !== null) {
-    // Authoritative dailySessions[today] exists: NEVER let stale/yesterday accumulatedTodaySeconds override an explicit 0!
+    // Authoritative dailySessions[today] exists
     todaySessionSecs = Math.max(0, Number(rawSessions[today]) || 0);
   } else if (task.sessionDate === today) {
     const rawToday = (task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null)
       ? Math.max(0, Number(task.todayWorkSeconds) || 0)
       : Math.max(0, Number(task.accumulatedTodaySeconds) || 0);
-    if (isStartedOnPastDay && !task.timerRunning && rawToday >= totalAccum && totalAccum > 0) {
-      // Stale copy of total accumulated duration into today: heal by partitioning to past date
-      todaySessionSecs = 0;
-      if (!cleanSessions[task.startDate]) {
-        cleanSessions[task.startDate] = totalAccum;
-      }
-    } else {
-      todaySessionSecs = rawToday;
-    }
+    todaySessionSecs = rawToday;
   } else {
     todaySessionSecs = 0;
   }

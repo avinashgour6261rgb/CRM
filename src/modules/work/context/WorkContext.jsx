@@ -2194,6 +2194,11 @@ export const WorkProvider = ({ children }) => {
 
       const updatedHistory = [...(Array.isArray(target.history) ? target.history : []), historyItem];
 
+      // Explicitly preserve current timer progress
+      const currentAccum = Number(target.accumulatedSeconds ?? target.timerSeconds ?? 0);
+      const currentToday = Number(target.todayWorkSeconds ?? target.accumulatedTodaySeconds ?? 0);
+      const currentSessions = (target.dailySessions && typeof target.dailySessions === 'object') ? target.dailySessions : {};
+
       await updateTask(taskId, {
         dueDate: newDueDate,
         hasNoDueDate: false,
@@ -2202,7 +2207,13 @@ export const WorkProvider = ({ children }) => {
         remindAt: null,
         reminderAlerted: false,
         history: updatedHistory,
-        rescheduleNote: note
+        rescheduleNote: note,
+        accumulatedSeconds: currentAccum,
+        timerSeconds: currentAccum,
+        todayWorkSeconds: currentToday,
+        accumulatedTodaySeconds: currentToday,
+        dailySessions: currentSessions,
+        sessionDate: target.sessionDate || getTodayStr()
       });
 
       if (overdueTaskPrompt && String(overdueTaskPrompt._id || overdueTaskPrompt.id) === String(taskId)) {
@@ -2219,17 +2230,29 @@ export const WorkProvider = ({ children }) => {
 
   const extendTaskDeadline = useCallback(async (taskId, days = 1) => {
     try {
-      const target = tasks.find(t => String(t._id || t.id) === String(taskId));
+      const allTasks = getCollection(KEYS.TASKS) || [];
+      const target = tasks.find(t => String(t._id || t.id) === String(taskId)) ||
+        allTasks.find(t => String(t._id || t.id) === String(taskId));
       if (!target) return;
       const baseDate = new Date();
       baseDate.setDate(baseDate.getDate() + days);
       const newDueDate = getLocalDateString(baseDate);
 
+      // Preserve active timer progress in snapshot if this task was active/paused
+      const activeTimer = getActiveTimerSnapshot();
+      const isMyActive = activeTimer && (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId));
+      if (isMyActive) {
+        saveActiveTimerSnapshot({
+          ...activeTimer,
+          dueDate: newDueDate
+        });
+      }
+
       await rescheduleTaskForFuture(taskId, newDueDate, `Extended +${days} day${days > 1 ? 's' : ''}`);
-      // Auto start timer once deadline extended
+      // Auto start timer once deadline extended, preserving all previous timer progress
       setTimeout(() => {
-        startTaskTimer(taskId, { forceOverdue: true });
-      }, 80);
+        startTaskTimer(taskId, { forceOverdue: true, resuming: true });
+      }, 100);
     } catch (e) {
       addToast('Failed to extend task deadline', 'error');
     }
@@ -2432,8 +2455,15 @@ export const WorkProvider = ({ children }) => {
     const currentWorkerRole = targetWorkerObj?.role || targetWorkerObj?.systemRole || 'Staff';
 
     // ── Overdue Task Guard ──
+    // Only prompt when starting a fresh overdue task that hasn't been worked on today yet.
+    // If the task was already worked on today (e.g. resuming from break or paused session), allow continuing seamlessly!
+    const isAlreadyWorkedToday = (targetTask.sessionDate === today && (Number(targetTask.todayWorkSeconds) > 0 || Number(targetTask.accumulatedTodaySeconds) > 0)) ||
+      (targetTask.dailySessions && Number(targetTask.dailySessions[today]) > 0) ||
+      Boolean(targetTask.wasPausedForBreak) ||
+      Boolean(options.resuming);
+
     const isOverdue = isTaskOverdue(targetTask);
-    if (isOverdue && !options.forceOverdue) {
+    if (isOverdue && !options.forceOverdue && !isAlreadyWorkedToday) {
       setOverdueTaskPrompt(targetTask);
       addToast(`⚠️ Task #${targetTask.taskCode || ''} is overdue (Due: ${targetTask.dueDate})! Please update deadline or mark completed.`, 'warning');
       return;

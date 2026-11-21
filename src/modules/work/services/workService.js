@@ -600,7 +600,34 @@ export const workService = {
           const tasks = getCollection(KEYS.TASKS) || [];
           const index = tasks.findIndex(t => String(t._id || t.id) === String(id) || t.taskCode === id);
           if (index !== -1) {
-            tasks[index] = { ...tasks[index], ...updatedTask };
+            const local = tasks[index];
+            const localTimerSecs = Number(local.timerSeconds) || 0;
+            const remoteTimerSecs = Number(updatedTask.timerSeconds) || 0;
+            const localAccum = Number(local.accumulatedSeconds) || 0;
+            const remoteAccum = Number(updatedTask.accumulatedSeconds) || 0;
+            const localToday = Number(local.todayWorkSeconds) || 0;
+            const remoteToday = Number(updatedTask.todayWorkSeconds) || 0;
+            const effectiveSecs = Math.max(localTimerSecs, remoteTimerSecs);
+            const effectiveAccum = Math.max(localAccum, remoteAccum);
+            const effectiveToday = Math.max(localToday, remoteToday);
+
+            const mergedSessions = {
+              ...(updatedTask.dailySessions && typeof updatedTask.dailySessions === 'object' ? updatedTask.dailySessions : {}),
+              ...(local.dailySessions && typeof local.dailySessions === 'object' ? local.dailySessions : {})
+            };
+
+            tasks[index] = {
+              ...local,
+              ...updatedTask,
+              timerSeconds: effectiveSecs,
+              accumulatedSeconds: effectiveAccum,
+              todayWorkSeconds: effectiveToday,
+              accumulatedTodaySeconds: effectiveToday,
+              dailySessions: mergedSessions,
+              timerRunning: local.timerRunning !== undefined ? local.timerRunning : updatedTask.timerRunning,
+              startedAt: local.timerRunning ? local.startedAt : updatedTask.startedAt,
+              sessionDate: local.sessionDate || updatedTask.sessionDate
+            };
             saveCollection(KEYS.TASKS, tasks);
             window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
           }
