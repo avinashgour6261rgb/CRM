@@ -2124,13 +2124,39 @@ const stripHeavyMediaForStorage = (convs = []) => {
   const acknowledgeNotice = async (noticeId) => {
     if (!noticeId || !currentUser) return;
     const userId = String(currentUser._id || currentUser.id || currentUser.employeeCode || 'anon');
-    const currentNotices = getCollection(KEYS.NOTICES);
+    const userCode = String(currentUser.employeeCode || '');
+    const userName = currentUser.name || 'Team Member';
+    const userRole = currentUser.role || 'Associate';
+    const userAvatar = currentUser.avatar || '';
+
+    const currentNotices = getCollection(KEYS.NOTICES) || [];
     const target = currentNotices.find(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
     if (!target) return;
     const ackList = Array.isArray(target.acknowledgedBy) ? target.acknowledgedBy : [];
-    if (!ackList.includes(userId)) {
+    const ackDetails = Array.isArray(target.acknowledgements) ? target.acknowledgements : [];
+
+    const alreadyAck = ackList.some(id => String(id) === userId || (userCode && String(id).toUpperCase() === userCode.toUpperCase()));
+    if (!alreadyAck) {
       const updatedList = [...ackList, userId];
-      await updateNotice(target._id || target.id, { acknowledgedBy: updatedList });
+      if (userCode && !updatedList.includes(userCode)) {
+        updatedList.push(userCode);
+      }
+      const updatedDetails = [
+        ...ackDetails,
+        {
+          userId,
+          userCode,
+          userName,
+          userRole,
+          userAvatar,
+          acknowledgedAt: new Date().toISOString(),
+          date: getLocalDateString()
+        }
+      ];
+      await updateNotice(target._id || target.id, {
+        acknowledgedBy: updatedList,
+        acknowledgements: updatedDetails
+      });
     }
   };
 

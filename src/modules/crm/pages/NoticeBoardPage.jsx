@@ -1,6 +1,7 @@
 /**
  * @file NoticeBoardPage.jsx
- * @description Company-wide Notice Board module matching Screenshot 5 exactly.
+ * @description Company-wide Notice Board module with Expiry Tracking,
+ * Active vs Expired Tabs, Employee Acknowledgment and HR Compliance Read Receipts.
  */
 
 import React, { useState, useMemo } from 'react';
@@ -17,7 +18,10 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  FileText
+  FileText,
+  Clock,
+  Flame,
+  ShieldCheck
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
@@ -26,6 +30,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { canPostNotices, canDeleteNotice, isHRorAdmin, canExportData } from '../../../shared/utils/permissionUtils';
 import { matchesDateRange, matchesSearch } from '../../../shared/utils/filterUtils';
 import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal';
+import { NoticeDetailModal } from '../../../shared/components/modals/NoticeDetailModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
@@ -38,6 +43,7 @@ export const NoticeBoardPage = () => {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState(null);
+  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'expired' | 'all'
 
   // Filters
   const [search, setSearch] = useState('');
@@ -52,10 +58,14 @@ export const NoticeBoardPage = () => {
   const userRole = (currentUser?.role || '').toLowerCase().trim();
   const userName = (currentUser?.name || '').toLowerCase().trim();
   const userId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || '');
+  const userCode = String(currentUser?.employeeCode || '').toUpperCase();
+  const todayStr = getLocalDateString();
 
-  const filteredNotices = useMemo(() => {
-    return notices.filter(n => {
-      // 1. Audience & Privacy scoping for non-admin team members
+  const isNoticeExpired = (n) => Boolean(n.expiryDate && n.expiryDate < todayStr);
+
+  // 1. Audience & Privacy scoping for non-admin team members
+  const scopedNotices = useMemo(() => {
+    return (notices || []).filter(n => {
       if (!isPrivileged) {
         const target = (n.to || n.targetAudience || 'all').toLowerCase().trim();
         const isAuthor =
@@ -72,18 +82,38 @@ export const NoticeBoardPage = () => {
 
         if (!isAuthor && !isTargetedToMe) return false;
       }
+      return true;
+    });
+  }, [notices, isPrivileged, userDept, userRole, userName, userId]);
 
-      // 2. Search filter
+  // Counts for tabs & KPIs
+  const activeCount = useMemo(() => scopedNotices.filter(n => !isNoticeExpired(n)).length, [scopedNotices, todayStr]);
+  const expiredCount = useMemo(() => scopedNotices.filter(n => isNoticeExpired(n)).length, [scopedNotices, todayStr]);
+  const allCount = scopedNotices.length;
+  const urgentCount = useMemo(() => scopedNotices.filter(n => !isNoticeExpired(n) && (n.isImportant || n.priority === 'urgent')).length, [scopedNotices, todayStr]);
+  const unreadCount = useMemo(() => scopedNotices.filter(n =>
+    !isNoticeExpired(n) &&
+    !(Array.isArray(n.acknowledgedBy) && (n.acknowledgedBy.includes(userId) || (userCode && n.acknowledgedBy.includes(userCode))))
+  ).length, [scopedNotices, todayStr, userId, userCode]);
+
+  // 2. Tab + Search + Date range filtering
+  const filteredNotices = useMemo(() => {
+    return scopedNotices.filter(n => {
+      // Expiry tab
+      if (statusTab === 'active' && isNoticeExpired(n)) return false;
+      if (statusTab === 'expired' && !isNoticeExpired(n)) return false;
+
+      // Search filter
       const matchSearch = matchesSearch(n, search, [
         'title', 'description', 'shortDescription', 'to', 'targetAudience', 'priority', 'postedBy', 'createdBy'
       ]);
 
-      // 3. Date range filter
+      // Date range filter
       const matchDate = matchesDateRange(n.date || n.createdAt, startDateFilter, endDateFilter);
 
       return matchSearch && matchDate;
     });
-  }, [notices, search, startDateFilter, endDateFilter, isPrivileged, userDept, userRole, userName, userId]);
+  }, [scopedNotices, statusTab, search, startDateFilter, endDateFilter, todayStr]);
 
   // Sort pinned/urgent notices to the top, then by date descending
   const sortedNotices = useMemo(() => {
@@ -115,9 +145,9 @@ export const NoticeBoardPage = () => {
       return;
     }
 
-    const headers = ['Notice Title,Date,To,Priority,Posted By,Description'];
+    const headers = ['Notice Title,Date,Expiry Date,To,Priority,Posted By,Status,Description'];
     const rows = filteredNotices.map(n =>
-      `"${(n.title || '').replace(/"/g, '""')}","${n.date || ''}","${n.to || n.targetAudience || 'All Employees'}","${n.priority || 'Normal'}","${n.postedBy || n.createdBy || ''}","${(n.description || n.fullContent || '').replace(/"/g, '""')}"`
+      `"${(n.title || '').replace(/"/g, '""')}","${n.date || ''}","${n.expiryDate || 'N/A'}","${n.to || n.targetAudience || 'All Employees'}","${n.priority || 'Normal'}","${n.postedBy || n.createdBy || ''}","${isNoticeExpired(n) ? 'Expired' : 'Active'}","${(n.description || n.fullContent || '').replace(/"/g, '""')}"`
     );
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
@@ -144,11 +174,11 @@ export const NoticeBoardPage = () => {
             <div className="flex items-center gap-1.5">
               <h1 className="m-0 text-base font-extrabold text-slate-900 dark:text-slate-100 leading-tight">Company Notice Board</h1>
               <span className="text-[10.5px] px-1.5 py-[1px] rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
-                {filteredNotices.length} Active Notices
+                {activeCount} Active • {expiredCount} Expired
               </span>
             </div>
             <p className="mt-0.5 mb-0 text-[11.5px] text-slate-500 dark:text-slate-400">
-              Official circulars, company policies & urgent announcements
+              Official circulars, company policies, compliance directives & announcements
             </p>
           </div>
         </div>
@@ -175,10 +205,126 @@ export const NoticeBoardPage = () => {
         </div>
       </div>
 
-      {/* Filter and Top Navigation Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
-          
+      {/* KPI Overview Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div
+          onClick={() => setStatusTab('active')}
+          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${
+            statusTab === 'active'
+              ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
+            <span>Active Circulars</span>
+            <BellRing size={14} className="text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-900 dark:text-white">
+            {activeCount}
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusTab('active')}
+          className="p-3 rounded-[10px] border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 transition-all cursor-pointer"
+        >
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
+            <span>High Priority</span>
+            <Flame size={14} className="text-red-500" />
+          </div>
+          <div className="text-xl font-extrabold text-red-600 dark:text-red-400">
+            {urgentCount}
+          </div>
+        </div>
+
+        <div
+          onClick={() => setStatusTab('expired')}
+          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${
+            statusTab === 'expired'
+              ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-400 dark:border-rose-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
+            <span>Expired Archive</span>
+            <Clock size={14} className="text-rose-500" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-700 dark:text-slate-300">
+            {expiredCount}
+          </div>
+        </div>
+
+        <div className="p-3 rounded-[10px] border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 transition-all">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
+            <span>Unread by You</span>
+            <AlertCircle size={14} className={unreadCount > 0 ? 'text-amber-500' : 'text-emerald-500'} />
+          </div>
+          <div className={`text-xl font-extrabold ${unreadCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {unreadCount === 0 ? 'All Read ✓' : unreadCount}
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs and Filter Navigation Bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2.5 flex items-center justify-between flex-wrap gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        {/* Status Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-fit">
+          <button
+            type="button"
+            onClick={() => setStatusTab('active')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+              statusTab === 'active'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <BellRing size={13} />
+            <span>Active Notices</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
+              statusTab === 'active' ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {activeCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusTab('expired')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+              statusTab === 'expired'
+                ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Clock size={13} />
+            <span>Expired / Archived</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
+              statusTab === 'expired' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {expiredCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusTab('all')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+              statusTab === 'all'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <FileText size={13} />
+            <span>All Circulars</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
+              statusTab === 'all' ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              {allCount}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {/* Duration Selector with Presets */}
           <ResponsiveDurationFilter
             startDate={startDateFilter}
@@ -194,7 +340,7 @@ export const NoticeBoardPage = () => {
           />
 
           {/* Search Input */}
-          <div className="flex items-center gap-1.5 px-2.5 h-[30px] rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[220px] flex-1">
+          <div className="flex items-center gap-1.5 px-2.5 h-[32px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 w-full sm:w-auto min-w-0 sm:min-w-[200px] flex-1">
             <Search size={13} className="text-slate-400 shrink-0" />
             <input
               type="text"
@@ -205,12 +351,6 @@ export const NoticeBoardPage = () => {
             />
           </div>
         </div>
-
-        {selectedIds.length > 0 && (
-          <span className="text-[11.5px] text-blue-600 dark:text-blue-400 font-bold">
-            {selectedIds.length} notices selected
-          </span>
-        )}
       </div>
 
       {/* Notice Board Table */}
@@ -219,7 +359,7 @@ export const NoticeBoardPage = () => {
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider text-left">
-                <th className="px-3 py-2 w-9 whitespace-nowrap">
+                <th className="px-3 py-2.5 w-9 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={filteredNotices.length > 0 && selectedIds.length === filteredNotices.length}
@@ -227,10 +367,10 @@ export const NoticeBoardPage = () => {
                     className="accent-blue-600 cursor-pointer"
                   />
                 </th>
-                <th className="px-3 py-2 whitespace-nowrap">Notice Title & Content</th>
-                <th className="px-3 py-2 w-[120px] whitespace-nowrap">Date</th>
-                <th className="px-3 py-2 w-[150px] whitespace-nowrap">Target Audience</th>
-                <th className="px-3 py-2 text-center w-[90px] whitespace-nowrap">Action</th>
+                <th className="px-3 py-2.5 whitespace-nowrap">Notice Title & Content</th>
+                <th className="px-3 py-2.5 w-[140px] whitespace-nowrap">Published & Expiry</th>
+                <th className="px-3 py-2.5 w-[140px] whitespace-nowrap">Target Audience</th>
+                <th className="px-3 py-2.5 text-center w-[160px] whitespace-nowrap">Read Status & Actions</th>
               </tr>
             </thead>
 
@@ -238,87 +378,108 @@ export const NoticeBoardPage = () => {
               {sortedNotices.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-9 text-center text-slate-500 dark:text-slate-400">
-                    <div className="text-[13px] font-medium">No notices found</div>
+                    <div className="text-[13px] font-medium">
+                      {statusTab === 'expired' ? 'No expired notices in archive' : 'No active notices found'}
+                    </div>
                   </td>
                 </tr>
               ) : (
-                sortedNotices.map((notice, nIdx) => (
-                  <tr
-                    key={notice._id ? `${notice._id}_${nIdx}` : (notice.id ? `${notice.id}_${nIdx}` : `notice_${nIdx}`)}
-                    className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
-                      selectedIds.includes(notice._id)
-                        ? 'bg-blue-50/40 dark:bg-blue-950/20'
-                        : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <td className="px-3 py-[7px] whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(notice._id)}
-                        onChange={() => handleSelectOne(notice._id)}
-                        className="accent-blue-600 cursor-pointer"
-                      />
-                    </td>
+                sortedNotices.map((notice, nIdx) => {
+                  const expired = isNoticeExpired(notice);
+                  const hasAck = Array.isArray(notice.acknowledgedBy) &&
+                    (notice.acknowledgedBy.includes(userId) || (userCode && notice.acknowledgedBy.includes(userCode)));
 
-                    {/* Notice Subject & Preview */}
-                    <td className="px-3 py-[7px]">
-                      <div
-                        onClick={() => setSelectedNotice(notice)}
-                        className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer flex items-center gap-1.5 hover:underline"
-                      >
-                        {notice.title}
-                        {notice.isImportant && (
-                          <span className="px-[5px] py-[1px] rounded text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400">
-                            URGENT
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-[600px] overflow-hidden text-ellipsis whitespace-nowrap">
-                        {notice.description || notice.shortDescription || notice.fullContent}
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={notice._id ? `${notice._id}_${nIdx}` : (notice.id ? `${notice.id}_${nIdx}` : `notice_${nIdx}`)}
+                      className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
+                        selectedIds.includes(notice._id)
+                          ? 'bg-blue-50/40 dark:bg-blue-950/20'
+                          : expired
+                          ? 'bg-slate-50/40 dark:bg-slate-900/40 opacity-80'
+                          : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(notice._id)}
+                          onChange={() => handleSelectOne(notice._id)}
+                          className="accent-blue-600 cursor-pointer"
+                        />
+                      </td>
 
-                    {/* Date */}
-                    <td className="px-3 py-[7px] text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
-                      {notice.date}
-                    </td>
-
-                    {/* To */}
-                    <td className="px-3 py-[7px] whitespace-nowrap">
-                      <span className="px-[7px] py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
-                        {notice.to || notice.targetAudience || 'All Employees'}
-                      </span>
-                    </td>
-
-                    {/* Action & Acknowledgment */}
-                    <td className="px-3 py-[7px] text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                        <button
+                      {/* Notice Subject & Preview */}
+                      <td className="px-3 py-2.5">
+                        <div
                           onClick={() => setSelectedNotice(notice)}
-                          className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-400 text-[11.5px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+                          className="font-bold text-slate-900 dark:text-slate-100 cursor-pointer flex items-center gap-1.5 hover:underline flex-wrap"
                         >
-                          View Notice
-                        </button>
+                          <span>{notice.title}</span>
 
-                        {/* Acknowledge Button / Badge */}
-                        {(() => {
-                          const hasAck = Array.isArray(notice.acknowledgedBy) && notice.acknowledgedBy.includes(userId);
-                          if (hasAck) {
-                            return (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-[2px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-bold border border-emerald-200 dark:border-emerald-800" title="You acknowledged this notice">
-                                <CheckCircle2 size={11} />
-                                <span>Read</span>
-                              </span>
-                            );
-                          }
-                          return (
+                          {expired && (
+                            <span className="px-[5px] py-[1px] rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400">
+                              EXPIRED
+                            </span>
+                          )}
+
+                          {(notice.isImportant || notice.priority === 'urgent') && (
+                            <span className="px-[5px] py-[1px] rounded text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 flex items-center gap-0.5">
+                              <Flame size={10} />
+                              <span>URGENT</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-[500px] overflow-hidden text-ellipsis whitespace-nowrap">
+                          {notice.description || notice.shortDescription || notice.fullContent}
+                        </div>
+                      </td>
+
+                      {/* Date & Expiry */}
+                      <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">
+                          {notice.date}
+                        </div>
+                        {notice.expiryDate && (
+                          <div className={`text-[10.5px] mt-0.5 ${
+                            expired ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
+                          }`}>
+                            {expired ? `⌛ Expired ${notice.expiryDate}` : `Expires: ${notice.expiryDate}`}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* To */}
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="px-[7px] py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold">
+                          {notice.to || notice.targetAudience || 'All Employees'}
+                        </span>
+                      </td>
+
+                      {/* Action & Acknowledgment */}
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => setSelectedNotice(notice)}
+                            className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded px-2 py-[3px] cursor-pointer text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+                          >
+                            View
+                          </button>
+
+                          {/* Acknowledge Button / Badge */}
+                          {hasAck ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-[2px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-bold border border-emerald-200 dark:border-emerald-800" title="You read & acknowledged this notice">
+                              <CheckCircle2 size={11} />
+                              <span>Read</span>
+                            </span>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => {
                                 if (typeof acknowledgeNotice === 'function') {
                                   acknowledgeNotice(notice._id || notice.id);
-                                  addToast('Notice marked as acknowledged!', 'success');
+                                  addToast('Notice marked as acknowledged! ✅', 'success');
                                 }
                               }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-2 py-[2.5px] cursor-pointer text-[10.5px] font-bold border-0 shadow-xs transition-colors flex items-center gap-1"
@@ -327,122 +488,37 @@ export const NoticeBoardPage = () => {
                               <CheckCircle2 size={11} />
                               <span>Acknowledge</span>
                             </button>
-                          );
-                        })()}
+                          )}
 
-                        {/* Read Count for HR / Admin */}
-                        {isPrivileged && (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold" title="Total employees who acknowledged">
-                            ({notice.acknowledgedBy?.length || 0} read)
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {/* Read Count for HR / Admin */}
+                          {isPrivileged && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold" title="Total employees who acknowledged">
+                              ({notice.acknowledgedBy?.length || 0} read)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
-
-        {/* Footer Pagination */}
-        <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400 flex-wrap gap-2">
-          <div className="flex items-center gap-1">
-            <span>Show</span>
-            <select className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11.5px] text-slate-700 dark:text-slate-300 outline-none">
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-            <span>entries</span>
-          </div>
-
-          <div>
-            Showing 1 to {filteredNotices.length} of {notices.length} entries
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              disabled
-              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
-            >
-              Prev
-            </button>
-            <button
-              className="px-2 py-[3px] rounded border border-blue-600 bg-blue-600 text-white text-[11.5px] font-bold cursor-pointer"
-            >
-              1
-            </button>
-            <button
-              disabled
-              className="px-2 py-[3px] rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[11.5px] cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* Modals */}
+      {/* Add Notice Modal */}
       <AddNoticeModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
       />
 
-      {/* Notice Detail Modal */}
+      {/* Notice Detail & Compliance Modal */}
       {selectedNotice && (
-        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-md text-[11.5px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                  {selectedNotice.category || 'Company Notice'}
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Posted on {selectedNotice.date}
-                </span>
-              </div>
-              <button
-                onClick={() => setSelectedNotice(null)}
-                className="bg-transparent border-0 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer p-0"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-0 mb-3">
-              {selectedNotice.title}
-            </h3>
-
-            <div className="p-4 rounded-[10px] bg-slate-50 dark:bg-slate-800/60 text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed border border-slate-200 dark:border-slate-700/60 mb-[18px] whitespace-pre-wrap">
-              {selectedNotice.description || selectedNotice.fullContent || selectedNotice.shortDescription}
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>Target: <strong className="text-slate-800 dark:text-slate-200">{selectedNotice.to || 'All Employees'}</strong></span>
-              {canDeleteNotice(currentUser, selectedNotice) && (
-                <button
-                  onClick={async () => {
-                    const ok = await confirm({
-                      title: 'Delete Company Notice',
-                      message: `Are you sure you want to permanently delete notice "${selectedNotice.title}"? This cannot be undone.`,
-                      confirmText: 'Delete Notice',
-                      variant: 'danger'
-                    });
-                    if (ok) {
-                      deleteNotice(selectedNotice._id);
-                      setSelectedNotice(null);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 cursor-pointer font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                >
-                  <Trash2 size={13} />
-                  Delete Notice
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <NoticeDetailModal
+          notice={selectedNotice}
+          onClose={() => setSelectedNotice(null)}
+        />
       )}
     </div>
   );
