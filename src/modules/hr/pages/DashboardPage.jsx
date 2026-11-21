@@ -28,7 +28,8 @@ import {
   Layers,
   Zap,
   LayoutDashboard,
-  History
+  History,
+  PhoneCall
 } from 'lucide-react';
 import { useHR } from '../context/HRContext';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -123,7 +124,7 @@ export const DashboardPage = () => {
     reopenProject,
     deleteTask
   } = useWork();
-  const { tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs, dismissNoticeForUser } = useCRM();
+  const { leads, tickets, notices, events, birthdays, computedBirthdays, computedAnniversaries, wfhEmployees, weeklyTimeLogs, dismissNoticeForUser } = useCRM();
   const [activeSelectedTaskId, setActiveSelectedTaskId] = useState(null);
   const [snoozeTaskTarget, setSnoozeTaskTarget] = useState(null);
   const [isSnoozeModalOpen, setIsSnoozeModalOpen] = useState(false);
@@ -2112,6 +2113,44 @@ export const DashboardPage = () => {
     });
   }, [computedAnniversaries, dismissedTopAlerts, todayStr]);
 
+  // CRM Leads Follow-up Reminders (Today & Overdue)
+  const activeLeadFollowUps = React.useMemo(() => {
+    if (!Array.isArray(leads) || leads.length === 0) return { today: [], overdue: [], total: 0 };
+    const myId = String(effectiveTargetUser?._id || currentUser?._id || '');
+    const myCode = String(effectiveTargetUser?.employeeCode || currentUser?.employeeCode || '');
+    const myName = (effectiveTargetUser?.name || currentUser?.name || '').toLowerCase().trim();
+
+    const todayLeads = [];
+    const overdueLeads = [];
+
+    leads.forEach(l => {
+      if (l.status === 'converted' || l.status === 'lost') return;
+      if (!l.nextFollowUpDate) return;
+
+      if (!isUserAdminOrHR) {
+        const lOwnerId = String(l.leadOwnerId || '');
+        const lAssignedId = String(l.assignedToId || '');
+        const lOwnerName = (l.leadOwnerName || l.owner || '').toLowerCase().trim();
+        const isMine = (myId && (lOwnerId === myId || lAssignedId === myId)) ||
+                       (myCode && (lOwnerId === myCode || lAssignedId === myCode)) ||
+                       (myName && lOwnerName === myName);
+        if (!isMine) return;
+      }
+
+      if (l.nextFollowUpDate === todayStr) {
+        todayLeads.push(l);
+      } else if (l.nextFollowUpDate < todayStr) {
+        overdueLeads.push(l);
+      }
+    });
+
+    return {
+      today: todayLeads,
+      overdue: overdueLeads,
+      total: todayLeads.length + overdueLeads.length
+    };
+  }, [leads, todayStr, effectiveTargetUser, currentUser, isUserAdminOrHR]);
+
   // 4. All personal leaves of current user (for history/status display)
   const myRecentLeaves = (leaves || []).filter(l => {
     return isLeaveApplicant(l, currentUser);
@@ -2773,6 +2812,53 @@ export const DashboardPage = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── 📞 TOP ALERT BANNER: CRM LEADS SCHEDULED FOR FOLLOW-UP TODAY OR OVERDUE ── */}
+      {activeLeadFollowUps.total > 0 && !dismissedTopAlerts.includes(`lead_followup_${todayStr}`) && (
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-sky-950/30 border-[1.5px] border-emerald-300 dark:border-emerald-800/80 rounded-[12px] py-3 px-4 flex items-center justify-between flex-wrap gap-3 shadow-[0_4px_16px_rgba(16,185,129,0.12)]">
+          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <PhoneCall size={20} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[14px] font-extrabold text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
+                  📞 CRM Follow-Up Alert: {activeLeadFollowUps.total} Client Lead{activeLeadFollowUps.total > 1 ? 's' : ''} Need Attention!
+                </span>
+                {activeLeadFollowUps.today.length > 0 && (
+                  <span className="text-[10.5px] font-extrabold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                    🔔 {activeLeadFollowUps.today.length} Due Today
+                  </span>
+                )}
+                {activeLeadFollowUps.overdue.length > 0 && (
+                  <span className="text-[10.5px] font-extrabold bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full animate-pulse">
+                    ⚠️ {activeLeadFollowUps.overdue.length} Overdue
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-emerald-950 dark:text-emerald-200/90 mt-0.5">
+                Clients: <strong>{([...activeLeadFollowUps.today, ...activeLeadFollowUps.overdue].slice(0, 3).map(l => l.companyName || l.client || l.name).join(', '))}</strong>
+                {activeLeadFollowUps.total > 3 && ` and ${activeLeadFollowUps.total - 3} more`}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/leads?filter=followup')}
+              className="py-1.5 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border-none text-xs font-bold cursor-pointer shadow-xs hover:shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <span>Open Leads CRM →</span>
+            </button>
+            <button
+              onClick={() => dismissTopAlert(`lead_followup_${todayStr}`)}
+              className="p-1.5 rounded-lg bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-emerald-200 dark:border-emerald-900/60 cursor-pointer flex items-center justify-center transition-colors"
+              title="Dismiss alert from top for today"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
       )}
 

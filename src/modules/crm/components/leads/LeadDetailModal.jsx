@@ -44,7 +44,18 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
 
   const [newActivityText, setNewActivityText] = useState('');
   const [newActivityType, setNewActivityType] = useState('call'); // 'call' | 'meeting' | 'email' | 'note'
+  const [nextFollowUpDate, setNextFollowUpDate] = useState(lead?.nextFollowUpDate || '');
+  const [nextStage, setNextStage] = useState(lead?.status || 'new');
+  const [showFollowUpScheduler, setShowFollowUpScheduler] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+
+  // Keep follow-up date and stage in sync if lead changes
+  React.useEffect(() => {
+    if (lead) {
+      setNextFollowUpDate(lead.nextFollowUpDate || '');
+      setNextStage(lead.status || 'new');
+    }
+  }, [lead?._id, lead?.nextFollowUpDate, lead?.status]);
 
   if (!isOpen || !lead) return null;
 
@@ -52,22 +63,46 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!newActivityText.trim()) return;
     try {
+      const isStageChanged = nextStage && nextStage !== lead.status;
+      const isFollowUpChanged = nextFollowUpDate && nextFollowUpDate !== lead.nextFollowUpDate;
+
       const newAct = {
         id: `act_${Date.now()}`,
         type: newActivityType,
         text: newActivityText.trim(),
         author: currentUser?.name || 'Team Member',
         authorAvatar: currentUser?.avatar || '',
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        nextFollowUpSet: nextFollowUpDate || null,
+        stageChangedTo: isStageChanged ? nextStage : null
       };
+
       const currentActs = Array.isArray(lead.activities) ? lead.activities : [];
-      await updateLead(lead._id, { activities: [newAct, ...currentActs] });
+      const updatePayload = {
+        activities: [newAct, ...currentActs]
+      };
+
+      if (nextFollowUpDate !== undefined) {
+        updatePayload.nextFollowUpDate = nextFollowUpDate;
+      }
+      if (isStageChanged) {
+        updatePayload.status = nextStage;
+      }
+
+      await updateLead(lead._id, updatePayload);
       setNewActivityText('');
-      addToast('Activity logged successfully!', 'success');
+      addToast('Activity & follow-up saved successfully!', 'success');
     } catch (err) {
       console.error(err);
       addToast('Failed to log activity', 'error');
     }
+  };
+
+  const setRelativeFollowUp = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setNextFollowUpDate(getLocalDateString(d));
+    setShowFollowUpScheduler(true);
   };
 
   const handleConvertToProject = async () => {
@@ -366,36 +401,134 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             </span>
 
             {/* Add Activity Form */}
-            <form onSubmit={handleAddActivity} className="flex flex-col sm:flex-row gap-2">
-              <select
-                value={newActivityType}
-                onChange={e => setNewActivityType(e.target.value)}
-                className="py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 outline-none shrink-0"
-              >
-                <option value="call">📞 Phone Call</option>
-                <option value="meeting">🤝 Client Meeting</option>
-                <option value="email">✉️ Email Outreach</option>
-                <option value="note">📝 Discussion Note</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Log discussion notes, next actions, or call summary..."
-                value={newActivityText}
-                onChange={e => setNewActivityText(e.target.value)}
-                className="flex-1 py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
-              />
-              <button
-                type="submit"
-                disabled={!newActivityText.trim()}
-                className={`py-2 px-3.5 rounded-lg border-0 text-xs font-bold transition-all shrink-0 flex items-center justify-center gap-1.5 ${
-                  newActivityText.trim()
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
-                }`}
-              >
-                <Send size={12} />
-                <span>Log</span>
-              </button>
+            <form onSubmit={handleAddActivity} className="flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={newActivityType}
+                  onChange={e => setNewActivityType(e.target.value)}
+                  className="py-2 px-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 outline-none shrink-0"
+                >
+                  <option value="call">📞 Phone Call</option>
+                  <option value="meeting">🤝 Client Meeting</option>
+                  <option value="email">✉️ Email Outreach</option>
+                  <option value="note">📝 Discussion Note</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Log discussion notes, next actions, or call summary..."
+                  value={newActivityText}
+                  onChange={e => setNewActivityText(e.target.value)}
+                  className="flex-1 py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-blue-600"
+                />
+                <button
+                  type="submit"
+                  disabled={!newActivityText.trim()}
+                  className={`py-2 px-3.5 rounded-lg border-0 text-xs font-bold transition-all shrink-0 flex items-center justify-center gap-1.5 ${
+                    newActivityText.trim()
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm'
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Send size={12} />
+                  <span>Log Activity</span>
+                </button>
+              </div>
+
+              {/* Integrated Next Follow-Up & Stage Progression Bar */}
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-1.5 px-0.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Next Follow-Up:</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setRelativeFollowUp(0)}
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition-colors ${
+                        nextFollowUpDate === getLocalDateString()
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRelativeFollowUp(1)}
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition-colors ${
+                        nextFollowUpDate === getLocalDateString(new Date(Date.now() + 86400000))
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      +1d Tomorrow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRelativeFollowUp(3)}
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition-colors ${
+                        nextFollowUpDate === getLocalDateString(new Date(Date.now() + 3 * 86400000))
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      +3 Days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRelativeFollowUp(7)}
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition-colors ${
+                        nextFollowUpDate === getLocalDateString(new Date(Date.now() + 7 * 86400000))
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      +1 Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRelativeFollowUp(14)}
+                      className={`px-2 py-0.5 rounded text-[10.5px] font-bold cursor-pointer transition-colors ${
+                        nextFollowUpDate === getLocalDateString(new Date(Date.now() + 14 * 86400000))
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      +2 Weeks
+                    </button>
+                    <input
+                      type="date"
+                      value={nextFollowUpDate}
+                      onChange={e => setNextFollowUpDate(e.target.value)}
+                      className="py-0.5 px-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[11px] text-slate-800 dark:text-slate-200 font-semibold outline-none"
+                    />
+                    {nextFollowUpDate && (
+                      <button
+                        type="button"
+                        onClick={() => setNextFollowUpDate('')}
+                        className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        title="Clear scheduled date"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Move Stage:</span>
+                  <select
+                    value={nextStage}
+                    onChange={e => setNextStage(e.target.value)}
+                    className="py-0.5 px-2 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[11px] font-bold text-slate-800 dark:text-slate-200 outline-none"
+                  >
+                    <option value="new">1. New Inquiry</option>
+                    <option value="active">2. Active Contact</option>
+                    <option value="in_progress">3. In Progress / Demo</option>
+                    <option value="negotiation">4. In Negotiation</option>
+                    <option value="converted">5. Converted (Won)</option>
+                    <option value="lost">6. Lost / Dropped</option>
+                  </select>
+                </div>
+              </div>
             </form>
 
             {/* Activity History List */}
@@ -418,6 +551,20 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
                         <div className="text-xs text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap break-words">
                           {act.text}
                         </div>
+                        {(act.nextFollowUpSet || act.stageChangedTo) && (
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            {act.nextFollowUpSet && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded">
+                                📅 Next: {act.nextFollowUpSet}
+                              </span>
+                            )}
+                            {act.stageChangedTo && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded">
+                                🚀 Stage: {act.stageChangedTo}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div className="text-[10.5px] text-slate-400 dark:text-slate-500 mt-1">
                           By <strong className="text-slate-600 dark:text-slate-300">{act.author}</strong> • {new Date(act.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </div>

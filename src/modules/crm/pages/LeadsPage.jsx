@@ -4,8 +4,8 @@
  * Features KPI Overview, Multi-Criteria Filters, Table & Kanban Pipeline Views, Import/Export, and Modals.
  */
 
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Upload,
@@ -27,7 +27,10 @@ import {
   RefreshCw,
   TrendingUp,
   FileSpreadsheet,
-  Lock
+  Lock,
+  PhoneCall,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
@@ -88,6 +91,25 @@ export const LeadsPage = () => {
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
 
   // Filter States
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryFilter = searchParams.get('filter');
+  const [followUpFilter, setFollowUpFilter] = useState(
+    queryFilter === 'followup' || queryFilter === 'all_followups' ? 'all_followups' :
+    queryFilter === 'due_today' ? 'due_today' :
+    queryFilter === 'overdue' ? 'overdue' :
+    queryFilter === 'upcoming' ? 'upcoming' : 'all'
+  );
+
+  useEffect(() => {
+    const f = searchParams.get('filter');
+    if (f) {
+      if (f === 'followup' || f === 'all_followups') setFollowUpFilter('all_followups');
+      else if (f === 'due_today') setFollowUpFilter('due_today');
+      else if (f === 'overdue') setFollowUpFilter('overdue');
+      else if (f === 'upcoming') setFollowUpFilter('upcoming');
+    }
+  }, [searchParams]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -97,6 +119,7 @@ export const LeadsPage = () => {
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isAlertBannerDismissed, setIsAlertBannerDismissed] = useState(false);
 
   // Selection state for batch actions
   const [selectedIds, setSelectedIds] = useState([]);
@@ -149,9 +172,39 @@ export const LeadsPage = () => {
     return Array.from(types);
   }, [scopedLeads]);
 
+  // Follow-up Statistics
+  const followUpStats = useMemo(() => {
+    const todayStr = getLocalDateString();
+    const active = scopedLeads.filter(l => l.status !== 'converted' && l.status !== 'lost');
+    const dueToday = active.filter(l => l.nextFollowUpDate === todayStr);
+    const overdue = active.filter(l => l.nextFollowUpDate && l.nextFollowUpDate < todayStr);
+    const upcoming = active.filter(l => l.nextFollowUpDate && l.nextFollowUpDate > todayStr);
+    return {
+      dueToday,
+      overdue,
+      upcoming,
+      totalAlerts: dueToday.length + overdue.length
+    };
+  }, [scopedLeads]);
+
   // Filtered Leads calculation
   const filteredLeads = useMemo(() => {
+    const todayStr = getLocalDateString();
     return scopedLeads.filter(lead => {
+      // Follow-up Filter
+      if (followUpFilter !== 'all') {
+        if (lead.status === 'converted' || lead.status === 'lost') return false;
+        if (followUpFilter === 'due_today') {
+          if (lead.nextFollowUpDate !== todayStr) return false;
+        } else if (followUpFilter === 'overdue') {
+          if (!lead.nextFollowUpDate || lead.nextFollowUpDate >= todayStr) return false;
+        } else if (followUpFilter === 'upcoming') {
+          if (!lead.nextFollowUpDate || lead.nextFollowUpDate <= todayStr) return false;
+        } else if (followUpFilter === 'all_followups' || followUpFilter === 'followup') {
+          if (!lead.nextFollowUpDate || lead.nextFollowUpDate > todayStr) return false;
+        }
+      }
+
       // Search across name, company, email, phone, code, contact person
       if (searchQuery && searchQuery.trim()) {
         const matchSearch = matchesSearch(lead, searchQuery, [
@@ -202,7 +255,7 @@ export const LeadsPage = () => {
 
       return true;
     });
-  }, [scopedLeads, searchQuery, typeFilter, statusFilter, ownerFilter, priorityFilter, clientFilter, startDateFilter, endDateFilter]);
+  }, [scopedLeads, followUpFilter, searchQuery, typeFilter, statusFilter, ownerFilter, priorityFilter, clientFilter, startDateFilter, endDateFilter]);
 
   // Selection handlers
   const handleSelectAll = () => {
@@ -220,6 +273,7 @@ export const LeadsPage = () => {
   };
 
   const handleClearFilters = () => {
+    setFollowUpFilter('all');
     setSearchQuery('');
     setTypeFilter('all');
     setStatusFilter('all');
@@ -228,9 +282,14 @@ export const LeadsPage = () => {
     setClientFilter('all');
     setStartDateFilter('');
     setEndDateFilter('');
+    if (searchParams.get('filter')) {
+      searchParams.delete('filter');
+      setSearchParams(searchParams, { replace: true });
+    }
   };
 
   const hasActiveFilters =
+    followUpFilter !== 'all' ||
     searchQuery !== '' ||
     typeFilter !== 'all' ||
     statusFilter !== 'all' ||
@@ -383,11 +442,143 @@ export const LeadsPage = () => {
         </div>
       </div>
 
+      {/* ── 📞 FOLLOW-UP OUTREACH ALERT BANNER ── */}
+      {followUpStats.totalAlerts > 0 && !isAlertBannerDismissed && (
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-sky-950/30 border border-emerald-300 dark:border-emerald-800/80 rounded-[10px] p-3 px-4 flex items-center justify-between flex-wrap gap-3 shadow-xs">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <PhoneCall size={18} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[13.5px] font-extrabold text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
+                  CRM Follow-Up Alert: {followUpStats.totalAlerts} Client Lead{followUpStats.totalAlerts > 1 ? 's' : ''} Need Attention
+                </span>
+                {followUpStats.dueToday.length > 0 && (
+                  <span className="text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                    🔔 {followUpStats.dueToday.length} Due Today
+                  </span>
+                )}
+                {followUpStats.overdue.length > 0 && (
+                  <span className="text-[10px] font-extrabold bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full animate-pulse">
+                    ⚠️ {followUpStats.overdue.length} Overdue
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-emerald-900 dark:text-emerald-200/90 mt-0.5">
+                Top Leads: <strong>{([...followUpStats.dueToday, ...followUpStats.overdue].slice(0, 3).map(l => l.companyName || l.client || l.name).join(', '))}</strong>
+                {followUpStats.totalAlerts > 3 && ` +${followUpStats.totalAlerts - 3} more`}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {followUpStats.dueToday.length > 0 && (
+              <button
+                onClick={() => setFollowUpFilter('due_today')}
+                className={`py-1.5 px-3 rounded-md text-xs font-bold cursor-pointer transition-all ${
+                  followUpFilter === 'due_today'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200 hover:bg-emerald-200'
+                }`}
+              >
+                🔔 View Today ({followUpStats.dueToday.length})
+              </button>
+            )}
+            {followUpStats.overdue.length > 0 && (
+              <button
+                onClick={() => setFollowUpFilter('overdue')}
+                className={`py-1.5 px-3 rounded-md text-xs font-bold cursor-pointer transition-all ${
+                  followUpFilter === 'overdue'
+                    ? 'bg-red-700 text-white shadow-xs'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 hover:bg-red-200'
+                }`}
+              >
+                ⚠️ View Overdue ({followUpStats.overdue.length})
+              </button>
+            )}
+            <button
+              onClick={() => setIsAlertBannerDismissed(true)}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              title="Dismiss banner"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI Overview Cards */}
-      <LeadsKPIOverview leads={scopedLeads} />
+      <LeadsKPIOverview
+        leads={scopedLeads}
+        onSelectFollowUpFilter={(f) => setFollowUpFilter(f)}
+      />
 
       {/* Main Filter & Action Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 p-2 px-3 shadow-xs flex flex-col gap-2.5">
+        {/* Quick Follow-Up Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-800">
+          <button
+            onClick={() => setFollowUpFilter('all')}
+            className={`py-1 px-2.5 rounded-md text-xs font-bold cursor-pointer transition-all shrink-0 ${
+              followUpFilter === 'all'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            All Leads ({scopedLeads.length})
+          </button>
+          <button
+            onClick={() => setFollowUpFilter('due_today')}
+            className={`py-1 px-2.5 rounded-md text-xs font-bold cursor-pointer transition-all shrink-0 flex items-center gap-1 ${
+              followUpFilter === 'due_today'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
+            }`}
+          >
+            <span>🔔 Due Today</span>
+            <span className="py-px px-1.5 rounded-full text-[10px] bg-white/40 dark:bg-black/30 font-extrabold">
+              {followUpStats.dueToday.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setFollowUpFilter('overdue')}
+            className={`py-1 px-2.5 rounded-md text-xs font-bold cursor-pointer transition-all shrink-0 flex items-center gap-1 ${
+              followUpFilter === 'overdue'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60 hover:bg-red-100'
+            }`}
+          >
+            <span>⚠️ Overdue</span>
+            <span className="py-px px-1.5 rounded-full text-[10px] bg-white/40 dark:bg-black/30 font-extrabold">
+              {followUpStats.overdue.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setFollowUpFilter('upcoming')}
+            className={`py-1 px-2.5 rounded-md text-xs font-bold cursor-pointer transition-all shrink-0 flex items-center gap-1 ${
+              followUpFilter === 'upcoming'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
+            }`}
+          >
+            <span>📅 Upcoming</span>
+            <span className="py-px px-1.5 rounded-full text-[10px] bg-white/40 dark:bg-black/30 font-extrabold">
+              {followUpStats.upcoming.length}
+            </span>
+          </button>
+          {followUpFilter !== 'all' && (
+            <button
+              onClick={() => setFollowUpFilter('all')}
+              className="py-1 px-2 rounded-md text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer flex items-center gap-1 ml-auto shrink-0"
+              title="Clear follow-up filter"
+            >
+              <X size={12} />
+              <span>Reset Follow-Up Filter</span>
+            </button>
+          )}
+        </div>
+
         {/* Top Control Bar */}
         <div className="flex items-center justify-between flex-wrap gap-2.5">
           

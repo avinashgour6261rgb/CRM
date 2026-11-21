@@ -18,7 +18,7 @@ import {
   PieChart
 } from 'lucide-react';
 
-export const LeadsKPIOverview = ({ leads = [] }) => {
+export const LeadsKPIOverview = ({ leads = [], onSelectFollowUpFilter }) => {
   const totalLeads = leads.length;
   const newLeads = leads.filter(l => l.status === 'new').length;
   const activeLeads = leads.filter(l => l.status === 'active' || l.status === 'in_progress').length;
@@ -27,7 +27,9 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
   const lostLeads = leads.filter(l => l.status === 'lost').length;
 
   const todayStr = getLocalDateString();
-  const overdueLeads = leads.filter(l => l.status !== 'converted' && l.status !== 'lost' && l.endDate && l.endDate < todayStr).length;
+  const overdueFollowUps = leads.filter(l => l.status !== 'converted' && l.status !== 'lost' && l.nextFollowUpDate && l.nextFollowUpDate < todayStr).length;
+  const dueTodayFollowUps = leads.filter(l => l.status !== 'converted' && l.status !== 'lost' && l.nextFollowUpDate === todayStr).length;
+  const totalFollowUpsDue = overdueFollowUps + dueTodayFollowUps;
 
   const totalPipelineValue = leads.reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0);
   const convertedValue = leads.filter(l => l.status === 'converted').reduce((sum, l) => sum + (Number(l.dealValue) || 0), 0);
@@ -87,13 +89,19 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
       borderColor: '#e2e8f0'
     },
     {
-      title: 'Follow-up Overdue',
-      value: overdueLeads,
-      subtext: overdueLeads > 0 ? 'Requires attention' : 'All up to date',
+      title: 'Follow-ups Due',
+      value: totalFollowUpsDue,
+      subtext: overdueFollowUps > 0
+        ? `${overdueFollowUps} overdue • ${dueTodayFollowUps} today`
+        : dueTodayFollowUps > 0
+        ? `${dueTodayFollowUps} due today`
+        : 'All up to date',
       icon: Clock,
-      color: overdueLeads > 0 ? '#dc2626' : '#16a34a',
-      bgColor: overdueLeads > 0 ? '#fee2e2' : '#f0fdf4',
-      borderColor: overdueLeads > 0 ? '#fecaca' : '#bbf7d0'
+      color: overdueFollowUps > 0 ? '#dc2626' : dueTodayFollowUps > 0 ? '#d97706' : '#16a34a',
+      bgColor: overdueFollowUps > 0 ? '#fee2e2' : dueTodayFollowUps > 0 ? '#fef3c7' : '#f0fdf4',
+      borderColor: overdueFollowUps > 0 ? '#fecaca' : dueTodayFollowUps > 0 ? '#fde68a' : '#bbf7d0',
+      clickable: typeof onSelectFollowUpFilter === 'function',
+      onClick: () => onSelectFollowUpFilter && onSelectFollowUpFilter(overdueFollowUps > 0 ? 'overdue' : 'due_today')
     }
   ];
 
@@ -104,7 +112,10 @@ export const LeadsKPIOverview = ({ leads = [] }) => {
         return (
           <div
             key={idx}
-            className="bg-white dark:bg-slate-900 rounded-[10px] p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-1.5 relative overflow-hidden"
+            onClick={kpi.onClick}
+            className={`bg-white dark:bg-slate-900 rounded-[10px] p-2.5 px-3.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between gap-1.5 relative overflow-hidden transition-all ${
+              kpi.clickable ? 'cursor-pointer hover:border-red-400 dark:hover:border-red-600 hover:shadow-sm select-none' : ''
+            }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
