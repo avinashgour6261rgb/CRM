@@ -2478,17 +2478,8 @@ export const DashboardPage = () => {
                   {/* Work Now / Start Timer */}
                   <button
                     onClick={() => {
-                      if (!isClockedIn) {
-                        addToast('⚠️ Please Clock In for shift before starting task timer!', 'warning');
-                        return;
-                      }
-                      if (isOnBreak) {
-                        addToast('☕ You are on break. Please resume shift first!', 'warning');
-                        return;
-                      }
                       startTaskTimer(currentLeftover._id, { forceOverdue: true });
                       setActiveSelectedTaskId(currentLeftover._id);
-                      addToast(`▶️ Started leftover task: ${currentLeftover.title}`, 'success');
                     }}
                     className="inline-flex items-center gap-1 py-1.5 px-3 rounded-md bg-red-600 text-white border-none text-[11.5px] font-bold cursor-pointer shadow-xs hover:bg-red-700 transition-colors"
                     title="Start timer and work on this leftover task now"

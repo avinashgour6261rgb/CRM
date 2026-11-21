@@ -17,7 +17,7 @@ import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isSocketConnected } from '../../../shared/services/socketService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -2248,71 +2248,190 @@ export const WorkProvider = ({ children }) => {
       return;
     }
 
-    // Detect if this task is assigned to another employee
-    const assignedEmpId = targetTask.assignedToId ||
-      (typeof targetTask.assignedTo === 'string' ? targetTask.assignedTo : targetTask.assignedTo?._id) ||
-      (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds[0]) ||
-      (Array.isArray(targetTask.assignees) && (targetTask.assignees[0]?._id || targetTask.assignees[0]?.employeeCode)) ||
-      userKey;
-    const assignedEmpName = targetTask.assignedToName ||
-      (Array.isArray(targetTask.assignees) && targetTask.assignees[0]?.name) ||
-      'Employee';
+    // ── STEP 1: Determine the worker for this task ──
+    const isAssignedToMe = isTaskAssignedToMe(targetTask);
     const isUserAdminOrHR = currentUser?.isAdmin || currentUser?.systemRole === 'admin' || currentUser?.systemRole === 'hr' || currentUser?.role === 'Administrator' || currentUser?.role === 'HR Manager' || isHRorAdmin(currentUser);
-    const isForOtherEmployee = (isUserAdminOrHR || targetTask.assignedById === currentUser?._id) &&
-      !isTaskAssignedToMe(targetTask) &&
-      assignedEmpId &&
-      String(assignedEmpId) !== String(userKey) &&
-      String(assignedEmpId) !== String(currentUser?._id);
 
-    // Target user who owns this task
-    const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
-    const targetEmpObj = (employees || []).find(e => String(e._id) === String(targetUserKey) || String(e.employeeCode) === String(targetUserKey));
-    const currentWorkerId = isForOtherEmployee ? String(assignedEmpId) : String(currentUser?._id || userKey);
-    const currentWorkerName = isForOtherEmployee ? (targetEmpObj?.name || assignedEmpName) : (currentUser?.name || assignedEmpName || 'Team Member');
-    const currentWorkerAvatar = isForOtherEmployee ? (targetEmpObj?.avatar || '') : (currentUser?.avatar || '');
-    const currentWorkerRole = isForOtherEmployee ? (targetEmpObj?.role || '') : (currentUser?.role || currentUser?.systemRole || 'Staff');
+    // Collect all candidate assignees (handles multi-assignees and single assignee)
+    let candidateEmpIds = [];
+    if (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 0) {
+      candidateEmpIds = targetTask.assignedToIds;
+    } else if (Array.isArray(targetTask.assignees) && targetTask.assignees.length > 0) {
+      candidateEmpIds = targetTask.assignees.map(a => a._id || a.employeeCode).filter(Boolean);
+    } else if (targetTask.assignedToId) {
+      candidateEmpIds = [targetTask.assignedToId];
+    } else if (targetTask.assignedTo) {
+      const aId = typeof targetTask.assignedTo === 'object' ? (targetTask.assignedTo._id || targetTask.assignedTo.id) : targetTask.assignedTo;
+      if (aId) candidateEmpIds = [aId];
+    }
 
-    // 0. Shift Clock-In Guard: Auto clock-in employee for shift when task timer starts
-    let isClockedIn = readTimerStorage(currentUser, 'is_clocked_in') === 'true' ||
-      readTimerStorage(currentUser, 'is_clocked_in') === true ||
-      localStorage.getItem(`ems_timer_${userKey}_is_clocked_in`) === 'true' ||
-      (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_clocked_in`) === 'true');
+    let isForOtherEmployee = false;
+    let targetWorkerObj = null;
+    let targetWorkerKey = String(userKey);
+    let targetWorkerName = currentUser?.name || 'Team Member';
 
-    if (!isClockedIn) {
-      try {
-        const attRaw = localStorage.getItem('hrms_attendance');
-        if (attRaw) {
-          const list = JSON.parse(attRaw) || [];
-          const today = getTodayStr();
-          const rec = list.find(a => a.date === today && (
-            String(a.employeeId) === String(userKey) ||
-            String(a.employee) === String(userKey) ||
-            (currentUser?.employeeCode && String(a.employeeCode) === String(currentUser.employeeCode)) ||
-            (currentUser?._id && String(a.employeeId) === String(currentUser._id))
-          ));
-          if (rec && (rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false) {
-            isClockedIn = true;
+    if (isAssignedToMe || candidateEmpIds.length === 0) {
+      // Current user is running their own task
+      isForOtherEmployee = false;
+      targetWorkerObj = currentUser;
+      targetWorkerKey = String(userKey);
+      targetWorkerName = currentUser?.name || 'Team Member';
+    } else {
+      // Task is assigned to someone else, and started by Admin or Manager
+      isForOtherEmployee = true;
+
+      // In multi-assignee scenarios, find a candidate who is actively clocked in today
+      let chosenEmp = null;
+      for (const candId of candidateEmpIds) {
+        const found = (employees || []).find(e => String(e._id) === String(candId) || String(e.employeeCode) === String(candId));
+        if (found) {
+          const storedClockedIn = readTimerStorage(found, 'is_clocked_in') === 'true' || readTimerStorage(found, 'is_clocked_in') === true;
+          const hadClockedOut = readTimerStorage(found, 'had_clocked_out') === 'true' || Boolean(readTimerStorage(found, 'clock_out'));
+          if (storedClockedIn && !hadClockedOut) {
+            chosenEmp = found;
+            break;
           }
         }
-      } catch (_) {}
+      }
+
+      // If no active clocked-in candidate found, select the first assigned employee to run validation against
+      if (!chosenEmp && candidateEmpIds.length > 0) {
+        const firstId = candidateEmpIds[0];
+        chosenEmp = (employees || []).find(e => String(e._id) === String(firstId) || String(e.employeeCode) === String(firstId)) || {
+          _id: firstId,
+          employeeCode: targetTask.assignedToCode || firstId,
+          name: targetTask.assignedToName || 'Employee'
+        };
+      }
+
+      targetWorkerObj = chosenEmp || { _id: userKey, employeeCode: userKey, name: 'Employee' };
+      targetWorkerKey = String(targetWorkerObj.employeeCode || targetWorkerObj._id || userKey);
+      targetWorkerName = targetWorkerObj.name || targetTask.assignedToName || 'Employee';
     }
 
-    if (!isClockedIn && !isForOtherEmployee) {
-      addToast('⚠️ Shift is not clocked in! Please Clock In to your shift before starting task timer.', 'warning');
+    const today = getTodayStr();
+
+    // ── CHECK 1: Approved Leave Guard ──
+    const isWorkerOnLeave = (leaves || []).some(l =>
+      l.status === 'approved' &&
+      l.startDate <= today &&
+      l.endDate >= today &&
+      (
+        (targetWorkerObj?._id && (String(l.employeeId) === String(targetWorkerObj._id) || String(l.employee) === String(targetWorkerObj._id))) ||
+        (targetWorkerObj?.employeeCode && (l.employeeCode === targetWorkerObj.employeeCode || l.employeeId === targetWorkerObj.employeeCode)) ||
+        (targetWorkerName && l.employeeName && l.employeeName.trim().toLowerCase() === targetWorkerName.trim().toLowerCase())
+      )
+    );
+
+    if (isWorkerOnLeave) {
+      if (isForOtherEmployee) {
+        addToast(`⛔ Cannot start task: "${targetWorkerName}" is on approved leave today.`, 'warning');
+      } else {
+        addToast('⛔ Cannot start task: You are marked on approved leave today.', 'warning');
+      }
       return;
     }
 
-    // 1. Break Guard: You cannot track task time while actively on break
-    const isOnBreak = readTimerStorage(currentUser, 'is_on_break') === 'true' ||
-      readTimerStorage(currentUser, 'is_on_break') === true ||
-      localStorage.getItem(`ems_timer_${userKey}_is_on_break`) === 'true' ||
-      (currentUser?.employeeCode && localStorage.getItem(`ems_timer_${currentUser.employeeCode}_is_on_break`) === 'true');
-    if (isOnBreak) {
-      addToast('☕ You are currently on break. Please resume work first before tracking task time!', 'warning');
+    // ── CHECK 2: Shift Clock-In & Clock-Out Guards ──
+    const storedSessionDate = readTimerStorage(targetWorkerObj, 'work_session_date');
+    const storedClockedIn = (storedSessionDate === today || !storedSessionDate) && (
+      readTimerStorage(targetWorkerObj, 'is_clocked_in') === 'true' ||
+      readTimerStorage(targetWorkerObj, 'is_clocked_in') === true ||
+      localStorage.getItem(`ems_timer_${targetWorkerKey}_is_clocked_in`) === 'true' ||
+      (targetWorkerObj.employeeCode && localStorage.getItem(`ems_timer_${targetWorkerObj.employeeCode}_is_clocked_in`) === 'true') ||
+      (targetWorkerObj._id && localStorage.getItem(`ems_timer_${targetWorkerObj._id}_is_clocked_in`) === 'true')
+    );
+
+    let attClockedIn = false;
+    let attClockedOut = false;
+    let attOnLeave = false;
+    try {
+      const attRaw = localStorage.getItem('hrms_attendance');
+      if (attRaw) {
+        const list = JSON.parse(attRaw) || [];
+        const mirrorKeys = getTimerMirrorKeys(targetWorkerObj).map(k => String(k).toLowerCase());
+        const rec = list.find(a => a.date === today && (
+          (a.employeeId && mirrorKeys.includes(String(a.employeeId).toLowerCase())) ||
+          (a.employee && mirrorKeys.includes(String(a.employee._id || a.employee).toLowerCase())) ||
+          (a.employeeCode && mirrorKeys.includes(String(a.employeeCode).toLowerCase())) ||
+          (targetWorkerName && a.employeeName && a.employeeName.trim().toLowerCase() === targetWorkerName.trim().toLowerCase())
+        ));
+        if (rec) {
+          if (rec.status === 'on_leave') attOnLeave = true;
+          if (rec.clockOutTime || rec.clockOut) attClockedOut = true;
+          if ((rec.clockInTime || rec.clockIn) && !rec.clockOutTime && rec.isClockedIn !== false) {
+            attClockedIn = true;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (attOnLeave) {
+      if (isForOtherEmployee) {
+        addToast(`⛔ Cannot start task: "${targetWorkerName}" is on approved leave today.`, 'warning');
+      } else {
+        addToast('⛔ Cannot start task: You are marked on approved leave today.', 'warning');
+      }
       return;
     }
 
-    // 3. Overdue Task Guard
+    const storedClockedOut = (storedSessionDate === today || !storedSessionDate) && (
+      readTimerStorage(targetWorkerObj, 'had_clocked_out') === 'true' ||
+      Boolean(readTimerStorage(targetWorkerObj, 'clock_out')) ||
+      Boolean(readTimerStorage(targetWorkerObj, 'clockout_time')) ||
+      attClockedOut
+    );
+
+    const isWorkerActiveShift = (storedClockedIn || attClockedIn) && !storedClockedOut;
+
+    if (storedClockedOut && !isWorkerActiveShift) {
+      if (isForOtherEmployee) {
+        addToast(`⚠️ Employee "${targetWorkerName}" has already Clocked Out for today. Shift must be active to track tasks.`, 'warning');
+      } else {
+        addToast('⚠️ You have already Clocked Out for today. Please Clock In to resume tracking task time.', 'warning');
+      }
+      return;
+    }
+
+    if (!isWorkerActiveShift) {
+      if (isForOtherEmployee) {
+        addToast(`⚠️ Employee "${targetWorkerName}" has not Clocked In for today's shift yet. Task timer cannot be started until they clock in.`, 'warning');
+      } else {
+        addToast('⚠️ Shift is not clocked in! Please Clock In to your shift before starting task timer.', 'warning');
+      }
+      return;
+    }
+
+    // ── CHECK 3: Shift Break Guard (Tea / Lunch) ──
+    const isWorkerOnBreak = (storedSessionDate === today || !storedSessionDate) && (
+      readTimerStorage(targetWorkerObj, 'is_on_break') === 'true' ||
+      readTimerStorage(targetWorkerObj, 'is_on_break') === true ||
+      localStorage.getItem(`ems_timer_${targetWorkerKey}_is_on_break`) === 'true' ||
+      (targetWorkerObj.employeeCode && localStorage.getItem(`ems_timer_${targetWorkerObj.employeeCode}_is_on_break`) === 'true') ||
+      (targetWorkerObj._id && localStorage.getItem(`ems_timer_${targetWorkerObj._id}_is_on_break`) === 'true')
+    );
+
+    if (isWorkerOnBreak) {
+      const brkType = readTimerStorage(targetWorkerObj, 'break_type') || 'Break';
+      if (isForOtherEmployee) {
+        addToast(`☕ Employee "${targetWorkerName}" is currently on ${brkType}. Please wait until they resume shift before starting task timer.`, 'warning');
+      } else {
+        addToast(`☕ You are currently on ${brkType}. Please resume work first before tracking task time!`, 'warning');
+      }
+      return;
+    }
+
+    // Worker identity mapping
+    const assignedEmpId = targetWorkerObj._id || targetWorkerKey;
+    const assignedEmpName = targetWorkerName;
+    const targetUserKey = isForOtherEmployee ? String(assignedEmpId) : String(userKey);
+    const targetEmpObj = targetWorkerObj;
+    const currentWorkerId = isForOtherEmployee ? String(assignedEmpId) : String(currentUser?._id || userKey);
+    const currentWorkerName = targetWorkerName;
+    const currentWorkerAvatar = targetWorkerObj?.avatar || '';
+    const currentWorkerRole = targetWorkerObj?.role || targetWorkerObj?.systemRole || 'Staff';
+
+    // ── Overdue Task Guard ──
     const isOverdue = isTaskOverdue(targetTask);
     if (isOverdue && !options.forceOverdue) {
       setOverdueTaskPrompt(targetTask);
@@ -2320,7 +2439,6 @@ export const WorkProvider = ({ children }) => {
       return;
     }
 
-    const today = getTodayStr();
     const now = Date.now();
     const todayMidnight = new Date(now);
     todayMidnight.setHours(0, 0, 0, 0);

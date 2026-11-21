@@ -2010,15 +2010,32 @@ export const TeamOperationsPage = () => {
                                 </div>
                                 <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
                                   <span>⏱️ <strong className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">{item.pausedTask.liveDurationText}</strong></span>
-                                  {(hasShiftControlPermission || isSelfEmployee(emp)) && (
-                                    <button
-                                      onClick={() => startTaskTimer(item.pausedTask._id)}
-                                      className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                                      title="Resume paused task timer"
-                                    >
-                                      <Play size={9} className="fill-green-600" /> Resume
-                                    </button>
-                                  )}
+                                  {(hasShiftControlPermission || isSelfEmployee(emp)) && (() => {
+                                    const canStartEmpTask = item.isClockedIn && !item.isOnBreak && !item.isOnLeave && !item.isClockedOut;
+                                    return (
+                                      <button
+                                        onClick={() => startTaskTimer(item.pausedTask._id)}
+                                        className={`inline-flex items-center gap-1 border rounded px-1.5 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                                          canStartEmpTask
+                                            ? 'border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50'
+                                            : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-70'
+                                        }`}
+                                        title={
+                                          !item.isClockedIn
+                                            ? `Cannot resume: ${emp.name} is not clocked in today`
+                                            : item.isOnLeave
+                                              ? `Cannot resume: ${emp.name} is on leave today`
+                                              : item.isOnBreak
+                                                ? `Cannot resume: ${emp.name} is on break`
+                                                : item.isClockedOut
+                                                  ? `Cannot resume: ${emp.name} has clocked out for today`
+                                                  : 'Resume paused task timer'
+                                        }
+                                      >
+                                        <Play size={9} className={canStartEmpTask ? 'fill-green-600' : 'fill-slate-400'} /> Resume
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             ) : (() => {
@@ -2029,14 +2046,29 @@ export const TeamOperationsPage = () => {
                               if (empPendingTasks.length > 0) {
                                 const firstTask = empPendingTasks[0];
                                 if (hasShiftControlPermission || isSelfEmployee(emp)) {
+                                  const canStartEmpTask = item.isClockedIn && !item.isOnBreak && !item.isOnLeave && !item.isClockedOut;
                                   return (
                                     <div className="flex items-center gap-1.5">
                                       <button
                                         onClick={() => startTaskTimer(firstTask._id)}
-                                        className="inline-flex items-center gap-1 border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
-                                        title={`Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`}
+                                        className={`inline-flex items-center gap-1 border rounded px-2 py-0.5 text-[10.5px] font-bold cursor-pointer transition-colors ${
+                                          canStartEmpTask
+                                            ? 'border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50'
+                                            : 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-70'
+                                        }`}
+                                        title={
+                                          !item.isClockedIn
+                                            ? `Cannot start: ${emp.name} is not clocked in today`
+                                            : item.isOnLeave
+                                              ? `Cannot start: ${emp.name} is on leave today`
+                                              : item.isOnBreak
+                                                ? `Cannot start: ${emp.name} is on break`
+                                                : item.isClockedOut
+                                                  ? `Cannot start: ${emp.name} has clocked out for today`
+                                                  : `Start timer for ${emp.name} on #${firstTask.taskCode || 'TSK'}: ${firstTask.title}`
+                                        }
                                       >
-                                        <Play size={9} className="fill-green-600" /> Start #{firstTask.taskCode || 'TSK'}
+                                        <Play size={9} className={canStartEmpTask ? 'fill-green-600' : 'fill-slate-400'} /> Start #{firstTask.taskCode || 'TSK'}
                                       </button>
                                       {empPendingTasks.length > 1 && (
                                         <span className="text-[10px] text-slate-500 dark:text-slate-400">+{empPendingTasks.length - 1} more</span>

@@ -318,14 +318,6 @@ export const DashboardTasksSection = ({
                             ) : (
                               <button
                                 onClick={() => {
-                                  const isMyTask = isTaskAssignedToUser(task, currentUser);
-                                  if (isMyTask && !isClockedIn) {
-                                    handleClockIn();
-                                  }
-                                  if (isMyTask && isOnBreak) {
-                                    addToast('☕ You are on break. Please resume work first!', 'warning');
-                                    return;
-                                  }
                                   startTaskTimer(task._id);
                                   setActiveSelectedTaskId(task._id);
                                   setSelectedTask(task);

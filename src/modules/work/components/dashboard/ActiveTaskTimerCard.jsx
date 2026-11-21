@@ -211,14 +211,6 @@ export const ActiveTaskTimerCard = ({
 
             <button
               onClick={() => {
-                if (!isViewingOtherEmployee && !isClockedIn) {
-                  addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                  return;
-                }
-                if (!isViewingOtherEmployee && isOnBreak) {
-                  addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                  return;
-                }
                 if (displayActiveTask?.timerRunning) {
                   setActiveSelectedTaskId(displayActiveTask._id);
                   pauseTaskTimer(displayActiveTask._id);
@@ -317,14 +309,6 @@ export const ActiveTaskTimerCard = ({
                   <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                     <button
                       onClick={() => {
-                        if (!isClockedIn) {
-                          addToast('⚠️ Shift is not clocked in! Please Clock In above before starting task timers.', 'warning');
-                          return;
-                        }
-                        if (isOnBreak) {
-                          addToast('☕ You are currently on break. Please resume work before running task timers!', 'warning');
-                          return;
-                        }
                         startTaskTimer(nextT._id);
                         setActiveSelectedTaskId(nextT._id);
                       }}
