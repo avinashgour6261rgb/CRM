@@ -1381,8 +1381,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     return true;
   });
 
-  // 2. Deduplicate timesheets by task key to prevent duplicate rows inflating duration
-  const dayTsMap = new Map();
+  // 2. Intelligently group timesheets by task key so distinct sessions are preserved:
+  // - Distinct manual entries (e.g. user logged separate sessions) are SUMMED so no work is dropped.
+  // - Automated / system snapshots (e.g. clock-out auto-save, auto-close) are progressive snapshots, so take the maximum.
+  const taskTsGroups = new Map();
   rawDayTimesheets.forEach(ts => {
     let taskKey = null;
     if (ts.taskCode && String(ts.taskCode).trim()) {
@@ -1394,14 +1396,51 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     } else {
       taskKey = `raw_${ts._id || Math.random()}`;
     }
-    const dur = Number(ts.totalDurationSeconds) || 0;
-    if (!dayTsMap.has(taskKey) || dur > (Number(dayTsMap.get(taskKey).totalDurationSeconds) || 0)) {
-      dayTsMap.set(taskKey, ts);
+    if (!taskTsGroups.has(taskKey)) taskTsGroups.set(taskKey, []);
+    taskTsGroups.get(taskKey).push(ts);
+  });
+
+  const dedupedTimesheetEntries = [];
+  taskTsGroups.forEach((tsList) => {
+    if (tsList.length === 1) {
+      dedupedTimesheetEntries.push(tsList[0]);
+    } else {
+      const allAutoSaves = tsList.every(t => {
+        const m = String(t.memo || t.notes || '').toLowerCase();
+        return m.includes('auto') || m.includes('clock-out') || m.includes('auto-close') || m.includes('completed');
+      });
+      if (allAutoSaves) {
+        // Take the latest/maximum duration snapshot
+        const best = tsList.reduce((maxT, curT) =>
+          (Number(curT.totalDurationSeconds) || 0) > (Number(maxT.totalDurationSeconds) || 0) ? curT : maxT
+        , tsList[0]);
+        dedupedTimesheetEntries.push(best);
+      } else {
+        // Distinct manual or hybrid entries: sum their distinct durations so no worked time is lost!
+        const seenIds = new Set();
+        let totalGroupSecs = 0;
+        let representative = tsList[0];
+        tsList.forEach(t => {
+          const tId = String(t._id || t.id || `${t.totalDurationSeconds}_${t.createdAt}`);
+          if (!seenIds.has(tId)) {
+            seenIds.add(tId);
+            totalGroupSecs += Number(t.totalDurationSeconds) || 0;
+            if ((Number(t.totalDurationSeconds) || 0) > (Number(representative.totalDurationSeconds) || 0)) {
+              representative = t;
+            }
+          }
+        });
+        dedupedTimesheetEntries.push({
+          ...representative,
+          totalDurationSeconds: totalGroupSecs,
+          totalDurationText: formatSecondsToDigital(totalGroupSecs)
+        });
+      }
     }
   });
 
   // Construct tasksWorked entries from deduped timesheets (strictly actual tasks only)
-  let tasksWorked = Array.from(dayTsMap.values())
+  let tasksWorked = dedupedTimesheetEntries
     .filter(ts => !ts.isShiftSync && ts.taskTitle !== 'Daily Shift / Office Work')
     .map(ts => ({
     taskId: ts.taskId || ts._id,
@@ -1416,9 +1455,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     memo: ts.notes || ts.memo || 'Completed Task Timesheet'
   }));
 
+  const empTasks = allTasks.filter(t => isTaskAssignedToUser(t, targetUser));
+
   // 3. For today: merge live ticking or paused tasks worked today that haven't been submitted to timesheets yet
   if (isToday) {
-    const empTasks = allTasks.filter(t => isTaskAssignedToUser(t, targetUser));
     const empUserKey = targetUser.employeeCode || targetUser._id;
     let empActiveTimer = customActiveTimer;
     if (!empActiveTimer) {
@@ -1459,12 +1499,6 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       const ptId = String(pt._id || pt.id);
       if (runningTaskId && ptId === runningTaskId) return;
 
-      const alreadyInTasksWorked = tasksWorked.some(t =>
-        String(t.taskId) === ptId ||
-        (pt.taskCode && t.taskCode && String(pt.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase())
-      );
-      if (alreadyInTasksWorked) return;
-
       const hasSessionToday = (pt.dailySessions && Number(pt.dailySessions[actualToday]) > 0) ||
         (pt.sessionDate === actualToday && Number(pt.todayWorkSeconds) > 0);
       const isRunningToday = pt.timerRunning && isClockedIn;
@@ -1472,19 +1506,66 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
 
       const todaySecs = getTaskTodaySeconds(pt, actualToday, Date.now(), isClockedIn, isOnBreak);
       if (todaySecs > 0) {
-        const isDone = pt.status === 'completed' || !!pt.completedAt;
-        tasksWorked.push({
-          taskId: ptId,
-          taskCode: pt.taskCode || 'TSK',
-          taskTitle: pt.title,
-          projectName: pt.projectName || 'General Work',
-          durationText: formatSecondsToDigital(todaySecs),
-          durationSeconds: todaySecs,
-          status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
-          isCompleted: isDone,
-          timerRunning: Boolean(pt.timerRunning && isClockedIn),
-          memo: isDone ? 'Completed Today' : `Work session (${formatSecondsToDigital(todaySecs)} logged)`
-        });
+        const rowIdx = tasksWorked.findIndex(t =>
+          String(t.taskId) === ptId ||
+          (pt.taskCode && t.taskCode && String(pt.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase())
+        );
+        if (rowIdx !== -1) {
+          // If task already has a timesheet row for today, make sure duration is at least todaySecs
+          if (todaySecs > tasksWorked[rowIdx].durationSeconds) {
+            tasksWorked[rowIdx].durationSeconds = todaySecs;
+            tasksWorked[rowIdx].durationText = formatSecondsToDigital(todaySecs);
+          }
+        } else {
+          const isDone = pt.status === 'completed' || !!pt.completedAt;
+          tasksWorked.push({
+            taskId: ptId,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title,
+            projectName: pt.projectName || 'General Work',
+            durationText: formatSecondsToDigital(todaySecs),
+            durationSeconds: todaySecs,
+            status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
+            isCompleted: isDone,
+            timerRunning: Boolean(pt.timerRunning && isClockedIn),
+            memo: isDone ? 'Completed Today' : `Work session (${formatSecondsToDigital(todaySecs)} logged)`
+          });
+        }
+      }
+    });
+  } else {
+    // ── 🛡️ PAST DATES (e.g. yesterday, Friday, etc.): Merge any recorded sessions in task.dailySessions ──
+    // Ensures that past work is NEVER lost or displayed as 0 even if an employee didn't submit a formal timesheet!
+    empTasks.forEach(pt => {
+      const ptId = String(pt._id || pt.id);
+      const pastDaySecs = getTaskTodaySeconds(pt, effectiveDate, Date.now(), false, false);
+      if (pastDaySecs > 0) {
+        const rowIdx = tasksWorked.findIndex(t =>
+          String(t.taskId) === ptId ||
+          (pt.taskCode && t.taskCode && String(pt.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase())
+        );
+        if (rowIdx !== -1) {
+          // Timesheet exists: ensure it is at least pastDaySecs
+          if (pastDaySecs > tasksWorked[rowIdx].durationSeconds) {
+            tasksWorked[rowIdx].durationSeconds = pastDaySecs;
+            tasksWorked[rowIdx].durationText = formatSecondsToDigital(pastDaySecs);
+          }
+        } else {
+          // No timesheet existed: synthesize the task session row from task.dailySessions!
+          const isDone = pt.status === 'completed' || !!pt.completedAt;
+          tasksWorked.push({
+            taskId: ptId,
+            taskCode: pt.taskCode || 'TSK',
+            taskTitle: pt.title,
+            projectName: pt.projectName || 'General Work',
+            durationText: formatSecondsToDigital(pastDaySecs),
+            durationSeconds: pastDaySecs,
+            status: isDone ? 'completed' : 'on_hold',
+            isCompleted: isDone,
+            timerRunning: false,
+            memo: isDone ? 'Completed on this day' : `Logged task session (${formatSecondsToDigital(pastDaySecs)})`
+          });
+        }
       }
     });
   }
@@ -1504,7 +1585,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     rawTaskSeconds: rawTotalSecs,
     rawTaskDurationText: formatSecondsToDigital(rawTotalSecs),
     tasksWorked,
-    dedupedTimesheets: Array.from(dayTsMap.values())
+    dedupedTimesheets: dedupedTimesheetEntries
   };
 };
 

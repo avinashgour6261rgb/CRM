@@ -1826,36 +1826,39 @@ export const WorkProvider = ({ children }) => {
           try {
             const current = JSON.parse(rawSaved);
             if (current && current.timerRunning) {
-              const currentSecs = getElapsedSeconds();
+              const currentTodaySecs = getTaskTodaySeconds(current, today, nowMidnightCheck.getTime(), true, false);
+              const safeTodaySecs = Math.min(currentTodaySecs > 0 ? currentTodaySecs : (Number(current.todayWorkSeconds ?? current.accumulatedTodaySeconds) || 0), 14 * 3600);
               saveActiveTimerSnapshot(null);
-      try {
-        const empK = current?.userKey || userKey;
-        hrService.sendHeartbeat({
-          employeeId: empK,
-          employeeCode: empK,
-          taskOnly: true,
-          activeTask: null
-        }).catch(() => {});
-      } catch (_) {}
+              try {
+                const empK = current?.userKey || userKey;
+                hrService.sendHeartbeat({
+                  employeeId: empK,
+                  employeeCode: empK,
+                  taskOnly: true,
+                  activeTask: null
+                }).catch(() => {});
+              } catch (_) {}
               setTasks(prev => prev.map(t => {
                 if (String(t._id || t.id) === String(current.taskId)) {
                   return syncTaskPauseState(t, { nowMs: nowMidnightCheck.getTime(), todayStr: today, wasPausedForClockOut: true });
                 }
                 return t;
               }));
-              workService.createTimesheet({
-                taskId: current.taskId,
-                taskCode: current.taskCode,
-                taskTitle: current.title || current.taskTitle,
-                projectName: current.projectName,
-                employeeId: current.assignedToId || userKey,
-                employeeName: current.assignedToName || currentUser?.name,
-                date: today,
-                totalDurationSeconds: Math.min(currentSecs, 14 * 3600),
-                totalDurationText: formatSeconds(Math.min(currentSecs, 14 * 3600)),
-                memo: '11:59 PM auto-close same-day timesheet save',
-                status: 'stopped'
-              }).catch(e => console.warn('11:59 PM auto-timesheet error:', e));
+              if (safeTodaySecs > 0) {
+                workService.createTimesheet({
+                  taskId: current.taskId,
+                  taskCode: current.taskCode,
+                  taskTitle: current.title || current.taskTitle,
+                  projectName: current.projectName,
+                  employeeId: current.assignedToId || userKey,
+                  employeeName: current.assignedToName || currentUser?.name,
+                  date: today,
+                  totalDurationSeconds: safeTodaySecs,
+                  totalDurationText: formatSeconds(safeTodaySecs),
+                  memo: '11:59 PM auto-close same-day timesheet save',
+                  status: 'stopped'
+                }).catch(e => console.warn('11:59 PM auto-timesheet error:', e));
+              }
               window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
             }
           } catch (_) {}
@@ -1868,20 +1871,32 @@ export const WorkProvider = ({ children }) => {
         localStorage.setItem(`ems_work_session_date_${userKey}`, today);
         setWorkSessionDate(today);
 
-        // Check if yesterday had an active unclosed timer across midnight
+        // Check if yesterday had an active unclosed timer across midnight (laptop closed / sleep overnight)
         const rawSaved = localStorage.getItem(activeTimerKey);
         if (rawSaved) {
           try {
             const prev = JSON.parse(rawSaved);
             if (prev && prev.date && prev.date !== today) {
+              const prevDate = prev.date || storedWorkDate;
               const prevStartTs = prev.startedAt ? Number(prev.startedAt) : null;
               let elapsedBeforeMidnight = 0;
               if (prev.timerRunning && prevStartTs) {
                 const todayMidnight = new Date();
                 todayMidnight.setHours(0, 0, 0, 0);
-                elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnight.getTime() - prevStartTs) / 1000));
+                if (prevStartTs < todayMidnight.getTime()) {
+                  elapsedBeforeMidnight = Math.max(0, Math.floor((todayMidnight.getTime() - prevStartTs) / 1000));
+                }
               }
-              const duration = (Number(prev.accumulatedSeconds) || 0) + elapsedBeforeMidnight;
+              // 🛡️ CRITICAL FIX: Only archive THAT specific day's work, NEVER lifetime accumulatedSeconds across all days!
+              const prevDayBase = Number(
+                prev.accumulatedTodaySeconds ??
+                prev.todayWorkSeconds ??
+                (prev.dailySessions && prev.dailySessions[prevDate]) ??
+                0
+              );
+              const fallbackLifetime = (prev.startDate === prevDate) ? (Number(prev.accumulatedSeconds) || 0) : 0;
+              const effectivePrevDaySecs = prevDayBase > 0 ? prevDayBase : fallbackLifetime;
+              const duration = Math.min(effectivePrevDaySecs + elapsedBeforeMidnight, 14 * 3600);
               if (duration > 0) {
                 workService.createTimesheet({
                   taskId: prev.taskId,
@@ -1890,9 +1905,9 @@ export const WorkProvider = ({ children }) => {
                   projectName: prev.projectName,
                   employeeId: prev.assignedToId || userKey,
                   employeeName: prev.assignedToName || currentUser?.name,
-                  date: prev.date || storedWorkDate,
-                  totalDurationSeconds: Math.min(duration, 14 * 3600),
-                  totalDurationText: formatSeconds(Math.min(duration, 14 * 3600)),
+                  date: prevDate,
+                  totalDurationSeconds: duration,
+                  totalDurationText: formatSeconds(duration),
                   memo: 'Automatic midnight rollover session save',
                   status: 'stopped'
                 }).catch(e => console.warn('Auto timesheet close error:', e));
@@ -2477,9 +2492,17 @@ export const WorkProvider = ({ children }) => {
     const activeTimer = getActiveTimerSnapshot();
     lastTaskActionRef.current = { taskId: String(taskId), action: 'start', at: now };
 
-    // If an unclosed timer from a previous date exists, auto-archive it
+    // If an unclosed timer from a previous date exists, auto-archive it (strictly that specific day's work)
     if (activeTimer && activeTimer.date && activeTimer.date !== today) {
-      const prevSecs = Number(activeTimer.accumulatedSeconds) || 0;
+      const prevDate = activeTimer.date;
+      const prevDayBase = Number(
+        activeTimer.accumulatedTodaySeconds ??
+        activeTimer.todayWorkSeconds ??
+        (activeTimer.dailySessions && activeTimer.dailySessions[prevDate]) ??
+        0
+      );
+      const fallbackLifetime = (activeTimer.startDate === prevDate) ? (Number(activeTimer.accumulatedSeconds) || 0) : 0;
+      const prevSecs = Math.min(prevDayBase > 0 ? prevDayBase : fallbackLifetime, 14 * 3600);
       if (prevSecs > 0) {
         workService.createTimesheet({
           taskId: activeTimer.taskId,
@@ -2488,7 +2511,7 @@ export const WorkProvider = ({ children }) => {
           projectName: activeTimer.projectName,
           employeeId: activeTimer.assignedToId,
           employeeName: activeTimer.assignedToName,
-          date: activeTimer.date,
+          date: prevDate,
           totalDurationSeconds: prevSecs,
           totalDurationText: formatSeconds(prevSecs),
           memo: 'Auto-saved session from previous day',
@@ -2524,7 +2547,10 @@ export const WorkProvider = ({ children }) => {
       const rawPrevSecs = (targetTask.accumulatedSeconds !== undefined && targetTask.accumulatedSeconds !== null)
         ? Number(targetTask.accumulatedSeconds)
         : (Number(targetTask.timerSeconds) || 0);
-      const unloggedFromPrevDay = Math.max(0, rawPrevSecs - prevDaysLogged);
+      const sessionDateWork = (targetTask.dailySessions && Number(targetTask.dailySessions[targetTask.sessionDate]) > 0)
+        ? Number(targetTask.dailySessions[targetTask.sessionDate])
+        : Math.max(0, rawPrevSecs - prevDaysLogged);
+      const unloggedFromPrevDay = Math.min(sessionDateWork, 14 * 3600);
       if (unloggedFromPrevDay > 0) {
         workService.createTimesheet({
           taskId: targetTask._id || taskId,
