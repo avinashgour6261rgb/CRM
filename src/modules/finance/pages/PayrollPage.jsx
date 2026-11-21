@@ -111,6 +111,22 @@ export const PayrollPage = () => {
     if (emp.salary && (emp.salary.basic !== undefined || emp.salary.monthlyGross !== undefined)) {
       const s = emp.salary;
       const gross = Number(s.monthlyGross) || Number(s.basic) || (Number(emp.startingSalary) || 45000);
+      if (s.isDirectSalary || (s.totalDeductions === 0 && !s.pf)) {
+        return {
+          ...s,
+          basic: gross,
+          hra: 0,
+          allowances: 0,
+          bonus: 0,
+          pf: 0,
+          pt: 0,
+          tds: 0,
+          monthlyGross: gross,
+          netSalary: gross,
+          annualCTC: gross * 12,
+          isDirectSalary: true
+        };
+      }
       const basic = s.basic || Math.round(gross * 0.5);
       const hra = s.hra || Math.round(basic * 0.4);
       const allowances = s.allowances || Math.max(0, gross - basic - hra);
@@ -130,7 +146,8 @@ export const PayrollPage = () => {
         tds,
         monthlyGross: gross,
         netSalary: Math.max(0, gross - deductions),
-        annualCTC: gross * 12
+        annualCTC: gross * 12,
+        isDirectSalary: false
       };
     }
 
@@ -177,7 +194,7 @@ export const PayrollPage = () => {
 
     // Filter unexcused absences
     const monthAbsences = (attendance || []).filter(a => {
-      const aEmpId = String(a.employeeId || a.employee || '');
+      const aEmpId = String(a.employeeId || (typeof a.employee === 'object' ? a.employee?._id : a.employee) || '');
       const aEmpCode = String(a.employeeCode || '');
       const matchEmp = (empId && aEmpId === empId) || (empCode && aEmpCode === empCode);
       const matchMonth = a.date && a.date.startsWith(monthPrefix);
@@ -186,7 +203,9 @@ export const PayrollPage = () => {
 
     const unpaidDays = monthAbsences.length;
     const salary = resolveEmployeeSalary(emp);
-    const dailyRate = Math.round(salary.monthlyGross / 30);
+    const mIdx = PAYROLL_MONTH_NAMES.indexOf(parts[0]);
+    const daysInMonth = mIdx >= 0 ? new Date(parseInt(yNum, 10), mIdx + 1, 0).getDate() : 30;
+    const dailyRate = Math.round(salary.monthlyGross / daysInMonth);
     const lopAmount = unpaidDays * dailyRate;
 
     return { unpaidDays, lopAmount };
@@ -482,18 +501,58 @@ export const PayrollPage = () => {
       addToast('No employee payroll records to export.', 'info');
       return;
     }
-    const headers = ['Employee Code', 'Name', 'Department', 'Designation', 'Gross Salary', 'Deductions', 'Net Pay', 'Status'];
+    const headers = [
+      'Employee Code',
+      'Name',
+      'Department',
+      'Designation',
+      'Bank Name',
+      'Account Number',
+      'IFSC Code',
+      'PAN',
+      'UAN',
+      'Gross Salary (INR)',
+      'Basic (50%)',
+      'HRA & Allowances',
+      'PF (12%)',
+      'PT',
+      'TDS',
+      'LOP Days',
+      'LOP Deduction (INR)',
+      'Total Deductions (INR)',
+      'Net Pay (INR)',
+      'Disbursal Status'
+    ];
     const rows = filteredEmployees.map(emp => {
       const s = resolveEmployeeSalary(emp);
+      const { unpaidDays, lopAmount } = computeEmployeeLOP(emp);
       const gross = s.monthlyGross || 0;
-      const deductions = (s.pf || 0) + (s.pt || 0) + (s.tds || 0);
+      const deductions = (s.pf || 0) + (s.pt || 0) + (s.tds || 0) + lopAmount;
       const net = Math.max(0, gross - deductions);
+      const bank = emp.bankDetails?.bankName || emp.bankName || 'NA';
+      const acct = emp.bankDetails?.accountNumber || emp.accountNumber || 'NA';
+      const ifsc = emp.bankDetails?.ifsc || emp.ifsc || 'NA';
+      const pan = emp.bankDetails?.pan || emp.pan || 'NA';
+      const uan = emp.bankDetails?.uan || emp.uan || 'NA';
+
       return [
         `"${emp.employeeCode || ''}"`,
         `"${emp.name || ''}"`,
         `"${emp.department || ''}"`,
         `"${emp.designation || emp.role || ''}"`,
+        `"${bank}"`,
+        `"${acct}"`,
+        `"${ifsc}"`,
+        `"${pan}"`,
+        `"${uan}"`,
         gross,
+        s.basic || 0,
+        (s.hra || 0) + (s.allowances || 0) + (s.bonus || 0),
+        s.pf || 0,
+        s.pt || 0,
+        s.tds || 0,
+        unpaidDays,
+        lopAmount,
         deductions,
         net,
         `"${isCurrentMonthDisbursed ? 'Disbursed' : 'Pending'}"`
@@ -800,10 +859,10 @@ export const PayrollPage = () => {
                           <button
                             onClick={() => handleOpenRevisionModal(emp)}
                             className="inline-flex items-center gap-[3px] px-2 py-[3px] rounded-md bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 text-[11px] font-bold cursor-pointer h-6 transition-colors"
-                            title="Hike (Increase) or Deduct (Decrease) Employee Salary"
+                            title="Edit Salary (Hike / Increase or Deduct / Decrease)"
                           >
-                            <ArrowUpDown size={11} className="text-blue-600 dark:text-blue-400" />
-                            <span>Revise</span>
+                            <SlidersHorizontal size={11} className="text-blue-600 dark:text-blue-400" />
+                            <span>Edit Salary</span>
                           </button>
                         )}
 
