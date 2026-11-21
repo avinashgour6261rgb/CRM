@@ -665,7 +665,11 @@ export const getTaskTodaySeconds = (task, dateStr, nowMs = Date.now(), isEffecti
 
   // 1. Base seconds worked on targetDate from closed / paused sessions
   let baseSecs = 0;
-  if (task.dailySessions && typeof task.dailySessions === 'object' && task.dailySessions[targetDate] !== undefined) {
+  const hasDailySessions = task.dailySessions && typeof task.dailySessions === 'object' && Object.keys(task.dailySessions).length > 0;
+
+  if (hasDailySessions) {
+    // If dailySessions exists as an object, it is the strict authoritative record of per-day work!
+    // If targetDate is not in dailySessions, baseSecs is strictly 0 (NEVER fall through to stale accumulatedTodaySeconds from other days!)
     baseSecs = Math.max(0, Number(task.dailySessions[targetDate]) || 0);
   } else if (isTargetToday && task.sessionDate === targetDate && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
     baseSecs = Math.max(0, Number(task.accumulatedTodaySeconds) || 0);

@@ -1919,26 +1919,19 @@ export const WorkProvider = ({ children }) => {
         // Reset active timer snapshot for the new day so Day 2 starts clean
         saveActiveTimerSnapshot(null);
 
-        // Stop running state on active tasks across midnight rollover so ghost hours do not count while sleeping
+        // Reset running state and today work values across midnight rollover so Day 2 starts clean at 0s
         const allTasks = getCollection(KEYS.TASKS) || [];
-        let anyReset = false;
-        const resetTasks = allTasks.map(t => {
-          if (t.timerRunning) {
-            anyReset = true;
-            return {
-              ...t,
-              timerRunning: false,
-              startedAt: null,
-              todayWorkSeconds: 0
-            };
-          }
-          return t;
-        });
-        if (anyReset) {
-          saveCollection(KEYS.TASKS, resetTasks);
-          setTasks(resetTasks);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
-        }
+        const resetTasks = allTasks.map(t => ({
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          todayWorkSeconds: 0,
+          accumulatedTodaySeconds: 0,
+          sessionDate: today
+        }));
+        saveCollection(KEYS.TASKS, resetTasks);
+        setTasks(resetTasks);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       }
     };
 
@@ -2209,9 +2202,10 @@ export const WorkProvider = ({ children }) => {
 
       const updatedHistory = [...(Array.isArray(target.history) ? target.history : []), historyItem];
 
-      // Explicitly preserve current timer progress
+      // Explicitly preserve current timer progress, but isolate today seconds to actual today
       const currentAccum = Number(target.accumulatedSeconds ?? target.timerSeconds ?? 0);
-      const currentToday = Number(target.todayWorkSeconds ?? target.accumulatedTodaySeconds ?? 0);
+      const isTargetToday = (target.sessionDate === getTodayStr());
+      const currentToday = isTargetToday ? Number(target.todayWorkSeconds ?? target.accumulatedTodaySeconds ?? 0) : 0;
       const currentSessions = (target.dailySessions && typeof target.dailySessions === 'object') ? target.dailySessions : {};
 
       await updateTask(taskId, {
@@ -2228,7 +2222,7 @@ export const WorkProvider = ({ children }) => {
         todayWorkSeconds: currentToday,
         accumulatedTodaySeconds: currentToday,
         dailySessions: currentSessions,
-        sessionDate: target.sessionDate || getTodayStr()
+        sessionDate: getTodayStr()
       });
 
       if (overdueTaskPrompt && String(overdueTaskPrompt._id || overdueTaskPrompt.id) === String(taskId)) {
