@@ -165,6 +165,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
           }],
           createdBy: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
           createdByName: currentUser?.name || 'Administrator',
+          summary: `Project converted from CRM Lead ${lead.leadCode || lead.name}.\n\nLead Notes: ${lead.notes || 'None'}`,
           description: `Project converted from CRM Lead ${lead.leadCode || lead.name}.\n\nLead Notes: ${lead.notes || 'None'}`
         });
       }

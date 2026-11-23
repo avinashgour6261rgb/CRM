@@ -134,8 +134,8 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
             <h4 className="text-[12.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2 mt-0">
               Project Summary
             </h4>
-            <p className="text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed m-0 bg-slate-50 dark:bg-slate-800/40 p-3.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800">
-              {project.summary || 'No detailed summary provided for this project.'}
+            <p className="text-[13.5px] text-slate-600 dark:text-slate-300 leading-relaxed m-0 bg-slate-50 dark:bg-slate-800/40 p-3.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 whitespace-pre-line">
+              {project.summary || project.description || 'No detailed summary provided for this project.'}
             </p>
           </div>
 

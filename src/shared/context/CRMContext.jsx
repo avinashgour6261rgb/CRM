@@ -1526,6 +1526,15 @@ const stripHeavyMediaForStorage = (convs = []) => {
       createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       createdByName: currentUser?.name || 'Employee',
       createdAt: now.toISOString(),
+      ...(expenseData.status === 'approved' ? {
+        approvedBy: expenseData.approvedBy || (currentUser?.employeeCode ? `${currentUser.name || 'Administrator'} (${currentUser.employeeCode})` : (currentUser?.name || 'Administrator')),
+        approvedById: expenseData.approvedById || currentUser?._id,
+        approvedByCode: expenseData.approvedByCode || currentUser?.employeeCode,
+        approvedAt: expenseData.approvedAt || now.toISOString(),
+        lastActionBy: currentUser?.employeeCode ? `${currentUser.name || 'Administrator'} (${currentUser.employeeCode})` : (currentUser?.name || 'Administrator'),
+        lastActionById: currentUser?._id,
+        lastActionByCode: currentUser?.employeeCode
+      } : {}),
       ...expenseData
     };
 
