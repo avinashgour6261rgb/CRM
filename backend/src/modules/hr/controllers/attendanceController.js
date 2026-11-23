@@ -924,7 +924,7 @@ const getOvertimeRequests = asyncHandler(async (req, res) => {
     $or: [
       { overtimeSeconds: { $gt: 0 } },
       { overtimeHours: { $gt: 0 } },
-      { overtimeStatus: { $in: ['auto_recorded', 'pending', 'approved', 'rejected'] } }
+      { overtimeStatus: 'auto_recorded' }
     ]
   };
 
@@ -962,8 +962,9 @@ const getOvertimeRequests = asyncHandler(async (req, res) => {
 });
 
 // ─── POST /api/attendance/overtime ────────────────────────────────────────────
+// Directly record / add overtime without any approval required
 const requestOvertime = asyncHandler(async (req, res) => {
-  const { employeeId, employeeCode, employeeName, date, overtimeHours, overtimeSeconds, overtimeReason, overtimeTasks, requestedToId, requestedToName, isSelfApproved } = req.body;
+  const { employeeId, employeeCode, employeeName, date, overtimeHours, overtimeSeconds, overtimeReason, overtimeTasks } = req.body;
   const targetDate = date || getIstDateString();
 
   const mongoose = require('mongoose');
@@ -976,19 +977,15 @@ const requestOvertime = asyncHandler(async (req, res) => {
     ].filter(Boolean)
   });
 
-  const status = isSelfApproved ? 'approved' : 'pending';
-  const approverName = isSelfApproved ? (employeeName || req.user?.name || 'Admin') : '';
-  const approvedAt = isSelfApproved ? new Date() : null;
+  const finalOtSecs = Number(overtimeSeconds) || Math.round((Number(overtimeHours) || 0) * 3600);
+  const finalOtHrs = +(finalOtSecs / 3600).toFixed(2);
 
   if (attRecord) {
-    attRecord.overtimeHours = Number(overtimeHours) || +(Number(overtimeSeconds) / 3600).toFixed(2);
-    attRecord.overtimeSeconds = Number(overtimeSeconds) || 0;
-    attRecord.overtimeStatus = status;
-    attRecord.overtimeReason = overtimeReason || '';
+    attRecord.overtimeHours = finalOtHrs;
+    attRecord.overtimeSeconds = finalOtSecs;
+    attRecord.overtimeStatus = 'auto_recorded';
+    attRecord.overtimeReason = overtimeReason || 'Directly logged overtime';
     attRecord.overtimeTasks = overtimeTasks || [];
-    attRecord.overtimeRequestedTo = requestedToName || '';
-    attRecord.overtimeApprovedBy = approverName;
-    attRecord.overtimeApprovedAt = approvedAt;
     await attRecord.save();
   }
 
@@ -998,64 +995,31 @@ const requestOvertime = asyncHandler(async (req, res) => {
       employee: attRecord?.employee || employeeId,
       employeeName: employeeName || 'Employee',
       employeeCode: employeeCode || '',
-      type: 'overtime_request',
-      action: isSelfApproved ? 'overtime_self_approved' : 'overtime_requested',
+      type: 'overtime_recorded',
+      action: 'overtime_auto_added',
       date: targetDate,
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       performedBy: employeeName || req.user?.name || 'User',
-      note: `${isSelfApproved ? 'Self-approved' : 'Submitted'} overtime of ${overtimeHours || 0}h: ${overtimeReason || ''}`
+      note: `Overtime of ${finalOtHrs}h directly added: ${overtimeReason || 'Worked outside shift hours'}`
     });
     await auditEntry.save();
   } catch (_) {}
 
-  res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
+  res.json({ success: true, message: 'Overtime directly added', data: attRecord });
 });
 
 // ─── PUT /api/attendance/overtime/:id/status ──────────────────────────────────
+// Overtime does not require approval; auto-confirmed directly
 const updateOvertimeStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status, approverName, rejectionReason } = req.body;
-
   const attRecord = await Attendance.findById(id);
   if (!attRecord) {
     return res.status(404).json({ success: false, message: 'Attendance record not found' });
   }
 
-  const actorCode = req.user?.employeeCode || '';
-  const rawActorName = approverName || req.user?.name || 'Administrator';
-  const actorName = actorCode ? `${rawActorName} (${actorCode})` : rawActorName;
-  const actorId = req.user?._id || req.user?.id || '';
-
-  attRecord.overtimeStatus = status;
-  attRecord.overtimeApprovedBy = actorName;
-  attRecord.overtimeApprovedById = String(actorId);
-  attRecord.overtimeApprovedByCode = actorCode;
-  attRecord.overtimeApprovedAt = new Date();
-  if (rejectionReason) {
-    attRecord.notes = attRecord.notes ? `${attRecord.notes} | Overtime rejected by ${actorName}: ${rejectionReason}` : `Overtime rejected by ${actorName}: ${rejectionReason}`;
-  }
+  attRecord.overtimeStatus = 'auto_recorded';
   await attRecord.save();
-
-  // Create audit log
-  try {
-    const auditEntry = new AttendanceAudit({
-      employee: attRecord.employee,
-      employeeName: attRecord.employeeName,
-      employeeCode: attRecord.employeeCode,
-      type: 'overtime_decision',
-      action: `overtime_${status}`,
-      date: attRecord.date,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      performedBy: actorName,
-      actor: 'admin',
-      actorId: String(actorId),
-      actorName: actorName,
-      note: `Overtime ${status} by ${actorName}${rejectionReason ? `: ${rejectionReason}` : ''}`
-    });
-    await auditEntry.save();
-  } catch (_) {}
-
-  res.json({ success: true, message: `Overtime request ${status}`, data: attRecord });
+  res.json({ success: true, message: 'Overtime directly added and confirmed', data: attRecord });
 });
 
 // ─── POST /api/attendance/heartbeat ──────────────────────────────────────────

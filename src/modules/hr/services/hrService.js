@@ -1587,11 +1587,14 @@ export const hrService = {
   },
 
   async requestOvertime(overtimeData) {
+    const finalOtSecs = Number(overtimeData.overtimeSeconds) || Math.round((Number(overtimeData.overtimeHours) || 0) * 3600);
     const enriched = {
       _id: `ot_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       createdAt: new Date().toISOString(),
       ...overtimeData,
-      status: overtimeData.isSelfApproved ? 'approved' : 'pending'
+      overtimeSeconds: finalOtSecs,
+      overtimeHours: +(finalOtSecs / 3600).toFixed(2),
+      status: 'auto_recorded'
     };
 
     return fetchWithFallback(`${API_BASE}/attendance/overtime`, {
@@ -1615,11 +1618,9 @@ export const hrService = {
           ...attendance[idx],
           overtimeHours: enriched.overtimeHours,
           overtimeSeconds: enriched.overtimeSeconds,
-          overtimeStatus: enriched.status,
+          overtimeStatus: 'auto_recorded',
           overtimeReason: enriched.overtimeReason,
-          overtimeTasks: enriched.overtimeTasks,
-          overtimeApprovedBy: enriched.isSelfApproved ? (enriched.employeeName || 'Admin') : '',
-          overtimeApprovedAt: enriched.isSelfApproved ? new Date().toISOString() : null
+          overtimeTasks: enriched.overtimeTasks
         };
         saveCollection(KEYS.ATTENDANCE, attendance);
       }
@@ -1630,54 +1631,8 @@ export const hrService = {
     });
   },
 
-  async updateOvertimeStatus(overtimeId, status, approverName = '', rejectionReason = '') {
-    const authUser = getAuthUser();
-    const actorCode = authUser?.employeeCode || '';
-    const rawName = approverName || authUser?.name || 'Administrator';
-    const finalApprover = actorCode && !rawName.includes('(') ? `${rawName} (${actorCode})` : rawName;
-
-    return fetchWithFallback(`${API_BASE}/attendance/overtime/${overtimeId}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ status, approverName: finalApprover, rejectionReason })
-    }, async () => {
-      let overtimes = getCollection(KEYS.ATTENDANCE_OVERTIME) || [];
-      const idx = overtimes.findIndex(o => String(o._id || o.id) === String(overtimeId));
-      if (idx >= 0) {
-        overtimes[idx] = {
-          ...overtimes[idx],
-          status,
-          approverName: finalApprover,
-          approvedBy: finalApprover,
-          approvedAt: new Date().toISOString(),
-          rejectionReason
-        };
-        saveCollection(KEYS.ATTENDANCE_OVERTIME, overtimes);
-      }
-
-      // Sync to attendance record
-      let attendance = getCollection(KEYS.ATTENDANCE) || [];
-      const targetOt = idx >= 0 ? overtimes[idx] : null;
-      if (targetOt) {
-        const attIdx = attendance.findIndex(a => a.date === targetOt.date && (
-          String(a.employeeId) === String(targetOt.employeeId) ||
-          (a.employeeCode && a.employeeCode === targetOt.employeeCode)
-        ));
-        if (attIdx >= 0) {
-          attendance[attIdx] = {
-            ...attendance[attIdx],
-            overtimeStatus: status,
-            overtimeApprovedBy: approverName,
-            overtimeApprovedAt: new Date().toISOString()
-          };
-          saveCollection(KEYS.ATTENDANCE, attendance);
-        }
-      }
-
-      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE_OVERTIME } }));
-      window.dispatchEvent(new CustomEvent('ems_overtime_updated', { detail: { overtimeId, status, approverName } }));
-      return { success: true };
-    });
+  async updateOvertimeStatus() {
+    return { success: true, message: 'Overtime is directly added without approval' };
   },
 
   // =========================================================================

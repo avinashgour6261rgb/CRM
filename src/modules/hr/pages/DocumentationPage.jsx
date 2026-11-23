@@ -380,8 +380,7 @@ export const DocumentationPage = () => {
                           <div className="text-[10px] text-slate-500 dark:text-slate-400">{doc.department || doc.employeeCode}</div>
                         </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
                   <td className="p-1.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{doc.docType}</td>
                   <td className="p-1.5 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{doc.fileSize}</td>
                   <td className="p-1.5 px-3 whitespace-nowrap">
@@ -408,25 +407,16 @@ export const DocumentationPage = () => {
                       </button>
                       {canDeleteDoc && (
                         <button
-                          onClick={() => handleDownload(doc)}
-                          disabled={downloadingId === rowId}
-                          className="bg-slate-100 dark:bg-slate-800 border-none text-blue-600 dark:text-blue-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
-                          title="Download Document"
+                          onClick={() => handleDelete(doc)}
+                          className="bg-red-100 dark:bg-red-950/60 border-none text-red-600 dark:text-red-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+                          title="Delete Document"
                         >
-                          <Download size={13} />
+                          <Trash2 size={13} />
                         </button>
-                        {canDeleteDoc && (
-                          <button
-                            onClick={() => handleDelete(doc)}
-                            className="bg-red-100 dark:bg-red-950/60 border-none text-red-600 dark:text-red-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
-                            title="Delete Document"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                      )}
+                    </div>
+                  </td>
+                </tr>
                 );
               })}
             </tbody>

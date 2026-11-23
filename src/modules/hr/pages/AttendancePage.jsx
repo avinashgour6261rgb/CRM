@@ -634,7 +634,7 @@ export const AttendancePage = () => {
                   ? 'bg-white dark:bg-amber-600 text-amber-600 dark:text-white shadow-xs'
                   : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
-              title="Overtime Requests & Approvals"
+              title="Automatic Overtime Tracker (Direct Added)"
             >
               <Clock size={14} className={viewMode === 'overtime' ? 'text-current' : 'text-amber-500'} />
               <span>Overtime</span>

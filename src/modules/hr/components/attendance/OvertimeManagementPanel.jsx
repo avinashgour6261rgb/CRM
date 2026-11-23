@@ -169,14 +169,9 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
                   <div className="text-[15px] font-extrabold text-amber-700 dark:text-amber-300 font-mono tabular-nums">
                     +{formatOtDuration(otSecs, item.overtimeHours)}
                   </div>
-                  <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
-                    Overtime Saved
+                  <div className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-bold">
+                    ✓ Directly Added
                   </div>
-                  {item.overtimeApprovedBy && (
-                    <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      Approved by {item.overtimeApprovedBy}
-                    </div>
-                  )}
                 </div>
               </div>
             );

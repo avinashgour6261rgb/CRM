@@ -108,7 +108,7 @@ const AttendanceSchema = new mongoose.Schema(
     },
     overtimeStatus: {
       type: String,
-      enum: ['none', 'auto_recorded', 'pending', 'approved', 'rejected'],
+      enum: ['none', 'auto_recorded'],
       default: 'none'
     },
     overtimeReason: {
@@ -116,27 +116,7 @@ const AttendanceSchema = new mongoose.Schema(
       default: ''
     },
     punchSessions: [mongoose.Schema.Types.Mixed],
-    overtimeTasks: [mongoose.Schema.Types.Mixed],
-    overtimeRequestedTo: {
-      type: String,
-      default: ''
-    },
-    overtimeApprovedBy: {
-      type: String,
-      default: ''
-    },
-    overtimeApprovedById: {
-      type: String,
-      default: ''
-    },
-    overtimeApprovedByCode: {
-      type: String,
-      default: ''
-    },
-    overtimeApprovedAt: {
-      type: Date,
-      default: null
-    }
+    overtimeTasks: [mongoose.Schema.Types.Mixed]
   },
   {
     timestamps: true,
