@@ -3,6 +3,7 @@ import { Clock, Zap } from 'lucide-react';
 import { hrService } from '../../services/hrService';
 import { isHRorAdmin, getUserModulePermissions } from '../../../../shared/utils/permissionUtils';
 import { getCompanySettings } from '../../../../shared/services/companySettingsService';
+import { getIstTimeString } from '../../../../shared/utils/timerUtils';
 
 const formatOtDuration = (secs = 0, fallbackHours = 0) => {
   const s = Math.max(0, Math.floor(Number(secs) || Math.round((Number(fallbackHours) || 0) * 3600)));
@@ -145,7 +146,7 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
                     <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-3 flex-wrap">
                       <span>📅 Date: <strong className="text-slate-800 dark:text-slate-200">{item.date}</strong></span>
                       <span>In: <strong className="text-slate-800 dark:text-slate-200">{item.clockInTime || '--'}</strong></span>
-                      <span>Out: <strong className="text-slate-800 dark:text-slate-200">{item.clockOutTime || (isLive ? 'Working' : '--')}</strong></span>
+                      <span>Out: <strong className="text-slate-800 dark:text-slate-200">{item.clockOutTimestamp ? getIstTimeString(new Date(Number(item.clockOutTimestamp))) : (item.clockOutTime || (isLive ? 'Working' : '--'))}</strong></span>
                     </div>
 
                     {tasks.length > 0 && (

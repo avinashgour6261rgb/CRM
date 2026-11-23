@@ -14,7 +14,22 @@ const getIstDateString = (date = new Date()) => {
   return new Date(ms).toISOString().split('T')[0];
 };
 
+/**
+ * Returns canonical hh:mm A time string in IST (India Standard Time, UTC+5:30).
+ * Prevents UTC skew bugs on Render / cloud servers where process.env.TZ is UTC.
+ */
+const getIstTimeString = (date = new Date()) => {
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 module.exports = {
   getIstDateString,
+  getIstTimeString,
   IST_OFFSET_MS
 };

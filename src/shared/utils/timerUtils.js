@@ -646,6 +646,20 @@ export const getLocalDateString = (d = new Date()) => {
 };
 
 /**
+ * Returns canonical hh:mm A time string in IST (India Standard Time, UTC+5:30).
+ * Prevents UTC skew bugs across client browsers, cloud previews, and servers.
+ */
+export const getIstTimeString = (d = new Date()) => {
+  const dateObj = d instanceof Date ? d : new Date(d);
+  return dateObj.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+/**
  * Single Source of Truth: Calculate task today seconds for any task on a given date.
  * Strictly guarantees:
  * - Past tasks not worked or completed today return strictly 0 today seconds (prevents leaking into Day Logs).
@@ -824,7 +838,7 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   if (!user || typeof localStorage === 'undefined') return;
 
   const today = getLocalDateString(new Date(nowTs));
-  const timeStr = nowStr || new Date(nowTs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const timeStr = nowStr || getIstTimeString(new Date(nowTs));
   const mirrorKeys = getTimerMirrorKeys(user);
 
   // GUARD: Never fabricate a ghost clock-in/clock-out record if this user is NOT actually clocked in today!

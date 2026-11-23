@@ -6,7 +6,7 @@
 const mongoose = require('mongoose');
 const Timesheet = require('../models/Timesheet');
 const Task = require('../models/Task');
-const { getIstDateString } = require('../../../shared/utils/dateUtils');
+const { getIstDateString, getIstTimeString } = require('../../../shared/utils/dateUtils');
 
 // @desc    Get timesheet entries with filters
 // @route   GET /api/timesheet
@@ -352,7 +352,7 @@ exports.stopTimer = async (req, res, next) => {
 
       existingLog.totalDurationSeconds = effectiveSecs;
       existingLog.totalDurationText = effectiveDurationText;
-      existingLog.endTime = endTime || new Date().toTimeString().split(' ')[0];
+      existingLog.endTime = endTime || getIstTimeString();
       if (memo) existingLog.memo = memo;
       existingLog.status = 'stopped';
       timesheetLog = await existingLog.save();
@@ -372,8 +372,8 @@ exports.stopTimer = async (req, res, next) => {
         employeeAvatar: task?.assignedToAvatar || user?.avatar || '',
         employeeRole: task?.assignedToRole || user?.role || '',
         date: targetDate,
-        startTime: req.body.startTime || new Date(Date.now() - totalDurationSeconds * 1000).toTimeString().split(' ')[0],
-        endTime: endTime || new Date().toTimeString().split(' ')[0],
+        startTime: req.body.startTime || getIstTimeString(new Date(Date.now() - totalDurationSeconds * 1000)),
+        endTime: endTime || getIstTimeString(),
         totalDurationSeconds,
         totalDurationText: durationText,
         memo: memo || 'Live work session completed',

@@ -32,7 +32,8 @@ import {
   getLocalDateString,
   getTaskTodaySeconds,
   syncTaskPauseState,
-  performShiftClockOut
+  performShiftClockOut,
+  getIstTimeString
 } from '../utils/timerUtils';
 
 const defaultTimerContext = {
@@ -283,7 +284,7 @@ export const TimerProvider = ({ children }) => {
   const recordAuditLog = useCallback(async (eventData) => {
     try {
       const today = getTodayStr();
-      const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const nowStr = getIstTimeString();
       await hrService.createAttendanceAuditLog({
         employeeId: targetEmpId,
         employeeName: targetEmpName,
@@ -312,7 +313,7 @@ export const TimerProvider = ({ children }) => {
         setIsOnBreak(false);
         setIsClockedIn(false);
         setHadClockedOutToday(true);
-        const logoutStr = e.detail?.clockOutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const logoutStr = e.detail?.clockOutTime || (e.detail?.clockOutTimestamp ? getIstTimeString(new Date(Number(e.detail.clockOutTimestamp))) : getIstTimeString());
         setClockOutTime(logoutStr);
 
         const mirrorKeys = getTimerMirrorKeys(currentUser || userKey);
@@ -1907,7 +1908,7 @@ export const TimerProvider = ({ children }) => {
    * Start a new break session with custom duration support
    */
   const startBreak = (type = 'Tea Break', notes = '', customMinutes = null) => {
-    const startTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const startTimeStr = getIstTimeString();
     const minutesChosen = customMinutes && customMinutes > 0
       ? Number(customMinutes)
       : (BREAK_THRESHOLDS[type] ? Math.round(BREAK_THRESHOLDS[type] / 60) : 15);
@@ -2055,7 +2056,7 @@ export const TimerProvider = ({ children }) => {
    * Resume working from break and record into Break History
    */
   const resumeFromBreak = () => {
-    const endTimeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = getIstTimeString();
     const sTime = breakStartTime || loginTime;
     const breakStartMs = Number(localStorage.getItem(`ems_timer_${userKey}_break_start_timestamp`));
     const duration = breakStartMs ? Math.max(1, Math.floor((Date.now() - breakStartMs) / 1000)) : (currentBreakSeconds > 0 ? currentBreakSeconds : 60);
@@ -2288,7 +2289,7 @@ export const TimerProvider = ({ children }) => {
    */
   const handleClockIn = () => {
     const today = getTodayStr();
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const nowStr = getIstTimeString();
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const nowMs = Date.now();
@@ -2652,8 +2653,8 @@ export const TimerProvider = ({ children }) => {
       return;
     }
     const today = getTodayStr();
-    const logoutStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const logoutTs = Date.now();
+    const logoutStr = getIstTimeString(new Date(logoutTs));
 
     if (isOnBreak) {
       resumeFromBreak();
@@ -2755,7 +2756,7 @@ export const TimerProvider = ({ children }) => {
    */
   const requestReclockIn = (reason = 'Accidental Clock-out / Same-day Resume') => {
     const today = getTodayStr();
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const nowStr = getIstTimeString();
 
     // 1. Immediately resume timer so no productive time is lost!
     setIsClockedIn(true);
@@ -2824,7 +2825,7 @@ export const TimerProvider = ({ children }) => {
       const approverLabel = currentUser?.employeeCode ? `${approverName} (${currentUser.employeeCode})` : approverName;
 
       targetReq.status = 'approved';
-      targetReq.approvedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      targetReq.approvedAt = getIstTimeString();
       targetReq.reviewedBy = approverLabel;
       targetReq.reviewedById = currentUser?._id;
       targetReq.reviewedByCode = currentUser?.employeeCode;
@@ -2892,7 +2893,7 @@ export const TimerProvider = ({ children }) => {
       const approverLabel = currentUser?.employeeCode ? `${approverName} (${currentUser.employeeCode})` : approverName;
 
       targetReq.status = 'rejected';
-      targetReq.rejectedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      targetReq.rejectedAt = getIstTimeString();
       targetReq.reviewedBy = approverLabel;
       targetReq.reviewedById = currentUser?._id;
       targetReq.reviewedByCode = currentUser?.employeeCode;

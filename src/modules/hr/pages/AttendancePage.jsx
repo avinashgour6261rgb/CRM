@@ -46,7 +46,7 @@ import { AdminForceClockOutModal } from '../components/attendance/AdminForceCloc
 import { OvertimeManagementPanel } from '../components/attendance/OvertimeManagementPanel';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
-import { readTimerStorage, parseTimeToSeconds, getLocalDateString } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, parseTimeToSeconds, getLocalDateString, getIstTimeString } from '../../../shared/utils/timerUtils';
 
 export const AttendancePage = () => {
   const navigate = useNavigate();
@@ -843,7 +843,7 @@ export const AttendancePage = () => {
                       (record.employeeName && e.name.toLowerCase() === record.employeeName.toLowerCase())
                     );
                     const clockInDisplay = record.clockInTime || record.clockIn;
-                    const clockOutDisplay = record.clockOutTime || record.clockOut;
+                    const clockOutDisplay = record.clockOutTimestamp ? getIstTimeString(new Date(Number(record.clockOutTimestamp))) : (record.clockOutTime || record.clockOut);
 
                     return (
                       <tr key={record._id}>

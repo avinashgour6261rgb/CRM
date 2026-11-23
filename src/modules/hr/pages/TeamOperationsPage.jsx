@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
 import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
@@ -523,8 +523,13 @@ export const TeamOperationsPage = () => {
       ? (bestLogin || 'Active')
       : (isClockedOut ? (bestLogin || '--') : (isOnLeave ? 'On Leave' : '--'));
 
+    const clockOutTimestamp = Number(telem?.clockOutTimestamp || attRec?.clockOutTimestamp || 0);
+    let resolvedClockOut = (isSelf && selfClockOutTime) || telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || null;
+    if (clockOutTimestamp > 0) {
+      resolvedClockOut = getIstTimeString(new Date(clockOutTimestamp));
+    }
     const clockOutTime = isClockedOut
-      ? ((isSelf && selfClockOutTime) || telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || '--')
+      ? (resolvedClockOut || '--')
       : null;
 
     const nowMs = Date.now();
@@ -788,7 +793,7 @@ export const TeamOperationsPage = () => {
       return;
     }
     const empKey = emp.employeeCode || String(emp._id);
-    const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const punchTime = customPunchTime.trim() || getIstTimeString();
     const actorName = currentUser?.name || 'User';
     const actorCode = currentUser?.employeeCode || '';
     const actorRole = currentUser?.role || currentUser?.systemRole || 'Staff';
@@ -895,7 +900,7 @@ export const TeamOperationsPage = () => {
       return;
     }
     const empKey = emp.employeeCode || String(emp._id);
-    const punchTime = customPunchTime.trim() || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const punchTime = customPunchTime.trim() || getIstTimeString();
     const nowTs = Date.now();
     const actorName = currentUser?.name || 'User';
     const actorCode = currentUser?.employeeCode || '';
@@ -907,7 +912,7 @@ export const TeamOperationsPage = () => {
       performShiftClockOut(emp, { reason: `Force Shift End by ${actorLabel}: ${emergencyReason} (${punchTime})`, nowTs, nowStr: punchTime });
 
       try {
-        await hrService.adminForceClockOut(emp._id || empKey, `Force Shift End by ${actorLabel}: ${emergencyReason} (${punchTime})`, todayStr);
+        await hrService.adminForceClockOut(emp._id || empKey, `Force Shift End by ${actorLabel}: ${emergencyReason} (${punchTime})`, todayStr, punchTime, nowTs);
       } catch (backendErr) {
         console.warn('Backend adminForceClockOut warning:', backendErr);
       }
@@ -2093,7 +2098,7 @@ export const TeamOperationsPage = () => {
                                   onClick={() => {
                                     setClockInModalTarget(emp);
                                     setEmergencyReason('Power cut / offline assist');
-                                    setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                                    setCustomPunchTime(getIstTimeString());
                                   }}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 text-[11.5px] font-bold cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/50"
                                   title="Clock in employee manually (e.g. power outage or offline)"
@@ -2109,7 +2114,7 @@ export const TeamOperationsPage = () => {
                                   onClick={() => {
                                     setClockOutModalTarget(emp);
                                     setEmergencyReason('Power cut / left office');
-                                    setCustomPunchTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                                    setCustomPunchTime(getIstTimeString());
                                   }}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 text-[11.5px] font-bold cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
                                   title="End employee shift manually (e.g. left without punch)"

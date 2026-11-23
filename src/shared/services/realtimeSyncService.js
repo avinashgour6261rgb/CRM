@@ -10,6 +10,7 @@
 
 import { subscribeSocketEvent, emitSocketEvent } from './socketService';
 import { KEYS } from './storageService';
+import { getIstTimeString } from '../utils/timerUtils';
 
 const getLocalDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -154,7 +155,7 @@ const syncIncomingAttendanceToStorage = (data) => {
             localStorage.removeItem(`ems_timer_${k}_clock_out`);
             localStorage.removeItem(`ems_timer_${k}_clockout_time`);
           } else if (data.isClockedOut || data.clockOutTime) {
-            const outStr = data.clockOutTime || data.clockOut || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const outStr = data.clockOutTimestamp ? getIstTimeString(new Date(Number(data.clockOutTimestamp))) : (data.clockOutTime || data.clockOut || getIstTimeString());
             localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
             localStorage.setItem(`ems_timer_${k}_is_running`, 'false');
             localStorage.setItem(`ems_timer_${k}_is_on_break`, 'false');
@@ -198,7 +199,7 @@ if (typeof window !== 'undefined') {
     try {
       const empId = data?.employeeId || data?.targetEmpId;
       const empCode = data?.employeeCode || data?.targetEmpCode;
-      const logoutStr = data?.clockOutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const logoutStr = data?.clockOutTimestamp ? getIstTimeString(new Date(Number(data.clockOutTimestamp))) : (data?.clockOutTime || getIstTimeString());
       const targetKeys = [empId, empCode].filter(Boolean);
 
       targetKeys.forEach(k => {
@@ -592,7 +593,7 @@ if (typeof window !== 'undefined') {
         syncIncomingAttendanceToStorage({ ...payload, isClockedIn: false, isClockedOut: true });
         try {
           const empKeys = [payload.userKey, payload.employeeId, payload.employeeCode].filter(Boolean);
-          const logoutStr = payload.clockOutTime || payload.logoutTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          const logoutStr = payload.clockOutTimestamp ? getIstTimeString(new Date(Number(payload.clockOutTimestamp))) : (payload.clockOutTime || payload.logoutTime || getIstTimeString());
           empKeys.forEach(k => {
             localStorage.setItem(`ems_timer_${k}_is_clocked_in`, 'false');
             localStorage.setItem(`ems_timer_${k}_is_running`, 'false');

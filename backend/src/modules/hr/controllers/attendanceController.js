@@ -3,7 +3,7 @@ const Attendance = require('../models/Attendance');
 const AttendanceAudit = require('../models/AttendanceAudit');
 const Task = require('../../work/models/Task');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
-const { getIstDateString } = require('../../../shared/utils/dateUtils');
+const { getIstDateString, getIstTimeString } = require('../../../shared/utils/dateUtils');
 
 // In-memory cache of live telemetry for sub-millisecond response to Live Operations dashboard
 const liveTelemetryCache = new Map();
@@ -101,6 +101,11 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
     const obj = r.toObject ? r.toObject() : { ...r };
     if (!obj.employeeId && obj.employee) {
       obj.employeeId = String(obj.employee);
+    }
+    // Auto-repair clockOutTime if clockOutTimestamp exists to guarantee canonical IST time
+    if (obj.clockOutTimestamp && (!obj.clockOutTime || obj.clockOutTime !== getIstTimeString(new Date(Number(obj.clockOutTimestamp))))) {
+      obj.clockOutTime = getIstTimeString(new Date(Number(obj.clockOutTimestamp)));
+      Attendance.updateOne({ _id: r._id }, { $set: { clockOutTime: obj.clockOutTime } }).catch(() => {});
     }
     return obj;
   });
@@ -423,7 +428,7 @@ const markAttendance = asyncHandler(async (req, res) => {
         employeeName: record.employeeName || 'Employee',
         employeeCode: record.employeeCode || '',
         date,
-        timeFormatted: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        timeFormatted: getIstTimeString(),
         type: 'admin_shift_adjustment',
         action: 'Admin Shift Hour Adjustment',
         durationSeconds: (record.totalWorkingHours || 0) * 3600,
@@ -462,7 +467,7 @@ const markAttendance = asyncHandler(async (req, res) => {
         clockInTime: resObj.clockInTime || resObj.clockIn || null,
         clockInTimestamp: resObj.clockInTimestamp ? Number(resObj.clockInTimestamp) : null,
         currentSessionStartTimestamp: resObj.currentSessionStartTimestamp ? Number(resObj.currentSessionStartTimestamp) : (resObj.clockInTimestamp ? Number(resObj.clockInTimestamp) : null),
-        clockOutTime: resObj.clockOutTime || resObj.clockOut || null,
+        clockOutTime: resObj.clockOutTimestamp ? getIstTimeString(new Date(resObj.clockOutTimestamp)) : (resObj.clockOutTime || resObj.clockOut || null),
         clockOutTimestamp: resObj.clockOutTimestamp ? Number(resObj.clockOutTimestamp) : null,
         workSeconds: Number(resObj.workSeconds) || 0,
         overtimeSeconds: Number(resObj.overtimeSeconds) || 0,
@@ -519,6 +524,11 @@ const getAttendanceByDate = asyncHandler(async (req, res) => {
     const obj = r.toObject ? r.toObject() : { ...r };
     if (!obj.employeeId && obj.employee) {
       obj.employeeId = String(obj.employee);
+    }
+    // Auto-repair clockOutTime if clockOutTimestamp exists to guarantee canonical IST time
+    if (obj.clockOutTimestamp && (!obj.clockOutTime || obj.clockOutTime !== getIstTimeString(new Date(Number(obj.clockOutTimestamp))))) {
+      obj.clockOutTime = getIstTimeString(new Date(Number(obj.clockOutTimestamp)));
+      Attendance.updateOne({ _id: r._id }, { $set: { clockOutTime: obj.clockOutTime } }).catch(() => {});
     }
     return obj;
   });
@@ -648,7 +658,7 @@ const createAuditLog = asyncHandler(async (req, res) => {
     type,
     action,
     date: auditData.date || getIstDateString(),
-    timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    timeFormatted: auditData.timeFormatted || getIstTimeString(),
     actor,
     actorId: auditData.actorId || req.user?.id || req.user?._id || 'unknown',
     actorName: auditData.actorName || req.user?.name || 'User',
@@ -685,7 +695,7 @@ const forceClockOut = asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Unauthorized. Force Clock-Out permission is required.' });
   }
 
-  const { employeeId, date, auditNote } = req.body;
+  const { employeeId, date, auditNote, clockOutTime, clockOutTimestamp } = req.body;
   const targetDate = date || getIstDateString();
 
   if (!employeeId) {
@@ -693,7 +703,8 @@ const forceClockOut = asyncHandler(async (req, res) => {
   }
 
   const noteText = (auditNote && auditNote.trim()) ? auditNote.trim() : 'Manual clock out by administrator';
-  const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const nowTs = clockOutTimestamp ? Number(clockOutTimestamp) : Date.now();
+  const nowStr = clockOutTime || getIstTimeString(new Date(nowTs));
   const adminId = req.user?.id || req.user?._id || 'ADMIN';
   const adminName = req.user?.name || 'Administrator';
   const Employee = require('../models/Employee');
@@ -821,7 +832,7 @@ const forceClockOut = asyncHandler(async (req, res) => {
       workSeconds: 0,
       totalWorkingHours: 0,
       clockOutTime: nowStr,
-      clockOutTimestamp: Date.now(),
+      clockOutTimestamp: nowTs,
       isClockedIn: false,
       isOnBreak: false,
       markedBy: adminName,
@@ -900,6 +911,7 @@ const forceClockOut = asyncHandler(async (req, res) => {
       isOnBreak: false,
       clockInTime: attRecord?.clockInTime || null,
       clockOutTime: nowStr,
+      clockOutTimestamp: nowTs,
       workSeconds: Number(attRecord?.workSeconds) || 0,
       activeTask: null,
       lastHeartbeatAt: Date.now()
@@ -914,9 +926,9 @@ const forceClockOut = asyncHandler(async (req, res) => {
 
   try {
     const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
-    emitToAll('attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
-    emitToUser(String(targetEmpId), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
-    if (targetEmpCode) emitToUser(String(targetEmpCode), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    emitToAll('attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, clockOutTimestamp: nowTs, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    emitToUser(String(targetEmpId), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, clockOutTimestamp: nowTs, workSeconds: Number(attRecord?.workSeconds) || 0 });
+    if (targetEmpCode) emitToUser(String(targetEmpCode), 'attendance:force_clock_out', { employeeId: String(targetEmpId), employeeCode: targetEmpCode, adminName, clockOutTime: nowStr, clockOutTimestamp: nowTs, workSeconds: Number(attRecord?.workSeconds) || 0 });
     emitToAll('attendance:audit:created', auditEntry);
   } catch (_) {}
 
@@ -1007,7 +1019,7 @@ const requestOvertime = asyncHandler(async (req, res) => {
       type: 'overtime_recorded',
       action: 'overtime_auto_added',
       date: targetDate,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      time: getIstTimeString(),
       performedBy: employeeName || req.user?.name || 'User',
       note: `Overtime of ${finalOtHrs}h directly added: ${overtimeReason || 'Worked outside shift hours'}`
     });
@@ -1125,7 +1137,7 @@ const updateLiveHeartbeat = asyncHandler(async (req, res) => {
   if (!hasExistingTodayRecord) {
     const isExplicitlyWorking = req.body.isClockedIn && (req.body.clockInTime || req.body.clockInTimestamp);
     if (isExplicitlyWorking) {
-      const inStr = req.body.clockInTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const inStr = req.body.clockInTime || getIstTimeString();
       const inTs = req.body.clockInTimestamp ? Number(req.body.clockInTimestamp) : Date.now();
       const sessStart = req.body.currentSessionStartTimestamp ? Number(req.body.currentSessionStartTimestamp) : inTs;
       const initialWork = Number(req.body.workSeconds) || 0;
@@ -1463,8 +1475,8 @@ const getLiveTelemetry = asyncHandler(async (req, res) => {
         : 0,
       clockInTime: r.clockInTime || r.clockIn || null,
       clockInTimestamp: inTs,
-      clockOutTime: r.clockOutTime || r.clockOut || null,
-      clockOutTimestamp: r.clockOutTimestamp || null,
+      clockOutTime: r.clockOutTimestamp ? getIstTimeString(new Date(Number(r.clockOutTimestamp))) : (r.clockOutTime || r.clockOut || null),
+      clockOutTimestamp: r.clockOutTimestamp ? Number(r.clockOutTimestamp) : null,
       currentSessionStartTimestamp: sessStart,
       breakSeconds: breakSecs,
       punchSessions: Array.isArray(r.punchSessions) ? r.punchSessions : [],

@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString, getIstTimeString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -386,7 +386,7 @@ export const DashboardPage = () => {
 
   // Current Live Clock (NO SECONDS, e.g. "03:15 PM")
   const formatTimeNoSec = (date = new Date()) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return getIstTimeString(date);
   };
   const [currentTime, setCurrentTime] = useState(() => formatTimeNoSec());
   const [currentDayStr, setCurrentDayStr] = useState(() => new Date().toLocaleDateString('en-US', { weekday: 'long' }));
@@ -798,9 +798,12 @@ export const DashboardPage = () => {
       ? (bestLogin || 'Active')
       : (isClockedOut ? (bestLogin || null) : null);
 
-    const clockOutTime = isClockedOut
-      ? (telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || null)
-      : null;
+    const outTs = Number(telem?.clockOutTimestamp || attRec?.clockOutTimestamp || 0);
+    let resolvedOutTime = telem?.clockOutTime || attRec?.clockOutTime || storedClockOut || null;
+    if (outTs > 0) {
+      resolvedOutTime = getIstTimeString(new Date(outTs));
+    }
+    const clockOutTime = isClockedOut ? resolvedOutTime : null;
 
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
@@ -993,13 +996,13 @@ export const DashboardPage = () => {
       const empKey = String(targetEmp?.employeeCode || empId);
       const empObj = targetEmp || { _id: empId, employeeCode: empId, name: empName };
       const nowTs = Date.now();
-      const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const nowStr = getIstTimeString(new Date(nowTs));
 
       // Execute canonical shift clock-out to preserve punch sessions and final work time
       performShiftClockOut(empObj, { reason: note, nowTs, nowStr, actor: actorLabel, actorCode, actorId: currentUser?._id });
 
       try {
-        await hrService.adminForceClockOut(empId, note, todayStr);
+        await hrService.adminForceClockOut(empId, note, todayStr, nowStr, nowTs);
       } catch (backendErr) {
         console.warn('Backend adminForceClockOut warning:', backendErr);
       }

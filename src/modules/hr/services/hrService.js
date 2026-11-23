@@ -13,7 +13,7 @@ import { getCollection, saveCollection, KEYS, initStorage } from '../../../share
 import { API_BASE, getAuthHeaders as buildJwtAuthHeaders } from '../../../shared/config/apiConfig';
 import { holidaySyncService } from './holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
-import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { getLocalDateString, getIstTimeString } from '../../../shared/utils/timerUtils';
 
 // Ensure storage is initialized
 initStorage();
@@ -1225,7 +1225,7 @@ export const hrService = {
             _id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: new Date().toISOString(),
             date,
-            timeFormatted: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            timeFormatted: getIstTimeString(),
             employeeId: targetEmp?._id || employeeId,
             employeeCode: targetEmp?.employeeCode || attendanceData.employeeCode || '',
             employeeName: targetEmp?.name || attendanceData.employeeName || 'Employee',
@@ -1424,7 +1424,7 @@ export const hrService = {
       _id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
       date: auditData.date || getLocalDateString(),
-      timeFormatted: auditData.timeFormatted || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      timeFormatted: auditData.timeFormatted || getIstTimeString(),
       actor: auditData.actor || (authUser?.isAdmin ? 'admin' : 'employee'),
       actorId: auditData.actorId || authUser?._id || authUser?.employeeCode || 'unknown',
       actorName: auditData.actorName || authUser?.name || 'User',
@@ -1452,12 +1452,16 @@ export const hrService = {
     });
   },
 
-  async adminForceClockOut(employeeId, auditNote, targetDate = null) {
+  async adminForceClockOut(employeeId, auditNote, targetDate = null, clockOutTime = null, clockOutTimestamp = null) {
     const authUser = getAuthUser();
+    const nowTs = clockOutTimestamp ? Number(clockOutTimestamp) : Date.now();
+    const timeStr = clockOutTime || getIstTimeString(new Date(nowTs));
     const payload = {
       employeeId,
       date: targetDate || getLocalDateString(),
-      auditNote
+      auditNote,
+      clockOutTime: timeStr,
+      clockOutTimestamp: nowTs
     };
 
     const result = await fetchWithFallback(`${API_BASE}/attendance/force-clock-out`, {
@@ -1466,7 +1470,7 @@ export const hrService = {
       body: JSON.stringify(payload)
     }, async () => {
       const today = targetDate || getLocalDateString();
-      const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const nowStr = timeStr;
       const adminCode = authUser?.employeeCode || '';
       const rawAdminName = authUser?.name || 'Administrator';
       const adminName = adminCode ? `${rawAdminName} (${adminCode})` : rawAdminName;

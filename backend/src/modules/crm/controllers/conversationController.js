@@ -4,6 +4,7 @@
  */
 
 const Conversation = require('../models/Conversation');
+const { getIstTimeString } = require('../../../shared/utils/dateUtils');
 
 const SEED_CHANNELS = [
   {
@@ -298,7 +299,7 @@ exports.sendMessage = async (req, res) => {
         participants: message.participants || [message.senderId],
         messages: [message],
         lastMessage: message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment'),
-        lastMessageTime: message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        lastMessageTime: message.timestamp || getIstTimeString()
       });
       await conv.save();
       try {
@@ -333,7 +334,7 @@ exports.sendMessage = async (req, res) => {
     }
 
     conv.lastMessage = message.text || (message.attachments?.length ? `📎 Shared ${message.attachments.length} file(s)` : 'Attachment');
-    conv.lastMessageTime = message.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    conv.lastMessageTime = message.timestamp || getIstTimeString();
 
     await conv.save();
     try {
