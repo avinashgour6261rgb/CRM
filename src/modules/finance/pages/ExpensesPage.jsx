@@ -34,6 +34,7 @@ import { ExpenseDetailModal } from '../components/ExpenseDetailModal';
 import { ImportExpensesModal } from '../components/ImportExpensesModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const ExpensesPage = () => {
   const { expenses, updateExpenseStatus, deleteExpense } = useCRM();
@@ -86,12 +87,24 @@ export const ExpensesPage = () => {
 
   const handleQuickApprove = (exp, e) => {
     e.stopPropagation();
-    updateExpenseStatus(exp._id, 'approved');
+    const actorName = currentUser ? (currentUser.name || 'Administrator') : 'Administrator';
+    const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+    updateExpenseStatus(exp._id, 'approved', {
+      actor: actorLabel,
+      actorId: currentUser?._id,
+      actorCode: currentUser?.employeeCode
+    });
   };
 
   const handleQuickReject = (exp, e) => {
     e.stopPropagation();
-    updateExpenseStatus(exp._id, 'rejected');
+    const actorName = currentUser ? (currentUser.name || 'Administrator') : 'Administrator';
+    const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+    updateExpenseStatus(exp._id, 'rejected', {
+      actor: actorLabel,
+      actorId: currentUser?._id,
+      actorCode: currentUser?.employeeCode
+    });
   };
 
   // Filtered expenses
@@ -130,19 +143,20 @@ export const ExpensesPage = () => {
       return;
     }
 
-    const headers = ['Id,Item Name,Price,Employees,Purchased From,Purchase Date,Status,Category,Description'];
-    const rows = filteredExpenses.map(e =>
-      `"${e.expenseCode || e.idNumber}","${e.itemName}","${e.price || e.amount}","${e.employeeName || e.paidBy}","${e.purchasedFrom || ''}","${e.purchaseDate || e.date}","${e.status}","${e.category || ''}","${(e.description || '').replace(/"/g, '""')}"`
-    );
+    const headers = ['Id', 'Item Name', 'Price', 'Employees', 'Purchased From', 'Purchase Date', 'Status', 'Category', 'Description'];
+    const rows = filteredExpenses.map(e => [
+      e.expenseCode || e.idNumber || '',
+      e.itemName || '',
+      e.price || e.amount || 0,
+      e.employeeName || e.paidBy || '',
+      e.purchasedFrom || '',
+      e.purchaseDate || e.date || '',
+      e.status || '',
+      e.category || '',
+      e.description || ''
+    ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `company_expenses_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`company_expenses_${getLocalDateString()}`, headers, rows);
     addToast('Expenses exported successfully to CSV!', 'success');
   };
 
@@ -394,6 +408,16 @@ export const ExpensesPage = () => {
                         {exp.status === 'rejected' && <XCircle size={12} />}
                         {exp.status}
                       </span>
+                      {exp.status === 'approved' && (exp.approvedBy || exp.lastActionBy) && (
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate max-w-[130px]" title={exp.approvedBy || exp.lastActionBy}>
+                          by {exp.approvedBy || exp.lastActionBy}
+                        </div>
+                      )}
+                      {exp.status === 'rejected' && (exp.rejectedBy || exp.lastActionBy) && (
+                        <div className="text-[10px] text-red-500 dark:text-red-400 font-medium mt-0.5 truncate max-w-[130px]" title={exp.rejectedBy || exp.lastActionBy}>
+                          by {exp.rejectedBy || exp.lastActionBy}
+                        </div>
+                      )}
                     </td>
 
                     {/* Actions */}

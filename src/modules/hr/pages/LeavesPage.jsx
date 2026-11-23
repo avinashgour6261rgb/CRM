@@ -33,6 +33,7 @@ import { canApproveLeaves, canViewAllLeaves, isHRorAdmin, isAdmin, getUserModule
 import { matchesFilter, matchesSearch } from '../../../shared/utils/filterUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const LeavesPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -187,25 +188,18 @@ export const LeavesPage = () => {
     const headers = ['ID', 'Employee Name', 'Role', 'Leave Type', 'Start Date', 'End Date', 'Duration', 'Status', 'Paid', 'Reason'];
     const rows = filteredLeaves.map(l => [
       l._id,
-      `"${l.employeeName}"`,
-      `"${l.employeeRole}"`,
-      `"${l.leaveType}"`,
-      l.startDate,
-      l.endDate,
-      `"${l.durationText}"`,
-      l.status,
+      l.employeeName || '',
+      l.employeeRole || '',
+      l.leaveType || '',
+      l.startDate || '',
+      l.endDate || '',
+      l.durationText || '',
+      l.status || '',
       l.isPaid ? 'Yes' : 'No',
-      `"${(l.reason || '').replace(/"/g, '""')}"`
+      l.reason || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Leaves_Report_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`Leaves_Report_${getLocalDateString()}`, headers, rows);
   };
 
   const handleSelectAll = (e) => {

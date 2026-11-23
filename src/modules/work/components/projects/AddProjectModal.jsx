@@ -69,7 +69,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
 
   const defaultCode = `PRJ-${String((projects?.length || 0) + 1).padStart(3, '0')}`;
 
-  const currentUserId = currentUser?._id || currentUser?.id || 'emp_001';
+  const currentUserId = currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '';
 
   const [formData, setFormData] = useState({
     name: '',

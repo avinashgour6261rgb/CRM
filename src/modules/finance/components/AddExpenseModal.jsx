@@ -48,7 +48,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
     category: 'Utilities & Office',
     purchasedFrom: '',
     purchaseDate: now,
-    employeeId: currentUser?._id || employees[0]?._id || 'emp_001',
+    employeeId: currentUser?._id || currentUser?.id || currentUser?.employeeCode || employees[0]?._id || '',
     status: isPrivileged ? 'approved' : 'pending',
     description: '',
     billAttachment: ''
@@ -62,7 +62,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       setFormData(prev => ({
         ...prev,
-        employeeId: isPrivileged ? (prev.employeeId || currentUser?._id) : (currentUser?._id || 'emp_001'),
+        employeeId: isPrivileged ? (prev.employeeId || currentUser?._id) : (currentUser?._id || currentUser?.id || currentUser?.employeeCode || employees[0]?._id || ''),
         status: isPrivileged ? prev.status : 'pending'
       }));
     }
@@ -112,7 +112,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
 
     try {
       setSubmitting(true);
-      const targetEmpId = isPrivileged ? formData.employeeId : (currentUser?._id || 'emp_001');
+      const targetEmpId = isPrivileged ? formData.employeeId : (currentUser?._id || currentUser?.id || currentUser?.employeeCode || employees[0]?._id || '');
       const selectedEmployee = employees.find(emp => emp._id === targetEmpId) || currentUser;
 
       await createExpense({
@@ -133,7 +133,7 @@ export const AddExpenseModal = ({ isOpen, onClose }) => {
         category: 'Utilities & Office',
         purchasedFrom: '',
         purchaseDate: now,
-        employeeId: currentUser?._id || 'emp_001',
+        employeeId: currentUser?._id || currentUser?.id || currentUser?.employeeCode || employees[0]?._id || '',
         status: isPrivileged ? 'approved' : 'pending',
         description: '',
         billAttachment: ''

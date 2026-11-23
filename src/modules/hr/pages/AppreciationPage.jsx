@@ -30,6 +30,7 @@ import {
 } from '../../../shared/utils/permissionUtils';
 import { Pagination } from '../../../shared/components/common/Pagination';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const AppreciationPage = () => {
   const { currentUser: authUser } = useAuth();
@@ -128,22 +129,16 @@ export const AppreciationPage = () => {
     }
     const headers = ['Employee Name', 'Role', 'Award / Reason', 'Given On', 'Given By', 'Reward', 'Appreciation Message'];
     const rows = filteredAppreciations.map(a => [
-      `"${a.givenToName}"`,
-      `"${a.givenToRole}"`,
-      `"${a.awardName}"`,
-      a.givenOn,
-      `"${a.givenByName}"`,
-      `"${a.rewardPointsOrCash || ''}"`,
-      `"${(a.appreciationNote || '').replace(/"/g, '""')}"`
+      a.givenToName || '',
+      a.givenToRole || '',
+      a.awardName || '',
+      a.givenOn || '',
+      a.givenByName || '',
+      a.rewardPointsOrCash || '',
+      a.appreciationNote || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `Appreciations_Report_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`Appreciations_Report_${getLocalDateString()}`, headers, rows);
   };
 
   if (!canAccess) {

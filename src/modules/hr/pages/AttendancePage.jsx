@@ -38,6 +38,7 @@ import {
 } from '../../../shared/utils/permissionUtils';
 import { matchesFilter } from '../../../shared/utils/filterUtils';
 import { AttendanceLegend } from '../components/attendance/AttendanceLegend';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { MonthlyMatrixTable } from '../components/attendance/MonthlyMatrixTable';
 import { MarkAttendanceModal } from '../components/attendance/MarkAttendanceModal';
 import { AttendanceAuditTimeline } from '../components/attendance/AttendanceAuditTimeline';
@@ -385,24 +386,18 @@ export const AttendancePage = () => {
         (a.employeeName && e.name.toLowerCase() === a.employeeName.toLowerCase())
       );
       return [
-        a.employeeCode || a.employeeId,
-        `"${emp?.name || a.employeeName || 'Employee'}"`,
-        a.date,
-        a.status,
+        a.employeeCode || a.employeeId || '',
+        emp?.name || a.employeeName || 'Employee',
+        a.date || '',
+        a.status || '',
         a.clockInTime || a.clockIn || '',
         a.clockOutTime || a.clockOut || '',
         a.totalWorkingHours || 0,
-        `"${(a.notes || '').replace(/"/g, '""')}"`
+        a.notes || ''
       ];
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `Attendance_Report_${selectedMonth}_${selectedYear}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`Attendance_Report_${selectedMonth}_${selectedYear}`, headers, rows);
   };
 
   return (

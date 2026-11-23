@@ -26,6 +26,7 @@ import { TimesheetTable } from '../components/timesheet/TimesheetTable';
 import { LogTimeModal } from '../components/timesheet/LogTimeModal';
 import { TaskDetailModal } from '../components/tasks/TaskDetailModal';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const TimesheetPage = () => {
   const {
@@ -126,25 +127,18 @@ export const TimesheetPage = () => {
     const headers = ['Task Code', 'Task Title', 'Project', 'Employee', 'Date', 'Start Time', 'End Time', 'Duration', 'Status', 'Memo'];
     const rows = displayTimesheets.map(ts => [
       ts.taskCode || '',
-      `"${(ts.taskTitle || '').replace(/"/g, '""')}"`,
-      `"${(ts.projectName || '').replace(/"/g, '""')}"`,
-      `"${(ts.employeeName || '').replace(/"/g, '""')}"`,
-      ts.date,
+      ts.taskTitle || '',
+      ts.projectName || '',
+      ts.employeeName || '',
+      ts.date || '',
       ts.startTime || '',
       ts.endTime || '',
       ts.totalDurationText || '',
       ts.status || '',
-      `"${(ts.memo || '').replace(/"/g, '""')}"`
+      ts.memo || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EMS_Timesheets_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`EMS_Timesheets_${getLocalDateString()}`, headers, rows);
   };
 
   return (

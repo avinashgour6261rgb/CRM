@@ -20,6 +20,7 @@ import { AddHolidayModal } from '../components/holidays/AddHolidayModal';
 import { isHRorAdmin, canManageCompanyHolidays } from '../../../shared/utils/permissionUtils';
 import { holidaySyncService } from '../services/holidaySyncService';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const HolidayPage = () => {
   const { addToast } = useToast();
@@ -140,20 +141,14 @@ export const HolidayPage = () => {
     }
     const headers = ['Holiday Name', 'Date', 'Day of Week', 'Type', 'Description'];
     const rows = holidays.map(h => [
-      `"${h.name}"`,
-      h.date,
+      h.name || '',
+      h.date || '',
       h.dayOfWeek || '',
-      `"${h.type}"`,
-      `"${(h.description || '').replace(/"/g, '""')}"`
+      h.type || '',
+      h.description || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const link = document.createElement('a');
-    link.setAttribute('href', encodeURI(csvContent));
-    link.setAttribute('download', `Holiday_Calendar_${new Date().getFullYear()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`Holiday_Calendar_${new Date().getFullYear()}`, headers, rows);
   };
 
   const handleOpenAddHoliday = () => {

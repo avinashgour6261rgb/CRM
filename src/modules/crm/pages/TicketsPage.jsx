@@ -32,6 +32,7 @@ import { RaiseTicketModal } from '../../../shared/components/modals/RaiseTicketM
 import { TicketDetailModal } from '../components/tickets/TicketDetailModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const TicketsPage = () => {
   const { tickets, updateTicketStatus, deleteTicket } = useCRM();
@@ -138,19 +139,19 @@ export const TicketsPage = () => {
       return;
     }
 
-    const headers = ['Ticket #,Ticket Subject,Requester Name,Requested On,Category,Priority,Assigned To,Status'];
-    const rows = filteredTickets.map(t =>
-      `"${t.ticketCode}","${(t.subject || '').replace(/"/g, '""')}","${t.requestedByName || ''}","${t.requestedOn || ''}","${t.category || ''}","${t.priority || ''}","${t.assignedToName || ''}","${t.status}"`
-    );
+    const headers = ['Ticket #', 'Ticket Subject', 'Requester Name', 'Requested On', 'Category', 'Priority', 'Assigned To', 'Status'];
+    const rows = filteredTickets.map(t => [
+      t.ticketCode || '',
+      t.subject || '',
+      t.requestedByName || '',
+      t.requestedOn || '',
+      t.category || '',
+      t.priority || '',
+      t.assignedToName || '',
+      t.status || ''
+    ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `support_tickets_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`support_tickets_${getLocalDateString()}`, headers, rows);
     addToast('Tickets exported successfully to CSV!', 'success');
   };
 

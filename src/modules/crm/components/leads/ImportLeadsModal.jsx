@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { exportToCSV } from '../../../../shared/utils/exportUtils';
 
 export const ImportLeadsModal = ({ isOpen, onClose }) => {
   const { importLeadsBatch } = useCRM();
@@ -38,14 +39,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
       ['Marcus Vance', 'Vance Capital Partners', 'marcus@vancecapital.com', '+1 (415) 555-0143', 'Referral', 'urgent', '1250000', 'Enterprise contract negotiation']
     ];
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...sampleRows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'Sample_Leads_Template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV('Sample_Leads_Template', headers, sampleRows);
     addToast('Sample Leads CSV downloaded', 'info');
   };
 

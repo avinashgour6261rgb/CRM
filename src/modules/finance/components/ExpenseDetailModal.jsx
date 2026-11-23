@@ -37,7 +37,13 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   const canDelete = isAdmin(currentUser) || (isClaimant && expense.status === 'pending');
 
   const handleStatusChange = (status) => {
-    updateExpenseStatus(expense._id, status);
+    const actorName = currentUser ? (currentUser.name || 'Administrator') : 'Administrator';
+    const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+    updateExpenseStatus(expense._id, status, {
+      actor: actorLabel,
+      actorId: currentUser?._id,
+      actorCode: currentUser?.employeeCode
+    });
     onClose();
   };
 
@@ -140,6 +146,18 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
               </div>
             </div>
           </div>
+
+          {/* Approval / Multi-Admin Audit Info */}
+          {(expense.approvedBy || expense.rejectedBy || expense.lastActionBy) && (
+            <div className="p-3 px-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold">
+                {expense.status === 'approved' ? '✓ Approved by:' : expense.status === 'rejected' ? '✕ Rejected by:' : 'Processed by:'}
+              </span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {expense.status === 'approved' ? (expense.approvedBy || expense.lastActionBy) : expense.status === 'rejected' ? (expense.rejectedBy || expense.lastActionBy) : expense.lastActionBy}
+              </span>
+            </div>
+          )}
 
           {/* Description */}
           {expense.description && (

@@ -158,12 +158,12 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
           selectedMembers: rawSelectedIds,
           memberIds: rawSelectedIds,
           members: memberList.length > 0 ? memberList : [{
-            _id: currentUser?._id || 'emp_001',
+            _id: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
             name: currentUser?.name || 'Administrator',
             role: currentUser?.role || 'Admin',
             avatar: currentUser?.avatar || ''
           }],
-          createdBy: currentUser?._id || 'emp_001',
+          createdBy: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
           createdByName: currentUser?.name || 'Administrator',
           description: `Project converted from CRM Lead ${lead.leadCode || lead.name}.\n\nLead Notes: ${lead.notes || 'None'}`
         });

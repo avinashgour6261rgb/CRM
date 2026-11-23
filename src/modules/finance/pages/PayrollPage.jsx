@@ -30,6 +30,7 @@ import { isHRorAdmin, canAccessModule, canManagePayroll, canExportData } from '.
 import { PayslipModal } from '../components/PayslipModal';
 import { SalaryIncrementModal } from '../components/SalaryIncrementModal';
 import { getCompanySettings, saveCompanySettings } from '../../../shared/services/companySettingsService';
+import { downloadCSVBlob } from '../../../shared/utils/exportUtils';
 
 const PAYROLL_MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -562,14 +563,8 @@ export const PayrollPage = () => {
     const companyLabel = (cfg.companyName || 'Company').replace(/"/g, '""');
     const companySlug = (cfg.shortName || cfg.companyName || 'company').toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const titleBanner = `"${companyLabel} — Payroll Register (${selectedMonth})"`;
-    const csvContent = 'data:text/csv;charset=utf-8,' + [titleBanner, headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${companySlug}_payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const csvContent = [titleBanner, headers.join(','), ...rows].join('\r\n');
+    downloadCSVBlob(`${companySlug}_payroll_${selectedMonth.replace(/\s+/g, '_').toLowerCase()}.csv`, csvContent);
   };
 
   // Calculate live company-wide totals directly from employees

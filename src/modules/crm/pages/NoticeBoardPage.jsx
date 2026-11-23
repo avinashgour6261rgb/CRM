@@ -33,6 +33,7 @@ import { AddNoticeModal } from '../../../shared/components/modals/AddNoticeModal
 import { NoticeDetailModal } from '../../../shared/components/modals/NoticeDetailModal';
 import { ResponsiveDurationFilter } from '../../../shared/components/common/ResponsiveDurationFilter';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const NoticeBoardPage = () => {
   const { notices, deleteNotice, acknowledgeNotice } = useCRM();
@@ -145,19 +146,19 @@ export const NoticeBoardPage = () => {
       return;
     }
 
-    const headers = ['Notice Title,Date,Expiry Date,To,Priority,Posted By,Status,Description'];
-    const rows = filteredNotices.map(n =>
-      `"${(n.title || '').replace(/"/g, '""')}","${n.date || ''}","${n.expiryDate || 'N/A'}","${n.to || n.targetAudience || 'All Employees'}","${n.priority || 'Normal'}","${n.postedBy || n.createdBy || ''}","${isNoticeExpired(n) ? 'Expired' : 'Active'}","${(n.description || n.fullContent || '').replace(/"/g, '""')}"`
-    );
+    const headers = ['Notice Title', 'Date', 'Expiry Date', 'To', 'Priority', 'Posted By', 'Status', 'Description'];
+    const rows = filteredNotices.map(n => [
+      n.title || '',
+      n.date || '',
+      n.expiryDate || 'N/A',
+      n.to || n.targetAudience || 'All Employees',
+      n.priority || 'Normal',
+      n.postedBy || n.createdBy || '',
+      isNoticeExpired(n) ? 'Expired' : 'Active',
+      n.description || n.fullContent || ''
+    ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `notice_board_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`notice_board_${getLocalDateString()}`, headers, rows);
     addToast('Notices exported successfully to CSV!', 'success');
   };
 

@@ -31,6 +31,7 @@ import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { isHRorAdmin } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../../shared/utils/exportUtils';
 
 export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
   const { tasks, projects, employees } = useWork();
@@ -191,21 +192,14 @@ export const ProjectTaskHistoryModal = ({ isOpen, onClose }) => {
     const rows = filteredRecords.map(r => [
       r.timestamp ? new Date(r.timestamp).toLocaleString() : '',
       r.taskCode || '',
-      `"${(r.taskTitle || '').replace(/"/g, '""')}"`,
-      `"${(r.projectName || '').replace(/"/g, '""')}"`,
+      r.taskTitle || '',
+      r.projectName || '',
       r.action || '',
-      `"${(r.performedBy || '').replace(/"/g, '""')}"`,
-      `"${(r.details || '').replace(/"/g, '""')}"`
+      r.performedBy || '',
+      r.details || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EMS_Project_Task_History_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`EMS_Project_Task_History_${getLocalDateString()}`, headers, rows);
   };
 
   const getActionBadge = (action) => {

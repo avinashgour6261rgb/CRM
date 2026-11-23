@@ -31,6 +31,7 @@ import { AddTaskModal } from '../components/tasks/AddTaskModal';
 import { TaskDetailModal } from '../components/tasks/TaskDetailModal';
 import { ProjectTaskHistoryModal } from '../components/tasks/ProjectTaskHistoryModal';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 
 export const TasksPage = () => {
   const {
@@ -236,27 +237,20 @@ export const TasksPage = () => {
     if (!displayTasks.length) return;
     const headers = ['Code', 'Title', 'Project', 'Category', 'Assignee', 'Assigned By', 'Start Date', 'Due Date', 'Status', 'Estimated Hours', 'Hours Logged'];
     const rows = displayTasks.map(t => [
-      t.taskCode,
-      `"${(t.title || '').replace(/"/g, '""')}"`,
-      `"${(t.projectName || '').replace(/"/g, '""')}"`,
-      t.category,
-      t.assignedToName,
+      t.taskCode || '',
+      t.title || '',
+      t.projectName || '',
+      t.category || '',
+      t.assignedToName || '',
       t.assignedBy || 'Admin',
-      t.startDate,
-      t.hasNoDueDate ? 'No Due Date' : t.dueDate,
-      t.status,
+      t.startDate || '',
+      t.hasNoDueDate ? 'No Due Date' : (t.dueDate || ''),
+      t.status || '',
       t.estimatedHours || 0,
       t.hoursLogged || 0
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `EMS_Tasks_${getLocalDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`EMS_Tasks_${getLocalDateString()}`, headers, rows);
   };
 
   return (

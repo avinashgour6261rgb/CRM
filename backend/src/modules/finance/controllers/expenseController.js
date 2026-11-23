@@ -85,6 +85,25 @@ exports.updateExpense = asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to approve or reject expenses.' });
   }
 
+  if (canApprove && updateData.status && ['approved', 'rejected', 'reimbursed'].includes(String(updateData.status).toLowerCase())) {
+    const actorName = u ? (u.name || u.email || 'Admin') : 'Admin';
+    const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+    if (updateData.status === 'approved') {
+      existing.approvedBy = updateData.approvedBy || actorLabel;
+      existing.approvedById = updateData.approvedById || (u?._id ? String(u._id) : '');
+      existing.approvedByCode = updateData.approvedByCode || u?.employeeCode || '';
+      existing.approvedAt = new Date();
+    } else if (updateData.status === 'rejected') {
+      existing.rejectedBy = updateData.rejectedBy || actorLabel;
+      existing.rejectedById = updateData.rejectedById || (u?._id ? String(u._id) : '');
+      existing.rejectedByCode = updateData.rejectedByCode || u?.employeeCode || '';
+      existing.rejectedAt = new Date();
+    }
+    existing.lastActionBy = updateData.lastActionBy || actorLabel;
+    existing.lastActionById = updateData.lastActionById || (u?._id ? String(u._id) : '');
+    existing.lastActionByCode = updateData.lastActionByCode || u?.employeeCode || '';
+  }
+
   Object.assign(existing, updateData);
   await existing.save();
   emitToAll('expense:updated', { action: 'update', item: existing });

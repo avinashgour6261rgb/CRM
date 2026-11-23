@@ -48,7 +48,18 @@ const ExpenseSchema = new mongoose.Schema(
     receiptUrl: {
       type: String,
       default: ''
-    }
+    },
+    approvedBy: { type: String, default: '' },
+    approvedById: { type: String, default: '' },
+    approvedByCode: { type: String, default: '' },
+    approvedAt: { type: Date },
+    rejectedBy: { type: String, default: '' },
+    rejectedById: { type: String, default: '' },
+    rejectedByCode: { type: String, default: '' },
+    rejectedAt: { type: Date },
+    lastActionBy: { type: String, default: '' },
+    lastActionById: { type: String, default: '' },
+    lastActionByCode: { type: String, default: '' }
   },
   {
     timestamps: true

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
+import { downloadCSVBlob } from '../../../shared/utils/exportUtils';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const ImportExpensesModal = ({ isOpen, onClose }) => {
@@ -29,19 +30,13 @@ export const ImportExpensesModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleDownloadSample = () => {
-    const csvContent = 'data:text/csv;charset=utf-8,' +
-      'Item Name,Price,Category,Purchased From,Purchase Date,Status,Description\n' +
-      'Cloud Server Dedicated Node,42000,Cloud Infrastructure,DigitalOcean,2026-09-15,approved,Staging deployment worker\n' +
-      'Office Standing Desk 4x,36000,Hardware & Devices,IKEA India,2026-09-18,approved,Ergonomic workplace upgrade\n' +
-      'JetBrains All Products License,24000,Software & Tools,JetBrains s.r.o.,2026-09-22,pending,Enterprise developer tools suite\n';
+    const csvContent =
+      'Item Name,Price,Category,Purchased From,Purchase Date,Status,Description\r\n' +
+      'Cloud Server Dedicated Node,42000,Cloud Infrastructure,DigitalOcean,2026-09-15,approved,Staging deployment worker\r\n' +
+      'Office Standing Desk 4x,36000,Hardware & Devices,IKEA India,2026-09-18,approved,Ergonomic workplace upgrade\r\n' +
+      'JetBrains All Products License,24000,Software & Tools,JetBrains s.r.o.,2026-09-22,pending,Enterprise developer tools suite\r\n';
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'company_expenses_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCSVBlob('company_expenses_template.csv', csvContent);
     addToast('Sample CSV template downloaded!', 'success');
   };
 

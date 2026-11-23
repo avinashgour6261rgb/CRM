@@ -43,6 +43,7 @@ import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogMod
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
 import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
 export const TeamOperationsPage = () => {
@@ -1556,29 +1557,22 @@ export const TeamOperationsPage = () => {
     ];
 
     const rows = auditDateData.records.map(r => [
-      `"${r.empCode || ''}"`,
-      `"${r.empName || ''}"`,
-      `"${r.department || ''}"`,
-      `"${selectedAuditDate}"`,
-      `"${r.status}"`,
-      `"${r.loginTime}"`,
-      `"${r.logoutTime}"`,
-      `"${r.workDurationText}"`,
-      `"${r.totalBreaksCount}"`,
-      `"${r.breakDurationText}"`,
-      `"${r.tasksWorked.length}"`,
-      `"${r.totalTaskDurationText}"`,
-      `"${r.isTaskExceedingShift ? 'WARNING: Task Exceeds Shift' : 'In-Sync'}"`
+      r.empCode || '',
+      r.empName || '',
+      r.department || '',
+      selectedAuditDate,
+      r.status || '',
+      r.loginTime || '',
+      r.logoutTime || '',
+      r.workDurationText || '',
+      r.totalBreaksCount || 0,
+      r.breakDurationText || '',
+      r.tasksWorked?.length || 0,
+      r.totalTaskDurationText || '',
+      r.isTaskExceedingShift ? 'WARNING: Task Exceeds Shift' : 'In-Sync'
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Shift_Activity_Audit_${selectedAuditDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(`Shift_Activity_Audit_${selectedAuditDate}`, headers, rows);
     addToast(`Exported Daily Audit Report for ${selectedAuditDate}`, 'success');
   };
 

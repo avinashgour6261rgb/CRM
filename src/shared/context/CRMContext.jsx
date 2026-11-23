@@ -1516,14 +1516,14 @@ const stripHeavyMediaForStorage = (convs = []) => {
       purchasedFrom: expenseData.purchasedFrom || 'Vendor Partner',
       purchaseDate: expenseData.purchaseDate || expenseData.date || getLocalDateString(now),
       date: expenseData.purchaseDate || expenseData.date || getLocalDateString(now),
-      employeeId: selectedEmployee?._id || currentUser?._id || 'emp_001',
+      employeeId: selectedEmployee?._id || selectedEmployee?.employeeCode || currentUser?._id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       employeeName: selectedEmployee?.name || currentUser?.name || 'Employee',
       employeeAvatar: selectedEmployee?.avatar || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
       paidBy: selectedEmployee?.name || currentUser?.name || 'Employee',
       status: expenseData.status || 'pending',
       description: expenseData.description || '',
       billAttachment: expenseData.billAttachment || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
-      createdById: currentUser?._id || 'emp_001',
+      createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       createdByName: currentUser?.name || 'Employee',
       createdAt: now.toISOString(),
       ...expenseData
@@ -1580,20 +1580,44 @@ const stripHeavyMediaForStorage = (convs = []) => {
     }
   };
 
-  const updateExpenseStatus = async (expenseId, status) => {
+  const updateExpenseStatus = async (expenseId, status, actorMeta = {}) => {
+    const actorName = actorMeta.actor || (currentUser ? (currentUser.name || 'Administrator') : 'Administrator');
+    const actorCode = actorMeta.actorCode || currentUser?.employeeCode || '';
+    const actorId = actorMeta.actorId || currentUser?._id || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
+    const payload = {
+      status,
+      lastActionBy: actorLabel,
+      lastActionById: actorId,
+      lastActionByCode: actorCode,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (status === 'approved') {
+      payload.approvedBy = actorLabel;
+      payload.approvedById = actorId;
+      payload.approvedByCode = actorCode;
+      payload.approvedAt = new Date().toISOString();
+    } else if (status === 'rejected') {
+      payload.rejectedBy = actorLabel;
+      payload.rejectedById = actorId;
+      payload.rejectedByCode = actorCode;
+      payload.rejectedAt = new Date().toISOString();
+    }
+
     try {
       await fetch(`${API_BASE}/expenses/${expenseId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status })
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.EXPENSES);
     const idx = currentList.findIndex(e => e._id === expenseId);
     if (idx !== -1) {
-      currentList[idx].status = status;
-      currentList[idx].updatedAt = new Date().toISOString();
+      Object.assign(currentList[idx], payload);
       saveCollection(KEYS.EXPENSES, currentList);
       setExpenses([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EXPENSES } }));
@@ -1635,14 +1659,14 @@ const stripHeavyMediaForStorage = (convs = []) => {
         purchasedFrom: item.purchasedFrom || 'Vendor',
         purchaseDate: item.purchaseDate || item.date || getLocalDateString(now),
         date: item.purchaseDate || item.date || getLocalDateString(now),
-        employeeId: currentUser?._id || 'emp_001',
+        employeeId: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
         employeeName: item.employeeName || item.paidBy || currentUser?.name || 'Employee',
         employeeAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
         paidBy: item.paidBy || currentUser?.name || 'Employee',
         status: item.status || 'pending',
         description: item.description || 'Imported via CSV template',
         billAttachment: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
-        createdById: currentUser?._id || 'emp_001',
+        createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
         createdByName: currentUser?.name || 'Employee',
         createdAt: now.toISOString()
       };
@@ -1664,7 +1688,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const now = new Date();
 
     const u = currentUser;
-    const reqId = String(u?._id || u?.employeeCode || 'emp_001');
+    const reqId = String(u?._id || u?.employeeCode || (employees && employees[0]?._id) || 'emp_user');
     const reqName = u?.name || 'Employee';
     const reqAvatar = u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
     const reqRole = u?.role || 'Team Member';
@@ -1775,7 +1799,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       );
       const newReply = {
         id: `rep_${Date.now()}`,
-        senderId: currentUser?._id || 'emp_001',
+        senderId: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || 'emp_user',
         senderName: currentUser?.name || 'Employee',
         senderAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
         message: messageText,
@@ -1908,7 +1932,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       isRecurring: !!eventData.isRecurring,
       color: eventData.color || '#2563eb',
       bgColor: eventData.bgColor || '#eff6ff',
-      createdById: currentUser?._id || 'emp_001',
+      createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       createdAt: new Date().toISOString(),
       ...eventData
     };
@@ -2585,11 +2609,11 @@ const stripHeavyMediaForStorage = (convs = []) => {
       email: leadData.email || '',
       phone: leadData.phone || '',
       leadType: leadData.leadType || 'Inbound Web',
-      leadOwnerId: leadData.leadOwnerId || currentUser?._id || 'emp_001',
+      leadOwnerId: leadData.leadOwnerId || currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       leadOwnerName: leadData.leadOwnerName || currentUser?.name || 'Lead Owner',
       leadOwnerRole: leadData.leadOwnerRole || currentUser?.role || 'Sales Lead',
       leadOwnerAvatar: leadData.leadOwnerAvatar || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-      createdById: currentUser?._id || 'emp_001',
+      createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       createdByName: currentUser?.name || 'Employee',
       createdByRole: currentUser?.role || 'Senior',
       createdByAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
@@ -2733,11 +2757,11 @@ const stripHeavyMediaForStorage = (convs = []) => {
         email: item.email || '',
         phone: item.phone || item.phoneNumber || '',
         leadType: item.leadType || item.category || 'Inbound Web',
-        leadOwnerId: item.leadOwnerId || currentUser?._id || 'emp_001',
+        leadOwnerId: item.leadOwnerId || currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
         leadOwnerName: item.leadOwnerName || currentUser?.name || 'Lead Owner',
         leadOwnerRole: item.leadOwnerRole || currentUser?.role || 'Sales Lead',
         leadOwnerAvatar: item.leadOwnerAvatar || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-        createdById: currentUser?._id || 'emp_001',
+        createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
         createdByName: currentUser?.name || 'Employee',
         createdByRole: currentUser?.role || 'Senior',
         createdByAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
@@ -2811,7 +2835,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       alternateNumber: contactData.alternateNumber || '',
       relationship: contactData.relationship || 'Family',
       address: contactData.address || '',
-      employeeId: currentUser?._id || 'emp_001',
+      employeeId: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
       createdAt: new Date().toISOString()
     };
     currentList.push(newContact);
