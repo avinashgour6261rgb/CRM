@@ -283,7 +283,11 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           previousDepartment: targetEmp.department,
           newDepartment: formData.department,
           effectiveDate: getLocalDateString(),
-          promotedBy: currentUser?.name || (isActorAdmin ? 'Super Admin' : 'HR Manager'),
+          promotedBy: currentUser?.employeeCode
+            ? `${currentUser.name || 'Admin'} (${currentUser.employeeCode})`
+            : (currentUser?.name || (isActorAdmin ? 'Administrator' : 'HR Manager')),
+          promotedById: currentUser?._id ? String(currentUser._id) : '',
+          promotedByCode: currentUser?.employeeCode || '',
           reason: 'Role Updated via Profile Management'
         });
       }

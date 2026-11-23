@@ -316,20 +316,32 @@ export const ManagePermissionsModal = ({ isOpen, onClose, employee }) => {
       if (employee._id) setUserPermissions(employee._id, safePerms);
       if (employee.email) setUserPermissions(employee.email, safePerms);
 
+      const actorName = currentUser ? (currentUser.name || 'Admin') : 'Admin';
+      const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+      const grantedAt = new Date().toISOString();
+
       // 2. Persist directly onto the employee profile in database
       if (updateEmployeePermissions) {
         await updateEmployeePermissions(employee._id, {
           permissions: safePerms,
           isDelegatedAdmin: isFullAdminGrant,
           delegationExpiresAt: isFullAdminGrant ? (employee.delegationExpiresAt || null) : null,
-          systemRole: nextSystemRole
+          systemRole: nextSystemRole,
+          permissionsGrantedBy: actorLabel,
+          permissionsGrantedById: currentUser?._id ? String(currentUser._id) : '',
+          permissionsGrantedByCode: currentUser?.employeeCode || '',
+          permissionsGrantedAt: grantedAt
         });
       } else {
         await updateEmployee(employee._id, {
           ...employee,
           isDelegatedAdmin: isFullAdminGrant,
           systemRole: nextSystemRole,
-          permissions: safePerms
+          permissions: safePerms,
+          permissionsGrantedBy: actorLabel,
+          permissionsGrantedById: currentUser?._id ? String(currentUser._id) : '',
+          permissionsGrantedByCode: currentUser?.employeeCode || '',
+          permissionsGrantedAt: grantedAt
         });
       }
 

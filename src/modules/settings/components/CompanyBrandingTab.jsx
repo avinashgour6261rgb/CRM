@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { getCompanySettings, saveCompanySettings, fetchCompanySettingsFromDB } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 
 export const CompanyBrandingTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,7 +85,7 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const saved = await saveCompanySettings(formData);
+      const saved = await saveCompanySettings(formData, currentUser);
       isDirtyRef.current = false;
       setFormData(saved);
       setIsSaved(true);
@@ -118,6 +120,11 @@ export const CompanyBrandingTab = ({ onNavigateTab }) => {
             <p className="text-[11.5px] text-slate-600 dark:text-slate-400 m-0 mt-0.5">
               Legal entity details, registered address, statutory tax numbers, and payslip letterhead.
             </p>
+            {formData.lastUpdatedBy && (
+              <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mt-1 inline-block">
+                Last updated by <strong>{formData.lastUpdatedBy}</strong>
+              </span>
+            )}
           </div>
         </div>
 

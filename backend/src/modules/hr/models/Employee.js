@@ -120,6 +120,34 @@ const EmployeeSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    passwordUpdatedBy: {
+      type: String,
+      default: null
+    },
+    passwordUpdatedById: {
+      type: String,
+      default: null
+    },
+    passwordUpdatedByCode: {
+      type: String,
+      default: null
+    },
+    permissionsGrantedBy: {
+      type: String,
+      default: null
+    },
+    permissionsGrantedById: {
+      type: String,
+      default: null
+    },
+    permissionsGrantedByCode: {
+      type: String,
+      default: null
+    },
+    permissionsGrantedAt: {
+      type: String,
+      default: null
+    },
     isAdmin: {
       type: Boolean,
       default: false

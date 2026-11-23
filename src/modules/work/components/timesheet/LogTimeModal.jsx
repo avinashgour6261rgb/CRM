@@ -141,6 +141,10 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
       const hrs = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
       const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
 
+      const actorLabel = currentUser?.employeeCode
+        ? `${currentUser.name || 'User'} (${currentUser.employeeCode})`
+        : (currentUser?.name || 'Administrator');
+
       await logTimesheet({
         taskId,
         taskCode,
@@ -159,7 +163,16 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
         totalDurationText: `${hrs}h ${mins}m`,
         memo: formData.memo || (mode === 'custom' ? `Custom: ${taskTitle}` : `Manual time log`),
         isBillable: formData.isBillable,
-        status: 'approved'
+        status: 'approved',
+        isManualEntry: true,
+        loggedBy: actorLabel,
+        loggedById: currentUser?._id ? String(currentUser._id) : '',
+        loggedByCode: currentUser?.employeeCode || '',
+        loggedByRole: currentUser?.role || currentUser?.systemRole || '',
+        approvedBy: actorLabel,
+        approvedById: currentUser?._id ? String(currentUser._id) : '',
+        approvedByCode: currentUser?.employeeCode || '',
+        approvedAt: new Date().toISOString()
       });
 
       if (addToast) addToast(`Logged ${hrs}h ${mins}m for "${taskTitle}"`, 'success');

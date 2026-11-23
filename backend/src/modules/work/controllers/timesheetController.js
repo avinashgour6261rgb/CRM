@@ -154,6 +154,22 @@ exports.createTimesheet = async (req, res, next) => {
       payload.employeeCode = user.employeeCode || '';
     }
 
+    // Multi-Admin Actor Tracking for timesheets
+    if (user) {
+      const actorLabel = user.employeeCode ? `${user.name || 'User'} (${user.employeeCode})` : (user.name || 'User');
+      if (!payload.loggedBy) payload.loggedBy = actorLabel;
+      if (!payload.loggedById) payload.loggedById = String(user._id || '');
+      if (!payload.loggedByCode) payload.loggedByCode = user.employeeCode || '';
+      if (!payload.loggedByRole) payload.loggedByRole = user.role || user.systemRole || '';
+      if (payload.isManualEntry === undefined) payload.isManualEntry = true;
+      if (payload.status === 'approved' && !payload.approvedBy) {
+        payload.approvedBy = actorLabel;
+        payload.approvedById = String(user._id || '');
+        payload.approvedByCode = user.employeeCode || '';
+        payload.approvedAt = new Date().toISOString();
+      }
+    }
+
     // Set the employee ObjectId ref only when it's a valid ObjectId
     // — keep employeeId (string) field for code-based lookups regardless
     if (payload.employee && !mongoose.Types.ObjectId.isValid(payload.employee)) {
@@ -441,7 +457,16 @@ exports.updateTimesheet = async (req, res, next) => {
     if (endTime !== undefined) existing.endTime = endTime;
     if (memo !== undefined) existing.memo = memo;
     if (isBillable !== undefined) existing.isBillable = Boolean(isBillable);
-    if (status !== undefined) existing.status = status;
+    if (status !== undefined) {
+      existing.status = status;
+      if (status === 'approved' && u) {
+        const actorLabel = u.employeeCode ? `${u.name || 'User'} (${u.employeeCode})` : (u.name || 'User');
+        existing.approvedBy = actorLabel;
+        existing.approvedById = String(u._id || '');
+        existing.approvedByCode = u.employeeCode || '';
+        existing.approvedAt = new Date().toISOString();
+      }
+    }
     if (date !== undefined) existing.date = date;
 
     const saved = await existing.save();

@@ -109,7 +109,11 @@ export const PromoteEmployeeModal = ({ isOpen, onClose, employee }) => {
         previousDepartment: employee.department,
         newDepartment: selectedDepartment,
         effectiveDate,
-        promotedBy: currentUser?.name || 'Super Admin',
+        promotedBy: currentUser?.employeeCode
+          ? `${currentUser.name || 'Admin'} (${currentUser.employeeCode})`
+          : (currentUser?.name || (isActorAdmin ? 'Administrator' : 'HR Manager')),
+        promotedById: currentUser?._id ? String(currentUser._id) : '',
+        promotedByCode: currentUser?.employeeCode || '',
         reason,
         remarks
       });

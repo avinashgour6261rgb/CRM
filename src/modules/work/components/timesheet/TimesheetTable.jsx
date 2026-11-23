@@ -179,6 +179,11 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                         <div className="text-[10px] text-slate-500 dark:text-slate-400">
                           {entry.employeeRole || 'Strategic'}
                         </div>
+                        {entry.loggedBy && (!entry.employeeName || !entry.loggedBy.toLowerCase().startsWith(entry.employeeName.toLowerCase())) && (
+                          <div className="text-[9.5px] text-blue-600 dark:text-blue-400 font-medium truncate max-w-[130px]" title={`Logged by ${entry.loggedBy}`}>
+                            via {entry.loggedBy}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -215,6 +220,11 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
                       <span className={`w-[5px] h-[5px] rounded-full ${status.dot}`} />
                       {status.label}
                     </span>
+                    {entry.approvedBy && (
+                      <div className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 truncate max-w-[120px]" title={`Approved by ${entry.approvedBy}`}>
+                        by {entry.approvedBy}
+                      </div>
+                    )}
                   </td>
 
                   {/* Actions */}

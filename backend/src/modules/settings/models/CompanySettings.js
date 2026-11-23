@@ -40,7 +40,11 @@ const CompanySettingsSchema = new mongoose.Schema({
   customRoles: { type: Array, default: [] },
   customDesignations: { type: [String], default: [] },
   customDepartments: { type: [String], default: [] },
-  promotionHistory: { type: Array, default: [] }
+  promotionHistory: { type: Array, default: [] },
+  lastUpdatedBy: { type: String, default: '' },
+  lastUpdatedById: { type: String, default: '' },
+  lastUpdatedByCode: { type: String, default: '' },
+  lastUpdatedAt: { type: String, default: '' }
 }, {
   timestamps: true
 });

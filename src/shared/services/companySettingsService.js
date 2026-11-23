@@ -42,7 +42,11 @@ export const DEFAULT_COMPANY_SETTINGS = {
   customRoles: [],
   customDesignations: [],
   customDepartments: [],
-  promotionHistory: []
+  promotionHistory: [],
+  lastUpdatedBy: '',
+  lastUpdatedById: '',
+  lastUpdatedByCode: '',
+  lastUpdatedAt: ''
 };
 
 const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -148,11 +152,27 @@ export const fetchCompanySettingsFromDB = async () => {
   return local;
 };
 
-export const saveCompanySettings = async (newSettings) => {
-  const merged = { ...getCompanySettings(), ...newSettings };
+export const saveCompanySettings = async (newSettings, actorUser = null) => {
+  let u = actorUser;
+  if (!u) {
+    try {
+      const sess = localStorage.getItem('ems_auth_session');
+      if (sess) u = JSON.parse(sess);
+    } catch (_) {}
+  }
+
+  const actorMeta = {};
+  if (u) {
+    actorMeta.lastUpdatedBy = u.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u.name || 'Admin');
+    actorMeta.lastUpdatedById = String(u._id || '');
+    actorMeta.lastUpdatedByCode = u.employeeCode || '';
+    actorMeta.lastUpdatedAt = new Date().toISOString();
+  }
+
+  const merged = { ...getCompanySettings(), ...actorMeta, ...newSettings };
   // Send only the updated fields (stripped of MongoDB metadata) so partial updates
   // like Payroll disbursement don't overwrite unrelated fields or re-send large logos
-  const payload = { ...(newSettings || {}) };
+  const payload = { ...actorMeta, ...(newSettings || {}) };
   delete payload._id;
   delete payload.__v;
   delete payload.createdAt;

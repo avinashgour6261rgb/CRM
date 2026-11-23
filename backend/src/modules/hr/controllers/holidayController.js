@@ -55,6 +55,13 @@ const createHoliday = asyncHandler(async (req, res) => {
     if (!canManage) {
       return res.status(403).json({ success: false, message: 'Access denied: Only HR & Administrators can declare company holidays.' });
     }
+    const actorLabel = u.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u.name || 'Admin');
+    if (!req.body.createdBy) req.body.createdBy = actorLabel;
+    if (!req.body.createdById) req.body.createdById = String(u._id || '');
+    if (!req.body.createdByCode) req.body.createdByCode = u.employeeCode || '';
+    if (!req.body.confirmedBy) req.body.confirmedBy = actorLabel;
+    if (!req.body.confirmedById) req.body.confirmedById = String(u._id || '');
+    if (!req.body.confirmedByCode) req.body.confirmedByCode = u.employeeCode || '';
   }
 
   // If exists on same date, update it
@@ -86,6 +93,10 @@ const updateHoliday = asyncHandler(async (req, res) => {
     if (!canManage) {
       return res.status(403).json({ success: false, message: 'Access denied: Only HR & Administrators can update company holidays.' });
     }
+    const actorLabel = u.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u.name || 'Admin');
+    req.body.lastUpdatedBy = actorLabel;
+    req.body.lastUpdatedById = String(u._id || '');
+    req.body.lastUpdatedByCode = u.employeeCode || '';
   }
 
   let holiday = null;

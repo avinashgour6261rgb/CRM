@@ -85,6 +85,14 @@ exports.updateCompanySettings = async (req, res) => {
       rawData.weeklyOffDays = [...new Set(rawData.weeklyOffDays.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n <= 6))].sort((a, b) => a - b);
     }
 
+    if (u) {
+      const actorLabel = u.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u.name || 'Admin');
+      rawData.lastUpdatedBy = actorLabel;
+      rawData.lastUpdatedById = String(u._id || '');
+      rawData.lastUpdatedByCode = u.employeeCode || '';
+      rawData.lastUpdatedAt = new Date().toISOString();
+    }
+
     let settings = await CompanySettings.findOne();
     if (!settings) {
       settings = new CompanySettings(rawData);

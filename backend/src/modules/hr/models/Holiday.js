@@ -43,6 +43,14 @@ const HolidaySchema = new mongoose.Schema(
       type: String,
       default: 'Admin'
     },
+    confirmedById: {
+      type: String,
+      default: ''
+    },
+    confirmedByCode: {
+      type: String,
+      default: ''
+    },
     code: {
       type: String
     },
@@ -58,6 +66,26 @@ const HolidaySchema = new mongoose.Schema(
     createdBy: {
       type: String,
       default: 'Admin'
+    },
+    createdById: {
+      type: String,
+      default: ''
+    },
+    createdByCode: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedBy: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedById: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedByCode: {
+      type: String,
+      default: ''
     }
   },
   {

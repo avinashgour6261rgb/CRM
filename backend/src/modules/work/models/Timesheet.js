@@ -99,6 +99,42 @@ const TimesheetSchema = new mongoose.Schema(
     isBillable: {
       type: Boolean,
       default: true
+    },
+    loggedBy: {
+      type: String,
+      default: ''
+    },
+    loggedById: {
+      type: String,
+      default: ''
+    },
+    loggedByCode: {
+      type: String,
+      default: ''
+    },
+    loggedByRole: {
+      type: String,
+      default: ''
+    },
+    isManualEntry: {
+      type: Boolean,
+      default: false
+    },
+    approvedBy: {
+      type: String,
+      default: ''
+    },
+    approvedById: {
+      type: String,
+      default: ''
+    },
+    approvedByCode: {
+      type: String,
+      default: ''
+    },
+    approvedAt: {
+      type: String,
+      default: null
     }
   },
   {

@@ -685,8 +685,13 @@ export const HolidayCalendar = () => {
                                                 {isOff ? '🏖️ Paid Off' : '🪔 Cultural Festival'}
                                               </span>
                                             </td>
-                                            <td className="text-slate-500 dark:text-slate-400 text-xs max-w-[260px] truncate">
-                                              {hol.description || (isOff ? 'Declared company holiday.' : 'Indian festival.')}
+                                            <td className="text-slate-500 dark:text-slate-400 text-xs max-w-[260px]">
+                                              <div className="truncate">{hol.description || (isOff ? 'Declared company holiday.' : 'Indian festival.')}</div>
+                                              {(hol.confirmedBy || hol.createdBy) && (
+                                                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5" title={`By ${hol.confirmedBy || hol.createdBy}`}>
+                                                  Declared by {hol.confirmedBy || hol.createdBy}
+                                                </div>
+                                              )}
                                             </td>
                                             <td className="text-right">
                                               {canManageHolidays && (

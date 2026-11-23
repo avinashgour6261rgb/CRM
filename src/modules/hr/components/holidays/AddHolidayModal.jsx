@@ -33,9 +33,19 @@ export const AddHolidayModal = ({ isOpen, onClose, selectedDate = '' }) => {
     const d = new Date(formData.date);
     const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'long' });
 
+    const actorLabel = currentUser?.employeeCode
+      ? `${currentUser.name || 'Admin'} (${currentUser.employeeCode})`
+      : (currentUser?.name || 'Administrator');
+
     await addHoliday({
       ...formData,
-      dayOfWeek
+      dayOfWeek,
+      createdBy: actorLabel,
+      createdById: currentUser?._id ? String(currentUser._id) : '',
+      createdByCode: currentUser?.employeeCode || '',
+      confirmedBy: actorLabel,
+      confirmedById: currentUser?._id ? String(currentUser._id) : '',
+      confirmedByCode: currentUser?.employeeCode || ''
     });
 
     onClose();

@@ -249,6 +249,8 @@ export const recordPromotion = (promotionData) => {
     newDepartment: promotionData.newDepartment,
     effectiveDate: promotionData.effectiveDate || getLocalDateString(),
     promotedBy: promotionData.promotedBy || 'Administrator',
+    promotedById: promotionData.promotedById || '',
+    promotedByCode: promotionData.promotedByCode || '',
     reason: promotionData.reason || 'Outstanding Performance & Leadership',
     remarks: promotionData.remarks || '',
     salaryHikeAmount: promotionData.salaryHikeAmount || 0,

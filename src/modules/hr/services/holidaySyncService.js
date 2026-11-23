@@ -606,6 +606,15 @@ export const holidaySyncService = {
   async confirmHolidayAsCompanyOff(suggestedHoliday, adminUser) {
     const confirmed = getConfirmedHolidays();
 
+    let u = adminUser;
+    if (!u) {
+      try {
+        const s = localStorage.getItem('ems_auth_session');
+        if (s) u = JSON.parse(s);
+      } catch (_) {}
+    }
+    const actorLabel = u?.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u?.name || 'Administrator');
+
     // Check if duplicate exists
     const existingIdx = confirmed.findIndex(c => 
       c.date === suggestedHoliday.date && 
@@ -624,7 +633,9 @@ export const holidaySyncService = {
       icon: suggestedHoliday.icon || '🏖️',
       description: suggestedHoliday.description || 'Declared company holiday.',
       isConfirmed: true,
-      confirmedBy: adminUser?.name || 'Admin',
+      confirmedBy: actorLabel,
+      confirmedById: u?._id ? String(u._id) : '',
+      confirmedByCode: u?.employeeCode || '',
       confirmedAt: new Date().toISOString()
     };
 
@@ -663,6 +674,15 @@ export const holidaySyncService = {
     const confirmed = getConfirmedHolidays();
     let newlyAddedCount = 0;
 
+    let u = adminUser;
+    if (!u) {
+      try {
+        const s = localStorage.getItem('ems_auth_session');
+        if (s) u = JSON.parse(s);
+      } catch (_) {}
+    }
+    const actorLabel = u?.employeeCode ? `${u.name || 'Admin'} (${u.employeeCode})` : (u?.name || 'Administrator');
+
     for (const item of suggested) {
       const alreadyConfirmed = confirmed.some(c => 
         c.date === item.date && 
@@ -683,7 +703,9 @@ export const holidaySyncService = {
           icon: item.icon || '🏖️',
           description: item.description,
           isConfirmed: true,
-          confirmedBy: adminUser?.name || 'Admin',
+          confirmedBy: actorLabel,
+          confirmedById: u?._id ? String(u._id) : '',
+          confirmedByCode: u?.employeeCode || '',
           confirmedAt: new Date().toISOString(),
           createdAt: new Date().toISOString()
         };

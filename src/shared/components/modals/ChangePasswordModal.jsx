@@ -123,13 +123,20 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
       // Persist to MongoDB backend first (server hashes password & encrypts Admin Vault copy)
       const targetId = effectiveUser?._id || employees[empIndex]?._id || effectiveUser?.employeeCode;
       const nowIso = new Date().toISOString();
+      const actorName = currentUser ? (currentUser.name || 'Admin') : 'Admin';
+      const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+      const updatedByLabel = isSelf ? 'Self' : actorLabel;
+
       if (targetId) {
         const res = await fetch(`${API_BASE}/employees/${targetId}`, {
           method: 'PUT',
           headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             password: newPassword,
-            passwordUpdatedAt: nowIso
+            passwordUpdatedAt: nowIso,
+            passwordUpdatedBy: updatedByLabel,
+            passwordUpdatedById: currentUser?._id ? String(currentUser._id) : '',
+            passwordUpdatedByCode: currentUser?.employeeCode || ''
           })
         });
         if (!res.ok) {

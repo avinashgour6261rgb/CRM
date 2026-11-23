@@ -25,6 +25,7 @@ import {
   computeHoursBetween12h
 } from '../../../shared/services/companySettingsService';
 import { useToast } from '../../../shared/context/ToastContext';
+import { useAuth } from '../../../shared/context/AuthContext';
 
 const WEEKDAYS = [
   { id: 0, label: 'Sun' },
@@ -38,6 +39,7 @@ const WEEKDAYS = [
 
 export const ShiftSettingsTab = ({ onNavigateTab }) => {
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState(getCompanySettings());
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,7 +121,7 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const saved = await saveCompanySettings(formData);
+      const saved = await saveCompanySettings(formData, currentUser);
       let applySummary = '';
       if (syncEmployeeShifts || recalculateScope !== 'none') {
         try {
@@ -173,6 +175,11 @@ export const ShiftSettingsTab = ({ onNavigateTab }) => {
             <p className="text-[11.5px] text-slate-600 dark:text-slate-400 m-0 mt-0.5">
               Universal office hours, late grace margins, half-day cutoffs, and official break rules.
             </p>
+            {formData.lastUpdatedBy && (
+              <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 mt-1 inline-block">
+                Last updated by <strong>{formData.lastUpdatedBy}</strong>
+              </span>
+            )}
           </div>
         </div>
 

@@ -952,11 +952,19 @@ export const workService = {
       }
     }
 
+    const actorLabel = authUser?.employeeCode
+      ? `${authUser.name || 'User'} (${authUser.employeeCode})`
+      : (authUser?.name || 'Administrator');
+
     const enrichedData = {
       ...entryData,
       employeeId: resolvedEmpId || authUser?._id || authUser?.employeeCode || '',
       employeeCode: resolvedEmpCode || authUser?.employeeCode || '',
-      employeeName: resolvedEmpName || authUser?.name || 'Employee'
+      employeeName: resolvedEmpName || authUser?.name || 'Employee',
+      loggedBy: entryData.loggedBy || actorLabel,
+      loggedById: entryData.loggedById || (authUser?._id ? String(authUser._id) : ''),
+      loggedByCode: entryData.loggedByCode || authUser?.employeeCode || '',
+      isManualEntry: entryData.isManualEntry !== undefined ? entryData.isManualEntry : true
     };
 
     if (await isBackendAvailable()) {
@@ -1012,7 +1020,7 @@ export const workService = {
       const effectiveDuration = Math.max(Number(timesheets[existingIdx].totalDurationSeconds) || 0, durationSecs);
       timesheets[existingIdx] = {
         ...timesheets[existingIdx],
-        ...entryData,
+        ...enrichedData,
         totalDurationSeconds: effectiveDuration,
         totalDurationText: entryData.totalDurationText || formatSecondsSafe(effectiveDuration),
         updatedAt: new Date().toISOString()
