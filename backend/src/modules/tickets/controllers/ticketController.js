@@ -87,6 +87,14 @@ exports.updateTicket = asyncHandler(async (req, res) => {
     updateData.lastActionByCode = actorCode;
   }
 
+  const existing = mongoose.Types.ObjectId.isValid(id)
+    ? await Ticket.findById(id)
+    : await Ticket.findOne({ ticketCode: id });
+
+  if (!existing) {
+    return res.status(404).json({ success: false, message: 'Ticket not found' });
+  }
+
   if (updateData.status === 'resolved' && !updateData.resolvedBy) {
     updateData.resolvedBy = actorLabel;
     updateData.resolvedById = actorId;
@@ -97,6 +105,11 @@ exports.updateTicket = asyncHandler(async (req, res) => {
     updateData.closedById = actorId;
     updateData.closedByCode = actorCode;
     updateData.closedAt = new Date();
+  } else if ((updateData.status === 'open' || updateData.status === 'in_progress') && (existing.status === 'resolved' || existing.status === 'closed') && !updateData.reopenedBy) {
+    updateData.reopenedBy = actorLabel;
+    updateData.reopenedById = actorId;
+    updateData.reopenedByCode = actorCode;
+    updateData.reopenedAt = new Date();
   }
 
   let ticket = null;
@@ -128,22 +141,38 @@ exports.addComment = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Ticket not found' });
   }
 
+  const u = req.user;
+  const actorName = u ? (u.name || u.email || 'Employee') : 'Employee';
+  const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+  const actorRole = u?.role || 'Team Member';
+  const actorCode = u?.employeeCode || '';
+  const actorAvatar = u?.avatar || '';
+
   // Add to replies if it represents a conversation message/reply, otherwise store as comment
   const replyContent = req.body.message || req.body.reply;
   if (replyContent || req.body.isAdminReply !== undefined) {
     ticket.replies = ticket.replies || [];
     ticket.replies.push({
       id: req.body.id || `rep_${Date.now()}`,
-      senderId: req.body.senderId || req.user?._id || '',
-      senderName: req.body.senderName || req.body.authorName || req.user?.name || 'Employee',
-      senderAvatar: req.body.senderAvatar || req.body.authorAvatar || req.user?.avatar || '',
+      senderId: req.body.senderId || u?._id || '',
+      senderName: req.body.senderName || req.body.authorName || actorLabel,
+      senderAvatar: req.body.senderAvatar || req.body.authorAvatar || actorAvatar,
+      senderRole: req.body.senderRole || req.body.authorRole || actorRole,
+      senderCode: req.body.senderCode || actorCode,
       message: replyContent || req.body.text || '',
       timestamp: req.body.timestamp || new Date().toISOString(),
-      isAdminReply: !!req.body.isAdminReply
+      isAdminReply: req.body.isAdminReply !== undefined ? !!req.body.isAdminReply : Boolean(u && (u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr'))
     });
   } else if (req.body.text) {
     ticket.comments = ticket.comments || [];
-    ticket.comments.push(req.body);
+    ticket.comments.push({
+      authorName: req.body.authorName || actorLabel,
+      authorAvatar: req.body.authorAvatar || actorAvatar,
+      authorRole: req.body.authorRole || actorRole,
+      authorCode: req.body.authorCode || actorCode,
+      text: req.body.text,
+      timestamp: req.body.timestamp || new Date().toISOString()
+    });
   }
 
   await ticket.save();

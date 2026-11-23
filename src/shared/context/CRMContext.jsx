@@ -1699,7 +1699,8 @@ export const CRMProvider = ({ children }) => {
 
     const u = currentUser;
     const reqId = String(u?._id || u?.employeeCode || (employees && employees[0]?._id) || 'emp_user');
-    const reqName = u?.name || 'Employee';
+    const reqCode = u?.employeeCode || '';
+    const reqName = reqCode ? `${u?.name || 'Employee'} (${reqCode})` : (u?.name || 'Employee');
     const reqAvatar = u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
     const reqRole = u?.role || 'Team Member';
 
@@ -1723,10 +1724,12 @@ export const CRMProvider = ({ children }) => {
       status: 'open',
       department: ticketData.category || 'IT Support',
       requestedById: reqId,
+      requestedByCode: reqCode,
       requestedByName: reqName,
       requestedByAvatar: reqAvatar,
       requestedByRole: reqRole,
       createdBy: reqId,
+      createdByCode: reqCode,
       createdByName: reqName,
       createdByAvatar: reqAvatar,
       createdByRole: reqRole,
@@ -1966,6 +1969,9 @@ export const CRMProvider = ({ children }) => {
   // =========================================================================
   const createEvent = async (eventData) => {
     const currentList = getCollection(KEYS.EVENTS);
+    const actorName = currentUser?.name || 'Administrator';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
     const newEvent = {
       _id: `ev_${Date.now()}`,
       eventName: eventData.eventName || eventData.title || 'Company Event',
@@ -1982,7 +1988,11 @@ export const CRMProvider = ({ children }) => {
       isRecurring: !!eventData.isRecurring,
       color: eventData.color || '#2563eb',
       bgColor: eventData.bgColor || '#eff6ff',
-      createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
+      createdBy: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
+      createdById: currentUser?._id || currentUser?.id || '',
+      createdByCode: actorCode,
+      createdByName: actorLabel,
+      createdByRole: currentUser?.role || 'Administrator',
       createdAt: new Date().toISOString(),
       ...eventData
     };
@@ -2010,8 +2020,18 @@ export const CRMProvider = ({ children }) => {
   };
 
   const updateEvent = async (eventId, updateData) => {
+    const actorName = currentUser?.name || 'Administrator';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+    const fullUpdateData = {
+      ...updateData,
+      lastUpdatedBy: actorLabel,
+      lastUpdatedByCode: actorCode,
+      lastUpdatedById: currentUser?._id || currentUser?.id || '',
+      updatedAt: new Date().toISOString()
+    };
     try {
-      const payload = { ...updateData };
+      const payload = { ...fullUpdateData };
       delete payload._id;
       await fetch(`${API_BASE}/events/${eventId}`, {
         method: 'PUT',
@@ -2025,8 +2045,7 @@ export const CRMProvider = ({ children }) => {
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
-        ...updateData,
-        updatedAt: new Date().toISOString()
+        ...fullUpdateData
       };
       saveCollection(KEYS.EVENTS, currentList);
       setEvents([...currentList]);

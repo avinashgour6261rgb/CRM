@@ -682,6 +682,10 @@ export const hrService = {
   },
 
   async updateLeaveStatus(leaveId, status, approverName = 'HR Admin', rejectionReason = '') {
+    let approverCode = '';
+    const codeMatch = approverName.match(/\(([^)]+)\)/);
+    if (codeMatch) approverCode = codeMatch[1].trim();
+
     const updateLocalState = (targetLeave, updatedEmployeeBalance = null) => {
       const leaves = getCollection(KEYS.LEAVES) || [];
       const index = leaves.findIndex(l => String(l._id || l.id) === String(leaveId));
@@ -693,11 +697,15 @@ export const hrService = {
           ...targetLeave,
           status,
           approvedBy: status === 'approved' ? approverName : null,
+          approvedByCode: status === 'approved' ? approverCode : null,
           rejectedBy: status === 'rejected' ? approverName : null,
+          rejectedByCode: status === 'rejected' ? approverCode : null,
           cancelledBy: status === 'cancelled' ? approverName : null,
+          cancelledByCode: status === 'cancelled' ? approverCode : null,
           rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null,
           cancellationReason: status === 'cancelled' ? (rejectionReason || 'Cancelled by reviewer') : null,
           actionBy: approverName,
+          actionByCode: approverCode,
           actionDate: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -824,7 +832,7 @@ export const hrService = {
 
     const resData = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status, approverName, approvedBy: approverName, rejectionReason, cancellationReason: rejectionReason })
+      body: JSON.stringify({ status, approverName, approvedBy: approverName, approverCode, rejectionReason, cancellationReason: rejectionReason })
     }, async () => {
       const targetLeave = { ...existingTarget, status };
       updateLocalState(targetLeave);

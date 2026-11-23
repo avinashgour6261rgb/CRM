@@ -345,7 +345,7 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
   );
 
   // Self-approval protection: applicant cannot approve their own leave
-  if (status === 'approved' && isApplicant && !isPrivileged) {
+  if (status === 'approved' && isApplicant) {
     return res.status(403).json({ success: false, message: 'Security restriction: You cannot approve your own leave application.' });
   }
 
@@ -360,7 +360,7 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
 
   const previousStatus = leave.status;
   const userCode = user?.employeeCode || '';
-  const actorName = approverName || approvedBy || (userCode ? `${user?.name || 'Administrator'} (${userCode})` : (user?.name || 'Administrator'));
+  const actorName = userCode ? `${user?.name || 'Administrator'} (${userCode})` : (user?.name || approverName || approvedBy || 'Administrator');
   const remarks = approverRemarks || rejectionReason || cancellationReason || '';
 
   leave.status = status;

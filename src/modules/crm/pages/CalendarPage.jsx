@@ -24,7 +24,8 @@ import {
   Heart,
   Award,
   Lock,
-  Check
+  Check,
+  User
 } from 'lucide-react';
 import { useCRM } from '../../../shared/context/CRMContext';
 import { useHR } from '../../hr/context/HRContext';
@@ -1396,6 +1397,18 @@ export const CalendarPage = () => {
                 <MapPin size={16} className="text-sky-400" />
                 <span>Location: {selectedEvent.location}</span>
               </div>
+              {(selectedEvent.createdByName || selectedEvent.createdBy) && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <User size={15} className="text-sky-400 shrink-0" />
+                  <span>Created by: <strong className="text-slate-700 dark:text-slate-200">{selectedEvent.createdByName || selectedEvent.createdBy}</strong></span>
+                </div>
+              )}
+              {selectedEvent.lastUpdatedBy && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Clock size={15} className="text-amber-400 shrink-0" />
+                  <span>Last updated by: <strong className="text-slate-700 dark:text-slate-200">{selectedEvent.lastUpdatedBy}</strong></span>
+                </div>
+              )}
               {selectedEvent.isRecurring && (
                 <div className="flex items-center gap-2 text-green-400 font-semibold">
                   <Repeat size={15} />

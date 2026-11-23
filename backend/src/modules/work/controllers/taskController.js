@@ -291,9 +291,22 @@ exports.updateTaskStatus = async (req, res, next) => {
       update.activeWorkerRole = null;
       update.activeUserId = null;
       update.activeUserName = null;
-      if (req.body.completedBy !== undefined) update.completedBy = req.body.completedBy;
-      if (req.body.completedById !== undefined) update.completedById = req.body.completedById;
-      if (req.body.completedByCode !== undefined) update.completedByCode = req.body.completedByCode;
+      const u = req.user;
+      if (req.body.completedBy !== undefined) {
+        update.completedBy = req.body.completedBy;
+      } else if (u) {
+        update.completedBy = u.employeeCode ? `${u.name || 'User'} (${u.employeeCode})` : (u.name || 'User');
+      }
+      if (req.body.completedById !== undefined) {
+        update.completedById = req.body.completedById;
+      } else if (u) {
+        update.completedById = u._id || u.id;
+      }
+      if (req.body.completedByCode !== undefined) {
+        update.completedByCode = req.body.completedByCode;
+      } else if (u) {
+        update.completedByCode = u.employeeCode || '';
+      }
       if (req.body.timerSeconds !== undefined) update.timerSeconds = req.body.timerSeconds;
       if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;
       if (req.body.hoursLogged !== undefined) update.hoursLogged = req.body.hoursLogged;
@@ -308,6 +321,13 @@ exports.updateTaskStatus = async (req, res, next) => {
       update.completedBy = null;
       update.completedById = null;
       update.completedByCode = null;
+      if (req.user) {
+        const u = req.user;
+        const actorLabel = u.employeeCode ? `${u.name || 'User'} (${u.employeeCode})` : (u.name || 'User');
+        update.lastActionBy = actorLabel;
+        update.lastActionById = u._id || u.id;
+        update.lastActionByCode = u.employeeCode || '';
+      }
     }
 
     let task = null;

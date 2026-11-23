@@ -42,6 +42,33 @@ const EventSchema = new mongoose.Schema(
     createdByName: {
       type: String,
       default: 'Admin User'
+    },
+    createdById: {
+      type: String,
+      default: ''
+    },
+    createdByCode: {
+      type: String,
+      default: ''
+    },
+    createdByRole: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedBy: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedById: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedByCode: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedAt: {
+      type: Date
     }
   },
   {
