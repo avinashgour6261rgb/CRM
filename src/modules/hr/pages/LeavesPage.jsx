@@ -690,27 +690,32 @@ export const LeavesPage = () => {
 
                       {/* Reviewer / Approver & Audit Trail */}
                       <td>
-                        <div className="text-[12.5px] text-slate-900 font-semibold">
-                          {leave.appliedToName || leave.approvedBy || leave.rejectedBy || leave.actionBy || 'HR Admin'}
+                        <div className="text-[12px] text-slate-500 dark:text-slate-400">
+                          Applied to: <span className="font-semibold text-slate-800 dark:text-slate-200">{leave.appliedToName || 'HR Admin'}</span>
                         </div>
                         {leave.status === 'approved' && (
-                          <span className="text-[11px] text-green-600 block mt-0.5">
+                          <span className="text-[11px] text-green-600 dark:text-green-400 font-medium block mt-0.5">
                             ✓ Approved by {leave.approvedBy || leave.actionBy || 'Admin'}
-                            {leave.actionDateFormatted && <span className="text-slate-500"> • {leave.actionDateFormatted}</span>}
+                            {leave.actionDateFormatted && <span className="text-slate-500 font-normal"> • {leave.actionDateFormatted}</span>}
                           </span>
                         )}
                         {leave.status === 'rejected' && (
                           <div className="mt-0.5">
-                            <span className="text-[11px] text-red-600 block">
+                            <span className="text-[11px] text-red-600 dark:text-red-400 font-medium block">
                               ✕ Denied by {leave.rejectedBy || leave.actionBy || 'Admin'}
-                              {leave.actionDateFormatted && <span className="text-slate-500"> • {leave.actionDateFormatted}</span>}
+                              {leave.actionDateFormatted && <span className="text-slate-500 font-normal"> • {leave.actionDateFormatted}</span>}
                             </span>
                             {leave.rejectionReason && (
-                              <span className="text-[10.5px] text-red-800 block italic">
+                              <span className="text-[10.5px] text-red-800 dark:text-red-300 block italic">
                                 "{leave.rejectionReason}"
                               </span>
                             )}
                           </div>
+                        )}
+                        {leave.status === 'pending' && (
+                          <span className="text-[11px] text-amber-600 dark:text-amber-400 block mt-0.5">
+                            ⏳ Awaiting Review
+                          </span>
                         )}
                       </td>
 
