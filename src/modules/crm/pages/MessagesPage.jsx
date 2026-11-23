@@ -56,7 +56,7 @@ import { CallAndScreenHistoryModal } from '../components/messages/CallAndScreenH
 import { processFileForChat, downloadChatAttachment, fetchChatAttachmentMedia } from '../utils/chatMediaUtils';
 import { getDmPartner, getUnreadCountForUser } from '../utils/chatPrivacyUtils';
 import { useToast } from '../../../shared/context/ToastContext';
-import { emitSocketEvent, subscribeSocketEvent } from '../../../shared/services/socketService';
+import { emitSocketEvent, subscribeSocketEvent, isSocketConnected } from '../../../shared/services/socketService';
 
 const LazyChatImage = ({ att, conversationId, onOpen }) => {
   const [src, setSrc] = useState(() => att?.dataUrl || att?.thumbDataUrl || '');
@@ -631,6 +631,10 @@ export const MessagesPage = () => {
     }
     if (!canScreenShare(currentUser)) {
       addToast('Screen share is disabled for your role.', 'error');
+      return;
+    }
+    if (!isSocketConnected()) {
+      addToast('📡 Real-time signaling server is currently reconnecting. Screen share will resume once connected.', 'warning');
       return;
     }
 

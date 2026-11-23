@@ -104,6 +104,15 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
           const dealValue = Number(rawDeal) || 0;
           const notes = rowObj['notes'] || rowObj['description'] || '';
 
+          // Normalize lead status to match Kanban stages
+          const rawStatus = String(rowObj['status'] || rowObj['stage'] || 'new').toLowerCase().trim();
+          let status = 'new';
+          if (['contacted', 'reached', 'called'].includes(rawStatus)) status = 'contacted';
+          else if (['qualified', 'in_progress', 'active', 'meeting'].includes(rawStatus)) status = 'in_progress';
+          else if (['proposal', 'negotiation', 'review'].includes(rawStatus)) status = 'negotiation';
+          else if (['converted', 'won', 'closed_won', 'deal'].includes(rawStatus)) status = 'converted';
+          else if (['lost', 'dropped', 'closed_lost', 'cancelled'].includes(rawStatus)) status = 'lost';
+
           // Validation
           const errors = [];
           if (!name) errors.push('Missing Lead / Contact Name');
@@ -119,6 +128,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
             email,
             phone,
             leadType,
+            status,
             priority: ['urgent', 'high', 'medium', 'low'].includes(priority) ? priority : 'medium',
             dealValue,
             notes,

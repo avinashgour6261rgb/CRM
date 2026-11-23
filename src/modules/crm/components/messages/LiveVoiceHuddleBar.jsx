@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useUserShiftStatus } from '../../utils/useUserShiftStatus';
 import { useToast } from '../../../../shared/context/ToastContext';
-import { emitSocketEvent, subscribeSocketEvent } from '../../../../shared/services/socketService';
+import { emitSocketEvent, subscribeSocketEvent, isSocketConnected } from '../../../../shared/services/socketService';
 import { ringtoneService } from '../../utils/ringtoneService';
 
 const RTC_CONFIG = {
@@ -490,6 +490,11 @@ export const LiveVoiceHuddleBar = ({
       }
     }
 
+    if (!isSocketConnected()) {
+      addToast('📡 Real-time signaling server is currently reconnecting. Voice calls will resume once connection is established.', 'warning');
+      return;
+    }
+
     try {
       ringtoneService.unlock();
       try {
@@ -525,13 +530,14 @@ export const LiveVoiceHuddleBar = ({
           channelName: ''
         });
 
-        // 45s Ringing Timeout if recipient doesn't answer
+        // 35s Ringing Timeout if recipient doesn't answer
         if (ringingTimeoutRef.current) clearTimeout(ringingTimeoutRef.current);
         ringingTimeoutRef.current = setTimeout(() => {
           if (callStateRef.current === 'outgoing_ringing' || activeCallIdRef.current === newCallId) {
             cancelCall(true);
+            addToast(`${activePartner?.name || 'Teammate'} is unavailable right now. Please leave a message.`, 'info');
           }
-        }, 45000);
+        }, 35000);
 
         addToast(`Calling ${activePartner?.name || 'Partner'}... 📞`, 'info');
       } else {

@@ -31,16 +31,19 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../../../shared/context/CRMContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
+import { useHR } from '../../../hr/context/HRContext';
 import { useWork } from '../../../work/context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { useModalUX } from '../../../../shared/hooks/useModalUX';
+import { getCollection, KEYS } from '../../../../shared/services/storageService';
 
 export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && lead) });
   const { updateLeadStatus, updateLead, deleteLead } = useCRM();
   const { currentUser } = useAuth();
+  const { employees = [] } = useHR() || {};
   const { createProject } = useWork() || {};
   const { addToast } = useToast();
 
@@ -112,25 +115,62 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
     setIsConverting(true);
     try {
       const projectName = lead.companyName || lead.client || lead.name || 'New Client Project';
+      const existingProjects = getCollection(KEYS.PROJECTS) || [];
+      const nextNum = existingProjects.length > 0
+        ? Math.max(...existingProjects.map(p => parseInt(String(p.projectCode || '').replace(/[^0-9]/g, '') || '100', 10))) + 1
+        : 101;
+      const projectCode = `PRJ-${nextNum}`;
+
+      const rawSelectedIds = Array.from(new Set([
+        String(currentUser?._id || ''),
+        String(lead.leadOwnerId || ''),
+        String(lead.assignedToId || '')
+      ].filter(Boolean)));
+
+      const allEmps = employees || [];
+      const memberList = allEmps
+        .filter(emp => rawSelectedIds.includes(String(emp._id)) || (emp.employeeCode && rawSelectedIds.includes(String(emp.employeeCode))))
+        .map(emp => ({
+          _id: emp._id,
+          name: emp.name,
+          email: emp.email,
+          avatar: emp.avatar || '',
+          role: emp.role || 'Team Member',
+          employeeCode: emp.employeeCode
+        }));
+
       if (typeof createProject === 'function') {
         await createProject({
           name: projectName,
+          projectCode,
           client: lead.companyName || lead.client || lead.name,
           clientEmail: lead.email || '',
           clientPhone: lead.phone || '',
+          category: 'Sales & Client Servicing',
+          department: 'IT & Software Development',
           budget: lead.dealValue || 0,
           currency: lead.currency || 'INR',
           status: 'in_progress',
           startDate: getLocalDateString(),
           deadline: lead.endDate || getLocalDateString(new Date(Date.now() + 30 * 86400000)),
           progress: 0,
-          assignedToIds: [lead.leadOwnerId || currentUser?._id || 'emp_001'],
+          visibility: 'members',
+          selectedMembers: rawSelectedIds,
+          memberIds: rawSelectedIds,
+          members: memberList.length > 0 ? memberList : [{
+            _id: currentUser?._id || 'emp_001',
+            name: currentUser?.name || 'Administrator',
+            role: currentUser?.role || 'Admin',
+            avatar: currentUser?.avatar || ''
+          }],
+          createdBy: currentUser?._id || 'emp_001',
+          createdByName: currentUser?.name || 'Administrator',
           description: `Project converted from CRM Lead ${lead.leadCode || lead.name}.\n\nLead Notes: ${lead.notes || 'None'}`
         });
       }
 
       await updateLeadStatus(lead._id, 'converted');
-      addToast(`🎉 Lead converted to active project "${projectName}"!`, 'success');
+      addToast(`🎉 Lead converted to active project "${projectName}" (${projectCode})!`, 'success');
       onClose();
     } catch (err) {
       console.error(err);

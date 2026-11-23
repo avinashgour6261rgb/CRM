@@ -172,6 +172,17 @@ export const CalendarPage = () => {
                          (e.createdByName && currentUser?.name && e.createdByName.trim().toLowerCase() === currentUser.name.trim().toLowerCase());
           return isMine;
         }
+
+        // Deduplicate: If an event in `events` is a manual duplicate of an auto-computed Birthday or Anniversary on the same date
+        const t = (e.eventType || e.type || e.title || '').toLowerCase();
+        const evDate = String(e.startDate || e.date || '').slice(0, 10);
+        if (t.includes('birthday') && (computedBirthdays || []).some(b => String(b.eventDate).slice(0, 10) === evDate && (e.title || '').toLowerCase().includes((b.name || '').toLowerCase()))) {
+          return false;
+        }
+        if (t.includes('anniversary') && (computedAnniversaries || []).some(a => String(a.eventDate).slice(0, 10) === evDate && (e.title || '').toLowerCase().includes((a.name || '').toLowerCase()))) {
+          return false;
+        }
+
         return true;
       })
       .map(e => ({
@@ -189,42 +200,60 @@ export const CalendarPage = () => {
       }));
 
     // 2. Dynamic Automatic Birthdays calculated from Employee Profiles (DOB)
-    const dynamicBirthdayEvents = (computedBirthdays || []).map(b => ({
-      _id: `bday_cal_${b.employeeId || Math.random()}`,
-      title: `🎂 Birthday: ${b.name || 'Team Member'}`,
-      date: String(b.eventDate || new Date().toISOString()).split('T')[0],
-      endDate: String(b.eventDate || new Date().toISOString()).split('T')[0],
-      time: 'All Day',
-      type: 'Birthday',
-      employeeName: b.name,
-      employeeAvatar: b.avatar,
-      employeeRole: b.role,
-      location: 'Company Wide Celebration',
-      description: `🎂 Happy Birthday to ${b.name || 'Team Member'} (${b.role || 'Colleague'})! Wishing continued joy and success. 🎉`,
-      isRecurring: true,
-      color: '#d97706',
-      bgColor: '#fef3c7'
-    }));
+    const dynamicBirthdayEvents = [];
+    const seenBdays = new Set();
+    (computedBirthdays || []).forEach(b => {
+      const bDate = String(b.eventDate || new Date().toISOString()).split('T')[0];
+      const key = `${b.employeeId || b.name}_${bDate}`;
+      if (!seenBdays.has(key)) {
+        seenBdays.add(key);
+        dynamicBirthdayEvents.push({
+          _id: `bday_cal_${b.employeeId || Math.random()}`,
+          title: `🎂 Birthday: ${b.name || 'Team Member'}`,
+          date: bDate,
+          endDate: bDate,
+          time: 'All Day',
+          type: 'Birthday',
+          employeeName: b.name,
+          employeeAvatar: b.avatar,
+          employeeRole: b.role,
+          location: 'Company Wide Celebration',
+          description: `🎂 Happy Birthday to ${b.name || 'Team Member'} (${b.role || 'Colleague'})! Wishing continued joy and success. 🎉`,
+          isRecurring: true,
+          color: '#d97706',
+          bgColor: '#fef3c7'
+        });
+      }
+    });
 
     // 3. Dynamic Automatic Work Anniversaries calculated from Employee Joining Date
-    const dynamicAnniversaryEvents = (computedAnniversaries || []).map(a => ({
-      _id: `anniv_cal_${a.employeeId || Math.random()}`,
-      title: `🌟 ${a.serviceYearsText} Work Anniversary: ${a.name || 'Team Member'}`,
-      date: String(a.eventDate || new Date().toISOString()).split('T')[0],
-      endDate: String(a.eventDate || new Date().toISOString()).split('T')[0],
-      time: 'All Day',
-      type: 'Work Anniversary',
-      employeeName: a.name,
-      employeeAvatar: a.avatar,
-      employeeRole: a.role,
-      serviceYearsText: a.serviceYearsText,
-      serviceYears: a.serviceYears,
-      location: 'Corporate Milestone',
-      description: `🌟 Milestone Celebration: ${a.name} (${a.role}) completes ${a.serviceYearsText} year${a.serviceYears > 1 ? 's' : ''} of dedicated service! Thank you for being a vital pillar of our success. 💼🎉`,
-      isRecurring: true,
-      color: '#7c3aed',
-      bgColor: '#f5f3ff'
-    }));
+    const dynamicAnniversaryEvents = [];
+    const seenAnnivs = new Set();
+    (computedAnniversaries || []).forEach(a => {
+      const aDate = String(a.eventDate || new Date().toISOString()).split('T')[0];
+      const key = `${a.employeeId || a.name}_${aDate}`;
+      if (!seenAnnivs.has(key)) {
+        seenAnnivs.add(key);
+        dynamicAnniversaryEvents.push({
+          _id: `anniv_cal_${a.employeeId || Math.random()}`,
+          title: `🌟 ${a.serviceYearsText} Work Anniversary: ${a.name || 'Team Member'}`,
+          date: aDate,
+          endDate: aDate,
+          time: 'All Day',
+          type: 'Work Anniversary',
+          employeeName: a.name,
+          employeeAvatar: a.avatar,
+          employeeRole: a.role,
+          serviceYearsText: a.serviceYearsText,
+          serviceYears: a.serviceYears,
+          location: 'Corporate Milestone',
+          description: `🌟 Milestone Celebration: ${a.name} (${a.role}) completes ${a.serviceYearsText} year${a.serviceYears > 1 ? 's' : ''} of dedicated service! Thank you for being a vital pillar of our success. 💼🎉`,
+          isRecurring: true,
+          color: '#7c3aed',
+          bgColor: '#f5f3ff'
+        });
+      }
+    });
 
     // 4. Official Public & Company Holidays (Highlighted Red)
     const holidayEvents = (holidays || [])

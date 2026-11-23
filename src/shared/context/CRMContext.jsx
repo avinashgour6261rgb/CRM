@@ -1669,6 +1669,14 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const reqAvatar = u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
     const reqRole = u?.role || 'Team Member';
 
+    const activeEmployees = employees || [];
+    const defaultSupportEmp = activeEmployees.find(e =>
+      Boolean(e.isAdmin || e.systemRole === 'admin' || (e.role && /admin|it|support|manager/i.test(e.role)))
+    ) || activeEmployees[0] || u;
+
+    const defAssigneeId = String(defaultSupportEmp?._id || defaultSupportEmp?.id || defaultSupportEmp?.employeeCode || 'admin');
+    const defAssigneeName = defaultSupportEmp?.name ? `${defaultSupportEmp.name} (Support)` : 'Admin / IT Support';
+
     const newTicket = {
       _id: `tkt_${Date.now()}`,
       ticketCode: `TKT-${nextNum}`,
@@ -1677,6 +1685,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       priority: ticketData.priority || 'medium',
       description: ticketData.description || 'Support request raised.',
       attachment: ticketData.attachment || '',
+      fileName: ticketData.fileName || '',
       status: 'open',
       department: ticketData.category || 'IT Support',
       requestedById: reqId,
@@ -1687,9 +1696,9 @@ const stripHeavyMediaForStorage = (convs = []) => {
       createdByName: reqName,
       createdByAvatar: reqAvatar,
       createdByRole: reqRole,
-      assignedToId: ticketData.assignedToId || 'emp_005',
-      assignedToName: ticketData.assignedToName || 'Amit Kumar (Admin / Support)',
-      assignedTo: ticketData.assignedToId || 'emp_005',
+      assignedToId: ticketData.assignedToId || defAssigneeId,
+      assignedToName: ticketData.assignedToName || defAssigneeName,
+      assignedTo: ticketData.assignedToId || defAssigneeId,
       requestedOn: getLocalDateString(now),
       createdAt: now.toISOString(),
       replies: [],
@@ -2135,12 +2144,11 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const ackList = Array.isArray(target.acknowledgedBy) ? target.acknowledgedBy : [];
     const ackDetails = Array.isArray(target.acknowledgements) ? target.acknowledgements : [];
 
-    const alreadyAck = ackList.some(id => String(id) === userId || (userCode && String(id).toUpperCase() === userCode.toUpperCase()));
+    const alreadyAck = ackList.some(id => String(id) === userId || (userCode && String(id).toUpperCase() === userCode.toUpperCase())) ||
+      ackDetails.some(a => String(a.userId) === userId || (userCode && String(a.userCode || '').toUpperCase() === userCode.toUpperCase()));
+
     if (!alreadyAck) {
       const updatedList = [...ackList, userId];
-      if (userCode && !updatedList.includes(userCode)) {
-        updatedList.push(userCode);
-      }
       const updatedDetails = [
         ...ackDetails,
         {

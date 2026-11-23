@@ -3,13 +3,16 @@
  * @description Modal for raising an employee support ticket.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   LifeBuoy,
   UploadCloud,
   Check,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Trash2,
+  Paperclip
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
@@ -29,21 +32,67 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { createTicket = async () => {} } = useCRM() || {};
   const { addToast = () => {} } = useToast() || {};
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     subject: '',
     category: 'IT & Infrastructure',
     priority: 'medium',
     description: '',
-    fileName: ''
+    fileName: '',
+    attachment: ''
   });
 
+  const [fileMeta, setFileMeta] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('File size must be under 5 MB', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+      setFileMeta({
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + ' KB',
+        type: file.type
+      });
+      setFormData(prev => ({
+        ...prev,
+        fileName: file.name,
+        attachment: base64
+      }));
+      addToast(`Attached: ${file.name}`, 'info');
+    };
+    reader.onerror = () => {
+      addToast('Failed to read selected file', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveFile = (e) => {
+    e.stopPropagation();
+    setFileMeta(null);
+    setFormData(prev => ({
+      ...prev,
+      fileName: '',
+      attachment: ''
+    }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -56,6 +105,15 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
     setSubmitting(true);
     try {
       await createTicket(formData);
+      setFormData({
+        subject: '',
+        category: 'IT & Infrastructure',
+        priority: 'medium',
+        description: '',
+        fileName: '',
+        attachment: ''
+      });
+      setFileMeta(null);
       onClose();
     } catch (err) {
       console.error(err);
@@ -156,12 +214,49 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
             <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Attachment (Optional)
             </label>
-            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-4 text-center bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/80 transition-colors cursor-pointer">
-              <UploadCloud size={24} className="mx-auto mb-1 text-slate-500 dark:text-slate-400" />
-              <div className="text-[12.5px] text-slate-600 dark:text-slate-400">
-                <span className="text-blue-600 dark:text-blue-400 font-semibold">Upload Screenshot / Log</span> (PNG, JPG, PDF)
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.doc,.docx,.txt,.log,.json,.csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {fileMeta ? (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-sky-300 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-300 flex items-center justify-center shrink-0">
+                    <Paperclip size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[12.5px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                      {fileMeta.name}
+                    </div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {fileMeta.size} • Attached
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveFile}
+                  className="p-1.5 rounded-md hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-500 dark:text-rose-400 border-none cursor-pointer transition-colors"
+                  title="Remove attachment"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
-            </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-4 text-center bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/80 transition-colors cursor-pointer group"
+              >
+                <UploadCloud size={24} className="mx-auto mb-1 text-slate-500 dark:text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors" />
+                <div className="text-[12.5px] text-slate-600 dark:text-slate-400">
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold underline">Click to upload screenshot or log</span> (PNG, JPG, PDF, TXT)
+                </div>
+                <div className="text-[10.5px] text-slate-400 mt-0.5">Maximum size: 5 MB</div>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}

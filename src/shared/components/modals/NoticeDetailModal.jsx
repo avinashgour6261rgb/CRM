@@ -56,6 +56,9 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
   const hasAcknowledged = ackList.some(id =>
     String(id) === userId ||
     (userCode && String(id).toUpperCase() === userCode)
+  ) || ackDetails.some(a =>
+    String(a.userId) === userId ||
+    (userCode && String(a.userCode || a.userId).toUpperCase() === userCode)
   );
 
   const myAckRecord = ackDetails.find(a =>
@@ -92,11 +95,33 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
     }
   };
 
+  // Deduplicate unique readers (handles legacy records where both _id and employeeCode were stored)
+  const uniqueReadersCount = useMemo(() => {
+    const rawIds = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
+    const details = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
+    if (details.length > 0) {
+      const set = new Set(details.map(d => String(d.userId || d.userCode || d.userName).toLowerCase()));
+      return set.size;
+    }
+    const matchedEmps = new Set();
+    const allEmps = employees || [];
+    rawIds.forEach(id => {
+      const str = String(id).toLowerCase();
+      const emp = allEmps.find(e => String(e._id).toLowerCase() === str || String(e.employeeCode || '').toLowerCase() === str);
+      if (emp) {
+        matchedEmps.add(String(emp._id));
+      } else {
+        matchedEmps.add(str);
+      }
+    });
+    return matchedEmps.size;
+  }, [notice.acknowledgedBy, notice.acknowledgements, employees]);
+
   const totalEmployeesCount = (employees || []).filter(e =>
     !['resigned', 'relieved', 'inactive', 'terminated'].includes(String(e.status || 'active').toLowerCase())
   ).length || 1;
 
-  const readRate = Math.min(100, Math.round((ackList.length / totalEmployeesCount) * 100));
+  const readRate = Math.min(100, Math.round((uniqueReadersCount / totalEmployeesCount) * 100));
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
@@ -241,7 +266,7 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
                   <ShieldCheck size={15} className="text-blue-600 dark:text-blue-400" />
                   <span>HR Compliance: Employee Read Receipts</span>
                   <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-extrabold">
-                    {ackList.length} / {totalEmployeesCount} ({readRate}%)
+                    {uniqueReadersCount} / {totalEmployeesCount} ({readRate}%)
                   </span>
                 </div>
                 {showReadReceipts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
