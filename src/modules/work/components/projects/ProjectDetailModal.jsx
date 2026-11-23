@@ -28,8 +28,10 @@ import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteProject } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onExtendDeadline }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(project) });
   const { tasks, approveProjectCompletion, reopenProject, submitProjectForCompletion, deleteProject } = useWork();
   const { currentUser } = useAuth();
   if (!project) return null;
@@ -55,10 +57,10 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
   const extensions = Array.isArray(project.deadlineExtensions) ? project.deadlineExtensions : [];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className={`p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between rounded-t-2xl ${isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
+        <div className={`shrink-0 p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between rounded-t-2xl ${isOverdue ? 'bg-red-50 dark:bg-red-950/40' : 'bg-slate-50 dark:bg-slate-800/50'
           }`}>
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -100,7 +102,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 flex flex-col gap-5">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-5">
           {/* Overdue Warning Alert Banner */}
           {isOverdue && (
             <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900 rounded-xl p-3.5 px-4 flex items-center justify-between gap-3 flex-wrap">
@@ -327,7 +329,7 @@ export const ProjectDetailModal = ({ project, onClose, onAddTaskForProject, onEx
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-wrap gap-2">
+        <div className="shrink-0 p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl flex-wrap gap-2">
           <button
             type="button"
             onClick={() => onExtendDeadline && onExtendDeadline(project)}

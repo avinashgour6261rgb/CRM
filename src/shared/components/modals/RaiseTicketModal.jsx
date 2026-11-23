@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
+import { useModalUX } from '../../hooks/useModalUX';
 
 const TICKET_CATEGORIES = [
   'IT & Infrastructure',
@@ -25,6 +26,7 @@ const TICKET_CATEGORIES = [
 ];
 
 export const RaiseTicketModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { createTicket = async () => {} } = useCRM() || {};
   const { addToast = () => {} } = useToast() || {};
 
@@ -63,10 +65,10 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+        <div className="shrink-0 p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white m-0">
               Raise Support Ticket
@@ -84,7 +86,7 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
           {/* Subject */}
           <div>
             <label className="block text-[13px] font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -163,7 +165,7 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
+          <div className="shrink-0 flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
             <button
               type="submit"
               disabled={submitting}

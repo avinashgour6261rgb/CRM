@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { AlertTriangle, Calendar, Clock, CheckCircle2, Play, X, ArrowRight } from 'lucide-react';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const OverdueTaskModal = ({
   task,
@@ -16,6 +17,8 @@ export const OverdueTaskModal = ({
   onComplete,
   onContinueAnyway
 }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(task) });
+
   if (!task) return null;
 
   const [customDate, setCustomDate] = useState('');
@@ -60,8 +63,8 @@ export const OverdueTaskModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-2xl border border-orange-200 dark:border-orange-900/50 overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[9999] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-2xl border border-orange-200 dark:border-orange-900/50 overflow-hidden" onClick={handleCardClick}>
         {/* Header Banner */}
         <div className="bg-orange-50 dark:bg-orange-950/40 border-b border-orange-100 dark:border-orange-900/60 p-4 sm:px-5 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">

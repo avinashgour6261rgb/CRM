@@ -26,8 +26,11 @@ import {
   Home
 } from 'lucide-react';
 import { getCollection, KEYS } from '../../services/storageService';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const DayTimeLogModal = ({ dayLog, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(dayLog) });
+
   if (!dayLog) return null;
 
   const [activeTab, setActiveTab] = useState('audit'); // 'audit' | 'tasks'
@@ -299,10 +302,10 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
     }
   };
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0">
@@ -327,7 +330,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-3.5 sm:p-6 flex flex-col gap-4">
+        <div className="p-3.5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
           {/* Total Duration Callout */}
           <div className="bg-gradient-to-r from-sky-600 to-sky-700 rounded-xl p-4 sm:px-5 text-white flex items-center justify-between shadow-md shadow-sky-600/25">
             <div>
@@ -587,7 +590,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-800/50">
           <button
             onClick={onClose}
             className="bg-sky-600 hover:bg-sky-700 text-white border-none py-2 px-5 rounded-lg text-[13px] font-semibold cursor-pointer shadow-sm transition-colors"

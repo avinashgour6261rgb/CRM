@@ -24,8 +24,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getCollection, saveCollection, KEYS } from '../../services/storageService';
 import { API_BASE, getAuthHeaders } from '../../config/apiConfig';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { currentUser = null, setCurrentUser = () => {} } = useAuth() || {};
   const { addToast = () => {} } = useToast() || {};
 
@@ -186,10 +188,10 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1100] p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[460px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1100] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[460px] max-h-[92vh] sm:max-h-[88vh] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+        <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div className="flex items-center gap-2.5">
             <div className="w-[34px] h-[34px] rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Key size={18} />
@@ -213,7 +215,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
         </div>
 
         {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3.5">
+        <form onSubmit={handleSubmit} className="p-5 flex-1 overflow-y-auto flex flex-col gap-3.5">
           
           {/* Target User Info Badge */}
           <div className="p-2.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-xs">
@@ -363,7 +365,7 @@ export const ChangePasswordModal = ({ isOpen, onClose, targetUser = null }) => {
           )}
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="shrink-0 flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}

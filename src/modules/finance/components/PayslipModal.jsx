@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getCompanySettings, getWeeklyOffDays } from '../../../shared/services/companySettingsService';
+import { useModalUX } from '../../../shared/hooks/useModalUX';
 
 /**
  * Converts Indian currency numbers to words (Lakhs, Crores, Thousands)
@@ -71,6 +72,7 @@ export const PayslipModal = ({
   attendance = [],
   leaves = []
 }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { addToast } = useToast();
   const navigate = useNavigate();
   const printRef = useRef(null);
@@ -401,10 +403,10 @@ export const PayslipModal = ({
         }
       `}</style>
 
-      <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-3 sm:p-4 animate-fade-in" onClick={handleBackdropClick}>
+        <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[820px] max-h-[94vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" onClick={handleCardClick}>
           {/* Modal Action Header (Excluded from Print) */}
-          <div className="no-print p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 flex-wrap gap-2.5 rounded-t-2xl">
+          <div className="shrink-0 no-print p-3.5 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80 flex-wrap gap-2.5 rounded-t-2xl">
             <div className="flex items-center gap-2">
               <Building2 size={20} className="text-blue-600" />
               <span className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100">
@@ -471,7 +473,7 @@ export const PayslipModal = ({
           </div>
 
           {/* Printable Payslip Body */}
-          <div ref={printRef} className="payslip-print-container p-8 sm:px-10 text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
+          <div ref={printRef} className="payslip-print-container p-6 sm:p-10 flex-1 overflow-y-auto text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900">
             
             {/* 1. Official Corporate Letterhead */}
             <div className="flex justify-between items-start border-b-[2.5px] border-blue-900 pb-3.5 mb-4">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, MessageSquare, Check, Calendar, User, Clock, RotateCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { useModalUX } from '../../hooks/useModalUX';
 
 const ADMIN_CANCEL_PRESETS = [
   'Staffing shortage / critical team coverage required',
@@ -22,6 +23,11 @@ export const CancelLeaveModal = ({ isOpen, onClose, leave, onConfirm, isApplican
   const [reason, setReason] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { handleBackdropClick, handleCardClick } = useModalUX({
+    onClose: () => { if (!isSubmitting) onClose(); },
+    isOpen: Boolean(isOpen && leave)
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -59,17 +65,15 @@ export const CancelLeaveModal = ({ isOpen, onClose, leave, onConfirm, isApplican
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[11000] p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose();
-      }}
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[11000] p-4 animate-fade-in"
+      onClick={handleBackdropClick}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-[18px] w-full max-w-[520px] shadow-2xl overflow-hidden border border-red-100 dark:border-red-950/80 animate-fade-in"
-        onClick={(e) => e.stopPropagation()}
+        className="popup-spring bg-white dark:bg-slate-900 rounded-[18px] w-full max-w-[520px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden border border-red-100 dark:border-red-950/80"
+        onClick={handleCardClick}
       >
         {/* Header */}
-        <div className="p-[18px] px-[22px] border-b border-red-100 dark:border-red-950/80 bg-gradient-to-br from-red-50/50 to-red-100/40 dark:from-red-950/40 dark:to-red-900/20 flex items-center justify-between">
+        <div className="shrink-0 p-[18px] px-[22px] border-b border-red-100 dark:border-red-950/80 bg-gradient-to-br from-red-50/50 to-red-100/40 dark:from-red-950/40 dark:to-red-900/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-[42px] h-[42px] rounded-xl bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center border border-red-200 dark:border-red-800 shadow-xs">
               <AlertTriangle size={21} />
@@ -96,7 +100,7 @@ export const CancelLeaveModal = ({ isOpen, onClose, leave, onConfirm, isApplican
         </div>
 
         {/* Content Body */}
-        <div className="p-5 px-[22px] flex flex-col gap-3.5">
+        <div className="p-5 px-[22px] flex-1 overflow-y-auto flex flex-col gap-3.5">
           {/* Leave Summary Pill Card */}
           <div className="bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-slate-800/60 dark:to-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 px-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -220,7 +224,7 @@ export const CancelLeaveModal = ({ isOpen, onClose, leave, onConfirm, isApplican
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3.5 px-[22px] border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-end gap-2.5">
+        <div className="shrink-0 p-3.5 px-[22px] border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}

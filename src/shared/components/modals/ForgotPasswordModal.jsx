@@ -15,8 +15,10 @@ import {
 import { getCollection, saveCollection, KEYS } from '../../services/storageService';
 import { getLocalDateString } from '../../utils/timerUtils';
 import { useToast } from '../../context/ToastContext';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const ForgotPasswordModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { addToast } = useToast();
   const [identifier, setIdentifier] = useState('');
   const [status, setStatus] = useState(null); // null | 'success' | 'admin_reset' | 'not_found'
@@ -89,8 +91,8 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[1200] p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[440px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center z-[1200] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-[14px] w-full max-w-[440px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div className="flex items-center gap-2">

@@ -23,6 +23,7 @@ import {
 import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 const CATEGORIES = [
   'Web & Web App Development',
@@ -50,6 +51,7 @@ const DEPARTMENTS = [
 ];
 
 export const AddProjectModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { createProject = async () => {}, employees = [], projects = [] } = useWork() || {};
   const { currentUser = null } = useAuth() || {};
   const { addToast = () => {} } = useToast() || {};
@@ -218,10 +220,10 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[600px] max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[600px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-4 sm:px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 p-4 sm:px-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
               <FolderGit2 size={20} />
@@ -246,7 +248,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:px-5 overflow-y-auto flex flex-col gap-3.5">
+        <form onSubmit={handleSubmit} className="p-4 sm:px-5 flex-1 overflow-y-auto flex flex-col gap-3.5">
           
           {/* Project Name & Code */}
           <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr] gap-2.5">
@@ -484,7 +486,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+          <div className="shrink-0 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}

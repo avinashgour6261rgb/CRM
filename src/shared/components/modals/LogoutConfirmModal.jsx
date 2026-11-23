@@ -1,17 +1,20 @@
 import React from 'react';
 import { LogOut, X, ShieldAlert, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const LogoutConfirmModal = ({ isOpen, onClose, onConfirm, user = null, isShiftActive = false }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
+
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-5 animate-fade-in"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
-        className="w-full max-w-[440px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ring-1 ring-slate-200/80 dark:ring-slate-800 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="popup-spring w-full max-w-[440px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ring-1 ring-slate-200/80 dark:ring-slate-800 overflow-hidden"
+        onClick={handleCardClick}
       >
         {/* Top Header Decorative Banner */}
         <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-red-600" />

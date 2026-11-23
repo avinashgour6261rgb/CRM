@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useTimer } from '../../context/TimerContext';
 import { getCompanySettings } from '../../services/companySettingsService';
+import { useModalUX } from '../../hooks/useModalUX';
 
 const buildPresetBreaks = (cfg) => {
   const teaMins = Number(cfg?.teaBreakMinutes) > 0 ? Number(cfg.teaBreakMinutes) : 15;
@@ -45,6 +46,8 @@ const buildPresetBreaks = (cfg) => {
 const DURATION_PILLS = [5, 10, 15, 20, 30, 45, 60];
 
 export const BreakModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
+
   const {
     startBreak,
     isOnBreak,
@@ -110,10 +113,10 @@ export const BreakModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] sm:max-h-[88vh] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div>
             <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0 flex items-center gap-2">
               <Coffee size={20} className="text-orange-600" />
@@ -132,7 +135,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-1">
+        <div className="shrink-0 flex border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-1">
           <button
             type="button"
             onClick={() => setActiveTab('choose')}
@@ -161,7 +164,7 @@ export const BreakModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:px-6 overflow-y-auto flex flex-col gap-4">
+        <div className="p-5 sm:px-6 flex-1 overflow-y-auto flex flex-col gap-4">
           
           {/* TAB 1: Take Break / Monitor Active Break */}
           {isChooseTab && (

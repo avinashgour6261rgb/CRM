@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useWork } from '../../context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 const QUICK_SNOOZE_PRESETS = [
   { label: '15 Minutes', minutes: 15, icon: '⚡' },
@@ -28,6 +29,7 @@ const QUICK_SNOOZE_PRESETS = [
 ];
 
 export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && task) });
   const { snoozeTask = async () => {}, formatSeconds = (s) => `${s}s` } = useWork() || {};
   const { addToast = () => {} } = useToast() || {};
   const [selectedPreset, setSelectedPreset] = useState(30);
@@ -69,8 +71,8 @@ export const SnoozeTaskModal = ({ isOpen, onClose, task }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[5px] flex items-center justify-center z-[1100] p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[5px] flex items-center justify-center z-[1100] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[480px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
         <div className="p-3.5 sm:px-[18px] border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-purple-50 dark:bg-purple-950/40">
           <div className="flex items-center gap-2">

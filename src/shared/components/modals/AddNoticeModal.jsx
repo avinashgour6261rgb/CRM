@@ -19,8 +19,10 @@ import { useCRM } from '../../context/CRMContext';
 import { useHR } from '../../../modules/hr/context/HRContext';
 import { useToast } from '../../context/ToastContext';
 import { getLocalDateString } from '../../utils/timerUtils';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const AddNoticeModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const { createNotice = async () => {} } = useCRM() || {};
   const { currentUser = null } = useHR() || {};
   const { addToast = () => {} } = useToast() || {};
@@ -87,10 +89,10 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
   const selectClass = "w-full h-[38px] px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 text-[13px] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+        <div className="shrink-0 p-5 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <BellRing size={18} />
@@ -114,7 +116,7 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
           
           {/* Notice Title */}
           <div>
@@ -212,7 +214,7 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="shrink-0 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}

@@ -35,8 +35,10 @@ import { useWork } from '../../../work/context/WorkContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && lead) });
   const { updateLeadStatus, updateLead, deleteLead } = useCRM();
   const { currentUser } = useAuth();
   const { createProject } = useWork() || {};
@@ -169,10 +171,10 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
   const statusInfo = getStatusInfo(lead.status);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[680px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
+        <div className="shrink-0 p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-900/40 dark:text-blue-300 py-0.5 px-2 rounded-md">
@@ -210,7 +212,7 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-5">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4 sm:gap-5">
           
           {/* Quick Stage Progression Bar */}
           <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-3.5">

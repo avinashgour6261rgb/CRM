@@ -27,8 +27,10 @@ import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { isHRorAdmin, canDeleteNotice } from '../../utils/permissionUtils';
 import { getLocalDateString } from '../../utils/timerUtils';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const NoticeDetailModal = ({ notice, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(notice) });
   const { acknowledgeNotice, deleteNotice } = useCRM() || {};
   const { currentUser } = useAuth() || {};
   const { employees } = useHR() || {};
@@ -97,10 +99,10 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
   const readRate = Math.min(100, Math.round((ackList.length / totalEmployeesCount) * 100));
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[640px] max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col my-auto">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[640px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col my-auto" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+        <div className="shrink-0 p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
@@ -138,7 +140,7 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 flex flex-col gap-4 overflow-y-auto">
+        <div className="p-5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
           {/* Metadata bar */}
           <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-2">
             <div className="flex items-center gap-1.5">
@@ -280,7 +282,7 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
+        <div className="shrink-0 px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           {canDelete ? (
             <button
               type="button"

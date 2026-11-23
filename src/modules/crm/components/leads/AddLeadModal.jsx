@@ -19,6 +19,7 @@ import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 const LEAD_STAGES = [
   { id: 'new', label: 'New Inquiry' },
@@ -39,6 +40,10 @@ const LEAD_SOURCES = [
 ];
 
 export const AddLeadModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
+
+  if (!isOpen) return null;
+
   const { createLead } = useCRM();
   const { employees, currentUser } = useHR();
   const { addToast } = useToast();
@@ -112,10 +117,10 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-[20px] w-full max-w-[700px] max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-[20px] w-full max-w-[700px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-[18px] px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+        <div className="shrink-0 p-[18px] px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-[10px] bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800">
               <Users2 size={20} />
@@ -139,7 +144,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex flex-col gap-[18px]">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-[18px]">
           {/* Contact Name & Company */}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
             <div>
@@ -323,7 +328,7 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+          <div className="shrink-0 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}

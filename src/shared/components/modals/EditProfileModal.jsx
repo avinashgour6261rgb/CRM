@@ -24,6 +24,7 @@ import { getRoles, getCustomDesignations, canUserAssignRole, recordPromotion } f
 import { getCompanySettings } from '../../services/companySettingsService';
 import { getLocalDateString } from '../../utils/timerUtils';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { useModalUX } from '../../hooks/useModalUX';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
@@ -34,6 +35,10 @@ const PRESET_AVATARS = [
 ];
 
 export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
+
+  if (!isOpen) return null;
+
   const { currentUser: authUser = null, setCurrentUser: setAuthCurrentUser = () => { } } = useAuth() || {};
   const { currentUser: hrUser = null, updateEmployee = () => { }, employees = [] } = useHR() || {};
   const currentUser = authUser || hrUser;
@@ -298,10 +303,10 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
+        <div className="shrink-0 px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 m-0">
               Edit Employee Profile
@@ -319,7 +324,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-[18px]">
+        <form onSubmit={handleSubmit} className="p-6 flex-1 overflow-y-auto flex flex-col gap-[18px]">
           {/* Avatar selection */}
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl p-4">
             <label className="block text-[13px] font-bold text-slate-800 dark:text-slate-200 mb-2.5">
@@ -965,7 +970,7 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800">
+          <div className="shrink-0 flex items-center gap-2.5 pt-3.5 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 z-10 pb-1">
             <button
               type="submit"
               disabled={submitting}

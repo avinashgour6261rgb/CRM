@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDateString } from '../../utils/timerUtils';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const PendingTasksModal = ({
   isOpen,
@@ -37,6 +38,7 @@ export const PendingTasksModal = ({
   onCompleteTask,
   activeTaskId = null
 }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const navigate = useNavigate();
   const [filterTab, setFilterTab] = useState(initialFilter || 'all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,14 +112,14 @@ export const PendingTasksModal = ({
   return (
     <div
       className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[9999] flex items-center justify-center p-2.5 sm:p-5 animate-fade-in"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[860px] max-h-[90vh] flex flex-col shadow-2xl ring-1 ring-slate-200 dark:ring-slate-800 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[860px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl ring-1 ring-slate-200 dark:ring-slate-800 overflow-hidden"
+        onClick={handleCardClick}
       >
         {/* Modal Header */}
-        <div className="px-[22px] py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-white to-slate-50 dark:from-slate-900 dark:to-slate-800/70">
+        <div className="shrink-0 px-[22px] py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-white to-slate-50 dark:from-slate-900 dark:to-slate-800/70">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-[10px] bg-sky-100 dark:bg-sky-950/60 flex items-center justify-center text-sky-600 dark:text-sky-400">
               <ListTodo size={20} />
@@ -146,7 +148,7 @@ export const PendingTasksModal = ({
         </div>
 
         {/* Filter Controls & Search */}
-        <div className="px-[22px] py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900">
+        <div className="shrink-0 px-[22px] py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap bg-white dark:bg-slate-900">
           {/* Filter Tabs */}
           <div className="flex gap-1.5 flex-wrap">
             <button
@@ -343,7 +345,7 @@ export const PendingTasksModal = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-[22px] py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+        <div className="shrink-0 px-[22px] py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
           <button
             onClick={() => {
               onClose();

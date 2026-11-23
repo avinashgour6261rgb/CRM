@@ -21,8 +21,10 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useConfirm } from '../../../shared/context/ConfirmContext';
 import { isHRorAdmin, isAdmin, canApproveExpenses } from '../../../shared/utils/permissionUtils';
+import { useModalUX } from '../../../shared/hooks/useModalUX';
 
 export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && expense) });
   const { updateExpenseStatus, deleteExpense } = useCRM();
   const { currentUser } = useAuth();
   const { confirm } = useConfirm();
@@ -53,10 +55,10 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[560px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+        <div className="shrink-0 p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
             <span className="text-[11px] font-bold px-2 py-[3px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
               {expense.expenseCode || 'EXP-101'}
@@ -74,7 +76,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col gap-[18px]">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-[18px]">
           
           {/* Price Banner */}
           <div className="p-4 px-5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
@@ -202,7 +204,7 @@ export const ExpenseDetailModal = ({ expense, isOpen, onClose }) => {
           )}
 
           {/* Admin Status Actions */}
-          <div className={`flex items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-2 ${canDelete ? 'justify-between' : 'justify-end'}`}>
+          <div className={`shrink-0 flex items-center pt-4 border-t border-slate-100 dark:border-slate-800 mt-2 ${canDelete ? 'justify-between' : 'justify-end'}`}>
             {canDelete && (
               <button
                 onClick={handleDelete}

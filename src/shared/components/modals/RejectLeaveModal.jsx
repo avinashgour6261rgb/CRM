@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, MessageSquare, Check, Calendar, User, Clock } from 'lucide-react';
+import { useModalUX } from '../../hooks/useModalUX';
 
 const PRESET_REASONS = [
   'Critical sprint delivery / project deadline approaching',
@@ -10,6 +11,7 @@ const PRESET_REASONS = [
 ];
 
 export const RejectLeaveModal = ({ isOpen, onClose, leave, onConfirm }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && leave) });
   const [reason, setReason] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
 
@@ -35,14 +37,12 @@ export const RejectLeaveModal = ({ isOpen, onClose, leave, onConfirm }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[11000] p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[11000] p-4 animate-fade-in"
+      onClick={handleBackdropClick}
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] shadow-2xl overflow-hidden border border-red-200 dark:border-red-900/50">
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[520px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl overflow-hidden border border-red-200 dark:border-red-900/50" onClick={handleCardClick}>
         {/* Header */}
-        <div className="px-5 py-4 border-b border-red-100 dark:border-red-950 bg-red-50 dark:bg-red-950/40 flex items-center justify-between">
+        <div className="shrink-0 px-5 py-4 border-b border-red-100 dark:border-red-950 bg-red-50 dark:bg-red-950/40 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-[10px] bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center">
               <AlertTriangle size={18} />
@@ -65,7 +65,7 @@ export const RejectLeaveModal = ({ isOpen, onClose, leave, onConfirm }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-5 flex flex-col gap-3.5">
+        <div className="p-5 flex-1 overflow-y-auto flex flex-col gap-3.5">
           {/* Leave Summary Card */}
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-[10px] p-3 px-3.5 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -148,7 +148,7 @@ export const RejectLeaveModal = ({ isOpen, onClose, leave, onConfirm }) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-end gap-2">
+        <div className="shrink-0 px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}

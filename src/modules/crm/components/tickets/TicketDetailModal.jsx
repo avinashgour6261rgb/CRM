@@ -26,8 +26,10 @@ import { useCRM } from '../../../../shared/context/CRMContext';
 import { useHR } from '../../../hr/context/HRContext';
 import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTicket } from '../../../../shared/utils/permissionUtils';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && ticket) });
   const { replyToTicket = async () => {}, updateTicketStatus = async () => {}, addTicketInternalNote = async () => {}, assignTicket = async () => {}, deleteTicket = async () => {} } = useCRM() || {};
   const { currentUser = null, employees = [] } = useHR() || {};
   const { confirm = async () => true } = useConfirm() || {};
@@ -113,10 +115,10 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[740px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[740px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
+        <div className="shrink-0 p-5 px-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[11px] font-bold py-[3px] px-2 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300">
@@ -161,7 +163,7 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
         </div>
 
         {/* Content Body */}
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-5">
           
           {/* Metadata Grid */}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">

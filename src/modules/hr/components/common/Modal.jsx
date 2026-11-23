@@ -1,35 +1,24 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { X } from 'lucide-react';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const Modal = ({ isOpen, onClose, title, subtitle, children, maxWidth = '550px' }) => {
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
 
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs z-[1000] flex items-center justify-center p-2.5 sm:p-4 animate-fade-in"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         style={{ maxWidth }}
-        className="bg-white dark:bg-slate-900 rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] border border-slate-200 dark:border-slate-800"
-        onClick={(e) => e.stopPropagation()}
+        className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] border border-slate-200 dark:border-slate-800"
+        onClick={handleCardClick}
       >
         {/* Modal Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-[18px] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+        <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-[18px] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 m-0">{title}</h3>
             {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">{subtitle}</p>}
@@ -43,7 +32,7 @@ export const Modal = ({ isOpen, onClose, title, subtitle, children, maxWidth = '
         </div>
 
         {/* Modal Body */}
-        <div className="p-3.5 sm:p-6 overflow-y-auto">
+        <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto">
           {children}
         </div>
       </div>

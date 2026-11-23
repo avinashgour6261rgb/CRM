@@ -34,8 +34,10 @@ import { useHR } from '../../../modules/hr/context/HRContext';
 import { useWork } from '../../../modules/work/context/WorkContext';
 import { useCRM } from '../../context/CRMContext';
 import { useTimer } from '../../context/TimerContext';
+import { useModalUX } from '../../hooks/useModalUX';
 
 export const DashboardOverviewModal = ({ isOpen, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
   const navigate = useNavigate();
   const { currentUser = null, employees = [], leaves = [] } = useHR() || {};
   const { projects = [], tasks = [] } = useWork() || {};
@@ -81,11 +83,11 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-[18px] w-full max-w-[840px] max-h-[90vh] shadow-2xl overflow-y-auto border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-[18px] w-full max-w-[840px] max-h-[92vh] sm:max-h-[88vh] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-t-[18px]">
+        <div className="shrink-0 px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-t-[18px]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-[10px] bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center">
               <LayoutDashboard size={22} />
@@ -114,7 +116,7 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Live Attendance Banner */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+        <div className="shrink-0 px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
           {/* Status */}
           <div className="p-2.5 px-3.5 bg-white dark:bg-slate-800 rounded-[10px] border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
             <span className={`w-2.5 h-2.5 rounded-full ${!isClockedIn ? 'bg-red-500' : isOnBreak ? 'bg-amber-500' : 'bg-emerald-500 shadow-[0_0_8px_#22c55e]'}`} />
@@ -161,7 +163,7 @@ export const DashboardOverviewModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* 12-Module Quick Launch Grid */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3.5">
             Quick Module Launcher
           </div>

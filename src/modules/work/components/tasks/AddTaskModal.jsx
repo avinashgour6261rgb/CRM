@@ -27,6 +27,7 @@ import { useHR } from '../../../hr/context/HRContext';
 import { useToast } from '../../../../shared/context/ToastContext';
 import { isHRorAdmin, isProjectVisibleToUser } from '../../../../shared/utils/permissionUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 const CATEGORIES = [
   'Web & App Development',
@@ -134,6 +135,8 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
     resetForm();
     if (onClose) onClose();
   };
+
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose: handleClose, isOpen });
 
   useEffect(() => {
     if (isOpen) {
@@ -366,10 +369,10 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[1000] p-2.5 sm:p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[1000] p-2.5 sm:p-4 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[580px] max-h-[92vh] sm:max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onClick={handleCardClick}>
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-900 shrink-0">
               <Plus size={20} />
@@ -394,7 +397,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         </div>
 
         {/* Scrollable Form Body */}
-        <div className="p-5 overflow-y-auto flex flex-col gap-3.5">
+        <div className="p-5 flex-1 overflow-y-auto flex flex-col gap-3.5">
           {/* Task Type & Visibility Privacy Scope */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -907,7 +910,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 bg-slate-50 dark:bg-slate-800/50">
+        <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 bg-slate-50 dark:bg-slate-800/50">
           <button
             type="button"
             onClick={handleClose}

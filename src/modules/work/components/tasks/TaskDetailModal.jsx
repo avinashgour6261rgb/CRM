@@ -29,8 +29,10 @@ import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
+import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
 export const TaskDetailModal = ({ task, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(task) });
   const {
     startTaskTimer,
     pauseTaskTimer,
@@ -200,10 +202,10 @@ export const TaskDetailModal = ({ task, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-5">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[760px] max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center z-[1000] p-3 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
+      <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[760px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
         {/* Header */}
-        <div className="px-7 py-[22px] border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
+        <div className="shrink-0 px-5 sm:px-7 py-4 sm:py-[22px] border-b border-slate-100 dark:border-slate-800 flex items-start justify-between bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="px-2 py-[3px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-md text-xs font-bold border border-blue-200 dark:border-blue-900">
@@ -226,7 +228,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-7 flex flex-col gap-5">
+        <div className="p-4 sm:p-7 flex-1 overflow-y-auto flex flex-col gap-5">
           {/* Overdue Task Banner */}
           {(() => {
             const todayStr = getLocalDateString();
@@ -761,7 +763,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-7 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
+        <div className="shrink-0 px-5 sm:px-7 py-3.5 sm:py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 rounded-b-2xl">
           <div>
             {userCanDelete && (
               <button
