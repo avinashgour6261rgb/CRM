@@ -75,6 +75,30 @@ exports.updateTicket = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
   if (updateData._id) delete updateData._id;
 
+  const u = req.user;
+  const actorName = u ? (u.name || u.email || 'Admin') : 'Admin';
+  const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+  const actorId = u?._id ? String(u._id) : (u?.id || '');
+  const actorCode = u?.employeeCode || '';
+
+  if (!updateData.lastActionBy) {
+    updateData.lastActionBy = actorLabel;
+    updateData.lastActionById = actorId;
+    updateData.lastActionByCode = actorCode;
+  }
+
+  if (updateData.status === 'resolved' && !updateData.resolvedBy) {
+    updateData.resolvedBy = actorLabel;
+    updateData.resolvedById = actorId;
+    updateData.resolvedByCode = actorCode;
+    updateData.resolvedAt = new Date();
+  } else if (updateData.status === 'closed' && !updateData.closedBy) {
+    updateData.closedBy = actorLabel;
+    updateData.closedById = actorId;
+    updateData.closedByCode = actorCode;
+    updateData.closedAt = new Date();
+  }
+
   let ticket = null;
   if (mongoose.Types.ObjectId.isValid(id)) {
     ticket = await Ticket.findByIdAndUpdate(id, updateData, { new: true, runValidators: false });

@@ -92,6 +92,8 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
       ? { _id: '', name: 'All Employees', employeeCode: 'COMPANY', avatar: '', department: 'Company-Wide' }
       : (activeEmployees.find(e => e.employeeCode === selectedEmployee) || employees.find(e => e.employeeCode === selectedEmployee) || currentUser || activeEmployees[0] || {});
 
+    const uLabel = currentUser?.employeeCode ? `${currentUser.name} (${currentUser.employeeCode})` : (currentUser?.name || 'Administrator');
+
     const newDocPayload = {
       title: (docTitle || `${docType} - ${emp.name || 'Employee'}`).trim(),
       docType,
@@ -106,6 +108,9 @@ export const UploadDocumentModal = ({ isOpen, onClose, onDocumentUploaded }) => 
       fileSizeBytes,
       fileDataUrl,
       uploadDate: getLocalDateString(),
+      uploadedBy: uLabel,
+      uploadedById: String(currentUser?._id || currentUser?.id || ''),
+      uploadedByCode: currentUser?.employeeCode || '',
       status: 'verified'
     };
 

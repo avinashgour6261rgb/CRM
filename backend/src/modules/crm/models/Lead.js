@@ -70,6 +70,10 @@ const LeadSchema = new mongoose.Schema(
       type: String,
       default: 'Admin User'
     },
+    createdByCode: {
+      type: String,
+      default: ''
+    },
     createdByRole: {
       type: String,
       default: 'Administrator'
@@ -122,6 +126,40 @@ const LeadSchema = new mongoose.Schema(
     convertedToProjectId: {
       type: String,
       default: null
+    },
+    lastActionBy: {
+      type: String,
+      default: ''
+    },
+    lastActionById: {
+      type: String,
+      default: ''
+    },
+    lastActionByCode: {
+      type: String,
+      default: ''
+    },
+    lastActionByRole: {
+      type: String,
+      default: ''
+    },
+    lastActionAt: {
+      type: Date
+    },
+    convertedBy: {
+      type: String,
+      default: ''
+    },
+    convertedById: {
+      type: String,
+      default: ''
+    },
+    convertedByCode: {
+      type: String,
+      default: ''
+    },
+    convertedAt: {
+      type: Date
     }
   },
   {

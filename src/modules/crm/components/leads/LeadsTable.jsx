@@ -367,6 +367,16 @@ export const LeadsTable = ({
                           {statusBadge.label}
                         </span>
                       )}
+                      {lead.status === 'converted' && lead.convertedBy && (
+                        <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 block mt-0.5 font-medium leading-tight">
+                          by {lead.convertedBy}
+                        </span>
+                      )}
+                      {lead.status !== 'converted' && lead.lastActionBy && (
+                        <span className="text-[9.5px] text-slate-400 dark:text-slate-500 block mt-0.5 leading-tight">
+                          via {lead.lastActionBy}
+                        </span>
+                      )}
                     </td>
 
                     {/* Priority */}

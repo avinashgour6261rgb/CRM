@@ -215,7 +215,7 @@ export const TimesheetPage = () => {
           <div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Tracked Sessions</div>
             <div className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-              {timesheets.length}
+              {displayTimesheets.length}
             </div>
           </div>
         </div>

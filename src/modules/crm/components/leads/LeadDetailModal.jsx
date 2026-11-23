@@ -426,6 +426,26 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
             </div>
           </div>
 
+          {/* Conversion / Won Deal Attribution */}
+          {lead.status === 'converted' && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Sparkles size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span>Deal Won & Converted:</span>
+              </div>
+              <span className="font-semibold">
+                by {lead.convertedBy || 'Admin User'}{lead.convertedAt ? ` on ${new Date(lead.convertedAt).toLocaleDateString('en-GB')}` : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Last Activity Attribution */}
+          {lead.lastActionBy && (
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 text-right pr-1">
+              Last updated by <strong className="text-slate-600 dark:text-slate-400">{lead.lastActionBy}</strong>
+            </div>
+          )}
+
           {/* Description & Notes */}
           <div className="bg-white dark:bg-slate-800/80 rounded-[10px] border border-slate-200 dark:border-slate-700 p-3.5">
             <span className="text-[11.5px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase">

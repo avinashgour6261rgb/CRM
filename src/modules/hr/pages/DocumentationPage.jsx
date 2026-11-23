@@ -383,7 +383,12 @@ export const DocumentationPage = () => {
                   </td>
                   <td className="p-1.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{doc.docType}</td>
                   <td className="p-1.5 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{doc.fileSize}</td>
-                  <td className="p-1.5 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{doc.uploadDate}</td>
+                  <td className="p-1.5 px-3 whitespace-nowrap">
+                    <div className="text-slate-600 dark:text-slate-300 font-medium">{doc.uploadDate}</div>
+                    {doc.uploadedBy && (
+                      <div className="text-[10px] text-slate-400">by {doc.uploadedBy}</div>
+                    )}
+                  </td>
                   <td className="p-1.5 px-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 py-0.5 px-[7px] rounded-[10px] bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 text-[10.5px] font-bold">
                       <CheckCircle size={11} />

@@ -155,25 +155,6 @@ export const WeeklyTimeLogsCard = ({
                 ? (bHrs > 0 ? `${bHrs}h ${bMins}m` : (bMins > 0 ? `${bMins}m ${bSecs}s` : `${bSecs}s`))
                 : '0s';
 
-            // Sunday is always Day Off
-            if (item.isSunday) {
-                return {
-                    day: 'Sunday',
-                    shortDay: 'Su',
-                    date: dateStr,
-                    durationText: '0h 00m',
-                    durationHours: 0,
-                    durationSeconds: 0,
-                    breakDuration,
-                    isSunday: true,
-                    isDayOff: true,
-                    isCurrentDay,
-                    isPastDay,
-                    isFutureDay,
-                    tasksWorked: []
-                };
-            }
-
             // Canonical SSOT calculation for this day (strictly pure task time — NEVER copies shift working time!)
             const breakdown = getUserDailyTaskBreakdown(effectiveUser, dateStr, {
                 tasks,
@@ -192,6 +173,25 @@ export const WeeklyTimeLogsCard = ({
                 ? (dayTotalSecs < 60 ? `${dayTotalSecs}s` : `${hrs}h ${String(mins).padStart(2, '0')}m`)
                 : '0h 00m';
 
+            // Sunday is scheduled Day Off (unless employee actually worked on tasks on Sunday)
+            if (item.isSunday && dayTotalSecs === 0) {
+                return {
+                    day: 'Sunday',
+                    shortDay: 'Su',
+                    date: dateStr,
+                    durationText: '0h 00m',
+                    durationHours: 0,
+                    durationSeconds: 0,
+                    breakDuration,
+                    isSunday: true,
+                    isDayOff: true,
+                    isCurrentDay,
+                    isPastDay,
+                    isFutureDay,
+                    tasksWorked: []
+                };
+            }
+
             return {
                 day: item.day,
                 shortDay: item.shortDay,
@@ -200,8 +200,8 @@ export const WeeklyTimeLogsCard = ({
                 durationHours: +(dayTotalSecs / 3600).toFixed(2),
                 durationSeconds: dayTotalSecs,
                 breakDuration,
-                isSunday: false,
-                isDayOff: false,
+                isSunday: Boolean(item.isSunday),
+                isDayOff: Boolean(item.isSunday && dayTotalSecs === 0),
                 isCurrentDay,
                 isPastDay,
                 isFutureDay,
@@ -261,18 +261,16 @@ export const WeeklyTimeLogsCard = ({
                     const isHoliday = Boolean(dayLog.date) &&
                         (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && (h.isConfirmed !== false && h.isGazetted !== false));
 
-                    const dayHrs = isHoliday
-                        ? '🏖️ Off'
-                        : (dayLog.durationSeconds > 0
-                            ? (dayLog.durationSeconds < 60 ? `${dayLog.durationSeconds}s` : `${Math.floor(dayLog.durationSeconds / 3600)}h${Math.floor((dayLog.durationSeconds % 3600) / 60) > 0 ? ` ${Math.floor((dayLog.durationSeconds % 3600) / 60)}m` : ''}`)
-                            : '0h');
+                    const dayHrs = dayLog.durationSeconds > 0
+                        ? (dayLog.durationSeconds < 60 ? `${dayLog.durationSeconds}s` : `${Math.floor(dayLog.durationSeconds / 3600)}h${Math.floor((dayLog.durationSeconds % 3600) / 60) > 0 ? ` ${Math.floor((dayLog.durationSeconds % 3600) / 60)}m` : ''}`)
+                        : (isHoliday ? '🏖️ Off' : (dayLog.isSunday ? 'Off' : '0h'));
 
                     return (
                         <button
                             key={dayLog.shortDay}
                             onClick={() => setActiveWeekDayShort(dayLog.shortDay)}
                             className="border-none bg-transparent p-0 cursor-pointer flex flex-col items-center gap-1 flex-1 group"
-                            title={isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked`}
+                            title={dayLog.durationSeconds > 0 ? `Click to view ${dayLog.day}'s timelog: ${dayHrs} worked${isHoliday ? ' (Holiday Overtime)' : ''}` : (isHoliday ? `${dayLog.day}: Company / Public Holiday (Off)` : (dayLog.isSunday ? `${dayLog.day}: Weekend Off` : `Click to view ${dayLog.day}'s timelog: 0h worked`))}
                         >
                             {/* Circle badge for selected day, holiday, or plain letter */}
                             <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-xs transition-all ${isSelected

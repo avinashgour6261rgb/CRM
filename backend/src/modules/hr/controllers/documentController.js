@@ -114,6 +114,9 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
     }
   }
 
+  const actorName = u ? (u.name || u.email || 'Admin') : 'Admin';
+  const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+
   const doc = await Document.create({
     title: String(payload.title).trim(),
     docType: payload.docType || 'Aadhaar Card',
@@ -128,8 +131,9 @@ exports.uploadDocument = asyncHandler(async (req, res) => {
     fileSizeBytes: Number(payload.fileSizeBytes) || 0,
     fileDataUrl: payload.fileDataUrl || '',
     uploadDate: payload.uploadDate || getIstDateString(),
-    uploadedBy: u?.name || payload.uploadedBy || 'Admin',
-    uploadedById: String(u?._id || u?.id || ''),
+    uploadedBy: payload.uploadedBy || actorLabel,
+    uploadedById: String(u?._id || u?.id || payload.uploadedById || ''),
+    uploadedByCode: u?.employeeCode || payload.uploadedByCode || '',
     status: payload.status || 'verified'
   });
 

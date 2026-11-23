@@ -18,6 +18,11 @@ const DocumentSchema = new mongoose.Schema(
     uploadDate: { type: String, default: () => getIstDateString() },
     uploadedBy: { type: String, default: '' },
     uploadedById: { type: String, default: '' },
+    uploadedByCode: { type: String, default: '', uppercase: true, trim: true },
+    verifiedBy: { type: String, default: '' },
+    verifiedById: { type: String, default: '' },
+    verifiedByCode: { type: String, default: '', uppercase: true, trim: true },
+    verifiedAt: { type: Date },
     status: { type: String, enum: ['verified', 'pending', 'rejected'], default: 'verified' }
   },
   { timestamps: true }

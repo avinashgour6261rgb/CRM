@@ -54,10 +54,17 @@ exports.createLead = async (req, res, next) => {
     const todayStr = getIstDateString(now);
     const nextMonthStr = getIstDateString(new Date(Date.now() + 30 * 86400000));
 
+    const u = req.user;
+    const actorName = u ? (u.name || u.email || 'Admin User') : 'Admin User';
+    const actorCode = u?.employeeCode || '';
+
     const leadData = {
       ...req.body,
       idNumber: nextNum,
       leadCode: req.body.leadCode || `LEAD-${1000 + nextNum}`,
+      createdByCode: req.body.createdByCode || actorCode,
+      createdByName: req.body.createdByName || actorName,
+      createdById: req.body.createdById || (u?._id ? String(u._id) : 'ADM-001'),
       startDate: req.body.startDate || todayStr,
       endDate: req.body.endDate || nextMonthStr,
       createdDate: req.body.createdDate || now.toLocaleDateString('en-GB').replace(/\//g, '-')
@@ -81,6 +88,24 @@ exports.updateLead = async (req, res, next) => {
     const { id } = req.params;
     const updateData = { ...req.body };
     if (updateData._id) delete updateData._id;
+
+    const u = req.user;
+    const actorName = u ? (u.name || u.email || 'Admin') : 'Admin';
+    const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+    const actorId = u?._id ? String(u._id) : (u?.id || '');
+    const actorCode = u?.employeeCode || '';
+
+    updateData.lastActionBy = updateData.lastActionBy || actorLabel;
+    updateData.lastActionById = updateData.lastActionById || actorId;
+    updateData.lastActionByCode = updateData.lastActionByCode || actorCode;
+    updateData.lastActionAt = new Date();
+
+    if (updateData.status === 'converted') {
+      updateData.convertedBy = updateData.convertedBy || actorLabel;
+      updateData.convertedById = updateData.convertedById || actorId;
+      updateData.convertedByCode = updateData.convertedByCode || actorCode;
+      updateData.convertedAt = updateData.convertedAt || new Date();
+    }
 
     let lead = null;
     if (mongoose.Types.ObjectId.isValid(id)) {

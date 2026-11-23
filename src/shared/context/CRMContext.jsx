@@ -1524,6 +1524,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       description: expenseData.description || '',
       billAttachment: expenseData.billAttachment || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500',
       createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
+      createdByCode: currentUser?.employeeCode || '',
       createdByName: currentUser?.name || 'Employee',
       createdAt: now.toISOString(),
       ...(expenseData.status === 'approved' ? {
@@ -2673,6 +2674,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
       leadOwnerRole: leadData.leadOwnerRole || currentUser?.role || 'Sales Lead',
       leadOwnerAvatar: leadData.leadOwnerAvatar || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
       createdById: currentUser?._id || currentUser?.id || currentUser?.employeeCode || (employees && employees[0]?._id) || '',
+      createdByCode: currentUser?.employeeCode || '',
       createdByName: currentUser?.name || 'Employee',
       createdByRole: currentUser?.role || 'Senior',
       createdByAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
@@ -2721,8 +2723,28 @@ const stripHeavyMediaForStorage = (convs = []) => {
   };
 
   const updateLead = async (leadId, updateData) => {
+    const actorName = currentUser ? (currentUser.name || currentUser.email || 'Admin') : 'Admin';
+    const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+    const actorId = String(currentUser?._id || currentUser?.id || '');
+    const actorCode = currentUser?.employeeCode || '';
+
+    const enrichedData = {
+      ...updateData,
+      lastActionBy: updateData.lastActionBy || actorLabel,
+      lastActionById: updateData.lastActionById || actorId,
+      lastActionByCode: updateData.lastActionByCode || actorCode,
+      lastActionAt: new Date().toISOString()
+    };
+
+    if (enrichedData.status === 'converted' && !enrichedData.convertedBy) {
+      enrichedData.convertedBy = actorLabel;
+      enrichedData.convertedById = actorId;
+      enrichedData.convertedByCode = actorCode;
+      enrichedData.convertedAt = new Date().toISOString();
+    }
+
     try {
-      const payload = { ...updateData };
+      const payload = { ...enrichedData };
       delete payload._id;
       await fetch(`${API_BASE}/leads/${leadId}`, {
         method: 'PUT',
@@ -2736,7 +2758,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
-        ...updateData,
+        ...enrichedData,
         updatedAt: new Date().toISOString()
       };
       saveCollection(KEYS.LEADS, currentList);
@@ -2748,11 +2770,31 @@ const stripHeavyMediaForStorage = (convs = []) => {
   };
 
   const updateLeadStatus = async (leadId, status) => {
+    const actorName = currentUser ? (currentUser.name || currentUser.email || 'Admin') : 'Admin';
+    const actorLabel = currentUser?.employeeCode ? `${actorName} (${currentUser.employeeCode})` : actorName;
+    const actorId = String(currentUser?._id || currentUser?.id || '');
+    const actorCode = currentUser?.employeeCode || '';
+
+    const patch = {
+      status,
+      lastActionBy: actorLabel,
+      lastActionById: actorId,
+      lastActionByCode: actorCode,
+      lastActionAt: new Date().toISOString()
+    };
+
+    if (status === 'converted') {
+      patch.convertedBy = actorLabel;
+      patch.convertedById = actorId;
+      patch.convertedByCode = actorCode;
+      patch.convertedAt = new Date().toISOString();
+    }
+
     try {
       await fetch(`${API_BASE}/leads/${leadId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status })
+        body: JSON.stringify(patch)
       });
     } catch (_) {}
 
@@ -2760,14 +2802,14 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
     if (idx !== -1) {
       const prevStatus = currentList[idx].status;
-      currentList[idx].status = status;
+      Object.assign(currentList[idx], patch);
       currentList[idx].updatedAt = new Date().toISOString();
       saveCollection(KEYS.LEADS, currentList);
       setLeads([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.LEADS } }));
 
       if (status === 'converted' && prevStatus !== 'converted') {
-        addToast(`🎉 Awesome! Lead marked as Converted (Won Deal)!`, 'success');
+        addToast(`🎉 Awesome! Lead marked as Converted (Won Deal) by ${actorLabel}!`, 'success');
       } else {
         addToast(`Lead status updated to ${status.replace('_', ' ')}`, 'info');
       }
