@@ -48,11 +48,11 @@ export const ToastProvider = ({ children }) => {
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2.5 pointer-events-none">
+      <div className="fixed bottom-4 right-3 left-3 sm:left-auto sm:right-6 sm:bottom-6 z-[9999] flex flex-col items-center sm:items-end gap-2.5 pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-[18px] py-3 rounded-lg bg-slate-900 text-white shadow-xl text-[13px] font-medium min-w-[280px] max-w-[420px] animate-fade-in ${
+            className={`pointer-events-auto flex items-center gap-3 px-[18px] py-3 rounded-lg bg-slate-900 text-white shadow-xl text-[13px] font-medium w-full sm:w-auto min-w-0 sm:min-w-[280px] max-w-[420px] animate-fade-in ${
               toast.type === 'success'
                 ? 'border-l-4 border-emerald-500'
                 : toast.type === 'error'

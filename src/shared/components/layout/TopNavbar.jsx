@@ -165,7 +165,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
   const notifRef = useRef(null);
   const profileRef = useRef(null);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click or tap
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -176,7 +176,11 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   // Keyboard shortcut Ctrl+K to open search
@@ -428,123 +432,148 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
             )}
           </button>
 
-          {/* Notifications Dropdown */}
+          {/* Notifications Dropdown (Fully responsive on mobile & desktop) */}
           {showNotifications && (
-            <div className="absolute top-[42px] right-0 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300]">
-              <div className="py-3 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                  Notifications
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {totalNotifications} New
-                </span>
+            <>
+              {/* Mobile backdrop for 1-tap dismiss */}
+              <div
+                className="fixed inset-0 z-[299] sm:hidden bg-slate-900/30 backdrop-blur-[2px]"
+                onClick={() => setShowNotifications(false)}
+              />
+              <div className="fixed sm:absolute top-16 sm:top-[42px] left-2 right-2 sm:left-auto sm:right-0 w-auto sm:w-80 max-w-[calc(100vw-1rem)] sm:max-w-none bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300] animate-fade-in">
+                <div className="py-2.5 sm:py-3 px-3.5 sm:px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+                  <div className="flex items-center gap-1.5">
+                    <Bell size={14} className="text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      Notifications
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-1.5 py-0.5 rounded">
+                      {totalNotifications} New
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNotifications(false);
+                      }}
+                      className="sm:hidden p-1 -mr-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 border-none bg-transparent cursor-pointer flex items-center justify-center"
+                      title="Close Notifications"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-[65vh] sm:max-h-[300px] overflow-y-auto p-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+                  {myPendingTasks.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-sky-500 mb-1">
+                        ASSIGNED TASKS ({myPendingTasks.length})
+                      </div>
+                      {myPendingTasks.slice(0, 3).map(task => (
+                        <div
+                          key={task._id}
+                          onClick={() => { setShowNotifications(false); navigate('/tasks'); }}
+                          className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors truncate"
+                          title={task.title}
+                        >
+                          📌 {task.title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {todayBirthdaysList.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-pink-500 mb-1">
+                        🎂 TODAY'S BIRTHDAYS
+                      </div>
+                      {todayBirthdaysList.map(b => (
+                        <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 truncate">
+                          🎉 Wish {b.name} a Happy Birthday!
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {upcomingBirthdaysList.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-orange-500 mb-1">
+                        🎂 UPCOMING BIRTHDAYS (30-DAY ADVANCE)
+                      </div>
+                      {upcomingBirthdaysList.slice(0, 3).map(b => (
+                        <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex items-center justify-between gap-1">
+                          <span className="truncate">🎂 {b.name}</span>
+                          <span className="text-[10px] text-orange-500 font-semibold shrink-0">📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {todayAnnivList.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-purple-400 mb-1">
+                        🌟 TODAY'S WORK ANNIVERSARIES
+                      </div>
+                      {todayAnnivList.map(a => (
+                        <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex items-center justify-between gap-1">
+                          <span className="truncate">🌟 {a.name} ({a.serviceYearsText})</span>
+                          <span className="text-[10px] text-purple-400 font-bold shrink-0">🎉 TODAY!</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {upcomingAnnivList.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-purple-400 mb-1">
+                        🌟 UPCOMING ANNIVERSARIES (30-DAY ADVANCE)
+                      </div>
+                      {upcomingAnnivList.slice(0, 3).map(a => (
+                        <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex items-center justify-between gap-1">
+                          <span className="truncate">🌟 {a.name} ({a.serviceYearsText})</span>
+                          <span className="text-[10px] text-purple-400 font-semibold shrink-0">📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {openTicketsList.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-[11px] font-bold text-amber-600 mb-1">
+                        OPEN TICKETS ({openTicketsList.length})
+                      </div>
+                      {openTicketsList.slice(0, 3).map(t => (
+                        <div
+                          key={t._id}
+                          onClick={() => { setShowNotifications(false); navigate('/tickets'); }}
+                          className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors truncate"
+                          title={t.subject}
+                        >
+                          🎫 #{t.ticketCode || 'TCK'}: {t.subject}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {totalNotifications === 0 && (
+                    <div className="p-6 text-center text-xs text-slate-400">
+                      No new notifications
+                    </div>
+                  )}
+                </div>
               </div>
-
-              <div className="max-h-[280px] overflow-y-auto p-1.5">
-                {myPendingTasks.length > 0 && (
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[11px] font-bold text-sky-500 mb-1">
-                      ASSIGNED TASKS ({myPendingTasks.length})
-                    </div>
-                    {myPendingTasks.slice(0, 2).map(task => (
-                      <div
-                        key={task._id}
-                        onClick={() => { setShowNotifications(false); navigate('/tasks'); }}
-                        className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        📌 {task.title}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {todayBirthdaysList.length > 0 && (
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[11px] font-bold text-pink-500 mb-1">
-                      🎂 TODAY'S BIRTHDAYS
-                    </div>
-                    {todayBirthdaysList.map(b => (
-                      <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1">
-                        🎉 Wish {b.name} a Happy Birthday!
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {upcomingBirthdaysList.length > 0 && (
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[11px] font-bold text-orange-500 mb-1">
-                      🎂 UPCOMING BIRTHDAYS (30-DAY ADVANCE)
-                    </div>
-                    {upcomingBirthdaysList.slice(0, 3).map(b => (
-                      <div key={b.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
-                        <span>🎂 {b.name}</span>
-                        <span className="text-[10.5px] text-orange-500 font-semibold">📅 {b.birthdayDate} (⏳ {b.diffDays}d)</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {todayAnnivList.length > 0 && (
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[11px] font-bold text-purple-400 mb-1">
-                      🌟 TODAY'S WORK ANNIVERSARIES
-                    </div>
-                    {todayAnnivList.map(a => (
-                      <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
-                        <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span className="text-[10.5px] text-purple-400 font-bold">🎉 TODAY!</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {upcomingAnnivList.length > 0 && (
-                  <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="text-[11px] font-bold text-purple-400 mb-1">
-                      🌟 UPCOMING ANNIVERSARIES (30-DAY ADVANCE)
-                    </div>
-                    {upcomingAnnivList.slice(0, 3).map(a => (
-                      <div key={a._id || a.name} className="text-xs text-slate-700 dark:text-slate-300 p-1 flex justify-between">
-                        <span>🌟 {a.name} ({a.serviceYearsText})</span>
-                        <span className="text-[10.5px] text-purple-400 font-semibold">📅 {a.anniversaryDate || a.annivFormattedDate} (⏳ {a.diffDays}d)</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {openTicketsList.length > 0 && (
-                  <div className="p-2">
-                    <div className="text-[11px] font-bold text-amber-600 mb-1">
-                      OPEN TICKETS ({openTicketsList.length})
-                    </div>
-                    {openTicketsList.slice(0, 2).map(t => (
-                      <div
-                        key={t._id}
-                        onClick={() => { setShowNotifications(false); navigate('/tickets'); }}
-                        className="p-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        🎫 #{t.ticketCode || 'TCK'}: {t.subject}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {totalNotifications === 0 && (
-                  <div className="p-6 text-center text-xs text-slate-400">
-                    No new notifications
-                  </div>
-                )}
-              </div>
-            </div>
+            </>
           )}
         </div>
 
-        {/* ── ☕ Break Status or Take Break Controls in Header ── */}
+        {/* ── ☕ Break Status or Take Break Controls in Header (Hidden on mobile phones, visible on laptop/desktop) ── */}
         {isOnBreak ? (
           <button
             onClick={() => setIsBreakModalOpen(true)}
-            className="h-8 px-2 sm:px-2.5 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs shrink-0"
+            className="hidden md:flex h-8 px-2 sm:px-2.5 rounded-md text-xs font-bold cursor-pointer items-center justify-center gap-1 sm:gap-1.5 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-all duration-150 animate-pulse shadow-xs shrink-0"
             title={`Currently on ${breakType || 'Break'}. Click to manage or resume work.`}
           >
             <Coffee size={15} className="text-amber-600 dark:text-amber-400" />
@@ -557,7 +586,7 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
           isClockedIn && (
             <button
               onClick={() => setIsBreakModalOpen(true)}
-              className="h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs shrink-0"
+              className="hidden md:flex h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer items-center justify-center gap-1 sm:gap-1.5 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 shadow-xs shrink-0"
               title="Take a break (Tea/Coffee, Lunch, etc.)"
             >
               <Coffee size={15} className="text-amber-600 dark:text-amber-400" />
@@ -566,11 +595,11 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
           )
         )}
 
-        {/* ── ⏱️ Clock-in / Clock-out Shift Button ── */}
+        {/* ── ⏱️ Clock-in / Clock-out Shift Button (Hidden on mobile phones, visible on laptop/desktop) ── */}
         {!isOnBreak && (
           <button
             onClick={isClockedIn ? handleClockOut : handleClockIn}
-            className={`h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 transition-all duration-150 shrink-0 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
+            className={`hidden md:flex h-8 px-2 sm:px-2.5 rounded-md text-xs font-semibold cursor-pointer items-center justify-center gap-1 sm:gap-1.5 transition-all duration-150 shrink-0 ${isClockedIn ? 'bg-emerald-50 text-green-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900'}`}
             title={isClockedIn ? 'Click to Clock Out shift' : 'Click to Clock In shift'}
           >
             <Clock size={15} className={isClockedIn ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'} />
@@ -628,7 +657,13 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
 
           {/* Profile Dropdown */}
           {showProfileMenu && (
-            <div className="absolute top-[42px] right-0 w-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300] p-3">
+            <>
+              {/* Mobile backdrop for 1-tap dismiss */}
+              <div
+                className="fixed inset-0 z-[299] sm:hidden bg-slate-900/30 backdrop-blur-[2px]"
+                onClick={() => setShowProfileMenu(false)}
+              />
+              <div className="fixed sm:absolute top-16 sm:top-[42px] right-2 sm:right-0 w-[calc(100vw-1rem)] sm:w-[260px] max-w-[280px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-[300] p-3 animate-fade-in">
               {/* Profile Card Header */}
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="w-10 h-10 rounded-lg bg-amber-600 text-white text-base font-bold flex items-center justify-center shrink-0">
@@ -712,7 +747,8 @@ export const TopNavbar = ({ onToggleMobileMenu = () => {} }) => {
                 </button>
               </div>
             </div>
-          )}
+          </>
+        )}
         </div>
 
         {/* ── ⏻ Power / Logout Icon (Matching Red Power button in Screenshot) ── */}
