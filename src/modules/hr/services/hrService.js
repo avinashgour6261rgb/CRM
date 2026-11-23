@@ -1209,6 +1209,37 @@ export const hrService = {
       saveCollection(KEYS.ATTENDANCE, attendance);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
 
+      // Mandatory Audit Trail for Admin manual modifications in local fallback
+      if (attendanceData.isAdminOverride || attendanceData.auditNote) {
+        try {
+          const auditLogs = getCollection(KEYS.ATTENDANCE_AUDIT) || [];
+          const auditEntry = {
+            _id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            timestamp: new Date().toISOString(),
+            date,
+            timeFormatted: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            employeeId: targetEmp?._id || employeeId,
+            employeeCode: targetEmp?.employeeCode || attendanceData.employeeCode || '',
+            employeeName: targetEmp?.name || attendanceData.employeeName || 'Employee',
+            type: 'admin_shift_adjustment',
+            action: 'Admin Shift Hour Adjustment',
+            durationSeconds: (record.totalWorkingHours || 0) * 3600,
+            durationText: `${record.totalWorkingHours || 0}h`,
+            actor: 'admin',
+            actorId: String(attendanceData.adminId || 'ADM-001'),
+            actorName: attendanceData.adminName || 'Administrator',
+            isAdminOverride: true,
+            adminId: String(attendanceData.adminId || 'ADM-001'),
+            adminName: attendanceData.adminName || 'Administrator',
+            auditNote: attendanceData.auditNote || 'Manual administrative attendance adjustment',
+            details: `Shift manually adjusted by Admin ${attendanceData.adminName || 'Administrator'} (ID: ${attendanceData.adminId || 'ADM'}). Status: ${effectiveStatus}, In: ${finalClockIn || '—'}, Out: ${finalClockOut || '—'}. Reason: "${attendanceData.auditNote || 'Administrative review'}"`
+          };
+          auditLogs.unshift(auditEntry);
+          saveCollection(KEYS.ATTENDANCE_AUDIT, auditLogs);
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE_AUDIT } }));
+        } catch (_) {}
+      }
+
       // ⏱️ Clean up any legacy dummy shift sync entries from timesheets so shift time is never counted as a task
       try {
         const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];

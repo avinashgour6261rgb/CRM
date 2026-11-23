@@ -77,12 +77,19 @@ export const PayrollPage = () => {
     const cfg = getCompanySettings();
     return Array.isArray(cfg?.disbursedPayrollMonths) ? cfg.disbursedPayrollMonths : [];
   });
+  const [payrollDisbursedHistory, setPayrollDisbursedHistory] = useState(() => {
+    const cfg = getCompanySettings();
+    return cfg?.payrollDisbursedHistory || {};
+  });
 
   useEffect(() => {
     const onSettingsUpdate = () => {
       const cfg = getCompanySettings();
       if (Array.isArray(cfg?.disbursedPayrollMonths)) {
         setDisbursedMonths(cfg.disbursedPayrollMonths);
+      }
+      if (cfg?.payrollDisbursedHistory) {
+        setPayrollDisbursedHistory(cfg.payrollDisbursedHistory);
       }
     };
     window.addEventListener('company-settings-updated', onSettingsUpdate);
@@ -256,17 +263,32 @@ export const PayrollPage = () => {
       return;
     }
 
+    const actorName = effectiveUser?.name || 'Administrator';
+    const actorCode = effectiveUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
     const updated = Array.from(new Set([...disbursedMonths, selectedMonth]));
     setDisbursedMonths(updated);
+    const updatedHistory = {
+      ...payrollDisbursedHistory,
+      [selectedMonth]: {
+        disbursedBy: actorLabel,
+        disbursedById: effectiveUser?._id,
+        disbursedByCode: actorCode,
+        disbursedAt: new Date().toISOString()
+      }
+    };
+    setPayrollDisbursedHistory(updatedHistory);
     try {
-      await saveCompanySettings({ disbursedPayrollMonths: updated });
+      await saveCompanySettings({ disbursedPayrollMonths: updated, payrollDisbursedHistory: updatedHistory });
       addToast({
         title: 'Batch Payroll Disbursed & Saved 🚀',
-        message: `Payroll for ${selectedMonth} recorded in MongoDB and synced live across devices.`,
+        message: `Payroll for ${selectedMonth} recorded by ${actorLabel} in MongoDB and synced live across devices.`,
         type: 'success'
       });
     } catch (err) {
       setDisbursedMonths(disbursedMonths);
+      setPayrollDisbursedHistory(payrollDisbursedHistory);
       addToast({
         title: 'Failed to Save Payroll Status',
         message: err?.message || 'Could not save disbursement status to database.',
@@ -599,9 +621,16 @@ export const PayrollPage = () => {
                 Payroll & Compensation Hub
               </h1>
               {isCurrentMonthDisbursed ? (
-                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  ✓ Disbursed
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    ✓ Disbursed
+                  </span>
+                  {payrollDisbursedHistory[selectedMonth]?.disbursedBy && (
+                    <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                      by {payrollDisbursedHistory[selectedMonth].disbursedBy}
+                    </span>
+                  )}
+                </div>
               ) : (
                 <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                   ⏳ Cycle Open

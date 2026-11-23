@@ -28,7 +28,7 @@ import { getLocalDateString } from '../../../shared/utils/timerUtils';
 
 export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryData, onSalaryUpdated }) => {
   const { addToast } = useToast();
-  const { updateEmployee } = useHR();
+  const { updateEmployee, currentUser } = useHR();
 
   const [companyInfo, setCompanyInfo] = useState(getCompanySettings());
 
@@ -165,6 +165,10 @@ export const SalaryIncrementModal = ({ isOpen, onClose, employee, currentSalaryD
       lastHikeDate: effectiveDate,
       lastHikePercentage: isHike ? diffPercentage : null,
       lastHikeAmount: isHike ? diffAmount : null,
+      revisedBy: currentUser?.employeeCode ? `${currentUser.name || 'Administrator'} (${currentUser.employeeCode})` : (currentUser?.name || 'Administrator'),
+      revisedById: currentUser?._id,
+      revisedByCode: currentUser?.employeeCode,
+      revisedAt: new Date().toISOString(),
       reason,
       remarks
     };

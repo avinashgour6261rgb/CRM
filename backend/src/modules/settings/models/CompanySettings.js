@@ -36,6 +36,7 @@ const CompanySettingsSchema = new mongoose.Schema({
   weeklyOffDays: { type: [Number], default: [0] }, // 0=Sun, 1=Mon ... 6=Sat (default: Sunday Off)
   workDaysDescription: { type: String, default: 'Mon - Sat (Sunday Off)' },
   disbursedPayrollMonths: { type: [String], default: [] },
+  payrollDisbursedHistory: { type: Object, default: {} },
   customRoles: { type: Array, default: [] },
   customDesignations: { type: [String], default: [] },
   customDepartments: { type: [String], default: [] },

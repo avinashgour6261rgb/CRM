@@ -38,6 +38,7 @@ export const DEFAULT_COMPANY_SETTINGS = {
   weeklyOffDays: [0], // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
   workDaysDescription: 'Mon - Sat (Sunday Off)',
   disbursedPayrollMonths: [],
+  payrollDisbursedHistory: {},
   customRoles: [],
   customDesignations: [],
   customDepartments: [],
