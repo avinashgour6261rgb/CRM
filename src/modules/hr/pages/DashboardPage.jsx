@@ -984,7 +984,10 @@ export const DashboardPage = () => {
       addToast('⛔ Access Denied: Force Clock-Out permission is required to clock out another employee.', 'error');
       return;
     }
-    const note = `Shift ended by Admin ${currentUser?.name || 'Admin'} from Dashboard`;
+    const actorName = currentUser?.name || 'Administrator';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+    const note = `Shift ended by Admin ${actorLabel} from Dashboard`;
     try {
       const targetEmp = (employees || []).find(e => e._id === empId || e.employeeCode === empId);
       const empKey = String(targetEmp?.employeeCode || empId);
@@ -993,7 +996,7 @@ export const DashboardPage = () => {
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
       // Execute canonical shift clock-out to preserve punch sessions and final work time
-      performShiftClockOut(empObj, { reason: note, nowTs, nowStr });
+      performShiftClockOut(empObj, { reason: note, nowTs, nowStr, actor: actorLabel, actorCode, actorId: currentUser?._id });
 
       try {
         await hrService.adminForceClockOut(empId, note, todayStr);
@@ -1090,6 +1093,20 @@ export const DashboardPage = () => {
       let currentSecs = 0;
       let matchedTaskId = taskId;
 
+      const actorName = currentUser?.name || 'Administrator';
+      const actorCode = currentUser?.employeeCode || '';
+      const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+      const pauseHistory = {
+        id: `hist_${now}_admin_pause`,
+        action: 'paused',
+        title: `Task Paused by Admin ${actorLabel}`,
+        timestamp: new Date().toISOString(),
+        performedBy: actorLabel,
+        performedById: currentUser?._id,
+        performedByCode: actorCode,
+        details: `Task paused remotely by Administrator ${actorLabel}`
+      };
+
       const updatedTasks = allTasks.map(t => {
         const isMatch = String(t._id || t.id) === String(taskId) ||
           (empKey && (t.assignedToId === empKey || t.assignedTo === empKey || (Array.isArray(t.assignedToIds) && t.assignedToIds.includes(empKey))) && t.timerRunning);
@@ -1097,9 +1114,12 @@ export const DashboardPage = () => {
           matchedTaskId = t._id || t.id;
           const pausedTask = syncTaskPauseState(t, { nowMs: now, todayStr });
           currentSecs = pausedTask.accumulatedSeconds;
+          const currentHist = Array.isArray(t.history) ? [...t.history, pauseHistory] : [pauseHistory];
           return {
             ...t,
-            ...pausedTask
+            ...pausedTask,
+            history: currentHist,
+            lastActionBy: actorLabel
           };
         }
         return t;
@@ -1130,12 +1150,14 @@ export const DashboardPage = () => {
           accumulatedTodaySeconds: pausedMatch?.accumulatedTodaySeconds ?? 0,
           dailySessions: pausedMatch?.dailySessions ?? {},
           sessionDate: todayStr,
+          history: pausedMatch?.history,
+          lastActionBy: actorLabel,
           hoursLogged: +((pausedMatch?.accumulatedSeconds ?? currentSecs) / 3600).toFixed(2),
           hoursLoggedText: formatSeconds(pausedMatch?.accumulatedSeconds ?? currentSecs)
         }).catch(err => console.warn('Sync admin pause to DB:', err));
       }
 
-      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { taskId: matchedTaskId, empKey, pausedBy: currentUser?.name || 'Admin', empName });
+      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, { taskId: matchedTaskId, empKey, pausedBy: actorLabel, empName });
       window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId: matchedTaskId, empKey } }));
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
       setSyncTick(t => t + 1);

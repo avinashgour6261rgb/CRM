@@ -359,15 +359,20 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
   }
 
   const previousStatus = leave.status;
-  const actorName = approverName || approvedBy || user?.name || 'Administrator';
+  const userCode = user?.employeeCode || '';
+  const actorName = approverName || approvedBy || (userCode ? `${user?.name || 'Administrator'} (${userCode})` : (user?.name || 'Administrator'));
   const remarks = approverRemarks || rejectionReason || cancellationReason || '';
 
   leave.status = status;
   leave.actionBy = actorName;
+  leave.actionById = user?._id || user?.id;
+  leave.actionByCode = userCode;
   leave.actionDate = new Date();
 
   if (status === 'approved') {
     leave.approvedBy = actorName;
+    leave.approvedById = user?._id || user?.id;
+    leave.approvedByCode = userCode;
     leave.approverRemarks = remarks;
     leave.cancelledBy = null;
     leave.cancellationReason = '';
@@ -375,11 +380,15 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
     leave.rejectionReason = '';
   } else if (status === 'cancelled') {
     leave.cancelledBy = actorName;
+    leave.cancelledById = user?._id || user?.id;
+    leave.cancelledByCode = userCode;
     leave.cancellationReason = remarks || 'Cancelled by authorized reviewer';
     leave.approvedBy = null;
     leave.approverRemarks = remarks;
   } else if (status === 'rejected') {
     leave.rejectedBy = actorName;
+    leave.rejectedById = user?._id || user?.id;
+    leave.rejectedByCode = userCode;
     leave.rejectionReason = remarks || 'Declined by reviewer';
     leave.approvedBy = null;
     leave.approverRemarks = remarks;

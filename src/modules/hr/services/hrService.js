@@ -1428,8 +1428,10 @@ export const hrService = {
     }, async () => {
       const today = targetDate || getLocalDateString();
       const nowStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const adminId = authUser?._id || authUser?.employeeCode || 'ADMIN';
-      const adminName = authUser?.name || 'Administrator';
+      const adminCode = authUser?.employeeCode || '';
+      const rawAdminName = authUser?.name || 'Administrator';
+      const adminName = adminCode ? `${rawAdminName} (${adminCode})` : rawAdminName;
+      const adminId = adminCode || authUser?._id || 'ADMIN';
 
       // 1. Update Attendance
       let attendance = getCollection(KEYS.ATTENDANCE) || [];
@@ -1448,8 +1450,10 @@ export const hrService = {
       if (existingIdx >= 0) {
         attendance[existingIdx].clockOutTime = nowStr;
         attendance[existingIdx].clockOut = nowStr;
-        attendance[existingIdx].notes = `Forced clock-out by Admin ${adminName} (${adminId}): "${auditNote}"`;
+        attendance[existingIdx].notes = `Forced clock-out by Admin ${adminName}: "${auditNote}"`;
         attendance[existingIdx].markedBy = adminName;
+        attendance[existingIdx].clockOutBy = adminName;
+        attendance[existingIdx].lastActionBy = adminName;
         attendance[existingIdx].updatedAt = new Date().toISOString();
       } else {
         attendance.unshift({
@@ -1466,8 +1470,10 @@ export const hrService = {
           clockOutTime: nowStr,
           clockOut: nowStr,
           
-          notes: `Forced clock-out by Admin ${adminName} (${adminId}): "${auditNote}"`,
+          notes: `Forced clock-out by Admin ${adminName}: "${auditNote}"`,
           markedBy: adminName,
+          clockOutBy: adminName,
+          lastActionBy: adminName,
           updatedAt: new Date().toISOString()
         });
       }
@@ -1488,12 +1494,13 @@ export const hrService = {
         action: 'Admin Force Clock-Out',
         actor: 'admin',
         actorId: String(adminId),
+        actorCode: adminCode,
         actorName: adminName,
         isAdminOverride: true,
         adminId: String(adminId),
         adminName,
         auditNote: auditNote.trim(),
-        details: `Administrator ${adminName} [ID: ${adminId}] manually forced shift clock-out. Reason: "${auditNote.trim()}"`
+        details: `Administrator ${adminName} manually forced shift clock-out. Reason: "${auditNote.trim()}"`
       };
 
       const logs = getCollection(KEYS.ATTENDANCE_AUDIT);

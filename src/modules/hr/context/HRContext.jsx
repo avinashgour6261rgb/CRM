@@ -480,7 +480,9 @@ export const HRProvider = ({ children }) => {
 
   const updateLeaveStatus = async (leaveId, status, rejectionReason = '') => {
     try {
-      const approver = currentUser?.name || 'HR Admin';
+      const approverName = currentUser?.name || 'Administrator';
+      const approverCode = currentUser?.employeeCode || '';
+      const approver = approverCode ? `${approverName} (${approverCode})` : approverName;
       const actionDateFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       await hrService.updateLeaveStatus(leaveId, status, approver, rejectionReason);
 
@@ -491,9 +493,17 @@ export const HRProvider = ({ children }) => {
             ...l,
             status,
             approvedBy: status === 'approved' ? approver : null,
+            approvedByCode: status === 'approved' ? approverCode : null,
+            approvedById: status === 'approved' ? (currentUser?._id || currentUser?.id) : null,
             rejectedBy: status === 'rejected' ? approver : null,
+            rejectedByCode: status === 'rejected' ? approverCode : null,
+            rejectedById: status === 'rejected' ? (currentUser?._id || currentUser?.id) : null,
             cancelledBy: status === 'cancelled' ? approver : null,
+            cancelledByCode: status === 'cancelled' ? approverCode : null,
+            cancelledById: status === 'cancelled' ? (currentUser?._id || currentUser?.id) : null,
             actionBy: approver,
+            actionByCode: approverCode,
+            actionById: currentUser?._id || currentUser?.id,
             actionDate: new Date().toISOString(),
             actionDateFormatted,
             rejectionReason: status === 'rejected' ? (rejectionReason || 'Declined by reviewer') : null,

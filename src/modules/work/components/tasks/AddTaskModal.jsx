@@ -293,6 +293,9 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
       const currentUserCode = String(currentUser?.employeeCode || '');
       const allAssigneeIds = [assigneeId, assigneeCode].filter(Boolean);
 
+      const creatorName = currentUser?.name || 'Administrator';
+      const creatorLabel = currentUserCode ? `${creatorName} (${currentUserCode})` : creatorName;
+
       const createdTask = await createTask({
         title: formData.title.trim(),
         category: formData.category,
@@ -326,7 +329,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
           role: primaryAssignee.role || 'Team Member',
           employeeCode: assigneeCode
         }],
-        assignedBy: currentUser?.name || 'Administrator',
+        assignedBy: creatorLabel,
         assignedById: currentUserId,
         assignedByCode: currentUserCode,
         assignedByAvatar: currentUser?.avatar || '',
@@ -336,7 +339,17 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         hoursLogged: 0,
         hoursLoggedText: '00h 00m',
         timerRunning: false,
-        timerSeconds: 0
+        timerSeconds: 0,
+        history: [{
+          id: `hist_${Date.now()}_create`,
+          action: 'created',
+          title: 'Task Created & Assigned',
+          timestamp: new Date().toISOString(),
+          performedBy: creatorLabel,
+          performedById: currentUserId,
+          performedByCode: currentUserCode,
+          details: `Task created and assigned to ${primaryAssignee?.name || 'team member'} by ${creatorLabel}.`
+        }]
       });
 
       if (isPersonalTask) {

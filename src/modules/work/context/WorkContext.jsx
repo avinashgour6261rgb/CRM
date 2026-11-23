@@ -2024,12 +2024,16 @@ export const WorkProvider = ({ children }) => {
     try {
       const allProjects = getCollection(KEYS.PROJECTS) || [];
       const targetProj = allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
-      const approverName = currentUser?.name || 'Admin';
+      const approverCode = currentUser?.employeeCode || '';
+      const rawApproverName = currentUser?.name || 'Administrator';
+      const approverName = approverCode ? `${rawApproverName} (${approverCode})` : rawApproverName;
       const updatePayload = {
         status: 'completed',
         progress: 100,
         finalApproved: true,
         finalApprovedBy: approverName,
+        finalApprovedById: currentUser?._id,
+        finalApprovedByCode: approverCode,
         finalApprovedAt: new Date().toISOString(),
         reopened: false,
         reopenReason: ''
@@ -2043,6 +2047,7 @@ export const WorkProvider = ({ children }) => {
           action: 'project_final_approved',
           date: getTodayStr(),
           employeeId: currentUser?._id || 'admin',
+          employeeCode: approverCode,
           employeeName: approverName,
           note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" officially finalized and approved by ${approverName}`
         });
@@ -2062,7 +2067,9 @@ export const WorkProvider = ({ children }) => {
     try {
       const allProjects = getCollection(KEYS.PROJECTS) || [];
       const targetProj = allProjects.find(p => String(p._id || p.id) === String(id) || p.projectCode === id);
-      const adminName = currentUser?.name || 'Admin';
+      const adminCode = currentUser?.employeeCode || '';
+      const rawAdminName = currentUser?.name || 'Administrator';
+      const adminName = adminCode ? `${rawAdminName} (${adminCode})` : rawAdminName;
       const updatePayload = {
         status: 'in_progress',
         progress: 85,
@@ -2070,6 +2077,8 @@ export const WorkProvider = ({ children }) => {
         reopened: true,
         reopenReason: reason || 'Reopened by Admin for required revisions',
         reopenedBy: adminName,
+        reopenedById: currentUser?._id,
+        reopenedByCode: adminCode,
         reopenedAt: new Date().toISOString()
       };
 
@@ -2081,6 +2090,7 @@ export const WorkProvider = ({ children }) => {
           action: 'project_reopened',
           date: getTodayStr(),
           employeeId: currentUser?._id || 'admin',
+          employeeCode: adminCode,
           employeeName: adminName,
           note: `Project #${targetProj?.projectCode || id} "${targetProj?.name || ''}" reopened by ${adminName}: ${reason}`
         });
@@ -2143,8 +2153,33 @@ export const WorkProvider = ({ children }) => {
           await stopTaskTimer(id, `Status changed to ${status}`);
         }
       }
+
+      const actorName = currentUser?.name || 'Administrator';
+      const actorCode = currentUser?.employeeCode || '';
+      const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+      const statusHistory = {
+        id: `hist_${Date.now()}_status`,
+        action: 'status_changed',
+        title: `Status Changed to ${status.replace('_', ' ').toUpperCase()}`,
+        timestamp: new Date().toISOString(),
+        performedBy: actorLabel,
+        performedById: currentUser?._id,
+        performedByCode: actorCode,
+        fromStatus: targetTask?.status || 'unknown',
+        toStatus: status,
+        details: `Task status changed to "${status.replace('_', ' ').toUpperCase()}" by ${actorLabel}`
+      };
+
+      const updatedHistory = Array.isArray(targetTask?.history) ? [...targetTask.history, statusHistory] : [statusHistory];
+
+      // Save to localStorage collection immediately
+      const updatedAll = allTasks.map(t =>
+        String(t._id || t.id) === String(id) ? { ...t, status, history: updatedHistory, lastActionBy: actorLabel } : t
+      );
+      saveCollection(KEYS.TASKS, updatedAll);
+
       await workService.updateTaskStatus(id, status);
-      await workService.updateTask(id, { status });
+      await workService.updateTask(id, { status, history: updatedHistory, lastActionBy: actorLabel });
       addToast(`Task status changed to ${status.replace('_', ' ').toUpperCase()}`, 'success');
       await loadWorkData();
     } catch (err) {
@@ -3408,12 +3443,16 @@ export const WorkProvider = ({ children }) => {
         }
       } catch {}
 
+      const actorName = currentUser?.name || 'Administrator';
+      const actorCode = currentUser?.employeeCode || '';
+      const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
       broadcastSyncEvent(SYNC_EVENTS.TASK_COMPLETED, {
         taskId,
         empKey: targetUserKey,
         taskTitle: targetTask.title,
         durationSecs,
-        completedBy: currentUser?.name || 'User'
+        completedBy: actorLabel
       });
       window.dispatchEvent(new CustomEvent('ems_task_timer_stopped', { detail: { taskId, userKey: targetUserKey } }));
       window.dispatchEvent(new CustomEvent('ems_task_timer_paused', { detail: { taskId, userKey: targetUserKey } }));
@@ -3432,9 +3471,10 @@ export const WorkProvider = ({ children }) => {
         action: 'completed',
         title: 'Task Completed & Time Logged',
         timestamp: completedIso,
-        performedBy: currentUser?.name || 'User',
+        performedBy: actorLabel,
         performedById: currentUser?._id,
-        details: `Task completed by ${currentUser?.name || 'User'}${isForOtherEmployee ? ` (for ${assignedEmpName})` : ''}. Final duration logged: ${hoursLoggedFormatted} (${durationSecs}s)`
+        performedByCode: actorCode,
+        details: `Task completed by ${actorLabel}${isForOtherEmployee ? ` (for ${assignedEmpName})` : ''}. Final duration logged: ${hoursLoggedFormatted} (${durationSecs}s)`
       };
 
       const updatedAll = allTasks.map(t => {
@@ -3462,6 +3502,11 @@ export const WorkProvider = ({ children }) => {
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
             completedOn: todayStr,
+            completedBy: actorLabel,
+            completedByName: actorName,
+            completedByCode: actorCode,
+            completedById: currentUser?._id,
+            lastActionBy: actorLabel,
             sessionDate: todayStr,
             history: hist
           };
@@ -3493,6 +3538,11 @@ export const WorkProvider = ({ children }) => {
           hoursLoggedText: hoursLoggedFormatted,
           completedAt: completedIso,
           completedOn: todayStr,
+          completedBy: actorLabel,
+          completedByName: actorName,
+          completedByCode: actorCode,
+          completedById: currentUser?._id,
+          lastActionBy: actorLabel,
           sessionDate: todayStr,
           history: fullHist
         });
@@ -3517,11 +3567,17 @@ export const WorkProvider = ({ children }) => {
             durationSeconds: finalTaskDuration,
             accumulatedSeconds: finalTaskDuration,
             todayWorkSeconds: durationToLogToday,
+            accumulatedTodaySeconds: durationToLogToday,
             dailySessions: updatedDailySessions,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             completedAt: completedIso,
             completedOn: todayStr,
+            completedBy: actorLabel,
+            completedByName: actorName,
+            completedByCode: actorCode,
+            completedById: currentUser?._id,
+            lastActionBy: actorLabel,
             sessionDate: todayStr,
             history: hist
           };

@@ -820,7 +820,7 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
  * Shared by Shift Card, Logout, Switch User, and Admin Force Clock Out.
  * Strictly guarantees zero ghost ticking, accurate punch sessions, and complete task pause.
  */
-export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.now(), nowStr } = {}) => {
+export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.now(), nowStr, actor = '', actorCode = '', actorId = '' } = {}) => {
   if (!user || typeof localStorage === 'undefined') return;
 
   const today = getLocalDateString(new Date(nowTs));
@@ -1006,6 +1006,11 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
             clockOutTime: timeStr,
             clockOut: timeStr,
             clockOutTimestamp: nowTs,
+            clockOutReason: reason || a.clockOutReason,
+            clockOutBy: actor || a.clockOutBy || user.name,
+            markedBy: actor || a.markedBy || user.name,
+            lastActionBy: actor || a.lastActionBy,
+            notes: reason ? (a.notes ? `${a.notes} | ${reason}` : reason) : a.notes,
             isClockedIn: false,
             isOnBreak: false,
             workSeconds: finalVerifiedWorkSecs,
@@ -1048,6 +1053,11 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
           clockOutTime: timeStr,
           clockOut: timeStr,
           clockOutTimestamp: nowTs,
+          clockOutReason: reason,
+          clockOutBy: actor || user.name,
+          markedBy: actor || user.name,
+          lastActionBy: actor,
+          notes: reason,
           isClockedIn: false,
           isOnBreak: false,
           workSeconds: finalVerifiedWorkSecs,
@@ -1065,6 +1075,36 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
       if (attChanged) {
         localStorage.setItem('hrms_attendance', JSON.stringify(updatedAtt));
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'hrms_attendance' } }));
+
+        // If an administrator forced or triggered this clock-out, write a permanent regulatory audit log
+        if (actor && actor !== user.name) {
+          try {
+            const auditLogs = JSON.parse(localStorage.getItem('ems_attendance_audit_logs') || '[]');
+            const auditEntry = {
+              _id: `audit_force_${Date.now()}`,
+              employeeId: String(user._id || mirrorKeys[0] || ''),
+              employeeName: user.name || 'Team Member',
+              employeeCode: user.employeeCode || '',
+              date: today,
+              timestamp: new Date().toISOString(),
+              timeFormatted: timeStr,
+              type: 'admin_force_clock_out',
+              action: 'Admin Force Clock-Out',
+              actor: 'admin',
+              actorId: String(actorId || actorCode || 'ADMIN'),
+              actorCode: actorCode || '',
+              actorName: actor,
+              isAdminOverride: true,
+              adminId: String(actorId || actorCode || 'ADMIN'),
+              adminName: actor,
+              auditNote: reason,
+              details: `Administrator ${actor} forced shift clock-out. Reason: "${reason}"`
+            };
+            auditLogs.unshift(auditEntry);
+            localStorage.setItem('ems_attendance_audit_logs', JSON.stringify(auditLogs));
+            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_attendance_audit_logs' } }));
+          } catch (_) {}
+        }
       }
 
       if (matchedRecord) {
@@ -1409,37 +1449,40 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     if (tsList.length === 1) {
       dedupedTimesheetEntries.push(tsList[0]);
     } else {
-      const allAutoSaves = tsList.every(t => {
-        const m = String(t.memo || t.notes || '').toLowerCase();
-        return m.includes('auto') || m.includes('clock-out') || m.includes('auto-close') || m.includes('completed');
-      });
-      if (allAutoSaves) {
-        // Take the latest/maximum duration snapshot
-        const best = tsList.reduce((maxT, curT) =>
-          (Number(curT.totalDurationSeconds) || 0) > (Number(maxT.totalDurationSeconds) || 0) ? curT : maxT
-        , tsList[0]);
-        dedupedTimesheetEntries.push(best);
-      } else {
-        // Distinct manual or hybrid entries: sum their distinct durations so no worked time is lost!
-        const seenIds = new Set();
-        let totalGroupSecs = 0;
-        let representative = tsList[0];
-        tsList.forEach(t => {
-          const tId = String(t._id || t.id || `${t.totalDurationSeconds}_${t.createdAt}`);
-          if (!seenIds.has(tId)) {
-            seenIds.add(tId);
-            totalGroupSecs += Number(t.totalDurationSeconds) || 0;
-            if ((Number(t.totalDurationSeconds) || 0) > (Number(representative.totalDurationSeconds) || 0)) {
-              representative = t;
-            }
+      // In Inforag MS, multiple timesheets for the same task on the same date:
+      // When work is saved (via stopTimer, auto-stop, shift end, or completion),
+      // each timesheet stores a cumulative snapshot of the task's work on that date.
+      // Summing cumulative snapshots multiplies duration into false 18h+ inflation!
+      // Take the highest recorded duration for that task on that date.
+      const best = tsList.reduce((maxT, curT) =>
+        (Number(curT.totalDurationSeconds) || 0) > (Number(maxT.totalDurationSeconds) || 0) ? curT : maxT
+      , tsList[0]);
+
+      // If user logged distinct non-overlapping sessions with separate start/end times:
+      const hasDistinctIntervals = tsList.length > 1 && tsList.every(t => t.startTime && t.endTime && t.startTime !== t.endTime);
+      let totalGroupSecs = Number(best.totalDurationSeconds) || 0;
+      if (hasDistinctIntervals) {
+        const sorted = [...tsList].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+        let isNonOverlapping = true;
+        for (let i = 0; i < sorted.length - 1; i++) {
+          if (sorted[i].endTime > sorted[i + 1].startTime) {
+            isNonOverlapping = false;
+            break;
           }
-        });
-        dedupedTimesheetEntries.push({
-          ...representative,
-          totalDurationSeconds: totalGroupSecs,
-          totalDurationText: formatSecondsToDigital(totalGroupSecs)
-        });
+        }
+        if (isNonOverlapping) {
+          totalGroupSecs = sorted.reduce((sum, t) => sum + (Number(t.totalDurationSeconds) || 0), 0);
+        }
       }
+
+      // Hard sanity guard: a single task's logged time on one calendar day cannot exceed 24 hours (86400s)
+      totalGroupSecs = Math.min(86400, Math.max(0, totalGroupSecs));
+
+      dedupedTimesheetEntries.push({
+        ...best,
+        totalDurationSeconds: totalGroupSecs,
+        totalDurationText: formatSecondsToDigital(totalGroupSecs)
+      });
     }
   });
 
@@ -1544,9 +1587,12 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       const ptId = String(pt._id || pt.id);
       const pastDaySecs = getTaskTodaySeconds(pt, effectiveDate, Date.now(), false, false);
       if (pastDaySecs > 0) {
+        const ptCode = pt.taskCode ? String(pt.taskCode).trim().toLowerCase() : '';
+        const ptTitle = pt.title ? String(pt.title).trim().toLowerCase() : '';
         const rowIdx = tasksWorked.findIndex(t =>
           String(t.taskId) === ptId ||
-          (pt.taskCode && t.taskCode && String(pt.taskCode).trim().toLowerCase() === String(t.taskCode).trim().toLowerCase())
+          (ptCode && t.taskCode && String(t.taskCode).trim().toLowerCase() === ptCode) ||
+          (ptTitle && t.taskTitle && String(t.taskTitle).trim().toLowerCase() === ptTitle)
         );
         if (rowIdx !== -1) {
           // Timesheet exists: ensure it is at least pastDaySecs
@@ -1575,10 +1621,11 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
   }
 
   const rawTotalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
+  const cappedTotalSecs = Math.min(86400, rawTotalSecs);
 
   // Task time is STRICTLY independent of Shift Working Time!
   // NEVER clamp/copy live ticking shiftSeconds into task time (otherwise task time ticks alongside shift working time).
-  let effectiveTotalSecs = rawTotalSecs;
+  let effectiveTotalSecs = cappedTotalSecs;
   if (!isClockedIn && shiftSeconds === 0 && tasksWorked.length === 0) {
     effectiveTotalSecs = 0;
   }
@@ -1586,8 +1633,8 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
   return {
     totalTaskSeconds: effectiveTotalSecs,
     totalTaskDurationText: formatSecondsToDigital(effectiveTotalSecs),
-    rawTaskSeconds: rawTotalSecs,
-    rawTaskDurationText: formatSecondsToDigital(rawTotalSecs),
+    rawTaskSeconds: cappedTotalSecs,
+    rawTaskDurationText: formatSecondsToDigital(cappedTotalSecs),
     tasksWorked,
     dedupedTimesheets: dedupedTimesheetEntries
   };

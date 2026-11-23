@@ -1732,11 +1732,15 @@ const stripHeavyMediaForStorage = (convs = []) => {
   };
 
   const updateTicketStatus = async (ticketId, status) => {
+    const actorName = currentUser?.name || 'Administrator';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
     try {
       await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, lastActionBy: actorLabel })
       });
     } catch (_) {}
 
@@ -1744,6 +1748,8 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
       currentList[idx].status = status;
+      currentList[idx].lastActionBy = actorLabel;
+      currentList[idx].lastActionById = currentUser?._id;
       currentList[idx].updatedAt = new Date().toISOString();
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
@@ -1808,9 +1814,15 @@ const stripHeavyMediaForStorage = (convs = []) => {
     const currentList = getCollection(KEYS.TICKETS) || [];
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
+      const authorName = currentUser?.name || 'Administrator';
+      const authorCode = currentUser?.employeeCode || '';
+      const authorLabel = authorCode ? `${authorName} (${authorCode})` : authorName;
       const newNote = {
         id: `note_${Date.now()}`,
-        author: currentUser?.name || 'Admin',
+        author: authorLabel,
+        authorName,
+        authorCode,
+        authorId: currentUser?._id,
         text: noteText,
         date: new Date().toISOString()
       };
@@ -2406,6 +2418,10 @@ const stripHeavyMediaForStorage = (convs = []) => {
   const createNotice = async (noticeData) => {
     const currentList = getCollection(KEYS.NOTICES);
     const now = new Date();
+    const creatorName = currentUser?.name || 'HR Operations';
+    const creatorCode = currentUser?.employeeCode || '';
+    const creatorLabel = creatorCode ? `${creatorName} (${creatorCode})` : creatorName;
+
     const noticePayload = {
       title: noticeData.title || 'Company Notice',
       description: noticeData.description || noticeData.shortDescription || '',
@@ -2414,8 +2430,10 @@ const stripHeavyMediaForStorage = (convs = []) => {
       priority: noticeData.priority || 'medium',
       targetAudience: noticeData.targetAudience || noticeData.to || 'All Employees',
       to: noticeData.targetAudience || noticeData.to || 'All Employees',
-      postedBy: currentUser?.name || 'HR Operations',
-      createdBy: currentUser?.name || 'HR Operations',
+      postedBy: creatorLabel,
+      createdBy: creatorLabel,
+      postedById: currentUser?._id,
+      postedByCode: creatorCode,
       date: noticeData.date || getLocalDateString(now),
       expiryDate: noticeData.expiryDate || getLocalDateString(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
       attachment: noticeData.attachment || '',
