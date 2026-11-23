@@ -199,6 +199,7 @@ export const AddProjectModal = ({ isOpen, onClose }) => {
         visibleToIds,
         createdBy: creatorId,
         createdById: creatorId,
+        createdByCode: currentUser?.employeeCode || '',
         creatorName: creatorName,
         creatorRole: creatorRole,
         creatorEmail: creatorEmail,

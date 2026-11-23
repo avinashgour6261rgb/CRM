@@ -20,7 +20,10 @@ const AppreciationSchema = new mongoose.Schema(
       default: null
     },
     givenById: { type: String, default: '' },
+    givenByCode: { type: String, default: '' },
     givenByName: { type: String, default: 'Administrator' },
+    givenByAvatar: { type: String, default: '' },
+    givenByRole: { type: String, default: 'Administrator' },
 
     awardName: {
       type: String,

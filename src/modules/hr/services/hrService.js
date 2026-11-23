@@ -1630,11 +1630,16 @@ export const hrService = {
     });
   },
 
-  async updateOvertimeStatus(overtimeId, status, approverName = 'Admin', rejectionReason = '') {
+  async updateOvertimeStatus(overtimeId, status, approverName = '', rejectionReason = '') {
+    const authUser = getAuthUser();
+    const actorCode = authUser?.employeeCode || '';
+    const rawName = approverName || authUser?.name || 'Administrator';
+    const finalApprover = actorCode && !rawName.includes('(') ? `${rawName} (${actorCode})` : rawName;
+
     return fetchWithFallback(`${API_BASE}/attendance/overtime/${overtimeId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ status, approverName, rejectionReason })
+      body: JSON.stringify({ status, approverName: finalApprover, rejectionReason })
     }, async () => {
       let overtimes = getCollection(KEYS.ATTENDANCE_OVERTIME) || [];
       const idx = overtimes.findIndex(o => String(o._id || o.id) === String(overtimeId));
@@ -1642,8 +1647,8 @@ export const hrService = {
         overtimes[idx] = {
           ...overtimes[idx],
           status,
-          approverName,
-          approvedBy: approverName,
+          approverName: finalApprover,
+          approvedBy: finalApprover,
           approvedAt: new Date().toISOString(),
           rejectionReason
         };

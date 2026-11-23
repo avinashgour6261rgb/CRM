@@ -347,37 +347,38 @@ export const DocumentationPage = () => {
                 const rowId = doc._id || doc.id;
                 const canDeleteDoc = canManage || (currentUser?.employeeCode && String(doc.employeeCode || '').toUpperCase() === String(currentUser.employeeCode).toUpperCase());
                 return (
-                <tr
-                  key={rowId}
-                  className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                >
-                  <td className="p-1.5 px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <div className="w-[26px] h-[26px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                        <FileText size={14} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{doc.title}</div>
-                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400">{doc.fileName}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-1.5 px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-1.5">
-                      {doc.employeeAvatar ? (
-                        <img
-                          src={doc.employeeAvatar}
-                          alt={doc.employeeName}
-                          className="w-[22px] h-[22px] rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-[22px] h-[22px] rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center">
-                          {(doc.employeeName || 'C').charAt(0).toUpperCase()}
+                  <tr
+                    key={rowId}
+                    className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    <td className="p-1.5 px-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-[26px] h-[26px] rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                          <FileText size={14} />
                         </div>
-                      )}
-                      <div>
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">{doc.employeeName || 'Company-Wide'}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{doc.department || doc.employeeCode}</div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100">{doc.title}</div>
+                          <div className="text-[10.5px] text-slate-500 dark:text-slate-400">{doc.fileName}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-1.5 px-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {doc.employeeAvatar ? (
+                          <img
+                            src={doc.employeeAvatar}
+                            alt={doc.employeeName}
+                            className="w-[22px] h-[22px] rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-[22px] h-[22px] rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center">
+                            {(doc.employeeName || 'C').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">{doc.employeeName || 'Company-Wide'}</div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">{doc.department || doc.employeeCode}</div>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -407,17 +408,26 @@ export const DocumentationPage = () => {
                       </button>
                       {canDeleteDoc && (
                         <button
-                          onClick={() => handleDelete(doc)}
-                          className="bg-red-100 dark:bg-red-950/60 border-none text-red-600 dark:text-red-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
-                          title="Delete Document"
+                          onClick={() => handleDownload(doc)}
+                          disabled={downloadingId === rowId}
+                          className="bg-slate-100 dark:bg-slate-800 border-none text-blue-600 dark:text-blue-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                          title="Download Document"
                         >
-                          <Trash2 size={13} />
+                          <Download size={13} />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
+                        {canDeleteDoc && (
+                          <button
+                            onClick={() => handleDelete(doc)}
+                            className="bg-red-100 dark:bg-red-950/60 border-none text-red-600 dark:text-red-400 w-6 h-6 rounded-[5px] inline-flex items-center justify-center cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+                            title="Delete Document"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
               })}
             </tbody>
           </table>

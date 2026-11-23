@@ -119,6 +119,10 @@ const createAppreciation = asyncHandler(async (req, res) => {
   const finalGivenTo = recipientEmp ? recipientEmp._id : (targetId && mongoose.Types.ObjectId.isValid(targetId) ? targetId : null);
   const finalGivenBy = giverEmp ? giverEmp._id : (gId && mongoose.Types.ObjectId.isValid(gId) ? gId : null);
 
+  const actorName = u ? (u.name || u.email || 'Administrator') : (giverEmp?.name || 'Administrator');
+  const actorCode = u?.employeeCode || giverEmp?.employeeCode || '';
+  const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
   const appreciation = new Appreciation({
     givenTo: finalGivenTo,
     givenToId: String(targetId || recipientEmp?._id || ''),
@@ -126,8 +130,11 @@ const createAppreciation = asyncHandler(async (req, res) => {
     givenToAvatar: givenToAvatar || recipientEmp?.avatar || '',
     givenToRole: givenToRole || recipientEmp?.role || recipientEmp?.designation || 'Team Member',
     givenBy: finalGivenBy,
-    givenById: String(gId || giverEmp?._id || ''),
-    givenByName: givenByName || giverEmp?.name || req.user?.name || 'Administrator',
+    givenById: String(gId || giverEmp?._id || u?._id || ''),
+    givenByCode: actorCode,
+    givenByName: givenByName || actorLabel,
+    givenByAvatar: u?.avatar || giverEmp?.avatar || '',
+    givenByRole: u?.role || giverEmp?.role || 'Administrator',
     awardName: awardName || 'Star Performer of the Month',
     awardBadgeIcon: awardBadgeIcon || 'trophy',
     givenOn: givenOn || getIstDateString(),

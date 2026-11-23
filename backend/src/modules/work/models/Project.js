@@ -81,6 +81,14 @@ const ProjectSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    finalApprovedById: {
+      type: String,
+      default: null
+    },
+    finalApprovedByCode: {
+      type: String,
+      default: null
+    },
     finalApprovedAt: {
       type: Date,
       default: null
@@ -97,7 +105,31 @@ const ProjectSchema = new mongoose.Schema(
       type: String,
       default: null
     },
+    reopenedById: {
+      type: String,
+      default: null
+    },
+    reopenedByCode: {
+      type: String,
+      default: null
+    },
     reopenedAt: {
+      type: Date,
+      default: null
+    },
+    lastUpdatedBy: {
+      type: String,
+      default: null
+    },
+    lastUpdatedById: {
+      type: String,
+      default: null
+    },
+    lastUpdatedByCode: {
+      type: String,
+      default: null
+    },
+    lastUpdatedAt: {
       type: Date,
       default: null
     },
@@ -139,6 +171,10 @@ const ProjectSchema = new mongoose.Schema(
       default: null
     },
     createdById: {
+      type: String,
+      default: null
+    },
+    createdByCode: {
       type: String,
       default: null
     },

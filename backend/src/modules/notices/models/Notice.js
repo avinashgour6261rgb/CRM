@@ -69,9 +69,41 @@ const NoticeSchema = new mongoose.Schema(
       type: String,
       default: 'Admin User'
     },
+    postedById: {
+      type: String,
+      default: ''
+    },
+    postedByCode: {
+      type: String,
+      default: ''
+    },
     createdBy: {
       type: String,
       default: 'Admin User'
+    },
+    createdById: {
+      type: String,
+      default: ''
+    },
+    createdByCode: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedBy: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedById: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedByCode: {
+      type: String,
+      default: ''
+    },
+    lastUpdatedAt: {
+      type: Date,
+      default: null
     },
     date: {
       type: String,

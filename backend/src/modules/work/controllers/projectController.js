@@ -126,6 +126,18 @@ exports.createProject = async (req, res, next) => {
     if (projectData._id && !mongoose.Types.ObjectId.isValid(projectData._id)) {
       delete projectData._id;
     }
+
+    const u = req.user;
+    const actorName = u ? (u.name || u.email || 'Administrator') : 'Administrator';
+    const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+    const actorId = u?._id ? String(u._id) : (u?.id || '');
+    const actorCode = u?.employeeCode || '';
+
+    projectData.createdBy = projectData.createdBy || actorId;
+    projectData.createdById = projectData.createdById || actorId;
+    projectData.createdByCode = projectData.createdByCode || actorCode;
+    projectData.creatorName = projectData.creatorName || actorLabel;
+
     const project = await Project.create(projectData);
     try {
       const { emitToAll } = require('../../../shared/socket/socketManager');
@@ -145,15 +157,43 @@ exports.createProject = async (req, res, next) => {
 // @route   PUT /api/projects/:id
 exports.updateProject = async (req, res, next) => {
   try {
+    const u = req.user;
+    const actorName = u ? (u.name || u.email || 'Administrator') : 'Administrator';
+    const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+    const actorId = u?._id ? String(u._id) : (u?.id || '');
+    const actorCode = u?.employeeCode || '';
+
+    const updateBody = { ...req.body };
+    if (updateBody._id) delete updateBody._id;
+
+    updateBody.lastUpdatedBy = updateBody.lastUpdatedBy || actorLabel;
+    updateBody.lastUpdatedById = updateBody.lastUpdatedById || actorId;
+    updateBody.lastUpdatedByCode = updateBody.lastUpdatedByCode || actorCode;
+    updateBody.lastUpdatedAt = new Date();
+
+    if (updateBody.finalApproved === true && !updateBody.finalApprovedBy) {
+      updateBody.finalApprovedBy = actorLabel;
+      updateBody.finalApprovedById = actorId;
+      updateBody.finalApprovedByCode = actorCode;
+      updateBody.finalApprovedAt = new Date();
+    }
+
+    if (updateBody.reopened === true && !updateBody.reopenedBy) {
+      updateBody.reopenedBy = actorLabel;
+      updateBody.reopenedById = actorId;
+      updateBody.reopenedByCode = actorCode;
+      updateBody.reopenedAt = new Date();
+    }
+
     let project = null;
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+      project = await Project.findByIdAndUpdate(req.params.id, updateBody, {
         new: true,
         runValidators: true
       });
     }
     if (!project) {
-      project = await Project.findOneAndUpdate({ projectCode: req.params.id.toUpperCase() }, req.body, {
+      project = await Project.findOneAndUpdate({ projectCode: req.params.id.toUpperCase() }, updateBody, {
         new: true,
         runValidators: true
       });

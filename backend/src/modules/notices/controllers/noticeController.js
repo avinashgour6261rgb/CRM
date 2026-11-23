@@ -38,8 +38,20 @@ exports.createNotice = asyncHandler(async (req, res) => {
   noticeData.shortDescription = noticeData.shortDescription || textContent.slice(0, 150);
   noticeData.targetAudience = noticeData.targetAudience || noticeData.to || 'All Employees';
   noticeData.to = noticeData.to || noticeData.targetAudience || 'All Employees';
-  noticeData.postedBy = noticeData.postedBy || noticeData.createdBy || req.user?.name || 'HR Operations';
-  noticeData.createdBy = noticeData.createdBy || noticeData.postedBy || req.user?.name || 'HR Operations';
+  const u = req.user;
+  const actorName = u ? (u.name || u.email || 'HR Operations') : 'HR Operations';
+  const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+  const actorId = u?._id ? String(u._id) : (u?.id || '');
+  const actorCode = u?.employeeCode || '';
+
+  noticeData.postedBy = noticeData.postedBy || actorLabel;
+  noticeData.postedById = noticeData.postedById || actorId;
+  noticeData.postedByCode = noticeData.postedByCode || actorCode;
+  noticeData.createdBy = noticeData.createdBy || actorLabel;
+  noticeData.createdById = noticeData.createdById || actorId;
+  noticeData.createdByCode = noticeData.createdByCode || actorCode;
+  noticeData.authorName = noticeData.authorName || actorLabel;
+  noticeData.author = noticeData.author || actorLabel;
   noticeData.isImportant = noticeData.priority === 'urgent' || noticeData.priority === 'high' || !!noticeData.isImportant;
   noticeData.noticeCode = noticeCode;
 
@@ -71,6 +83,13 @@ exports.updateNotice = asyncHandler(async (req, res) => {
     if (!isPrivileged && !isCreator) {
       return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to edit this notice.' });
     }
+
+    const actorName = u.name || u.email || 'Admin';
+    const actorLabel = u.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+    updateData.lastUpdatedBy = updateData.lastUpdatedBy || actorLabel;
+    updateData.lastUpdatedById = updateData.lastUpdatedById || String(u._id || u.id || '');
+    updateData.lastUpdatedByCode = updateData.lastUpdatedByCode || u.employeeCode || '';
+    updateData.lastUpdatedAt = new Date();
   }
 
   Object.assign(existing, updateData);

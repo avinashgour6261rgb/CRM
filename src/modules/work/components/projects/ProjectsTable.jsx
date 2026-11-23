@@ -233,7 +233,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                     </span>
                     {proj.finalApproved && proj.status === 'completed' && (
                       <div className="text-[10px] text-green-600 dark:text-green-400 font-bold mt-0.5">
-                        ✅ Final Approved
+                        ✅ Approved {proj.finalApprovedBy ? `by ${proj.finalApprovedBy}` : ''}
                       </div>
                     )}
                     {proj.status === 'under_review' && (
@@ -243,7 +243,7 @@ export const ProjectsTable = ({ projects: propProjects, onSelectProject, onExten
                     )}
                     {proj.reopened && !proj.finalApproved && (
                       <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5" title={proj.reopenReason}>
-                        ⚠️ Reopened
+                        ⚠️ Reopened {proj.reopenedBy ? `by ${proj.reopenedBy}` : ''}
                       </div>
                     )}
                   </td>

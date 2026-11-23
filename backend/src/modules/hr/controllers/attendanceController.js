@@ -234,7 +234,9 @@ const markAttendance = asyncHandler(async (req, res) => {
 
   const isPrivileged = req.user?.isAdmin || req.user?.role === 'admin' || req.user?.role === 'hr' || req.user?.permissions?.editAttendance || req.user?.permissions?.allAccess;
   const adminActorId = req.user?.id || req.user?._id || markedBy || 'ADMIN';
-  const adminActorName = req.user?.name || markedBy || 'HR Administrator';
+  const adminActorCode = req.user?.employeeCode || '';
+  const rawAdminName = req.user?.name || markedBy || 'HR Administrator';
+  const adminActorName = adminActorCode ? `${rawAdminName} (${adminActorCode})` : rawAdminName;
 
   // Dynamically load CompanySettings for shift timing, grace period & half-day threshold
   const CompanySettings = require('../../settings/models/CompanySettings');
@@ -1019,11 +1021,18 @@ const updateOvertimeStatus = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Attendance record not found' });
   }
 
+  const actorCode = req.user?.employeeCode || '';
+  const rawActorName = approverName || req.user?.name || 'Administrator';
+  const actorName = actorCode ? `${rawActorName} (${actorCode})` : rawActorName;
+  const actorId = req.user?._id || req.user?.id || '';
+
   attRecord.overtimeStatus = status;
-  attRecord.overtimeApprovedBy = approverName || req.user?.name || 'Admin';
+  attRecord.overtimeApprovedBy = actorName;
+  attRecord.overtimeApprovedById = String(actorId);
+  attRecord.overtimeApprovedByCode = actorCode;
   attRecord.overtimeApprovedAt = new Date();
   if (rejectionReason) {
-    attRecord.notes = attRecord.notes ? `${attRecord.notes} | Overtime rejected: ${rejectionReason}` : `Overtime rejected: ${rejectionReason}`;
+    attRecord.notes = attRecord.notes ? `${attRecord.notes} | Overtime rejected by ${actorName}: ${rejectionReason}` : `Overtime rejected by ${actorName}: ${rejectionReason}`;
   }
   await attRecord.save();
 
@@ -1037,8 +1046,11 @@ const updateOvertimeStatus = asyncHandler(async (req, res) => {
       action: `overtime_${status}`,
       date: attRecord.date,
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      performedBy: approverName || req.user?.name || 'Admin',
-      note: `Overtime ${status} by ${approverName || 'Admin'}${rejectionReason ? `: ${rejectionReason}` : ''}`
+      performedBy: actorName,
+      actor: 'admin',
+      actorId: String(actorId),
+      actorName: actorName,
+      note: `Overtime ${status} by ${actorName}${rejectionReason ? `: ${rejectionReason}` : ''}`
     });
     await auditEntry.save();
   } catch (_) {}

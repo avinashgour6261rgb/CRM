@@ -125,6 +125,14 @@ const AttendanceSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    overtimeApprovedById: {
+      type: String,
+      default: ''
+    },
+    overtimeApprovedByCode: {
+      type: String,
+      default: ''
+    },
     overtimeApprovedAt: {
       type: Date,
       default: null

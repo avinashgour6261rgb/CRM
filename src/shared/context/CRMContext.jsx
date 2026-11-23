@@ -38,27 +38,27 @@ const DEFAULT_WEEKLY_TIMELOGS = [
 
 const defaultCRMContext = {
   expenses: [],
-  loadExpenses: async () => {},
-  createExpense: async () => {},
-  updateExpense: async () => {},
-  updateExpenseStatus: async () => {},
-  deleteExpense: async () => {},
-  importExpensesBatch: async () => {},
+  loadExpenses: async () => { },
+  createExpense: async () => { },
+  updateExpense: async () => { },
+  updateExpenseStatus: async () => { },
+  deleteExpense: async () => { },
+  importExpensesBatch: async () => { },
 
   tickets: [],
-  loadTickets: async () => {},
-  createTicket: async () => {},
-  updateTicketStatus: async () => {},
-  replyToTicket: async () => {},
-  addTicketInternalNote: async () => {},
-  assignTicket: async () => {},
-  deleteTicket: async () => {},
+  loadTickets: async () => { },
+  createTicket: async () => { },
+  updateTicketStatus: async () => { },
+  replyToTicket: async () => { },
+  addTicketInternalNote: async () => { },
+  assignTicket: async () => { },
+  deleteTicket: async () => { },
 
   events: [],
-  loadEvents: async () => {},
-  createEvent: async () => {},
-  updateEvent: async () => {},
-  deleteEvent: async () => {},
+  loadEvents: async () => { },
+  createEvent: async () => { },
+  updateEvent: async () => { },
+  deleteEvent: async () => { },
   computedBirthdays: [],
   birthdays: [],
   computedAnniversaries: [],
@@ -68,45 +68,45 @@ const defaultCRMContext = {
   visibleConversations: [],
   totalUnreadMessagesCount: 0,
   activeConversationId: null,
-  setActiveConversationId: () => {},
-  sendMessage: async () => {},
-  deleteMessage: async () => {},
-  startConversation: async () => {},
-  createChannel: async () => {},
-  updateChannelMembers: () => {},
-  markConversationAsRead: () => {},
+  setActiveConversationId: () => { },
+  sendMessage: async () => { },
+  deleteMessage: async () => { },
+  startConversation: async () => { },
+  createChannel: async () => { },
+  updateChannelMembers: () => { },
+  markConversationAsRead: () => { },
 
   notices: [],
-  loadNotices: async () => {},
-  createNotice: async () => {},
-  updateNotice: async () => {},
-  deleteNotice: async () => {},
-  dismissNoticeForUser: () => {},
+  loadNotices: async () => { },
+  createNotice: async () => { },
+  updateNotice: async () => { },
+  deleteNotice: async () => { },
+  dismissNoticeForUser: () => { },
 
   leads: [],
-  loadLeads: async () => {},
+  loadLeads: async () => { },
   leadsFilter: 'all',
-  setLeadsFilter: () => {},
-  createLead: async () => {},
-  updateLead: async () => {},
-  updateLeadStatus: async () => {},
-  deleteLead: async () => {},
-  importLeadsBatch: async () => {},
+  setLeadsFilter: () => { },
+  createLead: async () => { },
+  updateLead: async () => { },
+  updateLeadStatus: async () => { },
+  deleteLead: async () => { },
+  importLeadsBatch: async () => { },
 
   emergencyContacts: [],
-  addEmergencyContact: async () => {},
-  updateEmergencyContact: async () => {},
-  deleteEmergencyContact: async () => {},
+  addEmergencyContact: async () => { },
+  updateEmergencyContact: async () => { },
+  deleteEmergencyContact: async () => { },
 
   userSettings: {},
-  updateUserSettings: async () => {},
+  updateUserSettings: async () => { },
 
   wfhEmployees: [],
   weeklyTimeLogs: {},
   computedWeeklyTimeLogs: {},
   darkMode: false,
-  toggleDarkMode: () => {},
-  updateUserProfile: async () => {}
+  toggleDarkMode: () => { },
+  updateUserProfile: async () => { }
 };
 
 const CRMContext = createContext(defaultCRMContext);
@@ -366,7 +366,7 @@ export const CRMProvider = ({ children }) => {
     setActiveConversationIdState(id);
     try {
       localStorage.setItem('ems_active_chat_conv_id', id);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Strict Scoped Conversations & Global Unread Badges
@@ -539,27 +539,27 @@ export const CRMProvider = ({ children }) => {
     setTickets(getCollection(KEYS.TICKETS) || []);
   };
 
-const stripHeavyMediaForStorage = (convs = []) => {
-  if (!Array.isArray(convs)) return [];
-  return convs.map(c => {
-    if (!c || !Array.isArray(c.messages)) return c;
-    return {
-      ...c,
-      messages: c.messages.map(m => {
-        if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) return m;
-        return {
-          ...m,
-          attachments: m.attachments.map(att => {
-            if (att && typeof att.dataUrl === 'string' && att.dataUrl.length > 15000) {
-              return { ...att, dataUrl: '', hasFullMedia: true, conversationId: c.id };
-            }
-            return att;
-          })
-        };
-      })
-    };
-  });
-};
+  const stripHeavyMediaForStorage = (convs = []) => {
+    if (!Array.isArray(convs)) return [];
+    return convs.map(c => {
+      if (!c || !Array.isArray(c.messages)) return c;
+      return {
+        ...c,
+        messages: c.messages.map(m => {
+          if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) return m;
+          return {
+            ...m,
+            attachments: m.attachments.map(att => {
+              if (att && typeof att.dataUrl === 'string' && att.dataUrl.length > 15000) {
+                return { ...att, dataUrl: '', hasFullMedia: true, conversationId: c.id };
+              }
+              return att;
+            })
+          };
+        })
+      };
+    });
+  };
 
   // Synchronize conversations with MongoDB backend database (lite mode strips heavy base64 images for 20x faster load)
   const loadConversations = async () => {
@@ -625,7 +625,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
               method: 'POST',
               headers: getAuthHeaders(),
               body: JSON.stringify({ conversations: stripHeavyMediaForStorage(merged) })
-            }).catch(() => {});
+            }).catch(() => { });
           }
           return;
         }
@@ -1093,7 +1093,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         const rawBh = readTimerStorage(currentUser, 'break_history') || localStorage.getItem(`ems_timer_${userKey}_break_history`);
         const parsed = typeof rawBh === 'string' ? JSON.parse(rawBh) : (rawBh || []);
         todayBreakHistory = (Array.isArray(parsed) ? parsed : []).filter(b => b.date === dateStr);
-      } catch (e) {}
+      } catch (e) { }
 
       // Helper to check if task belongs to user
       const isTaskForMe = (t) => {
@@ -1154,7 +1154,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         let activeTimer = null;
         try {
           activeTimer = JSON.parse(localStorage.getItem(activeTimerKey) || 'null');
-        } catch (e) {}
+        } catch (e) { }
 
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
@@ -1442,8 +1442,8 @@ const stripHeavyMediaForStorage = (convs = []) => {
         const pastAttRec = attendance.find(a => a.date === dateStr && isMyAttRecord(a));
         const rawWorkHours = pastAttRec
           ? (Number(pastAttRec.totalWorkingHours) > 0
-              ? Number(pastAttRec.totalWorkingHours)
-              : (Number(pastAttRec.workSeconds) > 0 ? Number(pastAttRec.workSeconds) / 3600 : 0))
+            ? Number(pastAttRec.totalWorkingHours)
+            : (Number(pastAttRec.workSeconds) > 0 ? Number(pastAttRec.workSeconds) / 3600 : 0))
           : 0;
         const hasRealAttendanceHours = pastAttRec &&
           pastAttRec.status !== 'absent' &&
@@ -1551,7 +1551,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         const json = await res.json();
         if (json.data?._id) newExpense._id = String(json.data._id);
       }
-    } catch (_) {}
+    } catch (_) { }
 
     currentList.unshift(newExpense);
     saveCollection(KEYS.EXPENSES, currentList);
@@ -1570,7 +1570,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.EXPENSES);
     const idx = currentList.findIndex(e => e._id === expenseId);
@@ -1622,7 +1622,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.EXPENSES);
     const idx = currentList.findIndex(e => e._id === expenseId);
@@ -1641,7 +1641,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.EXPENSES);
     const filtered = currentList.filter(e => e._id !== expenseId);
@@ -1802,7 +1802,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.TICKETS) || [];
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
@@ -1852,7 +1852,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
             isAdminReply: isUserAdmin
           })
         });
-      } catch (_) {}
+      } catch (_) { }
 
       currentList[idx].replies = [...(currentList[idx].replies || []), newReply];
       if (currentList[idx].status === 'open' && isUserAdmin) {
@@ -1890,7 +1890,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
           headers: getAuthHeaders(),
           body: JSON.stringify({ internalNotes: currentList[idx].internalNotes })
         });
-      } catch (_) {}
+      } catch (_) { }
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -1928,7 +1928,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
           headers: getAuthHeaders(),
           body: JSON.stringify(payload)
         });
-      } catch (_) {}
+      } catch (_) { }
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -1999,7 +1999,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         const json = await res.json();
         if (json.data?._id) newEvent._id = String(json.data._id);
       }
-    } catch (_) {}
+    } catch (_) { }
 
     currentList.unshift(newEvent);
     saveCollection(KEYS.EVENTS, currentList);
@@ -2018,7 +2018,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.EVENTS);
     const idx = currentList.findIndex(e => e._id === eventId || e.id === eventId);
@@ -2041,7 +2041,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.EVENTS);
     const filtered = currentList.filter(e => e._id !== eventId && e.id !== eventId);
@@ -2212,8 +2212,8 @@ const stripHeavyMediaForStorage = (convs = []) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ emoji, user: { id: userId, name: userName } })
-      }).catch(() => {});
-    } catch (_) {}
+      }).catch(() => { });
+    } catch (_) { }
   };
 
   const acknowledgeNotice = async (noticeId) => {
@@ -2400,8 +2400,8 @@ const stripHeavyMediaForStorage = (convs = []) => {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify({ userId: currentUser?._id || currentUser?.employeeCode })
-        }).catch(() => {});
-      } catch (err) {}
+        }).catch(() => { });
+      } catch (err) { }
     }
   };
 
@@ -2467,7 +2467,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(newChannel)
       }).catch(err => console.warn('[CRMContext] Offline channel sync queued:', err));
-    } catch (err) {}
+    } catch (err) { }
 
     return newChannel.id;
   };
@@ -2574,7 +2574,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.NOTICES);
     const idx = currentList.findIndex(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);
@@ -2613,7 +2613,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
           headers: getAuthHeaders(),
           body: JSON.stringify({ dismissedBy: updatedDismissed })
         });
-      } catch (_) {}
+      } catch (_) { }
     }
   };
 
@@ -2631,7 +2631,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const filtered = currentList.filter(n => n._id !== noticeId && n.id !== noticeId && n.noticeCode !== noticeId);
     saveCollection(KEYS.NOTICES, filtered);
@@ -2712,7 +2712,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
           };
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     currentList.unshift(savedLead);
     saveCollection(KEYS.LEADS, currentList);
@@ -2751,7 +2751,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.LEADS);
     const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
@@ -2796,7 +2796,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         headers: getAuthHeaders(),
         body: JSON.stringify(patch)
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const currentList = getCollection(KEYS.LEADS);
     const idx = currentList.findIndex(l => l._id === leadId || l.id === leadId || l.leadCode === leadId);
@@ -2830,7 +2830,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
-    } catch (_) {}
+    } catch (_) { }
 
     const filtered = currentList.filter(l => l._id !== leadId && l.id !== leadId && l.leadCode !== leadId);
     saveCollection(KEYS.LEADS, filtered);

@@ -172,6 +172,11 @@ export const OvertimeManagementPanel = ({ currentUser }) => {
                   <div className="text-[10.5px] text-slate-500 dark:text-slate-400">
                     Overtime Saved
                   </div>
+                  {item.overtimeApprovedBy && (
+                    <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      Approved by {item.overtimeApprovedBy}
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -1964,7 +1964,19 @@ export const WorkProvider = ({ children }) => {
 
   const updateProject = async (id, projectData) => {
     try {
-      const updated = await workService.updateProject(id, projectData);
+      const actorCode = currentUser?.employeeCode || '';
+      const rawActorName = currentUser?.name || 'Administrator';
+      const actorName = actorCode ? `${rawActorName} (${actorCode})` : rawActorName;
+
+      const payload = {
+        ...projectData,
+        lastUpdatedBy: projectData.lastUpdatedBy || actorName,
+        lastUpdatedById: projectData.lastUpdatedById || currentUser?._id,
+        lastUpdatedByCode: projectData.lastUpdatedByCode || actorCode,
+        lastUpdatedAt: new Date().toISOString()
+      };
+
+      const updated = await workService.updateProject(id, payload);
       addToast(`Project "${updated.name}" updated`, 'success');
       await loadWorkData();
       return updated;
