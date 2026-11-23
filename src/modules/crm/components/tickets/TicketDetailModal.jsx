@@ -251,6 +251,37 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
             </div>
           </div>
 
+          {/* Multi-Admin Action Audit Trail */}
+          {(ticket.resolvedBy || ticket.closedBy || ticket.assignedBy || ticket.lastActionBy) && (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
+              <UserCheck size={14} className="text-blue-500 shrink-0" />
+              <div className="flex items-center gap-2 flex-wrap">
+                {(ticket.status === 'resolved' && ticket.resolvedBy) && (
+                  <span>
+                    Resolved by <strong className="text-slate-800 dark:text-slate-100">{ticket.resolvedBy}</strong>
+                    {ticket.resolvedAt && <span className="text-slate-400 text-[11px] ml-1">({new Date(ticket.resolvedAt).toLocaleDateString()})</span>}
+                  </span>
+                )}
+                {(ticket.status === 'closed' && ticket.closedBy) && (
+                  <span>
+                    Closed by <strong className="text-slate-800 dark:text-slate-100">{ticket.closedBy}</strong>
+                    {ticket.closedAt && <span className="text-slate-400 text-[11px] ml-1">({new Date(ticket.closedAt).toLocaleDateString()})</span>}
+                  </span>
+                )}
+                {ticket.assignedBy && (
+                  <span>
+                    • Assigned by <strong className="text-slate-800 dark:text-slate-100">{ticket.assignedBy}</strong>
+                  </span>
+                )}
+                {!ticket.resolvedBy && !ticket.closedBy && ticket.lastActionBy && (
+                  <span>
+                    Last action by <strong className="text-slate-800 dark:text-slate-100">{ticket.lastActionBy}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Description Card */}
           <div>
             <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Ticket Problem Description</span>

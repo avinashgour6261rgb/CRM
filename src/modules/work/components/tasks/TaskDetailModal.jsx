@@ -100,6 +100,20 @@ export const TaskDetailModal = ({ task, onClose }) => {
     const newAssignee = employees.find(e => e._id === newEmpId);
     if (!newAssignee) return;
     try {
+      const actorName = currentUser?.name || 'Administrator';
+      const actorCode = currentUser?.employeeCode || '';
+      const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+      const reassignHistory = {
+        id: `hist_${Date.now()}_reassign`,
+        action: 'reassigned',
+        title: `Task Reassigned to ${newAssignee.name}`,
+        timestamp: new Date().toISOString(),
+        performedBy: actorLabel,
+        performedById: currentUser?._id,
+        performedByCode: actorCode,
+        details: `Task reassigned from ${task.assignedToName || 'Unassigned'} to ${newAssignee.name} by ${actorLabel}`
+      };
+      const updatedHistory = Array.isArray(task.history) ? [...task.history, reassignHistory] : [reassignHistory];
       await updateTask(task._id, {
         assignedTo: newAssignee._id,
         assignedToId: newAssignee._id,
@@ -108,7 +122,9 @@ export const TaskDetailModal = ({ task, onClose }) => {
         assignedToAvatar: newAssignee.avatar,
         assignedToRole: newAssignee.role,
         assignedToIds: [newAssignee._id],
-        assignees: [newAssignee]
+        assignees: [newAssignee],
+        lastActionBy: actorLabel,
+        history: updatedHistory
       });
       setIsReassigning(false);
     } catch (err) {

@@ -494,22 +494,34 @@ export const TicketsPage = () => {
 
                     {/* Status */}
                     <td className="px-2.5 py-[7px] whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded-full text-[10.5px] font-bold capitalize ${
-                        ticket.status === 'resolved'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
-                          : ticket.status === 'open'
-                          ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
-                          : ticket.status === 'in_progress'
-                          ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400'
-                          : ticket.status === 'pending'
-                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}>
-                        {ticket.status === 'resolved' && <CheckCircle2 size={11} />}
-                        {ticket.status === 'open' && <AlertCircle size={11} />}
-                        {ticket.status === 'pending' && <Clock size={11} />}
-                        {ticket.status.replace('_', ' ')}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className={`inline-flex items-center gap-[3px] px-[7px] py-0.5 rounded-full text-[10.5px] font-bold capitalize w-fit ${
+                          ticket.status === 'resolved'
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                            : ticket.status === 'open'
+                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
+                            : ticket.status === 'in_progress'
+                            ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400'
+                            : ticket.status === 'pending'
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}>
+                          {ticket.status === 'resolved' && <CheckCircle2 size={11} />}
+                          {ticket.status === 'open' && <AlertCircle size={11} />}
+                          {ticket.status === 'pending' && <Clock size={11} />}
+                          {ticket.status.replace('_', ' ')}
+                        </span>
+                        {(ticket.status === 'resolved' && (ticket.resolvedBy || ticket.lastActionBy)) && (
+                          <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]" title={ticket.resolvedBy || ticket.lastActionBy}>
+                            by {ticket.resolvedBy || ticket.lastActionBy}
+                          </span>
+                        )}
+                        {(ticket.status === 'closed' && (ticket.closedBy || ticket.lastActionBy)) && (
+                          <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]" title={ticket.closedBy || ticket.lastActionBy}>
+                            by {ticket.closedBy || ticket.lastActionBy}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Action */}

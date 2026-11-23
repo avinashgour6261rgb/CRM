@@ -1755,26 +1755,49 @@ const stripHeavyMediaForStorage = (convs = []) => {
     return newTicket;
   };
 
-  const updateTicketStatus = async (ticketId, status) => {
-    const actorName = currentUser?.name || 'Administrator';
-    const actorCode = currentUser?.employeeCode || '';
+  const updateTicketStatus = async (ticketId, status, actorMeta = {}) => {
+    const actorName = actorMeta.actor || currentUser?.name || 'Administrator';
+    const actorCode = actorMeta.actorCode || currentUser?.employeeCode || '';
+    const actorId = actorMeta.actorId || currentUser?._id || '';
     const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
+    const payload = {
+      status,
+      lastActionBy: actorLabel,
+      lastActionById: actorId,
+      lastActionByCode: actorCode,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (status === 'resolved') {
+      payload.resolvedBy = actorLabel;
+      payload.resolvedById = actorId;
+      payload.resolvedByCode = actorCode;
+      payload.resolvedAt = new Date().toISOString();
+    } else if (status === 'closed') {
+      payload.closedBy = actorLabel;
+      payload.closedById = actorId;
+      payload.closedByCode = actorCode;
+      payload.closedAt = new Date().toISOString();
+    } else if (status === 'open' || status === 'in_progress') {
+      payload.reopenedBy = actorLabel;
+      payload.reopenedById = actorId;
+      payload.reopenedByCode = actorCode;
+      payload.reopenedAt = new Date().toISOString();
+    }
 
     try {
       await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status, lastActionBy: actorLabel })
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
 
     const currentList = getCollection(KEYS.TICKETS) || [];
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
     if (idx !== -1) {
-      currentList[idx].status = status;
-      currentList[idx].lastActionBy = actorLabel;
-      currentList[idx].lastActionById = currentUser?._id;
-      currentList[idx].updatedAt = new Date().toISOString();
+      Object.assign(currentList[idx], payload);
       saveCollection(KEYS.TICKETS, currentList);
       setTickets([...currentList]);
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TICKETS } }));
@@ -1865,18 +1888,35 @@ const stripHeavyMediaForStorage = (convs = []) => {
     }
   };
 
-  const assignTicket = async (ticketId, employeeId) => {
+  const assignTicket = async (ticketId, employeeId, actorMeta = {}) => {
+    const actorName = actorMeta.actor || currentUser?.name || 'Administrator';
+    const actorCode = actorMeta.actorCode || currentUser?.employeeCode || '';
+    const actorId = actorMeta.actorId || currentUser?._id || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
     const currentList = getCollection(KEYS.TICKETS) || [];
     const idx = currentList.findIndex(t => String(t._id) === String(ticketId) || String(t.ticketCode) === String(ticketId));
-    const emp = employees.find(e => String(e._id) === String(employeeId));
+    const emp = employees.find(e => String(e._id) === String(employeeId) || String(e.employeeCode) === String(employeeId));
     if (idx !== -1 && emp) {
-      currentList[idx].assignedToId = emp._id;
-      currentList[idx].assignedToName = emp.name;
+      const payload = {
+        assignedTo: emp._id,
+        assignedToId: emp._id,
+        assignedToName: emp.name,
+        assignedBy: actorLabel,
+        assignedById: actorId,
+        assignedByCode: actorCode,
+        assignedAt: new Date().toISOString(),
+        lastActionBy: actorLabel,
+        lastActionById: actorId,
+        lastActionByCode: actorCode,
+        updatedAt: new Date().toISOString()
+      };
+      Object.assign(currentList[idx], payload);
       try {
         await fetch(`${API_BASE}/tickets/${ticketId}`, {
           method: 'PUT',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ assignedTo: emp._id, assignedToId: emp._id, assignedToName: emp.name })
+          body: JSON.stringify(payload)
         });
       } catch (_) {}
       saveCollection(KEYS.TICKETS, currentList);
@@ -2505,9 +2545,20 @@ const stripHeavyMediaForStorage = (convs = []) => {
   };
 
   const updateNotice = async (noticeId, updateData) => {
+    const actorName = currentUser?.name || 'Administrator';
+    const actorCode = currentUser?.employeeCode || '';
+    const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
+
+    const payload = {
+      ...updateData,
+      lastActionBy: actorLabel,
+      lastActionById: currentUser?._id,
+      lastActionByCode: actorCode,
+      updatedAt: new Date().toISOString()
+    };
+    delete payload._id;
+
     try {
-      const payload = { ...updateData };
-      delete payload._id;
       await fetch(`${API_BASE}/notices/${noticeId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -2520,8 +2571,7 @@ const stripHeavyMediaForStorage = (convs = []) => {
     if (idx !== -1) {
       currentList[idx] = {
         ...currentList[idx],
-        ...updateData,
-        updatedAt: new Date().toISOString()
+        ...payload
       };
       saveCollection(KEYS.NOTICES, currentList);
       setNotices([...currentList]);

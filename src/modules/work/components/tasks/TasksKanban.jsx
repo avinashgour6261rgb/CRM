@@ -276,6 +276,26 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
                       {task.isUntimed ? '⚡ Open Duration' : (task.hasNoDueDate ? 'No Due Date' : `Due: ${task.dueDate || 'N/A'}`)}
                     </div>
                   </div>
+
+                  {/* Quick Kanban Column / Status Switcher */}
+                  <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                    <span className="text-[10px] text-slate-400 font-medium">Status:</span>
+                    <select
+                      value={task.status || 'incomplete'}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => {
+                        e.stopPropagation();
+                        changeTaskStatus(task._id, e.target.value);
+                      }}
+                      className="text-[10.5px] font-bold py-0.5 px-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+                    >
+                      <option value="incomplete">Incomplete</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="on_hold">On Hold</option>
+                      <option value="under_review">Under Review</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
                 </div>
               );
             })}

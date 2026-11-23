@@ -66,6 +66,10 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    const giverName = currentUser?.name || 'Administrator';
+    const giverCode = currentUser?.employeeCode || '';
+    const giverLabel = giverCode ? `${giverName} (${giverCode})` : giverName;
+
     await addAppreciation({
       givenTo: selectedEmp._id,
       givenToId: String(selectedEmp._id),
@@ -75,9 +79,10 @@ export const AddAppreciationModal = ({ isOpen, onClose }) => {
       awardName: formData.awardName,
       awardBadgeIcon: formData.awardBadgeIcon,
       givenOn: formData.givenOn,
-      givenBy: currentUser?._id,
+      givenBy: giverLabel,
       givenById: currentUser?._id ? String(currentUser._id) : '',
-      givenByName: currentUser?.name || 'Administrator',
+      givenByCode: giverCode,
+      givenByName: giverLabel,
       rewardPointsOrCash: formData.rewardPointsOrCash,
       appreciationNote: formData.appreciationNote
     });

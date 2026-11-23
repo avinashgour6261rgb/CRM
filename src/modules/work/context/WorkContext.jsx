@@ -2154,33 +2154,50 @@ export const WorkProvider = ({ children }) => {
         }
       }
 
+      const isReopening = status !== 'completed' && (targetTask?.status === 'completed' || !!targetTask?.completedAt);
       const actorName = currentUser?.name || 'Administrator';
       const actorCode = currentUser?.employeeCode || '';
       const actorLabel = actorCode ? `${actorName} (${actorCode})` : actorName;
       const statusHistory = {
         id: `hist_${Date.now()}_status`,
-        action: 'status_changed',
-        title: `Status Changed to ${status.replace('_', ' ').toUpperCase()}`,
+        action: isReopening ? 'reopened' : 'status_changed',
+        title: isReopening ? 'Task Reopened' : `Status Changed to ${status.replace('_', ' ').toUpperCase()}`,
         timestamp: new Date().toISOString(),
         performedBy: actorLabel,
         performedById: currentUser?._id,
         performedByCode: actorCode,
         fromStatus: targetTask?.status || 'unknown',
         toStatus: status,
-        details: `Task status changed to "${status.replace('_', ' ').toUpperCase()}" by ${actorLabel}`
+        details: isReopening
+          ? `Task reopened from Completed to ${status.replace('_', ' ').toUpperCase()} by ${actorLabel}`
+          : `Task status changed to "${status.replace('_', ' ').toUpperCase()}" by ${actorLabel}`
       };
 
       const updatedHistory = Array.isArray(targetTask?.history) ? [...targetTask.history, statusHistory] : [statusHistory];
 
+      const statusPayload = {
+        status,
+        history: updatedHistory,
+        lastActionBy: actorLabel
+      };
+      if (isReopening) {
+        statusPayload.completedAt = null;
+        statusPayload.completedOn = null;
+        statusPayload.completedBy = null;
+        statusPayload.completedById = null;
+        statusPayload.completedByCode = null;
+        statusPayload.progress = targetTask?.progress === 100 ? 50 : (targetTask?.progress || 0);
+      }
+
       // Save to localStorage collection immediately
       const updatedAll = allTasks.map(t =>
-        String(t._id || t.id) === String(id) ? { ...t, status, history: updatedHistory, lastActionBy: actorLabel } : t
+        String(t._id || t.id) === String(id) ? { ...t, ...statusPayload } : t
       );
       saveCollection(KEYS.TASKS, updatedAll);
 
       await workService.updateTaskStatus(id, status);
-      await workService.updateTask(id, { status, history: updatedHistory, lastActionBy: actorLabel });
-      addToast(`Task status changed to ${status.replace('_', ' ').toUpperCase()}`, 'success');
+      await workService.updateTask(id, statusPayload);
+      addToast(isReopening ? 'Task reopened successfully!' : `Task status changed to ${status.replace('_', ' ').toUpperCase()}`, 'success');
       await loadWorkData();
     } catch (err) {
       addToast('Failed to change task status', 'error');

@@ -282,6 +282,7 @@ exports.updateTaskStatus = async (req, res, next) => {
     const update = { status };
     if (status === 'completed') {
       update.completedOn = getIstDateString();
+      update.completedAt = new Date().toISOString();
       update.timerRunning = false;
       update.startedAt = null;
       update.activeWorkerId = null;
@@ -290,6 +291,9 @@ exports.updateTaskStatus = async (req, res, next) => {
       update.activeWorkerRole = null;
       update.activeUserId = null;
       update.activeUserName = null;
+      if (req.body.completedBy !== undefined) update.completedBy = req.body.completedBy;
+      if (req.body.completedById !== undefined) update.completedById = req.body.completedById;
+      if (req.body.completedByCode !== undefined) update.completedByCode = req.body.completedByCode;
       if (req.body.timerSeconds !== undefined) update.timerSeconds = req.body.timerSeconds;
       if (req.body.durationSeconds !== undefined) update.durationSeconds = req.body.durationSeconds;
       if (req.body.hoursLogged !== undefined) update.hoursLogged = req.body.hoursLogged;
@@ -298,6 +302,12 @@ exports.updateTaskStatus = async (req, res, next) => {
       if (req.body.accumulatedTodaySeconds !== undefined) update.accumulatedTodaySeconds = req.body.accumulatedTodaySeconds;
       if (req.body.accumulatedSeconds !== undefined) update.accumulatedSeconds = req.body.accumulatedSeconds;
       if (req.body.dailySessions !== undefined) update.dailySessions = req.body.dailySessions;
+    } else {
+      update.completedOn = null;
+      update.completedAt = null;
+      update.completedBy = null;
+      update.completedById = null;
+      update.completedByCode = null;
     }
 
     let task = null;
