@@ -470,6 +470,29 @@ if (typeof window !== 'undefined') {
   subscribeSocketEvent('holiday:updated', (data) => applySingleItemMutation(KEYS.HOLIDAYS, data));
   subscribeSocketEvent('appreciation:updated', (data) => applySingleItemMutation(KEYS.APPRECIATIONS, data));
   subscribeSocketEvent('employee:updated', (data) => applySingleItemMutation(KEYS.EMPLOYEES, data, 'employeeCode'));
+  subscribeSocketEvent('employees:updated', (data) => {
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES, remote: true } }));
+    window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.EMPLOYEES, action: 'update' } }));
+  });
+  subscribeSocketEvent('attendance:updated', (data) => {
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
+    window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.ATTENDANCE, action: 'update' } }));
+  });
+  subscribeSocketEvent('attendance:deleted', (data) => {
+    try {
+      if (!data?.id) return;
+      const raw = localStorage.getItem(KEYS.ATTENDANCE);
+      if (raw) {
+        let list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const next = list.filter(a => String(a._id || a.id) !== String(data.id));
+          localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(next));
+          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE, remote: true } }));
+          window.dispatchEvent(new CustomEvent('ems_remote_sync', { detail: { key: KEYS.ATTENDANCE, action: 'delete' } }));
+        }
+      }
+    } catch (_) {}
+  });
   subscribeSocketEvent('document:updated', (data) => {
     window.dispatchEvent(new CustomEvent('ems_documents_updated', { detail: data || {} }));
   });

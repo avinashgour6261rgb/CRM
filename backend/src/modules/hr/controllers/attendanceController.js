@@ -556,6 +556,15 @@ const deleteAttendanceRecord = asyncHandler(async (req, res) => {
   }
   const record = await Attendance.findByIdAndDelete(req.params.id);
   if (!record) return res.status(404).json({ success: false, message: 'Attendance record not found' });
+  try {
+    const { emitToAll } = require('../../../shared/socket/socketManager');
+    emitToAll('attendance:deleted', {
+      id: String(record._id),
+      employeeId: String(record.employee || record.employeeId || ''),
+      employeeCode: record.employeeCode,
+      date: record.date
+    });
+  } catch (_) {}
   res.json({ success: true, message: 'Record deleted', data: {} });
 });
 
