@@ -122,22 +122,20 @@ exports.createTimesheet = async (req, res, next) => {
           ].filter(Boolean)
         });
         if (taskAssignee) {
-          // If the task has an assignee, strictly assign the timesheet to the task assignee,
-          // NEVER letting an admin action overwrite employee timesheets with Admin's identity!
           const realAssigneeId = taskAssignee.assignedToId || (taskAssignee.assignedTo ? taskAssignee.assignedTo.toString() : '');
           const realAssigneeCode = taskAssignee.assignedToCode || '';
           const realAssigneeName = taskAssignee.assignedToName || '';
 
-          if (realAssigneeId) {
+          if (!payload.employeeId && realAssigneeId) {
             payload.employeeId = realAssigneeId;
           }
-          if (realAssigneeCode) {
+          if (!payload.employeeCode && realAssigneeCode) {
             payload.employeeCode = realAssigneeCode;
           }
-          if (realAssigneeName) {
+          if (!payload.employeeName && realAssigneeName) {
             payload.employeeName = realAssigneeName;
           }
-          if (taskAssignee.assignedTo && mongoose.Types.ObjectId.isValid(taskAssignee.assignedTo)) {
+          if (!payload.employee && taskAssignee.assignedTo && mongoose.Types.ObjectId.isValid(taskAssignee.assignedTo)) {
             payload.employee = taskAssignee.assignedTo;
           }
         }
@@ -299,9 +297,9 @@ exports.stopTimer = async (req, res, next) => {
     const realTaskAssigneeCode = task?.assignedToCode || '';
     const realTaskAssigneeName = task?.assignedToName || '';
 
-    const empId = realTaskAssigneeId || req.body.employeeId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
-    const empCode = realTaskAssigneeCode || req.body.employeeCode || user?.employeeCode || '';
-    const empName = realTaskAssigneeName || req.body.employeeName || user?.name || 'Current User';
+    const empId = req.body.employeeId || realTaskAssigneeId || (user?._id ? user._id.toString() : '') || user?.employeeCode || '';
+    const empCode = req.body.employeeCode || realTaskAssigneeCode || user?.employeeCode || '';
+    const empName = req.body.employeeName || realTaskAssigneeName || user?.name || 'Current User';
     const isTargetingUser = !empId || String(empId) === String(user?._id) || (user?.employeeCode && (String(empCode || empId) === String(user.employeeCode)));
 
     // Check if a timesheet for this task on this date already exists for this employee

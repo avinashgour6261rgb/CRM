@@ -49,6 +49,13 @@ export const TimesheetTable = ({ timesheets: propTimesheets }) => {
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [editingTimesheet, setEditingTimesheet] = useState(null);
 
+  React.useEffect(() => {
+    if (!activeMenuId) return;
+    const handleOutside = () => setActiveMenuId(null);
+    document.addEventListener('click', handleOutside);
+    return () => document.removeEventListener('click', handleOutside);
+  }, [activeMenuId]);
+
   const canDeleteEntry = (entry) => {
     if (!currentUser || !entry) return false;
     if (isPrivileged || currentUser?.isAdmin) return true;

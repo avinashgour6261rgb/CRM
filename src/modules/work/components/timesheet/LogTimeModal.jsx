@@ -148,6 +148,7 @@ export const LogTimeModal = ({ isOpen, onClose }) => {
         projectId,
         projectName,
         employeeId: selectedEmp?._id || '',
+        employeeCode: selectedEmp?.employeeCode || '',
         employeeName: selectedEmp?.name || 'Team Member',
         employeeAvatar: selectedEmp?.avatar || '',
         employeeRole: selectedEmp?.role || '',

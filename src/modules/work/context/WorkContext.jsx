@@ -3145,9 +3145,9 @@ export const WorkProvider = ({ children }) => {
           taskCode: targetTask?.taskCode || 'TSK',
           taskTitle: targetTask?.title || 'Task',
           projectName: targetTask?.projectName || 'General Work',
-          employeeId: targetTask?.assignedToId || (typeof targetTask?.assignedTo === 'string' ? targetTask.assignedTo : targetTask?.assignedTo?._id) || currentUser?._id || userKey,
-          employeeCode: targetTask?.assignedToCode || currentUser?.employeeCode || userKey,
-          employeeName: targetTask?.assignedToName || currentUser?.name || 'User',
+          employeeId: (currentUser?._id || userKey),
+          employeeCode: (currentUser?.employeeCode || userKey),
+          employeeName: (currentUser?.name || targetTask?.assignedToName || 'User'),
           totalDurationSeconds: durationToLog,
           date: todayStr,
           memo: memo || `Work on ${targetTask?.title || 'Task'}`
@@ -3403,9 +3403,9 @@ export const WorkProvider = ({ children }) => {
             projectName: targetTask.projectName,
             totalDurationSeconds: durationToLogToday,
             date: todayStr,
-            employeeId: assignedEmpId,
-            employeeCode: targetTask.assignedToCode || '',
-            employeeName: assignedEmpName,
+            employeeId: isForOtherEmployee ? assignedEmpId : (currentUser?._id || userKey),
+            employeeCode: isForOtherEmployee ? (targetTask.assignedToCode || '') : (currentUser?.employeeCode || ''),
+            employeeName: isForOtherEmployee ? assignedEmpName : (currentUser?.name || assignedEmpName || 'User'),
             memo: customMemo || `Completed task: ${targetTask.title}${isForOtherEmployee ? ` (completed by ${currentUser?.name || 'Admin'})` : ''}`
           });
         } catch (stopErr) {

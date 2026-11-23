@@ -54,14 +54,19 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
   // Compute exact total task work duration strictly from filtered tasks
   const effectiveTaskDurationText = useMemo(() => {
     const totalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
-    if (totalSecs === 0) return '0m';
+    if (totalSecs === 0) {
+      if (dayLog.totalTaskDurationText && dayLog.totalTaskDurationText !== '0s' && dayLog.totalTaskDurationText !== '0m') {
+        return dayLog.totalTaskDurationText;
+      }
+      return '0m';
+    }
     const h = Math.floor(totalSecs / 3600);
     const m = Math.floor((totalSecs % 3600) / 60);
     const s = totalSecs % 60;
     if (h > 0) return `${h}h ${m}m`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
-  }, [tasksWorked]);
+  }, [tasksWorked, dayLog.totalTaskDurationText]);
 
   // Load formal audit trail logs scoped to this specific date and employee
   const dayAudits = useMemo(() => {
@@ -335,13 +340,22 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
           <div className="bg-gradient-to-r from-sky-600 to-sky-700 rounded-xl p-4 sm:px-5 text-white flex items-center justify-between shadow-md shadow-sky-600/25">
             <div>
               <div className="text-[11px] text-sky-100 font-semibold uppercase tracking-wider">
-                Net Productive Shift Duration
+                Daily Work & Shift Duration
               </div>
-              <div className="text-2xl font-extrabold font-mono">
-                {dayLog.shiftDurationText || dayLog.durationText || '0h 0m'}
+              <div className="flex items-baseline gap-3">
+                <div className="text-2xl font-extrabold font-mono">
+                  {effectiveTaskDurationText !== '0m' ? effectiveTaskDurationText : (dayLog.shiftDurationText || dayLog.durationText || '0h 0m')}
+                </div>
+                {effectiveTaskDurationText !== '0m' && (
+                  <span className="text-xs text-sky-200 font-medium">
+                    (Shift: {dayLog.shiftDurationText || dayLog.durationText || '0h 0m'})
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1 text-[11px] text-sky-100 font-medium">
-                <span>Tasks: <strong className="text-white font-bold">{effectiveTaskDurationText}</strong></span>
+                <span>Tasks Logged: <strong className="text-white font-bold">{effectiveTaskDurationText}</strong></span>
+                <span>•</span>
+                <span>Shift Clock: <strong className="text-white font-bold">{dayLog.shiftDurationText || dayLog.durationText || '0h 0m'}</strong></span>
                 <span>•</span>
                 <span>Breaks: <strong className="text-white font-bold">{dayLog.breakDuration || '0m'}</strong></span>
               </div>
@@ -540,7 +554,7 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] font-bold px-1.5 py-[1px] rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                            #{t.taskCode || 'TSK'}
+                            {t.taskCode ? (t.taskCode.startsWith('#') ? t.taskCode : `#${t.taskCode}`) : '#TSK'}
                           </span>
                           <span className="text-[13px] font-bold text-slate-900 dark:text-white">
                             {t.taskTitle}

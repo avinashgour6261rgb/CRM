@@ -2820,9 +2820,14 @@ export const TimerProvider = ({ children }) => {
         return;
       }
 
+      const approverName = currentUser?.name || 'Administrator';
+      const approverLabel = currentUser?.employeeCode ? `${approverName} (${currentUser.employeeCode})` : approverName;
+
       targetReq.status = 'approved';
       targetReq.approvedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      targetReq.reviewedBy = currentUser?.name || 'Admin';
+      targetReq.reviewedBy = approverLabel;
+      targetReq.reviewedById = currentUser?._id;
+      targetReq.reviewedByCode = currentUser?.employeeCode;
 
       localStorage.setItem('ems_reclock_requests', JSON.stringify(list));
       setReclockRequests(list);
@@ -2849,7 +2854,7 @@ export const TimerProvider = ({ children }) => {
       if (idx >= 0) {
         attendance[idx].reclockApproved = true;
         attendance[idx].clockOutTime = null; // reopened
-        attendance[idx].notes = `Re-clock in approved by ${currentUser?.name || 'Admin'}`;
+        attendance[idx].notes = `Re-clock in approved by ${approverLabel}`;
         localStorage.setItem('hrms_attendance', JSON.stringify(attendance));
       }
 
@@ -2883,9 +2888,14 @@ export const TimerProvider = ({ children }) => {
         return;
       }
 
+      const approverName = currentUser?.name || 'Administrator';
+      const approverLabel = currentUser?.employeeCode ? `${approverName} (${currentUser.employeeCode})` : approverName;
+
       targetReq.status = 'rejected';
       targetReq.rejectedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      targetReq.reviewedBy = currentUser?.name || 'Admin';
+      targetReq.reviewedBy = approverLabel;
+      targetReq.reviewedById = currentUser?._id;
+      targetReq.reviewedByCode = currentUser?.employeeCode;
 
       localStorage.setItem('ems_reclock_requests', JSON.stringify(list));
       setReclockRequests(list);
