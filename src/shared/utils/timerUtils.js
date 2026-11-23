@@ -4,6 +4,24 @@
  * for Shift Clock, Active Task Timer, and Attendance State.
  */
 
+export {
+  getLocalDateString,
+  getIstTimeString,
+  getTodayStr,
+  parseTimeToSeconds,
+  formatSecondsToHoursMins,
+  formatSecondsToDigital
+} from './dateUtils';
+
+import {
+  getLocalDateString,
+  getIstTimeString,
+  getTodayStr,
+  parseTimeToSeconds,
+  formatSecondsToHoursMins,
+  formatSecondsToDigital
+} from './dateUtils';
+
 /**
  * Universal canonical timer key resolver.
  * Bridges employeeCode, _id, id, and email so all timer reads/writes map to the same tenant.
@@ -60,45 +78,7 @@ export const getTimerMirrorKeys = (user) => {
   return Array.from(keys);
 };
 
-/**
- * Parses any time string ("09:30 AM", "18:30:00", "09:30", "9:30am") into seconds from midnight.
- *
- * @param {string} str - Time string
- * @returns {number} Seconds from midnight
- */
-export const parseTimeToSeconds = (str) => {
-  if (!str) return 0;
-  const m = String(str).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
-  if (!m) return 0;
-  let h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  const sec = parseInt(m[3] || '0', 10);
-  const ampm = (m[4] || '').toUpperCase();
-  if (ampm === 'PM' && h < 12) h += 12;
-  if (ampm === 'AM' && h === 12) h = 0;
-  return h * 3600 + min * 60 + sec;
-};
 
-/**
- * Formats seconds into human readable duration: "Xh Ym"
- */
-export const formatSecondsToHoursMins = (secs = 0) => {
-  const safeSecs = Math.max(0, Math.floor(Number(secs) || 0));
-  const h = Math.floor(safeSecs / 3600);
-  const m = Math.floor((safeSecs % 3600) / 60);
-  return `${h}h ${m}m`;
-};
-
-/**
- * Formats seconds into digital timer display: "HH:MM:SS"
- */
-export const formatSecondsToDigital = (secs = 0) => {
-  const safeSecs = Math.max(0, Math.floor(Number(secs) || 0));
-  const h = Math.floor(safeSecs / 3600);
-  const m = Math.floor((safeSecs % 3600) / 60);
-  const s = safeSecs % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-};
 
 /**
  * Canonical Non-Overlapping Punch Session Normalizer.
@@ -216,10 +196,7 @@ export const removeTimerStorage = (user, subKey) => {
   }
 };
 
-import { API_BASE } from '../config/apiConfig.js';
-import { hrService } from '../../modules/hr/services/hrService.js';
-import { workService } from '../../modules/work/services/workService.js';
-import { broadcastSyncEvent, SYNC_EVENTS } from '../services/realtimeSyncService.js';
+
 
 /**
  * Single Source of Truth: Calculate shift work seconds for an employee on a given date.
@@ -633,31 +610,7 @@ export const calculateAutoOvertimeSeconds = ({
   }
 };
 
-/**
- * Canonical format for local calendar date YYYY-MM-DD.
- * Strictly immune to UTC offset skew / midnight rollover bugs.
- */
-export const getLocalDateString = (d = new Date()) => {
-  const dateObj = d instanceof Date ? d : new Date(d);
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
-/**
- * Returns canonical hh:mm A time string in IST (India Standard Time, UTC+5:30).
- * Prevents UTC skew bugs across client browsers, cloud previews, and servers.
- */
-export const getIstTimeString = (d = new Date()) => {
-  const dateObj = d instanceof Date ? d : new Date(d);
-  return dateObj.toLocaleTimeString('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-};
 
 /**
  * Single Source of Truth: Calculate task today seconds for any task on a given date.
@@ -1123,22 +1076,27 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
 
       if (matchedRecord) {
         try {
-          hrService.markAttendance({
-            ...matchedRecord,
-            employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
-            employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
-            status: matchedRecord.status || 'present'
-          }).catch(() => { });
+          import('../../modules/hr/services/hrService.js').then(mod => {
+            const hr = mod?.hrService;
+            if (hr) {
+              hr.markAttendance({
+                ...matchedRecord,
+                employee: matchedRecord.employee || matchedRecord.employeeId || mirrorKeys[0],
+                employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
+                status: matchedRecord.status || 'present'
+              }).catch(() => { });
 
-          hrService.sendHeartbeat({
-            employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
-            employeeCode: matchedRecord.employeeCode || user.employeeCode,
-            employeeName: matchedRecord.employeeName || user.name,
-            isClockedIn: false,
-            clockOutTime: timeStr,
-            clockOutTimestamp: nowTs,
-            workSeconds: finalVerifiedWorkSecs,
-            activeTask: null
+              hr.sendHeartbeat({
+                employeeId: matchedRecord.employeeId || matchedRecord.employee || mirrorKeys[0],
+                employeeCode: matchedRecord.employeeCode || user.employeeCode,
+                employeeName: matchedRecord.employeeName || user.name,
+                isClockedIn: false,
+                clockOutTime: timeStr,
+                clockOutTimestamp: nowTs,
+                workSeconds: finalVerifiedWorkSecs,
+                activeTask: null
+              }).catch(() => { });
+            }
           }).catch(() => { });
         } catch (_) { }
       }
@@ -1197,37 +1155,41 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
         window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_tasks' } }));
 
         // Async update tasks in MongoDB backend so remote clients see timerRunning: false
-        tasksToUpdateBackend.forEach(pt => {
-          if (pt && (pt._id || pt.id)) {
-            workService.updateTask(pt._id || pt.id, {
-              timerRunning: false,
-              startedAt: null,
-              accumulatedSeconds: pt.accumulatedSeconds,
-              timerSeconds: pt.timerSeconds,
-              todayWorkSeconds: pt.todayWorkSeconds,
-              dailySessions: pt.dailySessions,
-              sessionDate: pt.sessionDate,
-              wasPausedForClockOut: true
-            }).catch(() => { });
-          }
-        });
-      }
+        import('../../modules/work/services/workService.js').then(mod => {
+          const ws = mod?.workService;
+          if (ws) {
+            tasksToUpdateBackend.forEach(pt => {
+              if (pt && (pt._id || pt.id)) {
+                ws.updateTask(pt._id || pt.id, {
+                  timerRunning: false,
+                  startedAt: null,
+                  accumulatedSeconds: pt.accumulatedSeconds,
+                  timerSeconds: pt.timerSeconds,
+                  todayWorkSeconds: pt.todayWorkSeconds,
+                  dailySessions: pt.dailySessions,
+                  sessionDate: pt.sessionDate,
+                  wasPausedForClockOut: true
+                }).catch(() => { });
+              }
+            });
 
-      // Also ensure pausedActiveTimer taskId is synced to backend
-      if (pausedActiveTimer && pausedActiveTimer.taskId) {
-        const alreadyUpdated = tasksToUpdateBackend.some(pt => String(pt._id || pt.id) === String(pausedActiveTimer.taskId));
-        if (!alreadyUpdated) {
-          workService.updateTask(pausedActiveTimer.taskId, {
-            timerRunning: false,
-            startedAt: null,
-            accumulatedSeconds: pausedActiveTimer.accumulatedSeconds,
-            timerSeconds: pausedActiveTimer.timerSeconds,
-            todayWorkSeconds: pausedActiveTimer.todayWorkSeconds,
-            dailySessions: pausedActiveTimer.dailySessions,
-            sessionDate: pausedActiveTimer.sessionDate,
-            wasPausedForClockOut: true
-          }).catch(() => { });
-        }
+            if (pausedActiveTimer && pausedActiveTimer.taskId) {
+              const alreadyUpdated = tasksToUpdateBackend.some(pt => String(pt._id || pt.id) === String(pausedActiveTimer.taskId));
+              if (!alreadyUpdated) {
+                ws.updateTask(pausedActiveTimer.taskId, {
+                  timerRunning: false,
+                  startedAt: null,
+                  accumulatedSeconds: pausedActiveTimer.accumulatedSeconds,
+                  timerSeconds: pausedActiveTimer.timerSeconds,
+                  todayWorkSeconds: pausedActiveTimer.todayWorkSeconds,
+                  dailySessions: pausedActiveTimer.dailySessions,
+                  sessionDate: pausedActiveTimer.sessionDate,
+                  wasPausedForClockOut: true
+                }).catch(() => { });
+              }
+            }
+          }
+        }).catch(() => { });
       }
     }
   } catch (_) { }
@@ -1249,23 +1211,29 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
   window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: 'ems_auth_session' } }));
 
   try {
-    broadcastSyncEvent(SYNC_EVENTS.SHIFT_CLOCKED_OUT, clockOutPayload);
-    const taskToBroadcast = pausedActiveTimer || pausedTaskRecord;
-    if (taskToBroadcast) {
-      broadcastSyncEvent(SYNC_EVENTS.TASK_TIMER_PAUSED, {
-        taskId: taskToBroadcast.taskId || taskToBroadcast._id || taskToBroadcast.id,
-        taskCode: taskToBroadcast.taskCode || '',
-        taskTitle: taskToBroadcast.title || '',
-        empKey: mirrorKeys[0],
-        employeeId: user._id,
-        employeeCode: user.employeeCode,
-        accumulatedSeconds: Number(taskToBroadcast.accumulatedSeconds || taskToBroadcast.timerSeconds || 0),
-        todayWorkSeconds: Number(taskToBroadcast.todayWorkSeconds || taskToBroadcast.accumulatedTodaySeconds || 0),
-        accumulatedTodaySeconds: Number(taskToBroadcast.accumulatedTodaySeconds || taskToBroadcast.todayWorkSeconds || 0),
-        dailySessions: taskToBroadcast.dailySessions || {},
-        reason: 'Shift Clock Out'
-      });
-    }
+    import('../services/realtimeSyncService.js').then(mod => {
+      const bse = mod?.broadcastSyncEvent;
+      const se = mod?.SYNC_EVENTS;
+      if (bse && se) {
+        bse(se.SHIFT_CLOCKED_OUT, clockOutPayload);
+        const taskToBroadcast = pausedActiveTimer || pausedTaskRecord;
+        if (taskToBroadcast) {
+          bse(se.TASK_TIMER_PAUSED, {
+            taskId: taskToBroadcast.taskId || taskToBroadcast._id || taskToBroadcast.id,
+            taskCode: taskToBroadcast.taskCode || '',
+            taskTitle: taskToBroadcast.title || '',
+            empKey: mirrorKeys[0],
+            employeeId: user._id,
+            employeeCode: user.employeeCode,
+            accumulatedSeconds: Number(taskToBroadcast.accumulatedSeconds || taskToBroadcast.timerSeconds || 0),
+            todayWorkSeconds: Number(taskToBroadcast.todayWorkSeconds || taskToBroadcast.accumulatedTodaySeconds || 0),
+            accumulatedTodaySeconds: Number(taskToBroadcast.accumulatedTodaySeconds || taskToBroadcast.todayWorkSeconds || 0),
+            dailySessions: taskToBroadcast.dailySessions || {},
+            reason: 'Shift Clock Out'
+          });
+        }
+      }
+    }).catch(() => { });
   } catch (_) { }
 };
 

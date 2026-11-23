@@ -13,7 +13,7 @@ import { getCollection, saveCollection, KEYS, initStorage } from '../../../share
 import { API_BASE, getAuthHeaders as buildJwtAuthHeaders } from '../../../shared/config/apiConfig';
 import { holidaySyncService } from './holidaySyncService';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
-import { getLocalDateString, getIstTimeString } from '../../../shared/utils/timerUtils';
+import { getLocalDateString, getIstTimeString } from '../../../shared/utils/dateUtils';
 
 // Ensure storage is initialized
 initStorage();
