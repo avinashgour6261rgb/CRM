@@ -84,9 +84,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
     }
   }, [task?.accumulatedSeconds, task?.timerSeconds, task?.hoursLogged]);
 
-  if (!task) return null;
-
-  const userCanDelete = canDeleteTask(currentUser, task);
+  // Hook must be called unconditionally before any early return (Strict React Hook Rules #310)
   const userCanEdit = React.useMemo(() => {
     if (!currentUser || !task) return false;
     if (canEditAnyTask(currentUser)) return true;
@@ -95,6 +93,10 @@ export const TaskDetailModal = ({ task, onClose }) => {
     const creatorIds = [task.assignedById, task.assignedByCode, task.createdById, task.createdBy].filter(Boolean).map(s => String(s).toLowerCase());
     return creatorIds.includes(myId) || creatorIds.includes(myCode);
   }, [currentUser, task]);
+
+  if (!task) return null;
+
+  const userCanDelete = canDeleteTask(currentUser, task);
 
   const handleReassign = async (newEmpId) => {
     const newAssignee = employees.find(e => e._id === newEmpId);

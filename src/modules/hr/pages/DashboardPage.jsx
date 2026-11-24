@@ -3892,20 +3892,26 @@ export const DashboardPage = () => {
         />
       )}
 
-      <DayTimeLogModal
-        dayLog={activeDayLogData}
-        onClose={() => setDayLogModalParams(null)}
-      />
+      {activeDayLogData && (
+        <DayTimeLogModal
+          dayLog={activeDayLogData}
+          onClose={() => setDayLogModalParams(null)}
+        />
+      )}
 
-      <TaskDetailModal
-        task={selectedTask}
-        onClose={() => setSelectedTask(null)}
-      />
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
 
-      <ProjectDetailModal
-        project={selectedProject}
-        onClose={() => setSelectedProject(null)}
-      />
+      {selectedProject && (
+        <ProjectDetailModal
+          project={selectedProject}
+          onClose={() => setSelectedProject(null)}
+        />
+      )}
 
       {isAddTaskOpen && (
         <AddTaskModal

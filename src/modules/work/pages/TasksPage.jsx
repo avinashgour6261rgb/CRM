@@ -577,10 +577,12 @@ export const TasksPage = () => {
       />
 
       {/* Task Detail Modal */}
-      <TaskDetailModal
-        task={selectedTask}
-        onClose={() => setSelectedTask(null)}
-      />
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
 
       {/* Project Task Assignment & Activity History Modal */}
       <ProjectTaskHistoryModal

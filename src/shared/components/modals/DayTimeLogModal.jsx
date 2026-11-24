@@ -31,12 +31,11 @@ import { useModalUX } from '../../hooks/useModalUX';
 export const DayTimeLogModal = ({ dayLog, onClose }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(dayLog) });
 
-  if (!dayLog) return null;
-
   const [activeTab, setActiveTab] = useState('audit'); // 'audit' | 'tasks'
 
   // Strictly filter out synthetic shift syncs so only actual tasks worked are displayed
   const tasksWorked = useMemo(() => {
+    if (!dayLog) return [];
     return (dayLog.tasksWorked || []).filter(t => {
       const isShift = Boolean(
         t.isShiftSync ||
@@ -49,10 +48,11 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
       );
       return !isShift;
     });
-  }, [dayLog.tasksWorked]);
+  }, [dayLog?.tasksWorked]);
 
   // Compute exact total task work duration strictly from filtered tasks
   const effectiveTaskDurationText = useMemo(() => {
+    if (!dayLog) return '0m';
     const totalSecs = tasksWorked.reduce((sum, t) => sum + (Number(t.durationSeconds) || 0), 0);
     if (totalSecs === 0) {
       if (dayLog.totalTaskDurationText && dayLog.totalTaskDurationText !== '0s' && dayLog.totalTaskDurationText !== '0m') {
@@ -66,10 +66,11 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
     if (h > 0) return `${h}h ${m}m`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
-  }, [tasksWorked, dayLog.totalTaskDurationText]);
+  }, [tasksWorked, dayLog?.totalTaskDurationText]);
 
   // Load formal audit trail logs scoped to this specific date and employee
   const dayAudits = useMemo(() => {
+    if (!dayLog) return [];
     try {
       const allAudits = getCollection(KEYS.ATTENDANCE_AUDIT) || [];
       const targetEmpId = dayLog.employeeId ? String(dayLog.employeeId).toLowerCase() : null;
@@ -92,10 +93,11 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
     } catch (e) {
       return [];
     }
-  }, [dayLog.date, dayLog.employeeId, dayLog.employeeCode, dayLog.employeeName]);
+  }, [dayLog?.date, dayLog?.employeeId, dayLog?.employeeCode, dayLog?.employeeName]);
 
   // Comprehensive chronological timeline of punches, breaks, leaves, and admin overrides
   const timelineEvents = useMemo(() => {
+    if (!dayLog) return [];
     const list = [];
     const empName = dayLog.employeeName || 'Employee';
 
@@ -306,6 +308,9 @@ export const DayTimeLogModal = ({ dayLog, onClose }) => {
         };
     }
   };
+
+  if (!dayLog) return null;
+
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-[4px] flex items-center justify-center z-[1000] p-2.5 sm:p-5 animate-fade-in" onClick={handleBackdropClick}>
       <div className="popup-spring bg-white dark:bg-slate-900 rounded-2xl w-full max-w-[620px] max-h-[92vh] sm:max-h-[88vh] overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col" onClick={handleCardClick}>
