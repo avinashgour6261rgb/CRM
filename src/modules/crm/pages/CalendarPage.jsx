@@ -527,15 +527,32 @@ export const CalendarPage = () => {
       // 2. Employee filter (if not 'all')
       if (selectedEmployeeId && selectedEmployeeId !== 'all') {
         const empStr = String(selectedEmployeeId);
+        const selectedEmp = (employees || []).find(e =>
+          String(e._id) === empStr ||
+          String(e.id) === empStr ||
+          String(e.employeeCode) === empStr
+        );
+        const validEmpIds = Array.from(new Set(
+          [empStr, selectedEmp?._id, selectedEmp?.id, selectedEmp?.employeeCode]
+            .filter(Boolean)
+            .map(String)
+        ));
+
         if (ev.type === 'Approved Leave') {
-          const match = ev.employeeId && (String(ev.employeeId) === empStr || String(ev.employeeCode) === empStr);
+          const match = validEmpIds.some(id =>
+            (ev.employeeId && String(ev.employeeId) === id) ||
+            (ev.employeeCode && String(ev.employeeCode) === id)
+          );
           if (!match) return false;
         } else if (ev.isTask) {
-          const taskAssigneeMatch = (ev.assignedToId && String(ev.assignedToId) === empStr) ||
-            (Array.isArray(ev.assignedToIds) && ev.assignedToIds.some(id => String(id) === empStr));
+          const taskAssigneeMatch = validEmpIds.some(id =>
+            (ev.assignedToId && String(ev.assignedToId) === id) ||
+            (Array.isArray(ev.assignedToIds) && ev.assignedToIds.some(tId => String(tId) === id))
+          );
           if (!taskAssigneeMatch) return false;
         } else if (ev.type === 'Shift Schedule') {
-          if (ev.employeeId && String(ev.employeeId) !== empStr) return false;
+          const shiftMatch = validEmpIds.some(id => ev.employeeId && String(ev.employeeId) === id);
+          if (!shiftMatch) return false;
         }
       }
 
@@ -600,7 +617,7 @@ export const CalendarPage = () => {
 
       return matchesSearch;
     });
-  }, [allEvents, search, eventTypeFilter, showShifts, selectedEmployeeId, clientFilter]);
+  }, [allEvents, search, eventTypeFilter, showShifts, selectedEmployeeId, clientFilter, employees]);
 
   // Navigation handlers
   const handlePrevMonth = () => {

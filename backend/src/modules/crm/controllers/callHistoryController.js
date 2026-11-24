@@ -200,13 +200,32 @@ exports.getScreenShareHistory = async (req, res) => {
     const filter = {};
     if (conversationId) {
       filter.conversationId = conversationId;
-    } else if (req.user && !req.user.isAdmin && req.user.role !== 'Administrator') {
+    }
+
+    if (req.user && !req.user.isAdmin && req.user.role !== 'Administrator') {
       const myId = String(req.user._id || req.user.id || req.user.employeeCode);
-      filter.$or = [
-        { 'host.id': myId },
-        { 'host._id': myId },
-        { isChannel: true }
-      ];
+      const userCondition = {
+        $or: [
+          { 'host.id': myId },
+          { 'host._id': myId },
+          { 'host.employeeCode': myId },
+          { 'viewers.id': myId },
+          { 'viewers._id': myId },
+          { 'participants.id': myId },
+          { 'participants._id': myId },
+          { isChannel: true }
+        ]
+      };
+
+      if (filter.conversationId) {
+        filter.$and = [
+          { conversationId: filter.conversationId },
+          userCondition
+        ];
+        delete filter.conversationId;
+      } else {
+        Object.assign(filter, userCondition);
+      }
     }
 
     const screens = await ScreenShareLog.find(filter)
