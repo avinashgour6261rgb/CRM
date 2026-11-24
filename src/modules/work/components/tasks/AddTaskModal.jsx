@@ -150,13 +150,35 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const selectAssignee = (empId) => {
+  const toggleAssignee = (empId) => {
     const idStr = String(empId || '');
-    setFormData(prev => ({
-      ...prev,
-      assignedToId: String(prev.assignedToId || '') === idStr ? '' : idStr,
-      assignedToIds: String(prev.assignedToId || '') === idStr ? [] : [idStr]
-    }));
+    setFormData(prev => {
+      const currentIds = Array.isArray(prev.assignedToIds) && prev.assignedToIds.length > 0
+        ? [...prev.assignedToIds]
+        : (prev.assignedToId ? [String(prev.assignedToId)] : []);
+      const exists = currentIds.some(id => String(id) === idStr);
+      const nextIds = exists
+        ? currentIds.filter(id => String(id) !== idStr)
+        : [...currentIds, idStr];
+      return {
+        ...prev,
+        assignedToIds: nextIds,
+        assignedToId: nextIds[0] || ''
+      };
+    });
+  };
+
+  const removeAssignee = (empId) => {
+    const idStr = String(empId || '');
+    setFormData(prev => {
+      const currentIds = Array.isArray(prev.assignedToIds) ? prev.assignedToIds : [];
+      const nextIds = currentIds.filter(id => String(id) !== idStr);
+      return {
+        ...prev,
+        assignedToIds: nextIds,
+        assignedToId: nextIds[0] || ''
+      };
+    });
   };
 
   const handleAssignToMeOnly = () => {
@@ -232,13 +254,13 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         finalProjectCode = 'TASK';
       }
 
-      // Resolve selected assignees
+      // Resolve selected assignees (Supports Multi-Assignee)
       const validEmpList = employees || [];
       const isPersonalTask = taskScope === 'personal';
-      let primaryAssignee = null;
+      let selectedAssigneesList = [];
 
       if (isPersonalTask) {
-        primaryAssignee = validEmpList.find(e =>
+        const selfAssignee = validEmpList.find(e =>
           String(e._id) === String(currentUser?._id) ||
           String(e.id) === String(currentUser?._id) ||
           String(e.employeeCode) === String(currentUser?.employeeCode)
@@ -251,47 +273,62 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
           email: currentUser?.email || '',
           employeeCode: currentUser?.employeeCode || ''
         };
+        selectedAssigneesList = [selfAssignee];
       } else {
-        const targetId = formData.assignedToId || (formData.assignedToIds && formData.assignedToIds[0]);
-        if (!targetId) {
-          addToast('Please select 1 person to assign this task to', 'error');
+        const targetIds = Array.isArray(formData.assignedToIds) && formData.assignedToIds.length > 0
+          ? formData.assignedToIds
+          : (formData.assignedToId ? [formData.assignedToId] : []);
+
+        if (targetIds.length === 0) {
+          addToast('Please select at least 1 person to assign this task to', 'error');
           setSubmitting(false);
           return;
         }
 
-        primaryAssignee = validEmpList.find(e =>
-          String(e._id) === String(targetId) ||
-          String(e.id) === String(targetId) ||
-          String(e.employeeCode) === String(targetId) ||
-          (e.name && e.name.toLowerCase() === String(targetId).toLowerCase())
-        );
-
-        if (!primaryAssignee && currentUser && (
-          String(currentUser._id) === String(targetId) ||
-          String(currentUser.id) === String(targetId) ||
-          String(currentUser.employeeCode) === String(targetId) ||
-          (currentUser.name && currentUser.name.toLowerCase() === String(targetId).toLowerCase())
-        )) {
-          primaryAssignee = currentUser;
-        }
-
-        if (!primaryAssignee) {
-          primaryAssignee = {
+        selectedAssigneesList = targetIds.map(targetId => {
+          let found = validEmpList.find(e =>
+            String(e._id) === String(targetId) ||
+            String(e.id) === String(targetId) ||
+            String(e.employeeCode) === String(targetId) ||
+            (e.name && e.name.toLowerCase() === String(targetId).toLowerCase())
+          );
+          if (!found && currentUser && (
+            String(currentUser._id) === String(targetId) ||
+            String(currentUser.id) === String(targetId) ||
+            String(currentUser.employeeCode) === String(targetId) ||
+            (currentUser.name && currentUser.name.toLowerCase() === String(targetId).toLowerCase())
+          )) {
+            found = currentUser;
+          }
+          return found ? {
+            _id: String(found._id || found.id || targetId),
+            id: String(found._id || found.id || targetId),
+            name: found.name || 'Team Member',
+            avatar: found.avatar || '',
+            role: found.role || 'Team Member',
+            email: found.email || '',
+            employeeCode: String(found.employeeCode || '')
+          } : {
             _id: String(targetId),
             id: String(targetId),
-            name: 'Assigned Member',
+            name: 'Team Member',
             avatar: '',
             role: 'Team Member',
+            email: '',
             employeeCode: String(targetId)
           };
-        }
+        });
       }
 
+      const primaryAssignee = selectedAssigneesList[0];
       const assigneeId = String(primaryAssignee._id || primaryAssignee.id || primaryAssignee.employeeCode || '');
       const assigneeCode = String(primaryAssignee.employeeCode || '');
       const currentUserId = String(currentUser?._id || currentUser?.id || currentUser?.employeeCode || 'admin');
       const currentUserCode = String(currentUser?.employeeCode || '');
-      const allAssigneeIds = [assigneeId, assigneeCode].filter(Boolean);
+      
+      const allAssigneeIds = Array.from(new Set(
+        selectedAssigneesList.flatMap(a => [String(a._id || a.id), String(a.employeeCode || '')]).filter(Boolean)
+      ));
 
       const creatorName = currentUser?.name || 'Administrator';
       const creatorLabel = currentUserCode ? `${creatorName} (${currentUserCode})` : creatorName;
@@ -311,7 +348,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         priority: formData.priority,
         estimatedHours: formData.isUntimed ? 0 : (Number(formData.estimatedHours) || 0),
         description: formData.description.trim(),
-        // 1 Task = 1 Person (Single + Multi-Assignee Architecture)
+        // Multi-Assignee Team Task Architecture
         assignedTo: primaryAssignee._id || primaryAssignee.id || assigneeId,
         assignedToId: assigneeId,
         assignedToCode: assigneeCode,
@@ -320,15 +357,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
         assignedToAvatar: primaryAssignee.avatar || '',
         assignedToRole: primaryAssignee.role || 'Team Member',
         assignedToIds: allAssigneeIds,
-        assignees: [{
-          _id: assigneeId,
-          id: assigneeId,
-          name: primaryAssignee.name,
-          email: primaryAssignee.email || '',
-          avatar: primaryAssignee.avatar || '',
-          role: primaryAssignee.role || 'Team Member',
-          employeeCode: assigneeCode
-        }],
+        assignees: selectedAssigneesList,
         assignedBy: creatorLabel,
         assignedById: currentUserId,
         assignedByCode: currentUserCode,
@@ -348,14 +377,15 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
           performedBy: creatorLabel,
           performedById: currentUserId,
           performedByCode: currentUserCode,
-          details: `Task created and assigned to ${primaryAssignee?.name || 'team member'} by ${creatorLabel}.`
+          details: `Task created and assigned to ${selectedAssigneesList.map(a => a.name).join(', ')} by ${creatorLabel}.`
         }]
       });
 
       if (isPersonalTask) {
         addToast(`Personal task "${formData.title}" added to your queue! (Private)`, 'success');
       } else {
-        addToast(`Task "${formData.title}" assigned to ${primaryAssignee?.name || 'team member'}!`, 'success');
+        const assigneeNames = selectedAssigneesList.map(a => a.name).join(', ');
+        addToast(`Task "${formData.title}" assigned to ${assigneeNames}!`, 'success');
       }
 
       if (onTaskCreated && createdTask) {
@@ -609,14 +639,16 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
                 <div className="flex items-center gap-1.5">
                   <Users size={14} className="text-sky-600 dark:text-sky-400" />
                   <label className="text-xs font-bold text-slate-800 dark:text-slate-200 m-0">
-                    Assign To (1 Person Responsible)
+                    Assign To (1 or More Members)
                   </label>
                   <span className={`text-[10px] font-bold px-1.5 py-[1px] rounded-full ${
-                    formData.assignedToId
+                    (formData.assignedToIds?.length || formData.assignedToId)
                       ? 'text-sky-600 bg-sky-100 dark:bg-sky-950/60 dark:text-sky-400'
                       : 'text-red-600 bg-red-100 dark:bg-red-950/60 dark:text-red-400'
                   }`}>
-                    {formData.assignedToId ? '1 Assigned' : 'Required *'}
+                    {(formData.assignedToIds?.length || (formData.assignedToId ? 1 : 0)) > 0
+                      ? `${formData.assignedToIds?.length || 1} Assigned`
+                      : 'Required *'}
                   </span>
                 </div>
 
@@ -630,7 +662,7 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
                       Assign to Me
                     </button>
                   )}
-                  {formData.assignedToId && (
+                  {(formData.assignedToIds?.length > 0 || formData.assignedToId) && (
                     <button
                       type="button"
                       onClick={handleClearAssignee}
@@ -642,42 +674,47 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
                 </div>
               </div>
 
-              {/* Selected Assignee Chip */}
-              {formData.assignedToId && (() => {
-                const emp = (employees || []).find(e =>
-                  String(e._id) === String(formData.assignedToId) ||
-                  String(e.id) === String(formData.assignedToId) ||
-                  String(e.employeeCode) === String(formData.assignedToId)
-                ) || (currentUser && (
-                  String(currentUser._id) === String(formData.assignedToId) ||
-                  String(currentUser.id) === String(formData.assignedToId) ||
-                  String(currentUser.employeeCode) === String(formData.assignedToId)
-                ) ? currentUser : null);
-                if (!emp) return null;
-                return (
-                  <div className="py-0.5">
-                    <span className="inline-flex items-center gap-1.5 py-[3px] pr-2.5 pl-1.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-300 dark:border-blue-800 rounded-full text-[11.5px] font-bold text-blue-800 dark:text-blue-300 shadow-sm">
-                      <img
-                        src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={emp.name}
-                        className="w-[18px] h-[18px] rounded-full object-cover"
-                      />
-                      <span>{emp.name} ({emp.role || 'Member'})</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClearAssignee();
-                        }}
-                        className="border-0 bg-transparent text-blue-500 hover:text-blue-700 dark:text-blue-400 cursor-pointer px-0.5 flex items-center"
-                        title="Remove assignee"
+              {/* Selected Assignees Multi-Chips */}
+              {((formData.assignedToIds && formData.assignedToIds.length > 0) || formData.assignedToId) && (
+                <div className="flex items-center gap-1.5 flex-wrap py-0.5 max-h-[70px] overflow-y-auto">
+                  {(formData.assignedToIds && formData.assignedToIds.length > 0 ? formData.assignedToIds : [formData.assignedToId]).map(selId => {
+                    const emp = (employees || []).find(e =>
+                      String(e._id) === String(selId) ||
+                      String(e.id) === String(selId) ||
+                      String(e.employeeCode) === String(selId)
+                    ) || (currentUser && (
+                      String(currentUser._id) === String(selId) ||
+                      String(currentUser.id) === String(selId) ||
+                      String(currentUser.employeeCode) === String(selId)
+                    ) ? currentUser : null);
+                    if (!emp) return null;
+                    return (
+                      <span
+                        key={String(selId)}
+                        className="inline-flex items-center gap-1 py-[2.5px] pr-2 pl-1 bg-sky-50 dark:bg-sky-950/50 border border-sky-300 dark:border-sky-800 rounded-full text-[11px] font-bold text-sky-800 dark:text-sky-300 shadow-xs"
                       >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  </div>
-                );
-              })()}
+                        <img
+                          src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                          alt={emp.name}
+                          className="w-4 h-4 rounded-full object-cover shrink-0"
+                        />
+                        <span className="truncate max-w-[120px]">{emp.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeAssignee(selId);
+                          }}
+                          className="border-0 bg-transparent text-sky-600 hover:text-rose-600 dark:text-sky-400 dark:hover:text-rose-400 cursor-pointer p-0 flex items-center ml-0.5"
+                          title={`Remove ${emp.name}`}
+                        >
+                          <X size={11} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Search Input for Employees */}
               <div className="relative">
@@ -703,27 +740,31 @@ export const AddTaskModal = ({ isOpen, onClose, initialProjectId = null, onTaskC
                   })
                   .map(emp => {
                     const empId = String(emp._id || emp.id || emp.employeeCode || '');
-                    const isSelected = String(formData.assignedToId || '') === empId ||
-                      (emp.employeeCode && String(formData.assignedToId || '') === String(emp.employeeCode)) ||
-                      (emp._id && String(formData.assignedToId || '') === String(emp._id));
+                    const isSelected = (formData.assignedToIds || []).some(id =>
+                      String(id) === empId ||
+                      (emp.employeeCode && String(id) === String(emp.employeeCode)) ||
+                      (emp._id && String(id) === String(emp._id))
+                    ) || (formData.assignedToId && (
+                      String(formData.assignedToId) === empId ||
+                      (emp.employeeCode && String(formData.assignedToId) === String(emp.employeeCode)) ||
+                      (emp._id && String(formData.assignedToId) === String(emp._id))
+                    ));
                     const isMe = empId === String(currentUser?._id || currentUser?.id || currentUser?.employeeCode);
                     return (
                       <div
                         key={empId}
-                        onClick={() => selectAssignee(empId)}
+                        onClick={() => toggleAssignee(empId)}
                         className={`flex items-center gap-1.5 px-[7px] py-[5px] rounded-md cursor-pointer transition-all border ${
                           isSelected
                             ? 'border-sky-600 bg-sky-50 dark:bg-sky-950/50'
                             : 'border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/40'
                         }`}
                       >
-                        {/* Radio Selection Indicator */}
-                        <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 bg-white dark:bg-slate-900 border ${
-                          isSelected ? 'border-2 border-sky-600' : 'border border-slate-300 dark:border-slate-600'
+                        {/* Checkbox Selection Indicator */}
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border ${
+                          isSelected ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                         }`}>
-                          {isSelected && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-sky-600" />
-                          )}
+                          {isSelected && <Check size={10} strokeWidth={3} className="text-white" />}
                         </div>
 
                         <img

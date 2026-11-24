@@ -40,6 +40,30 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
   const [showReadReceipts, setShowReadReceipts] = useState(false);
   const [submittingAck, setSubmittingAck] = useState(false);
 
+  // Deduplicate unique readers (handles legacy records where both _id and employeeCode were stored)
+  // MUST be called before any early return to strictly adhere to React Rules of Hooks (#310)
+  const uniqueReadersCount = useMemo(() => {
+    if (!notice) return 0;
+    const rawIds = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
+    const details = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
+    if (details.length > 0) {
+      const set = new Set(details.map(d => String(d.userId || d.userCode || d.userName).toLowerCase()));
+      return set.size;
+    }
+    const matchedEmps = new Set();
+    const allEmps = employees || [];
+    rawIds.forEach(id => {
+      const str = String(id).toLowerCase();
+      const emp = allEmps.find(e => String(e._id).toLowerCase() === str || String(e.employeeCode || '').toLowerCase() === str);
+      if (emp) {
+        matchedEmps.add(String(emp._id));
+      } else {
+        matchedEmps.add(str);
+      }
+    });
+    return matchedEmps.size;
+  }, [notice?.acknowledgedBy, notice?.acknowledgements, employees]);
+
   if (!notice) return null;
 
   const todayStr = getLocalDateString();
@@ -94,28 +118,6 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
       onClose();
     }
   };
-
-  // Deduplicate unique readers (handles legacy records where both _id and employeeCode were stored)
-  const uniqueReadersCount = useMemo(() => {
-    const rawIds = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
-    const details = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
-    if (details.length > 0) {
-      const set = new Set(details.map(d => String(d.userId || d.userCode || d.userName).toLowerCase()));
-      return set.size;
-    }
-    const matchedEmps = new Set();
-    const allEmps = employees || [];
-    rawIds.forEach(id => {
-      const str = String(id).toLowerCase();
-      const emp = allEmps.find(e => String(e._id).toLowerCase() === str || String(e.employeeCode || '').toLowerCase() === str);
-      if (emp) {
-        matchedEmps.add(String(emp._id));
-      } else {
-        matchedEmps.add(str);
-      }
-    });
-    return matchedEmps.size;
-  }, [notice.acknowledgedBy, notice.acknowledgements, employees]);
 
   const totalEmployeesCount = (employees || []).filter(e =>
     !['resigned', 'relieved', 'inactive', 'terminated'].includes(String(e.status || 'active').toLowerCase())

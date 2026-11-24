@@ -13,7 +13,7 @@ export const MonthlyMatrixTable = ({
   canViewAllAttendance = true,
   currentUser: propCurrentUser
 }) => {
-  const { employees, attendance, currentUser: hrUser } = useHR();
+  const { employees, attendance, leaves = [], currentUser: hrUser } = useHR();
   const currentUser = propCurrentUser || hrUser;
   const [activeRecordModal, setActiveRecordModal] = useState(null);
   const [companySettings, setCompanySettings] = useState(() => getCompanySettings());
@@ -196,8 +196,22 @@ export const MonthlyMatrixTable = ({
                     const isFuture = dateStr > todayStr;
 
                     const record = empRecords.find(a => a.date === dateStr);
+                    const approvedLeave = (leaves || []).find(l =>
+                      l.status === 'approved' &&
+                      l.startDate <= dateStr &&
+                      (l.endDate || l.startDate) >= dateStr &&
+                      (
+                        (eId && (String(l.employeeId || l.employee).toLowerCase() === eId || String(l.employeeCode || '').toLowerCase() === eId)) ||
+                        (eCode && (String(l.employeeCode || '').toLowerCase() === eCode || String(l.employeeId || '').toLowerCase() === eCode)) ||
+                        (eName && (l.employeeName || '').toLowerCase().trim() === eName)
+                      )
+                    );
+                    const effectiveRecord = (record && record.status === 'on_leave')
+                      ? record
+                      : (approvedLeave ? { status: 'on_leave', notes: `Approved ${approvedLeave.leaveType || 'Leave'}` } : record);
+
                     // Safe guard: future dates must NEVER show presence/late
-                    const safeRecord = (isFuture && record && record.status !== 'on_leave' && record.status !== 'holiday') ? null : record;
+                    const safeRecord = (isFuture && effectiveRecord && effectiveRecord.status !== 'on_leave' && effectiveRecord.status !== 'holiday') ? null : effectiveRecord;
                     const display = getStatusDisplay(safeRecord, isWeekend, isFuture);
 
                     // Check if matching status filter (case-insensitive and format resilient)

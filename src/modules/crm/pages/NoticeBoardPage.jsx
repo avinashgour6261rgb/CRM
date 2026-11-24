@@ -140,6 +140,54 @@ export const NoticeBoardPage = () => {
     );
   };
 
+  const handleDeleteOne = async (notice, e) => {
+    if (e) e.stopPropagation();
+    if (!canDeleteNotice(currentUser, notice)) {
+      addToast('You do not have permission to delete this notice.', 'warning');
+      return;
+    }
+    const ok = await confirm({
+      title: 'Delete Company Notice',
+      message: `Are you sure you want to permanently delete notice "${notice.title}"? This cannot be undone.`,
+      confirmText: 'Delete Notice',
+      variant: 'danger'
+    });
+    if (ok) {
+      await deleteNotice(notice._id || notice.id);
+      setSelectedIds(prev => prev.filter(id => id !== (notice._id || notice.id)));
+      if (selectedNotice && (selectedNotice._id === notice._id || selectedNotice.id === notice.id)) {
+        setSelectedNotice(null);
+      }
+      addToast('Notice removed successfully', 'info');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const deletableIds = selectedIds.filter(id => {
+      const n = (notices || []).find(item => item._id === id || item.id === id);
+      return n ? canDeleteNotice(currentUser, n) : isPrivileged;
+    });
+
+    if (deletableIds.length === 0) {
+      addToast('You do not have permission to delete the selected notices.', 'warning');
+      return;
+    }
+
+    const ok = await confirm({
+      title: `Delete ${deletableIds.length} Selected Notices`,
+      message: `Are you sure you want to permanently delete ${deletableIds.length} selected company notice(s)? This cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (ok) {
+      for (const id of deletableIds) {
+        await deleteNotice(id);
+      }
+      setSelectedIds([]);
+      addToast(`${deletableIds.length} notice(s) removed successfully`, 'info');
+    }
+  };
+
   const handleExport = () => {
     if (filteredNotices.length === 0) {
       addToast('No notices are available to export for the current filter.', 'info');
@@ -351,6 +399,16 @@ export const NoticeBoardPage = () => {
               className="border-0 outline-none text-xs w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400"
             />
           </div>
+
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1 px-2.5 h-[30px] rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-100 cursor-pointer transition-colors"
+            >
+              <Trash2 size={13} />
+              <span>Delete ({selectedIds.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -496,6 +554,18 @@ export const NoticeBoardPage = () => {
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold" title="Total employees who acknowledged">
                               ({notice.acknowledgedBy?.length || 0} read)
                             </span>
+                          )}
+
+                          {/* Delete Button for Admin / HR / Notice Creator */}
+                          {canDeleteNotice(currentUser, notice) && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteOne(notice, e)}
+                              className="border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 text-rose-600 dark:text-rose-400 rounded px-1.5 py-[3px] cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors flex items-center"
+                              title="Delete this notice"
+                            >
+                              <Trash2 size={11} />
+                            </button>
                           )}
                         </div>
                       </td>

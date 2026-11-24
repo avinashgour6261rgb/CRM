@@ -432,7 +432,7 @@ export const canViewAllTickets = (user) => {
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess === true) return true;
   if (perms?.viewAllTickets === false) return false;
-  return Boolean(perms?.viewAllTickets === true || perms?.manageTickets === true || isAdmin(user) || isDelegationActive(user));
+  return Boolean(perms?.viewAllTickets === true || perms?.manageTickets === true || isAdmin(user) || isHR(user) || isDelegationActive(user));
 };
 
 export const canAccessCRM = (user) => {
@@ -540,7 +540,7 @@ export const canDeleteNotice = (user, notice = null) => {
   const perms = getUserModulePermissions(user);
   if (perms?.allAccess === true) return true;
   if (perms?.postNotices === false || perms?.deleteNotices === false) return false;
-  if (perms?.deleteNotices === true || isAdmin(user) || isDelegationActive(user)) return true;
+  if (perms?.deleteNotices === true || isAdmin(user) || isHR(user) || isDelegationActive(user)) return true;
   if (notice) {
     const uId = String(user._id || user.id || '').toLowerCase().trim();
     const uCode = String(user.employeeCode || '').toLowerCase().trim();

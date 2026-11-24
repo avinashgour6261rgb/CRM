@@ -1657,13 +1657,22 @@ export const DashboardPage = () => {
     return (tickets || []).filter(t => {
       if (!t) return false;
       if (canViewAllTickets(currentUser)) return true;
-      return (
-        (t.requestedById && String(t.requestedById) === String(currentUser?._id)) ||
-        (t.requestedByName && t.requestedByName.toLowerCase() === currentUser?.name?.toLowerCase()) ||
-        (t.requestedBy && t.requestedBy.toLowerCase() === currentUser?.name?.toLowerCase()) ||
-        (t.assignedToId && String(t.assignedToId) === String(currentUser?._id)) ||
-        (t.assignedToName && t.assignedToName.toLowerCase() === currentUser?.name?.toLowerCase())
-      );
+      const uId = String(currentUser?._id || currentUser?.id || '');
+      const uCode = String(currentUser?.employeeCode || '').toLowerCase().trim();
+      const uName = (currentUser?.name || '').toLowerCase().trim();
+      const reqId = String(t.requestedById || '').toLowerCase().trim();
+      const assId = String(t.assignedToId || t.assignedTo || '').toLowerCase().trim();
+      const reqName = String(t.requestedByName || t.requestedBy || '').toLowerCase().trim();
+      const assName = String(t.assignedToName || '').toLowerCase().trim();
+
+      const isRequester = (uId && reqId === uId.toLowerCase()) ||
+        (uCode && reqId === uCode) ||
+        (uName && reqName && (reqName === uName || reqName.includes(uName) || uName.includes(reqName)));
+      const isAssignee = (uId && assId === uId.toLowerCase()) ||
+        (uCode && assId === uCode) ||
+        (uName && assName && (assName === uName || assName.includes(uName) || uName.includes(assName)));
+
+      return isRequester || isAssignee;
     });
   }, [tickets, isUserAdminOrHR, perms.viewAllTickets, currentUser]);
 
@@ -3288,7 +3297,7 @@ export const DashboardPage = () => {
                 onClick={() => setTicketFilterTab('all')}
                 className={`border-none py-1 px-2 rounded text-[11px] font-bold cursor-pointer transition-all duration-150 ${ticketFilterTab === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
-                All ({(tickets || []).length})
+                All ({scopedTickets.length})
               </button>
               <button
                 onClick={() => setTicketFilterTab('open')}
@@ -3876,10 +3885,12 @@ export const DashboardPage = () => {
         />
       )}
 
-      <NoticeDetailModal
-        notice={selectedNotice}
-        onClose={() => setSelectedNotice(null)}
-      />
+      {selectedNotice && (
+        <NoticeDetailModal
+          notice={selectedNotice}
+          onClose={() => setSelectedNotice(null)}
+        />
+      )}
 
       <DayTimeLogModal
         dayLog={activeDayLogData}

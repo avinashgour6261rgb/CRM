@@ -67,19 +67,28 @@ export const TicketsPage = () => {
 
   // Scoped tickets based on Admin / HR privilege and viewAllTickets permission
   const scopedTickets = useMemo(() => {
-    if (canViewAllTickets) return tickets;
-    if (!currentUser) return tickets;
-    const uId = String(currentUser._id || '');
-    const uCode = String(currentUser.employeeCode || '');
+    if (canViewAllTickets) return tickets || [];
+    if (!currentUser) return tickets || [];
+    const uId = String(currentUser._id || currentUser.id || '').toLowerCase().trim();
+    const uCode = String(currentUser.employeeCode || '').toLowerCase().trim();
     const uName = (currentUser.name || '').toLowerCase().trim();
 
-    return tickets.filter(t => {
-      const isRequester = (uId && String(t.requestedById) === uId) ||
-        (uCode && String(t.requestedById) === uCode) ||
-        (uName && t.requestedByName && t.requestedByName.toLowerCase().trim() === uName);
-      const isAssignee = (uId && String(t.assignedToId) === uId) ||
-        (uCode && String(t.assignedToId) === uCode) ||
-        (uName && t.assignedToName && t.assignedToName.toLowerCase().trim() === uName);
+    return (tickets || []).filter(t => {
+      const reqId = String(t.requestedById || t.createdBy || '').toLowerCase().trim();
+      const assId = String(t.assignedToId || t.assignedTo || '').toLowerCase().trim();
+      const reqCode = String(t.requestedByCode || t.createdByCode || '').toLowerCase().trim();
+      const assCode = String(t.assignedToCode || '').toLowerCase().trim();
+      const reqName = String(t.requestedByName || t.requestedBy || t.createdByName || '').toLowerCase().trim();
+      const assName = String(t.assignedToName || '').toLowerCase().trim();
+
+      const isRequester = (uId && reqId === uId) ||
+        (uCode && (reqId === uCode || reqCode === uCode)) ||
+        (uName && reqName && (reqName === uName || reqName.includes(uName) || uName.includes(reqName)));
+
+      const isAssignee = (uId && assId === uId) ||
+        (uCode && (assId === uCode || assCode === uCode)) ||
+        (uName && assName && (assName === uName || assName.includes(uName) || uName.includes(assName)));
+
       return isRequester || isAssignee;
     });
   }, [tickets, canViewAllTickets, currentUser]);
@@ -251,7 +260,14 @@ export const TicketsPage = () => {
       {/* KPI Cards Row (Compact 5-grid) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
         {/* Total Tickets */}
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div
+          onClick={() => setStatusFilter('all')}
+          className={`rounded-[10px] border px-3.5 py-2.5 cursor-pointer transition-all ${
+            statusFilter === 'all'
+              ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400 dark:border-sky-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Total Tickets</span>
             <TicketIcon size={14} className="text-blue-500" />
@@ -262,7 +278,14 @@ export const TicketsPage = () => {
         </div>
 
         {/* Closed Tickets */}
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div
+          onClick={() => setStatusFilter('closed')}
+          className={`rounded-[10px] border px-3.5 py-2.5 cursor-pointer transition-all ${
+            statusFilter === 'closed'
+              ? 'bg-slate-100 dark:bg-slate-800 border-slate-400 dark:border-slate-600 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Closed</span>
             <TicketIcon size={14} className="text-slate-500" />
@@ -273,7 +296,14 @@ export const TicketsPage = () => {
         </div>
 
         {/* Open Tickets */}
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div
+          onClick={() => setStatusFilter('open')}
+          className={`rounded-[10px] border px-3.5 py-2.5 cursor-pointer transition-all ${
+            statusFilter === 'open'
+              ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400 dark:border-sky-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Open</span>
             <TicketIcon size={14} className="text-sky-600" />
@@ -284,7 +314,14 @@ export const TicketsPage = () => {
         </div>
 
         {/* Pending Tickets */}
-        <div className="bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div
+          onClick={() => setStatusFilter('pending')}
+          className={`rounded-[10px] border px-3.5 py-2.5 cursor-pointer transition-all ${
+            statusFilter === 'pending'
+              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Pending</span>
             <TicketIcon size={14} className="text-amber-500" />
@@ -295,7 +332,14 @@ export const TicketsPage = () => {
         </div>
 
         {/* Resolved Tickets */}
-        <div className="col-span-2 sm:col-span-1 bg-white dark:bg-slate-900 rounded-[10px] border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        <div
+          onClick={() => setStatusFilter('resolved')}
+          className={`col-span-2 sm:col-span-1 rounded-[10px] border px-3.5 py-2.5 cursor-pointer transition-all ${
+            statusFilter === 'resolved'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 shadow-xs'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Resolved</span>
             <TicketIcon size={14} className="text-emerald-500" />

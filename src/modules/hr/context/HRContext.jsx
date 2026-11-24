@@ -484,9 +484,8 @@ export const HRProvider = ({ children }) => {
       const approverCode = currentUser?.employeeCode || '';
       const approver = approverCode ? `${approverName} (${approverCode})` : approverName;
       const actionDateFormatted = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      await hrService.updateLeaveStatus(leaveId, status, approver, rejectionReason);
 
-      // Instant React memory update with audit logs
+      // ⚡ 1. Instant React memory update with audit logs (0ms delay!)
       setLeaves(prev => (prev || []).map(l => {
         if (l._id === leaveId || l.id === leaveId) {
           return {
@@ -514,6 +513,9 @@ export const HRProvider = ({ children }) => {
         }
         return l;
       }));
+
+      // ⚡ 2. Instant local and backend sync
+      await hrService.updateLeaveStatus(leaveId, status, approver, rejectionReason);
 
       addToast(
         status === 'approved'

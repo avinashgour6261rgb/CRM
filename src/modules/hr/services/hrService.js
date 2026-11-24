@@ -830,12 +830,14 @@ export const hrService = {
     const leaves = getCollection(KEYS.LEAVES) || [];
     existingTarget = leaves.find(l => String(l._id || l.id) === String(leaveId)) || {};
 
+    // ⚡ Optimistic local state and attendance update immediately (0ms delay!)
+    const targetLeave = { ...existingTarget, status };
+    updateLocalState(targetLeave);
+
     const resData = await fetchWithFallback(`${API_BASE}/leaves/${leaveId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status, approverName, approvedBy: approverName, approverCode, rejectionReason, cancellationReason: rejectionReason })
     }, async () => {
-      const targetLeave = { ...existingTarget, status };
-      updateLocalState(targetLeave);
       return targetLeave;
     });
 
@@ -844,8 +846,10 @@ export const hrService = {
       ? resData.updatedEmployee.leaveBalance
       : null;
 
-    updateLocalState(leaveData || existingTarget, updatedEmpBal);
-    return leaveData;
+    if (updatedEmpBal || (leaveData && leaveData._id)) {
+      updateLocalState(leaveData || targetLeave, updatedEmpBal);
+    }
+    return leaveData || targetLeave;
   },
 
   async acknowledgeLeave(leaveId) {

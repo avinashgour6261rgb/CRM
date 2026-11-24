@@ -92,12 +92,20 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
     return approvers;
   }, [employees, formData.employeeId, activeUser]);
 
-  // Always completely fresh form reset whenever modal is opened
+  // Reset form once when the modal is opened
   useEffect(() => {
     if (isOpen) {
       setFormData(getInitialFormData());
     }
-  }, [isOpen, activeUser, employees]);
+  }, [isOpen]);
+
+  const handleStartDateChange = (val) => {
+    setFormData(prev => ({
+      ...prev,
+      startDate: val,
+      endDate: (!prev.endDate || prev.endDate < val) ? val : prev.endDate
+    }));
+  };
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -325,25 +333,26 @@ export const NewLeaveModal = ({ isOpen, onClose }) => {
         {/* Date Selection Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-200 mb-1.5">
               From Date *
             </label>
             <input
               type="date"
               value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              onChange={(e) => handleStartDateChange(e.target.value)}
               className="filter-input w-full h-10 pl-3 rounded-lg"
               required
             />
           </div>
           <div>
-            <label className="block text-[13px] font-bold text-slate-700 mb-1.5">
+            <label className="block text-[13px] font-bold text-slate-700 dark:text-slate-200 mb-1.5">
               To Date *
             </label>
             <input
               type="date"
               value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+              min={formData.startDate}
+              onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
               className="filter-input w-full h-10 pl-3 rounded-lg"
               required
             />

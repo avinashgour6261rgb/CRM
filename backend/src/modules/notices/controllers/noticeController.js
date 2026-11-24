@@ -115,7 +115,8 @@ exports.deleteNotice = asyncHandler(async (req, res) => {
 
   const u = req.user;
   if (u) {
-    const isAdminOrHR = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || u.isDelegatedAdmin || u.permissions?.allAccess || u.permissions?.deleteNotices;
+    const userRoleLower = (u.role || '').toLowerCase();
+    const isAdminOrHR = u.isAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || userRoleLower === 'admin' || userRoleLower === 'administrator' || userRoleLower.includes('hr') || u.isDelegatedAdmin || u.permissions?.allAccess || u.permissions?.deleteNotices;
     const isCreator =
       String(notice.createdById) === String(u._id) ||
       String(notice.createdById) === String(u.id) ||
