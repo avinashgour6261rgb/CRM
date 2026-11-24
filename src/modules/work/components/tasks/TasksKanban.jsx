@@ -18,6 +18,7 @@ import { useWork } from '../../context/WorkContext';
 import { useAuth } from '../../../../shared/context/AuthContext';
 import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask as checkCanDeleteTask } from '../../../../shared/utils/permissionUtils';
+import { isTaskRunningForUser } from '../../../../shared/utils/timerUtils';
 
 const COLUMNS = [
   {
@@ -90,13 +91,7 @@ export const TasksKanban = ({ tasks: propTasks, onSelectTask }) => {
             {/* Task Cards */}
             <div className="flex flex-col gap-2.5">
               {colTasks.map((task) => {
-                const myId = String(currentUser?._id || '');
-                const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
-                const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
-                const isMyRunning = Boolean(
-                  (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
-                  (!task.activeWorkerId && !task.activeUserId)
-                );
+                const isMyRunning = isTaskRunningForUser(task, currentUser);
                 const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
 
                 return (

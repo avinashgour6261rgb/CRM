@@ -17,7 +17,7 @@ import { OverdueTaskModal } from '../components/tasks/OverdueTaskModal';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 import { isSocketConnected } from '../../../shared/services/socketService';
 import { isHRorAdmin, canDeleteTask, canDeleteProject, isAdmin } from '../../../shared/utils/permissionUtils';
-import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, getTimerMirrorKeys, getTaskTodaySeconds, syncTaskPauseState, calculateShiftWorkSeconds, sanitizeTaskDailySessions, getLocalDateString, isTaskAssignedToUser, isTaskRunningForUser } from '../../../shared/utils/timerUtils';
 
 const defaultWorkContext = {
   projects: [],
@@ -509,18 +509,19 @@ export const WorkProvider = ({ children }) => {
 
         // For current user: ONLY the single active task timer is running!
         let isRunning = false;
+        const isRunningForMe = isTaskRunningForUser(t, currentUser);
         if (isAssignedToMe) {
           if (isRecentPauseAction) {
             isRunning = false;
           } else if (isActive) {
-            isRunning = true;
+            isRunning = isRunningForMe;
           } else {
             // Check if user genuinely started this task on another device AFTER any local pause
             const startNum = Number(t.startedAt || 0);
             const isStartedToday = startNum >= todayMidnightMs;
             const pausedAtTs = Number(activeTimer?.pausedAt || t.pausedAt || 0);
             const isNewerThanPause = !isLocallyPausedSnapshot || (startNum > pausedAtTs + 1000);
-            if (t.timerRunning && isStartedToday && isNewerThanPause) {
+            if (t.timerRunning && isStartedToday && isNewerThanPause && isRunningForMe) {
               isRunning = true;
               isActive = true;
               const baseTodayHydrated = Number(t.dailySessions?.[todayStr] ?? t.accumulatedTodaySeconds ?? 0);
@@ -688,10 +689,7 @@ export const WorkProvider = ({ children }) => {
           t.timerRunning &&
           t.status !== 'completed' &&
           !t.completedAt &&
-          (String(t.activeUserId || '').toLowerCase() === String(userKey).toLowerCase() ||
-           String(t.activeUserId || '').toLowerCase() === String(currentUser?._id || '').toLowerCase() ||
-           String(t.activeUserId || '').toUpperCase() === String(currentUser?.employeeCode || '').toUpperCase() ||
-           (!t.activeUserId && isTaskAssignedToMe(t)))
+          isTaskRunningForUser(t, currentUser)
         );
         const curSnapshot = getActiveTimerSnapshot();
 
@@ -713,13 +711,13 @@ export const WorkProvider = ({ children }) => {
               date: today,
               lastUpdated: Date.now()
             });
-        }
-      } else if (curSnapshot?.timerRunning) {
-        const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId) || (curSnapshot.taskCode && t.taskCode === curSnapshot.taskCode));
-        if (matchTask && !isTaskAssignedToMe(matchTask)) {
-          // CurSnapshot is for a task NOT assigned to me! Clear it immediately to prevent cross-account pollution
-          saveActiveTimerSnapshot(null);
-        } else if (matchTask && !matchTask.timerRunning) {
+          }
+        } else if (curSnapshot?.timerRunning) {
+          const matchTask = cleanMergedTasks.find(t => String(t._id || t.id) === String(curSnapshot.taskId) || (curSnapshot.taskCode && t.taskCode === curSnapshot.taskCode));
+          if (matchTask && (!isTaskAssignedToMe(matchTask) || !isTaskRunningForUser(matchTask, currentUser))) {
+            // CurSnapshot is for a task NOT assigned to me or running by another teammate! Clear it immediately to prevent cross-account pollution
+            saveActiveTimerSnapshot(null);
+          } else if (matchTask && !matchTask.timerRunning) {
           saveActiveTimerSnapshot({
             ...curSnapshot,
             timerRunning: false,
@@ -824,16 +822,13 @@ export const WorkProvider = ({ children }) => {
       t.timerRunning &&
       t.status !== 'completed' &&
       !t.completedAt &&
-      (String(t.activeUserId || '').toLowerCase() === String(userKey).toLowerCase() ||
-       String(t.activeUserId || '').toLowerCase() === String(currentUser?._id || '').toLowerCase() ||
-       String(t.activeUserId || '').toUpperCase() === String(currentUser?.employeeCode || '').toUpperCase() ||
-       (!t.activeUserId && isTaskAssignedToMe(t)))
+      isTaskRunningForUser(t, currentUser)
     );
     if (matched) return matched;
 
     // Direct active timer snapshot fallback
     const activeTimer = getActiveTimerSnapshot();
-    if (activeTimer && activeTimer.timerRunning && activeTimer.status !== 'completed' && !activeTimer.completedAt) {
+    if (activeTimer && activeTimer.timerRunning && activeTimer.status !== 'completed' && !activeTimer.completedAt && isTaskRunningForUser(activeTimer, currentUser)) {
       const matchInTasks = tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId || activeTimer._id));
       if (matchInTasks) {
         return {
@@ -1231,7 +1226,7 @@ export const WorkProvider = ({ children }) => {
 
         const baseToday = Number(detail.dailySessions?.[todayDate] ?? detail.accumulatedTodaySeconds ?? (detail.sessionDate === todayDate ? detail.todayWorkSeconds : 0) ?? 0);
         const baseAccum = Number(detail.accumulatedSeconds ?? detail.timerSeconds ?? 0);
-        if (isTaskAssignedToMe(detail)) {
+        if (isTaskAssignedToMe(detail) && isTaskRunningForUser(detail, currentUser)) {
           saveActiveTimerSnapshot({
             taskId: targetId,
             taskCode: detail.taskCode || 'TSK',
@@ -1264,7 +1259,7 @@ export const WorkProvider = ({ children }) => {
               sessionDate: todayDate
             };
           }
-          if (isTaskAssignedToMe(detail) && isTaskAssignedToMe(t) && t.timerRunning) {
+          if (isTaskAssignedToMe(detail) && isTaskRunningForUser(detail, currentUser) && isTaskAssignedToMe(t) && t.timerRunning) {
             return { ...t, timerRunning: false, startedAt: null };
           }
           return t;
@@ -1496,15 +1491,16 @@ export const WorkProvider = ({ children }) => {
 
           const isAssignedToMe = isTaskAssignedToMe(t);
           const isMyActive = activeTimer && activeTimer.timerRunning && (String(activeTimer.taskId) === tId || String(activeTimer._id) === tId);
+          const isMyRunning = isTaskRunningForUser(t, currentUser);
 
-          if (isAssignedToMe && (!isShiftClockedIn || isShiftOnBreak) && t.timerRunning) {
+          if (isAssignedToMe && (!isShiftClockedIn || isShiftOnBreak) && t.timerRunning && isMyRunning) {
             changed = true;
             return { ...t, timerRunning: false, startedAt: null };
           }
 
           let isTaskRunning = false;
           if (isAssignedToMe) {
-            isTaskRunning = Boolean(isMyActive && isShiftClockedIn && !isShiftOnBreak);
+            isTaskRunning = Boolean(isMyActive && isMyRunning && isShiftClockedIn && !isShiftOnBreak);
           } else {
             // For other employees' tasks: tick live so Admin / Team members see the time moving in real time!
             const isStartedToday = t.startedAt && Number(t.startedAt) >= todayMidnightMs;
@@ -1750,7 +1746,7 @@ export const WorkProvider = ({ children }) => {
       const allTasks = getCollection(KEYS.TASKS) || [];
       const updatedAll = allTasks.map(t => {
         const matchesActive = activeTimer && (String(t._id || t.id) === String(activeTimer.taskId || activeTimer._id));
-        const matchesMe = isTaskAssignedToMe(t);
+        const matchesMe = isTaskAssignedToMe(t) && isTaskRunningForUser(t, currentUser);
         if (matchesActive || (matchesMe && t.timerRunning)) {
           const pausedT = syncTaskPauseState(t, { nowMs: Date.now(), todayStr: today, wasPausedForClockOut: true });
           return pausedT ? { ...t, ...pausedT, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
@@ -1761,7 +1757,7 @@ export const WorkProvider = ({ children }) => {
 
       setTasks(prev => prev.map(t => {
         const matchesActive = activeTimer && (String(t._id || t.id) === String(activeTimer.taskId || activeTimer._id));
-        const matchesMe = isTaskAssignedToMe(t);
+        const matchesMe = isTaskAssignedToMe(t) && isTaskRunningForUser(t, currentUser);
         if (matchesActive || (matchesMe && t.timerRunning)) {
           const pausedT = syncTaskPauseState(t, { nowMs: Date.now(), todayStr: today, wasPausedForClockOut: true });
           return pausedT ? { ...t, ...pausedT, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
@@ -2914,7 +2910,10 @@ export const WorkProvider = ({ children }) => {
       return;
     }
 
-    const assignedEmpId = targetTask.assignedToId ||
+    const activeWorkerId = targetTask.activeWorkerId || targetTask.activeUserId ||
+      (matchesActiveSnap ? (activeTimer?.assignedToId || activeTimer?.userKey) : null);
+    const assignedEmpId = activeWorkerId ||
+      targetTask.assignedToId ||
       (typeof targetTask.assignedTo === 'string' ? targetTask.assignedTo : targetTask.assignedTo?._id) ||
       (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds[0]) ||
       (Array.isArray(targetTask.assignees) && (targetTask.assignees[0]?._id || targetTask.assignees[0]?.employeeCode)) ||
@@ -2960,7 +2959,17 @@ export const WorkProvider = ({ children }) => {
 
     const pausedTask = {
       ...syncTaskPauseState(effectiveTaskForPause, { nowMs: now, todayStr: today, wasPausedForClockOut: false, wasPausedForBreak: false }),
-      pausedAt: now
+      pausedAt: now,
+      timerRunning: false,
+      startedAt: null,
+      activeWorkerId: null,
+      activeWorkerName: null,
+      activeWorkerAvatar: null,
+      activeWorkerRole: null,
+      activeUserId: null,
+      activeUserName: null,
+      lastWorkerId: targetTask.activeWorkerId || targetTask.activeUserId || currentUser?._id,
+      lastWorkerName: targetTask.activeWorkerName || targetTask.activeUserName || currentUser?.name
     };
     const currentSecs = pausedTask.accumulatedSeconds;
     const updatedTodaySecs = pausedTask.todayWorkSeconds;

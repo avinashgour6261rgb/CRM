@@ -1138,7 +1138,8 @@ export const performShiftClockOut = (user, { reason = 'Clock Out', nowTs = Date.
           (Array.isArray(t.assignedToIds) && t.assignedToIds.some(id => userIdentifiers.includes(String(id).toLowerCase()))) ||
           (pausedActiveTimer?.taskId && String(t._id || t.id) === String(pausedActiveTimer.taskId));
 
-        if (isAssigned && t.timerRunning) {
+        const isRunningForUser = isTaskRunningForUser(t, user) || (pausedActiveTimer?.taskId && String(t._id || t.id) === String(pausedActiveTimer.taskId));
+        if (isAssigned && t.timerRunning && isRunningForUser) {
           taskChanged = true;
           const pausedT = syncTaskPauseState(t, { nowMs: nowTs, todayStr: today, wasPausedForClockOut: true });
           if (pausedT) {
@@ -1295,6 +1296,58 @@ export const isTaskAssignedToUser = (task, user) => {
     return true;
   }
   return false;
+};
+
+/**
+ * Canonical check whether a running task is actively being worked on by a specific user.
+ * In multi-assignee tasks, ONLY the specific active worker has the running timer.
+ * Co-assignees see teammate presence without accumulating phantom work seconds.
+ */
+export const isTaskRunningForUser = (task, user) => {
+  if (!task || !user) return false;
+  if (!task.timerRunning) return false;
+
+  const userIds = [
+    user._id,
+    user.id,
+    user.employeeCode,
+    user.email,
+    user.username
+  ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+  const userName = (user.name || '').trim().toLowerCase();
+
+  // 1. Explicit active worker on task
+  const activeWorkerIds = [
+    task.activeWorkerId,
+    task.activeUserId,
+    task.activeWorkerCode,
+    task.startedById,
+    task.userKey
+  ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+  const activeWorkerName = (task.activeWorkerName || task.activeUserName || task.startedBy || '').trim().toLowerCase();
+
+  if (activeWorkerIds.length > 0 || activeWorkerName) {
+    if (activeWorkerIds.length > 0 && userIds.some(uid => activeWorkerIds.includes(uid))) {
+      return true;
+    }
+    if (userName && activeWorkerName && (userName === activeWorkerName || userName.includes(activeWorkerName) || activeWorkerName.includes(userName))) {
+      return true;
+    }
+    // Explicit active worker is set and does NOT match user -> strictly false!
+    return false;
+  }
+
+  // 2. Multi-assignee task with no explicit active worker -> false (prevents blind leakage to all members)
+  const isMultiAssignee = (Array.isArray(task.assignedToIds) && task.assignedToIds.length > 1) ||
+    (Array.isArray(task.assignees) && task.assignees.length > 1) ||
+    (Array.isArray(task.assignedMembers) && task.assignedMembers.length > 1);
+
+  if (isMultiAssignee) {
+    return false;
+  }
+
+  // 3. Single assignee fallback
+  return isTaskAssignedToUser(task, user);
 };
 
 /**
@@ -1500,7 +1553,8 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
     }
 
     let runningTaskId = null;
-    if (empActiveTimer && empActiveTimer.timerRunning && (empActiveTimer.date === actualToday || !empActiveTimer.date) && isClockedIn && !isOnBreak) {
+    const isTimerValidForTarget = empActiveTimer && empActiveTimer.timerRunning && (empActiveTimer.date === actualToday || !empActiveTimer.date) && isClockedIn && !isOnBreak && isTaskRunningForUser(empActiveTimer, targetUser);
+    if (isTimerValidForTarget) {
       runningTaskId = String(empActiveTimer.taskId || empActiveTimer._id);
       const targetTaskObj = empTasks.find(t => String(t._id || t.id) === runningTaskId);
       const liveSecs = targetTaskObj
@@ -1528,9 +1582,34 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       const ptId = String(pt._id || pt.id);
       if (runningTaskId && ptId === runningTaskId) return;
 
+      const isMultiAssignee = (Array.isArray(pt.assignedToIds) && pt.assignedToIds.length > 1) ||
+        (Array.isArray(pt.assignees) && pt.assignees.length > 1) ||
+        (Array.isArray(pt.assignedMembers) && pt.assignedMembers.length > 1);
+
+      // If task is running right now: ONLY include if targetUser is the active worker!
+      if (pt.timerRunning && !isTaskRunningForUser(pt, targetUser)) {
+        return; // Running by another teammate! Do not attribute to targetUser
+      }
+
+      // If multi-assignee task:
+      // Verify that targetUser actually worked on this task today!
+      if (isMultiAssignee) {
+        const hasMyTimesheet = dedupedTimesheetEntries.some(ts =>
+          String(ts.taskId) === ptId || (pt.taskCode && ts.taskCode === pt.taskCode)
+        );
+        const isMyWorker = isTaskRunningForUser(pt, targetUser) ||
+          (pt.activeWorkerId && (String(pt.activeWorkerId) === String(targetUser._id) || String(pt.activeWorkerId) === String(targetUser.employeeCode))) ||
+          (pt.activeUserId && (String(pt.activeUserId) === String(targetUser._id) || String(pt.activeUserId) === String(targetUser.employeeCode))) ||
+          (pt.lastWorkerId && (String(pt.lastWorkerId) === String(targetUser._id) || String(pt.lastWorkerId) === String(targetUser.employeeCode)));
+
+        if (!hasMyTimesheet && !isMyWorker) {
+          return; // Another teammate worked on it, not targetUser!
+        }
+      }
+
       const hasSessionToday = (pt.dailySessions && Number(pt.dailySessions[actualToday]) > 0) ||
         (pt.sessionDate === actualToday && Number(pt.todayWorkSeconds) > 0);
-      const isRunningToday = pt.timerRunning && isClockedIn;
+      const isRunningToday = pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser);
       if (!hasSessionToday && !isRunningToday) return;
 
       const todaySecs = getTaskTodaySeconds(pt, actualToday, Date.now(), isClockedIn, isOnBreak);
@@ -1556,7 +1635,7 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
             durationSeconds: todaySecs,
             status: isDone ? 'completed' : (pt.timerRunning ? 'in_progress' : 'on_hold'),
             isCompleted: isDone,
-            timerRunning: Boolean(pt.timerRunning && isClockedIn),
+            timerRunning: Boolean(pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser)),
             memo: isDone ? 'Completed Today' : `Work session (${formatSecondsToDigital(todaySecs)} logged)`
           });
         }

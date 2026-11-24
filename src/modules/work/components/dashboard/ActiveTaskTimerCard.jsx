@@ -108,6 +108,12 @@ export const ActiveTaskTimerCard = ({
                   <span>Working: <strong>{displayActiveTask.activeWorkerName || displayActiveTask.activeUserName}</strong></span>
                 </span>
               )}
+              {displayActiveTask?.isTeammateRunning && (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>🟢 Worked by <strong>{displayActiveTask.teammateWorkerName}</strong></span>
+                </span>
+              )}
               <span>By: <strong className="text-slate-500 dark:text-slate-400">{displayActiveTask?.assignedBy || 'Admin'}</strong></span>
             </div>
 
@@ -229,7 +235,9 @@ export const ActiveTaskTimerCard = ({
               <span>
                 {displayActiveTask?.timerRunning
                   ? 'Pause'
-                  : ((Number(displayActiveTask?.todayWorkSeconds) > 0 || Number(displayActiveTask?.timerSeconds) > 0) ? 'Resume' : 'Start Timer')}
+                  : (displayActiveTask?.isTeammateRunning
+                    ? 'Start My Timer'
+                    : ((Number(displayActiveTask?.todayWorkSeconds) > 0 || Number(displayActiveTask?.timerSeconds) > 0) ? 'Resume' : 'Start Timer'))}
               </span>
             </button>
 

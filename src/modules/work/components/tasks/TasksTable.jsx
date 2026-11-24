@@ -24,7 +24,7 @@ import { canDeleteTask } from '../../../../shared/utils/permissionUtils';
 import { useConfirm, confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { SnoozeTaskModal } from './SnoozeTaskModal';
 import { Pagination } from '../../../../shared/components/common/Pagination';
-import { getLocalDateString } from '../../../../shared/utils/timerUtils';
+import { getLocalDateString, isTaskRunningForUser } from '../../../../shared/utils/timerUtils';
 
 const STATUS_CONFIG = {
   incomplete: { label: 'Incomplete', color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
@@ -168,13 +168,7 @@ export const TasksTable = ({ tasks: propTasks, onSelectTask }) => {
               const isMenuOpen = activeMenuId === task._id;
               const isSelected = selectedTaskIds.includes(task._id);
               const isOnLeave = isEmployeeOnLeave(task.assignedToId || task.assignedTo);
-              const myId = String(currentUser?._id || '');
-              const myCode = currentUser?.employeeCode ? String(currentUser.employeeCode) : '';
-              const activeWorkerIdStr = String(task.activeWorkerId || task.activeUserId || '');
-              const isMyRunning = Boolean(
-                (activeWorkerIdStr && (activeWorkerIdStr === myId || (myCode && activeWorkerIdStr === myCode))) ||
-                (!task.activeWorkerId && !task.activeUserId)
-              );
+              const isMyRunning = isTaskRunningForUser(task, currentUser);
               const activeWorkerName = task.activeWorkerName || task.activeUserName || task.assignedToName || 'Team Member';
 
               return (

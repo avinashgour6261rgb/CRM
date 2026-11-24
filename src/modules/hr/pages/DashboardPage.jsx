@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { hrService } from '../services/hrService';
 import { workService } from '../../work/services/workService';
 import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
-import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, getUserDailyTaskBreakdown, getLocalDateString, getIstTimeString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
+import { readTimerStorage, writeTimerStorage, removeTimerStorage, calculateShiftWorkSeconds, getTaskTodaySeconds, normalizePunchSessions, performShiftClockOut, isTaskAssignedToUser, isTaskRunningForUser, getUserDailyTaskBreakdown, getLocalDateString, getIstTimeString, parseTimeToSeconds, syncTaskPauseState } from '../../../shared/utils/timerUtils';
 
 // Modals
 import { BreakModal } from '../../../shared/components/modals/BreakModal';
@@ -831,7 +831,7 @@ export const DashboardPage = () => {
 
     const activeTaskData = (telem?.activeTask?.taskId ? telem.activeTask : null) ||
       (attRec?.activeTask?.taskId ? attRec.activeTask : null);
-    if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave) {
+    if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave && isTaskRunningForUser(activeTaskData, emp)) {
       const at = activeTaskData;
       const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
       if (isTaskTimerActuallyRunning) {
@@ -897,14 +897,11 @@ export const DashboardPage = () => {
       }
 
       const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
-        ? ((activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) ? activeTimer : null) ||
+        ? ((activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) && isTaskRunningForUser(activeTimer, emp) ? activeTimer : null) ||
           empTasks.find(t =>
             t.timerRunning &&
             !isTaskActuallyCompleted(t) &&
-            (String(t.activeUserId || '').toLowerCase() === String(empKey || '').toLowerCase() ||
-             String(t.activeUserId || '').toLowerCase() === String(emp?._id || '').toLowerCase() ||
-             String(t.activeUserId || '').toUpperCase() === String(emp?.employeeCode || '').toUpperCase() ||
-             (!t.activeUserId && (!Array.isArray(t.assignedToIds) || t.assignedToIds.length <= 1)))
+            isTaskRunningForUser(t, emp)
           ))
         : null;
 
@@ -1825,7 +1822,7 @@ export const DashboardPage = () => {
     let task = null;
     if (!isViewingOtherEmployee) {
       // Viewing OWN dashboard: WorkContext is the single authoritative source (NEVER let stale telemetry hardcode timerRunning: true!)
-      if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskAssignedToUser(activeRunningTask, effectiveTargetUser)) {
+      if (activeRunningTask && !isTaskActuallyCompleted(activeRunningTask) && isTaskRunningForUser(activeRunningTask, effectiveTargetUser)) {
         task = activeRunningTask;
       } else if (activeSelectedTaskId) {
         const found = myTasks.find(t => String(t._id || t.id) === String(activeSelectedTaskId) && !isTaskActuallyCompleted(t));
@@ -1834,7 +1831,7 @@ export const DashboardPage = () => {
         const pausedTodayTask = myTasks.find(t => !isTaskActuallyCompleted(t) && !t.snoozed && (Number(t.todayWorkSeconds) > 0 || Number(t.dailySessions?.[todayStr]) > 0));
         task = pausedTodayTask || myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
       }
-    } else if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask)) {
+    } else if (activeEmpState?.runningTask && !isTaskActuallyCompleted(activeEmpState.runningTask) && isTaskRunningForUser(activeEmpState.runningTask, effectiveTargetUser)) {
       const match = cleanTasks.find(t => String(t._id || t.id) === String(activeEmpState.runningTask._id || activeEmpState.runningTask.taskId));
       if (!match || !isTaskActuallyCompleted(match)) {
         const liveSecs = Number(activeEmpState.runningTask.liveTaskSecs) || Number(activeEmpState.runningTask.todayWorkSeconds) || 0;
@@ -1857,11 +1854,16 @@ export const DashboardPage = () => {
       task = myPendingTasks.find(t => !t.snoozed && !isTaskActuallyCompleted(t)) || myTasks.find(t => !isTaskActuallyCompleted(t)) || null;
     }
 
-    if (task && !displayedIsClockedIn) {
-      return {
-        ...task,
-        timerRunning: false
-      };
+    if (task) {
+      const isRunningForTarget = isTaskRunningForUser(task, effectiveTargetUser);
+      if (!displayedIsClockedIn || !isRunningForTarget) {
+        return {
+          ...task,
+          timerRunning: false,
+          isTeammateRunning: Boolean(task.timerRunning && !isRunningForTarget),
+          teammateWorkerName: task.activeWorkerName || task.activeUserName || 'Teammate'
+        };
+      }
     }
     return task;
   }, [isViewingOtherEmployee, activeEmpState?.runningTask, cleanTasks, activeRunningTask, effectiveTargetUser, isTaskAssignedToUser, activeSelectedTaskId, myTasks, myPendingTasks, formatSeconds, displayedIsClockedIn, todayStr]);
