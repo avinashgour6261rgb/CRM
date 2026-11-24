@@ -550,10 +550,14 @@ export const NoticeBoardPage = () => {
                           )}
 
                           {/* Read Count Button: 1-click opens reader list */}
-                          {(() => {
+                          {isPrivileged && (() => {
                             const rawAck = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
                             const ackD = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
                             const readersCount = Math.max(rawAck.length, ackD.length);
+                            const names = ackD.map(a => a.userName).filter(Boolean);
+                            const tooltip = names.length > 0 
+                              ? `Read by: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` +${names.length - 3} more` : ''}. Click to view full list`
+                              : `Click to view ${readersCount} reader(s)`;
                             return (
                               <button
                                 type="button"
@@ -562,9 +566,9 @@ export const NoticeBoardPage = () => {
                                   setSelectedNotice(notice);
                                 }}
                                 className="inline-flex items-center gap-1 text-[10.5px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/50 px-2 py-0.5 rounded-full border border-sky-200 dark:border-sky-800 transition-colors cursor-pointer"
-                                title={`Click to view the ${readersCount} employees who read this notice`}
+                                title={tooltip}
                               >
-                                <Users size={11} />
+                                <Eye size={11} />
                                 <span>{readersCount} Read</span>
                               </button>
                             );

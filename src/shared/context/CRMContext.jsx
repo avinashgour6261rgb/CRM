@@ -2239,14 +2239,9 @@ export const CRMProvider = ({ children }) => {
     if (!noticeId || !currentUser) return;
     const userId = String(currentUser._id || currentUser.id || currentUser.employeeCode || 'anon');
     const userCode = String(currentUser.employeeCode || '');
-    const empMatch = (employees || []).find(e => 
-      String(e._id) === userId || 
-      String(e.id) === userId || 
-      (userCode && String(e.employeeCode || '').toUpperCase() === userCode.toUpperCase())
-    );
-    const userName = currentUser.name || empMatch?.name || 'Team Member';
-    const userRole = currentUser.role || empMatch?.role || empMatch?.designation || 'Associate';
-    const userAvatar = currentUser.avatar || empMatch?.avatar || '';
+    const userName = currentUser.name || 'Team Member';
+    const userRole = currentUser.role || 'Associate';
+    const userAvatar = currentUser.avatar || '';
 
     const currentNotices = getCollection(KEYS.NOTICES) || [];
     const target = currentNotices.find(n => n._id === noticeId || n.id === noticeId || n.noticeCode === noticeId);

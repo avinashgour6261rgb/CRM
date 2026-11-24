@@ -38,78 +38,73 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
   const { confirm } = useConfirm() || {};
 
   const [showReadReceipts, setShowReadReceipts] = useState(true);
-  const [receiptTab, setReceiptTab] = useState('read'); // 'read' | 'pending'
+  const [receiptsTab, setReceiptsTab] = useState('read'); // 'read' | 'pending'
   const [submittingAck, setSubmittingAck] = useState(false);
 
-  // Deduplicate and resolve full reader profiles from both acknowledgements and acknowledgedBy IDs
-  // MUST be called before any early return to strictly adhere to React Rules of Hooks (#310)
-  const resolvedReaders = useMemo(() => {
+  // Full resolution of all unique readers from acknowledgements and acknowledgedBy mapped with employees
+  const allReaders = useMemo(() => {
     if (!notice) return [];
-    const details = Array.isArray(notice.acknowledgements) ? [...notice.acknowledgements] : [];
     const rawIds = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
+    const details = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
     const allEmps = employees || [];
-
     const map = new Map();
 
-    // 1. Process explicit acknowledgement records
-    details.forEach(d => {
-      const uId = String(d.userId || d.userCode || d.userName || '').toLowerCase();
-      if (!uId) return;
+    // 1. Add from acknowledgements details (rich objects)
+    details.forEach(ad => {
+      const key = String(ad.userId || ad.userCode || ad.userName).toLowerCase();
       const matchedEmp = allEmps.find(e => 
-        String(e._id).toLowerCase() === uId || 
-        String(e.id || '').toLowerCase() === uId || 
-        String(e.employeeCode || '').toLowerCase() === uId
+        String(e._id).toLowerCase() === key || 
+        String(e.employeeCode || '').toLowerCase() === key ||
+        (e.name && ad.userName && e.name.trim().toLowerCase() === ad.userName.trim().toLowerCase())
       );
-      map.set(uId, {
-        userId: d.userId || matchedEmp?._id,
-        userCode: d.userCode || matchedEmp?.employeeCode || '',
-        userName: matchedEmp?.name || d.userName || 'Team Member',
-        userRole: matchedEmp?.role || matchedEmp?.designation || d.userRole || 'Team Member',
-        userAvatar: matchedEmp?.avatar || d.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-        date: d.date || 'Read',
-        acknowledgedAt: d.acknowledgedAt
+      map.set(key, {
+        userId: ad.userId || matchedEmp?._id || key,
+        userCode: ad.userCode || matchedEmp?.employeeCode || '',
+        userName: ad.userName || matchedEmp?.name || 'Team Member',
+        userRole: ad.userRole || matchedEmp?.designation || matchedEmp?.role || 'Member',
+        userAvatar: ad.userAvatar || matchedEmp?.avatar || '',
+        department: matchedEmp?.department || '',
+        date: ad.date || (ad.acknowledgedAt ? String(ad.acknowledgedAt).slice(0, 10) : '')
       });
     });
 
-    // 2. Process any raw IDs from acknowledgedBy array that weren't in acknowledgements
+    // 2. Add from acknowledgedBy IDs if not already present
     rawIds.forEach(id => {
       const str = String(id).toLowerCase();
       const matchedEmp = allEmps.find(e => 
         String(e._id).toLowerCase() === str || 
-        String(e.id || '').toLowerCase() === str || 
-        String(e.employeeCode || '').toLowerCase() === str
+        String(e.employeeCode || '').toLowerCase() === str ||
+        String(e.id || '').toLowerCase() === str
       );
       const key = matchedEmp ? String(matchedEmp._id).toLowerCase() : str;
       if (!map.has(key)) {
         map.set(key, {
           userId: matchedEmp?._id || id,
-          userCode: matchedEmp?.employeeCode || '',
-          userName: matchedEmp?.name || (str.startsWith('emp') ? id : 'Team Member'),
-          userRole: matchedEmp?.role || matchedEmp?.designation || 'Team Member',
-          userAvatar: matchedEmp?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
-          date: 'Acknowledged',
-          acknowledgedAt: null
+          userCode: matchedEmp?.employeeCode || (id.startsWith('EMP') ? id : ''),
+          userName: matchedEmp?.name || (id.startsWith('EMP') ? `Employee (${id})` : 'Team Member'),
+          userRole: matchedEmp?.designation || matchedEmp?.role || 'Member',
+          userAvatar: matchedEmp?.avatar || '',
+          department: matchedEmp?.department || '',
+          date: notice.date || 'Acknowledged'
         });
       }
     });
 
     return Array.from(map.values());
-  }, [notice?.acknowledgements, notice?.acknowledgedBy, employees]);
+  }, [notice?.acknowledgedBy, notice?.acknowledgements, employees, notice?.date]);
 
-  const uniqueReadersCount = resolvedReaders.length;
+  const uniqueReadersCount = allReaders.length;
 
-  const unacknowledgedEmployees = useMemo(() => {
-    if (!employees || !resolvedReaders) return [];
-    const readIds = new Set(resolvedReaders.map(r => String(r.userId || r.userCode || r.userName).toLowerCase()));
-    return (employees || []).filter(e => {
-      const isInactive = ['resigned', 'relieved', 'inactive', 'terminated'].includes(String(e.status || 'active').toLowerCase());
-      if (isInactive) return false;
-      const idMatch = readIds.has(String(e._id).toLowerCase()) ||
-        readIds.has(String(e.employeeCode || '').toLowerCase()) ||
-        readIds.has(String(e.name || '').toLowerCase());
-      return !idMatch;
-    });
-  }, [employees, resolvedReaders]);
+  const pendingEmployees = useMemo(() => {
+    const allEmps = (employees || []).filter(e =>
+      !['resigned', 'relieved', 'inactive', 'terminated'].includes(String(e.status || 'active').toLowerCase())
+    );
+    const readKeys = new Set(allReaders.map(r => String(r.userId || r.userCode).toLowerCase()));
+    return allEmps.filter(e => 
+      !readKeys.has(String(e._id).toLowerCase()) && 
+      !readKeys.has(String(e.employeeCode || '').toLowerCase())
+    );
+  }, [employees, allReaders]);
 
   if (!notice) return null;
 
@@ -303,67 +298,64 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
             )}
           </div>
 
-          {/* Read Receipts & Readers Compliance Panel */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden text-xs">
-            <button
-              type="button"
-              onClick={() => setShowReadReceipts(prev => !prev)}
-              className="w-full p-3 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-left font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border-none"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <ShieldCheck size={15} className="text-blue-600 dark:text-blue-400" />
-                <span>Notice Read Receipts ({resolvedReaders.length} Read)</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-extrabold">
-                  {uniqueReadersCount} / {totalEmployeesCount} ({readRate}%)
-                </span>
-              </div>
-              {showReadReceipts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+          {/* HR / Admin Read Receipts Compliance Panel */}
+          {isPrivileged && (
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => setShowReadReceipts(prev => !prev)}
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-left font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border-none"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={15} className="text-blue-600 dark:text-blue-400" />
+                  <span>HR Compliance: Employee Read Receipts</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-extrabold">
+                    {uniqueReadersCount} / {totalEmployeesCount} ({readRate}%)
+                  </span>
+                </div>
+                {showReadReceipts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
 
-            {showReadReceipts && (
-              <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-                {/* Tabs: Read vs Not Read Yet */}
-                <div className="flex items-center gap-2 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <button
-                    type="button"
-                    onClick={() => setReceiptTab('read')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold border-0 cursor-pointer transition-colors flex items-center gap-1.5 ${
-                      receiptTab === 'read'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <CheckCircle2 size={12} />
-                    <span>Read by ({resolvedReaders.length})</span>
-                  </button>
-
-                  {isPrivileged && (
+              {showReadReceipts && (
+                <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                  {/* Tabs: Read vs Pending */}
+                  <div className="flex items-center gap-2 mb-2.5 border-b border-slate-100 dark:border-slate-800 pb-2">
                     <button
                       type="button"
-                      onClick={() => setReceiptTab('pending')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold border-0 cursor-pointer transition-colors flex items-center gap-1.5 ${
-                        receiptTab === 'pending'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      onClick={() => setReceiptsTab('read')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer border-none ${
+                        receiptsTab === 'read'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-transparent'
                       }`}
                     >
-                      <Clock size={12} />
-                      <span>Not Read Yet ({unacknowledgedEmployees.length})</span>
+                      ✓ Read ({allReaders.length})
                     </button>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptsTab('pending')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer border-none ${
+                        receiptsTab === 'pending'
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-transparent'
+                      }`}
+                    >
+                      ⏳ Pending ({pendingEmployees.length})
+                    </button>
+                  </div>
 
-                {/* List Container */}
-                <div className="max-h-56 overflow-y-auto pr-1">
-                  {receiptTab === 'read' ? (
-                    resolvedReaders.length === 0 ? (
-                      <div className="text-slate-400 text-center py-4 italic text-[11px]">
-                        No employees have read or acknowledged this notice yet.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1.5">
-                        {resolvedReaders.map((reader, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[11px] hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors">
+                  <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                    {receiptsTab === 'read' ? (
+                      allReaders.length === 0 ? (
+                        <div className="text-slate-400 text-center py-3 italic text-[11px]">
+                          No employee acknowledgments recorded yet.
+                        </div>
+                      ) : (
+                        allReaders.map((reader, idx) => (
+                          <div
+                            key={reader.userId || reader.userCode || idx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors text-[11.5px]"
+                          >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <img
                                 src={reader.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -371,11 +363,14 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
                                 className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                               />
                               <div className="min-w-0">
-                                <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                                  {reader.userName}
+                                <div className="font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                                  <span>{reader.userName}</span>
+                                  {String(reader.userId) === userId && (
+                                    <span className="text-[9.5px] px-1 py-0.2 rounded bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 font-bold">You</span>
+                                  )}
                                 </div>
                                 <div className="text-slate-400 dark:text-slate-500 text-[10px] truncate">
-                                  {reader.userRole || 'Team Member'} {reader.userCode ? `• ${reader.userCode}` : ''}
+                                  {reader.userRole || 'Member'} {reader.department ? `• ${reader.department}` : ''} {reader.userCode ? `• ${reader.userCode}` : ''}
                                 </div>
                               </div>
                             </div>
@@ -384,18 +379,19 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
                               <span>{reader.date || 'Read'}</span>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )
-                  ) : (
-                    unacknowledgedEmployees.length === 0 ? (
-                      <div className="text-emerald-600 dark:text-emerald-400 text-center py-4 font-semibold text-[11px]">
-                        🎉 All employees have read and acknowledged this notice!
-                      </div>
+                        ))
+                      )
                     ) : (
-                      <div className="flex flex-col gap-1.5">
-                        {unacknowledgedEmployees.map((emp, idx) => (
-                          <div key={emp._id || emp.id || idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[11px] opacity-75">
+                      pendingEmployees.length === 0 ? (
+                        <div className="text-emerald-600 dark:text-emerald-400 text-center py-4 font-semibold text-[11px]">
+                          🎉 All employees have read and acknowledged this notice!
+                        </div>
+                      ) : (
+                        pendingEmployees.map((emp, idx) => (
+                          <div
+                            key={emp._id || emp.id || idx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[11.5px] opacity-80"
+                          >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <img
                                 src={emp.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -407,7 +403,7 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
                                   {emp.name}
                                 </div>
                                 <div className="text-slate-400 text-[10px] truncate">
-                                  {emp.role || emp.designation || 'Team Member'} {emp.employeeCode ? `• ${emp.employeeCode}` : ''}
+                                  {emp.role || emp.designation || 'Team Member'} {emp.department ? `• ${emp.department}` : ''} {emp.employeeCode ? `• ${emp.employeeCode}` : ''}
                                 </div>
                               </div>
                             </div>
@@ -415,14 +411,14 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
                               Pending
                             </span>
                           </div>
-                        ))}
-                      </div>
-                    )
-                  )}
+                        ))
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

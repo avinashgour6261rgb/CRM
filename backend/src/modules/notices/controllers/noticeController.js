@@ -38,7 +38,6 @@ exports.createNotice = asyncHandler(async (req, res) => {
   noticeData.shortDescription = noticeData.shortDescription || textContent.slice(0, 150);
   noticeData.targetAudience = noticeData.targetAudience || noticeData.to || 'All Employees';
   noticeData.to = noticeData.to || noticeData.targetAudience || 'All Employees';
-  const u = req.user;
   const actorName = u ? (u.name || u.email || 'HR Operations') : 'HR Operations';
   const actorLabel = u?.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
   const actorId = u?._id ? String(u._id) : (u?.id || '');
@@ -77,19 +76,22 @@ exports.updateNotice = asyncHandler(async (req, res) => {
 
   const u = req.user;
   if (u) {
+    const isAckOnly = Object.keys(updateData).every(k => ['acknowledgedBy', 'acknowledgements', 'dismissedBy'].includes(k));
     const isLeader = (u.role || '').toLowerCase().includes('lead') || (u.role || '').toLowerCase().includes('manager');
     const isPrivileged = Boolean(u.isAdmin || u.isDelegatedAdmin || u.systemRole === 'admin' || u.systemRole === 'hr' || isLeader || u.permissions?.postNotices || u.permissions?.allAccess);
     const isCreator = Boolean(u.name && (existing.createdBy === u.name || existing.postedBy === u.name));
-    if (!isPrivileged && !isCreator) {
+    if (!isPrivileged && !isCreator && !isAckOnly) {
       return res.status(403).json({ success: false, message: 'Access denied: You do not have permission to edit this notice.' });
     }
 
-    const actorName = u.name || u.email || 'Admin';
-    const actorLabel = u.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
-    updateData.lastUpdatedBy = updateData.lastUpdatedBy || actorLabel;
-    updateData.lastUpdatedById = updateData.lastUpdatedById || String(u._id || u.id || '');
-    updateData.lastUpdatedByCode = updateData.lastUpdatedByCode || u.employeeCode || '';
-    updateData.lastUpdatedAt = new Date();
+    if (!isAckOnly) {
+      const actorName = u.name || u.email || 'Admin';
+      const actorLabel = u.employeeCode ? `${actorName} (${u.employeeCode})` : actorName;
+      updateData.lastUpdatedBy = updateData.lastUpdatedBy || actorLabel;
+      updateData.lastUpdatedById = updateData.lastUpdatedById || String(u._id || u.id || '');
+      updateData.lastUpdatedByCode = updateData.lastUpdatedByCode || u.employeeCode || '';
+      updateData.lastUpdatedAt = new Date();
+    }
   }
 
   Object.assign(existing, updateData);

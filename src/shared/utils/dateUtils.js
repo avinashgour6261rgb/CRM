@@ -16,18 +16,25 @@ export const getLocalDateString = (d = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const IST_OFFSET_MS = 330 * 60 * 1000; // +05:30
+
 /**
  * Returns canonical hh:mm A time string in IST (India Standard Time, UTC+5:30).
  * Prevents UTC skew bugs across client browsers, cloud previews, and servers.
+ * Uses exact UTC+05:30 offset arithmetic so it is 100% immune to OS/container tzdata absence.
  */
 export const getIstTimeString = (d = new Date()) => {
   const dateObj = d instanceof Date ? d : new Date(d);
-  return dateObj.toLocaleTimeString('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+  const ms = dateObj.getTime();
+  if (isNaN(ms)) return '--';
+  const ist = new Date(ms + IST_OFFSET_MS);
+  let h = ist.getUTCHours();
+  const m = String(ist.getUTCMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  const hStr = String(h).padStart(2, '0');
+  return `${hStr}:${m} ${ampm}`;
 };
 
 /**

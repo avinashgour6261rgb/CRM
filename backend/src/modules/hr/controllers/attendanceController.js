@@ -102,10 +102,25 @@ const getMonthlyAttendance = asyncHandler(async (req, res) => {
     if (!obj.employeeId && obj.employee) {
       obj.employeeId = String(obj.employee);
     }
-    // Auto-repair clockOutTime if clockOutTimestamp exists to guarantee canonical IST time
+    // Auto-repair clockOutTime and punchSessions if timestamps exist to guarantee canonical IST time
+    const repairs = {};
     if (obj.clockOutTimestamp && (!obj.clockOutTime || obj.clockOutTime !== getIstTimeString(new Date(Number(obj.clockOutTimestamp))))) {
       obj.clockOutTime = getIstTimeString(new Date(Number(obj.clockOutTimestamp)));
-      Attendance.updateOne({ _id: r._id }, { $set: { clockOutTime: obj.clockOutTime } }).catch(() => {});
+      repairs.clockOutTime = obj.clockOutTime;
+    }
+    if (Array.isArray(obj.punchSessions)) {
+      let sessionsChanged = false;
+      obj.punchSessions = obj.punchSessions.map(sess => {
+        if (sess.outTimestamp && sess.outTime !== getIstTimeString(new Date(Number(sess.outTimestamp)))) {
+          sessionsChanged = true;
+          return { ...sess, outTime: getIstTimeString(new Date(Number(sess.outTimestamp))) };
+        }
+        return sess;
+      });
+      if (sessionsChanged) repairs.punchSessions = obj.punchSessions;
+    }
+    if (Object.keys(repairs).length > 0) {
+      Attendance.updateOne({ _id: r._id }, { $set: repairs }).catch(() => {});
     }
     return obj;
   });
@@ -525,10 +540,25 @@ const getAttendanceByDate = asyncHandler(async (req, res) => {
     if (!obj.employeeId && obj.employee) {
       obj.employeeId = String(obj.employee);
     }
-    // Auto-repair clockOutTime if clockOutTimestamp exists to guarantee canonical IST time
+    // Auto-repair clockOutTime and punchSessions if timestamps exist to guarantee canonical IST time
+    const repairs = {};
     if (obj.clockOutTimestamp && (!obj.clockOutTime || obj.clockOutTime !== getIstTimeString(new Date(Number(obj.clockOutTimestamp))))) {
       obj.clockOutTime = getIstTimeString(new Date(Number(obj.clockOutTimestamp)));
-      Attendance.updateOne({ _id: r._id }, { $set: { clockOutTime: obj.clockOutTime } }).catch(() => {});
+      repairs.clockOutTime = obj.clockOutTime;
+    }
+    if (Array.isArray(obj.punchSessions)) {
+      let sessionsChanged = false;
+      obj.punchSessions = obj.punchSessions.map(sess => {
+        if (sess.outTimestamp && sess.outTime !== getIstTimeString(new Date(Number(sess.outTimestamp)))) {
+          sessionsChanged = true;
+          return { ...sess, outTime: getIstTimeString(new Date(Number(sess.outTimestamp))) };
+        }
+        return sess;
+      });
+      if (sessionsChanged) repairs.punchSessions = obj.punchSessions;
+    }
+    if (Object.keys(repairs).length > 0) {
+      Attendance.updateOne({ _id: r._id }, { $set: repairs }).catch(() => {});
     }
     return obj;
   });
@@ -745,7 +775,6 @@ const forceClockOut = asyncHandler(async (req, res) => {
   });
 
   if (attRecord) {
-    const nowTs = Date.now();
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const todayMidnightMs = todayMidnight.getTime();
