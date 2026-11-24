@@ -14,7 +14,7 @@ exports.getTickets = asyncHandler(async (req, res) => {
   if (department && department !== 'all') filter.department = department;
   if (category && category !== 'all') filter.category = category;
 
-  const rawTickets = await Ticket.find(filter).sort({ createdAt: -1 });
+  const rawTickets = await Ticket.find(filter).sort({ createdAt: -1 }).lean();
 
   const tickets = rawTickets.map(t => {
     const doc = t.toObject ? t.toObject() : t;

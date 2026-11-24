@@ -156,7 +156,8 @@ exports.getCallHistory = async (req, res) => {
 
     const calls = await CallLog.find(filter)
       .sort({ createdAt: -1 })
-      .limit(Math.min(100, Number(limit)));
+      .limit(Math.min(100, Number(limit)))
+      .lean();
 
     res.json({ success: true, count: calls.length, data: calls });
   } catch (err) {
@@ -230,7 +231,8 @@ exports.getScreenShareHistory = async (req, res) => {
 
     const screens = await ScreenShareLog.find(filter)
       .sort({ createdAt: -1 })
-      .limit(Math.min(100, Number(limit)));
+      .limit(Math.min(100, Number(limit)))
+      .lean();
 
     res.json({ success: true, count: screens.length, data: screens });
   } catch (err) {

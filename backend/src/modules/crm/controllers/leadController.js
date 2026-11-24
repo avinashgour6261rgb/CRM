@@ -37,7 +37,7 @@ exports.getLeads = async (req, res, next) => {
       filter.endDate = { $lte: endDate };
     }
 
-    const leads = await Lead.find(filter).sort({ idNumber: -1 });
+    const leads = await Lead.find(filter).sort({ idNumber: -1 }).lean();
     res.json({ success: true, count: leads.length, data: leads });
   } catch (error) {
     next(error);

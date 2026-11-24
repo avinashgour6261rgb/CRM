@@ -151,7 +151,11 @@ const SEED_CHANNELS = [
 ];
 
 const stripHeavyAttachmentData = (convObj, isLite) => {
-  if (!isLite || !Array.isArray(convObj.messages)) return convObj;
+  if (!convObj || !Array.isArray(convObj.messages)) return convObj;
+  // Cap messages per conversation to latest 40 messages to save RAM and bandwidth
+  if (convObj.messages.length > 40) {
+    convObj.messages = convObj.messages.slice(-40);
+  }
   convObj.messages = convObj.messages.map(m => {
     if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) return m;
     return {
@@ -159,7 +163,7 @@ const stripHeavyAttachmentData = (convObj, isLite) => {
       attachments: m.attachments.map(att => {
         if (!att) return att;
         const rawLen = typeof att.dataUrl === 'string' ? att.dataUrl.length : 0;
-        if (rawLen > 12000) {
+        if (rawLen > 500) {
           return {
             ...att,
             dataUrl: '',
@@ -231,12 +235,33 @@ exports.getConversations = async (req, res) => {
           Conversation.updateOne({ id: convObj.id }, { $set: { messages: dedupedMsgs } }).catch(() => {});
         }
       }
-      return stripHeavyAttachmentData(convObj, isLite);
+      return stripHeavyAttachmentData(convObj);
     });
 
     res.json({
       success: true,
       data: convs
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getMessageAttachments = async (req, res) => {
+  try {
+    const { id, messageId } = req.params;
+    const conv = await Conversation.findOne({ id }).lean();
+    if (!conv) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+    const msg = (conv.messages || []).find(m => String(m.id || '') === String(messageId));
+    if (!msg || !Array.isArray(msg.attachments)) {
+      return res.status(404).json({ success: false, message: 'Message or attachments not found' });
+    }
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.json({
+      success: true,
+      data: msg.attachments
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

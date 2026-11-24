@@ -54,7 +54,7 @@ export function getSocket() {
     const serverUrl = getSocketServerUrl();
     try {
       socket = io(serverUrl, {
-        transports: ['polling', 'websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,

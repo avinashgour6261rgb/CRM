@@ -4,6 +4,10 @@ const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
+let compression = null;
+try {
+  compression = require('compression');
+} catch (_) {}
 
 // Shared infrastructure
 const connectDB = require('./src/shared/config/database');
@@ -27,6 +31,17 @@ mongoose.connection.once('open', () => {
 });
 
 const app = express();
+
+// Gzip/Deflate response compression (shrinks JSON payloads by 70-80% for low bandwidth)
+if (compression) {
+  app.use(compression({
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    }
+  }));
+}
 
 const allowedOrigins = [
   'http://localhost:5173',
