@@ -300,6 +300,8 @@ export const CalendarPage = () => {
           time: 'All Day',
           type: 'Approved Leave',
           leaveType: l.leaveType,
+          employeeId: l.employeeId || l.employee || l.employeeCode,
+          employeeCode: l.employeeCode,
           employeeName: l.employeeName,
           employeeAvatar: l.employeeAvatar,
           employeeRole: l.employeeRole,
@@ -329,6 +331,9 @@ export const CalendarPage = () => {
           location: t.projectName || 'Work Module',
           description: `Task: ${t.title}. Priority: ${t.priority || 'Medium'}. Status: ${t.status || 'Pending'}. Assigned to: ${t.assignedToName || 'Team'}.`,
           isTask: true,
+          assignedToId: t.assignedToId || t.assignedTo,
+          assignedToIds: t.assignedToIds || [],
+          client: t.client || t.clientName || t.projectName || '',
           color: isOverdue ? '#dc2626' : '#2563eb',
           bgColor: isOverdue ? '#fee2e2' : '#eff6ff'
         };
@@ -347,6 +352,7 @@ export const CalendarPage = () => {
           time: '11:59 PM',
           type: 'Project Deadline',
           isProject: true,
+          client: p.client || '',
           location: p.client ? `Client: ${p.client}` : (p.department ? `Dept: ${p.department}` : 'All Teams'),
           description: `🚀 Project delivery deadline for "${p.name}". Category: ${p.category || 'General'}.`,
           color: isOverdue ? '#dc2626' : '#7c3aed',
@@ -510,7 +516,7 @@ export const CalendarPage = () => {
     return { ...next, diffDays };
   }, [suggestedHolidays, holidays, todayStr]);
 
-  // Filter events by search, category pill, and shift visibility
+  // Filter events by search, category pill, shift visibility, selected employee, and client filter
   const filteredEvents = useMemo(() => {
     return allEvents.filter(ev => {
       // 1. Shift schedule visibility
@@ -518,7 +524,42 @@ export const CalendarPage = () => {
         return false;
       }
 
-      // 2. Category pill filter
+      // 2. Employee filter (if not 'all')
+      if (selectedEmployeeId && selectedEmployeeId !== 'all') {
+        const empStr = String(selectedEmployeeId);
+        if (ev.type === 'Approved Leave') {
+          const match = ev.employeeId && (String(ev.employeeId) === empStr || String(ev.employeeCode) === empStr);
+          if (!match) return false;
+        } else if (ev.isTask) {
+          const taskAssigneeMatch = (ev.assignedToId && String(ev.assignedToId) === empStr) ||
+            (Array.isArray(ev.assignedToIds) && ev.assignedToIds.some(id => String(id) === empStr));
+          if (!taskAssigneeMatch) return false;
+        } else if (ev.type === 'Shift Schedule') {
+          if (ev.employeeId && String(ev.employeeId) !== empStr) return false;
+        }
+      }
+
+      // 3. Client filter (if not 'all')
+      if (clientFilter && clientFilter !== 'all') {
+        if (clientFilter === 'enterprise') {
+          const hasClient = Boolean(ev.client && ev.client.trim() && !ev.client.toLowerCase().includes('internal'));
+          const isEnterpriseEvent = ev.location?.toLowerCase().includes('client') || ev.title?.toLowerCase().includes('client');
+          if (ev.isProject || ev.isTask) {
+            if (!hasClient) return false;
+          } else if (!isEnterpriseEvent && !ev.isHoliday && !ev.isFestival) {
+            return false;
+          }
+        } else if (clientFilter === 'internal') {
+          if (ev.isProject && ev.client && !ev.client.toLowerCase().includes('internal')) {
+            return false;
+          }
+          if (ev.isTask && ev.client && !ev.client.toLowerCase().includes('internal')) {
+            return false;
+          }
+        }
+      }
+
+      // 4. Category pill filter
       if (eventTypeFilter === 'holiday') {
         const isHol = ev.isHoliday || ev.type?.toLowerCase().includes('holiday') || ev._id?.startsWith('hol_');
         if (!isHol) return false;
@@ -550,7 +591,7 @@ export const CalendarPage = () => {
         ) return false;
       }
 
-      // 3. Search query
+      // 5. Search query
       const q = search.toLowerCase();
       const matchesSearch = !search ||
         (ev.title || '').toLowerCase().includes(q) ||
@@ -559,7 +600,7 @@ export const CalendarPage = () => {
 
       return matchesSearch;
     });
-  }, [allEvents, search, eventTypeFilter, showShifts]);
+  }, [allEvents, search, eventTypeFilter, showShifts, selectedEmployeeId, clientFilter]);
 
   // Navigation handlers
   const handlePrevMonth = () => {
@@ -744,11 +785,14 @@ export const CalendarPage = () => {
                 }`}
               >
                 {isPrivileged ? (
-                  employees.map(emp => (
-                    <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>
-                      {emp.name} {emp._id === currentUser?._id || emp.id === currentUser?._id ? "[It's You]" : ''}
-                    </option>
-                  ))
+                  <>
+                    <option value="all">All Employees</option>
+                    {employees.map(emp => (
+                      <option key={emp._id || emp.id || emp.employeeCode} value={emp._id || emp.id}>
+                        {emp.name} {emp._id === currentUser?._id || emp.id === currentUser?._id ? "[It's You]" : ''}
+                      </option>
+                    ))}
+                  </>
                 ) : (
                   <option value={currentUser?._id || selectedEmployeeId}>
                     {currentUser?.name || 'My Schedule'} [It's You]

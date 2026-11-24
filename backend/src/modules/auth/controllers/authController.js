@@ -98,6 +98,40 @@ const buildSessionUser = (employee) => {
   };
 };
 
+// Lightweight in-memory rate limiting: max 10 failed login attempts per 15 mins per IP/identifier
+const loginAttemptsMap = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 10;
+
+function checkLoginRateLimit(key) {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(key);
+  if (!record) return { allowed: true };
+  if (now - record.startTime > LOGIN_WINDOW_MS) {
+    loginAttemptsMap.delete(key);
+    return { allowed: true };
+  }
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    const retryAfterMins = Math.ceil((record.startTime + LOGIN_WINDOW_MS - now) / 60000);
+    return { allowed: false, retryAfterMins };
+  }
+  return { allowed: true };
+}
+
+function recordLoginFailure(key) {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(key);
+  if (!record || now - record.startTime > LOGIN_WINDOW_MS) {
+    loginAttemptsMap.set(key, { count: 1, startTime: now });
+  } else {
+    record.count += 1;
+  }
+}
+
+function clearLoginAttempts(key) {
+  loginAttemptsMap.delete(key);
+}
+
 // @desc    Universal Login endpoint (supports Email or Employee Code with Password)
 // @route   POST /api/auth/login
 exports.login = asyncHandler(async (req, res) => {
@@ -111,6 +145,15 @@ exports.login = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Password is required.' });
   }
 
+  const clientKey = `${req.ip || 'ip'}_${input.toLowerCase()}`;
+  const rateLimitStatus = checkLoginRateLimit(clientKey);
+  if (!rateLimitStatus.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: `Too many failed login attempts. Please try again after ${rateLimitStatus.retryAfterMins} minutes.`
+    });
+  }
+
   // Find employee in MongoDB Atlas
   const employee = await Employee.findOne({
     $or: [
@@ -120,6 +163,7 @@ exports.login = asyncHandler(async (req, res) => {
   });
 
   if (!employee) {
+    recordLoginFailure(clientKey);
     return res.status(401).json({
       success: false,
       message: `User with ID / Email "${input}" was not found in the database. Please verify or register with Admin.`
@@ -136,17 +180,25 @@ exports.login = asyncHandler(async (req, res) => {
   }
 
   // Strict password verification (supports scrypt hashes + seamless auto-upgrade from legacy plaintext)
-  const isMasterAdmin = employee.employeeCode === 'ADM-001' || employee.role === 'Administrator' || employee.isAdmin;
-  const storedPassword = employee.password || (isMasterAdmin ? 'admin123' : 'emp12345');
+  if (!employee.password) {
+    recordLoginFailure(clientKey);
+    return res.status(401).json({
+      success: false,
+      message: 'Account password has not been initialized. Please contact Administrator.'
+    });
+  }
 
-  const isPasswordValid = verifyPassword(password, storedPassword);
+  const isPasswordValid = verifyPassword(password, employee.password);
 
   if (!isPasswordValid) {
+    recordLoginFailure(clientKey);
     return res.status(401).json({
       success: false,
       message: 'Incorrect password. Please verify credentials or contact Admin.'
     });
   }
+
+  clearLoginAttempts(clientKey);
 
   // Seamlessly migrate legacy plaintext/bcrypt password to salted scrypt hash & sync encrypted Admin Vault copy
   const currentVaultDecrypted = decryptVaultSecret(employee.adminVaultPassword);
@@ -188,8 +240,8 @@ exports.getMe = asyncHandler(async (req, res) => {
     jwtPayload = verifyJwt(authHeader.slice(7).trim());
     if (jwtPayload?.sub) userId = jwtPayload.sub;
   }
-  if (!userId) {
-    userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+  if (!userId && (req.user?.id || req.user?._id)) {
+    userId = req.user?.id || req.user?._id;
   }
   if (!userId) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -238,8 +290,8 @@ exports.logoutOtherDevices = asyncHandler(async (req, res) => {
     const decoded = verifyJwt(authHeader.slice(7).trim());
     if (decoded?.sub) userId = decoded.sub;
   }
-  if (!userId) {
-    userId = req.headers['x-user-id'] || req.user?.id || req.user?._id;
+  if (!userId && (req.user?.id || req.user?._id)) {
+    userId = req.user?.id || req.user?._id;
   }
   if (!userId) {
     return res.status(401).json({ success: false, message: 'Authentication required' });

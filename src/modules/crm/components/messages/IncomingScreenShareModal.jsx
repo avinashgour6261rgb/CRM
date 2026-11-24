@@ -12,15 +12,9 @@ export const IncomingScreenShareModal = ({
   onWatch,
   onDismiss
 }) => {
-  if (!incomingSession) return null;
-
-  const { host, isChannel, channelName } = incomingSession;
-  const hostName = host?.name || 'Teammate';
-  const hostAvatar = host?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
-  const hostRole = host?.role || 'Team Member';
-
   // Keyboard accessibility: Enter = Watch, Escape = Dismiss
   useEffect(() => {
+    if (!incomingSession) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -32,7 +26,14 @@ export const IncomingScreenShareModal = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onWatch, onDismiss]);
+  }, [incomingSession, onWatch, onDismiss]);
+
+  if (!incomingSession) return null;
+
+  const { host, isChannel, channelName } = incomingSession;
+  const hostName = host?.name || 'Teammate';
+  const hostAvatar = host?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+  const hostRole = host?.role || 'Team Member';
 
   return (
     <div className="fixed top-5 right-5 z-[9998] max-w-sm w-full animate-slideIn select-none">

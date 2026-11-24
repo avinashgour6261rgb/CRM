@@ -42,8 +42,6 @@ const LEAD_SOURCES = [
 export const AddLeadModal = ({ isOpen, onClose }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen });
 
-  if (!isOpen) return null;
-
   const { createLead } = useCRM();
   const { employees, currentUser } = useHR();
   const { addToast } = useToast();

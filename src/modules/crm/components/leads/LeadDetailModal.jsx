@@ -112,6 +112,10 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
 
   const handleConvertToProject = async () => {
     if (isConverting) return;
+    if (lead.status === 'converted' || lead.convertedProjectId) {
+      addToast('This lead has already been converted to a project', 'info');
+      return;
+    }
     setIsConverting(true);
     try {
       const projectName = lead.companyName || lead.client || lead.name || 'New Client Project';
@@ -673,16 +677,23 @@ export const LeadDetailModal = ({ lead, isOpen, onClose, onEdit }) => {
               </button>
 
               {/* 🚀 1-Click Convert Lead to Project */}
-              <button
-                type="button"
-                onClick={handleConvertToProject}
-                disabled={isConverting}
-                className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[13px] font-bold cursor-pointer transition-all shadow-xs"
-                title="Convert this lead into a client project in Work Projects"
-              >
-                <Rocket size={14} className="text-indigo-600 dark:text-indigo-400" />
-                <span>{isConverting ? 'Converting...' : 'Convert to Project'}</span>
-              </button>
+              {lead.status === 'converted' || lead.convertedProjectId ? (
+                <div className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[13px] font-bold shadow-xs">
+                  <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>Already Converted</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConvertToProject}
+                  disabled={isConverting}
+                  className="inline-flex items-center gap-1.5 py-2 px-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 text-[13px] font-bold cursor-pointer transition-all shadow-xs"
+                  title="Convert this lead into a client project in Work Projects"
+                >
+                  <Rocket size={14} className="text-indigo-600 dark:text-indigo-400" />
+                  <span>{isConverting ? 'Converting...' : 'Convert to Project'}</span>
+                </button>
+              )}
 
               {lead.status !== 'converted' && (
                 <button

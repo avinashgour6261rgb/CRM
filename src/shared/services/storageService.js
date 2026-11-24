@@ -216,7 +216,7 @@ export const purgeStaleMockData = () => {
       });
 
       localStorage.setItem(PROD_CLEAN_VERSION, 'true');
-      console.log('âœ… Inforag Management System: Stale mock data cleaned. Ready for live DB sync.');
+      console.log('✅ Inforag Management System: Stale mock data cleaned. Ready for live DB sync.');
     }
   } catch (e) {
     console.error('Error purging stale mock data:', e);

@@ -451,9 +451,11 @@ export const LoginPage = () => {
           </form>
 
           {/* New Employee Notice */}
-          <div className="mt-[18px] p-2.5 px-3 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-slate-500 leading-relaxed">
-            💡 <strong>Testing Tip:</strong> Simply tap any demo button above or on the left to immediately log in without typing!
-          </div>
+          {isLocalDev && (
+            <div className="mt-[18px] p-2.5 px-3 rounded-[10px] bg-slate-50 border border-slate-200 text-xs text-slate-500 leading-relaxed">
+              💡 <strong>Testing Tip:</strong> Simply tap any demo button above or on the left to immediately log in without typing!
+            </div>
+          )}
         </div>
       </div>
 

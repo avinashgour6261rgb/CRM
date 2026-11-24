@@ -6,6 +6,35 @@
 const Conversation = require('../models/Conversation');
 const { getIstTimeString } = require('../../../shared/utils/dateUtils');
 
+function emitConversationEvent(conv, event, data) {
+  try {
+    const { emitToAll, emitToUser } = require('../../../shared/socket/socketManager');
+    const isDm = conv && (conv.type === 'dm' || (!conv.type && !String(conv.id || '').startsWith('channel_')));
+    if (isDm && Array.isArray(conv.participants) && conv.participants.length > 0) {
+      const seen = new Set();
+      conv.participants.forEach(p => {
+        if (!p) return;
+        const ids = [];
+        if (typeof p === 'object') {
+          if (p._id) ids.push(String(p._id));
+          if (p.id) ids.push(String(p.id));
+          if (p.employeeCode) ids.push(String(p.employeeCode));
+        } else {
+          ids.push(String(p));
+        }
+        ids.forEach(id => {
+          if (id && !seen.has(id)) {
+            seen.add(id);
+            emitToUser(id, event, data);
+          }
+        });
+      });
+    } else {
+      emitToAll(event, data);
+    }
+  } catch (_) {}
+}
+
 const SEED_CHANNELS = [
   {
     id: 'channel_general',
@@ -264,19 +293,13 @@ exports.createConversation = async (req, res) => {
       // Update metadata if exists
       Object.assign(conv, data);
       await conv.save();
-      try {
-        const { emitToAll } = require('../../../shared/socket/socketManager');
-        emitToAll('chat:conversation:updated', { conversation: conv });
-      } catch (_) {}
+      emitConversationEvent(conv, 'chat:conversation:updated', { conversation: conv });
       return res.json({ success: true, data: conv, message: 'Conversation updated' });
     }
 
     conv = new Conversation(data);
     await conv.save();
-    try {
-      const { emitToAll } = require('../../../shared/socket/socketManager');
-      emitToAll('chat:conversation:updated', { conversation: conv });
-    } catch (_) {}
+    emitConversationEvent(conv, 'chat:conversation:updated', { conversation: conv });
     res.status(201).json({ success: true, data: conv });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -302,10 +325,7 @@ exports.sendMessage = async (req, res) => {
         lastMessageTime: message.timestamp || getIstTimeString()
       });
       await conv.save();
-      try {
-        const { emitToAll } = require('../../../shared/socket/socketManager');
-        emitToAll('chat:message', { conversationId: id, message, conversation: conv });
-      } catch (_) {}
+      emitConversationEvent(conv, 'chat:message', { conversationId: id, message, conversation: conv });
       return res.status(201).json({ success: true, data: conv });
     }
 
@@ -338,7 +358,6 @@ exports.sendMessage = async (req, res) => {
 
     await conv.save();
     try {
-      const { emitToAll } = require('../../../shared/socket/socketManager');
       const socketMessage = Array.isArray(message?.attachments) && message.attachments.length > 0
         ? {
             ...message,
@@ -350,7 +369,7 @@ exports.sendMessage = async (req, res) => {
             })
           }
         : message;
-      emitToAll('chat:message', { conversationId: id, message: socketMessage });
+      emitConversationEvent(conv, 'chat:message', { conversationId: id, message: socketMessage });
     } catch (_) {}
     res.json({ success: true, data: conv });
   } catch (err) {
@@ -390,10 +409,7 @@ exports.markAsRead = async (req, res) => {
 
     if (updated) {
       await conv.save();
-      try {
-        const { emitToAll } = require('../../../shared/socket/socketManager');
-        emitToAll('chat:conversation:updated', { conversation: conv });
-      } catch (_) {}
+      emitConversationEvent(conv, 'chat:conversation:updated', { conversation: conv });
     }
 
     res.json({ success: true, data: conv });
@@ -463,11 +479,7 @@ exports.deleteMessage = async (req, res) => {
       }
 
       await conv.save();
-
-      try {
-        const { emitToAll } = require('../../../shared/socket/socketManager');
-        emitToAll('chat:message:deleted', { conversationId: id, messageId });
-      } catch (_) {}
+      emitConversationEvent(conv, 'chat:message:deleted', { conversationId: id, messageId });
     }
 
     res.json({ success: true, messageId, conversationId: id });
@@ -518,16 +530,12 @@ exports.reactToMessage = async (req, res) => {
         }
         updatedReactions = msg.reactions;
         await conv.save();
-
-        try {
-          const { emitToAll } = require('../../../shared/socket/socketManager');
-          emitToAll('chat:message:reacted', {
-            conversationId: id,
-            messageId,
-            reactions: updatedReactions,
-            user
-          });
-        } catch (_) {}
+        emitConversationEvent(conv, 'chat:message:reacted', {
+          conversationId: id,
+          messageId,
+          reactions: updatedReactions,
+          user
+        });
       }
     }
 

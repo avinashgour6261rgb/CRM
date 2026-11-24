@@ -1007,6 +1007,11 @@ export const LiveVoiceHuddleBar = ({
     audioElementsRef.current.forEach(el => {
       el.muted = next;
     });
+    remoteAudioNodesRef.current.forEach(nodes => {
+      if (nodes?.gainNode?.gain) {
+        nodes.gainNode.gain.value = next ? 0 : 1.0;
+      }
+    });
   };
 
   // Partner availability indicators

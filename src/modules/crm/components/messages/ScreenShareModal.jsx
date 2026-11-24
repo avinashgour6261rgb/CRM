@@ -51,8 +51,13 @@ export const ScreenShareModal = ({
   const [shareDuration, setShareDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewerStream, setViewerStream] = useState(null);
+  const viewerStreamRef = useRef(null);
   const [viewerStatus, setViewerStatus] = useState('connecting');
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+
+  useEffect(() => {
+    viewerStreamRef.current = viewerStream;
+  }, [viewerStream]);
 
   const toggleAudio = () => {
     const next = !isAudioMuted;
@@ -227,7 +232,8 @@ export const ScreenShareModal = ({
 
     // Auto-retry join in case host socket reconnected or was still initializing
     const retryTimer = setInterval(() => {
-      if (!viewerStream || viewerPcRef.current?.connectionState === 'failed' || viewerPcRef.current?.connectionState === 'disconnected') {
+      const pcState = viewerPcRef.current?.connectionState;
+      if (!viewerStreamRef.current || pcState === 'failed' || pcState === 'disconnected') {
         sendViewerJoin();
       }
     }, 2500);
@@ -235,7 +241,8 @@ export const ScreenShareModal = ({
     // Instant re-check when returning to this browser tab
     const handleTabResume = () => {
       if (!document.hidden) {
-        if (!viewerStream || !viewerPcRef.current || viewerPcRef.current.connectionState === 'failed' || viewerPcRef.current.connectionState === 'disconnected') {
+        const pcState = viewerPcRef.current?.connectionState;
+        if (!viewerStreamRef.current || !viewerPcRef.current || pcState === 'failed' || pcState === 'disconnected') {
           sendViewerJoin();
         }
       }
@@ -264,6 +271,7 @@ export const ScreenShareModal = ({
               remoteStream = new MediaStream();
               remoteStream.addTrack(event.track);
             }
+            viewerStreamRef.current = remoteStream;
             setViewerStream(remoteStream);
             setViewerStatus('connected');
             if (videoRef.current) {

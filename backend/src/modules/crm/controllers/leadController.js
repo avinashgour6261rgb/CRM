@@ -48,8 +48,8 @@ exports.getLeads = async (req, res, next) => {
 // @route   POST /api/leads
 exports.createLead = async (req, res, next) => {
   try {
-    const count = await Lead.countDocuments();
-    const nextNum = count + 1;
+    const lastLead = await Lead.findOne().sort({ idNumber: -1 }).select('idNumber');
+    const nextNum = (lastLead && typeof lastLead.idNumber === 'number' ? lastLead.idNumber : 0) + 1;
     const now = new Date();
     const todayStr = getIstDateString(now);
     const nextMonthStr = getIstDateString(new Date(Date.now() + 30 * 86400000));
@@ -175,8 +175,8 @@ exports.importLeads = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No leads array provided' });
     }
 
-    const currentCount = await Lead.countDocuments();
-    let num = currentCount;
+    const lastLead = await Lead.findOne().sort({ idNumber: -1 }).select('idNumber');
+    let num = (lastLead && typeof lastLead.idNumber === 'number' ? lastLead.idNumber : 0);
     const now = new Date();
 
     const formatted = leads.map(l => {

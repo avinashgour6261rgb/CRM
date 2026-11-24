@@ -198,7 +198,16 @@ exports.getScreenShareHistory = async (req, res) => {
   try {
     const { conversationId, limit = 50 } = req.query;
     const filter = {};
-    if (conversationId) filter.conversationId = conversationId;
+    if (conversationId) {
+      filter.conversationId = conversationId;
+    } else if (req.user && !req.user.isAdmin && req.user.role !== 'Administrator') {
+      const myId = String(req.user._id || req.user.id || req.user.employeeCode);
+      filter.$or = [
+        { 'host.id': myId },
+        { 'host._id': myId },
+        { isChannel: true }
+      ];
+    }
 
     const screens = await ScreenShareLog.find(filter)
       .sort({ createdAt: -1 })

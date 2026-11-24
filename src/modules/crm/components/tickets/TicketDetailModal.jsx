@@ -28,6 +28,20 @@ import { useConfirm } from '../../../../shared/context/ConfirmContext';
 import { isHRorAdmin, canDeleteTicket } from '../../../../shared/utils/permissionUtils';
 import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
+const parseTicketDate = (dateVal) => {
+  if (!dateVal) return Date.now() - 3600000;
+  if (typeof dateVal === 'number') return dateVal;
+  const str = String(dateVal).trim();
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    const parsed = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
+    if (!isNaN(parsed.getTime())) return parsed.getTime();
+  }
+  const parsed = new Date(str);
+  return !isNaN(parsed.getTime()) ? parsed.getTime() : Date.now() - 3600000;
+};
+
 export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
   const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(isOpen && ticket) });
   const { replyToTicket = async () => {}, updateTicketStatus = async () => {}, addTicketInternalNote = async () => {}, assignTicket = async () => {}, deleteTicket = async () => {} } = useCRM() || {};
@@ -45,7 +59,7 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
   const getTicketSla = () => {
     const p = String(ticket.priority || 'medium').toLowerCase();
     const slaHours = p === 'urgent' ? 12 : p === 'high' ? 24 : p === 'medium' ? 48 : 72;
-    const createdAtMs = ticket.createdAt ? new Date(ticket.createdAt).getTime() : ticket.requestedOn ? new Date(ticket.requestedOn).getTime() : Date.now() - 3600000;
+    const createdAtMs = parseTicketDate(ticket.createdAt || ticket.requestedOn);
     const deadlineMs = createdAtMs + slaHours * 3600000;
     const nowMs = Date.now();
     const isClosed = ticket.status === 'resolved' || ticket.status === 'closed';
@@ -58,16 +72,16 @@ export const TicketDetailModal = ({ ticket, isOpen, onClose }) => {
     }
 
     if (nowMs > deadlineMs) {
-      const breachedHours = Math.round((nowMs - deadlineMs) / 3600000);
+      const breachedHours = Math.max(1, Math.round((nowMs - deadlineMs) / 3600000)) || 1;
       return {
-        label: `⚠️ SLA Overdue (+${breachedHours || 1}h)`,
+        label: `⚠️ SLA Overdue (+${breachedHours}h)`,
         className: 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 animate-pulse'
       };
     }
 
-    const remainingHours = Math.round((deadlineMs - nowMs) / 3600000);
+    const remainingHours = Math.max(1, Math.round((deadlineMs - nowMs) / 3600000)) || 1;
     return {
-      label: `⏱️ SLA: ${remainingHours || 1}h left`,
+      label: `⏱️ SLA: ${remainingHours}h left`,
       className: 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
     };
   };

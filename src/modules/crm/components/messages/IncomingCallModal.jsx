@@ -13,15 +13,9 @@ export const IncomingCallModal = ({
   onAccept,
   onDecline
 }) => {
-  if (!incomingCall) return null;
-
-  const { caller, isChannel, channelName } = incomingCall;
-  const callerName = caller?.name || 'Colleague';
-  const callerAvatar = caller?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
-  const callerRole = caller?.role || 'Team Member';
-
   // Keyboard accessibility: Enter = Accept, Escape = Decline
   useEffect(() => {
+    if (!incomingCall) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -34,7 +28,14 @@ export const IncomingCallModal = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onAccept, onDecline]);
+  }, [incomingCall, onAccept, onDecline]);
+
+  if (!incomingCall) return null;
+
+  const { caller, isChannel, channelName } = incomingCall;
+  const callerName = caller?.name || 'Colleague';
+  const callerAvatar = caller?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+  const callerRole = caller?.role || 'Team Member';
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn select-none">

@@ -101,7 +101,7 @@ export const ImportLeadsModal = ({ isOpen, onClose }) => {
           // Normalize lead status to match Kanban stages
           const rawStatus = String(rowObj['status'] || rowObj['stage'] || 'new').toLowerCase().trim();
           let status = 'new';
-          if (['contacted', 'reached', 'called'].includes(rawStatus)) status = 'contacted';
+          if (['contacted', 'reached', 'called'].includes(rawStatus)) status = 'active';
           else if (['qualified', 'in_progress', 'active', 'meeting'].includes(rawStatus)) status = 'in_progress';
           else if (['proposal', 'negotiation', 'review'].includes(rawStatus)) status = 'negotiation';
           else if (['converted', 'won', 'closed_won', 'deal'].includes(rawStatus)) status = 'converted';
