@@ -1385,6 +1385,10 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
   const effectiveDate = targetDate || actualToday;
   const isToday = effectiveDate === actualToday;
 
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const todayMidnightMs = todayMidnight.getTime();
+
   const uId = targetUser._id ? String(targetUser._id).toLowerCase().trim() : '';
   const uCode = targetUser.employeeCode ? String(targetUser.employeeCode).toLowerCase().trim() : '';
   const uName = targetUser.name ? targetUser.name.toLowerCase().trim() : '';
