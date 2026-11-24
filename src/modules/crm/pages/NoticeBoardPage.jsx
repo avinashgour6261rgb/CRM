@@ -212,7 +212,7 @@ export const NoticeBoardPage = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      
+
       {/* Header Bar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 px-4 py-3 rounded-[10px] border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.02)] min-h-[68px] box-border shrink-0">
         <div className="flex items-center gap-2.5">
@@ -258,11 +258,10 @@ export const NoticeBoardPage = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div
           onClick={() => setStatusTab('active')}
-          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${
-            statusTab === 'active'
+          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${statusTab === 'active'
               ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-400 dark:border-blue-700 shadow-xs'
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
             <span>Active Circulars</span>
@@ -288,11 +287,10 @@ export const NoticeBoardPage = () => {
 
         <div
           onClick={() => setStatusTab('expired')}
-          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${
-            statusTab === 'expired'
+          className={`p-3 rounded-[10px] border cursor-pointer transition-all ${statusTab === 'expired'
               ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-400 dark:border-rose-700 shadow-xs'
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
             <span>Expired Archive</span>
@@ -321,17 +319,15 @@ export const NoticeBoardPage = () => {
           <button
             type="button"
             onClick={() => setStatusTab('active')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-              statusTab === 'active'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${statusTab === 'active'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             <BellRing size={13} />
             <span>Active Notices</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
-              statusTab === 'active' ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${statusTab === 'active' ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}>
               {activeCount}
             </span>
           </button>
@@ -339,17 +335,15 @@ export const NoticeBoardPage = () => {
           <button
             type="button"
             onClick={() => setStatusTab('expired')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-              statusTab === 'expired'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${statusTab === 'expired'
                 ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
                 : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             <Clock size={13} />
             <span>Expired / Archived</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
-              statusTab === 'expired' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${statusTab === 'expired' ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}>
               {expiredCount}
             </span>
           </button>
@@ -357,17 +351,15 @@ export const NoticeBoardPage = () => {
           <button
             type="button"
             onClick={() => setStatusTab('all')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
-              statusTab === 'all'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${statusTab === 'all'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             <FileText size={13} />
             <span>All Circulars</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${
-              statusTab === 'all' ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-extrabold ${statusTab === 'all' ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}>
               {allCount}
             </span>
           </button>
@@ -451,13 +443,12 @@ export const NoticeBoardPage = () => {
                   return (
                     <tr
                       key={notice._id ? `${notice._id}_${nIdx}` : (notice.id ? `${notice.id}_${nIdx}` : `notice_${nIdx}`)}
-                      className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${
-                        selectedIds.includes(notice._id)
+                      className={`border-b border-slate-100 dark:border-slate-800/60 transition-colors ${selectedIds.includes(notice._id)
                           ? 'bg-blue-50/40 dark:bg-blue-950/20'
                           : expired
-                          ? 'bg-slate-50/40 dark:bg-slate-900/40 opacity-80'
-                          : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                      }`}
+                            ? 'bg-slate-50/40 dark:bg-slate-900/40 opacity-80'
+                            : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                        }`}
                     >
                       {/* Checkbox */}
                       <td className="px-3 py-2.5 whitespace-nowrap">
@@ -501,9 +492,8 @@ export const NoticeBoardPage = () => {
                           {notice.date}
                         </div>
                         {notice.expiryDate && (
-                          <div className={`text-[10.5px] mt-0.5 ${
-                            expired ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
-                          }`}>
+                          <div className={`text-[10.5px] mt-0.5 ${expired ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-400'
+                            }`}>
                             {expired ? `⌛ Expired ${notice.expiryDate}` : `Expires: ${notice.expiryDate}`}
                           </div>
                         )}
@@ -549,12 +539,38 @@ export const NoticeBoardPage = () => {
                             </button>
                           )}
 
-                          {/* Read Count for HR / Admin */}
-                          {isPrivileged && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold" title="Total employees who acknowledged">
-                              ({notice.acknowledgedBy?.length || 0} read)
-                            </span>
-                          )}
+                          {/* Read Count for HR / Admin with rich names tooltip & 1-click modal */}
+                          {isPrivileged && (() => {
+                            const rawIds = Array.isArray(notice.acknowledgedBy) ? notice.acknowledgedBy : [];
+                            const details = Array.isArray(notice.acknowledgements) ? notice.acknowledgements : [];
+                            const readerNames = [];
+                            details.forEach(d => {
+                              if (d.userName) readerNames.push(d.userName);
+                            });
+                            rawIds.forEach(id => {
+                              const emp = (employees || []).find(e => String(e._id) === String(id) || String(e.employeeCode) === String(id));
+                              const n = emp?.name || (String(id).startsWith('EMP') || String(id).startsWith('ADM') ? String(id).toUpperCase() : null);
+                              if (n && !readerNames.includes(n)) readerNames.push(n);
+                            });
+                            const count = Math.max(rawIds.length, details.length, readerNames.length);
+                            const tooltip = readerNames.length > 0
+                              ? `Read by: ${readerNames.join(', ')}\n(Click to view full receipts & pending list)`
+                              : 'No reads recorded yet (Click to view)';
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedNotice(notice);
+                                }}
+                                className="inline-flex items-center gap-1 text-[10.5px] text-blue-600 dark:text-sky-400 font-bold bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors"
+                                title={tooltip}
+                              >
+                                <span>👁️ {count} read</span>
+                              </button>
+                            );
+                          })()}
 
                           {/* Delete Button for Admin / HR / Notice Creator */}
                           {canDeleteNotice(currentUser, notice) && (
