@@ -64,8 +64,6 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isOpen) return null;
-
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -113,6 +111,8 @@ export const AddLeadModal = ({ isOpen, onClose }) => {
       setSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-[1000] p-4 animate-fade-in" onClick={handleBackdropClick}>
