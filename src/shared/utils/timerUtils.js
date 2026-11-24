@@ -1608,11 +1608,32 @@ export const getUserDailyTaskBreakdown = (targetUser, targetDate, options = {}) 
       }
 
       const hasSessionToday = (pt.dailySessions && Number(pt.dailySessions[actualToday]) > 0) ||
-        (pt.sessionDate === actualToday && Number(pt.todayWorkSeconds) > 0);
+        (pt.sessionDate === actualToday && Number(pt.todayWorkSeconds) > 0) ||
+        (isMultiAssignee && (
+          Number(pt.assigneeSessions?.[String(targetUser.employeeCode || targetUser._id)]?.[actualToday] || 0) > 0 ||
+          Number(pt.assigneeSessions?.[String(targetUser._id)]?.[actualToday] || 0) > 0
+        ));
       const isRunningToday = pt.timerRunning && isClockedIn && isTaskRunningForUser(pt, targetUser);
       if (!hasSessionToday && !isRunningToday) return;
 
-      const todaySecs = getTaskTodaySeconds(pt, actualToday, Date.now(), isClockedIn, isOnBreak);
+      // Multi-assignee: get user's own today work, NOT the whole task's combined team time!
+      let todaySecs = 0;
+      if (isMultiAssignee) {
+        const targetUserKey = String(targetUser.employeeCode || targetUser._id);
+        const targetUserId = String(targetUser._id);
+        const targetUserCode = String(targetUser.employeeCode || '');
+        const workerSessions = pt.assigneeSessions?.[targetUserKey] || pt.assigneeSessions?.[targetUserId] || pt.assigneeSessions?.[targetUserCode] || {};
+        const baseWorkerToday = Number(workerSessions[actualToday]) || 0;
+        const liveSecs = (pt.timerRunning && isTaskRunningForUser(pt, targetUser))
+          ? Math.max(0, Math.floor((Date.now() - Math.max(Number(pt.startedAt || Date.now()), todayMidnightMs)) / 1000))
+          : 0;
+        const tsSecs = dedupedTimesheetEntries
+          .filter(ts => String(ts.taskId) === ptId || (pt.taskCode && ts.taskCode === pt.taskCode))
+          .reduce((sum, ts) => Math.max(sum, Number(ts.totalDurationSeconds) || 0), 0);
+        todaySecs = Math.max(baseWorkerToday + liveSecs, tsSecs);
+      } else {
+        todaySecs = getTaskTodaySeconds(pt, actualToday, Date.now(), isClockedIn, isOnBreak);
+      }
       if (todaySecs > 0) {
         const rowIdx = tasksWorked.findIndex(t =>
           String(t.taskId) === ptId ||
