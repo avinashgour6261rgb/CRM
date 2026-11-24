@@ -17,6 +17,7 @@ import {
 import { useCRM } from '../../context/CRMContext';
 import { useToast } from '../../context/ToastContext';
 import { useModalUX } from '../../hooks/useModalUX';
+import { compressImageFile } from '../../utils/imageCompression';
 
 const TICKET_CATEGORIES = [
   'IT & Infrastructure',
@@ -52,7 +53,7 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -61,25 +62,49 @@ export const RaiseTicketModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result;
-      setFileMeta({
-        name: file.name,
-        size: (file.size / 1024).toFixed(1) + ' KB',
-        type: file.type
-      });
-      setFormData(prev => ({
-        ...prev,
-        fileName: file.name,
-        attachment: base64
-      }));
-      addToast(`Attached: ${file.name}`, 'info');
-    };
-    reader.onerror = () => {
-      addToast('Failed to read selected file', 'error');
-    };
-    reader.readAsDataURL(file);
+    try {
+      const processedFile = await compressImageFile(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.72 });
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result;
+        setFileMeta({
+          name: file.name,
+          size: (processedFile.size / 1024).toFixed(1) + ' KB',
+          type: processedFile.type
+        });
+        setFormData(prev => ({
+          ...prev,
+          fileName: file.name,
+          attachment: base64
+        }));
+        addToast(`Attached: ${file.name}`, 'info');
+      };
+      reader.onerror = () => {
+        addToast('Failed to read selected file', 'error');
+      };
+      reader.readAsDataURL(processedFile);
+    } catch (err) {
+      console.warn('File compression failed, using original file:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result;
+        setFileMeta({
+          name: file.name,
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          type: file.type
+        });
+        setFormData(prev => ({
+          ...prev,
+          fileName: file.name,
+          attachment: base64
+        }));
+        addToast(`Attached: ${file.name}`, 'info');
+      };
+      reader.onerror = () => {
+        addToast('Failed to read selected file', 'error');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveFile = (e) => {

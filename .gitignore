@@ -83,6 +83,10 @@ desktop.ini
 # Documentation & Local notes (excluded from git)
 DEPLOYMENT.md
 AGENTS.md
+backend_code.txt
+frontend_code.txt
+review_changes.txt
+
 
 
 

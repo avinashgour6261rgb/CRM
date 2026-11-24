@@ -124,6 +124,9 @@ export function registerSocketUser(user) {
 export function emitSocketEvent(eventName, data) {
   const s = getSocket();
   if (s) {
+    if (!s.connected) {
+      try { s.connect(); } catch (_) {}
+    }
     try {
       s.emit(eventName, data);
     } catch (err) {
@@ -174,7 +177,93 @@ export function isSocketConnected() {
   return Boolean(socket && socket.connected);
 }
 
-// Automatically start socket connection in browser environments
+/**
+ * Checks if a live audio/video call or screen-share session is active.
+ * Used to avoid disconnecting sockets while user is in a meeting or receiving a call.
+ */
+function isCallOrScreenShareActive() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  try {
+    // 1. Pending accepted call or screenshare session in sessionStorage
+    if (sessionStorage.getItem('ems_pending_accepted_call') || sessionStorage.getItem('ems_pending_watch_screen')) {
+      return true;
+    }
+    // 2. Incoming call or screenshare modal present in DOM
+    const callModal = document.querySelector('[data-call-modal="true"]') ||
+                      document.querySelector('.incoming-call-modal') ||
+                      document.querySelector('[data-call-active="true"]');
+    if (callModal) return true;
+
+    // 3. Any active media stream with live audio/video tracks
+    const mediaEls = document.querySelectorAll('audio, video');
+    for (const el of mediaEls) {
+      if (el.srcObject && typeof el.srcObject.getTracks === 'function') {
+        const hasLiveTrack = el.srcObject.getTracks().some(t => t.readyState === 'live');
+        if (hasLiveTrack) return true;
+      }
+    }
+
+    // 4. Global window flags
+    if (window.__ems_active_call || window.__ems_active_screenshare) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+let idleDisconnectTimer = null;
+const IDLE_DISCONNECT_DELAY_MS = 15 * 60 * 1000; // 15 minutes
+
+function clearIdleTimer() {
+  if (idleDisconnectTimer) {
+    clearTimeout(idleDisconnectTimer);
+    idleDisconnectTimer = null;
+  }
+}
+
+/**
+ * Resumes socket connection immediately when user returns to tab
+ */
+export function resumeSocketConnection() {
+  clearIdleTimer();
+  if (socket && !socket.connected) {
+    try {
+      socket.connect();
+    } catch (err) {
+      console.warn('[SocketService] Error reconnecting socket:', err);
+    }
+  }
+}
+
+function handleVisibilityOrFocusChange() {
+  if (typeof document === 'undefined') return;
+
+  if (document.visibilityState === 'hidden') {
+    clearIdleTimer();
+    idleDisconnectTimer = setTimeout(() => {
+      if (document.visibilityState === 'hidden' && !isCallOrScreenShareActive()) {
+        if (socket && socket.connected) {
+          console.log('[SocketService] Tab hidden for 15m without active call. Pausing socket to allow server sleep.');
+          socket.disconnect();
+        }
+      }
+    }, IDLE_DISCONNECT_DELAY_MS);
+  } else {
+    resumeSocketConnection();
+  }
+}
+
+let isIdleListenersSetup = false;
+function setupIdleSocketManagement() {
+  if (isIdleListenersSetup || typeof window === 'undefined' || typeof document === 'undefined') return;
+  isIdleListenersSetup = true;
+
+  document.addEventListener('visibilitychange', handleVisibilityOrFocusChange);
+  window.addEventListener('focus', resumeSocketConnection);
+}
+
+// Automatically start socket connection in browser environments & wire idle watcher
 if (typeof window !== 'undefined') {
   getSocket();
+  setupIdleSocketManagement();
 }

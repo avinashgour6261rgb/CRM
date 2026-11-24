@@ -23,6 +23,7 @@ import { useToast } from '../../context/ToastContext';
 import { getRoles, getCustomDesignations, canUserAssignRole, recordPromotion } from '../../services/roleManagementService';
 import { getCompanySettings } from '../../services/companySettingsService';
 import { getLocalDateString } from '../../utils/timerUtils';
+import { fileToCompressedDataUrl } from '../../utils/imageCompression';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { useModalUX } from '../../hooks/useModalUX';
 
@@ -200,20 +201,26 @@ export const EditProfileModal = ({ isOpen, onClose, employee = null }) => {
     setFormData(prev => ({ ...prev, customFields: updated }));
   };
 
-  // Handle local image file upload (Base64)
-  const handleFileUpload = (e) => {
+  // Handle local image file upload (Base64) with auto-compression
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        addToast?.('File size exceeds 2MB limit. Please choose a smaller image.', 'error');
+      if (file.size > 5 * 1024 * 1024) {
+        addToast?.('File size exceeds 5MB limit. Please choose a smaller image.', 'error');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Data = reader.result;
+      try {
+        const base64Data = await fileToCompressedDataUrl(file, { maxWidth: 240, maxHeight: 240, quality: 0.75 });
         handleChange('avatar', base64Data);
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('Avatar compression failed, falling back to FileReader:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result;
+          handleChange('avatar', base64Data);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

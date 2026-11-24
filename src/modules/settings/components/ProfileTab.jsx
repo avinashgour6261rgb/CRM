@@ -16,6 +16,7 @@ import { useCRM } from '../../../shared/context/CRMContext';
 import { useToast } from '../../../shared/context/ToastContext';
 import { getRoles, canUserAssignRole, recordPromotion } from '../../../shared/services/roleManagementService';
 import { getLocalDateString } from '../../../shared/utils/timerUtils';
+import { fileToCompressedDataUrl } from '../../../shared/utils/imageCompression';
 
 const COUNTRIES = [
   { code: 'AF', name: 'Afghanistan', dial: '+93', flag: '🇦🇫' },
@@ -110,18 +111,24 @@ export const ProfileTab = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        addToast('Image size should be less than 2MB', 'error');
+      if (file.size > 5 * 1024 * 1024) {
+        addToast('Image size should be less than 5MB', 'error');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        handleChange('avatar', reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const base64Data = await fileToCompressedDataUrl(file, { maxWidth: 240, maxHeight: 240, quality: 0.75 });
+        handleChange('avatar', base64Data);
+      } catch (err) {
+        console.warn('Avatar compression failed, falling back to FileReader:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          handleChange('avatar', reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

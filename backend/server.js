@@ -78,6 +78,9 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
+} else {
+  // In production, log only errors/warnings (status >= 400) to eliminate overhead of 200/304 logging
+  app.use(morgan('combined', { skip: (req, res) => res.statusCode < 400 }));
 }
 
 // Health check routes (With graceful 2s connection buffer to avoid 503 on cold start)
