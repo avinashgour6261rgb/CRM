@@ -6,6 +6,7 @@
 
 import { KEYS } from '../../../shared/services/storageService';
 import { API_BASE, getAuthHeaders } from '../../../shared/config/apiConfig';
+import { broadcastSyncEvent, SYNC_EVENTS } from '../../../shared/services/realtimeSyncService';
 
 // Master Curated Major Indian Festivals & National Holidays Across All 12 Months
 export const MAJOR_INDIAN_HOLIDAYS_MASTER = {
@@ -536,12 +537,60 @@ MAJOR_INDIAN_HOLIDAYS_MASTER[2025] = (MAJOR_INDIAN_HOLIDAYS_MASTER[2026] || []).
 }));
 
 /**
+ * Safe local storage reader for explicitly cancelled / revoked holidays
+ */
+export const getCancelledHolidayDates = () => {
+  try {
+    const raw = localStorage.getItem(KEYS.CANCELLED_HOLIDAYS || 'hrms_cancelled_holidays');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Record a holiday date as explicitly cancelled so auto-upgrade & remote fetch never resurrect it
+ */
+export const recordCancelledHolidayDate = (date) => {
+  if (!date) return;
+  try {
+    const dates = getCancelledHolidayDates();
+    if (!dates.includes(date)) {
+      dates.push(date);
+      localStorage.setItem(KEYS.CANCELLED_HOLIDAYS || 'hrms_cancelled_holidays', JSON.stringify(dates));
+    }
+  } catch (err) {
+    console.error('[holidaySyncService] Failed to record cancelled holiday date:', err);
+  }
+};
+
+/**
+ * Remove a holiday date from cancelled registry when admin explicitly confirms or creates it
+ */
+export const removeCancelledHolidayDate = (date) => {
+  if (!date) return;
+  try {
+    let dates = getCancelledHolidayDates();
+    dates = dates.filter(d => d !== date);
+    localStorage.setItem(KEYS.CANCELLED_HOLIDAYS || 'hrms_cancelled_holidays', JSON.stringify(dates));
+  } catch (err) {
+    console.error('[holidaySyncService] Failed to remove cancelled holiday date:', err);
+  }
+};
+
+/**
  * Safe local storage reader for confirmed company holidays
  */
 export const getConfirmedHolidays = () => {
   try {
     const raw = localStorage.getItem(KEYS.HOLIDAYS);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    const cancelledDates = getCancelledHolidayDates();
+    if (cancelledDates.length > 0 && Array.isArray(parsed)) {
+      return parsed.filter(h => !cancelledDates.includes(h.date));
+    }
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -561,6 +610,10 @@ export const saveConfirmedHolidays = (list) => {
 };
 
 export const holidaySyncService = {
+  getCancelledHolidayDates,
+  recordCancelledHolidayDate,
+  removeCancelledHolidayDate,
+
   /**
    * Return master list of holidays covering all 12 months for a given year
    */
@@ -581,21 +634,24 @@ export const holidaySyncService = {
   async getSuggestedHolidays(year = 2026) {
     const masterList = await this.fetchLiveOrCuratedFestivals(year);
     const confirmed = getConfirmedHolidays();
+    const cancelledDates = getCancelledHolidayDates();
 
     return masterList.map(item => {
+      const isCancelled = cancelledDates.includes(item.date);
       const existingRecord = confirmed.find(c => 
         c.date === item.date && 
         (c.name?.toLowerCase().trim() === item.name.toLowerCase().trim() || c.code === item.code)
       );
 
-      const isConfirmed = !!existingRecord;
+      const isConfirmed = !!existingRecord && !isCancelled;
 
       return {
         ...item,
         isConfirmed,
-        confirmedRecordId: existingRecord?._id || null,
-        confirmedBy: existingRecord?.confirmedBy || null,
-        confirmedAt: existingRecord?.confirmedAt || null
+        isCancelled,
+        confirmedRecordId: isConfirmed ? (existingRecord?._id || null) : null,
+        confirmedBy: isConfirmed ? (existingRecord?.confirmedBy || null) : null,
+        confirmedAt: isConfirmed ? (existingRecord?.confirmedAt || null) : null
       };
     });
   },
@@ -604,6 +660,9 @@ export const holidaySyncService = {
    * Admin / HR 1-Click: Confirm a suggested holiday as an official Company Holiday
    */
   async confirmHolidayAsCompanyOff(suggestedHoliday, adminUser) {
+    if (suggestedHoliday?.date) {
+      removeCancelledHolidayDate(suggestedHoliday.date);
+    }
     const confirmed = getConfirmedHolidays();
 
     let u = adminUser;
@@ -740,30 +799,53 @@ export const holidaySyncService = {
       c.name?.toLowerCase().trim() === String(holidayIdentifier).toLowerCase().trim()
     );
 
-    // 1. Send DELETE to backend MongoDB Atlas if ID exists
+    const targetDate = target?.date || (String(holidayIdentifier).match(/^\d{4}-\d{2}-\d{2}$/) ? String(holidayIdentifier) : null);
+    const targetCode = target?.code || holidayIdentifier;
     const delId = target?._id || holidayIdentifier;
-    try {
-      await fetch(`${API_BASE}/holidays/${delId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-    } catch {}
 
-    // 2. Remove from local confirmed storage
+    // 1. Permanently record in cancelled blacklist so it is never auto-re-added
+    if (targetDate) {
+      recordCancelledHolidayDate(targetDate);
+    }
+
+    // 2. Remove from local confirmed storage immediately (0ms local update)
     confirmed = confirmed.filter(c => 
       c._id !== holidayIdentifier && 
       c.code !== holidayIdentifier && 
       c.date !== holidayIdentifier &&
+      (!targetDate || c.date !== targetDate) &&
       c.name?.toLowerCase().trim() !== String(holidayIdentifier).toLowerCase().trim()
     );
 
     saveConfirmedHolidays(confirmed);
 
-    // 3. Dispatch events
-    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.HOLIDAYS } }));
-    window.dispatchEvent(new CustomEvent('ems_holidays_updated', { detail: { cancelledHoliday: target || holidayIdentifier } }));
+    // 3. Send DELETE to backend MongoDB Atlas with date & code query params
+    try {
+      const q = new URLSearchParams();
+      if (targetDate) q.append('date', targetDate);
+      if (targetCode) q.append('code', targetCode);
+      await fetch(`${API_BASE}/holidays/${encodeURIComponent(delId)}?${q.toString()}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+    } catch (_) {}
 
-    return { success: true, cancelledName: target?.name || 'Holiday' };
+    // 4. Broadcast instant sync across all tabs & windows via BroadcastChannel
+    try {
+      broadcastSyncEvent(SYNC_EVENTS.STORAGE_MUTATION, {
+        key: KEYS.HOLIDAYS,
+        action: 'delete',
+        id: delId,
+        date: targetDate,
+        code: targetCode
+      });
+    } catch (_) {}
+
+    // 5. Dispatch reactive window events
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.HOLIDAYS, action: 'delete', date: targetDate } }));
+    window.dispatchEvent(new CustomEvent('ems_holidays_updated', { detail: { cancelledHoliday: target || holidayIdentifier, date: targetDate } }));
+
+    return { success: true, cancelledName: target?.name || 'Holiday', date: targetDate };
   },
 
   /**
@@ -772,6 +854,13 @@ export const holidaySyncService = {
   autoUpgradeStaleHolidays(year = 2026) {
     try {
       let current = getConfirmedHolidays();
+      const cancelledDates = getCancelledHolidayDates();
+
+      // Clean out any holidays in current that match cancelled dates
+      if (cancelledDates.length > 0) {
+        current = current.filter(c => !cancelledDates.includes(c.date));
+      }
+
       // Detect if user has only old stub data (e.g. <= 14 records or has obsolete foundation day)
       const hasObsoleteFoundation = current.some(c => c.date === '2026-10-15' && (c.name?.toLowerCase().includes('foundation') || c.title?.toLowerCase().includes('foundation')));
       const isStaleStub = current.length <= 14 || hasObsoleteFoundation;
@@ -781,8 +870,10 @@ export const holidaySyncService = {
         // Filter out obsolete foundation
         current = current.filter(c => !(c.date === '2026-10-15' && (c.name?.toLowerCase().includes('foundation') || c.title?.toLowerCase().includes('foundation'))));
 
-        // Add missing gazetted and national holidays with icons
+        // Add missing gazetted and national holidays with icons (excluding cancelled holidays!)
         master.forEach(m => {
+          if (cancelledDates.includes(m.date)) return; // Strictly skip cancelled holidays!
+
           const exists = current.some(c => c.date === m.date);
           if (!exists && m.isGazetted) {
             current.push({

@@ -40,6 +40,7 @@ export const KEYS = {
   DOCUMENTS: 'ems_documents',
   USER_DATE_MEMORIES: 'ems_user_date_memories',
   SUGGESTED_HOLIDAYS: 'ems_suggested_holidays',
+  CANCELLED_HOLIDAYS: 'hrms_cancelled_holidays',
   RESIGNATIONS: 'hrms_resignations'
 };
 

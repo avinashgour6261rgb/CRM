@@ -40,11 +40,13 @@ const applySingleItemMutation = (storageKey, payload, codeField = null) => {
     const item = payload.item || (payload._id ? payload : null);
     const targetId = payload.id || item?._id || item?.id;
     const targetCode = codeField ? (payload[codeField] || item?.[codeField]) : null;
+    const targetDate = payload.date || item?.date;
 
     const matchesItem = (entry) => {
       if (!entry) return false;
       if (targetId && (String(entry._id) === String(targetId) || String(entry.id) === String(targetId))) return true;
       if (codeField && targetCode && entry[codeField] && String(entry[codeField]) === String(targetCode)) return true;
+      if (storageKey === KEYS.HOLIDAYS && targetDate && entry.date === targetDate) return true;
       return false;
     };
 

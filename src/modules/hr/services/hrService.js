@@ -1661,6 +1661,8 @@ export const hrService = {
       holidaySyncService.autoUpgradeStaleHolidays(year);
     } catch (_) {}
 
+    const cancelledDates = holidaySyncService.getCancelledHolidayDates?.() || [];
+
     const query = new URLSearchParams();
     if (year) query.append('year', String(year));
     if (search) query.append('search', search);
@@ -1669,6 +1671,9 @@ export const hrService = {
       let holidays = getCollection(KEYS.HOLIDAYS) || [];
       if (year) {
         holidays = holidays.filter(h => h.date && h.date.startsWith(String(year)));
+      }
+      if (cancelledDates.length > 0) {
+        holidays = holidays.filter(h => !cancelledDates.includes(h.date));
       }
       if (search) {
         const q = search.toLowerCase();
@@ -1685,14 +1690,27 @@ export const hrService = {
       try {
         const local = getCollection(KEYS.HOLIDAYS) || [];
         const map = new Map();
-        local.forEach(item => map.set(item.date + '_' + item.name, item));
-        res.forEach(item => map.set(item.date + '_' + item.name, { ...(map.get(item.date + '_' + item.name) || {}), ...item }));
+        local.forEach(item => {
+          if (!cancelledDates.includes(item.date)) {
+            map.set(item.date + '_' + item.name, item);
+          }
+        });
+        res.forEach(item => {
+          if (!cancelledDates.includes(item.date)) {
+            map.set(item.date + '_' + item.name, { ...(map.get(item.date + '_' + item.name) || {}), ...item });
+          }
+        });
         const merged = Array.from(map.values()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         saveCollection(KEYS.HOLIDAYS, merged);
+        return merged;
       } catch (_) {}
     }
 
-    return Array.isArray(res) && res.length > 0 ? res : (getCollection(KEYS.HOLIDAYS) || []);
+    let finalHols = Array.isArray(res) && res.length > 0 ? res : (getCollection(KEYS.HOLIDAYS) || []);
+    if (cancelledDates.length > 0) {
+      finalHols = finalHols.filter(h => !cancelledDates.includes(h.date));
+    }
+    return finalHols;
   },
 
   async createHoliday(holidayData) {

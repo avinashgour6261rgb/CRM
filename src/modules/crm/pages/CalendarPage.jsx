@@ -259,6 +259,7 @@ export const CalendarPage = () => {
     // 4. Official Public & Company Holidays (Highlighted Red)
     const holidayEvents = (holidays || [])
       .filter(h => !(h.date === '2026-10-15' && (h.name?.toLowerCase().includes('foundation') || h.title?.toLowerCase().includes('foundation'))))
+      .filter(h => h.status !== 'cancelled' && !h.isCancelled && h.isConfirmed !== false)
       .map(h => ({
       _id: `hol_cal_${h._id || Math.random()}`,
       title: `🏖️ ${h.name || h.holidayName || h.title || 'Public Holiday'}`,

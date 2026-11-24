@@ -127,23 +127,40 @@ const deleteHoliday = asyncHandler(async (req, res) => {
     }
   }
 
+  const queryDate = req.query.date || req.body?.date;
+  const queryCode = req.query.code || req.body?.code;
+  const targetId = req.params.id;
+
   let holiday = null;
-  if (mongoose.isValidObjectId(req.params.id)) {
-    holiday = await Holiday.findByIdAndDelete(req.params.id);
+  if (mongoose.isValidObjectId(targetId)) {
+    holiday = await Holiday.findByIdAndDelete(targetId);
   }
   if (!holiday) {
-    holiday = await Holiday.findOneAndDelete({ $or: [{ code: req.params.id }, { date: req.params.id }] });
+    const orConditions = [
+      { code: targetId },
+      { date: targetId }
+    ];
+    if (queryDate) orConditions.push({ date: queryDate });
+    if (queryCode) orConditions.push({ code: queryCode });
+    holiday = await Holiday.findOneAndDelete({ $or: orConditions });
   }
 
-  if (!holiday) {
-    // If not found in DB, return success true so frontend can cleanly remove from local cache
-    return res.json({ success: true, message: 'Holiday not found or already removed', data: {} });
+  // If date was provided, wipe any duplicates matching that date
+  if (queryDate) {
+    try {
+      await Holiday.deleteMany({ date: queryDate });
+    } catch (_) {}
   }
+
+  const removedDate = holiday?.date || queryDate;
+  const removedCode = holiday?.code || queryCode;
+  const removedId = holiday ? String(holiday._id) : targetId;
+
   try {
     const { emitToAll } = require('../../../shared/socket/socketManager');
-    emitToAll('holiday:updated', { action: 'delete', id: String(holiday._id) });
+    emitToAll('holiday:updated', { action: 'delete', id: removedId, date: removedDate, code: removedCode });
   } catch (_) {}
-  res.json({ success: true, message: 'Holiday removed', data: {} });
+  res.json({ success: true, message: 'Holiday removed', data: { id: removedId, date: removedDate, code: removedCode } });
 });
 
 module.exports = {

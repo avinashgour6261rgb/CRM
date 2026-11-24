@@ -259,7 +259,7 @@ export const WeeklyTimeLogsCard = ({
                     const isSelected = dayLog.shortDay === activeWeekDayShort;
                     const isCurrent = dayLog.isCurrentDay;
                     const isHoliday = Boolean(dayLog.date) &&
-                        (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && (h.isConfirmed !== false && h.isGazetted !== false));
+                        (holidays || []).some(h => Boolean(h.date) && h.date === dayLog.date && (h.isConfirmed !== false && h.isGazetted !== false && h.status !== 'cancelled' && !h.isCancelled));
 
                     const dayHrs = dayLog.durationSeconds > 0
                         ? (dayLog.durationSeconds < 60 ? `${dayLog.durationSeconds}s` : `${Math.floor(dayLog.durationSeconds / 3600)}h${Math.floor((dayLog.durationSeconds % 3600) / 60) > 0 ? ` ${Math.floor((dayLog.durationSeconds % 3600) / 60)}m` : ''}`)

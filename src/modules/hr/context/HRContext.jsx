@@ -607,6 +607,13 @@ export const HRProvider = ({ children }) => {
   };
 
   const deleteHoliday = async (holidayId) => {
+    // 0ms Optimistic local update so UI switches from red/off to regular working day immediately
+    setHolidays(prev => (prev || []).filter(h => 
+      h._id !== holidayId && 
+      h.code !== holidayId && 
+      h.date !== holidayId &&
+      h.name !== holidayId
+    ));
     try {
       await hrService.deleteHoliday(holidayId);
       addToast('Holiday removed from calendar', 'info');
