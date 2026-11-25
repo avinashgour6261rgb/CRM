@@ -536,7 +536,9 @@ exports.deleteTimesheet = async (req, res, next) => {
     // Recalculate associated task hours after deletion
     if (timesheet.task || timesheet.taskId) {
       const taskId = timesheet.task || timesheet.taskId;
-      const task = await Task.findById(taskId);
+      const task = mongoose.Types.ObjectId.isValid(taskId)
+        ? await Task.findById(taskId)
+        : await Task.findOne({ taskCode: String(taskId) });
       if (task) {
         const remainingTimesheets = await Timesheet.find({
           _id: { $ne: timesheet._id },

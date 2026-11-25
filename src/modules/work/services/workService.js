@@ -214,30 +214,28 @@ export const workService = {
 
   async deleteProject(id) {
     if (await isBackendAvailable()) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        });
-        if (res.ok) {
-          const projects = getCollection(KEYS.PROJECTS) || [];
-          const filtered = projects.filter(p => String(p._id || p.id) !== String(id) && p.projectCode !== id);
-          saveCollection(KEYS.PROJECTS, filtered);
-
-          // Also remove associated tasks locally
-          const tasks = getCollection(KEYS.TASKS) || [];
-          const remainingTasks = tasks.filter(t => String(t.projectId || t.project) !== String(id) && t.projectCode !== id);
-          if (remainingTasks.length !== tasks.length) {
-            saveCollection(KEYS.TASKS, remainingTasks);
-            window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
-          }
-
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
-          return true;
-        }
-      } catch (err) {
-        console.warn('Backend project deletion failed, using local storage:', err);
+      const res = await fetch(`${API_BASE_URL}/projects/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || `Failed to delete project (${res.status})`);
       }
+      const projects = getCollection(KEYS.PROJECTS) || [];
+      const filtered = projects.filter(p => String(p._id || p.id) !== String(id) && p.projectCode !== id);
+      saveCollection(KEYS.PROJECTS, filtered);
+
+      // Also remove associated tasks locally
+      const tasks = getCollection(KEYS.TASKS) || [];
+      const remainingTasks = tasks.filter(t => String(t.projectId || t.project) !== String(id) && t.projectCode !== id);
+      if (remainingTasks.length !== tasks.length) {
+        saveCollection(KEYS.TASKS, remainingTasks);
+        window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      }
+
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.PROJECTS } }));
+      return true;
     }
 
     const projects = getCollection(KEYS.PROJECTS) || [];
@@ -758,21 +756,19 @@ export const workService = {
 
   async deleteTask(id) {
     if (await isBackendAvailable()) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        });
-        if (res.ok) {
-          const tasks = getCollection(KEYS.TASKS) || [];
-          const filtered = tasks.filter(t => String(t._id || t.id) !== String(id) && t.taskCode !== id);
-          saveCollection(KEYS.TASKS, filtered);
-          window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
-          return true;
-        }
-      } catch (err) {
-        console.warn('Backend task delete failed, using local storage:', err);
+      const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || `Failed to delete task (${res.status})`);
       }
+      const tasks = getCollection(KEYS.TASKS) || [];
+      const filtered = tasks.filter(t => String(t._id || t.id) !== String(id) && t.taskCode !== id);
+      saveCollection(KEYS.TASKS, filtered);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
+      return true;
     }
 
     const tasks = getCollection(KEYS.TASKS) || [];
@@ -1244,20 +1240,20 @@ export const workService = {
 
   async deleteTimesheet(id) {
     if (await isBackendAvailable()) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, {
-          method: 'DELETE',
-          headers: buildJwtAuthHeaders()
-        });
-        if (res.ok) return true;
-      } catch (err) {
-        console.warn('Backend timesheet delete failed, using local storage:', err);
+      const res = await fetch(`${API_BASE_URL}/timesheet/${id}`, {
+        method: 'DELETE',
+        headers: buildJwtAuthHeaders()
+      });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || `Failed to delete timesheet (${res.status})`);
       }
     }
 
-    const timesheets = getCollection(KEYS.TIMESHEETS);
-    const filtered = timesheets.filter(t => t._id !== id);
+    const timesheets = getCollection(KEYS.TIMESHEETS) || [];
+    const filtered = timesheets.filter(t => String(t._id || t.id) !== String(id));
     saveCollection(KEYS.TIMESHEETS, filtered);
+    window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TIMESHEETS } }));
     return true;
   }
 };

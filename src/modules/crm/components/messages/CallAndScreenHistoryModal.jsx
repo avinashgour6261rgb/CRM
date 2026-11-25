@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Radio
 } from 'lucide-react';
+import { API_BASE, getAuthHeaders } from '../../../../shared/config/apiConfig';
 
 const formatDateTime = (dateVal) => {
   if (!dateVal) return 'Recent';
@@ -59,8 +60,8 @@ export const CallAndScreenHistoryModal = ({
       const convParam = filterScope === 'conversation' && activeConv?.id ? `?conversationId=${encodeURIComponent(activeConv.id)}` : '';
 
       const [callRes, screenRes] = await Promise.allSettled([
-        fetch(`/api/calls/history${convParam}`, { credentials: 'include' }).then(r => r.json()),
-        fetch(`/api/calls/screenshare/history${convParam}`, { credentials: 'include' }).then(r => r.json())
+        fetch(`${API_BASE}/calls/history${convParam}`, { headers: getAuthHeaders(), credentials: 'include' }).then(r => r.json()),
+        fetch(`${API_BASE}/calls/screenshare/history${convParam}`, { headers: getAuthHeaders(), credentials: 'include' }).then(r => r.json())
       ]);
 
       if (callRes.status === 'fulfilled' && callRes.value?.success) {

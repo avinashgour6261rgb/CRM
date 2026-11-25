@@ -1550,6 +1550,10 @@ export const CRMProvider = ({ children }) => {
       if (res.ok) {
         const json = await res.json();
         if (json.data?._id) newExpense._id = String(json.data._id);
+      } else {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Failed to record expense.', 'error');
+        return null;
       }
     } catch (_) { }
 
@@ -1637,18 +1641,24 @@ export const CRMProvider = ({ children }) => {
 
   const deleteExpense = async (expenseId) => {
     try {
-      await fetch(`${API_BASE}/expenses/${expenseId}`, {
+      const res = await fetch(`${API_BASE}/expenses/${expenseId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Access denied or failed to delete expense.', 'error');
+        return false;
+      }
     } catch (_) { }
 
     const currentList = getCollection(KEYS.EXPENSES);
-    const filtered = currentList.filter(e => e._id !== expenseId);
+    const filtered = currentList.filter(e => String(e._id) !== String(expenseId));
     saveCollection(KEYS.EXPENSES, filtered);
     setExpenses(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EXPENSES } }));
     addToast('Expense record removed', 'info');
+    return true;
   };
 
   const importExpensesBatch = async (importedList) => {
@@ -1755,6 +1765,10 @@ export const CRMProvider = ({ children }) => {
         const json = await res.json();
         if (json.data?._id) newTicket._id = String(json.data._id);
         if (json.data?.ticketCode) newTicket.ticketCode = json.data.ticketCode;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Failed to raise support ticket.', 'error');
+        return null;
       }
     } catch (e) {
       console.warn('[CRMContext] Ticket offline save:', e);
@@ -1949,10 +1963,15 @@ export const CRMProvider = ({ children }) => {
     }
 
     try {
-      await fetch(`${API_BASE}/tickets/${ticketId}`, {
+      const res = await fetch(`${API_BASE}/tickets/${ticketId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Access Denied: Could not delete support ticket.', 'error');
+        return false;
+      }
     } catch (e) {
       console.warn('[CRMContext] Ticket deleted offline:', e);
     }
@@ -2008,6 +2027,10 @@ export const CRMProvider = ({ children }) => {
       if (res.ok) {
         const json = await res.json();
         if (json.data?._id) newEvent._id = String(json.data._id);
+      } else {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Failed to schedule event.', 'error');
+        return null;
       }
     } catch (_) { }
 
@@ -2056,18 +2079,24 @@ export const CRMProvider = ({ children }) => {
 
   const deleteEvent = async (eventId) => {
     try {
-      await fetch(`${API_BASE}/events/${eventId}`, {
+      const res = await fetch(`${API_BASE}/events/${eventId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Access denied or failed to delete event.', 'error');
+        return false;
+      }
     } catch (_) { }
 
     const currentList = getCollection(KEYS.EVENTS);
-    const filtered = currentList.filter(e => e._id !== eventId && e.id !== eventId);
+    const filtered = currentList.filter(e => String(e._id) !== String(eventId) && String(e.id) !== String(eventId));
     saveCollection(KEYS.EVENTS, filtered);
     setEvents(filtered);
     window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EVENTS } }));
     addToast('Event removed from calendar', 'info');
+    return true;
   };
 
   // =========================================================================
@@ -2559,7 +2588,9 @@ export const CRMProvider = ({ children }) => {
           };
         }
       } else {
-        console.warn('Backend rejected notice creation:', await res.text());
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Failed to publish notice.', 'error');
+        return null;
       }
     } catch (err) {
       console.warn('Notice saved locally, offline sync will propagate to MongoDB:', err);
@@ -2646,10 +2677,15 @@ export const CRMProvider = ({ children }) => {
     }
 
     try {
-      await fetch(`${API_BASE}/notices/${noticeId}`, {
+      const res = await fetch(`${API_BASE}/notices/${noticeId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Access Denied: Could not delete notice.', 'error');
+        return false;
+      }
     } catch (_) { }
 
     const filtered = currentList.filter(n => n._id !== noticeId && n.id !== noticeId && n.noticeCode !== noticeId);
@@ -2730,6 +2766,10 @@ export const CRMProvider = ({ children }) => {
             _id: String(json.data._id || savedLead._id)
           };
         }
+      } else {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Failed to create lead.', 'error');
+        return null;
       }
     } catch (_) { }
 
@@ -2845,10 +2885,15 @@ export const CRMProvider = ({ children }) => {
     }
 
     try {
-      await fetch(`${API_BASE}/leads/${leadId}`, {
+      const res = await fetch(`${API_BASE}/leads/${leadId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        addToast(errJson?.message || 'Access Denied: Could not delete CRM lead.', 'error');
+        return false;
+      }
     } catch (_) { }
 
     const filtered = currentList.filter(l => l._id !== leadId && l.id !== leadId && l.leadCode !== leadId);

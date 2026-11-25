@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Holiday = require('../models/Holiday');
+const Attendance = require('../models/Attendance');
 const asyncHandler = require('../../../shared/middleware/asyncHandler');
 
 // @desc    Get all holidays
@@ -156,9 +157,19 @@ const deleteHoliday = asyncHandler(async (req, res) => {
   const removedCode = holiday?.code || queryCode;
   const removedId = holiday ? String(holiday._id) : targetId;
 
+  // Clean any holiday-status attendance records for the cancelled holiday date so it reverts to a normal working day
+  if (removedDate) {
+    try {
+      await Attendance.deleteMany({ date: removedDate, status: 'holiday' });
+    } catch (_) {}
+  }
+
   try {
     const { emitToAll } = require('../../../shared/socket/socketManager');
     emitToAll('holiday:updated', { action: 'delete', id: removedId, date: removedDate, code: removedCode });
+    if (removedDate) {
+      emitToAll('attendance:updated', { action: 'holiday_cancelled', date: removedDate });
+    }
   } catch (_) {}
   res.json({ success: true, message: 'Holiday removed', data: { id: removedId, date: removedDate, code: removedCode } });
 });

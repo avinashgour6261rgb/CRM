@@ -1,16 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, Mic } from 'lucide-react';
+import { Play, Pause, Volume2, Mic, Loader2 } from 'lucide-react';
+import { fetchChatAttachmentMedia } from '../../utils/chatMediaUtils';
 
 /**
  * @file VoiceMemoPlayer.jsx
  * @description Sleek inline audio waveform & voice memo player for chat messages.
+ * Fetches stripped audio lazily on-demand only when Play is clicked to save server bandwidth.
  */
-export const VoiceMemoPlayer = ({ attachment, isOutgoing }) => {
+export const VoiceMemoPlayer = ({ attachment, conversationId, isOutgoing }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [audioSrc, setAudioSrc] = useState(() => attachment?.dataUrl || '');
+  const [loadingAudio, setLoadingAudio] = useState(false);
   const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (attachment?.dataUrl) {
+      setAudioSrc(attachment.dataUrl);
+    }
+  }, [attachment?.dataUrl]);
 
   const formatSecs = (sec) => {
     if (!sec || isNaN(sec)) return '0:00';
@@ -47,15 +57,34 @@ export const VoiceMemoPlayer = ({ attachment, isOutgoing }) => {
     };
   }, []);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || loadingAudio) return;
+
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
-    } else {
-      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      return;
     }
+
+    if (!audioSrc && attachment?.hasFullMedia && attachment?.id) {
+      const convId = conversationId || attachment.conversationId;
+      if (convId) {
+        setLoadingAudio(true);
+        try {
+          const fetchedUrl = await fetchChatAttachmentMedia(convId, attachment.id);
+          if (fetchedUrl) {
+            setAudioSrc(fetchedUrl);
+            audio.src = fetchedUrl;
+            audio.load();
+          }
+        } finally {
+          setLoadingAudio(false);
+        }
+      }
+    }
+
+    audio.play().then(() => setIsPlaying(true)).catch(() => {});
   };
 
   const handleSeek = (e) => {
@@ -84,20 +113,27 @@ export const VoiceMemoPlayer = ({ attachment, isOutgoing }) => {
         ? 'bg-white/15 text-white border border-white/20'
         : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-slate-700'
     }`}>
-      <audio ref={audioRef} src={attachment.dataUrl} preload="metadata" />
+      <audio ref={audioRef} src={audioSrc || undefined} preload="metadata" />
 
       {/* Play/Pause Button */}
       <button
         type="button"
         onClick={togglePlay}
+        disabled={loadingAudio}
         className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-105 shrink-0 border-0 ${
           isOutgoing
             ? 'bg-white text-blue-600 shadow-md'
             : 'bg-blue-600 text-white shadow-md'
         }`}
-        title={isPlaying ? 'Pause' : 'Play voice memo'}
+        title={loadingAudio ? 'Loading voice memo...' : (isPlaying ? 'Pause' : 'Play voice memo')}
       >
-        {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+        {loadingAudio ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : isPlaying ? (
+          <Pause size={16} />
+        ) : (
+          <Play size={16} className="ml-0.5" />
+        )}
       </button>
 
       {/* Track & Time */}

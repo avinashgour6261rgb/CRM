@@ -106,6 +106,49 @@ const LazyChatImage = ({ att, conversationId, onOpen }) => {
   );
 };
 
+// On-demand Video Loader: fetches stripped video ONLY when clicked to save Render bandwidth
+const LazyChatVideo = ({ att, conversationId }) => {
+  const [src, setSrc] = useState(() => att?.dataUrl || '');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (att?.dataUrl) setSrc(att.dataUrl);
+  }, [att?.dataUrl]);
+
+  const handleLoadVideo = async () => {
+    if (loading || src || !att?.id) return;
+    const convId = conversationId || att.conversationId;
+    if (!convId) return;
+    setLoading(true);
+    try {
+      const url = await fetchChatAttachmentMedia(convId, att.id);
+      if (url) setSrc(url);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (src) {
+    return (
+      <div className="max-w-sm rounded-lg overflow-hidden bg-black shadow-sm">
+        <video controls playsInline src={src} className="max-h-56 w-full rounded-lg" />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleLoadVideo}
+      disabled={loading}
+      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-slate-900/85 hover:bg-slate-900 text-white text-xs font-semibold border border-white/15 cursor-pointer transition-colors"
+    >
+      <Video size={16} className="shrink-0 text-blue-400" />
+      <span>{loading ? 'Loading video...' : `Play Video (${att?.sizeFormatted || att?.name || 'MP4'})`}</span>
+    </button>
+  );
+};
+
 export const MessagesPage = () => {
   const {
     visibleConversations,
@@ -1218,19 +1261,12 @@ export const MessagesPage = () => {
 
                                     {/* Video Attachment */}
                                     {att.category === 'video' && (
-                                      <div className="max-w-sm rounded-lg overflow-hidden bg-black shadow-sm">
-                                        <video
-                                          controls
-                                          playsInline
-                                          src={att.dataUrl}
-                                          className="max-h-56 w-full rounded-lg"
-                                        />
-                                      </div>
+                                      <LazyChatVideo att={att} conversationId={activeConv?.id} />
                                     )}
 
                                     {/* Audio Voice Memo Attachment */}
                                     {att.category === 'audio' && (
-                                      <VoiceMemoPlayer attachment={att} isOutgoing={outgoing} />
+                                      <VoiceMemoPlayer attachment={att} conversationId={activeConv?.id} isOutgoing={outgoing} />
                                     )}
 
                                     {/* Document Attachment */}

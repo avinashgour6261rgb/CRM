@@ -478,14 +478,24 @@ export const hrService = {
   },
 
   async deleteEmployee(employeeId) {
-    return fetchWithFallback(`${API_BASE}/employees/${employeeId}`, {
+    const res = await fetchWithFallback(`${API_BASE}/employees/${employeeId}`, {
       method: 'DELETE'
     }, async () => {
       let employees = getCollection(KEYS.EMPLOYEES);
-      employees = employees.filter(e => e._id !== employeeId);
+      employees = employees.filter(e => String(e._id || e.id) !== String(employeeId) && e.employeeCode !== employeeId);
       saveCollection(KEYS.EMPLOYEES, employees);
       return { success: true };
     });
+
+    try {
+      const employees = (getCollection(KEYS.EMPLOYEES) || []).filter(
+        e => String(e._id || e.id) !== String(employeeId) && e.employeeCode !== employeeId
+      );
+      saveCollection(KEYS.EMPLOYEES, employees);
+      window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.EMPLOYEES } }));
+    } catch (_) {}
+
+    return res;
   },
 
   // =========================================================================
@@ -1686,23 +1696,14 @@ export const hrService = {
       return holidays.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     });
 
-    if (Array.isArray(res) && res.length > 0) {
+    if (Array.isArray(res)) {
       try {
-        const local = getCollection(KEYS.HOLIDAYS) || [];
-        const map = new Map();
-        local.forEach(item => {
-          if (!cancelledDates.includes(item.date)) {
-            map.set(item.date + '_' + item.name, item);
-          }
-        });
-        res.forEach(item => {
-          if (!cancelledDates.includes(item.date)) {
-            map.set(item.date + '_' + item.name, { ...(map.get(item.date + '_' + item.name) || {}), ...item });
-          }
-        });
-        const merged = Array.from(map.values()).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-        saveCollection(KEYS.HOLIDAYS, merged);
-        return merged;
+        // MongoDB is authoritative: never merge stale local holidays back in after deletion
+        const authoritative = res
+          .filter(item => !cancelledDates.includes(item.date))
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        saveCollection(KEYS.HOLIDAYS, authoritative);
+        return authoritative;
       } catch (_) {}
     }
 

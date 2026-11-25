@@ -819,15 +819,36 @@ export const holidaySyncService = {
 
     saveConfirmedHolidays(confirmed);
 
+    // 2b. Remove any stale holiday-status attendance records for this cancelled date locally
+    if (targetDate) {
+      try {
+        const rawAtt = localStorage.getItem(KEYS.ATTENDANCE);
+        if (rawAtt) {
+          const attList = JSON.parse(rawAtt);
+          if (Array.isArray(attList)) {
+            const cleanedAtt = attList.filter(a => !(a && a.date === targetDate && a.status === 'holiday'));
+            if (cleanedAtt.length !== attList.length) {
+              localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(cleanedAtt));
+              window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.ATTENDANCE } }));
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     // 3. Send DELETE to backend MongoDB Atlas with date & code query params
     try {
       const q = new URLSearchParams();
       if (targetDate) q.append('date', targetDate);
       if (targetCode) q.append('code', targetCode);
-      await fetch(`${API_BASE}/holidays/${encodeURIComponent(delId)}?${q.toString()}`, {
+      const res = await fetch(`${API_BASE}/holidays/${encodeURIComponent(delId)}?${q.toString()}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
+      if (!res.ok && res.status !== 404) {
+        const errJson = await res.json().catch(() => null);
+        return { success: false, message: errJson?.message || 'Access denied or failed to cancel holiday.' };
+      }
     } catch (_) {}
 
     // 4. Broadcast instant sync across all tabs & windows via BroadcastChannel
@@ -850,8 +871,10 @@ export const holidaySyncService = {
 
   /**
    * Sync and Upgrade: Replaces stale hardcoded stub data with rich 12-month calendar
+   * Only inserts missing gazetted holidays when explicitly triggered (forceSync === true)
+   * so deleted/cancelled holidays are never resurrected automatically.
    */
-  autoUpgradeStaleHolidays(year = 2026) {
+  autoUpgradeStaleHolidays(year = 2026, forceSync = false) {
     try {
       let current = getConfirmedHolidays();
       const cancelledDates = getCancelledHolidayDates();
@@ -859,13 +882,11 @@ export const holidaySyncService = {
       // Clean out any holidays in current that match cancelled dates
       if (cancelledDates.length > 0) {
         current = current.filter(c => !cancelledDates.includes(c.date));
+        saveConfirmedHolidays(current);
       }
 
-      // Detect if user has only old stub data (e.g. <= 14 records or has obsolete foundation day)
-      const hasObsoleteFoundation = current.some(c => c.date === '2026-10-15' && (c.name?.toLowerCase().includes('foundation') || c.title?.toLowerCase().includes('foundation')));
-      const isStaleStub = current.length <= 14 || hasObsoleteFoundation;
-
-      if (isStaleStub) {
+      // Only auto-populate missing gazetted holidays when Admin explicitly clicks Sync All 12 Months
+      if (forceSync) {
         const master = this.getMasterHolidaysForYear(year);
         // Filter out obsolete foundation
         current = current.filter(c => !(c.date === '2026-10-15' && (c.name?.toLowerCase().includes('foundation') || c.title?.toLowerCase().includes('foundation'))));

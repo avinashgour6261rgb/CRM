@@ -10,7 +10,6 @@
  */
 
 import { API_BASE, getAuthHeaders } from '../config/apiConfig';
-import { ensureHistoricalData } from '../utils/historicalDataSeeder';
 import { broadcastSyncEvent, subscribeToSyncEvents, SYNC_EVENTS } from './realtimeSyncService';
 
 export const KEYS = {
@@ -312,6 +311,17 @@ export const syncDatabaseToStorage = async () => {
                   return { ...c, messages: uniqueMsgs };
                 });
                 localStorage.setItem(key, JSON.stringify(cleanConvs));
+              } else if (key === KEYS.HOLIDAYS) {
+                let cancelledDates = [];
+                try {
+                  const rawCancelled = localStorage.getItem(KEYS.CANCELLED_HOLIDAYS);
+                  const parsedCancelled = rawCancelled ? JSON.parse(rawCancelled) : [];
+                  if (Array.isArray(parsedCancelled)) cancelledDates = parsedCancelled;
+                } catch (_) {}
+                const filteredHolidays = cancelledDates.length > 0
+                  ? data.filter(h => !cancelledDates.includes(h.date))
+                  : data;
+                localStorage.setItem(key, JSON.stringify(filteredHolidays));
               } else {
                 localStorage.setItem(key, JSON.stringify(data));
               }
@@ -356,9 +366,6 @@ export const initStorage = () => {
       localStorage.setItem(k, JSON.stringify([]));
     }
   });
-
-  // Ensure historical records for past days/months exist so users never see blank screens
-  ensureHistoricalData();
 
   // Pull live data from MongoDB Atlas
   syncDatabaseToStorage();
