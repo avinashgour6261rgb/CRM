@@ -29,12 +29,13 @@ import { confirmDialog } from '../../../../shared/context/ConfirmContext';
 import { canDeleteTask, canEditAnyTask } from '../../../../shared/utils/permissionUtils';
 import { getLocalDateString } from '../../../../shared/utils/timerUtils';
 import { getCollection, KEYS } from '../../../../shared/services/storageService';
-import { getWorkerTotalSeconds, isTaskRunningForUser, getWorkerTaskTimer } from '../../../../shared/utils/timerUtils';
+import { getWorkerTotalSeconds, isTaskRunningForUser, getWorkerTaskTimer, getMultiAssigneeCombinedSeconds } from '../../../../shared/utils/timerUtils';
 import { useModalUX } from '../../../../shared/hooks/useModalUX';
 
-export const TaskDetailModal = ({ task, onClose }) => {
-  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(task) });
+export const TaskDetailModal = ({ task: taskProp, onClose }) => {
+  const { handleBackdropClick, handleCardClick } = useModalUX({ onClose, isOpen: Boolean(taskProp) });
   const {
+    tasks: contextTasks,
     startTaskTimer,
     pauseTaskTimer,
     stopTaskTimer,
@@ -47,6 +48,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
     logTimesheet,
     employees
   } = useWork();
+  const task = (contextTasks || []).find(t => String(t._id || t.id) === String(taskProp?._id || taskProp?.id)) || taskProp;
   const { currentUser } = useAuth();
   const { addToast } = useToast();
 
@@ -97,6 +99,29 @@ export const TaskDetailModal = ({ task, onClose }) => {
   }, [task, myId, myCode, isMyRunning]);
   const activeWorkerName = activeTeammateNames[0] || task?.activeWorkerName || task?.activeUserName || task?.assignedToName || 'Team Member';
   const hasAnyRunning = Boolean(isMyRunning || activeTeammateNames.length > 0 || task?.timerRunning);
+
+  const isMultiAssignee = Boolean(
+    task && (
+      (Array.isArray(task.assignees) && task.assignees.length > 1) ||
+      (Array.isArray(task.assignedToIds) && task.assignedToIds.length > 1)
+    )
+  );
+  const effectiveTotalSecs = task
+    ? (isMultiAssignee
+        ? getMultiAssigneeCombinedSeconds(task)
+        : Math.max(
+            Number(task.accumulatedSeconds ?? task.timerSeconds ?? 0),
+            Math.round((Number(task.hoursLogged) || 0) * 3600)
+          ))
+    : 0;
+  const effectiveHoursLogged = +(effectiveTotalSecs / 3600).toFixed(2);
+  const effectiveHoursLoggedText = effectiveTotalSecs > 0
+    ? (effectiveTotalSecs < 60
+        ? `${effectiveTotalSecs}s`
+        : (effectiveTotalSecs < 3600
+            ? `${Math.floor(effectiveTotalSecs / 60)}m`
+            : `${Math.floor(effectiveTotalSecs / 3600)}h ${Math.floor((effectiveTotalSecs % 3600) / 60)}m`))
+    : (task?.hoursLoggedText || '0s');
 
   // Sync edit fields when task changes
   React.useEffect(() => {
@@ -412,12 +437,12 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 </span>
               </div>
               <span className={`text-[11.5px] font-bold px-2 py-0.5 rounded-md ${
-                (Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
+                effectiveHoursLogged > Number(task.estimatedHours)
                   ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400'
                   : 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
               }`}>
                 {task.estimatedHours > 0 
-                  ? `${Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100)}% of Budget`
+                  ? `${Math.round((effectiveHoursLogged / Number(task.estimatedHours)) * 100)}% of Budget`
                   : 'Open Budget'}
               </span>
             </div>
@@ -433,7 +458,7 @@ export const TaskDetailModal = ({ task, onClose }) => {
                 <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Actual Logged:</span>
                 <div className="flex items-center gap-1.5">
                   <strong className="text-blue-600 dark:text-blue-400 text-[13.5px]">
-                    {task.hoursLogged ? `${task.hoursLogged}h` : (task.hoursLoggedText || '0s')}
+                    {effectiveTotalSecs > 0 ? `${effectiveHoursLogged}h (${effectiveHoursLoggedText})` : (task.hoursLoggedText || '0s')}
                   </strong>
                   {userCanEdit && (
                     <button
@@ -450,14 +475,14 @@ export const TaskDetailModal = ({ task, onClose }) => {
               <div>
                 <span className="text-slate-500 dark:text-slate-400 text-[11.5px] block">Variance / Balance:</span>
                 <strong className={`text-[13.5px] ${
-                  (Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
+                  effectiveHoursLogged > Number(task.estimatedHours)
                     ? 'text-amber-600 dark:text-amber-400'
                     : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
                   {task.estimatedHours > 0
-                    ? ((Number(task.hoursLogged) || 0) > Number(task.estimatedHours)
-                      ? `+${((Number(task.hoursLogged) || 0) - Number(task.estimatedHours)).toFixed(1)}h Overtime`
-                      : `${(Number(task.estimatedHours) - (Number(task.hoursLogged) || 0)).toFixed(1)}h Left`)
+                    ? (effectiveHoursLogged > Number(task.estimatedHours)
+                      ? `+${(effectiveHoursLogged - Number(task.estimatedHours)).toFixed(1)}h Overtime`
+                      : `${(Number(task.estimatedHours) - effectiveHoursLogged).toFixed(1)}h Left`)
                     : 'Flexible'}
                 </strong>
               </div>
@@ -535,10 +560,10 @@ export const TaskDetailModal = ({ task, onClose }) => {
               <div className="w-full h-[7px] bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1">
                 <div
                   style={{
-                    width: `${Math.min(100, Math.round(((Number(task.hoursLogged) || 0) / Number(task.estimatedHours)) * 100))}%`
+                    width: `${Math.min(100, Math.round((effectiveHoursLogged / Number(task.estimatedHours)) * 100))}%`
                   }}
                   className={`h-full rounded-full transition-all duration-300 ${
-                    (Number(task.hoursLogged) || 0) > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'
+                    effectiveHoursLogged > Number(task.estimatedHours) ? 'bg-amber-500' : 'bg-blue-600'
                   }`}
                 />
               </div>

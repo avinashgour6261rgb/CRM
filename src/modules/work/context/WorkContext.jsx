@@ -3270,6 +3270,8 @@ export const WorkProvider = ({ children }) => {
           todayWorkSeconds: existingTodaySecs,
           liveTodaySeconds: existingTodaySecs,
           dailySessions: updatedDailySessions,
+          assigneeTimers: updatedAssigneeTimers,
+          assigneeSessions: updatedAssigneeSessions,
           activeWorkerId: currentWorkerId,
           activeWorkerName: currentWorkerName,
           activeWorkerAvatar: currentWorkerAvatar,
@@ -3397,10 +3399,23 @@ export const WorkProvider = ({ children }) => {
       (String(activeTimer.taskId) === String(taskId) || String(activeTimer._id) === String(taskId))
     );
     const workerSpecificTimer = getWorkerTaskTimer(targetTask, workerObj);
-    const startTs = (matchesActiveSnap && activeTimer?.startedAt)
-      ? Number(activeTimer.startedAt)
-      : (workerSpecificTimer?.startedAt ? Number(workerSpecificTimer.startedAt) : (targetTask.startedAt ? Number(targetTask.startedAt) : now));
-    const sessionElapsed = Math.max(0, Math.floor((now - startTs) / 1000));
+    const todayMidnight = new Date(now);
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayMidnightMs = todayMidnight.getTime();
+    const isWorkerRunning = Boolean(
+      workerSpecificTimer?.timerRunning ||
+      (matchesActiveSnap && activeTimer?.timerRunning) ||
+      (!workerSpecificTimer && targetTask.timerRunning)
+    );
+    const startTs = (workerSpecificTimer?.timerRunning && workerSpecificTimer?.startedAt)
+      ? Number(workerSpecificTimer.startedAt)
+      : ((matchesActiveSnap && activeTimer?.startedAt)
+          ? Number(activeTimer.startedAt)
+          : (targetTask.timerRunning && targetTask.startedAt ? Number(targetTask.startedAt) : now));
+    const effectiveStartTs = Math.max(startTs, todayMidnightMs);
+    const sessionElapsed = (isWorkerRunning && startTs > 0 && startTs <= now)
+      ? Math.max(0, Math.floor((now - effectiveStartTs) / 1000))
+      : 0;
 
     // Update worker's specific sessions and total hours (persist under both workerKey and workerIdStr)
     const isMultiPause = (Array.isArray(targetTask.assignedToIds) && targetTask.assignedToIds.length > 1) ||
@@ -3418,12 +3433,43 @@ export const WorkProvider = ({ children }) => {
       Number(updatedAssigneeHours[workerKey]) || 0,
       Number(updatedAssigneeHours[workerIdStr]) || 0,
       Number(workerSpecificTimer?.accumulatedSeconds) || 0,
-      workerTodayTotal
+      prevWorkerToday
     );
     const workerLifetimeTotal = Math.max(prevWorkerTotal + sessionElapsed, workerTodayTotal);
     updatedAssigneeHours[workerKey] = workerLifetimeTotal;
     if (workerIdStr && workerIdStr !== workerKey) {
       updatedAssigneeHours[workerIdStr] = workerLifetimeTotal;
+    }
+
+    const workerMatchKeys = new Set(
+      [workerKey, workerIdStr, workerObj?.employeeCode, workerObj?._id, workerObj?.id, workerObj?.email]
+        .filter(Boolean)
+        .map(k => String(k).trim())
+    );
+    const pausedWorkerState = {
+      ...(workerSpecificTimer || {}),
+      timerRunning: false,
+      startedAt: null,
+      pausedAt: now,
+      accumulatedSeconds: workerLifetimeTotal,
+      todayWorkSeconds: workerTodayTotal,
+      sessionDate: today,
+      workerId: workerIdStr,
+      workerName: workerNameStr,
+      updatedAt: now
+    };
+    const updatedAssigneeTimers = { ...(targetTask.assigneeTimers || {}) };
+    for (const existingK of Object.keys(updatedAssigneeTimers)) {
+      if (workerMatchKeys.has(existingK) || [...workerMatchKeys].some(mk => mk.toLowerCase() === existingK.toLowerCase())) {
+        updatedAssigneeTimers[existingK] = {
+          ...(updatedAssigneeTimers[existingK] || {}),
+          ...pausedWorkerState
+        };
+      }
+    }
+    updatedAssigneeTimers[workerKey] = { ...pausedWorkerState };
+    if (workerIdStr && workerIdStr !== workerKey) {
+      updatedAssigneeTimers[workerIdStr] = { ...pausedWorkerState };
     }
 
     const mergedDailyBeforePause = {
@@ -3451,11 +3497,12 @@ export const WorkProvider = ({ children }) => {
       ),
       dailySessions: mergedDailyBeforePause,
       assigneeSessions: updatedAssigneeSessions,
-      assigneeHours: updatedAssigneeHours
+      assigneeHours: updatedAssigneeHours,
+      assigneeTimers: updatedAssigneeTimers
     };
 
     const pausedTask = {
-      ...syncTaskPauseState(effectiveTaskForPause, { nowMs: now, todayStr: today, wasPausedForClockOut: false, wasPausedForBreak: false }),
+      ...syncTaskPauseState(effectiveTaskForPause, { nowMs: now, todayStr: today, wasPausedForClockOut: false, wasPausedForBreak: false, knownElapsed: 0 }),
       pausedAt: now,
       timerRunning: false,
       startedAt: null,
@@ -3468,37 +3515,11 @@ export const WorkProvider = ({ children }) => {
       lastWorkerId: workerIdStr,
       lastWorkerName: workerNameStr,
       assigneeSessions: updatedAssigneeSessions,
-      assigneeHours: updatedAssigneeHours
+      assigneeHours: updatedAssigneeHours,
+      assigneeTimers: updatedAssigneeTimers
     };
     const combinedMultiSecs = isMultiPause
-      ? getMultiAssigneeCombinedSeconds({
-          ...targetTask,
-          assigneeHours: updatedAssigneeHours,
-          assigneeSessions: updatedAssigneeSessions,
-          assigneeTimers: {
-            ...(targetTask.assigneeTimers || {}),
-            [workerKey]: {
-              ...(workerSpecificTimer || {}),
-              timerRunning: false,
-              startedAt: null,
-              pausedAt: now,
-              accumulatedSeconds: workerLifetimeTotal,
-              todayWorkSeconds: workerTodayTotal,
-              sessionDate: today
-            },
-            ...(workerIdStr && workerIdStr !== workerKey ? {
-              [workerIdStr]: {
-                ...(workerSpecificTimer || {}),
-                timerRunning: false,
-                startedAt: null,
-                pausedAt: now,
-                accumulatedSeconds: workerLifetimeTotal,
-                todayWorkSeconds: workerTodayTotal,
-                sessionDate: today
-              }
-            } : {})
-          }
-        }, now)
+      ? getMultiAssigneeCombinedSeconds(pausedTask, now)
       : pausedTask.accumulatedSeconds;
 
     if (isMultiPause && combinedMultiSecs > 0) {
@@ -3834,6 +3855,22 @@ export const WorkProvider = ({ children }) => {
       // In storage tasks collection update timer to stopped but preserve total time logged
       const freshAllTasks = getCollection(KEYS.TASKS) || [];
       const updatedDailySessions = { ...(targetTask?.dailySessions || {}), [todayStr]: todaySessionSecs };
+      const stoppedAt = Date.now();
+      const updatedAssigneeTimers = { ...(targetTask?.assigneeTimers || {}) };
+      const stopMatchKeys = new Set([String(workerId), String(workerCode), String(workerKey)].filter(Boolean).map(s => s.toLowerCase()));
+      for (const ek of Object.keys(updatedAssigneeTimers)) {
+        if (stopMatchKeys.has(String(ek).toLowerCase())) {
+          updatedAssigneeTimers[ek] = {
+            ...(updatedAssigneeTimers[ek] || {}),
+            timerRunning: false,
+            startedAt: null,
+            pausedAt: stoppedAt,
+            todayWorkSeconds: durationToLog,
+            sessionDate: todayStr,
+            updatedAt: stoppedAt
+          };
+        }
+      }
       const updatedAll = freshAllTasks.map(t => {
         if (String(t._id || t.id) === String(taskId)) {
           return {
@@ -3851,6 +3888,7 @@ export const WorkProvider = ({ children }) => {
             durationSeconds: totalSecs,
             todayWorkSeconds: todaySessionSecs,
             dailySessions: updatedDailySessions,
+            assigneeTimers: updatedAssigneeTimers,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             liveDurationText: hoursLoggedFormatted,
@@ -3878,6 +3916,7 @@ export const WorkProvider = ({ children }) => {
             durationSeconds: totalSecs,
             todayWorkSeconds: todaySessionSecs,
             dailySessions: updatedDailySessions,
+            assigneeTimers: updatedAssigneeTimers,
             hoursLogged: hoursLoggedNum,
             hoursLoggedText: hoursLoggedFormatted,
             liveDurationText: hoursLoggedFormatted,
