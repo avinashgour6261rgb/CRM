@@ -533,6 +533,12 @@ export const WorkProvider = ({ children }) => {
               ? Math.max(0, Math.floor((nowMergeMs - Number(effectiveStartedAt)) / 1000))
               : 0;
             const liveMergeToday = effectiveTodaySecs + mergeElapsed;
+            const isMultiTask = Boolean(
+              (Array.isArray(bt.assignedToIds) && bt.assignedToIds.length > 1) ||
+              (Array.isArray(bt.assignees) && bt.assignees.length > 1) ||
+              (Array.isArray(existing.assignedToIds) && existing.assignedToIds.length > 1) ||
+              (Array.isArray(existing.assignees) && existing.assignees.length > 1)
+            );
             const liveMergeTotal = isMultiTask
               ? getMultiAssigneeCombinedSeconds({ ...existing, ...bt, assigneeTimers: mergedAssigneeTimers, assigneeSessions: mergedAssigneeSessions }, nowMergeMs)
               : (effectiveAccum + mergeElapsed);
