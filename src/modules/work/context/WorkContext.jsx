@@ -1891,10 +1891,11 @@ export const WorkProvider = ({ children }) => {
     const handleClockedOut = (e) => {
       if (!isEventForMe(e)) return; // Ignore clock-out for other employees!
       const activeTimer = getActiveTimerSnapshot();
+      const wasActivelyRunning = Boolean(activeTimer && activeTimer.timerRunning);
       const today = getTodayStr();
       const todaySecs = activeTimer ? Number(activeTimer.todayWorkSeconds || getTaskTodaySeconds(activeTimer, today, Date.now(), false, false)) : 0;
 
-      if (activeTimer && activeTimer.timerRunning) {
+      if (wasActivelyRunning) {
         const pausedState = syncTaskPauseState(activeTimer, { nowMs: Date.now(), todayStr: today, wasPausedForClockOut: true });
         saveActiveTimerSnapshot(pausedState);
       }
@@ -1921,8 +1922,8 @@ export const WorkProvider = ({ children }) => {
         return t;
       }));
 
-      // Automatically log today's task session duration to timesheets (strictly TODAY'S work portion)
-      if (activeTimer && todaySecs > 0 && !e?.detail?.isRemoteSync) {
+      // Automatically log today's task session duration to timesheets ONLY if a task timer was actively running
+      if (wasActivelyRunning && todaySecs > 0 && !e?.detail?.isRemoteSync) {
         const matchedTask = allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId) || (activeTimer.taskCode && t.taskCode === activeTimer.taskCode));
         const isTaskForMe = matchedTask ? isTaskAssignedToMe(matchedTask) : true;
         if (isTaskForMe) {
@@ -1947,7 +1948,7 @@ export const WorkProvider = ({ children }) => {
         }
       }
 
-      if (activeTimer) {
+      if (wasActivelyRunning) {
         addToast('Shift Clocked Out: Active task timer paused & logged ⏸️', 'info');
       }
       window.dispatchEvent(new CustomEvent('hrms_storage_change', { detail: { key: KEYS.TASKS } }));
@@ -1956,12 +1957,10 @@ export const WorkProvider = ({ children }) => {
     window.addEventListener('ems_clocked_out', handleClockedOut);
     window.addEventListener('ems_force_clock_out', handleClockedOut);
     window.addEventListener('ems_shift_ended', handleClockedOut);
-    window.addEventListener('ems_reclock_requests_updated', handleClockedOut);
     return () => {
       window.removeEventListener('ems_clocked_out', handleClockedOut);
       window.removeEventListener('ems_force_clock_out', handleClockedOut);
       window.removeEventListener('ems_shift_ended', handleClockedOut);
-      window.removeEventListener('ems_reclock_requests_updated', handleClockedOut);
     };
   }, [getActiveTimerSnapshot, getElapsedSeconds, saveActiveTimerSnapshot, formatSeconds, addToast]);
 

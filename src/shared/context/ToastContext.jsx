@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const defaultToastContext = {
@@ -11,6 +11,7 @@ const ToastContext = createContext(defaultToastContext);
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const recentToastMapRef = useRef(new Map());
 
   const addToast = useCallback((input, type = 'success', duration = 3500) => {
     const id = Date.now() + Math.random();
@@ -32,7 +33,21 @@ export const ToastProvider = ({ children }) => {
       text = String(input || 'Action completed');
     }
 
-    setToasts(prev => [...prev, { id, message: text, type: toastType }]);
+    // Deduplicate identical/repeated toasts within 2.5s and cap stack to 2 toasts
+    const now = Date.now();
+    const dedupeKey = `${toastType}:${text.trim().toLowerCase()}`;
+    const lastShownAt = recentToastMapRef.current.get(dedupeKey) || 0;
+    if (now - lastShownAt < 2500) {
+      return;
+    }
+    recentToastMapRef.current.set(dedupeKey, now);
+    if (recentToastMapRef.current.size > 30) {
+      for (const [k, ts] of recentToastMapRef.current.entries()) {
+        if (now - ts > 5000) recentToastMapRef.current.delete(k);
+      }
+    }
+
+    setToasts(prev => [...prev.slice(-1), { id, message: text, type: toastType }]);
 
     if (duration) {
       setTimeout(() => {
