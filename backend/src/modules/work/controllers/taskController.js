@@ -229,7 +229,8 @@ exports.createTask = async (req, res, next) => {
 // @route   PUT /api/tasks/:id
 exports.updateTask = async (req, res, next) => {
   try {
-    const updateData = { ...req.body };
+    const { assigneeTimerUpdate, assigneeSessionUpdate, ...restBody } = req.body;
+    const updateData = { ...restBody };
     if (updateData.assignedTo !== undefined && (!updateData.assignedTo || !mongoose.Types.ObjectId.isValid(updateData.assignedTo))) {
       updateData.assignedToId = updateData.assignedToId || (updateData.assignedTo ? String(updateData.assignedTo) : '');
       updateData.assignedTo = null;
@@ -243,15 +244,29 @@ exports.updateTask = async (req, res, next) => {
       updateData.project = null;
     }
 
+    // Atomically merge per-assignee timer & session state so simultaneous workers never overwrite each other
+    const setOps = { ...updateData };
+    if (assigneeTimerUpdate && assigneeTimerUpdate.workerId && assigneeTimerUpdate.timerState) {
+      const wId = String(assigneeTimerUpdate.workerId).trim();
+      if (wId) setOps[`assigneeTimers.${wId}`] = assigneeTimerUpdate.timerState;
+      const wCode = assigneeTimerUpdate.workerCode ? String(assigneeTimerUpdate.workerCode).trim() : '';
+      if (wCode && wCode !== wId) setOps[`assigneeTimers.${wCode}`] = assigneeTimerUpdate.timerState;
+    }
+    if (assigneeSessionUpdate && assigneeSessionUpdate.workerId && assigneeSessionUpdate.date) {
+      const wId = String(assigneeSessionUpdate.workerId).trim();
+      const dStr = String(assigneeSessionUpdate.date).trim();
+      if (wId && dStr) setOps[`assigneeSessions.${wId}.${dStr}`] = Number(assigneeSessionUpdate.seconds) || 0;
+    }
+
     let task = null;
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
-      task = await Task.findByIdAndUpdate(req.params.id, updateData, {
+      task = await Task.findByIdAndUpdate(req.params.id, { $set: setOps }, {
         new: true,
         runValidators: true
       });
     }
     if (!task) {
-      task = await Task.findOneAndUpdate({ taskCode: req.params.id }, updateData, {
+      task = await Task.findOneAndUpdate({ taskCode: req.params.id }, { $set: setOps }, {
         new: true,
         runValidators: true
       });

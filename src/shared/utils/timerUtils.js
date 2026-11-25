@@ -1303,8 +1303,39 @@ export const isTaskAssignedToUser = (task, user) => {
  * In multi-assignee tasks, ONLY the specific active worker has the running timer.
  * Co-assignees see teammate presence without accumulating phantom work seconds.
  */
+export const getWorkerTaskTimer = (task, user) => {
+  if (!task || !user || !task.assigneeTimers || typeof task.assigneeTimers !== 'object') return null;
+  const rawKeys = [
+    user._id,
+    user.id,
+    user.employeeCode,
+    user.email,
+    user.username
+  ].filter(Boolean).map(s => String(s).trim());
+
+  for (const k of rawKeys) {
+    if (task.assigneeTimers[k] && typeof task.assigneeTimers[k] === 'object') {
+      return task.assigneeTimers[k];
+    }
+  }
+  const lowerKeys = rawKeys.map(k => k.toLowerCase());
+  for (const [k, val] of Object.entries(task.assigneeTimers)) {
+    if (val && typeof val === 'object' && lowerKeys.includes(String(k).toLowerCase().trim())) {
+      return val;
+    }
+  }
+  return null;
+};
+
 export const isTaskRunningForUser = (task, user) => {
   if (!task || !user) return false;
+
+  // 0. Per-assignee isolated timer map (multi-assignee safe!)
+  const workerTimer = getWorkerTaskTimer(task, user);
+  if (workerTimer && typeof workerTimer.timerRunning === 'boolean') {
+    return workerTimer.timerRunning;
+  }
+
   if (!task.timerRunning) return false;
 
   const userIds = [

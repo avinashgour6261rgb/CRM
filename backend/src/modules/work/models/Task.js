@@ -218,6 +218,14 @@ const TaskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {}
     },
+    assigneeSessions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    assigneeTimers: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     startedAt: {
       type: Number,
       default: null

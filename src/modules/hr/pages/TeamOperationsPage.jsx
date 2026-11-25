@@ -42,7 +42,7 @@ import { getCollection, saveCollection, KEYS } from '../../../shared/services/st
 import { DayTimeLogModal } from '../../../shared/components/modals/DayTimeLogModal';
 import { getUserModulePermissions, isHRorAdmin as checkIsHRorAdmin, isAdmin as checkIsAdmin, canAccessModule, canForceClockOut } from '../../../shared/utils/permissionUtils';
 import { subscribeToSyncEvents } from '../../../shared/services/realtimeSyncService';
-import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut } from '../../../shared/utils/timerUtils';
+import { calculateShiftWorkSeconds, calculateAutoOvertimeSeconds, getTaskTodaySeconds, getLocalDateString, getIstTimeString, readTimerStorage, normalizePunchSessions, performShiftClockOut, isTaskRunningForUser, getWorkerTaskTimer } from '../../../shared/utils/timerUtils';
 import { exportToCSV } from '../../../shared/utils/exportUtils';
 import { getCompanySettings } from '../../../shared/services/companySettingsService';
 
@@ -548,25 +548,17 @@ export const TeamOperationsPage = () => {
     const empTasks = (tasks || []).filter(t => isTaskAssignedToUser(t, emp));
 
     if (isClockedIn && !isClockedOut && !isOnLeave) {
-      // 1. Check live WorkContext tasks first (0ms Socket.IO task:updated truth!)
-      const liveRunningFromWork = empTasks.find(t => t.timerRunning === true && t.status !== 'completed' && !t.completedAt);
+      // 1. Authoritative live running task from employee's own telemetry/heartbeat FIRST (never shadowed by stale/shared tasks!)
       const telemAt = telem?.activeTask?.taskId
         ? telem.activeTask
         : (attRec?.activeTask?.taskId ? attRec.activeTask : null);
       const matchedWorkTaskForTelem = telemAt
         ? empTasks.find(t => String(t._id || t.id) === String(telemAt.taskId) || (telemAt.taskCode && t.taskCode === telemAt.taskCode))
         : null;
+      // 2. Fallback to WorkContext tasks strictly isolated to THIS specific employee (never match teammate's timer!)
+      const liveRunningFromWork = empTasks.find(t => t.status !== 'completed' && !t.completedAt && isTaskRunningForUser(t, emp));
 
-      if (liveRunningFromWork) {
-        const liveTaskSecs = getTaskTodaySeconds(liveRunningFromWork, todayStr, nowMs, isClockedIn, effectiveOnBreak);
-        runningTask = {
-          ...liveRunningFromWork,
-          timerRunning: true,
-          liveTaskSecs,
-          liveDurationText: formatSeconds(liveTaskSecs)
-        };
-      } else if (telemAt && telemAt.timerRunning === true && telemAt.startedAt) {
-        // Authoritative live running task from employee's telemetry/heartbeat
+      if (telemAt && telemAt.timerRunning === true && telemAt.startedAt) {
         const startedAtMs = Number(telemAt.startedAt) || nowMs;
         const elapsed = effectiveOnBreak ? 0 : Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
         const taskBase = (telemAt.accumulatedTodaySeconds !== undefined && telemAt.accumulatedTodaySeconds !== null)
@@ -586,6 +578,26 @@ export const TeamOperationsPage = () => {
           accumulatedSeconds: Number(telemAt.accumulatedSeconds) || Number(matchedWorkTaskForTelem?.accumulatedSeconds) || 0,
           accumulatedTodaySeconds: taskBase,
           todayWorkSeconds: liveTaskSecs,
+          liveTaskSecs,
+          liveDurationText: formatSeconds(liveTaskSecs)
+        };
+      } else if (liveRunningFromWork) {
+        const workerTimer = getWorkerTaskTimer(liveRunningFromWork, emp);
+        const scopedTask = workerTimer
+          ? {
+              ...liveRunningFromWork,
+              timerRunning: Boolean(workerTimer.timerRunning),
+              startedAt: workerTimer.startedAt,
+              todayWorkSeconds: workerTimer.sessionDate === todayStr ? Number(workerTimer.todayWorkSeconds || 0) : 0,
+              accumulatedTodaySeconds: workerTimer.sessionDate === todayStr ? Number(workerTimer.todayWorkSeconds || 0) : 0,
+              accumulatedSeconds: Number(workerTimer.accumulatedSeconds || 0),
+              sessionDate: workerTimer.sessionDate || todayStr
+            }
+          : liveRunningFromWork;
+        const liveTaskSecs = getTaskTodaySeconds(scopedTask, todayStr, nowMs, isClockedIn, effectiveOnBreak);
+        runningTask = {
+          ...scopedTask,
+          timerRunning: true,
           liveTaskSecs,
           liveDurationText: formatSeconds(liveTaskSecs)
         };

@@ -899,7 +899,6 @@ export const DashboardPage = () => {
       const baseRunningTask = (isClockedIn && !isClockedOut && !isOnLeave)
         ? ((activeTimer?.timerRunning && !isTimerTaskCompleted && !isTaskActuallyCompleted(activeTimer) && isTaskRunningForUser(activeTimer, emp) ? activeTimer : null) ||
           empTasks.find(t =>
-            t.timerRunning &&
             !isTaskActuallyCompleted(t) &&
             isTaskRunningForUser(t, emp)
           ))
