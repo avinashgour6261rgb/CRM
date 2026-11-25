@@ -209,7 +209,7 @@ export const NoticeDetailModal = ({ notice, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
+        <div className="p-5 sm:p-6 flex-1 min-h-0 overflow-y-auto space-y-4">
           {/* Metadata bar */}
           <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-2">
             <div className="flex items-center gap-1.5">

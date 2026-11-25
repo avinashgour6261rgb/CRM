@@ -116,7 +116,7 @@ export const AddNoticeModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 flex-1 overflow-y-auto flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 flex-1 min-h-0 overflow-y-auto space-y-4">
           
           {/* Notice Title */}
           <div>
