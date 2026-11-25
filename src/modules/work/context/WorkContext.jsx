@@ -475,22 +475,22 @@ export const WorkProvider = ({ children }) => {
             const backendWorkerToday = (myWorkerTimer?.sessionDate === todayStr) ? Number(myWorkerTimer?.todayWorkSeconds || 0) : 0;
             const workerTodaySecs = Math.max(localWorkerToday, backendWorkerToday);
 
-            // Today's work is strictly work performed on todayStr
+            // Today's work is strictly work performed on todayStr (NEVER fold live `todayWorkSeconds` back into frozen baseline while running!)
             const existingIsToday = existing.sessionDate === todayStr;
             const backendIsToday = bt.sessionDate === todayStr;
             const hasExplicitDailyToday = mergedDailySessions[todayStr] !== undefined && mergedDailySessions[todayStr] !== null;
             const activeSnapToday = (isLocalActive && activeTimer.date === todayStr)
-              ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0)
+              ? Number(activeTimer.accumulatedTodaySeconds ?? (activeTimer.timerRunning ? 0 : activeTimer.todayWorkSeconds) ?? 0)
               : 0;
             const existingTodayStrict = existingIsToday
-              ? (existing.todayWorkSeconds !== undefined && existing.todayWorkSeconds !== null
-                  ? Number(existing.todayWorkSeconds)
-                  : Number(existing.accumulatedTodaySeconds || 0))
+              ? (existing.accumulatedTodaySeconds !== undefined && existing.accumulatedTodaySeconds !== null
+                  ? Number(existing.accumulatedTodaySeconds)
+                  : (effectiveRunning ? 0 : Number(existing.todayWorkSeconds || 0)))
               : 0;
             const backendTodayStrict = backendIsToday
-              ? (bt.todayWorkSeconds !== undefined && bt.todayWorkSeconds !== null
-                  ? Number(bt.todayWorkSeconds)
-                  : Number(bt.accumulatedTodaySeconds || 0))
+              ? (bt.accumulatedTodaySeconds !== undefined && bt.accumulatedTodaySeconds !== null
+                  ? Number(bt.accumulatedTodaySeconds)
+                  : (effectiveRunning ? 0 : Number(bt.todayWorkSeconds || 0)))
               : 0;
 
             const safeLocalToday = Math.max(
@@ -508,12 +508,14 @@ export const WorkProvider = ({ children }) => {
               activeSnapToday
             );
 
-            // Lifetime accumulated seconds: strictly monotonically non-decreasing
+            // Lifetime accumulated seconds: NEVER fold live `localSecs` / `backendSecs` (which include live elapsed!) into frozen `effectiveAccum`!
+            const safeLocalAccum = (effectiveRunning && localAccum > backendAccum + 3600)
+              ? backendAccum
+              : localAccum;
             const effectiveAccum = Math.max(
-              localAccum,
+              safeLocalAccum,
               backendAccum,
-              localSecs,
-              backendSecs,
+              effectiveRunning ? 0 : backendSecs,
               workerAccumSecs,
               effectiveTodaySecs,
               activeSnapToday

@@ -317,19 +317,20 @@ export const workService = {
 
                 let effectiveRunning = false;
                 let effectiveStartedAt = null;
+                const localStartedAtNum = Number(local.startedAt || 0);
+                const isRecentLocalStart = Boolean(local.timerRunning && localStartedAtNum > 0 && (Date.now() - localStartedAtNum < 12000));
 
-                if (local.timerRunning && local.startedAt) {
-                  // Local is actively running
+                if (local.timerRunning && local.startedAt && (rt.timerRunning || isRecentLocalStart)) {
+                  // Only keep running if backend also agrees OR it was started locally within the last 12s
                   effectiveRunning = true;
                   effectiveStartedAt = rt.timerRunning && rt.startedAt
-                    ? Math.max(Number(local.startedAt), Number(rt.startedAt))
-                    : Number(local.startedAt);
+                    ? Math.max(localStartedAtNum, Number(rt.startedAt))
+                    : localStartedAtNum;
                 } else if (!local.timerRunning && rt.timerRunning) {
-                  // Local is paused! Check if local has equal/higher accumulated seconds
+                  // Local is paused! Check if local has equal/higher accumulated seconds (PUT still in flight)
                   const localMaxSecs = Math.max(localTimerSecs, localAccum);
                   const remoteMaxSecs = Math.max(remoteTimerSecs, remoteAccum);
                   if (localMaxSecs >= remoteMaxSecs) {
-                    // Local paused state is authoritative! Backend has not processed PUT yet
                     effectiveRunning = false;
                     effectiveStartedAt = null;
                   } else {
@@ -337,15 +338,20 @@ export const workService = {
                     effectiveStartedAt = effectiveRunning ? Number(rt.startedAt) : null;
                   }
                 } else {
+                  // Backend state is authoritative (e.g. another employee paused their task!)
                   effectiveRunning = Boolean(rt.timerRunning && rt.startedAt);
                   effectiveStartedAt = effectiveRunning ? Number(rt.startedAt) : null;
                 }
 
-                // Invariant: Task timer seconds and accumulated seconds can never run backwards!
-                // When running, keep accumulatedTodaySeconds strictly at the frozen pre-start baseline!
-                const effectiveSecs = Math.max(localTimerSecs, remoteTimerSecs);
-                const effectiveAccum = Math.max(localAccum, remoteAccum);
-                const maxHours = Math.max(localHoursLogged, remoteHoursLogged, +(effectiveSecs / 3600).toFixed(2));
+                // Invariant: NEVER fold live `localTimerSecs` (which already includes elapsed!) into frozen `effectiveAccum`!
+                // Also auto-heal runaway client-inflated localAccum if remoteAccum is sane and localAccum wasn't just paused.
+                const effectiveAccum = effectiveRunning
+                  ? Math.max(remoteAccum, localAccum > remoteAccum + 3600 ? remoteAccum : localAccum)
+                  : Math.max(localAccum, remoteAccum);
+                const effectiveSecs = effectiveRunning
+                  ? effectiveAccum
+                  : Math.max(effectiveAccum, remoteTimerSecs);
+                const maxHours = Math.max(remoteHoursLogged, +(effectiveSecs / 3600).toFixed(2));
 
                 return {
                   ...local,
