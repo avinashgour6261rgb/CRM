@@ -721,7 +721,14 @@ export const sanitizeTaskDailySessions = (task) => {
  * Atomic Lockstep Sync: Prepares a paused task object with 100% synchronized duration fields.
  * Prevents time jumping backwards on resume.
  */
-export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPausedForClockOut = false, wasPausedForBreak = false } = {}) => {
+export const syncTaskPauseState = (task, {
+  nowMs = Date.now(),
+  todayStr,
+  wasPausedForClockOut = false,
+  wasPausedForBreak = false,
+  workerUser = null,
+  knownElapsed = null
+} = {}) => {
   if (!task) return null;
   const today = todayStr || getLocalDateString(new Date(nowMs));
 
@@ -729,31 +736,41 @@ export const syncTaskPauseState = (task, { nowMs = Date.now(), todayStr, wasPaus
   todayMidnight.setHours(0, 0, 0, 0);
   const todayMidnightMs = todayMidnight.getTime();
 
+  const workerTimer = workerUser ? getWorkerTaskTimer(task, workerUser) : null;
+  const isRunning = Boolean(task.timerRunning || workerTimer?.timerRunning);
+
   let sessionElapsed = 0;
-  if (task.timerRunning && task.startedAt) {
-    const startTs = Number(task.startedAt);
+  if (knownElapsed !== null && knownElapsed !== undefined) {
+    sessionElapsed = Math.max(0, Number(knownElapsed));
+  } else if (isRunning) {
+    const startTs = Number(workerTimer?.startedAt || task.startedAt || 0);
     if (startTs >= todayMidnightMs && startTs <= nowMs) {
       sessionElapsed = Math.max(0, Math.floor((nowMs - startTs) / 1000));
     }
   }
 
-  const baseAccum = (task.accumulatedSeconds !== undefined && task.accumulatedSeconds !== null)
+  const workerAccum = workerTimer ? Number(workerTimer.accumulatedSeconds || 0) : 0;
+  const taskAccum = (task.accumulatedSeconds !== undefined && task.accumulatedSeconds !== null)
     ? Number(task.accumulatedSeconds)
     : Math.max(0, (Number(task.timerSeconds) || 0) - sessionElapsed);
+  const baseAccum = Math.max(taskAccum, workerAccum);
   const totalSecs = baseAccum + sessionElapsed;
 
   const dailySessionsMap = (task.dailySessions && typeof task.dailySessions === 'object') ? { ...task.dailySessions } : {};
   let priorTodaySecs = 0;
-  if (dailySessionsMap[today] !== undefined) {
+  if (dailySessionsMap[today] !== undefined && dailySessionsMap[today] !== null) {
     priorTodaySecs = Number(dailySessionsMap[today]) || 0;
   } else if (task.sessionDate === today && task.accumulatedTodaySeconds !== undefined && task.accumulatedTodaySeconds !== null) {
     priorTodaySecs = Number(task.accumulatedTodaySeconds) || 0;
-  } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined) {
+  } else if (task.sessionDate === today && task.todayWorkSeconds !== undefined && task.todayWorkSeconds !== null) {
     priorTodaySecs = task.timerRunning
       ? Math.max(0, (Number(task.todayWorkSeconds) || 0) - sessionElapsed)
       : (Number(task.todayWorkSeconds) || 0);
   }
-  // STRICT: Do NOT copy baseAccum into priorTodaySecs! If priorTodaySecs was 0, it means 0 prior seconds for today.
+  if (workerTimer && workerTimer.sessionDate === today) {
+    const workerToday = Number(workerTimer.todayWorkSeconds || 0);
+    priorTodaySecs = Math.max(priorTodaySecs, workerToday);
+  }
   const totalTodaySecs = priorTodaySecs + sessionElapsed;
   dailySessionsMap[today] = totalTodaySecs;
 
@@ -1352,10 +1369,14 @@ export const isTaskRunningForUser = (task, user) => {
     task.activeWorkerId,
     task.activeUserId,
     task.activeWorkerCode,
+    task.workerId,
+    task.workerCode,
+    task.employeeId,
+    task.employeeCode,
     task.startedById,
     task.userKey
   ].filter(Boolean).map(s => String(s).toLowerCase().trim());
-  const activeWorkerName = (task.activeWorkerName || task.activeUserName || task.startedBy || '').trim().toLowerCase();
+  const activeWorkerName = (task.activeWorkerName || task.activeUserName || task.workerName || task.employeeName || task.startedBy || '').trim().toLowerCase();
 
   if (activeWorkerIds.length > 0 || activeWorkerName) {
     if (activeWorkerIds.length > 0 && userIds.some(uid => activeWorkerIds.includes(uid))) {

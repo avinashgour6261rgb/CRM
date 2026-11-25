@@ -614,6 +614,48 @@ export const workService = {
               ...(local.dailySessions && typeof local.dailySessions === 'object' ? local.dailySessions : {})
             };
 
+            const mergedAssigneeTimers = {
+              ...(local.assigneeTimers && typeof local.assigneeTimers === 'object' ? local.assigneeTimers : {}),
+              ...(updatedTask.assigneeTimers && typeof updatedTask.assigneeTimers === 'object' ? updatedTask.assigneeTimers : {})
+            };
+            if (local.assigneeTimers && typeof local.assigneeTimers === 'object') {
+              Object.entries(local.assigneeTimers).forEach(([wKey, exTimer]) => {
+                if (exTimer && typeof exTimer === 'object') {
+                  const curTimer = mergedAssigneeTimers[wKey] || {};
+                  mergedAssigneeTimers[wKey] = {
+                    ...exTimer,
+                    ...curTimer,
+                    accumulatedSeconds: Math.max(Number(exTimer.accumulatedSeconds || 0), Number(curTimer.accumulatedSeconds || 0)),
+                    todayWorkSeconds: Math.max(
+                      Number(exTimer.todayWorkSeconds || 0),
+                      Number(curTimer.todayWorkSeconds || 0)
+                    )
+                  };
+                }
+              });
+            }
+
+            const mergedAssigneeSessions = {
+              ...(local.assigneeSessions && typeof local.assigneeSessions === 'object' ? local.assigneeSessions : {}),
+              ...(updatedTask.assigneeSessions && typeof updatedTask.assigneeSessions === 'object' ? updatedTask.assigneeSessions : {})
+            };
+            if (local.assigneeSessions && typeof local.assigneeSessions === 'object') {
+              Object.entries(local.assigneeSessions).forEach(([wKey, exDates]) => {
+                if (exDates && typeof exDates === 'object') {
+                  mergedAssigneeSessions[wKey] = {
+                    ...exDates,
+                    ...(mergedAssigneeSessions[wKey] || {})
+                  };
+                  Object.entries(exDates).forEach(([dKey, secVal]) => {
+                    mergedAssigneeSessions[wKey][dKey] = Math.max(
+                      Number(secVal) || 0,
+                      Number(mergedAssigneeSessions[wKey]?.[dKey]) || 0
+                    );
+                  });
+                }
+              });
+            }
+
             tasks[index] = {
               ...local,
               ...updatedTask,
@@ -622,6 +664,8 @@ export const workService = {
               todayWorkSeconds: effectiveToday,
               accumulatedTodaySeconds: effectiveToday,
               dailySessions: mergedSessions,
+              assigneeTimers: mergedAssigneeTimers,
+              assigneeSessions: mergedAssigneeSessions,
               timerRunning: local.timerRunning !== undefined ? local.timerRunning : updatedTask.timerRunning,
               startedAt: local.timerRunning ? local.startedAt : updatedTask.startedAt,
               sessionDate: local.sessionDate || updatedTask.sessionDate

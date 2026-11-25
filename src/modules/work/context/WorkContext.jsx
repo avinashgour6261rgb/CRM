@@ -419,7 +419,60 @@ export const WorkProvider = ({ children }) => {
               mergedDailySessions[bt.sessionDate] = Math.max(Number(mergedDailySessions[bt.sessionDate]) || 0, Number(bt.todayWorkSeconds));
             }
 
-            // Today's work is strictly work performed on todayStr (NEVER use `0 || accumulatedTodaySeconds` which leaks past days!)
+            // Deeply merge assigneeTimers and assigneeSessions so per-worker state is NEVER wiped out
+            const mergedAssigneeTimers = {
+              ...(existing.assigneeTimers && typeof existing.assigneeTimers === 'object' ? existing.assigneeTimers : {}),
+              ...(bt.assigneeTimers && typeof bt.assigneeTimers === 'object' ? bt.assigneeTimers : {})
+            };
+            if (existing.assigneeTimers && typeof existing.assigneeTimers === 'object') {
+              Object.entries(existing.assigneeTimers).forEach(([wKey, exTimer]) => {
+                if (exTimer && typeof exTimer === 'object') {
+                  const curTimer = mergedAssigneeTimers[wKey] || {};
+                  mergedAssigneeTimers[wKey] = {
+                    ...exTimer,
+                    ...curTimer,
+                    accumulatedSeconds: Math.max(Number(exTimer.accumulatedSeconds || 0), Number(curTimer.accumulatedSeconds || 0)),
+                    todayWorkSeconds: Math.max(
+                      exTimer.sessionDate === todayStr ? Number(exTimer.todayWorkSeconds || 0) : 0,
+                      curTimer.sessionDate === todayStr ? Number(curTimer.todayWorkSeconds || 0) : 0
+                    )
+                  };
+                }
+              });
+            }
+
+            const mergedAssigneeSessions = {
+              ...(existing.assigneeSessions && typeof existing.assigneeSessions === 'object' ? existing.assigneeSessions : {}),
+              ...(bt.assigneeSessions && typeof bt.assigneeSessions === 'object' ? bt.assigneeSessions : {})
+            };
+            if (existing.assigneeSessions && typeof existing.assigneeSessions === 'object') {
+              Object.entries(existing.assigneeSessions).forEach(([wKey, exDates]) => {
+                if (exDates && typeof exDates === 'object') {
+                  mergedAssigneeSessions[wKey] = {
+                    ...exDates,
+                    ...(mergedAssigneeSessions[wKey] || {})
+                  };
+                  Object.entries(exDates).forEach(([dKey, secVal]) => {
+                    mergedAssigneeSessions[wKey][dKey] = Math.max(
+                      Number(secVal) || 0,
+                      Number(mergedAssigneeSessions[wKey]?.[dKey]) || 0
+                    );
+                  });
+                }
+              });
+            }
+
+            // Worker-specific timers
+            const existingWorkerTimer = getWorkerTaskTimer(existing, currentUser);
+            const localWorkerAccum = Number(existingWorkerTimer?.accumulatedSeconds || 0);
+            const backendWorkerAccum = Number(myWorkerTimer?.accumulatedSeconds || 0);
+            const workerAccumSecs = Math.max(localWorkerAccum, backendWorkerAccum);
+
+            const localWorkerToday = (existingWorkerTimer?.sessionDate === todayStr) ? Number(existingWorkerTimer?.todayWorkSeconds || 0) : 0;
+            const backendWorkerToday = (myWorkerTimer?.sessionDate === todayStr) ? Number(myWorkerTimer?.todayWorkSeconds || 0) : 0;
+            const workerTodaySecs = Math.max(localWorkerToday, backendWorkerToday);
+
+            // Today's work is strictly work performed on todayStr
             const existingIsToday = existing.sessionDate === todayStr;
             const backendIsToday = bt.sessionDate === todayStr;
             const hasExplicitDailyToday = mergedDailySessions[todayStr] !== undefined && mergedDailySessions[todayStr] !== null;
@@ -431,35 +484,54 @@ export const WorkProvider = ({ children }) => {
                   ? Number(existing.todayWorkSeconds)
                   : Number(existing.accumulatedTodaySeconds || 0))
               : 0;
-            const backendTodayStrict = hasIsolatedWorkerTimer
-              ? (myWorkerTimer.sessionDate === todayStr ? Number(myWorkerTimer.todayWorkSeconds || 0) : 0)
-              : (backendIsToday
-                  ? (bt.todayWorkSeconds !== undefined && bt.todayWorkSeconds !== null
-                      ? Number(bt.todayWorkSeconds)
-                      : Number(bt.accumulatedTodaySeconds || 0))
-                  : 0);
-            const effectiveTodaySecs = hasIsolatedWorkerTimer
-              ? Math.max(backendTodayStrict, activeSnapToday)
-              : (hasExplicitDailyToday
-                  ? Math.max(Number(mergedDailySessions[todayStr]) || 0, activeSnapToday)
-                  : Math.max(existingTodayStrict, backendTodayStrict, activeSnapToday));
+            const backendTodayStrict = backendIsToday
+              ? (bt.todayWorkSeconds !== undefined && bt.todayWorkSeconds !== null
+                  ? Number(bt.todayWorkSeconds)
+                  : Number(bt.accumulatedTodaySeconds || 0))
+              : 0;
+
+            const safeLocalToday = Math.max(
+              existingTodayStrict,
+              hasExplicitDailyToday ? (Number(mergedDailySessions[todayStr]) || 0) : 0,
+              workerTodaySecs
+            );
+            const safeBackendToday = Math.max(
+              backendTodayStrict,
+              workerTodaySecs
+            );
+            const effectiveTodaySecs = Math.max(
+              safeLocalToday,
+              safeBackendToday,
+              activeSnapToday
+            );
+
+            // Lifetime accumulated seconds: strictly monotonically non-decreasing
+            const effectiveAccum = Math.max(
+              localAccum,
+              backendAccum,
+              localSecs,
+              backendSecs,
+              workerAccumSecs,
+              effectiveTodaySecs,
+              activeSnapToday
+            );
 
             taskMap.set(id, {
               ...existing,
               ...bt,
               timerRunning: effectiveRunning,
               startedAt: effectiveStartedAt,
-              timerSeconds: hasIsolatedWorkerTimer
-                ? Math.max(Number(myWorkerTimer.accumulatedSeconds || 0), activeSnapToday)
-                : Math.max(localSecs, backendSecs),
-              accumulatedSeconds: hasIsolatedWorkerTimer
-                ? Math.max(Number(myWorkerTimer.accumulatedSeconds || 0), activeSnapToday)
-                : Math.max(localAccum, backendAccum),
+              timerSeconds: effectiveAccum,
+              accumulatedSeconds: effectiveAccum,
               todayWorkSeconds: effectiveTodaySecs,
               accumulatedTodaySeconds: effectiveTodaySecs,
               dailySessions: mergedDailySessions,
-              assigneeTimers: bt.assigneeTimers || existing.assigneeTimers || {},
-              assigneeSessions: bt.assigneeSessions || existing.assigneeSessions || {},
+              assigneeTimers: mergedAssigneeTimers,
+              assigneeSessions: mergedAssigneeSessions,
+              liveTodaySeconds: effectiveTodaySecs,
+              liveDurationText: formatSeconds(effectiveTodaySecs),
+              hoursLoggedText: formatSeconds(effectiveAccum),
+              hoursLogged: +(effectiveAccum / 3600).toFixed(2),
               sessionDate: effectiveTodaySecs > 0 ? todayStr : (existing.sessionDate || bt.sessionDate || todayStr),
               status: bt.status || existing.status
             });
@@ -605,15 +677,20 @@ export const WorkProvider = ({ children }) => {
           };
         }
 
-        const staticLifetime = (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null)
-          ? Number(t.accumulatedSeconds)
-          : (Number(t.timerSeconds) || 0);
+        const workerT = getWorkerTaskTimer(t, currentUser);
+        const staticLifetime = Math.max(
+          (t.accumulatedSeconds !== undefined && t.accumulatedSeconds !== null) ? Number(t.accumulatedSeconds) : (Number(t.timerSeconds) || 0),
+          Number(workerT?.accumulatedSeconds || 0)
+        );
 
-        const staticToday = (t.dailySessions?.[todayStr] !== undefined)
-          ? Number(t.dailySessions[todayStr])
-          : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined
-            ? Number(t.todayWorkSeconds)
-            : 0);
+        const staticToday = Math.max(
+          (t.dailySessions?.[todayStr] !== undefined)
+            ? Number(t.dailySessions[todayStr])
+            : (t.sessionDate === todayStr && t.todayWorkSeconds !== undefined
+              ? Number(t.todayWorkSeconds)
+              : 0),
+          (workerT?.sessionDate === todayStr ? Number(workerT?.todayWorkSeconds || 0) : 0)
+        );
 
         return {
           ...t,
@@ -622,8 +699,11 @@ export const WorkProvider = ({ children }) => {
           timerSeconds: staticLifetime,
           accumulatedSeconds: staticLifetime,
           todayWorkSeconds: staticToday,
+          accumulatedTodaySeconds: staticToday,
+          liveTodaySeconds: staticToday,
           liveDurationText: formatSeconds(staticToday),
-          hoursLoggedText: formatSeconds(staticLifetime)
+          hoursLoggedText: formatSeconds(staticLifetime),
+          hoursLogged: +(staticLifetime / 3600).toFixed(2)
         };
       });
 
@@ -2609,20 +2689,64 @@ export const WorkProvider = ({ children }) => {
       if (!isForOtherEmployee && activeTimer && activeTimer.timerRunning && String(activeTimer.taskId) === String(t._id || t.id)) return true;
       return false;
     });
-    if (runningPrevTask) {
-      previousTaskId = runningPrevTask._id;
-      const prevWorkerTimer = getWorkerTaskTimer(runningPrevTask, targetWorkerObj || { _id: targetUserKey });
-      const prevStart = prevWorkerTimer?.startedAt ? Number(prevWorkerTimer.startedAt) : (runningPrevTask.startedAt ? Number(runningPrevTask.startedAt) : 0);
-      const prevBase = prevWorkerTimer
-        ? (Number(prevWorkerTimer.accumulatedSeconds) || 0)
-        : ((runningPrevTask.accumulatedSeconds !== undefined && runningPrevTask.accumulatedSeconds !== null)
-          ? Number(runningPrevTask.accumulatedSeconds)
-          : (Number(runningPrevTask.timerSeconds) || 0));
-      previousTaskElapsed = prevBase + (prevStart > 0 ? Math.max(0, Math.floor((now - prevStart) / 1000)) : 0);
+
+    const prevTaskCandidate = runningPrevTask ||
+      (activeTimer && activeTimer.timerRunning && String(activeTimer.taskId) !== String(taskId) && !isForOtherEmployee
+        ? (tasks.find(t => String(t._id || t.id) === String(activeTimer.taskId)) || allTasks.find(t => String(t._id || t.id) === String(activeTimer.taskId)))
+        : null);
+
+    if (prevTaskCandidate) {
+      previousTaskId = prevTaskCandidate._id || prevTaskCandidate.id;
     } else if (activeTimer && activeTimer.timerRunning && String(activeTimer.taskId) !== String(taskId) && !isForOtherEmployee) {
       previousTaskId = activeTimer.taskId;
-      previousTaskElapsed = getElapsedSeconds(activeTimer);
     }
+
+    let prevLiveElapsed = 0;
+    let prevAccumBase = 0;
+    let prevTodayBase = 0;
+
+    const prevActiveMatches = Boolean(
+      activeTimer &&
+      !isForOtherEmployee &&
+      previousTaskId &&
+      String(activeTimer.taskId) === String(previousTaskId)
+    );
+    const prevWorkerTimer = prevTaskCandidate
+      ? getWorkerTaskTimer(prevTaskCandidate, targetWorkerObj || { _id: targetUserKey })
+      : null;
+
+    const prevStartTs = Number(
+      (prevActiveMatches && activeTimer?.startedAt)
+        ? activeTimer.startedAt
+        : (prevWorkerTimer?.startedAt || prevTaskCandidate?.startedAt || 0)
+    );
+    if (prevStartTs > 0 && prevStartTs <= now && prevStartTs >= todayMidnightMs) {
+      prevLiveElapsed = Math.max(0, Math.floor((now - prevStartTs) / 1000));
+    }
+
+    if (prevActiveMatches) {
+      prevAccumBase = Math.max(prevAccumBase, Number(activeTimer.accumulatedSeconds ?? activeTimer.timerSeconds ?? 0));
+      if (activeTimer.date === today) {
+        prevTodayBase = Math.max(prevTodayBase, Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0));
+      }
+    }
+    if (prevTaskCandidate) {
+      prevAccumBase = Math.max(
+        prevAccumBase,
+        Number(prevTaskCandidate.accumulatedSeconds ?? 0),
+        Math.max(0, (Number(prevTaskCandidate.timerSeconds) || 0) - prevLiveElapsed),
+        Number(prevWorkerTimer?.accumulatedSeconds || 0)
+      );
+      const prevTaskToday = prevTaskCandidate.dailySessions?.[today] !== undefined
+        ? Number(prevTaskCandidate.dailySessions[today])
+        : (prevTaskCandidate.sessionDate === today ? (Number(prevTaskCandidate.accumulatedTodaySeconds ?? prevTaskCandidate.todayWorkSeconds ?? 0)) : 0);
+      const prevWorkerToday = (prevWorkerTimer?.sessionDate === today) ? Number(prevWorkerTimer?.todayWorkSeconds || 0) : 0;
+      prevTodayBase = Math.max(prevTodayBase, prevTaskToday, prevWorkerToday);
+    }
+
+    const finalPrevAccum = prevAccumBase + prevLiveElapsed;
+    const finalPrevToday = prevTodayBase + prevLiveElapsed;
+    previousTaskElapsed = finalPrevAccum;
 
     // Multi-day isolation: calculate time logged on previous days
     const allTimesheets = getCollection(KEYS.TIMESHEETS) || [];
@@ -2663,56 +2787,55 @@ export const WorkProvider = ({ children }) => {
 
     let existingTodaySecs = 0;
     const existingWorkerTimer = getWorkerTaskTimer(targetTask, targetWorkerObj);
+    const workerKey = String(targetUserKey);
+    const workerIdStr = String(targetWorkerObj?._id || '');
+    const workerCodeStr = String(targetWorkerObj?.employeeCode || '');
+    const sessions = targetTask.assigneeSessions || {};
+    const workerSessions = sessions[workerKey] || sessions[workerIdStr] || sessions[workerCodeStr] || {};
+    const directWorkerToday = Number(workerSessions[today]) || 0;
+    const timerWorkerToday = (existingWorkerTimer && existingWorkerTimer.sessionDate === today)
+      ? (Number(existingWorkerTimer.todayWorkSeconds) || 0)
+      : 0;
+    const activeSnapToday = (!isForOtherEmployee && activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today)
+      ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0)
+      : 0;
+
+    const taskInStorage = allTasks.find(t => String(t._id || t.id) === String(taskId));
+    const storageToday = taskInStorage?.dailySessions?.[today] !== undefined
+      ? Number(taskInStorage.dailySessions[today])
+      : (taskInStorage?.sessionDate === today && taskInStorage?.todayWorkSeconds !== undefined ? Number(taskInStorage.todayWorkSeconds) : 0);
+    const directTaskToday = targetTask.dailySessions?.[today] !== undefined
+      ? Number(targetTask.dailySessions[today])
+      : (targetTask.sessionDate === today && targetTask.todayWorkSeconds !== undefined ? Number(targetTask.todayWorkSeconds) : 0);
+
+    const todayTsSecs = allTimesheets
+      .filter(ts => ts.date === today && (
+        String(ts.taskId) === String(taskId) ||
+        (targetTask.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(targetTask.taskCode).trim().toLowerCase())
+      ) && (
+        !isMultiAssignee ||
+        String(ts.employeeId) === workerIdStr ||
+        String(ts.employeeCode) === workerCodeStr ||
+        String(ts.employeeId) === workerKey ||
+        (ts.employeeName && targetWorkerName && ts.employeeName.trim().toLowerCase() === targetWorkerName.trim().toLowerCase())
+      ))
+      .reduce((maxVal, ts) => Math.max(maxVal, Number(ts.totalDurationSeconds) || 0), 0);
+
     if (isMultiAssignee) {
-      // 1. Check worker-scoped timer & session from targetTask.assigneeTimers / assigneeSessions
-      const workerKey = String(targetUserKey);
-      const workerIdStr = String(targetWorkerObj?._id || '');
-      const workerCodeStr = String(targetWorkerObj?.employeeCode || '');
-      const sessions = targetTask.assigneeSessions || {};
-      const workerSessions = sessions[workerKey] || sessions[workerIdStr] || sessions[workerCodeStr] || {};
-      const directWorkerToday = Number(workerSessions[today]) || 0;
-      const timerWorkerToday = (existingWorkerTimer && existingWorkerTimer.sessionDate === today)
-        ? (Number(existingWorkerTimer.todayWorkSeconds) || 0)
-        : 0;
-      const activeSnapToday = (!isForOtherEmployee && activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today)
-        ? Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0)
-        : 0;
-
-      // 2. Check today's saved timesheet entries strictly belonging to this worker
-      const workerTodayTsSecs = allTimesheets
-        .filter(ts => ts.date === today && (
-          String(ts.taskId) === String(taskId) ||
-          (targetTask.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(targetTask.taskCode).trim().toLowerCase())
-        ) && (
-          String(ts.employeeId) === workerIdStr ||
-          String(ts.employeeCode) === workerCodeStr ||
-          String(ts.employeeId) === workerKey ||
-          (ts.employeeName && targetWorkerName && ts.employeeName.trim().toLowerCase() === targetWorkerName.trim().toLowerCase())
-        ))
-        .reduce((maxVal, ts) => Math.max(maxVal, Number(ts.totalDurationSeconds) || 0), 0);
-
-      existingTodaySecs = Math.min(maxTodayElapsed, Math.max(directWorkerToday, timerWorkerToday, activeSnapToday, workerTodayTsSecs));
+      existingTodaySecs = Math.min(maxTodayElapsed, Math.max(directWorkerToday, timerWorkerToday, activeSnapToday, todayTsSecs));
     } else {
-      existingTodaySecs = getTaskTodaySeconds(targetTask, today, now, false, false);
-      if (activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today && !isForOtherEmployee) {
-        const activeToday = Number(activeTimer.accumulatedTodaySeconds ?? activeTimer.todayWorkSeconds ?? 0);
-        existingTodaySecs = Math.max(existingTodaySecs, activeToday);
-      }
-      const directTaskToday = targetTask.dailySessions?.[today] !== undefined
-        ? Number(targetTask.dailySessions[today])
-        : (targetTask.sessionDate === today && targetTask.todayWorkSeconds !== undefined ? Number(targetTask.todayWorkSeconds) : 0);
-      existingTodaySecs = Math.max(existingTodaySecs, directTaskToday);
-
-      const todayTaskTsSecs = allTimesheets
-        .filter(ts => ts.date === today && (
-          String(ts.taskId) === String(taskId) ||
-          (targetTask.taskCode && ts.taskCode && String(ts.taskCode).trim().toLowerCase() === String(targetTask.taskCode).trim().toLowerCase())
-        ))
-        .reduce((maxVal, ts) => Math.max(maxVal, Number(ts.totalDurationSeconds) || 0), 0);
-      existingTodaySecs = Math.min(maxTodayElapsed, Math.max(existingTodaySecs, todayTaskTsSecs));
+      const calcToday = getTaskTodaySeconds(targetTask, today, now, false, false);
+      existingTodaySecs = Math.min(maxTodayElapsed, Math.max(calcToday, directTaskToday, storageToday, activeSnapToday, todayTsSecs));
     }
 
-    const existingTotalSecs = Number(targetTask.accumulatedSeconds ?? targetTask.timerSeconds ?? existingTodaySecs);
+    const workerAccumSecs = existingWorkerTimer ? Number(existingWorkerTimer.accumulatedSeconds || 0) : 0;
+    const storageAccum = Number(taskInStorage?.accumulatedSeconds ?? taskInStorage?.timerSeconds ?? 0);
+    const existingTotalSecs = Math.max(
+      Number(targetTask.accumulatedSeconds ?? targetTask.timerSeconds ?? 0),
+      storageAccum,
+      workerAccumSecs,
+      existingTodaySecs
+    );
     let existingSecs = Math.max(existingTotalSecs, existingTodaySecs);
     if (activeTimer && String(activeTimer.taskId) === String(taskId) && activeTimer.date === today && !isForOtherEmployee) {
       const activeBase = Number(activeTimer.accumulatedSeconds ?? activeTimer.timerSeconds ?? 0);
@@ -2805,13 +2928,24 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (previousTaskId && tId === String(previousTaskId)) {
-        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        const pausedPrev = syncTaskPauseState(t, {
+          nowMs: now,
+          todayStr: today,
+          knownElapsed: prevLiveElapsed,
+          workerUser: targetWorkerObj
+        });
+        const safeAccum = Math.max(finalPrevAccum, Number(pausedPrev?.accumulatedSeconds || 0));
+        const safeToday = Math.max(finalPrevToday, Number(pausedPrev?.todayWorkSeconds || 0));
+        const prevDailySessions = {
+          ...((t.dailySessions && typeof t.dailySessions === 'object') ? t.dailySessions : {}),
+          [today]: safeToday
+        };
         const prevWorkerPause = {
           timerRunning: false,
           startedAt: null,
           pausedAt: now,
-          accumulatedSeconds: pausedPrev?.accumulatedSeconds ?? Number(t.accumulatedSeconds || 0),
-          todayWorkSeconds: pausedPrev?.todayWorkSeconds ?? Number(t.todayWorkSeconds || 0),
+          accumulatedSeconds: safeAccum,
+          todayWorkSeconds: safeToday,
           sessionDate: today,
           workerId: currentWorkerId,
           workerName: currentWorkerName,
@@ -2822,13 +2956,44 @@ export const WorkProvider = ({ children }) => {
           [currentWorkerId]: prevWorkerPause,
           ...(targetWorkerObj?.employeeCode ? { [targetWorkerObj.employeeCode]: prevWorkerPause } : {})
         };
-        return pausedPrev ? { ...t, ...pausedPrev, assigneeTimers: prevTimers, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null, assigneeTimers: prevTimers };
+        const prevAssigneeSessions = {
+          ...(t.assigneeSessions || {}),
+          [currentWorkerId]: {
+            ...((t.assigneeSessions && t.assigneeSessions[currentWorkerId]) || {}),
+            [today]: safeToday
+          }
+        };
+        return {
+          ...t,
+          ...pausedPrev,
+          timerRunning: false,
+          startedAt: null,
+          activeWorkerId: null,
+          activeWorkerName: null,
+          activeWorkerAvatar: null,
+          activeWorkerRole: null,
+          activeUserId: null,
+          activeUserName: null,
+          accumulatedSeconds: safeAccum,
+          accumulatedTodaySeconds: safeToday,
+          timerSeconds: safeAccum,
+          todayWorkSeconds: safeToday,
+          liveTodaySeconds: safeToday,
+          dailySessions: prevDailySessions,
+          assigneeTimers: prevTimers,
+          assigneeSessions: prevAssigneeSessions,
+          liveDurationText: formatSeconds(safeToday),
+          hoursLoggedText: formatSeconds(safeAccum),
+          hoursLogged: +(safeAccum / 3600).toFixed(2),
+          _id: t._id,
+          id: t.id
+        };
       }
       const isMyRunningTask = String(t.activeUserId || '').toLowerCase() === String(targetUserKey || '').toLowerCase() ||
         Boolean(getWorkerTaskTimer(t, targetWorkerObj)?.timerRunning) ||
         (activeTimer && String(activeTimer.taskId) === tId && !isForOtherEmployee);
       if ((t.timerRunning || getWorkerTaskTimer(t, targetWorkerObj)?.timerRunning) && isMyRunningTask) {
-        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today, workerUser: targetWorkerObj });
         return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       return t;
@@ -2873,8 +3038,8 @@ export const WorkProvider = ({ children }) => {
 
       if (previousTaskId) {
         const pausedPrevObj = updatedAll.find(t => String(t._id || t.id) === String(previousTaskId));
-        const prevToday = pausedPrevObj ? (Number(pausedPrevObj.todayWorkSeconds) || 0) : 0;
-        const prevAccum = pausedPrevObj ? (Number(pausedPrevObj.accumulatedSeconds) || previousTaskElapsed) : previousTaskElapsed;
+        const prevToday = Math.max(finalPrevToday, pausedPrevObj ? (Number(pausedPrevObj.todayWorkSeconds) || 0) : 0);
+        const prevAccum = Math.max(finalPrevAccum, pausedPrevObj ? (Number(pausedPrevObj.accumulatedSeconds) || 0) : 0);
         const prevOtherRunning = pausedPrevObj?.assigneeTimers && Object.entries(pausedPrevObj.assigneeTimers).some(([k, v]) => {
           const lk = String(k).toLowerCase();
           return v?.timerRunning && lk !== String(currentWorkerId).toLowerCase() && lk !== String(targetWorkerObj?.employeeCode || '').toLowerCase();
@@ -2883,12 +3048,20 @@ export const WorkProvider = ({ children }) => {
           ...(prevOtherRunning ? {} : {
             timerRunning: false,
             startedAt: null,
+            activeWorkerId: null,
+            activeWorkerName: null,
+            activeWorkerAvatar: null,
+            activeWorkerRole: null,
+            activeUserId: null,
+            activeUserName: null,
             accumulatedSeconds: prevAccum,
             timerSeconds: prevAccum,
             todayWorkSeconds: prevToday,
             accumulatedTodaySeconds: prevToday,
             liveTodaySeconds: prevToday,
-            dailySessions: pausedPrevObj?.dailySessions || { [today]: prevToday }
+            dailySessions: pausedPrevObj?.dailySessions || { [today]: prevToday },
+            hoursLogged: +(prevAccum / 3600).toFixed(2),
+            hoursLoggedText: formatSeconds(prevAccum)
           }),
           sessionDate: today,
           assigneeTimerUpdate: {
@@ -2905,8 +3078,30 @@ export const WorkProvider = ({ children }) => {
               workerName: currentWorkerName,
               updatedAt: now
             }
+          },
+          assigneeSessionUpdate: {
+            workerId: currentWorkerId,
+            date: today,
+            seconds: prevToday
           }
         }).catch(() => {});
+
+        // AUTO-SAVE TIMESHEET ENTRY: Ensure worked time is immediately logged to KEYS.TIMESHEETS!
+        if (prevToday > 0 && prevTaskCandidate) {
+          workService.createTimesheet({
+            taskId: prevTaskCandidate._id || previousTaskId,
+            taskCode: prevTaskCandidate.taskCode || 'TSK',
+            taskTitle: prevTaskCandidate.title || 'Task',
+            projectName: prevTaskCandidate.projectName || 'General Work',
+            employeeId: assignedEmpId || userKey,
+            employeeName: assignedEmpName || currentUser?.name || 'Employee',
+            date: today,
+            totalDurationSeconds: prevToday,
+            totalDurationText: formatSeconds(prevToday),
+            memo: 'Auto-saved session on switching tasks',
+            status: 'stopped'
+          }).catch(() => {});
+        }
       }
 
       // Transmit real-time task-only telemetry (NEVER overwrite shift workSeconds/isClockedIn or employeeName!)
@@ -2926,7 +3121,11 @@ export const WorkProvider = ({ children }) => {
           startedAt: now,
           accumulatedTodaySeconds: existingTodaySecs,
           todayWorkSeconds: existingTodaySecs,
-          accumulatedSeconds: existingSecs
+          accumulatedSeconds: existingSecs,
+          activeWorkerId: realEmpId,
+          activeUserId: realEmpId,
+          activeWorkerName: realEmpName,
+          activeWorkerCode: realEmpCode
         }
       }).catch(() => {});
 
@@ -3003,11 +3202,36 @@ export const WorkProvider = ({ children }) => {
         };
       }
       if (previousTaskId && tId === String(previousTaskId)) {
-        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
-        return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
+        const safeAccum = Math.max(finalPrevAccum, Number(t.accumulatedSeconds ?? t.timerSeconds ?? 0));
+        const safeToday = Math.max(finalPrevToday, Number(t.dailySessions?.[today] ?? t.todayWorkSeconds ?? 0));
+        return {
+          ...t,
+          timerRunning: false,
+          startedAt: null,
+          activeWorkerId: null,
+          activeWorkerName: null,
+          activeWorkerAvatar: null,
+          activeWorkerRole: null,
+          activeUserId: null,
+          activeUserName: null,
+          accumulatedSeconds: safeAccum,
+          accumulatedTodaySeconds: safeToday,
+          timerSeconds: safeAccum,
+          todayWorkSeconds: safeToday,
+          liveTodaySeconds: safeToday,
+          dailySessions: {
+            ...((t.dailySessions && typeof t.dailySessions === 'object') ? t.dailySessions : {}),
+            [today]: safeToday
+          },
+          liveDurationText: formatSeconds(safeToday),
+          hoursLoggedText: formatSeconds(safeAccum),
+          hoursLogged: +(safeAccum / 3600).toFixed(2),
+          _id: t._id,
+          id: t.id
+        };
       }
       if (t.timerRunning && (String(t.activeUserId) === String(targetUserKey) || String(t.assignedToId) === String(targetUserKey))) {
-        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today });
+        const pausedPrev = syncTaskPauseState(t, { nowMs: now, todayStr: today, workerUser: targetWorkerObj });
         return pausedPrev ? { ...t, ...pausedPrev, _id: t._id, id: t.id } : { ...t, timerRunning: false, startedAt: null };
       }
       return t;
@@ -3185,9 +3409,30 @@ export const WorkProvider = ({ children }) => {
           startedAt: null,
           accumulatedTodaySeconds: updatedTodaySecs,
           todayWorkSeconds: updatedTodaySecs,
-          accumulatedSeconds: currentSecs
+          accumulatedSeconds: currentSecs,
+          activeWorkerId: realEmpId,
+          activeUserId: realEmpId,
+          activeWorkerName: realEmpName,
+          activeWorkerCode: realEmpCode
         }
       }).catch(() => {});
+
+      // AUTO-SAVE TIMESHEET ENTRY: Ensure paused session is safely stored in TIMESHEETS
+      if (updatedTodaySecs > 0) {
+        workService.createTimesheet({
+          taskId: targetTask._id || taskId,
+          taskCode: targetTask.taskCode || 'TSK',
+          taskTitle: targetTask.title || 'Task',
+          projectName: targetTask.projectName || 'General Work',
+          employeeId: activeWorkerId || userKey,
+          employeeName: workerNameStr || currentUser?.name || 'Employee',
+          date: today,
+          totalDurationSeconds: updatedTodaySecs,
+          totalDurationText: formatSeconds(updatedTodaySecs),
+          memo: 'Task paused session',
+          status: 'stopped'
+        }).catch(() => {});
+      }
 
       if (isForOtherEmployee && currentUser) {
         hrService.createAttendanceAuditLog({

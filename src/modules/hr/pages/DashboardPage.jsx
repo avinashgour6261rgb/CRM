@@ -831,7 +831,12 @@ export const DashboardPage = () => {
 
     const activeTaskData = (telem?.activeTask?.taskId ? telem.activeTask : null) ||
       (attRec?.activeTask?.taskId ? attRec.activeTask : null);
-    if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave && isTaskRunningForUser(activeTaskData, emp)) {
+    const isTelemForThisEmp = Boolean(
+      (telem?.employeeId && (String(telem.employeeId) === String(empId) || String(telem.employeeId) === String(empKey))) ||
+      (telem?.employeeCode && (String(telem.employeeCode).toLowerCase() === String(empKey).toLowerCase() || String(telem.employeeCode).toLowerCase() === String(emp.employeeCode || '').toLowerCase())) ||
+      isTaskRunningForUser(activeTaskData, emp)
+    );
+    if (activeTaskData?.taskId && isClockedIn && !isClockedOut && !isOnLeave && isTelemForThisEmp) {
       const at = activeTaskData;
       const isTaskTimerActuallyRunning = Boolean(at.timerRunning === true && at.startedAt);
       if (isTaskTimerActuallyRunning) {
