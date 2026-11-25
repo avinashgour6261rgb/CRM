@@ -82,7 +82,7 @@ const verifyPassword = (plain, stored) => {
 /**
  * Sign a standard HS256 JWT token.
  */
-const signJwt = (payload, expiresInSeconds = 30 * 24 * 3600) => {
+const signJwt = (payload, expiresInSeconds = 7 * 24 * 3600) => {
   const header = { alg: 'HS256', typ: 'JWT' };
   const nowSec = Math.floor(Date.now() / 1000);
   const body = {

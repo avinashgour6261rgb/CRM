@@ -22,6 +22,14 @@ exports.authenticateUser = async (req, res, next) => {
     const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (authHeader || '');
     const jwtPayload = bearerToken ? verifyJwt(bearerToken) : null;
 
+    if (bearerToken && !jwtPayload && req.method !== 'OPTIONS') {
+      return res.status(401).json({
+        success: false,
+        code: 'TOKEN_EXPIRED',
+        message: 'Your session has expired. Please sign in again.'
+      });
+    }
+
     const userIdHeader = (req.headers['x-user-id'] || '').trim();
     const userEmailHeader = (req.headers['x-user-email'] || '').trim();
     const userCodeHeader = (req.headers['x-user-code'] || '').trim();

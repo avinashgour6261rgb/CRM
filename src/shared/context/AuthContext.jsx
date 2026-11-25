@@ -11,6 +11,24 @@ const AuthContext = createContext();
 export const PRESET_USERS = {};
 
 const AUTH_STORAGE_KEY = 'ems_auth_session';
+const SESSION_MAX_AGE_MS = 7 * 24 * 3600 * 1000; // 7 days
+
+const isSessionExpired = (parsedUser) => {
+  try {
+    const token = localStorage.getItem('ems_auth_token') || parsedUser?.token;
+    if (token && typeof token === 'string' && token.split('.').length === 3) {
+      const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(b64));
+      if (payload?.exp && Date.now() >= Number(payload.exp) * 1000) {
+        return true;
+      }
+    }
+    if (parsedUser?.loginAt && (Date.now() - Number(parsedUser.loginAt) >= SESSION_MAX_AGE_MS)) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -19,6 +37,11 @@ export const AuthProvider = ({ children }) => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+          if (isSessionExpired(parsed)) {
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            localStorage.removeItem('ems_auth_token');
+            return null;
+          }
           const isParsedInactive = String(parsed.employeeCode || '').toUpperCase() !== 'ADM-001' &&
             ['resigned', 'inactive', 'terminated', 'suspended', 'archived', 'relieved'].includes(String(parsed.status || 'active').toLowerCase());
           if (isParsedInactive) {
@@ -57,7 +80,7 @@ export const AuthProvider = ({ children }) => {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001') {
+        if (parsed && parsed.email && parsed._id !== 'emp_admin' && parsed._id !== 'emp_001' && !isSessionExpired(parsed)) {
           return true;
         }
       }
@@ -73,6 +96,15 @@ export const AuthProvider = ({ children }) => {
         const saved = localStorage.getItem(AUTH_STORAGE_KEY);
         if (!saved) return;
         const parsed = JSON.parse(saved);
+        if (isSessionExpired(parsed)) {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem('ems_auth_token');
+          if (isMounted) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+          }
+          return;
+        }
         const query = parsed?.email || parsed?.employeeCode;
         if (!query) return;
 
@@ -84,7 +116,7 @@ export const AuthProvider = ({ children }) => {
           });
           if (res.status === 401 && isMounted) {
             const errJson = await res.json().catch(() => null);
-            if (errJson?.code === 'ACCOUNT_INACTIVE' || errJson?.code === 'SESSION_REVOKED') {
+            if (errJson?.code === 'TOKEN_EXPIRED' || errJson?.code === 'ACCOUNT_INACTIVE' || errJson?.code === 'SESSION_REVOKED') {
               localStorage.removeItem(AUTH_STORAGE_KEY);
               localStorage.removeItem('ems_auth_token');
               setCurrentUser(null);
@@ -484,6 +516,7 @@ export const AuthProvider = ({ children }) => {
           const dbUser = {
             ...json.user,
             token: json.token || undefined,
+            loginAt: Date.now(),
             isCurrentUser: true,
             isAdmin: json.user.systemRole === 'admin' || json.user.isAdmin
           };
